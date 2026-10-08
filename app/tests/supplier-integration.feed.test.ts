@@ -2,6 +2,7 @@ const mockPrisma = {
   supplier: { findFirst: jest.fn() },
   material: { findMany: jest.fn() },
   $queryRaw: jest.fn(async (..._args: unknown[]) => [{ refresh_token: null }] as Array<Record<string, unknown>>),
+  $executeRaw: jest.fn(async (..._args: unknown[]) => 1),
 };
 
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
@@ -199,9 +200,7 @@ describe("default supplier price feed (ABC routing)", () => {
     process.env.ABC_SUPPLY_SHIP_TO_NUMBER = "2010466-2";
     delete process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
 
-    mockPrisma.$queryRaw
-      .mockResolvedValueOnce([{ refresh_token: "vault-refresh-token" }])
-      .mockResolvedValueOnce([{ put_abc_supply_refresh_token: null }]);
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ refresh_token: "vault-refresh-token" }]);
     mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1" }]);
 
     const calls: string[] = [];
@@ -233,7 +232,10 @@ describe("default supplier price feed (ABC routing)", () => {
     await expect(fetcher(abcSupplierId, orgId)).resolves.toEqual([
       { materialId, proposedUnitCost: 42.5 },
     ]);
-    expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
+    const persistSql = mockPrisma.$executeRaw.mock.calls[0][0] as { values: unknown[] };
+    expect(persistSql.values).toEqual(expect.arrayContaining([orgId, abcSupplierId, "rotated-refresh-token"]));
     expect(calls).toHaveLength(2);
   });
 
@@ -246,9 +248,8 @@ describe("default supplier price feed (ABC routing)", () => {
     process.env.ABC_SUPPLY_SHIP_TO_NUMBER = "2010466-2";
     delete process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
 
-    mockPrisma.$queryRaw
-      .mockResolvedValueOnce([{ refresh_token: "vault-refresh-token" }])
-      .mockRejectedValueOnce(new Error("vault persistence unavailable"));
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ refresh_token: "vault-refresh-token" }]);
+    mockPrisma.$executeRaw.mockRejectedValueOnce(new Error("vault persistence unavailable"));
     mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1" }]);
 
     global.fetch = jest.fn(async (url: string | URL) => {

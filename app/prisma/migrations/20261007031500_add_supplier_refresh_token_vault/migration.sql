@@ -33,7 +33,7 @@ begin
       begin
         if public.current_app_user_id() is null
            or public.current_app_org_id() is distinct from p_org_id
-           or nullif(current_setting('app.role', true), '') not in ('owner', 'admin') then
+           or coalesce(nullif(current_setting('app.role', true), ''), '') not in ('owner', 'admin') then
           raise exception 'ABC Supply credential access requires an owner/admin tenant session'
             using errcode = '42501';
         end if;
@@ -98,7 +98,7 @@ begin
 
         if public.current_app_user_id() is null
            or public.current_app_org_id() is distinct from p_org_id
-           or nullif(current_setting('app.role', true), '') not in ('owner', 'admin') then
+           or coalesce(nullif(current_setting('app.role', true), ''), '') not in ('owner', 'admin') then
           raise exception 'ABC Supply credential access requires an owner/admin tenant session'
             using errcode = '42501';
         end if;

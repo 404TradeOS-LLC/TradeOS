@@ -43,7 +43,8 @@ import type { SupplierFeedFetcher } from "./types";
  *
  * Environment (all required, otherwise the fetcher is a no-op returning []):
  * - ABC_SUPPLY_SANDBOX_CLIENT_ID / ABC_SUPPLY_SANDBOX_CLIENT_SECRET
- * - ABC_SUPPLY_SANDBOX_REFRESH_TOKEN (bootstrap/recovery user refresh token, pricing.read;\n *   the default TradeOS feed persists provider rotations in Supabase Vault)
+ * - ABC_SUPPLY_SANDBOX_REFRESH_TOKEN (bootstrap/recovery user refresh token, pricing.read;
+ *   the default TradeOS feed persists provider rotations in Supabase Vault)
  * - ABC_SUPPLY_BRANCH_NUMBER (e.g. "579" for Terre Haute; sandbox test
  *   ship-tos only serve their own branches — the sandbox feed currently uses
  *   "340" until production access lands)

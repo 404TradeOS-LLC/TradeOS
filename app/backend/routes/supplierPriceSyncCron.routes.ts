@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
 import { NextFunction, Request, Response, Router } from "express";
 import rateLimit from "express-rate-limit";
 import { logError, logInfo } from "../logging";
@@ -35,9 +35,9 @@ function createSupplierPriceSyncCronRateLimit(
 function isAuthorizedCronRequest(req: Request): boolean {
   const cronSecret = process.env.CRON_SECRET?.trim();
   if (!cronSecret) return false;
-  const expected = Buffer.from(`Bearer ${cronSecret}`, "utf8");
-  const received = Buffer.from(req.get("authorization") ?? "", "utf8");
-  return received.length === expected.length && timingSafeEqual(received, expected);
+  const expected = createHash("sha256").update(`Bearer ${cronSecret}`, "utf8").digest();
+  const received = createHash("sha256").update(req.get("authorization") ?? "", "utf8").digest();
+  return timingSafeEqual(received, expected);
 }
 
 function requireAuthorizedCronRequest(

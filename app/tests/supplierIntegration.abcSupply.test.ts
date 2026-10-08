@@ -148,8 +148,8 @@ describe("AbcSupplyAuth", () => {
     await auth.getPricingToken();
 
     expect(onRefreshTokenRotated).toHaveBeenCalledTimes(1);
-    expect(refreshBodies[0]).toContain("refresh_token=rt");
-    expect(refreshBodies[1]).toContain("refresh_token=rt-new");
+    expect(new URLSearchParams(refreshBodies[0]).get("refresh_token")).toBe("rt");
+    expect(new URLSearchParams(refreshBodies[1]).get("refresh_token")).toBe("rt-new");
   });
 
   it("forwards the abort signal to the token request", async () => {

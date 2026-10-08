@@ -24,7 +24,7 @@ export const abcSupplyRefreshTokenStore: SupplierRefreshTokenStore = {
   },
 
   async persist(orgId, supplierId, refreshToken) {
-    await prisma.$queryRaw(Prisma.sql`
+    await prisma.$executeRaw(Prisma.sql`
       select tradeos_private.put_abc_supply_refresh_token(
         ${orgId}::uuid,
         ${supplierId}::uuid,
