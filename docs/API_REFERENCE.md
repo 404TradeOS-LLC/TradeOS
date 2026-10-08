@@ -359,6 +359,10 @@ cursor.
 - `POST /api/v1/costbook/labor-rates` — requires `costbook.write`; creates one labor rate for the authenticated organization. Accepted strict body fields: `role`, optional `description`, `hourlyCost`, `billRate`, and optional `active`.
 - `PATCH /api/v1/costbook/labor-rates/:id` — requires `costbook.write`; updates the same strict field set for the authenticated organization only.
 - `DELETE /api/v1/costbook/labor-rates/:id` — requires `costbook.manage`; soft-deactivates the labor-rate row by setting `active` to `false`.
+- `GET /api/v1/costbook/davis-bacon/determinations` — requires `costbook.read`; returns the organization's synced Davis-Bacon wage determinations with optional `state` and `county` filters (`activeOnly` defaults to true). Davis-Bacon rates are government-contract floors, not open-market rates — every row carries the `sam.gov` provenance flag.
+- `GET /api/v1/costbook/davis-bacon/rates?wdNumber=IN20260050` — requires `costbook.read`; returns the occupation → base-rate/fringe rows for one determination (base and fringe stored separately; burdened floor = base + fringe).
+- `GET /api/v1/costbook/davis-bacon/county-rates?state=IN&county=Vigo` — requires `costbook.read`; returns every rate for every determination covering the county.
+- `GET /api/cron/davis-bacon-sync` — CRON_SECRET bearer only (outside the user-authenticated middleware); runs the Davis-Bacon sync for every job in `DAVIS_BACON_SYNC_JOBS`, revision-aware so only changed WDs are re-fetched.
 - `GET /api/v1/costbook/cost-items` — requires `costbook.read`; returns a catalog page for all organization-scoped CostItems. Search covers code/name/notes; `active`, `subcategoryId`, and supported component-type filters are server-side. Safe sorts are `code`, `name`, `createdAt`, and `updatedAt`.
 - `GET /api/v1/costbook/cost-items/search` — requires `costbook.read`; compatibility search alias under the unified namespace.
 - `GET /api/v1/costbook/cost-items/:id` — requires `costbook.read`; returns one CostItem in the authenticated organization or 404.

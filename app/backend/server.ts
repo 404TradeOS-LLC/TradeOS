@@ -15,6 +15,7 @@ import {
 } from "./middleware/productionHardening";
 import { buildHealthPayload, checkReadiness } from "./health";
 import { adminUiRouter } from "./routes/adminUi.routes";
+import { davisBaconSyncCronRouter } from "./routes/davisBaconSyncCron.routes";
 import { costbookRouter } from "./routes/costbook.routes";
 import { costDatabaseRouter } from "./routes/costDatabase.routes";
 import { laborDatabaseRouter } from "./routes/laborDatabase.routes";
@@ -87,6 +88,9 @@ export function createServer() {
   });
 
   app.use("/admin", adminUiRouter);
+  // Vercel Cron uses the server-only CRON_SECRET bearer and does not enter the user-authenticated /api/v1 middleware.
+  // The handler re-enters the tenant-scoped background-session boundary per configured job.
+  app.use("/api/cron", davisBaconSyncCronRouter);
   app.use("/api/v1/platform", organizationProvisioningRouter);
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1/customer-portal", customerPortalRouter);
