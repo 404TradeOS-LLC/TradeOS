@@ -62,6 +62,20 @@ describe("Costbook legacy assembly price-match audit", () => {
           component.productName.includes("Exterior Paint & Primer")
       )
     ).toBe(false);
+    expect(
+      trusted.some(
+        (component) =>
+          component.componentKey === "equip_breaker_20a_single_pole" &&
+          component.productName.includes("15 Amp Single-Pole Circuit Breaker")
+      )
+    ).toBe(false);
+    expect(
+      trusted.some(
+        (component) =>
+          component.componentKey === "mat_brick_modular_clay_facing" &&
+          component.productName.includes("Concrete Brick")
+      )
+    ).toBe(false);
   });
 
   it("retains compatible evidence next to rejected rows", () => {
