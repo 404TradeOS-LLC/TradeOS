@@ -895,8 +895,10 @@ The bounded web UI slice adds nullable `omniclass23` and `unspsc` fields to
 the web Material DTO, then renders stored codes in the existing
 `MaterialsCatalog` on both desktop and mobile through
 `MaterialClassification`. A Material with at least one populated code shows
-"Classification codes recorded"; with no codes it shows "Classification
-unmapped". Neither label means the product identity, supplier price, source
+"Classification codes recorded"; with both code fields explicitly absent (null) it shows "Classification
+unmapped"; if either field is missing from an older API response and no
+other recorded code is available, it shows "Classification unavailable".
+None of these labels means the product identity, supplier price, source
 publication, or unit conversion has been verified. Supplier/date evidence
 continues to use the existing `PricingProvenance` component.
 
