@@ -199,6 +199,20 @@ export const HIGH_CONFIDENCE_LEGACY_ASSEMBLY_MATCH_REJECTIONS:
     conflict: "MATERIAL_SPEC",
     reason: "Interior acrylic finish-paint requirement was matched to exterior paint.",
   },
+  {
+    assemblyId: "elec-circuit-dedicated-20a-50ft",
+    componentKey: "equip_breaker_20a_single_pole",
+    productNameIncludes: "15 Amp Single-Pole Circuit Breaker",
+    conflict: "MATERIAL_SPEC",
+    reason: "20A dedicated-circuit requirement was matched to a 15A breaker.",
+  },
+  {
+    assemblyId: "masonry-brick-veneer-residential",
+    componentKey: "mat_brick_modular_clay_facing",
+    productNameIncludes: "Concrete Brick",
+    conflict: "MATERIAL_SPEC",
+    reason: "ASTM C216 clay facing-brick requirement was matched to concrete brick.",
+  },
 ] as const;
 
 function rejectionFor(
