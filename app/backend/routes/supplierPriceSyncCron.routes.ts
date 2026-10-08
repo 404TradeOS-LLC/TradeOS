@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "crypto";
 import { NextFunction, Request, Response, Router } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { type Store } from "express-rate-limit";
+import { SharedSupplierCronRateLimitStore, type SupplierCronRateLimitNamespace } from "./supplierCronRateLimitStore";
 import { logError, logInfo } from "../logging";
 import {
   parseSupplierPriceSyncJobSpecs,
@@ -10,13 +11,17 @@ import {
 export interface SupplierPriceSyncCronRouterOptions {
   rateLimitWindowMs?: number;
   rateLimitMax?: number;
+  /** Test seam; production always uses the durable PostgreSQL store. */
+  storeFactory?: (namespace: SupplierCronRateLimitNamespace) => Store;
 }
 
 function createSupplierPriceSyncCronRateLimit(
   options: SupplierPriceSyncCronRouterOptions = {},
   skipAuthorized = false,
 ) {
+  const namespace: SupplierCronRateLimitNamespace = skipAuthorized ? "unauthorized" : "authorized";
   return rateLimit({
+    store: options.storeFactory?.(namespace) ?? new SharedSupplierCronRateLimitStore(namespace),
     // The unauthenticated budget must not block Vercel's valid bearer request.
     // Authorized invocations receive their own independent limiter below.
     skip: skipAuthorized ? isAuthorizedCronRequest : undefined,
