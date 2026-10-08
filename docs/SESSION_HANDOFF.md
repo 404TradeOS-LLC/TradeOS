@@ -14,7 +14,7 @@ related_docs:
 
 - Classification: `NEW_WORK_REQUIRED`; branch `fix/costbook-legacy-assembly-match-audit` from current `main` `bd28d751f1a63fde36dce880cc1ea6fe2f735ac7`. No overlapping open Costbook/assembly canonicalization PR was found; open PRs #690/#691/#692 are separate prevailing-wage/supplier-sync lanes.
 - Scope: audit the historical generated `pricedAssemblies.ts` snapshot for deterministic false positives without broadening the canonical matcher or inventing replacement prices.
-- Implemented first pass: a conservative registry of high-confidence nominal-dimension, product-type, and material-spec conflicts plus `TRUSTED_LEGACY_PRICED_ASSEMBLY_COMPONENTS`, a non-mutating filtered view for review/analysis. Raw rows stay intact for provenance.
+- Implemented first pass: a conservative registry of high-confidence nominal-dimension, product-type, and material-spec conflicts plus `AUDIT_FILTERED_LEGACY_PRICED_ASSEMBLY_COMPONENTS`, a non-mutating filtered view for review/analysis. Raw rows stay intact for provenance.
 - Safety: no schema/migration, RLS/auth/permission change, supplier observation mutation, Material price update, Assembly recipe mutation, Estimate repricing, or production-data write. Precomputed legacy assembly rollups remain historical and are not certified as current pricing.
 - Verification required: exact-head App unit/typecheck/build, Costbook provenance audit, docs/governance, review reconciliation, and branch currency.
 - Next five tasks: run exact-head CI; repair deterministic failures; review the remaining unmatched legacy rows for additional high-confidence conflicts; decide whether to retire or regenerate the historical rollups from governed identities; then expand canonical families only from reviewed supplier evidence.
