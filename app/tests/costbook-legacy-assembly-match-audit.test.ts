@@ -1,7 +1,7 @@
 import { PRICED_ASSEMBLY_COMPONENTS } from "../modules/costbook/pricedAssemblies";
 import {
   HIGH_CONFIDENCE_LEGACY_ASSEMBLY_MATCH_REJECTIONS,
-  TRUSTED_LEGACY_PRICED_ASSEMBLY_COMPONENTS,
+  AUDIT_FILTERED_LEGACY_PRICED_ASSEMBLY_COMPONENTS,
   auditLegacyAssemblyPriceMatches,
 } from "../modules/costbook/legacyAssemblyMatchAudit";
 import { TRADEOS_ASSEMBLIES } from "../modules/costbook/tradeosAssemblies";
@@ -34,7 +34,7 @@ describe("Costbook legacy assembly price-match audit", () => {
   });
 
   it("excludes deterministic false positives without inventing replacements", () => {
-    const trusted = TRUSTED_LEGACY_PRICED_ASSEMBLY_COMPONENTS;
+    const trusted = AUDIT_FILTERED_LEGACY_PRICED_ASSEMBLY_COMPONENTS;
 
     expect(trusted.length).toBe(
       PRICED_ASSEMBLY_COMPONENTS.length -
@@ -66,7 +66,7 @@ describe("Costbook legacy assembly price-match audit", () => {
 
   it("retains compatible evidence next to rejected rows", () => {
     expect(
-      TRUSTED_LEGACY_PRICED_ASSEMBLY_COMPONENTS.some(
+      AUDIT_FILTERED_LEGACY_PRICED_ASSEMBLY_COMPONENTS.some(
         (component) =>
           component.componentKey === "mat_deck_posts_6x6_pt" &&
           component.productName.includes("6 in. x 6 in. x 8 ft.")
@@ -74,7 +74,7 @@ describe("Costbook legacy assembly price-match audit", () => {
     ).toBe(true);
 
     expect(
-      TRUSTED_LEGACY_PRICED_ASSEMBLY_COMPONENTS.some(
+      AUDIT_FILTERED_LEGACY_PRICED_ASSEMBLY_COMPONENTS.some(
         (component) =>
           component.componentKey === "mat_paint_interior_latex_gal" &&
           component.productName.includes("Interior Eggshell")
