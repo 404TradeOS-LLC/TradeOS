@@ -138,16 +138,14 @@ begin
           perform vault.create_secret(
             p_refresh_token,
             v_secret_name,
-            'TradeOS ABC Supply OAuth refresh token',
-            null
+            'TradeOS ABC Supply OAuth refresh token'
           );
         else
           perform vault.update_secret(
             v_secret_id,
             p_refresh_token,
             v_secret_name,
-            'TradeOS ABC Supply OAuth refresh token',
-            null
+            'TradeOS ABC Supply OAuth refresh token'
           );
         end if;
       end;
