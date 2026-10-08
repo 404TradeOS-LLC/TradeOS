@@ -46,6 +46,25 @@ describe("Canonical material classification codes", () => {
     });
   });
 
+  it("maps only the verified untreated SPF framing-stud slice", () => {
+    for (const key of [
+      "LUMBER-SPF-2X4-92_5_8-STUD",
+      "LUMBER-SPF-2X4-104_5_8-STUD",
+      "LUMBER-SPF-2X4-116_5_8-STUD",
+    ]) {
+      expect(codesForCanonicalKey(key)).toMatchObject({
+        unspsc: "30103605",
+        unspscTitle: "Wood planks",
+        status: "mapped",
+      });
+    }
+    // A legacy key with no verified classification stays nullable/unmapped.
+    expect(codesForCanonicalKey("LUMBER-SYP-2X4-96IN-PT")).toBeUndefined();
+    expect(classifySupplierCodes("30103605", undefined, "LUMBER-SYP-2X4-96IN-PT")).toMatchObject({
+      kind: "code-unmapped",
+    });
+  });
+
   it("flags ambiguous classifications instead of silently merging them", () => {
     for (const key of [
       "ROOFING-RIDGE-CAP",
