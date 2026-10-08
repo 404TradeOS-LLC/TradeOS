@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Ban, Check, Pencil, Plus, X } from "lucide-react";
+import { MaterialClassification } from "@/components/costbook/material-classification";
 import { PricingProvenance } from "@/components/costbook/pricing-provenance";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -241,12 +242,13 @@ export function MaterialsCatalog({
       ) : (
         <section className="overflow-hidden rounded-xl border border-border/70 bg-card" aria-label="Materials catalog">
           <div className="hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[900px] text-left text-sm">
+            <table className="w-full min-w-[1080px] text-left text-sm">
               <thead className="sticky top-16 z-10 border-b border-border bg-card text-xs uppercase tracking-[0.14em] text-muted-foreground">
                 <tr>
                   <th scope="col" className="px-4 py-3 font-medium">Material</th>
                   <th scope="col" className="px-4 py-3 text-right font-medium">Current price</th>
                   <th scope="col" className="px-4 py-3 font-medium">Source + date</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Classification</th>
                   <th scope="col" className="px-4 py-3 font-medium">Status</th>
                   {canWrite ? <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th> : null}
                 </tr>
@@ -269,6 +271,13 @@ export function MaterialsCatalog({
                         mode="catalog"
                         supplierName={material.supplierName}
                         lastPriceUpdate={material.lastPriceUpdate}
+                        compact
+                      />
+                    </td>
+                    <td className="px-4 py-4">
+                      <MaterialClassification
+                        unspsc={material.unspsc}
+                        omniclass23={material.omniclass23}
                         compact
                       />
                     </td>
@@ -318,6 +327,12 @@ export function MaterialsCatalog({
                   mode="catalog"
                   supplierName={material.supplierName}
                   lastPriceUpdate={material.lastPriceUpdate}
+                  compact
+                />
+
+                <MaterialClassification
+                  unspsc={material.unspsc}
+                  omniclass23={material.omniclass23}
                   compact
                 />
 
