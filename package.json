@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "db:seed": "npm --prefix app run db:seed",
+    "db:import-suppliers": "npm --prefix app run db:import-suppliers --",
     "beta:evidence": "npm --prefix app run beta:evidence --",
     "autonomy:reconcile": "node scripts/reconcile-task.mjs",
     "autonomy:test": "node --test scripts/__tests__/reconcile-task.test.mjs",
