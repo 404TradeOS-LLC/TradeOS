@@ -14,6 +14,8 @@ const createSchema = z.object({
   unitCost: z.number().finite().nonnegative().max(maxUnitCost),
   wasteFactorPct: z.number().min(0).optional(),
   supplierId: z.string().uuid().optional(),
+  omniclass23: z.string().min(1).optional(),
+  unspsc: z.string().regex(/^\d{8}$/, "unspsc must be an 8-digit commodity code").optional(),
 });
 
 export const materialDatabaseController = {

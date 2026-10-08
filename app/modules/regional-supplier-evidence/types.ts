@@ -2,6 +2,8 @@ export interface RegionalSupplierProductInput {
   supplierProductKey: string;
   sku?: string | null;
   manufacturerPartNumber?: string | null;
+  omniclass23?: string | null;
+  unspsc?: string | null;
   name: string;
   description?: string | null;
   packageDescription?: string | null;

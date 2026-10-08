@@ -417,6 +417,8 @@ model Material {
   supplierId       String?   @map("supplier_id")
   lastPriceUpdate  DateTime? @map("last_price_update")
   isActive         Boolean   @default(true) @map("is_active")
+  omniclass23      String?   @map("omniclass_23")
+  unspsc           String?   @map("unspsc")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at")
 
@@ -431,6 +433,7 @@ model Material {
   @@index([orgId])
   @@index([supplierId])
   @@index([orgId, isActive], map: "idx_materials_org_active")
+  @@index([omniclass23], map: "idx_materials_omniclass23")
   @@map("materials")
 }
 
@@ -503,6 +506,8 @@ model SupplierProduct {
   supplierProductKey    String    @map("supplier_product_key")
   sku                   String?
   manufacturerPartNumber String?  @map("manufacturer_part_number")
+  omniclass23           String?   @map("omniclass_23")
+  unspsc                String?   @map("unspsc")
   name                  String
   description           String?
   packageDescription    String?   @map("package_description")

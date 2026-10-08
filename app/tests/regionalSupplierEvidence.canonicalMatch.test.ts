@@ -29,7 +29,7 @@ jest.mock("../db/requestSession", () => ({
   runInDatabaseTransaction: jest.fn((_client, operation: (tx: typeof mockTransaction) => unknown) => operation(mockTransaction)),
 }));
 
-import { RegionalSupplierEvidenceService } from "../modules/regional-supplier-evidence/service";
+import { RegionalSupplierEvidenceService, prepareRegionalSupplierEvidence } from "../modules/regional-supplier-evidence/service";
 
 describe("Regional supplier canonical match review", () => {
   beforeEach(() => jest.clearAllMocks());
@@ -59,6 +59,39 @@ describe("Regional supplier canonical match review", () => {
       action: "AUTO_LINK",
       canonicalMaterialKey: "LUMBER.SPF.2X4.8FT.STUD",
     });
+  });
+
+  it("reads persisted supplier codes and rejects a conflicting commodity classification", async () => {
+    productFindFirst.mockResolvedValue({
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "architectural shingles bundle",
+      description: null,
+      packageDescription: null,
+      purchaseUnit: "BUNDLE",
+      canonicalMaterialKey: null,
+      sku: "SHINGLE-001",
+      manufacturerPartNumber: null,
+      omniclass23: null,
+      unspsc: "30151703",
+    });
+
+    const result = await new RegionalSupplierEvidenceService().previewCanonicalMatch(
+      "org-a", "11111111-1111-4111-8111-111111111111"
+    );
+    expect(productFindFirst).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({ unspsc: true, omniclass23: true }),
+    }));
+    expect(result.match.action).toBe("HUMAN_REVIEW");
+    expect(result.match.rationale).toContain("never silently merged");
+  });
+
+  it("validates supplier classification even for imports not originating in the HTTP controller", () => {
+    expect(() => prepareRegionalSupplierEvidence({
+      orgId: "org-a",
+      supplierId: "supplier-a",
+      products: [{ supplierProductKey: "key-1", name: "Shingle", unspsc: "123" }],
+      observations: [],
+    })).toThrow("expected an 8-digit commodity code");
   });
 
   it("requires an explicit reviewed pilot key and scopes the write to the tenant", async () => {

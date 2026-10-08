@@ -152,7 +152,7 @@ consumers.
 - Material request bodies are strict and do not accept caller-supplied organization IDs.
 - Unit-cost changes use the existing material price-audit behavior.
 
-The material DTO includes `id`, `organizationId`, `sku`, `name`, `unitOfMeasure`, `unitCost`, `wasteFactorPct`, `supplierId`, `supplierName`, `lastPriceUpdate`, `isActive`, `createdAt`, and `updatedAt`. The existing `materials` table is reused; no duplicate table exists.
+The material DTO includes `id`, `organizationId`, `sku`, `name`, `unitOfMeasure`, `unitCost`, `wasteFactorPct`, `supplierId`, `supplierName`, `omniclass23`, `unspsc`, `lastPriceUpdate`, `isActive`, `createdAt`, and `updatedAt`. The existing `materials` table is reused; no duplicate table exists. Classification codes are optional on write (`unspsc` must be an 8-digit commodity code when supplied) and are assigned progressively per canonical material — verified codes only, never invented.
 
 ### Labor rates
 

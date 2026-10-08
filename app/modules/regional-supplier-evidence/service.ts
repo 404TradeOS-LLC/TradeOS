@@ -134,6 +134,8 @@ export class RegionalSupplierEvidenceService {
         canonicalMaterialKey: true,
         sku: true,
         manufacturerPartNumber: true,
+        omniclass23: true,
+        unspsc: true,
       },
     });
     if (!product) throw new ApiError(404, `Supplier product ${productId} not found`);
@@ -149,6 +151,8 @@ export class RegionalSupplierEvidenceService {
         canonicalMaterialKey: product.canonicalMaterialKey,
         sku: product.sku,
         manufacturerPartNumber: product.manufacturerPartNumber,
+        omniclass23: product.omniclass23,
+        unspsc: product.unspsc,
       }),
     };
   }
@@ -178,6 +182,8 @@ export class RegionalSupplierEvidenceService {
           canonicalMaterialKey: true,
           sku: true,
           manufacturerPartNumber: true,
+          omniclass23: true,
+          unspsc: true,
         },
       });
       if (!product) throw new ApiError(404, `Supplier product ${productId} not found`);
@@ -194,6 +200,8 @@ export class RegionalSupplierEvidenceService {
         canonicalMaterialKey: product.canonicalMaterialKey,
         sku: product.sku,
         manufacturerPartNumber: product.manufacturerPartNumber,
+        omniclass23: product.omniclass23,
+        unspsc: product.unspsc,
       });
       if (
         match.action === "CREATE_NEW_CANDIDATE" ||
@@ -399,6 +407,12 @@ function dedupeProducts(rows: RegionalSupplierProductInput[]): RegionalSupplierP
     const key = required(row.supplierProductKey, "supplierProductKey");
     const name = required(row.name, "name");
     if (byKey.has(key)) throw new ApiError(400, `Duplicate supplier product key ${key}`);
+    if (row.unspsc != null && !/^\d{8}$/.test(row.unspsc)) {
+      throw new ApiError(422, `Invalid UNSPSC for supplier product ${key}: expected an 8-digit commodity code`);
+    }
+    if (row.omniclass23 != null && (!row.omniclass23.trim() || row.omniclass23.length > 80)) {
+      throw new ApiError(422, `Invalid OmniClass 23 classification for supplier product ${key}`);
+    }
     byKey.set(key, { ...row, supplierProductKey: key, name });
   }
   return [...byKey.values()];
@@ -424,6 +438,8 @@ function automaticPilotMatch(row: RegionalSupplierProductInput) {
     purchaseUnit: row.purchaseUnit,
     sku: row.sku,
     manufacturerPartNumber: row.manufacturerPartNumber,
+    omniclass23: row.omniclass23,
+    unspsc: row.unspsc,
   });
   return match.action === "AUTO_LINK" ? match : null;
 }
@@ -438,6 +454,8 @@ function toProductCreate(input: IngestRegionalSupplierEvidenceInput, row: Region
     supplierProductKey: row.supplierProductKey,
     sku: row.sku ?? null,
     manufacturerPartNumber: row.manufacturerPartNumber ?? null,
+    omniclass23: row.omniclass23 ?? null,
+    unspsc: row.unspsc ?? null,
     name: row.name,
     description: row.description ?? null,
     packageDescription: row.packageDescription ?? null,
@@ -465,7 +483,12 @@ function toProductUpdate(input: IngestRegionalSupplierEvidenceInput, row: Region
   // product exists, only the explicit manager review path may change its
   // canonical link. Re-imports therefore cannot erase or replace a reviewed
   // mapping, even when a workbook repeats a conflicting source key.
-  return data;
+  return {
+    ...data,
+    // Missing classifications in a later feed must not erase earlier evidence.
+    omniclass23: row.omniclass23 === undefined ? undefined : row.omniclass23,
+    unspsc: row.unspsc === undefined ? undefined : row.unspsc,
+  };
 }
 
 function normalizeIncomingCanonicalMaterialKey(

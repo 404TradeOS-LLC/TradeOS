@@ -42,6 +42,8 @@ export class MaterialDatabaseService {
         unitCost: input.unitCost,
         wasteFactorPct: input.wasteFactorPct ?? 0,
         supplierId: input.supplierId,
+        omniclass23: input.omniclass23,
+        unspsc: input.unspsc,
         lastPriceUpdate: new Date(),
       },
     });
@@ -68,6 +70,8 @@ export class MaterialDatabaseService {
           unitCost: input.unitCost,
           wasteFactorPct: input.wasteFactorPct,
           supplierId: input.supplierId,
+          omniclass23: input.omniclass23,
+          unspsc: input.unspsc,
           ...(priceChanged ? { lastPriceUpdate: new Date() } : {}),
         },
       });
@@ -119,7 +123,10 @@ export class MaterialDatabaseService {
         if (!row.name || !row.unitOfMeasure || row.unitCost == null) {
           throw new Error("name, unitOfMeasure, and unitCost are required");
         }
-        await this.create({ orgId, ...row });
+        if (row.unspsc !== undefined && !/^\d{8}$/.test(row.unspsc)) {
+          throw new Error("unspsc must be an 8-digit commodity code");
+        }
+        await this.create({ ...row, orgId });
         result.created += 1;
       } catch (err) {
         result.errors.push({ row: i, message: err instanceof Error ? err.message : "Unknown error" });
@@ -156,6 +163,8 @@ function toDTO(row: {
   unitCost: unknown;
   wasteFactorPct: unknown;
   supplierId: string | null;
+  omniclass23: string | null;
+  unspsc: string | null;
   lastPriceUpdate: Date | null;
 }): MaterialDTO {
   return {
@@ -167,6 +176,8 @@ function toDTO(row: {
     unitCost: Number(row.unitCost),
     wasteFactorPct: Number(row.wasteFactorPct),
     supplierId: row.supplierId,
+    omniclass23: row.omniclass23,
+    unspsc: row.unspsc,
     lastPriceUpdate: row.lastPriceUpdate,
   };
 }
