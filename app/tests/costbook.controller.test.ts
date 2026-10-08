@@ -196,13 +196,13 @@ describe("costbookController materials endpoints", () => {
     );
 
     await costbookController.updateMaterial(
-      authedRequest({ params: { id: materialId }, body: { unspsc: null, omniclass23: "23-xx" } }),
+      authedRequest({ params: { id: materialId }, body: { unspsc: null, omniclass23: null } }),
       response() as never
     );
     expect(mockService.updateMaterial).toHaveBeenCalledWith(
       expect.objectContaining({ orgId: "org-from-auth" }),
       materialId,
-      { unspsc: null, omniclass23: "23-xx" }
+      { unspsc: null, omniclass23: null }
     );
   });
 
