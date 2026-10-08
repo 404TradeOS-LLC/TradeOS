@@ -351,5 +351,7 @@ contract.
 
 ## Costbook 47802 supplier evidence seed
 
+The seed runtime uses only a restricted application-role database connection. It first reads the explicit production `DATABASE_URL`; if absent, it derives that connection from the existing `DATABASE_ADMIN_URL`, `APP_DB_ROLE_PASSWORD`, and optional `APP_DB_ROLE_NAME` (`tradeos_app` by default), replacing the administrative identity before the application runs. For Supabase session-pooler URLs, the database username retains the existing `.<project-ref>` suffix (for example, `tradeos_app.<project-ref>`); direct PostgreSQL URLs use the plain role. Missing role credentials, invalid URLs or role names, and reuse of the administrator identity fail closed. Administrative credentials are never used by the seed runner and secret values are never logged.
+
 The manual `Seed 47802 Costbook supplier evidence` workflow (`.github/workflows/seed-costbook-supplier-prices-47802.yml`) is the governed operator path for importing the checked-in 3,188-row Terre Haute supplier corpus into the existing tenant-scoped `Supplier`, `SupplierProduct`, and `SupplierPriceObservation` boundaries. It is production-environment gated, confirmation-gated, serialized, and replay-idempotent. The workflow does not promote observations into `Material.unitCost`, reprice Estimates, or treat source workbook canonical keys as authoritative TradeOS identity.
 
