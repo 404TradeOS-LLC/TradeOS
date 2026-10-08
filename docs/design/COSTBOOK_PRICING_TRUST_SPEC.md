@@ -227,8 +227,11 @@ The smallest web display slice lives in
   the persisted Material. It is not a verified-price or product-equivalence
   verdict. Surface both fields individually and say "Not recorded" for a
   nullable counterpart.
-- **Classification unmapped** means neither code is recorded. Do not insert a
-  guessed code, treat the absence as an error, or hide the Material.
+- **Classification unmapped** means both fields are explicitly returned as null
+  (or blank) by the API. Do not insert a guessed code or hide the Material.
+- **Classification unavailable** means one or both fields are omitted by an
+  older/partial API response, with no other recorded code to display. Do not
+  mistake missing API fields for a persisted unmapped classification.
 - No classification edit action, autonomous supplier link, price approval, or
   Estimate repricing is introduced by this UI slice.
 - Research-corpus status (`mapped | unmapped | ambiguous`) is distinct from
