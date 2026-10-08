@@ -1,9 +1,12 @@
+import { canonicalIdentityConflictsWithProductText, resolveTradeOsCanonicalMaterialKey } from "./supplierCanonicalIdentity";
+
 /** Supplier price observations — Terre Haute, IN 47802.
  * 3188 VERIFIED_CURRENT observations across 6 suppliers,
  * from Billy's supplier costbook files (Google Drive, observed 2026-09-13).
  * Retail-tier prices; observations are dated — refresh before use as live. */
 export interface SupplierPriceObservation {
   supplier: string; supplierCode: string; productKey: string; productName: string;
+  /** Source/workbook canonical key. Never use directly as cross-supplier identity. */
   canonicalKey: string; materialName: string; brand: string; sku: string;
   price: number; unit: string; observedAt: string; sourceUrl: string; }
 export const SUPPLIER_PRICES_47802: readonly SupplierPriceObservation[] = [
@@ -12768,7 +12771,56 @@ export function supplierPricesBySupplier(s: string): SupplierPriceObservation[] 
 export function searchSupplierPrices(kw: string): SupplierPriceObservation[] {
   const q = kw.toLowerCase(); return SUPPLIER_PRICES_47802.filter((p) =>
     p.productName.toLowerCase().includes(q) || p.materialName.toLowerCase().includes(q)); }
-/** Lowest verified price for a canonical material key, or undefined. */
+/**
+ * Resolve one static supplier row to a TradeOS-owned canonical identity.
+ * Source/workbook canonical keys remain provenance only. Dimension/spec
+ * conflicts fail closed even when the source key itself has a known alias.
+ */
+export function tradeOsCanonicalKeyForSupplierPrice(
+  price: SupplierPriceObservation
+): string | null {
+  const canonical = resolveTradeOsCanonicalMaterialKey(price.canonicalKey);
+  if (!canonical) return null;
+  const evidenceText = `${price.productName} ${price.materialName}`;
+  return canonicalIdentityConflictsWithProductText(canonical, evidenceText)
+    ? null
+    : canonical;
+}
+
+/** All compatible supplier rows mapped to one governed TradeOS identity. */
+export function supplierPricesForCanonicalIdentity(
+  canonicalKey: string
+): SupplierPriceObservation[] {
+  const target = resolveTradeOsCanonicalMaterialKey(canonicalKey);
+  if (!target) return [];
+  return SUPPLIER_PRICES_47802.filter(
+    (price) => tradeOsCanonicalKeyForSupplierPrice(price) === target
+  );
+}
+
+/**
+ * Lowest verified price for a governed TradeOS identity.
+ *
+ * Unknown source vocabularies never become a multi-supplier join. For backward
+ * compatibility, an unmapped key can still resolve inside one supplier only;
+ * if the same unmapped string spans multiple suppliers this fails closed.
+ */
 export function cheapestSupplierPrice(ck: string): SupplierPriceObservation | undefined {
-  const m = SUPPLIER_PRICES_47802.filter((p) => p.canonicalKey === ck);
-  return m.length ? m.reduce((a, b) => (a.price <= b.price ? a : b)) : undefined; }
+  const governed = supplierPricesForCanonicalIdentity(ck);
+  if (governed.length) {
+    const comparisonUnits = new Set(
+      governed.map((price) => normalizeStaticComparisonUnit(price.unit))
+    );
+    if (comparisonUnits.size !== 1) return undefined;
+    return governed.reduce((a, b) => (a.price <= b.price ? a : b));
+  }
+
+  const exact = SUPPLIER_PRICES_47802.filter((price) => price.canonicalKey === ck);
+  if (!exact.length) return undefined;
+  if (new Set(exact.map((price) => price.supplierCode)).size > 1) return undefined;
+  return exact.reduce((a, b) => (a.price <= b.price ? a : b));
+}
+
+function normalizeStaticComparisonUnit(unit: string): string {
+  return unit.trim().toUpperCase().replace(/^\$\//, "");
+}

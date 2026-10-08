@@ -1,7 +1,9 @@
 /** Priced assembly components — material costs from supplier prices.
- * 136 of 326 material components matched (score>=0.4, units ok).
+ * 135 of 326 material components remain legacy generated name/unit matches.
+ * This slice removes the known 92-5/8 in. -> 104-5/8 in. stud mismatch; the
+ * remaining generated matches are not a complete canonical-identity audit.
  * Source: supplierPrices47802.ts (observed 2026-09-13).
- * Name-matched — review before use in bids. */
+ * Review before use in bids. */
 export interface PricedAssemblyComponent { componentKey: string; label: string;
   quantityPerUnit: number; supplier: string; productName: string;
   unitPrice: number; priceUnit: string; extendedCost: number; matchScore: number; }
@@ -66,11 +68,6 @@ export const PRICED_ASSEMBLY_COMPONENTS: readonly PricedAssemblyComponent[] = [
     productName: "1/2 in. x 10 in. Galvanized Anchor Bolt w/ Nut & Washer", unitPrice: 3.28,
     priceUnit: "EA", extendedCost: 3.28,
     matchScore: 0.733 },
-  { componentKey: "mat_studs_2x4_spf", label: "2x4x92-5/8 in. Stud Grade SPF Lumber",
-    quantityPerUnit: 0.115, supplier: "Niehaus",
-    productName: "2 in. x 4 in. x 104-5/8 in. #2 Stud Grade KD-HT Precut Stud", unitPrice: 5.47,
-    priceUnit: "EA", extendedCost: 0.629,
-    matchScore: 0.738 },
   { componentKey: "mat_sill_seal_gasket", label: "5-1/2 in. Polyethylene Foam Sill Seal Gasket",
     quantityPerUnit: 0.138, supplier: "Niehaus",
     productName: "Owens Corning FoamSealR 5-1/2 in. x 50 ft. Sill Plate Gasket Roll", unitPrice: 0.2,
@@ -716,8 +713,8 @@ export const ASSEMBLY_MATERIAL_COSTS: readonly AssemblyMaterialCost[] = [
     unitOfMeasure: "EA", pricedComponents: 5,
     totalComponents: 5, materialCostPerUnit: 27.36 },
   { assemblyId: "framing-wall-int-2x4-16oc", assemblyName: "2x4 Interior Non-Load Bearing Wall Framing (16 in. OC)",
-    unitOfMeasure: "SF", pricedComponents: 1,
-    totalComponents: 2, materialCostPerUnit: 0.63 },
+    unitOfMeasure: "SF", pricedComponents: 0,
+    totalComponents: 2, materialCostPerUnit: 0 },
   { assemblyId: "framing-wall-ext-2x6-16oc", assemblyName: "2x6 Exterior Load-Bearing Wall Framing (16 in. OC)",
     unitOfMeasure: "SF", pricedComponents: 1,
     totalComponents: 5, materialCostPerUnit: 0.03 },

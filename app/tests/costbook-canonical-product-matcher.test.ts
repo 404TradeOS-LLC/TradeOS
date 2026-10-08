@@ -7,9 +7,9 @@ import {
 } from "../modules/costbook/canonicalProductMatcher";
 
 describe("Costbook canonical pilot matcher", () => {
-  it("ships the exact 12-item pilot catalog without creating a second database catalog", () => {
-    expect(COSTBOOK_PILOT_CANONICAL_ITEMS).toHaveLength(12);
-    expect(new Set(COSTBOOK_PILOT_CANONICAL_ITEMS.map((item) => item.canonicalMaterialKey)).size).toBe(12);
+  it("ships the governed pilot catalog without creating a second database catalog", () => {
+    expect(COSTBOOK_PILOT_CANONICAL_ITEMS).toHaveLength(15);
+    expect(new Set(COSTBOOK_PILOT_CANONICAL_ITEMS.map((item) => item.canonicalMaterialKey)).size).toBe(15);
   });
 
   it.each([
@@ -86,6 +86,66 @@ describe("Costbook canonical pilot matcher", () => {
     const result = matchPilotCanonicalProduct({ name: "2x6 x 8 ft SPF stud" });
     expect(result.action).toBe("CREATE_NEW_CANDIDATE");
     expect(result.canonicalMaterialKey).toBeNull();
+  });
+
+  it.each([
+    ["2x4 x 92-5/8 in SPF precut stud", "LUMBER.SPF.STUD.2X4.92_5_8IN"],
+    ["2x4 x 104-5/8 in SPF precut stud", "LUMBER.SPF.STUD.2X4.104_5_8IN"],
+    ["2x4 x 116-5/8 in SPF precut stud", "LUMBER.SPF.STUD.2X4.116_5_8IN"],
+  ])("keeps precut stud lengths as distinct governed identities: %s", (name, expectedKey) => {
+    const result = matchPilotCanonicalProduct({ name, purchaseUnit: "EA" });
+    expect(result).toMatchObject({
+      action: "AUTO_LINK",
+      canonicalMaterialKey: expectedKey,
+    });
+  });
+
+  it("does not treat a 104-5/8 in stud as the 92-5/8 in identity", () => {
+    const result = matchPilotCanonicalProduct({
+      name: "2 in. x 4 in. x 104-5/8 in. #2 Stud Grade KD-HT Precut Stud",
+      purchaseUnit: "EA",
+    });
+    expect(result.canonicalMaterialKey).toBe("LUMBER.SPF.STUD.2X4.104_5_8IN");
+    expect(result.canonicalMaterialKey).not.toBe("LUMBER.SPF.STUD.2X4.92_5_8IN");
+  });
+
+  it("does not let an explicit legacy pilot key bypass hard conflicts", () => {
+    const result = matchPilotCanonicalProduct({
+      name: "2x6 x 8 ft SPF stud",
+      purchaseUnit: "EA",
+      canonicalMaterialKey: "LUMBER.SPF.2X4.8FT.STUD",
+    });
+    expect(result).toMatchObject({
+      action: "CREATE_NEW_CANDIDATE",
+      canonicalMaterialKey: null,
+      score: 0,
+    });
+  });
+
+  it("rejects an explicit supplier alias when current product dimensions conflict", () => {
+    const result = matchPilotCanonicalProduct({
+      name: "2 in. x 4 in. x 104-5/8 in. #2 SPF Precut Stud",
+      purchaseUnit: "EA",
+      canonicalMaterialKey: "LUMBER-SPF-2X4-92_5_8-STUD",
+    });
+    expect(result).toMatchObject({
+      action: "CREATE_NEW_CANDIDATE",
+      canonicalMaterialKey: null,
+      score: 0,
+    });
+  });
+
+  it("resolves supplier source-key aliases before honoring an explicit canonical identity", () => {
+    const result = matchPilotCanonicalProduct({
+      name: "supplier marketing title",
+      purchaseUnit: "EA",
+      canonicalMaterialKey: "LUMBER-SPF-2X4-92-5_8IN-STUD",
+    });
+    expect(result).toMatchObject({
+      action: "AUTO_LINK",
+      canonicalMaterialKey: "LUMBER.SPF.STUD.2X4.92_5_8IN",
+      score: 1,
+    });
   });
 
   it("honors an existing canonical key as the strongest governed identity", () => {
