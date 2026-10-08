@@ -1,9 +1,9 @@
-/** Priced assembly components — material costs from supplier prices.
- * 135 of 326 material components remain legacy generated name/unit matches.
- * This slice removes the known 92-5/8 in. -> 104-5/8 in. stud mismatch; the
- * remaining generated matches are not a complete canonical-identity audit.
+/** Priced assembly components — historical generated material-price evidence.
+ * The rows remain a legacy name/unit snapshot and are not a trusted canonical
+ * comparison set. Use legacyAssemblyMatchAudit.ts to exclude audited
+ * high-confidence false positives before any review or analysis.
  * Source: supplierPrices47802.ts (observed 2026-09-13).
- * Review before use in bids. */
+ * Do not use the raw array directly for bids or automatic repricing. */
 export interface PricedAssemblyComponent { componentKey: string; label: string;
   quantityPerUnit: number; supplier: string; productName: string;
   unitPrice: number; priceUnit: string; extendedCost: number; matchScore: number; }
