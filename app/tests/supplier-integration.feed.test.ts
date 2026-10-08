@@ -245,6 +245,12 @@ describe("default supplier price feed (ABC routing)", () => {
     ]);
     expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
     expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(mockRunWithDatabaseSession).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({ orgId, role: "owner" }),
+      expect.any(Function),
+      "supplier_refresh_token_rotation",
+    );
     const persistSql = mockPrisma.$executeRaw.mock.calls[0][0] as { values: unknown[] };
     expect(persistSql.values).toEqual(expect.arrayContaining([orgId, abcSupplierId, "rotated-refresh-token"]));
     expect(calls).toHaveLength(2);
