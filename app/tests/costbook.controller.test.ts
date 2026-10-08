@@ -182,6 +182,40 @@ describe("costbookController materials endpoints", () => {
     expect(mockService.createMaterial).not.toHaveBeenCalled();
   });
 
+  it("allows nullable verified classifications through the primary Costbook materials API", async () => {
+    await costbookController.createMaterial(
+      authedRequest({ body: {
+        name: "Architectural shingles", unitOfMeasure: "BUNDLE", unitCost: 33,
+        unspsc: "30151508", omniclass23: null,
+      } }),
+      response() as never
+    );
+    expect(mockService.createMaterial).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-from-auth" }),
+      expect.objectContaining({ unspsc: "30151508", omniclass23: null })
+    );
+
+    await costbookController.updateMaterial(
+      authedRequest({ params: { id: materialId }, body: { unspsc: null, omniclass23: "23-xx" } }),
+      response() as never
+    );
+    expect(mockService.updateMaterial).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-from-auth" }),
+      materialId,
+      { unspsc: null, omniclass23: "23-xx" }
+    );
+  });
+
+  it("rejects malformed classification on the primary Costbook materials API", async () => {
+    await expect(costbookController.createMaterial(
+      authedRequest({ body: {
+        name: "Shingles", unitOfMeasure: "BUNDLE", unitCost: 33, unspsc: "123",
+      } }),
+      response() as never
+    )).rejects.toThrow();
+    expect(mockService.createMaterial).not.toHaveBeenCalled();
+  });
+
   it("passes validated create input and authenticated actor to the service", async () => {
     const res = response();
 
