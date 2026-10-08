@@ -1,4 +1,5 @@
-import { Request, Response, Router } from "express";
+import { timingSafeEqual } from "crypto";
+import { NextFunction, Request, Response, Router } from "express";
 import rateLimit from "express-rate-limit";
 import { logError, logInfo } from "../logging";
 import {
@@ -34,14 +35,24 @@ function createSupplierPriceSyncCronRateLimit(
 function isAuthorizedCronRequest(req: Request): boolean {
   const cronSecret = process.env.CRON_SECRET?.trim();
   if (!cronSecret) return false;
-  return req.get("authorization") === `Bearer ${cronSecret}`;
+  const expected = Buffer.from(`Bearer ${cronSecret}`, "utf8");
+  const received = Buffer.from(req.get("authorization") ?? "", "utf8");
+  return received.length === expected.length && timingSafeEqual(received, expected);
 }
 
-export async function handleSupplierPriceSyncCron(req: Request, res: Response) {
+function requireAuthorizedCronRequest(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   if (!isAuthorizedCronRequest(req)) {
-    return res.status(401).json({ error: "unauthorized" });
+    res.status(401).json({ error: "unauthorized" });
+    return;
   }
+  next();
+}
 
+export async function handleSupplierPriceSyncCron(_req: Request, res: Response) {
   let jobSpecs;
   try {
     jobSpecs = parseSupplierPriceSyncJobSpecs(process.env.SUPPLIER_PRICE_SYNC_JOBS);
@@ -118,6 +129,7 @@ export function createSupplierPriceSyncCronRouter(
   const router = Router();
   router.get(
     "/supplier-price-sync",
+    requireAuthorizedCronRequest,
     createSupplierPriceSyncCronRateLimit(options),
     handleSupplierPriceSyncCron,
   );
