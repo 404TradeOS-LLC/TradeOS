@@ -84,7 +84,7 @@ jobs:
               echo "Refusing seed: no restricted-role connection credentials are configured." >&2
               exit 1
             fi
-            DATABASE_URL="$(node -e 'const u = new URL(process.env.DATABASE_ADMIN_URL); const role = process.env.APP_DB_ROLE_NAME || "tradeos_app"; const admin = decodeURIComponent(u.username); const pooler = u.hostname.endsWith(".pooler.supabase.com"); const suffix = pooler && admin.includes(".") ? admin.slice(admin.indexOf(".")) : ""; if (!["postgres:", "postgresql:"].includes(u.protocol) || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(role) || role === "postgres" || role === admin || (pooler && !/^\.[a-z0-9]+$/.test(suffix))) process.exit(1); u.username = role + suffix; u.password = process.env.APP_DB_ROLE_PASSWORD; process.stdout.write(u.toString());')"
+            DATABASE_URL="$(node -e 'const u = new URL(process.env.DATABASE_ADMIN_URL); const role = process.env.APP_DB_ROLE_NAME || "tradeos_app"; const admin = decodeURIComponent(u.username); const pooler = u.hostname.endsWith(".pooler.supabase.com"); const suffix = pooler && admin.includes(".") ? admin.slice(admin.indexOf(".")) : ""; if (!["postgres:", "postgresql:"].includes(u.protocol) || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(role) || role === "postgres" || role === admin.split(".")[0] || (pooler && !/^\.[a-z0-9]+$/.test(suffix))) process.exit(1); u.username = role + suffix; u.password = process.env.APP_DB_ROLE_PASSWORD; process.stdout.write(u.toString());')"
             export DATABASE_URL
           fi
           if [[ -n "${DATABASE_ADMIN_URL:-}" && "$DATABASE_URL" == "$DATABASE_ADMIN_URL" ]]; then
