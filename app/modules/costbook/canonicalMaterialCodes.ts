@@ -150,49 +150,6 @@ export const CANONICAL_MATERIAL_CODES: Readonly<Record<string, CanonicalMaterial
     provenance: "UNSPSC v17.1001, State of North Carolina published detailed codeset, verified 2026-10-08 (30103605: Wood planks); re-verify against the current licensed codeset before broad backfill.",
     note: "Untreated SPF 2×4 framing stud; structural-products class 30103600.",
   },
-  // ---- Plumbing: Schedule 40 PVC DWV pipe → UNSPSC 40171517 "Commercial PVC pipe" ----
-  // This covers only straight PVC DWV pipe. Fittings, solvents, PEX, copper, and
-  // pressure/condensate pipe stay unmapped pending commodity-level verification.
-  "PIPE-PVC-DWV-1_1_2-10FT": {
-    unspsc: "40171517", unspscTitle: "Commercial PVC pipe", status: "mapped",
-    provenance: "UNSPSC public commodity hierarchy, verified 2026-10-08 (40171517: Commercial PVC pipe); retain for this explicit Schedule 40 PVC DWV pipe slice only and re-verify against the current licensed codeset before broader plumbing backfill.",
-    note: "Schedule 40 PVC drain, waste, and vent pipe; plumbing fitting and pressure-pipe variants are intentionally excluded.",
-  },
-  "PIPE-PVC-DWV-2IN-10FT": {
-    unspsc: "40171517", unspscTitle: "Commercial PVC pipe", status: "mapped",
-    provenance: "UNSPSC public commodity hierarchy, verified 2026-10-08 (40171517: Commercial PVC pipe); retain for this explicit Schedule 40 PVC DWV pipe slice only and re-verify against the current licensed codeset before broader plumbing backfill.",
-    note: "Schedule 40 PVC drain, waste, and vent pipe; plumbing fitting and pressure-pipe variants are intentionally excluded.",
-  },
-  "PIPE-PVC-DWV-3IN-10FT": {
-    unspsc: "40171517", unspscTitle: "Commercial PVC pipe", status: "mapped",
-    provenance: "UNSPSC public commodity hierarchy, verified 2026-10-08 (40171517: Commercial PVC pipe); retain for this explicit Schedule 40 PVC DWV pipe slice only and re-verify against the current licensed codeset before broader plumbing backfill.",
-    note: "Schedule 40 PVC drain, waste, and vent pipe; plumbing fitting and pressure-pipe variants are intentionally excluded.",
-  },
-  "PIPE-PVC-DWV-4IN-10FT": {
-    unspsc: "40171517", unspscTitle: "Commercial PVC pipe", status: "mapped",
-    provenance: "UNSPSC public commodity hierarchy, verified 2026-10-08 (40171517: Commercial PVC pipe); retain for this explicit Schedule 40 PVC DWV pipe slice only and re-verify against the current licensed codeset before broader plumbing backfill.",
-    note: "Schedule 40 PVC drain, waste, and vent pipe; plumbing fitting and pressure-pipe variants are intentionally excluded.",
-  },
-  "PLUMB-PIPE-PVC-DWV-1_5IN-10FT": {
-    unspsc: "40171517", unspscTitle: "Commercial PVC pipe", status: "mapped",
-    provenance: "UNSPSC public commodity hierarchy, verified 2026-10-08 (40171517: Commercial PVC pipe); retain for this explicit Schedule 40 PVC DWV pipe slice only and re-verify against the current licensed codeset before broader plumbing backfill.",
-    note: "Schedule 40 PVC drain, waste, and vent pipe; plumbing fitting and pressure-pipe variants are intentionally excluded.",
-  },
-  "PLUMB-PIPE-PVC-DWV-2IN-10FT": {
-    unspsc: "40171517", unspscTitle: "Commercial PVC pipe", status: "mapped",
-    provenance: "UNSPSC public commodity hierarchy, verified 2026-10-08 (40171517: Commercial PVC pipe); retain for this explicit Schedule 40 PVC DWV pipe slice only and re-verify against the current licensed codeset before broader plumbing backfill.",
-    note: "Schedule 40 PVC drain, waste, and vent pipe; plumbing fitting and pressure-pipe variants are intentionally excluded.",
-  },
-  "PLUMB-PIPE-PVC-DWV-3IN-10FT": {
-    unspsc: "40171517", unspscTitle: "Commercial PVC pipe", status: "mapped",
-    provenance: "UNSPSC public commodity hierarchy, verified 2026-10-08 (40171517: Commercial PVC pipe); retain for this explicit Schedule 40 PVC DWV pipe slice only and re-verify against the current licensed codeset before broader plumbing backfill.",
-    note: "Schedule 40 PVC drain, waste, and vent pipe; plumbing fitting and pressure-pipe variants are intentionally excluded.",
-  },
-  "PLUMB-PIPE-PVC-DWV-4IN-10FT": {
-    unspsc: "40171517", unspscTitle: "Commercial PVC pipe", status: "mapped",
-    provenance: "UNSPSC public commodity hierarchy, verified 2026-10-08 (40171517: Commercial PVC pipe); retain for this explicit Schedule 40 PVC DWV pipe slice only and re-verify against the current licensed codeset before broader plumbing backfill.",
-    note: "Schedule 40 PVC drain, waste, and vent pipe; plumbing fitting and pressure-pipe variants are intentionally excluded.",
-  },
   // ---- Ambiguous: recorded, never silently merged ----
   "ROOFING-RIDGE-CAP": {
     status: "ambiguous",
