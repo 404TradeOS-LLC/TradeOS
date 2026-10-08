@@ -123,7 +123,10 @@ export class MaterialDatabaseService {
         if (!row.name || !row.unitOfMeasure || row.unitCost == null) {
           throw new Error("name, unitOfMeasure, and unitCost are required");
         }
-        await this.create({ orgId, ...row });
+        if (row.unspsc !== undefined && !/^\d{8}$/.test(row.unspsc)) {
+          throw new Error("unspsc must be an 8-digit commodity code");
+        }
+        await this.create({ ...row, orgId });
         result.created += 1;
       } catch (err) {
         result.errors.push({ row: i, message: err instanceof Error ? err.message : "Unknown error" });
