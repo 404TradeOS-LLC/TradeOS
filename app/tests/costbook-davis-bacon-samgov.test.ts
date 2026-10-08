@@ -134,6 +134,46 @@ describe('Davis-Bacon SAM.gov search client', () => {
     });
   });
 
+  it('follows every SAM.gov search page instead of silently truncating results', async () => {
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      const page = new URL(url).searchParams.get('page');
+      const result = page === '1'
+        ? {
+          fullReferenceNumber: 'IN20260003',
+          revisionNumber: 2,
+          isActive: true,
+          constructionTypes: ['Building'],
+          location: { state: { code: 'IN', name: 'Indiana' }, counties: [] },
+        }
+        : searchBody._embedded.results[0];
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+          _embedded: { results: [result] },
+          page: { totalPages: 2 },
+        }),
+      });
+    });
+
+    const determinations = await searchDeterminations({ state: 'IN', county: 'Vigo' });
+
+    expect(determinations.map((determination) => determination.wdNumber)).toEqual([
+      'IN20260050',
+      'IN20260003',
+    ]);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('page=0'),
+      expect.anything(),
+    );
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('page=1'),
+      expect.anything(),
+    );
+  });
+
   it('throws a typed error on non-2xx search responses', async () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 } as Response);
     await expect(searchDeterminations()).rejects.toBeInstanceOf(DavisBaconApiError);
