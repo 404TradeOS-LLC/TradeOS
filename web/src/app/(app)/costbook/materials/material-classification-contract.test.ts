@@ -9,10 +9,10 @@ async function readSource(relativePath: string) {
 test("web Material DTO accepts the nullable classification fields from the merged backend", async () => {
   const api = await readSource("../../../../lib/api.ts");
 
-  const materialContract = api.slice(
-    api.indexOf("export interface CostbookMaterial {"),
-    api.indexOf("export interface CostbookMaterialInput {")
-  );
+  const contractStart = api.indexOf("export interface CostbookMaterial {");
+  const contractEnd = api.indexOf("export interface CostbookMaterialInput {");
+  assert.ok(contractStart >= 0 && contractEnd > contractStart, "Material contract markers not found");
+  const materialContract = api.slice(contractStart, contractEnd);
 
   assert.match(materialContract, /omniclass23\?: string \| null/);
   assert.match(materialContract, /unspsc\?: string \| null/);
@@ -30,6 +30,7 @@ test("Material catalog surfaces read-only classification on desktop and mobile",
 
   const payloadStart = source.indexOf("function toPayload(");
   const payloadEnd = source.indexOf("function formatCurrency(", payloadStart);
+  assert.ok(payloadStart >= 0 && payloadEnd > payloadStart, "Material payload markers not found");
   const payload = source.slice(payloadStart, payloadEnd);
   assert.doesNotMatch(payload, /unspsc|omniclass23/);
 });
@@ -39,7 +40,12 @@ test("classification UI never converts a code into a verification or price claim
 
   assert.match(source, /unspsc\?\.trim\(\) \|\| null/);
   assert.match(source, /omniclass23\?\.trim\(\) \|\| null/);
-  assert.match(source, /data-material-classification=\{hasCodes \? "recorded" : "unmapped"\}/);
+  assert.match(source, /data-material-classification=\{classificationStatus\}/);
+  assert.match(source, /unspsc === undefined \|\| omniclass23 === undefined/);
+  assert.match(source, /\? "unavailable"/);
+  assert.match(source, /Classification unavailable/);
+  assert.match(source, /Classification fields were not provided by the API/);
+  assert.match(source, /Classification unmapped/);
   assert.match(source, /No classification codes recorded/);
   assert.match(source, /UNSPSC/);
   assert.match(source, /OmniClass 23/);
