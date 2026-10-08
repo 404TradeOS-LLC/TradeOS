@@ -12,6 +12,7 @@ jest.mock("../backend/logging", () => ({
 }));
 
 import express from "express";
+import { MemoryStore } from "express-rate-limit";
 import request from "supertest";
 import { createSupplierPriceSyncCronRouter } from "../backend/routes/supplierPriceSyncCron.routes";
 
@@ -24,7 +25,7 @@ const validSpec = {
 
 function buildApp(options: { rateLimitWindowMs?: number; rateLimitMax?: number } = {}) {
   const app = express();
-  app.use("/api/cron", createSupplierPriceSyncCronRouter(options));
+  app.use("/api/cron", createSupplierPriceSyncCronRouter({ ...options, storeFactory: () => new MemoryStore() }));
   return app;
 }
 
