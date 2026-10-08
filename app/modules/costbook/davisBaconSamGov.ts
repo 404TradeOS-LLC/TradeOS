@@ -83,6 +83,9 @@ const CONSTRUCTION_TYPES: DavisBaconConstructionType[] = [
   "Highway",
 ];
 
+const SEARCH_PAGE_SIZE = 100;
+const MAX_SEARCH_PAGES = 100;
+
 function isConstructionType(value: unknown): value is DavisBaconConstructionType {
   return (
     typeof value === "string" &&
@@ -98,26 +101,46 @@ function isConstructionType(value: unknown): value is DavisBaconConstructionType
 export async function searchDeterminations(
   options: SearchOptions = {},
 ): Promise<DavisBaconDetermination[]> {
-  const params = new URLSearchParams({ index: "dbra", size: "100" });
+  const params = new URLSearchParams({ index: "dbra", size: String(SEARCH_PAGE_SIZE) });
   const queryParts: string[] = [];
   if (options.county) queryParts.push(options.county);
   if (options.state) queryParts.push(options.state);
   if (queryParts.length > 0) params.set("q", queryParts.join(" "));
-  const response = await fetch(`${SAM_GOV_SEARCH_BASE}?${params.toString()}`, {
-    headers: { Accept: "application/hal+json" },
-    signal: options.signal,
-  });
-  if (!response.ok) {
-    throw new DavisBaconApiError(
-      response.status,
-      `SAM.gov WD search failed with status ${response.status}`,
-    );
+  const records: Array<Record<string, unknown>> = [];
+  let page = 0;
+  let totalPages = 1;
+
+  while (page < totalPages) {
+    if (page >= MAX_SEARCH_PAGES) {
+      throw new DavisBaconApiError(
+        502,
+        `SAM.gov WD search exceeds the ${MAX_SEARCH_PAGES}-page pilot limit`,
+      );
+    }
+    params.set("page", String(page));
+    const response = await fetch(`${SAM_GOV_SEARCH_BASE}?${params.toString()}`, {
+      headers: { Accept: "application/hal+json" },
+      signal: options.signal,
+    });
+    if (!response.ok) {
+      throw new DavisBaconApiError(
+        response.status,
+        `SAM.gov WD search failed with status ${response.status}`,
+      );
+    }
+    const body = (await response.json()) as {
+      _embedded?: { results?: Array<Record<string, unknown>> };
+      page?: { totalPages?: unknown };
+    };
+    records.push(...(body._embedded?.results ?? []));
+    const reportedTotalPages = body.page?.totalPages;
+    totalPages = typeof reportedTotalPages === "number" && Number.isInteger(reportedTotalPages)
+      ? Math.max(1, reportedTotalPages)
+      : 1;
+    page += 1;
   }
-  const body = (await response.json()) as {
-    _embedded?: { results?: Array<Record<string, unknown>> };
-  };
-  const results = body._embedded?.results ?? [];
-  return results
+
+  return records
     .filter((record) => record.isActive === true)
     .map(parseDeterminationRecord)
     .filter((determination): determination is DavisBaconDetermination => determination !== null);
