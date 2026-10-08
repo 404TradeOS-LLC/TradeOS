@@ -225,6 +225,12 @@ The database-backed `CostbookPricingService.resolveCanonicalPrice()` applies the
 
 The generated assembly-price evidence also fails closed on the known 2x4 precut-stud mismatch: a 104-5/8 in. Niehaus stud is no longer used to price the 92-5/8 in. interior-wall stud component. Until compatible evidence and unit conversion are both governed, that component remains unpriced rather than substituting a dimensionally different product. Other generated assembly matches remain legacy name/unit evidence and still require their own canonical-quality audit.
 
+### Legacy generated assembly-price audit — 2026-10-08
+
+`pricedAssemblies.ts` is a historical generated snapshot, not an authoritative cross-supplier pricing surface. `legacyAssemblyMatchAudit.ts` carries a conservative rejection registry for rows whose checked-in assembly requirement and supplier product conflict on an identity-defining dimension, product type, or material/use specification. `auditLegacyAssemblyPriceMatches()` reports those findings and `TRUSTED_LEGACY_PRICED_ASSEMBLY_COMPONENTS` filters them without selecting replacements. The raw rows remain unchanged for provenance.
+
+This audit does not certify every remaining generated match, regenerate the historical `ASSEMBLY_MATERIAL_COSTS` rollups, write SupplierProduct mappings, change Material prices, or reprice Estimates. Current supplier comparison must continue through the governed canonical-identity and tenant-scoped price-resolution paths.
+
 ### Research candidate review queue (Stage 6)
 
 `docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md` Stage 6: a persisted, org-scoped queue for researched candidates awaiting human review before any of their fields may become a real `CostItem`/`Material`/`LaborRate`/`Equipment` row.
