@@ -108,6 +108,33 @@ describe("supplier price sync Vercel cron route", () => {
     expect(runSupplierPriceSyncJobs).toHaveBeenCalledTimes(1);
   });
 
+  it("limits invalid bearer attempts without starving a valid Vercel Cron invocation", async () => {
+    const app = buildApp({ rateLimitMax: 1, rateLimitWindowMs: 60_000 });
+    const invalid = await request(app)
+      .get("/api/cron/supplier-price-sync")
+      .set("Authorization", "Bearer invalid-secret");
+    const throttled = await request(app)
+      .get("/api/cron/supplier-price-sync")
+      .set("Authorization", "Bearer another-invalid-secret");
+
+    expect(invalid.status).toBe(401);
+    expect(throttled.status).toBe(429);
+    expect(runSupplierPriceSyncJobs).not.toHaveBeenCalled();
+
+    runSupplierPriceSyncJobs.mockResolvedValue([{
+      spec: validSpec,
+      status: "succeeded",
+      attempt: 1,
+      correlationId: "corr-isolated-limit",
+      result: { proposed: 0, skipped: 0 },
+    }]);
+    const authorized = await request(app)
+      .get("/api/cron/supplier-price-sync")
+      .set("Authorization", "Bearer test-cron-secret");
+    expect(authorized.status).toBe(200);
+    expect(runSupplierPriceSyncJobs).toHaveBeenCalledTimes(1);
+  });
+
   it("runs the configured sync jobs and returns aggregate success counts", async () => {
     runSupplierPriceSyncJobs.mockResolvedValue([
       {

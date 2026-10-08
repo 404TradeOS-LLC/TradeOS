@@ -14,8 +14,12 @@ export interface SupplierPriceSyncCronRouterOptions {
 
 function createSupplierPriceSyncCronRateLimit(
   options: SupplierPriceSyncCronRouterOptions = {},
+  skipAuthorized = false,
 ) {
   return rateLimit({
+    // The unauthenticated budget must not block Vercel's valid bearer request.
+    // Authorized invocations receive their own independent limiter below.
+    skip: skipAuthorized ? isAuthorizedCronRequest : undefined,
     windowMs:
       (options.rateLimitWindowMs ??
         Number(process.env.SUPPLIER_PRICE_SYNC_CRON_RATE_LIMIT_WINDOW_MS)) ||
@@ -129,6 +133,7 @@ export function createSupplierPriceSyncCronRouter(
   const router = Router();
   router.get(
     "/supplier-price-sync",
+    createSupplierPriceSyncCronRateLimit(options, true),
     requireAuthorizedCronRequest,
     createSupplierPriceSyncCronRateLimit(options),
     handleSupplierPriceSyncCron,
