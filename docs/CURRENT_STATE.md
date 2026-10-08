@@ -64,7 +64,7 @@ related_code:
 
 The checked-in `pricedAssemblies.ts` dataset remains historical generated evidence rather than a canonical pricing source. A new bounded audit registry identifies high-confidence false positives only when the assembly requirement and supplier product contradict on an identity-defining nominal dimension, product type, or material/use specification. The first pass covers more than twenty concrete rows including 2x10 joists matched to 2x4 lumber, 2x8 deck joists matched to 5/4 decking, roller sleeves matched to firebrick, helical-pile extensions matched to concrete brick, and interior finish paint matched to exterior paint.
 
-`TRUSTED_LEGACY_PRICED_ASSEMBLY_COMPONENTS` is a non-mutating filtered view for review/analysis. The raw legacy array is preserved for provenance, and the audit does not invent substitute products, modify Costbook records, change assembly recipes, mutate Estimate snapshots, or write production data. Existing precomputed assembly rollups remain historical and are not promoted to trusted current pricing by this slice.
+`AUDIT_FILTERED_LEGACY_PRICED_ASSEMBLY_COMPONENTS` is a non-mutating filtered view for review/analysis. The raw legacy array is preserved for provenance, and the audit does not invent substitute products, modify Costbook records, change assembly recipes, mutate Estimate snapshots, or write production data. Existing precomputed assembly rollups remain historical and are not promoted to current governed pricing by this slice.
 
 
 ## Costbook cross-supplier canonicalization — implementation slice 2026-10-06
