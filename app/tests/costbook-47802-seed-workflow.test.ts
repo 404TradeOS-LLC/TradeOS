@@ -55,6 +55,7 @@ describe("production supplier seed restricted database credentials", () => {
   it("rejects use of the administrative identity as the application role", () => {
     expect(() => derivedUrl("postgresql://postgres:admin@db.example.invalid/db", "postgres")).toThrow();
     expect(() => derivedUrl("postgresql://admin:admin@db.example.invalid/db", "admin")).toThrow();
+    expect(() => derivedUrl("postgresql://admin.exampleprojectref:admin@aws-1-us-west-2.pooler.supabase.com:5432/db", "admin")).toThrow();
   });
 
   it("defaults to tradeos_app when the optional role override is blank", () => {
