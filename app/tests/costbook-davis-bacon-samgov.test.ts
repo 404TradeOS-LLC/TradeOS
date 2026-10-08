@@ -73,6 +73,48 @@ describe('Davis-Bacon SAM.gov determination text parser', () => {
   });
 });
 
+describe('Davis-Bacon SAM.gov published-rate variants', () => {
+  const sample = [
+    '"General Decision Number: CA20260022 01/01/2026',
+    'State: California',
+    'Construction Types: Building, Heavy, Highway and Residential',
+    '',
+    '* ELEC0011-007 01/01/2024',
+    'Rates Fringes',
+    'ELECTRICIAN................$ 17.68 **  3%+29.77',
+    'HELPER.....................$ 20.00  38.435+a+b',
+    'DIVER (PER DAY)............$ 418.96  22.00',
+  ].join('\\n');
+
+  const parsed = parseDeterminationText(sample, 1);
+
+  it('preserves all construction types from compound conjunction headings', () => {
+    expect(parsed.determination.constructionTypes).toEqual([
+      'Building', 'Heavy', 'Highway', 'Residential',
+    ]);
+  });
+
+  it('accepts a starred identifier and base-rate footnote without dropping classes', () => {
+    expect(parsed.rates).toHaveLength(3);
+    expect(parsed.rates.every((rate) => rate.rateIdentifier === 'ELEC0011-007')).toBe(true);
+    expect(parsed.rates[0]).toMatchObject({ baseRate: 17.68, rateUnit: 'hour' });
+  });
+
+  it('retains formula fringe text for manual interpretation, rather than treating it as numeric', () => {
+    expect(parsed.rates[0]).toMatchObject({ fringe: null, fringeExpression: '3%+29.77' });
+    expect(parsed.rates[1]).toMatchObject({ fringe: null, fringeExpression: '38.435+a+b' });
+  });
+
+  it('marks published daily base rates with the correct unit', () => {
+    expect(parsed.rates[2]).toMatchObject({
+      occupation: 'DIVER (PER DAY)',
+      baseRate: 418.96,
+      rateUnit: 'day',
+      fringe: 22,
+    });
+  });
+});
+
 describe('Davis-Bacon SAM.gov search client', () => {
   const searchBody = {
     _embedded: {
