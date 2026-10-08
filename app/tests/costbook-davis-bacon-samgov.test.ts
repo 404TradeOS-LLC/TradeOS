@@ -84,7 +84,7 @@ describe('Davis-Bacon SAM.gov published-rate variants', () => {
     'ELECTRICIAN................$ 17.68 **  3%+29.77',
     'HELPER.....................$ 20.00  38.435+a+b',
     'DIVER (PER DAY)............$ 418.96  22.00',
-  ].join('\\n');
+  ].join('\n');
 
   const parsed = parseDeterminationText(sample, 1);
 
