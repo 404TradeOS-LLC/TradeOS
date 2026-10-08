@@ -72,14 +72,21 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_ADMIN_URL: ${{ secrets.DATABASE_ADMIN_URL }}
+          APP_DB_ROLE_PASSWORD: ${{ secrets.APP_DB_ROLE_PASSWORD }}
+          APP_DB_ROLE_NAME: ${{ secrets.APP_DB_ROLE_NAME }}
           ORG_ID: ${{ inputs.org_id }}
           USER_ID: ${{ inputs.user_id }}
           NODE_ENV: production
         run: |
           set -euo pipefail
           if [[ -z "${DATABASE_URL:-}" ]]; then
-            echo "Refusing seed: production DATABASE_URL (restricted application role) is not configured." >&2
-            exit 1
+            if [[ -z "${DATABASE_ADMIN_URL:-}" || -z "${APP_DB_ROLE_PASSWORD:-}" ]]; then
+              echo "Refusing seed: production DATABASE_URL (restricted application role) is not configured." >&2
+              echo "Configure DATABASE_URL or provide DATABASE_ADMIN_URL plus APP_DB_ROLE_PASSWORD to derive the restricted role URL." >&2
+              exit 1
+            fi
+            DATABASE_URL="$(node -e 'const url = new URL(process.env.DATABASE_ADMIN_URL); url.username = process.env.APP_DB_ROLE_NAME || "tradeos_app"; url.password = process.env.APP_DB_ROLE_PASSWORD; process.stdout.write(url.toString());')"
+            export DATABASE_URL
           fi
           if [[ -n "${DATABASE_ADMIN_URL:-}" && "$DATABASE_URL" == "$DATABASE_ADMIN_URL" ]]; then
             echo "Refusing seed: DATABASE_URL resolves to the admin connection; use the restricted application role." >&2
