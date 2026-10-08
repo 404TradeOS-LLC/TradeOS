@@ -34,6 +34,24 @@ describe("production supplier seed restricted database credentials", () => {
     expect(url.searchParams.get("schema")).toBe("public");
   });
 
+  it("preserves the Supavisor project suffix for restricted session-pooler connections", () => {
+    const url = derivedUrl(
+      "postgresql://postgres.exampleprojectref:admin@aws-1-us-west-2.pooler.supabase.com:5432/tradeos?schema=public",
+      "tradeos_app"
+    );
+    expect(url.username).toBe("tradeos_app.exampleprojectref");
+    expect(url.hostname).toBe("aws-1-us-west-2.pooler.supabase.com");
+    expect(url.port).toBe("5432");
+    expect(url.password).toBe("test-restricted-password");
+  });
+
+  it("fails closed rather than guessing a project suffix for a malformed pooler username", () => {
+    expect(() => derivedUrl(
+      "postgresql://postgres:admin@aws-1-us-west-2.pooler.supabase.com:5432/tradeos",
+      "tradeos_app"
+    )).toThrow();
+  });
+
   it("rejects use of the administrative identity as the application role", () => {
     expect(() => derivedUrl("postgresql://postgres:admin@db.example.invalid/db", "postgres")).toThrow();
     expect(() => derivedUrl("postgresql://admin:admin@db.example.invalid/db", "admin")).toThrow();
