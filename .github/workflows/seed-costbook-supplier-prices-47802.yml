@@ -72,14 +72,20 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_ADMIN_URL: ${{ secrets.DATABASE_ADMIN_URL }}
+          APP_DB_ROLE_PASSWORD: ${{ secrets.APP_DB_ROLE_PASSWORD }}
+          APP_DB_ROLE_NAME: ${{ secrets.APP_DB_ROLE_NAME }}
           ORG_ID: ${{ inputs.org_id }}
           USER_ID: ${{ inputs.user_id }}
           NODE_ENV: production
         run: |
           set -euo pipefail
           if [[ -z "${DATABASE_URL:-}" ]]; then
-            echo "Refusing seed: production DATABASE_URL (restricted application role) is not configured." >&2
-            exit 1
+            if [[ -z "${DATABASE_ADMIN_URL:-}" || -z "${APP_DB_ROLE_PASSWORD:-}" ]]; then
+              echo "Refusing seed: no restricted-role connection credentials are configured." >&2
+              exit 1
+            fi
+            DATABASE_URL="$(node -e 'const u = new URL(process.env.DATABASE_ADMIN_URL); const role = process.env.APP_DB_ROLE_NAME || "tradeos_app"; if (!["postgres:", "postgresql:"].includes(u.protocol) || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(role) || role === decodeURIComponent(u.username) || role === "postgres") process.exit(1); u.username = role; u.password = process.env.APP_DB_ROLE_PASSWORD; process.stdout.write(u.toString());')"
+            export DATABASE_URL
           fi
           if [[ -n "${DATABASE_ADMIN_URL:-}" && "$DATABASE_URL" == "$DATABASE_ADMIN_URL" ]]; then
             echo "Refusing seed: DATABASE_URL resolves to the admin connection; use the restricted application role." >&2
