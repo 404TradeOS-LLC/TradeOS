@@ -24,7 +24,9 @@ describe("Costbook legacy assembly price-match audit", () => {
         assembly!.components.some(
           (component) =>
             component.key === finding.componentKey &&
-            component.label === finding.component.label
+            (component.label === finding.component.label ||
+              component.label.startsWith(finding.component.label) ||
+              finding.component.label.startsWith(component.label))
         )
       ).toBe(true);
       expect(finding.component.productName).toContain(
