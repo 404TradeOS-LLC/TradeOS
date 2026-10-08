@@ -45,10 +45,14 @@ export interface DavisBaconRate {
   identifierDate: string;
   /** Occupation/classification as printed, e.g. "ELECTRICIAN". */
   occupation: string;
-  /** Base hourly rate in dollars. */
+  /** Published base rate in dollars (some classifications use daily units). */
   baseRate: number;
-  /** Hourly fringe in dollars; null when the determination lists none. */
+  /** Published unit; never interpret a daily rate as an hourly wage. */
+  rateUnit: "hour" | "day";
+  /** Numeric fringe; null when missing or given as an unevaluated formula. */
   fringe: number | null;
+  /** Original unevaluated fringe expression, retained for review. */
+  fringeExpression?: string;
 }
 
 export interface DavisBaconDocument {
@@ -202,9 +206,9 @@ const HEADER_STATE_RE = /^State:\s*(.+)$/;
 const HEADER_TYPES_RE = /^Construction Types:\s*(.+)$/;
 const HEADER_COUNTIES_RE = /^Counties:\s*(.*)$/;
 /** e.g. " ELEC0153-006 06/08/2023" or " UAVGIN0010 01/17/2024" */
-const RATE_IDENTIFIER_RE = /^[A-Z0-9-]{4,16}\s+\d{2}\/\d{2}\/\d{4}$/;
+const RATE_IDENTIFIER_RE = /^\*?\s*[A-Z0-9-]{4,16}\s+\d{2}\/\d{2}\/\d{4}$/;
 /** e.g. "ELECTRICIAN.....$ 27.00  18.29" (fringe optional) */
-const RATE_LINE_RE = /^(.*?)\.{2,}\$\s*([\d,]+\.\d{2})\s*([\d,]+\.\d{2})?\s*$/;
+const RATE_LINE_RE = /^(.*?)\.{2,}\$\s*([\d,]+\.\d{2})(?:\s*\*+)?(?:\s+(.+?))?\s*$/;
 const RULE_LINE_RE = /^-{5,}$/;
 const RATES_HEADER_RE = /^\s*Rates\s+Fringes\s*$/;
 
@@ -237,6 +241,7 @@ function parseHeader(lines: string[]): Partial<DavisBaconDetermination> {
     match = HEADER_TYPES_RE.exec(line.trim());
     if (match) {
       header.constructionTypes = match[1]
+        .replace(/\band\b/gi, ",")
         .split(",")
         .map((part) => part.trim())
         .filter(isConstructionType);
@@ -308,7 +313,7 @@ function parseRateBlocks(
     if (identifierMatch) {
       const parts = line.split(/\s+/);
       current = {
-        identifier: parts[0],
+        identifier: parts[0].replace(/^\*/, ""),
         identifierDate: parts[parts.length - 1],
         rates: [],
       };
@@ -325,6 +330,10 @@ function parseRateBlocks(
         .replace(/\s+/g, " ")
         .trim();
       flushPending();
+      const publishedFringe = rateMatch[3]?.trim();
+      const numericFringe = publishedFringe && /^[\d,]+\.\d{2}$/.test(publishedFringe)
+        ? parseMoney(publishedFringe)
+        : null;
       current.rates.push({
         wdNumber,
         revisionNumber,
@@ -332,7 +341,11 @@ function parseRateBlocks(
         identifierDate: current.identifierDate,
         occupation,
         baseRate: parseMoney(rateMatch[2]),
-        fringe: rateMatch[3] !== undefined ? parseMoney(rateMatch[3]) : null,
+        rateUnit: /\b(?:per[\s-]+day|daily)\b|\/day\b/i.test(occupation) ? "day" : "hour",
+        fringe: numericFringe,
+        ...(publishedFringe && numericFringe === null
+          ? { fringeExpression: publishedFringe }
+          : {}),
       });
       continue;
     }
