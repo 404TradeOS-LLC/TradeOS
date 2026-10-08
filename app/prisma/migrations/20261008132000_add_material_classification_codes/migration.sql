@@ -9,3 +9,9 @@ alter table materials
     add column unspsc text;
 
 create index idx_materials_omniclass23 on materials (omniclass_23);
+
+-- Supplier-feed classifications are nullable and scoped through existing
+-- supplier_products org_id constraints. Older feed rows remain valid.
+alter table supplier_products
+    add column omniclass_23 text,
+    add column unspsc text;
