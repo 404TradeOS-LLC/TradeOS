@@ -76,6 +76,34 @@ describe("Costbook legacy assembly price-match audit", () => {
           component.productName.includes("Concrete Brick")
       )
     ).toBe(false);
+    expect(
+      trusted.some(
+        (component) =>
+          component.componentKey === "mat_concrete_3500_pier" &&
+          component.productName.includes("Quikrete 80 lb. Concrete Mix")
+      )
+    ).toBe(false);
+    expect(
+      trusted.some(
+        (component) =>
+          component.componentKey === "mat_flex_connectors_34_stainless" &&
+          component.productName.includes("Push-to-Connect Coupling")
+      )
+    ).toBe(false);
+    expect(
+      trusted.some(
+        (component) =>
+          component.componentKey === "mat_vent_pipe_pvc_sch40_kit" &&
+          component.productName.includes("Schedule 40 PVC Socket Tee")
+      )
+    ).toBe(false);
+    expect(
+      trusted.some(
+        (component) =>
+          component.componentKey === "mat_aggregate_subbase_crushed_stone" &&
+          component.productName.includes("#73 Limestone")
+      )
+    ).toBe(false);
   });
 
   it("retains compatible evidence next to rejected rows", () => {
