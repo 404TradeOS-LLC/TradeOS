@@ -713,8 +713,9 @@ approval or use a static source observation as a live quote.
 
 Existing supplier price review remains the only authorized path from an
 ABC price proposal to an updated Material unit cost. The ABC Price Items
-response client now discards returned rows unless their request-line ID and
-item number both match the outbound request. Only positive representable USD
+response client now rejects a mismatched provider response request ID and
+discards returned rows unless their request-line ID and item number match the
+outbound request. Only positive representable USD
 amounts with at most four decimal places reach proposals; unknown/non-USD/
 out-of-range prices fail closed. Existing HTTP queue approval endpoints and
 Estimate snapshots are unchanged.
