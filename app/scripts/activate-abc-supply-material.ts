@@ -154,7 +154,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
 
 const invokedDirectly =
   typeof process.argv[1] === "string" &&
-  /activate-abc-supply-material(\\.[cm]?[jt]s)?$/.test(process.argv[1]);
+  /activate-abc-supply-material(\.[cm]?[jt]s)?$/.test(process.argv[1]);
 if (invokedDirectly) {
   main()
     .catch((error) => {
