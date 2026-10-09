@@ -15,7 +15,7 @@ const actor = {
 jest.mock("../db/client", () => ({ basePrisma: mockDb, prisma: mockDb }));
 jest.mock("../db/requestSession", () => ({
   runWithBackgroundDatabaseSession: jest.fn(async (
-    _client: unknown, _input: unknown, action: (actor: typeof actor) => Promise<unknown>,
+    _client: unknown, _input: unknown, action: (sessionActor: typeof actor) => Promise<unknown>,
   ) => action(actor)),
 }));
 
@@ -35,7 +35,7 @@ const apply = [
 describe("ABC material activation operator workflow", () => {
   let logs: jest.SpyInstance;
   beforeEach(() => {
-    jest.resetAllMocks();
+    jest.clearAllMocks();
     actor.role = "owner";
     actor.permissions = ["costbook.manage"];
     logs = jest.spyOn(console, "log").mockImplementation();
