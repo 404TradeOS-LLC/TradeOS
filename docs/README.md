@@ -167,7 +167,10 @@ Decision records under `docs/decisions/` explain durable architectural choices.
 completion flows. Other files under `docs/agent-prompts/` are compatibility
 links or lane-specific additions and do not define parallel general contracts.
 
-## Documentation enforcement
+## Documentation
+
+**ABC Supply operator preview (2026-10-09):** The [read-only ABC Material preview workflow](../.github/workflows/preview-abc-supply-material.yml) accepts one verified tenant, owner/admin and supplier product key, uses the protected production Environment and restricted role, and prints a guarded preview only. It does **not** activate Materials or approve prices; see [ABC Supply live pricing pilot](operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md).
+ enforcement
 
 Documentation changes are enforced in the same branch and pull request as relevant code changes.
 
