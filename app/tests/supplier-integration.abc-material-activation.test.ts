@@ -70,6 +70,7 @@ describe("ABC single-material activation gates", () => {
   it("fails closed on missing identity, duplicate SKUs, missing evidence, and existing links", () => {
     for (const override of [
       { sku: null }, { purchaseUnit: null },
+      { sku: " 100012 " }, { purchaseUnit: " SQ " },
       { canonicalMaterialKey: null }, { isActive: false },
       { materialId: "already-linked" },
       { matchingSupplierProductCount: 2 },
