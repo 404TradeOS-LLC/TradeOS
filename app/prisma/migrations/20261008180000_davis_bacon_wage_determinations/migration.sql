@@ -5,7 +5,7 @@
 
 create table davis_bacon_determinations (
     id text primary key,
-    org_id text not null references organizations (id) on delete cascade,
+    org_id uuid not null references organizations (id) on delete cascade,
     wd_number text not null,
     revision_number integer not null,
     state text not null,
@@ -26,7 +26,7 @@ create index idx_davis_bacon_determinations_org_state
 
 create table davis_bacon_rates (
     id text primary key,
-    org_id text not null references organizations (id) on delete cascade,
+    org_id uuid not null references organizations (id) on delete cascade,
     determination_id text not null references davis_bacon_determinations (id) on delete cascade,
     wd_number text not null,
     revision_number integer not null,

@@ -101,6 +101,10 @@ const generationReviewViewer = "10000000-0000-0000-0000-000000000127";
 const generationTechnician = "10000000-0000-0000-0000-000000000128";
 const generationReviewTechnician = "10000000-0000-0000-0000-000000000129";
 const portalContractA = "10000000-0000-0000-0000-000000000206";
+const davisBaconDeterminationA = "rls-davis-bacon-determination-a";
+const davisBaconDeterminationB = "rls-davis-bacon-determination-b";
+const davisBaconRateA = "rls-davis-bacon-rate-a";
+const davisBaconRateB = "rls-davis-bacon-rate-b";
 
 describe("live organization row-level security", () => {
   beforeAll(async () => {
@@ -646,6 +650,52 @@ describe("live organization row-level security", () => {
         },
       ],
     });
+    await adminClient.davisBaconDetermination.createMany({
+      data: [
+        {
+          id: davisBaconDeterminationA,
+          orgId: orgA,
+          wdNumber: "IN20260050",
+          revisionNumber: 1,
+          state: "IN",
+          counties: ["Vigo"],
+          constructionTypes: ["Residential"],
+        },
+        {
+          id: davisBaconDeterminationB,
+          orgId: orgB,
+          wdNumber: "IN20260003",
+          revisionNumber: 2,
+          state: "IN",
+          counties: ["Vigo"],
+          constructionTypes: ["Building"],
+        },
+      ],
+    });
+    await adminClient.davisBaconRate.createMany({
+      data: [
+        {
+          id: davisBaconRateA,
+          orgId: orgA,
+          determinationId: davisBaconDeterminationA,
+          wdNumber: "IN20260050",
+          revisionNumber: 1,
+          rateIdentifier: "TEST-A",
+          occupation: "CARPENTER",
+          baseRate: 25,
+        },
+        {
+          id: davisBaconRateB,
+          orgId: orgB,
+          determinationId: davisBaconDeterminationB,
+          wdNumber: "IN20260003",
+          revisionNumber: 2,
+          rateIdentifier: "TEST-B",
+          occupation: "ELECTRICIAN",
+          baseRate: 30,
+        },
+      ],
+    });
   });
 
   afterAll(async () => {
@@ -666,6 +716,51 @@ describe("live organization row-level security", () => {
     });
 
     expect(row).toBeNull();
+  });
+
+  it("enforces Davis-Bacon determination and rate tenant boundaries", async () => {
+    const visibleDeterminations = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().davisBaconDetermination.findMany({ orderBy: { id: "asc" } })
+    );
+    expect(visibleDeterminations.map((row) => row.id)).toEqual([davisBaconDeterminationA]);
+
+    const visibleRates = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().davisBaconRate.findMany({ orderBy: { id: "asc" } })
+    );
+    expect(visibleRates.map((row) => row.id)).toEqual([davisBaconRateA]);
+
+    await expect(
+      inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().davisBaconDetermination.create({
+          data: {
+            id: "rls-davis-bacon-cross-org",
+            orgId: orgB,
+            wdNumber: "IN20990001",
+            revisionNumber: 1,
+            state: "IN",
+            counties: ["Vigo"],
+            constructionTypes: ["Building"],
+          },
+        })
+      )
+    ).rejects.toThrow();
+
+    await expect(
+      inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().davisBaconRate.create({
+          data: {
+            id: "rls-davis-bacon-viewer-write",
+            orgId: orgA,
+            determinationId: davisBaconDeterminationA,
+            wdNumber: "IN20260050",
+            revisionNumber: 1,
+            rateIdentifier: "TEST-VIEWER",
+            occupation: "LABORER",
+            baseRate: 20,
+          },
+        })
+      )
+    ).rejects.toThrow();
   });
 
   it("enforces regional supplier evidence tenant and manager boundaries", async () => {

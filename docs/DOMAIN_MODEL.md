@@ -51,6 +51,16 @@ These invariants are enforced in PostgreSQL as well as in application service be
 
 `public._prisma_migrations` is deployment control-plane state rather than application data. It remains writable by the Prisma migration administrator/table owner, has row-level security enabled, and is intentionally outside the runtime application role's table privileges.
 
+## Davis-Bacon wage determinations
+
+`DavisBaconDetermination` and `DavisBaconRate` store organization-scoped
+prevailing-wage reference data obtained from SAM.gov. Determinations are unique
+per `(orgId, wdNumber)` and own their rate rows. They are protected by forced
+row-level security: members can read only their organization’s records, while
+writes require the established application write capability. These rates are
+government-contract wage floors with source provenance; they are not open-market
+labor pricing.
+
 ## Customer
 
 A company-scoped account or homeowner record stored in `Customer`.
