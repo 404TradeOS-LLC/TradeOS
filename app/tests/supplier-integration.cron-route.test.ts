@@ -12,7 +12,7 @@ jest.mock("../backend/logging", () => ({
 }));
 
 import express from "express";
-import { MemoryStore } from "express-rate-limit";
+import { MemoryStore, type IncrementResponse, type Store } from "express-rate-limit";
 import request from "supertest";
 import { createSupplierPriceSyncCronRouter } from "../backend/routes/supplierPriceSyncCron.routes";
 
@@ -137,11 +137,23 @@ describe("supplier price sync Vercel cron route", () => {
   });
 
   it("fails closed when the shared rate-limit store is unavailable", async () => {
+    // express-rate-limit v8 validates the store at middleware construction:
+    // increment/decrement/resetKey must all be functions. The outage is
+    // simulated by a valid Store whose increment rejects; the middleware
+    // turns that into a 500 (passOnStoreError defaults to false) instead of
+    // letting the sync worker run unbounded.
+    class UnavailableSharedStore implements Store {
+      init(): void {}
+      async increment(_key: string): Promise<IncrementResponse> {
+        throw new Error("shared store unavailable");
+      }
+      async decrement(_key: string): Promise<void> {}
+      async resetKey(_key: string): Promise<void> {}
+    }
+
     const app = express();
     app.use("/api/cron", createSupplierPriceSyncCronRouter({
-      storeFactory: () => ({
-        increment: async () => { throw new Error("shared store unavailable"); },
-      }) as never,
+      storeFactory: () => new UnavailableSharedStore(),
     }));
 
     const response = await request(app)
