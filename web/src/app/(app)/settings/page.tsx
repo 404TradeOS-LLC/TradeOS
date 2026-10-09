@@ -5,7 +5,7 @@ import { SettingsConsole } from "@/components/settings/settings-console";
 import { getOrganizationSettings } from "@/lib/api";
 import { mergeTradeOsSettingsDraft } from "@/lib/settings";
 import { resolveSupplierWorkflowIdentity } from "@/lib/supplierWorkflowIdentity";
-import { getSession, getSessionToken } from "@/lib/session";
+import { getSessionToken } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Settings | TradeOS",
@@ -14,10 +14,8 @@ export const metadata: Metadata = {
 
 export default async function SettingsPage() {
   const token = await getSessionToken();
-  const [persisted, session] = token
-    ? await Promise.all([getOrganizationSettings(token), getSession()])
-    : [null, null];
-  const supplierWorkflowIdentity = resolveSupplierWorkflowIdentity(persisted, session?.email);
+  const persisted = token ? await getOrganizationSettings(token) : null;
+  const supplierWorkflowIdentity = resolveSupplierWorkflowIdentity(persisted);
   const gitCommit =
     process.env.VERCEL_GIT_COMMIT_SHA ??
     process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
