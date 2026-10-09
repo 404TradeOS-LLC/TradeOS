@@ -218,17 +218,21 @@ export class AbcSupplyPricingClient {
     }
     const parsed = priceResponseSchema.parse(await response.json());
     const requestedById = new Map(lines.map((l) => [l.id, l]));
-    return parsed.lines.map((l) => {
+    return parsed.lines.flatMap((l) => {
       const requested = requestedById.get(l.id);
-      return {
+      // Never trust a provider response row that cannot be attributed to an
+      // exact outbound line. Otherwise an unknown id plus a matching SKU can
+      // incorrectly quote another tenant Material in the review queue.
+      if (!requested) return [];
+      return [{
         id: l.id,
-        itemNumber: requested?.itemNumber ?? l.itemNumber,
-        quantity: requested?.quantity ?? 0,
+        itemNumber: requested.itemNumber,
+        quantity: requested.quantity,
         unitPrice: l.unitPrice,
         currencyCode: l.currency?.code ?? "USD",
         statusCode: l.status.code,
         statusMessage: l.status.message,
-      };
+      }];
     });
   }
 }
@@ -304,8 +308,10 @@ export function createAbcSupplyFeedFetcher(deps: AbcSupplyFeedDeps = {}): Suppli
       if (ambiguousSkus.has(line.itemNumber)) continue;
       const materialId = materialBySku.get(line.itemNumber);
       if (!materialId) continue;
-      if (line.statusCode !== "OK") continue;
-      if (!Number.isFinite(line.unitPrice) || line.unitPrice <= 0) continue;
+      if (line.statusCode !== "OK" || line.currencyCode !== "USD") continue;
+      // Material.unitCost is a 12,4 USD decimal; reject unsupported amounts
+      // rather than silently rounding or overflowing a reviewed proposal.
+      if (!Number.isFinite(line.unitPrice) || line.unitPrice <= 0 || line.unitPrice > 99_999_999.9999) continue;
       quotes.push({ materialId, proposedUnitCost: line.unitPrice });
     }
     return quotes;
