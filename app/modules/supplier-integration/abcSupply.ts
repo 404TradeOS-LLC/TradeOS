@@ -198,6 +198,7 @@ export class AbcSupplyPricingClient {
     signal?: AbortSignal,
   ): Promise<AbcPricedLine[]> {
     const token = await this.auth.getPricingToken(signal);
+    const requestId = opts.requestId ?? `tradeos-${randomUUID()}`;
     const response = await this.fetchFn(`${SANDBOX_API_BASE}${PRICING_PATH}`, {
       method: "POST",
       headers: {
@@ -205,7 +206,7 @@ export class AbcSupplyPricingClient {
         authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        requestId: opts.requestId ?? `tradeos-${randomUUID()}`,
+        requestId,
         shipToNumber: opts.shipToNumber,
         branchNumber: opts.branchNumber,
         purpose: "estimating",
@@ -217,6 +218,9 @@ export class AbcSupplyPricingClient {
       throw new Error(`ABC Supply Price Items request failed: HTTP ${response.status}`);
     }
     const parsed = priceResponseSchema.parse(await response.json());
+    if (parsed.requestId && parsed.requestId !== requestId) {
+      throw new Error("ABC Supply Price Items response requestId mismatch");
+    }
     const requestedById = new Map(lines.map((l) => [l.id, l]));
     return parsed.lines.flatMap((l) => {
       const requested = requestedById.get(l.id);
