@@ -90,6 +90,12 @@ export function validateAbcMaterialCandidate(
   if (!candidate.isActive || !sku || !unit || !candidate.canonicalMaterialKey?.trim()) {
     throw new Error("ABC supplier product needs active status, exact SKU, source unit, and governed canonical mapping");
   }
+  // Ingested SKUs are not guaranteed to be normalized. Refuse an ambiguous
+  // candidate rather than checking a whitespace-bearing raw SKU against the
+  // database and later creating a trimmed duplicate.
+  if (candidate.sku !== sku || candidate.purchaseUnit !== unit) {
+    throw new Error("ABC SKU or source unit has surrounding whitespace; review and normalize upstream");
+  }
   if (candidate.materialId || candidate.matchingMaterialCount > 0) {
     throw new Error("ABC SKU is already linked to a Material; refusing an automatic duplicate");
   }
