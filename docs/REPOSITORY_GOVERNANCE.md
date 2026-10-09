@@ -51,6 +51,11 @@ related_code:
 
 # Repository Governance
 
+## ABC supplier preview workflow security — 2026-10-09
+
+The manually dispatched `.github/workflows/preview-abc-supply-material.yml` is a production-scoped **read-only operator preview**, not permission to create a Material. It accepts exactly one reviewed ABC supplier product key and two validated UUID inputs. Its `production` Environment and restricted application database role are mandatory, and `runWithBackgroundDatabaseSession` checks active tenant owner/admin membership and `costbook.manage` without granting roles. It cannot accept `--apply`, initial costs, or approval confirmations. Protected approvals, branch governance and the separately authorized activation command remain intact. Log output is restricted to the existing operator's candidate summary; no database credential or OAuth token is echoed.
+
+
 The S027 Costbook evidence workflow shares the Beta Evidence concurrency group
 and runtime-authentication seam. It verifies a Ready non-production web
 deployment and its full commit through Vercel before and after capture, requires
