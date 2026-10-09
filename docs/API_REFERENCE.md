@@ -14,6 +14,20 @@ related_code:
 
 # API Reference
 
+## Settings workflow actor identity (2026-10-09)
+
+The existing authenticated `GET /api/v1/settings` response now includes
+`currentUserId`, the verified TradeOS `AppUser.id` from the request's
+authentication context, alongside its existing `orgId`, `currentRole`,
+`canManageWorkspace`, and `teamMembers`. This is an additive read-only
+response field; it does not add an unauthenticated identity endpoint.
+Settings → Costbook only exposes the supplier import workflow IDs if the
+backend reports owner/admin access and exactly one active owner/admin team
+member matches `currentUserId`. It does not use emails, membership IDs, or
+Supabase auth subjects as surrogate user IDs. The existing GitHub workflow
+still enforces the active owner/admin background session, restricted database
+credentials, and explicit production-seed confirmation.
+
 ## Namespace conventions
 
 The backend is mounted under `/api/v1`.
