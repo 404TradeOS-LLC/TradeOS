@@ -16,21 +16,28 @@ related_code:
 
 ## Observed production state (2026-10-09; read-only verification)
 
-On Supabase `404TradeOScostbook`, the active production tenant has six Supplier rows,
-510 SupplierProduct rows, 510 immutable SupplierPriceObservation rows, **zero
-Material rows**, and **zero SupplierPriceUpdate rows**. All 510 products and
-observations are from ABC Supply, source row numbers 1–510 of the checked-in
-`supplierPrices47802.ts` corpus, observed **2026-09-14**. Of these ABC products,
-165 carry an SKU; none is linked to a Material.
+After the governed 47802 supplier-evidence import, a direct production read
+reports **3,188 SupplierProduct rows** and **3,188 immutable
+SupplierPriceObservation rows** across six suppliers, all observations assigned
+to one organization, with no unscoped rows. ABC Supply has **584 supplier
+products** including **186 SKU-bearing rows**. The observation timestamps
+represent historical supplier evidence, **not** live sandbox pricing.
 
-The static dataset expects 584 ABC rows and 3,188 total rows across all six
-suppliers. The seed has not completed. These 510 observations are historical
-dataset evidence, **not** a verified live ABC pricing response.
+**Zero Material rows** and **zero SupplierPriceUpdate rows** remain. At
+15:45:56 UTC, the deployed production cron completed with HTTP 200,
+one scheduled job, `proposed: 0`, `skipped: 0`. This proves infrastructure
+dispatch but not a live ABC quote, OAuth rotation, or price-review write.
 
-The Vercel supplier cron successfully reached a one-job no-op previously;
-`status: ok, proposed: 0, skipped: 0` does **not** establish successful
-supplier pricing. The ABC fetcher loads active Material rows with an ABC
-supplier ID and an SKU; with zero such rows it never calls ABC Pricing.
+Both the TradeOS web and backend Vercel production deployments of merged
+PR #704, SHA `9492b484ace43db84e7697e6d96b6ff9dce80ff0`, are READY
+and aliased to `app.404tradeos.com` and `api.404tradeos.com`.
+
+A manually verified candidate for preview is product
+`ABC-654210`, supplier SKU `654210`, recorded source purchase unit
+`SQ`, and canonical key `ROOFING-UNDERLAYMENT-SYNTHETIC-STANDARD`.
+It has exactly one source observation and a unique SKU within the current
+ABC supplier product dataset. Neither stock-unit compatibility nor ABC
+sandbox pricing eligibility is certified by that static evidence.
 
 ## Finding the required workflow IDs
 
@@ -64,6 +71,17 @@ The workflow's **user** UUID is **not** the membership row UUID, Supabase Auth s
    approve or reject each pending update. Approval writes the MaterialPriceAudit
    and preserves existing Estimate snapshots.
 
+### Read-only preview from GitHub Actions (no CLI required)
+
+The manual [Preview one ABC Supply Material](../../.github/workflows/preview-abc-supply-material.yml)
+workflow can be run on `main` with `org_id`, `user_id` and the
+**exact** `product_key` (e.g. `ABC-654210`). It uses the production
+GitHub Environment, an RLS-restricted database role, input validation,
+and the unchanged operator's read-only path. It rejects an unauthorized,
+ambiguous or unobserved candidate. No `--apply` or cost input exists in
+this workflow, so no Material is created. Its passing preview is **not**
+permission to activate or evidence of a real ABC quote.
+
 ### Operator commands (run in `app/` with restricted `DATABASE_URL`)
 
 Preview — requires tenant and actor scope:
@@ -87,7 +105,7 @@ npm run costbook:activate-abc-material -- \
 
 Do not assume the ABC sandbox's stocking unit matches static retail
 `purchaseUnit`; check that mapping before using the proposed price. Do not
-promote 510/3,188 static prices as live prices, and never autoapprove ABC quotes.
+promote any of the 3,188 static observations as live prices, and never autoapprove ABC quotes.
 
 ## Verification gates before declaring live-price success
 
@@ -105,8 +123,8 @@ promote 510/3,188 static prices as live prices, and never autoapprove ABC quotes
 
 ## Still blocked / not claimed
 
-- Remaining 2,678 dataset observations (including 74 ABC rows): import
-  has not been verified complete.
+- 3,188/3,188 historical supplier evidence records are present, but the
+  protected import workflow's execution evidence is not attached to this document.
 - Zero Materials as of this snapshot: no automatic quote eligibility.
 - Vercel environment variable listing was forbidden to the connected actor
   (HTTP 403); no values were read, changed, or exposed.
