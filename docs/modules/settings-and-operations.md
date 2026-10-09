@@ -19,6 +19,19 @@ related_code:
 
 # Settings and Operations
 
+## Supplier evidence workflow identity helper (2026-10-09)
+
+In the authenticated **Settings → Costbook** workspace, an active owner/admin
+can copy the production 47802 GitHub supplier-evidence seed's tenant
+`orgId` and their own TradeOS application `currentUserId`. The latter is
+returned by `OrganizationSettingsService.getSettings` from the authenticated
+request context; the UI verifies it against the existing active owner/admin
+team-membership list. This intentionally does not infer identity from an email
+address or a membership row UUID. Missing, duplicated, or unauthorized actor
+records fail closed (no ID card). The UI does not create membership records,
+trigger the workflow, change Material prices, or bypass any RLS, review, or
+GitHub Actions approval gate.
+
 ## Purpose
 
 Own the organization settings control center, internal admin summaries, supplier records, supplier review operations, and the Settings-side compatibility surface for canonical Brand Studio data.
