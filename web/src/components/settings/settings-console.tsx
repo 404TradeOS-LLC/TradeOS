@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Command,
+  Copy,
   LoaderCircle,
   Save,
   Search,
@@ -37,6 +38,7 @@ import {
 } from "./settings-schema";
 
 interface SettingsConsoleProps {
+  supplierWorkflowIdentity: { orgId: string; userId: string } | null;
   initialDraft: TradeOsSettingsDraft;
   persistedSettingKeys: string[];
   initialWorkspaceData: {
@@ -109,7 +111,7 @@ function isDirtyDraft(current: TradeOsSettingsDraft, saved: TradeOsSettingsDraft
   return JSON.stringify(current) !== JSON.stringify(saved);
 }
 
-export function SettingsConsole({ initialDraft, persistedSettingKeys, initialWorkspaceData, developerMeta }: SettingsConsoleProps) {
+export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persistedSettingKeys, initialWorkspaceData, developerMeta }: SettingsConsoleProps) {
   const [draft, setDraft] = useState(initialDraft);
   const [savedDraft, setSavedDraft] = useState(initialDraft);
   const [persistedKeys, setPersistedKeys] = useState(() => new Set(persistedSettingKeys));
@@ -279,6 +281,15 @@ export function SettingsConsole({ initialDraft, persistedSettingKeys, initialWor
   const advancedSections = sections.filter((section) => !contractorSectionIds.includes(section.id as (typeof contractorSectionIds)[number]));
 
   const selectedSection = sections.find((section) => section.id === selectedSectionId) ?? sections[0];
+
+  async function copyWorkflowId(label: string, value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      showToast({ title: `${label} copied`, description: "Paste it into the GitHub supplier seed workflow.", tone: "success" });
+    } catch {
+      showToast({ title: "Could not copy", description: "Select the UUID below and copy it manually.", tone: "error" });
+    }
+  }
 
   function showToast(toast: Omit<ToastMessage, "id">) {
     const id = window.setTimeout(() => {
@@ -734,6 +745,45 @@ export function SettingsConsole({ initialDraft, persistedSettingKeys, initialWor
               </div>
               <a href="/costbook" className="shrink-0 font-medium text-primary underline-offset-4 hover:underline">Open Costbook</a>
             </div>
+          ) : null}
+
+          {selectedSection.id === "costbook" && supplierWorkflowIdentity ? (
+            <Card className="rounded-[24px] border-border/70">
+              <CardHeader>
+                <CardTitle>Supplier workflow IDs</CardTitle>
+                <CardDescription>
+                  Verified from your active TradeOS owner/admin session. GitHub requires the organization UUID and
+                  the application user UUID, not a membership ID or Supabase project ID.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {([
+                  ["Organization UUID", supplierWorkflowIdentity.orgId],
+                  ["Owner/admin user UUID", supplierWorkflowIdentity.userId],
+                ] as const).map(([label, value]) => (
+                  <div key={label} className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <code className="min-w-0 flex-1 select-all break-all rounded-lg border border-border bg-muted/40 p-3 text-xs text-foreground">
+                        {value}
+                      </code>
+                      <Button type="button" variant="outline" onClick={() => void copyWorkflowId(label, value)}>
+                        <Copy className="mr-2 size-4" aria-hidden="true" />
+                        Copy
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                <a
+                  href="https://github.com/404TradeOS-LLC/TradeOS/actions/workflows/seed-costbook-supplier-prices-47802.yml"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Open supplier import workflow <ArrowUpRight className="size-4" aria-hidden="true" />
+                </a>
+              </CardContent>
+            </Card>
           ) : null}
 
           {isPending ? (
