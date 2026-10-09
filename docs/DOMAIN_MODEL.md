@@ -283,6 +283,17 @@ C002 exposes the existing `Material` model through the unified Costbook boundary
 - material unit-cost changes continue to write `MaterialPriceAudit` rows for audit history, but C002 does not introduce a price-history engine or pricing calculations
 - a later follow-up (migration `20260912120000_add_material_active_state`) adds an `isActive` flag to `Material`, matching the C005 Division/Category/Subcategory and existing CostItem/LaborRate soft-delete pattern; deactivating a material (`DELETE /api/v1/costbook/materials/:id`, or a PATCH that sets `isActive`) requires `costbook.manage` and never deletes the row, preserving historical CostItem/Estimate references. `materials_write_policy` already restricted every material write to the `costbook.manage` boundary, so no RLS policy changed.
 
+## Supplier integration credential boundary
+
+Supplier OAuth credentials are operational secrets, not Costbook catalog entities.
+
+- the `Supplier` row keeps only its canonical integration identifier such as `ABC_SUPPLY`; rotated OAuth refresh tokens are not stored in `suppliers.api_integration_key`
+- migration `20261007031500_add_supplier_refresh_token_vault` creates a non-public `tradeos_private` helper boundary over Supabase Vault
+- ABC refresh-token reads/writes require the active organization/user session, an owner/admin membership, and an `ABC_SUPPLY` Supplier belonging to that organization
+- `tradeos_app` receives execute access to the private helpers but no direct read/write privileges on Vault secrets or decrypted-secret views
+- the environment refresh token remains a bootstrap/recovery value; provider rotations replace the durable Vault value before the pricing request continues
+- this credential boundary does not change Material costs, supplier price approval, Estimate pricing, or catalog identity semantics
+
 ## Costbook labor-rates foundation
 
 C003 exposes the existing `LaborRate` model through the unified Costbook boundary.

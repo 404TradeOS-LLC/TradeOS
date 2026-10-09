@@ -33,6 +33,7 @@ import { projectCustomerScopeRouter } from "./routes/projectCustomerScope.routes
 import { projectsRouter } from "./routes/projects.routes";
 import { changeOrdersRouter } from "./routes/changeOrders.routes";
 import { supplierIntegrationRouter } from "./routes/supplierIntegration.routes";
+import { supplierPriceSyncCronRouter } from "./routes/supplierPriceSyncCron.routes";
 import { organizationProvisioningRouter } from "./routes/organizationProvisioning.routes";
 import { authRouter } from "./routes/auth.routes";
 import { accountRouter } from "./routes/account.routes";
@@ -85,6 +86,10 @@ export function createServer() {
     const readiness = await checkReadiness();
     res.status(readiness.status === "ready" ? 200 : 503).json(readiness);
   });
+
+  // Vercel Cron uses a server-only bearer secret and does not enter the user-authenticated /api/v1 middleware.
+  // The handler itself re-enters the existing tenant-scoped background-session boundary for every configured job.
+  app.use("/api/cron", supplierPriceSyncCronRouter);
 
   app.use("/admin", adminUiRouter);
   app.use("/api/v1/platform", organizationProvisioningRouter);

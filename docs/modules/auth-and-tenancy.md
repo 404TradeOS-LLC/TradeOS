@@ -196,3 +196,7 @@ The former public fixture marker is no longer an authentication credential. The 
 
 Web/browser authentication bypass is retired. Preview browser certification must use the real login/session flow and prove the expected synthetic organization before storage state is retained. The staging-repair control provisions or reuses only its managed encrypted staging-branch backend secret, masks it in Actions, rebuilds the exact staging SHA, and passes the value only to the governed evidence process. Secret values must never appear in repository files, logs, or retained artifacts.
 
+
+## ABC Supplier token rotation and scoped transaction boundaries (October 2026)
+
+Authenticated request/background database sessions expose their already-validated actor only through scoped async-local context. Credential rotation requires that actor to be the same tenant's owner/admin; the SQL Vault function independently revalidates active membership and supplier ownership. The rotation helper starts and commits a separate `basePrisma` session instead of inheriting the pricing transaction proxy. If the Vault write fails, the provider quote flow stops before pricing; a subsequent pricing failure does not roll back an already-committed replacement refresh token. The Cron HTTP bearer token is *not* a tenant credential and grants no direct access to tenant data.
