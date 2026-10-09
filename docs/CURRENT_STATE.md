@@ -63,6 +63,20 @@ related_code:
 
 # TradeOS Current State
 
+## Authenticated supplier-workflow IDs — 2026-10-09
+
+TradeOS Settings → Costbook exposes the existing protected 47802 supplier-evidence
+workflow's organization UUID and **application** user UUID to signed-in owners/admins.
+The Settings API returns `currentUserId` from the verified backend authentication
+context; the UI verifies that this actor belongs to exactly one active owner/admin
+entry in the same tenant-scoped membership list before showing individual Copy
+controls. Email, membership UUID, Supabase auth subject, and Supabase project ID
+are never substituted. The panel fails closed for missing or ambiguous identities,
+and the underlying GitHub workflow still requires its production confirmation,
+restricted database role, and owner/admin RLS permissions. This UI does not seed
+observations, grant roles, or certify live ABC pricing.
+
+
 ## Supplier feed serverless activation — 2026-10-07
 
 The backend now has a Vercel-native supplier-price cron boundary at `GET /api/cron/supplier-price-sync`, scheduled daily by `app/vercel.json`. It is protected by `CRON_SECRET` plus a bounded IP rate limit, consumes only explicit `SUPPLIER_PRICE_SYNC_JOBS` targets, and reuses the existing membership-derived background database session and review-first supplier pricing flow.

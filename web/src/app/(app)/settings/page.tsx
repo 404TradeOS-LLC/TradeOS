@@ -4,6 +4,7 @@ import { CreditCard } from "lucide-react";
 import { SettingsConsole } from "@/components/settings/settings-console";
 import { getOrganizationSettings } from "@/lib/api";
 import { mergeTradeOsSettingsDraft } from "@/lib/settings";
+import { resolveSupplierWorkflowIdentity } from "@/lib/supplierWorkflowIdentity";
 import { getSessionToken } from "@/lib/session";
 
 export const metadata: Metadata = {
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
 export default async function SettingsPage() {
   const token = await getSessionToken();
   const persisted = token ? await getOrganizationSettings(token) : null;
+  const supplierWorkflowIdentity = resolveSupplierWorkflowIdentity(persisted);
   const gitCommit =
     process.env.VERCEL_GIT_COMMIT_SHA ??
     process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
@@ -31,6 +33,7 @@ export default async function SettingsPage() {
         </Link>
       </div>
       <SettingsConsole
+        supplierWorkflowIdentity={supplierWorkflowIdentity}
         initialDraft={mergeTradeOsSettingsDraft(persisted?.settings)}
         persistedSettingKeys={Object.keys(persisted?.settings ?? {})}
         initialWorkspaceData={{
