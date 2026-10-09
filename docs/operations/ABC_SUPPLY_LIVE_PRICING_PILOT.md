@@ -32,6 +32,12 @@ The Vercel supplier cron successfully reached a one-job no-op previously;
 supplier pricing. The ABC fetcher loads active Material rows with an ABC
 supplier ID and an SKU; with zero such rows it never calls ABC Pricing.
 
+## Finding the required workflow IDs
+
+In the authenticated TradeOS web app, an active owner/admin can open **Settings → Costbook → Supplier workflow IDs** to copy the actual organization UUID and application user UUID into the two GitHub Actions workflow inputs. The app resolves the user's ID only when exactly one active owner/admin membership matches the verified signed-in account. If it cannot resolve this safely, the copy card is absent and no identity is inferred.
+
+The workflow's **user** UUID is **not** the membership row UUID, Supabase Auth subject or Supabase project reference. Do not infer missing tenant membership from database table estimates: RLS or stale planner statistics can produce apparent zero-row counts. The existing workflow continues to validate operator inputs and active tenant permissions; copying IDs neither seeds data nor grants permissions.
+
 ## Separation of responsibilities
 
 1. Finish the existing idempotent six-supplier evidence workflow; do not run
