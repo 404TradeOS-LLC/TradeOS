@@ -83,10 +83,17 @@ describe("Canonical material classification codes", () => {
     const coverage = canonicalMaterialCodeCoverage(corpusKeys);
     expect(coverage.total).toBe(corpusKeys.length);
     expect(coverage.mapped + coverage.ambiguous + coverage.unmapped).toBe(coverage.total);
-    expect(coverage.mapped).toBeGreaterThanOrEqual(17);
-    expect(coverage.ambiguous).toBeGreaterThanOrEqual(7);
+    // The backfill added 397 rows to the map; 74 greenfield keys (framing/engineered)
+    // are not in the static corpus yet, so 267 count against corpus coverage.
+    expect(Object.keys(CANONICAL_MATERIAL_CODES).length).toBeGreaterThanOrEqual(425);
+    expect(coverage.mapped).toBeGreaterThanOrEqual(267);
+    // 267 mapped in-corpus = 20 from the PR #694 seed batch + 247 from the backfill.
+    expect(coverage.ambiguous).toBeGreaterThanOrEqual(83);
+    // 83 ambiguous in-corpus = 7 from the seed batch + 76 from the backfill (recorded, never merged).
     // First batch is roofing/exterior only — the vast majority stays unmapped.
-    expect(coverage.unmapped).toBeGreaterThan(coverage.total * 0.95);
+    // The five-family backfill (397 keys) dropped unmapped coverage below 95%;
+    // the bulk of the corpus is still unclassified and awaits the next family wave.
+    expect(coverage.unmapped).toBeGreaterThan(coverage.total * 0.8);
   });
 
   it("produces a deterministic, deduplicated backfill queue", () => {
