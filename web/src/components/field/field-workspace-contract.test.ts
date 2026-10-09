@@ -79,3 +79,39 @@ test("canonical field workspace does not advertise unconnected field capabilitie
   assert.doesNotMatch(page, /inventory/i);
   assert.doesNotMatch(page, /create or send an invoice.*button/i);
 });
+
+
+test("field mutations fail closed on missing auth, invalid transitions, and missing pause reasons", async () => {
+  const actions = await readSource("../../app/actions/field.ts");
+  assert.match(actions, /if \(!token\) return \{ error: "Authentication is required\." \}/);
+  assert.match(actions, /if \(!jobId \|\| !\(transition in TRANSITIONS\)\)/);
+  assert.match(actions, /transition === "pause" && !reason/);
+  assert.match(actions, /if \(!jobId \|\| !body\)/);
+  assert.match(actions, /body\.length > 5_000/);
+  assert.match(actions, /catch \(error\) \{[\s\S]*?Unable to update this job/);
+  assert.match(actions, /catch \(error\) \{[\s\S]*?Unable to save this note/);
+  assert.match(actions, /revalidatePath\("\/field"\)/);
+  assert.match(actions, /redirect\(`\/field\?job=/);
+});
+
+test("field job actions do not optimistically claim completion or billing handoff", async () => {
+  const controls = await readSource("./field-job-actions.tsx");
+  const note = await readSource("./field-note-form.tsx");
+  assert.match(controls, /disabled=\{pending\}/);
+  assert.match(controls, /state\?\.error/);
+  assert.match(controls, /job\.status === "on_site"/);
+  assert.match(controls, /\["completed", "cancelled"\]\.includes\(job\.status\)/);
+  assert.match(note, /disabled=\{pending\}/);
+  assert.match(note, /maxLength=\{5000\}/);
+  assert.doesNotMatch(controls, /Pay now|Invoice paid|Payment complete/i);
+});
+
+test("field route never trusts a caller-provided tenant or unscoped job list", async () => {
+  const page = await readSource("../../app/(app)/field/page.tsx");
+  const actions = await readSource("../../app/actions/field.ts");
+  assert.match(page, /settings\.currentRole !== "technician"/);
+  assert.match(page, /getFieldJob\(token, selectedId\)/);
+  assert.match(page, /resolveFieldJobMembership/);
+  assert.doesNotMatch(actions, /orgId\s*=\s*String\(formData/);
+  assert.doesNotMatch(actions, /organizationId\s*=\s*String\(formData/);
+});
