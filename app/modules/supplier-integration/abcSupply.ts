@@ -223,13 +223,13 @@ export class AbcSupplyPricingClient {
       // Never trust a provider response row that cannot be attributed to an
       // exact outbound line. Otherwise an unknown id plus a matching SKU can
       // incorrectly quote another tenant Material in the review queue.
-      if (!requested) return [];
+      if (!requested || l.itemNumber !== requested.itemNumber) return [];
       return [{
         id: l.id,
         itemNumber: requested.itemNumber,
         quantity: requested.quantity,
         unitPrice: l.unitPrice,
-        currencyCode: l.currency?.code ?? "USD",
+        currencyCode: l.currency?.code ?? "",
         statusCode: l.status.code,
         statusMessage: l.status.message,
       }];
@@ -312,6 +312,7 @@ export function createAbcSupplyFeedFetcher(deps: AbcSupplyFeedDeps = {}): Suppli
       // Material.unitCost is a 12,4 USD decimal; reject unsupported amounts
       // rather than silently rounding or overflowing a reviewed proposal.
       if (!Number.isFinite(line.unitPrice) || line.unitPrice <= 0 || line.unitPrice > 99_999_999.9999) continue;
+      if (Math.abs(line.unitPrice * 10_000 - Math.round(line.unitPrice * 10_000)) > 1e-6) continue;
       quotes.push({ materialId, proposedUnitCost: line.unitPrice });
     }
     return quotes;
