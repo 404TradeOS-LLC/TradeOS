@@ -693,3 +693,32 @@ ordinary scheduling and assignments but cannot override conflicts. Conflict
 checks and the subsequent mutation run under transaction-scoped,
 organization/technician-keyed PostgreSQL advisory locks so concurrent scheduling
 attempts cannot both pass the check for the same technician.
+
+
+## ABC Supply reviewed Material activation (operator-only, PR #701)
+
+No new HTTP API endpoint is introduced. The single-SKU onboarding entry point is an
+authenticated database operator command, not an API available to an external
+customer or unauthenticated client:
+
+`cd app && npm run costbook:activate-abc-material -- --org-id=<uuid> --user-id=<uuid> --product-key=<exact-key>`
+
+This command defaults to a read-only preview. Apply mode requires an active
+tenant owner/admin with `costbook.manage`, a separately approved positive
+initial unit cost, exact SKU/unit confirmations, the
+`ACTIVATE_ONE_ABC_MATERIAL` phrase, and `--apply`. It uses an RLS-backed
+session and creates one Material, an explicit SupplierProduct link, and an
+ActivityEvent audit atomically. It does **not** write a SupplierPriceUpdate
+approval or use a static source observation as a live quote.
+
+Existing supplier price review remains the only authorized path from an
+ABC price proposal to an updated Material unit cost. The ABC Price Items
+response client now rejects a mismatched provider response request ID and
+discards returned rows unless their request-line ID and item number match the
+outbound request. Only positive representable USD
+amounts with at most four decimal places reach proposals; unknown/non-USD/
+out-of-range prices fail closed. Existing HTTP queue approval endpoints and
+Estimate snapshots are unchanged.
+
+See `docs/operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md` for the complete
+runbook, explicit apply command and live-verification gates.

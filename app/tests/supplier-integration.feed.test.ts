@@ -227,8 +227,9 @@ describe("default supplier price feed (ABC routing)", () => {
         });
       }
       expect((init?.headers as Record<string, string>).authorization).toBe("Bearer abc-access-token");
+      const sent = JSON.parse(String(init?.body));
       return response({
-        requestId: "price-1",
+        requestId: sent.requestId,
         lines: [{
           id: "line-0",
           itemNumber: "SKU-1",

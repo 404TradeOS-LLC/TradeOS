@@ -159,3 +159,28 @@ Representative coverage includes:
 ## Last verified date
 
 2026-10-06
+
+
+## ABC Supply onboarding and scheduler operator controls (PR #701)
+
+Use `docs/operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md` for the live
+evidence checklist and manual activation procedure. The safe order is:
+finish the existing six-supplier restricted-role seed, verify the approved
+ABC product identity and stocking unit, preview one candidate via
+`npm run costbook:activate-abc-material`, then authorize exactly one
+activation with the requested source SKU/unit and independently approved
+initial cost. The command is **read-only unless `--apply` with exact
+acknowledgements and confirmation** is provided, and the worker identity
+must be an active tenant owner/admin with `costbook.manage`.
+
+The command creates no supplier quote or autoapproval. The existing
+`/api/cron/supplier-price-sync` route is separately protected by
+`CRON_SECRET`, tenant-scoped `SUPPLIER_PRICE_SYNC_JOBS`, the private
+Vault refresh-token store, and the established rate limit. Receiving HTTP
+200 with zero proposals is **not** proof the ABC provider was contacted;
+verify an actual accepted priced line, linked Material, tenant-scoped
+pending proposal, durable token rotation if one occurs, and unchanged
+Material unit cost until named reviewer approval. Do not expose Vault
+credentials, administrative database URLs, or token values in logs or
+operator examples. The static September 2026 supplier observations are
+not customer-specific live ABC prices.

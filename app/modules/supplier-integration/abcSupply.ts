@@ -198,6 +198,7 @@ export class AbcSupplyPricingClient {
     signal?: AbortSignal,
   ): Promise<AbcPricedLine[]> {
     const token = await this.auth.getPricingToken(signal);
+    const requestId = opts.requestId ?? `tradeos-${randomUUID()}`;
     const response = await this.fetchFn(`${SANDBOX_API_BASE}${PRICING_PATH}`, {
       method: "POST",
       headers: {
@@ -205,7 +206,7 @@ export class AbcSupplyPricingClient {
         authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        requestId: opts.requestId ?? `tradeos-${randomUUID()}`,
+        requestId,
         shipToNumber: opts.shipToNumber,
         branchNumber: opts.branchNumber,
         purpose: "estimating",
@@ -217,18 +218,25 @@ export class AbcSupplyPricingClient {
       throw new Error(`ABC Supply Price Items request failed: HTTP ${response.status}`);
     }
     const parsed = priceResponseSchema.parse(await response.json());
+    if (parsed.requestId && parsed.requestId !== requestId) {
+      throw new Error("ABC Supply Price Items response requestId mismatch");
+    }
     const requestedById = new Map(lines.map((l) => [l.id, l]));
-    return parsed.lines.map((l) => {
+    return parsed.lines.flatMap((l) => {
       const requested = requestedById.get(l.id);
-      return {
+      // Never trust a provider response row that cannot be attributed to an
+      // exact outbound line. Otherwise an unknown id plus a matching SKU can
+      // incorrectly quote another tenant Material in the review queue.
+      if (!requested || l.itemNumber !== requested.itemNumber) return [];
+      return [{
         id: l.id,
-        itemNumber: requested?.itemNumber ?? l.itemNumber,
-        quantity: requested?.quantity ?? 0,
+        itemNumber: requested.itemNumber,
+        quantity: requested.quantity,
         unitPrice: l.unitPrice,
-        currencyCode: l.currency?.code ?? "USD",
+        currencyCode: l.currency?.code ?? "",
         statusCode: l.status.code,
         statusMessage: l.status.message,
-      };
+      }];
     });
   }
 }
@@ -304,8 +312,11 @@ export function createAbcSupplyFeedFetcher(deps: AbcSupplyFeedDeps = {}): Suppli
       if (ambiguousSkus.has(line.itemNumber)) continue;
       const materialId = materialBySku.get(line.itemNumber);
       if (!materialId) continue;
-      if (line.statusCode !== "OK") continue;
-      if (!Number.isFinite(line.unitPrice) || line.unitPrice <= 0) continue;
+      if (line.statusCode !== "OK" || line.currencyCode !== "USD") continue;
+      // Material.unitCost is a 12,4 USD decimal; reject unsupported amounts
+      // rather than silently rounding or overflowing a reviewed proposal.
+      if (!Number.isFinite(line.unitPrice) || line.unitPrice <= 0 || line.unitPrice > 99_999_999.9999) continue;
+      if (Math.abs(line.unitPrice * 10_000 - Math.round(line.unitPrice * 10_000)) > 1e-6) continue;
       quotes.push({ materialId, proposedUnitCost: line.unitPrice });
     }
     return quotes;
