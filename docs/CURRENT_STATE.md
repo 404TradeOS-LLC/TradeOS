@@ -891,9 +891,30 @@ This slice does not add QBO, ABC, 1build, retail scraping, automatic price appli
 
 ## Costbook normalization: NAHB phases + material classification codes — 2026-10-08
 
-Founder-approved Costbook normalization slice (branch `feat/costbook-nahb-material-classification`, PR-only; migration included so merge needs founder decision per repo policy):
+Merged PR #694 (`fd1e6479968fe890db2e9ffedef0af41c11e6827`) established the founder-approved Costbook normalization and nullable material-code contract. Runtime migration deployment and tenant backfill remain separate verification boundaries:
 
 - All 88 `TradeosAssembly` entries now carry `nahbPhase` (`"1000"`–`"6000"`, NAHB job-cost build sequence) alongside the preserved `csiDivision`; new `tradeosAssembliesByNahbPhase` helper and `NAHB_PHASE_TITLES`/`isNahbPhase` in `app/modules/costbook/tradeosAssemblies.ts`. Distribution: 13/11/10/16/38 across phases 1000–5000; 6000 intentionally empty (completion/inspection is not assembly work).
 - Migration `20261008132000_add_material_classification_codes` adds nullable `omniclass_23` and `unspsc` to `materials` plus an index; no NOT NULL, no backfill, existing import/pricing paths untouched. Material create/update/bulk-import accept both codes and the DTO returns them (`unspsc` validated as 8-digit at the API boundary).
 - New `app/modules/costbook/canonicalMaterialCodes.ts`: `CANONICAL_MATERIAL_CODES` keyed by static-corpus `canonicalKey` with mapped/ambiguous/unmapped statuses, provenance, deterministic backfill queue, and coverage helpers. Verified coverage is deliberately progressive: 17 roofing/exterior materials use UNSPSC Codeset v8.1201 (e.g. shingles → `30151508`, siding → `30151802`, gutters → `30151703`), plus three governed untreated SPF 2×4 framing-stud keys use `30103605` (`Wood planks`) from the published UNSPSC v17.1001 detailed list. Treated, engineered, and otherwise ambiguous lumber remains unmapped; 7 roofing/exterior entries remain explicitly ambiguous and never silently merge. OmniClass 23 codes are pending verification against the CSI publication.
 - Classification-assisted matching in `canonicalProductMatcher.ts`: supplier-carried UNSPSC/OmniClass codes confirm an already-strong text match, narrow weak matches to human review, and downgrade code conflicts to human review (duplicate/misattribution prevention). With no codes present, matcher behavior is byte-identical to before.
+
+
+### Material classification visibility in Costbook Materials — PR #696
+
+The bounded web UI slice adds nullable `omniclass23` and `unspsc` fields to
+the web Material DTO, then renders stored codes in the existing
+`MaterialsCatalog` on both desktop and mobile through
+`MaterialClassification`. A Material with at least one populated code shows
+"Classification codes recorded"; with both code fields explicitly absent (null) it shows "Classification
+unmapped"; if either field is missing from an older API response and no
+other recorded code is available, it shows "Classification unavailable".
+None of these labels means the product identity, supplier price, source
+publication, or unit conversion has been verified. Supplier/date evidence
+continues to use the existing `PricingProvenance` component.
+
+This is read-only. Material create/edit requests, organization permission
+checks, supplier price review, pricing engine, and estimate snapshots are
+unchanged. The web type accepts missing code fields during phased runtime
+rollout. Live migration/backfill, authenticated responsive browser evidence,
+and hosted checks require separate verification; the Figma target designs do
+not establish backend capability.
