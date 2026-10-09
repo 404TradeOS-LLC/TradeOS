@@ -21,7 +21,9 @@ function tokenResponse(overrides: Record<string, unknown> = {}) {
 }
 
 function priceResponse(lines: unknown[]) {
-  return { requestId: "r1", lines };
+  // The provider request ID is optional; a dedicated regression below
+  // verifies that a present but mismatched ID fails closed.
+  return { lines };
 }
 
 function okLine(id: string, unitPrice: number) {
