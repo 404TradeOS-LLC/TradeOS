@@ -482,6 +482,22 @@ describe("ABC quote response attribution and currency safety", () => {
     })]);
   });
 
+  it("rejects a stale provider request ID before attributing any price", async () => {
+    const auth = { getPricingToken: jest.fn(async () => "token") } as unknown as AbcSupplyAuth;
+    const fetchFn = jest.fn(async () => ({
+      ok: true, status: 200,
+      json: async () => ({
+        requestId: "other-request",
+        lines: [{ ...okLine("line-0", 42), itemNumber: "SKU-1" }],
+      }),
+    }) as Response);
+    const pricing = new AbcSupplyPricingClient(auth, fetchFn as unknown as typeof fetch);
+    await expect(pricing.priceItems(
+      [{ id: "line-0", itemNumber: "SKU-1", quantity: 1 }],
+      { branchNumber: "340", shipToNumber: "2010466-2", requestId: "expected-request" },
+    )).rejects.toThrow("requestId mismatch");
+  });
+
   it("does not propose unknown, non-USD, unrepresentable, or overprecision amounts", async () => {
     const priceLines = [
       { id: "line-0", itemNumber: "SKU-1", quantity: 1, unitPrice: 22, currencyCode: "EUR", statusCode: "OK", statusMessage: "priced" },
