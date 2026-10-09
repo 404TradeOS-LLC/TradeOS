@@ -90,9 +90,9 @@ jobs:
           fi
           # Intentionally no --apply, --approved-unit-cost, or --confirmation input.
           npx ts-node scripts/activate-abc-supply-material.ts \
-            --org-id "$ORG_ID" \
-            --user-id "$USER_ID" \
-            --product-key "$PRODUCT_KEY" | tee /tmp/abc-material-preview.log
+            --org-id="$ORG_ID" \
+            --user-id="$USER_ID" \
+            --product-key="$PRODUCT_KEY" | tee /tmp/abc-material-preview.log
           {
             echo "## ABC Supply material preview — no writes"
             echo
