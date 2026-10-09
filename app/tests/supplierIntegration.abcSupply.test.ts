@@ -240,7 +240,7 @@ describe("AbcSupplyPricingClient", () => {
 
   it("posts to the sandbox Price Items endpoint with purpose estimating", async () => {
     const { pricing, seen } = pricingTestSetup((body) =>
-      priceResponse([okLine(body.lines[0].id, 135.36)]),
+      priceResponse([{ ...okLine(body.lines[0].id, 135.36), itemNumber: body.lines[0].itemNumber }]),
     );
     const priced = await pricing.priceItems([{ id: "line-0", itemNumber: "02GASTZ3WW", quantity: 1 }], {
       branchNumber: "579",
@@ -308,7 +308,7 @@ describe("AbcSupplyPricingClient", () => {
 
   it("batches more than 50 lines into separate requests", async () => {
     const { pricing, seen } = pricingTestSetup((body) =>
-      priceResponse(body.lines.map((l: any) => okLine(l.id, 10))),
+      priceResponse(body.lines.map((l: any) => ({ ...okLine(l.id, 10), itemNumber: l.itemNumber }))),
     );
     const lines = Array.from({ length: 51 }, (_, i) => ({
       id: `line-${i}`,
@@ -449,6 +449,51 @@ describe("createAbcSupplyFeedFetcher", () => {
     // dropped rather than pricing the wrong material.
     await expect(fetcher("sup-1", "org-1")).resolves.toEqual([
       { materialId: "mat-c", proposedUnitCost: 42 },
+    ]);
+  });
+});
+
+describe("ABC quote response attribution and currency safety", () => {
+  const config = {
+    clientId: "cid", clientSecret: "secret", refreshToken: "refresh",
+    branchNumber: "340", shipToNumber: "2010466-2",
+  };
+
+  it("rejects provider lines with unknown response IDs or mismatched item numbers", async () => {
+    const auth = { getPricingToken: jest.fn(async () => "user-token") } as unknown as AbcSupplyAuth;
+    const fetchFn = jest.fn(async () => ({
+      ok: true, status: 200,
+      json: async () => ({
+        lines: [
+          { ...okLine("unrequested", 99), itemNumber: "SKU-1" },
+          { ...okLine("line-0", 123), itemNumber: "OTHER-SKU" },
+          { ...okLine("line-0", 42), itemNumber: "SKU-1" },
+        ],
+      }),
+    }) as Response);
+    const pricing = new AbcSupplyPricingClient(auth, fetchFn as unknown as typeof fetch);
+    await expect(pricing.priceItems(
+      [{ id: "line-0", itemNumber: "SKU-1", quantity: 1 }],
+      { branchNumber: "340", shipToNumber: "2010466-2" },
+    )).resolves.toEqual([expect.objectContaining({
+      id: "line-0", itemNumber: "SKU-1", unitPrice: 42,
+    })]);
+  });
+
+  it("does not propose unknown, non-USD, unrepresentable, or overprecision amounts", async () => {
+    const priceLines = [
+      { id: "line-0", itemNumber: "SKU-1", quantity: 1, unitPrice: 22, currencyCode: "EUR", statusCode: "OK", statusMessage: "priced" },
+      { id: "line-1", itemNumber: "SKU-2", quantity: 1, unitPrice: 4.12345, currencyCode: "USD", statusCode: "OK", statusMessage: "priced" },
+      { id: "line-2", itemNumber: "SKU-3", quantity: 1, unitPrice: 100_000_000, currencyCode: "USD", statusCode: "OK", statusMessage: "priced" },
+      { id: "line-3", itemNumber: "SKU-4", quantity: 1, unitPrice: 43.25, currencyCode: "USD", statusCode: "OK", statusMessage: "priced" },
+    ];
+    const fetcher = createAbcSupplyFeedFetcher({
+      config,
+      loadMaterials: async () => priceLines.map((p, i) => ({ id: `material-${i}`, sku: p.itemNumber })),
+      pricing: { priceItems: jest.fn(async () => priceLines) } as unknown as AbcSupplyPricingClient,
+    });
+    await expect(fetcher("abc-supplier", "org-1")).resolves.toEqual([
+      { materialId: "material-3", proposedUnitCost: 43.25 },
     ]);
   });
 });
