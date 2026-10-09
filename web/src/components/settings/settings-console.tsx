@@ -767,7 +767,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                       <code className="min-w-0 flex-1 select-all break-all rounded-lg border border-border bg-muted/40 p-3 text-xs text-foreground">
                         {value}
                       </code>
-                      <Button type="button" variant="outline" onClick={() => void copyWorkflowId(label, value)}>
+                      <Button type="button" variant="outline" aria-label={`Copy ${label}`} onClick={() => void copyWorkflowId(label, value)}>
                         <Copy className="mr-2 size-4" aria-hidden="true" />
                         Copy
                       </Button>
