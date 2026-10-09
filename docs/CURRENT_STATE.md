@@ -919,3 +919,34 @@ unchanged. The web type accepts missing code fields during phased runtime
 rollout. Live migration/backfill, authenticated responsive browser evidence,
 and hosted checks require separate verification; the Figma target designs do
 not establish backend capability.
+
+
+## ABC Supply SKU onboarding / live-price evidence (PR #701, 2026-10-09)
+
+Branch `feat/abc-supply-reviewed-material-pilot` proposes a single-product,
+operator-reviewed ABC SupplierProduct → Material activation. The operator defaults
+to read-only; any mutation requires a validated active owner/admin Costbook
+membership, exact product-key/SKU/unit acknowledgements, a separate explicitly
+approved baseline price, and an atomic audit/linking transaction. The existing
+supplier-worker review queue, rather than automatic price mutation, remains
+authoritative. ABC Price Items response lines are additionally checked for
+known request ID, matching SKU, USD denomination and representable precision.
+
+**Production database read-only evidence, 2026-10-09:** six Supplier rows,
+510 SupplierProducts, 510 SupplierPriceObservations, zero Materials, zero
+SupplierPriceUpdates. All 510 observations are ABC Supply **static 2026-09-14
+source data**, occupying source rows 1–510; 165 ABC products carry SKUs and none
+is linked to a Material. The complete checked-in dataset expects 584 ABC /
+3,188 total products. The governed bulk seed is therefore incomplete. A
+successful supplier cron with `proposed: 0` does not prove ABC Pricing was
+contacted. No new token refresh, real ABC quote, seed, Material write, queue
+approval or production deployment was performed for PR #701.
+
+Pending after code review: finish idempotent restricted-role import and verify
+3,188 records; manually select one genuinely sandbox-quotable SKU and independently
+approved baseline cost; verify unit compatibility; run explicit single-product
+activation; trigger protected cron; check for an attributed, tenant-scoped
+**pending** proposal and provider token continuity; have a human review before
+any Material update. Vercel environment listing returned HTTP 403 in this
+inspection, so configuration completeness was not independently verified.
+See `docs/operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md`.
