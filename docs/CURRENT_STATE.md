@@ -68,8 +68,8 @@ related_code:
 The existing cron/Price Items integration still cannot contact ABC
 with zero SKU-linked active Materials. A new authenticated,
 owner/admin-only `POST /api/v1/supplier-integrations/abc/price-probe`
-and Settings → Costbook button permit **one** reviewed supplier SKU
-(`ABC-654210`) to be quoted directly against the sandbox **without**
+and Settings → Costbook button permit **one server-allowlisted** reviewed supplier SKU
+(`ABC-654210`) to be quoted directly, even after verified Material activation, against the sandbox **without**
 creating any Material or price-update proposal. Both paths share
 the existing durable Vault token-rotation helper; no production ABC
 token or provider quote has been verified merely by adding this code.
