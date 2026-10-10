@@ -30,12 +30,13 @@ SupplierPriceUpdate is inserted and no UnitCost is applied.
 
 Response includes `supplierProductKey`, `sku`, `sourcePurchaseUnit`,
 `priced`, `price` (nullable), `currency`, `providerStatus`, plus
-explicit `providerStockingUnitVerified:false`,
-`materialCreated:false`, and `priceApplied:false`. A returned price
-must be positive, finite, four-decimal USD with ABC status OK. The
-source purchase unit is **not** provider stocking-UOM evidence;
-operator must check ABC stock unit and review a baseline before
-enabling the normal Material-linked review-first sync.
+`providerStockingUnit` (actual ABC response UOM or null),
+`providerStockingUnitVerified` (true only when that provider UOM matches the
+historical purchase unit), `materialCreated:false`, and `priceApplied:false`.
+A returned price must be positive, finite, four-decimal USD with ABC status OK.
+The source unit alone is not provider evidence. Missing or mismatched UOM
+cannot enter the Material price-update queue; a separate operator approval
+is still required for an initial Material unit cost.
 
 
 ## Settings workflow actor identity (2026-10-09)
