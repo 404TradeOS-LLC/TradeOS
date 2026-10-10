@@ -69,8 +69,8 @@ function starter(overrides: Partial<StarterCatalogTemplate> = {}): StarterCatalo
 
 const starterFixtures: StarterCatalogTemplate[] = [
   starter(),
-  starter({ id: "deck", code: "06 15 00-TOS-002", name: "Deck framing", description: "Outdoor deck", unitOfMeasure: "SF", csiDivision: "06", csiTitle: "Wood, Plastics, and Composites", nahbGroup: "Outdoor living", trade: "Carpentry" }),
-  starter({ id: "paint", code: "09 91 23-TOS-003", name: "Interior painting", description: "Interior walls", unitOfMeasure: "SF", csiDivision: "09", csiTitle: "Finishes", nahbGroup: "Interior finishes", trade: "Painting" }),
+  starter({ id: "deck", code: "06 15 00-TOS-002", name: "Deck framing", description: "Outdoor deck", unitOfMeasure: "SF", csiDivision: "06", csiTitle: "Wood, Plastics, and Composites", nahbGroup: "Outdoor living", trade: "Carpentry", measurementBasis: "Deck area in SF" }),
+  starter({ id: "paint", code: "09 91 23-TOS-003", name: "Interior painting", description: "Interior walls", unitOfMeasure: "SF", csiDivision: "09", csiTitle: "Finishes", nahbGroup: "Interior finishes", trade: "Painting", measurementBasis: "Painted wall area in SF" }),
   starter({ id: "underlayment", code: "07 31 13-TOS-004", name: "Roof underlayment", description: "Rolls under shingles", unitOfMeasure: "SQ", csiDivision: "07", csiTitle: "Thermal and Moisture Protection", nahbGroup: "Exterior shell", trade: "Roofing" }),
 ];
 const installed = new Set(["07 31 13-TOS-001", "06 15 00-TOS-002"]);
