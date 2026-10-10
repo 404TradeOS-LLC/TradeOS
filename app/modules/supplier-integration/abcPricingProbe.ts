@@ -85,11 +85,11 @@ export async function probeAbcSandboxPricing(
     if (message === "ABC sandbox credentials are not configured") {
       throw new ApiError(503, "ABC sandbox credentials are not configured on the API");
     }
-    const oauth = /^ABC Supply token refresh failed: HTTP (\\d{3})$/.exec(message);
+    const oauth = /^ABC Supply token refresh failed: HTTP (\d{3})$/.exec(message);
     if (oauth) {
       throw new ApiError(502, `ABC sandbox OAuth rejected the refresh (HTTP ${oauth[1]}). Reauthorize ABC pricing access.`);
     }
-    const priceHttp = /^ABC Supply Price Items request failed: HTTP (\\d{3})$/.exec(message);
+    const priceHttp = /^ABC Supply Price Items request failed: HTTP (\d{3})$/.exec(message);
     if (priceHttp) {
       throw new ApiError(502, `ABC sandbox pricing returned HTTP ${priceHttp[1]}. Verify SKU and sandbox branch/ship-to access.`);
     }
