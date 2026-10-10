@@ -793,8 +793,8 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                 {abcProbe.state === "complete" ? (
                   <div role="status" className="rounded-lg border border-border p-3 text-sm">
                     {abcProbe.priced && abcProbe.price !== null
-                      ? `Sandbox returned $\${abcProbe.price.toFixed(4)} USD for SKU \${abcProbe.sku}.`
-                      : `No eligible priced line for SKU \${abcProbe.sku} (provider status: \${abcProbe.providerStatus}).`}
+                      ? `Sandbox returned ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(abcProbe.price)} for SKU ${abcProbe.sku}.`
+                      : `No eligible priced line for SKU ${abcProbe.sku} (provider status: ${abcProbe.providerStatus}).`}
                     <p className="mt-2 text-muted-foreground">
                       ABC stocking unit is not verified. No price was saved or approved.
                     </p>
