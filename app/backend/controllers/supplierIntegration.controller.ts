@@ -23,7 +23,7 @@ const enqueueSchema = z.object({
 }).strict();
 
 const abcProbeSchema = z.object({
-  productKey: z.string().trim().min(1).max(100).regex(/^[a-zA-Z0-9:_-]+$/),
+  productKey: z.literal("ABC-654210"),
 }).strict();
 
 export const supplierIntegrationController = {
