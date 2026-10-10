@@ -63,6 +63,20 @@ related_code:
 
 # TradeOS Current State
 
+## ABC sandbox connection probe — 2026-10-09
+
+The existing cron/Price Items integration still cannot contact ABC
+with zero SKU-linked active Materials. A new authenticated,
+owner/admin-only `POST /api/v1/supplier-integrations/abc/price-probe`
+and Settings → Costbook button permit **one server-allowlisted** reviewed supplier SKU
+(`ABC-654210`) to be quoted directly, even after verified Material activation, against the sandbox **without**
+creating any Material or price-update proposal. Both paths share
+the existing durable Vault token-rotation helper; no production ABC
+token or provider quote has been verified merely by adding this code.
+The response does not certify stock UOM. The governed approval and
+existing Estimate snapshots remain unchanged.
+
+
 ## Authenticated supplier-workflow IDs — 2026-10-09
 
 TradeOS Settings → Costbook exposes the existing protected 47802 supplier-evidence

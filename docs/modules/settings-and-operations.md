@@ -19,6 +19,26 @@ related_code:
 
 # Settings and Operations
 
+## ABC Supply sandbox connection test (2026-10-09)
+
+Settings → Costbook has a guarded **Test ABC connection** button for the
+single reviewed `ABC-654210` supplier SKU. It sends an authenticated,
+tenant-scoped request to `POST /api/v1/supplier-integrations/abc/price-probe`
+using the existing same-origin API proxy; it never collects, displays or
+ships ABC tokens to the browser. Backend access requires both an active
+owner/admin role and `costbook.manage`.
+
+The operator probe validates one active supplier product, exact unique
+SKU, canonical mapping, nonzero observation and either an unlinked
+product or exactly one linked Material verified in the same tenant and supplier,
+then makes a sandbox price request using the same durable Vault rotation
+helper as scheduled sync. It can report a positive USD price or a
+provider failure/status; its source purchase unit is explicitly **not**
+evidence of ABC stocking unit. No Materials, SupplierPriceUpdates,
+MaterialPriceAudits or Estimate prices are written. Do not approve
+or activate an initial Material baseline solely from this response.
+
+
 ## Supplier evidence workflow identity helper (2026-10-09)
 
 In the authenticated **Settings → Costbook** workspace, an active owner/admin

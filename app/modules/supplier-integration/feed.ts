@@ -68,31 +68,54 @@ export interface DefaultSupplierFeedDeps {
 /** Deadline applied to the ABC Supply sandbox route, matching the generic endpoint fetcher. */
 const ABC_FEED_TIMEOUT_MS = 15_000;
 
+/** Read-only single-SKU sandbox quote. Uses the SAME durable Vault rotation path as cron. */
+export async function priceOneAbcSandboxSku(
+  orgId: string,
+  supplierId: string,
+  sku: string,
+): Promise<import("./abcSupply").AbcPricedLine[]> {
+  const config = loadAbcSupplyConfig();
+  if (!config) throw new Error("ABC sandbox credentials are not configured");
+  if (process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID?.trim() !== supplierId) {
+    throw new Error("ABC sandbox supplier does not match configured tenant supplier");
+  }
+  const { authConfig, auth } = await createDurableAbcAuth(config, orgId, supplierId);
+  const pricing = new AbcSupplyPricingClient(auth, fetch);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ABC_FEED_TIMEOUT_MS);
+  try {
+    return await pricing.priceItems(
+      [{ id: "review-0", itemNumber: sku, quantity: 1 }],
+      { branchNumber: authConfig.branchNumber, shipToNumber: authConfig.shipToNumber },
+      controller.signal,
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function createDurableAbcAuth(
+  config: NonNullable<ReturnType<typeof loadAbcSupplyConfig>>,
+  orgId: string,
+  supplierId: string,
+) {
+  const durableRefreshToken = await abcSupplyRefreshTokenStore.load(orgId, supplierId);
+  const authConfig = { ...config, refreshToken: durableRefreshToken ?? config.refreshToken };
+  const auth = new AbcSupplyAuth(authConfig, fetch, Date.now, {
+    onRefreshTokenRotated: async (next) => {
+      await abcSupplyRefreshTokenStore.persist(orgId, supplierId, next);
+      logInfo("supplier_integration.abc_refresh_token_rotated", { orgId, supplierId, persisted: true });
+    },
+  });
+  return { authConfig, auth };
+}
+
 function buildAbcFetcher(): SupplierFeedFetcher {
   return async (supplierId, orgId) => {
     const config = loadAbcSupplyConfig();
     if (!config) return [];
 
-    // The environment token is bootstrap/recovery configuration only. Once
-    // ABC rotates it, the durable Vault value wins on every invocation so a
-    // Vercel cold start cannot resurrect an invalidated token.
-    const durableRefreshToken = await abcSupplyRefreshTokenStore.load(orgId, supplierId);
-    const authConfig = {
-      ...config,
-      refreshToken: durableRefreshToken ?? config.refreshToken,
-    };
-    const auth = new AbcSupplyAuth(authConfig, fetch, Date.now, {
-      onRefreshTokenRotated: async (next) => {
-        // Persist before pricing continues. If durability fails, fail the sync
-        // rather than consume a one-time rotation and lose the replacement.
-        await abcSupplyRefreshTokenStore.persist(orgId, supplierId, next);
-        logInfo("supplier_integration.abc_refresh_token_rotated", {
-          orgId,
-          supplierId,
-          persisted: true,
-        });
-      },
-    });
+    const { authConfig, auth } = await createDurableAbcAuth(config, orgId, supplierId);
     const pricing = new AbcSupplyPricingClient(auth, fetch);
 
     const controller = new AbortController();
