@@ -122,6 +122,11 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
   const [isPending, startTransition] = useTransition();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [uploadingAssetKeys, setUploadingAssetKeys] = useState<Set<string>>(new Set());
+  const [abcProbe, setAbcProbe] = useState<
+    | { state: "idle" | "testing" }
+    | { state: "complete"; sku: string; priced: boolean; price: number | null; providerStatus: string }
+    | { state: "error"; message: string }
+  >({ state: "idle" });
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const dirty = isDirtyDraft(draft, savedDraft);
@@ -281,6 +286,29 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
   const advancedSections = sections.filter((section) => !contractorSectionIds.includes(section.id as (typeof contractorSectionIds)[number]));
 
   const selectedSection = sections.find((section) => section.id === selectedSectionId) ?? sections[0];
+
+  async function testAbcConnection() {
+    if (abcProbe.state === "testing") return;
+    setAbcProbe({ state: "testing" });
+    try {
+      const result = await clientFetch<{
+        sku: string; priced: boolean; price: number | null; providerStatus: string;
+        providerStockingUnitVerified: boolean; materialCreated: boolean; priceApplied: boolean;
+      }>("/api/v1/supplier-integrations/abc/price-probe", {
+        method: "POST",
+        body: JSON.stringify({ productKey: "ABC-654210" }),
+      });
+      if (result.materialCreated || result.priceApplied) {
+        throw new Error("The connection test returned an unexpected mutation claim");
+      }
+      setAbcProbe({ state: "complete", sku: result.sku, priced: result.priced, price: result.price, providerStatus: result.providerStatus });
+    } catch (error) {
+      setAbcProbe({
+        state: "error",
+        message: error instanceof Error ? error.message : "The sandbox request did not complete",
+      });
+    }
+  }
 
   async function copyWorkflowId(label: string, value: string) {
     try {
@@ -745,6 +773,38 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
               </div>
               <a href="/costbook" className="shrink-0 font-medium text-primary underline-offset-4 hover:underline">Open Costbook</a>
             </div>
+          ) : null}
+
+          {selectedSection.id === "costbook" && supplierWorkflowIdentity ? (
+            <Card className="rounded-[24px] border-border/70">
+              <CardHeader>
+                <CardTitle>ABC Supply connection test</CardTitle>
+                <CardDescription>
+                  Test one verified supplier item against the ABC sandbox using your secure TradeOS connection.
+                  This checks the provider response without creating a Material or applying a price.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">Test item: underlayment · ABC SKU 654210</p>
+                <Button type="button" disabled={abcProbe.state === "testing"} onClick={() => void testAbcConnection()}>
+                  {abcProbe.state === "testing" ? <LoaderCircle className="mr-2 size-4 animate-spin" aria-hidden="true" /> : null}
+                  {abcProbe.state === "testing" ? "Testing ABC sandbox..." : "Test ABC connection"}
+                </Button>
+                {abcProbe.state === "complete" ? (
+                  <div role="status" className="rounded-lg border border-border p-3 text-sm">
+                    {abcProbe.priced && abcProbe.price !== null
+                      ? `Sandbox returned $\${abcProbe.price.toFixed(4)} USD for SKU \${abcProbe.sku}.`
+                      : `No eligible priced line for SKU \${abcProbe.sku} (provider status: \${abcProbe.providerStatus}).`}
+                    <p className="mt-2 text-muted-foreground">
+                      ABC stocking unit is not verified. No price was saved or approved.
+                    </p>
+                  </div>
+                ) : null}
+                {abcProbe.state === "error" ? (
+                  <p role="alert" className="text-sm text-destructive">{abcProbe.message}</p>
+                ) : null}
+              </CardContent>
+            </Card>
           ) : null}
 
           {selectedSection.id === "costbook" && supplierWorkflowIdentity ? (
