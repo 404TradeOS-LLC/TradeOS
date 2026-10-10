@@ -798,8 +798,8 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                       : `No eligible priced line for SKU ${abcProbe.sku} (provider status: ${abcProbe.providerStatus}).`}
                     <p className="mt-2 text-muted-foreground">
                       {abcProbe.providerStockingUnit
-                        ? `ABC stocking unit: ${abcProbe.providerStockingUnit}. Source unit: ${abcProbe.sourcePurchaseUnit}. ${abcProbe.providerStockingUnitVerified ? "Units match." : "Unit mismatch — activation and price review remain blocked."}`
-                        : "ABC stocking unit not returned; activation and price review remain blocked."} No price was saved or approved.
+                        ? `ABC stocking unit: ${abcProbe.providerStockingUnit}. Source unit: ${abcProbe.sourcePurchaseUnit}. ${abcProbe.providerStockingUnitVerified ? "Units match." : "Unit mismatch — supplier price proposals are blocked. Confirm the provider unit before Material activation."}`
+                        : "ABC stocking unit was not returned, so supplier price proposals are blocked. Confirm the provider unit before Material activation."} No price was saved or approved.
                     </p>
                   </div>
                 ) : null}
