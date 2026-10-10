@@ -14,6 +14,29 @@ related_code:
 
 # API Reference
 
+## ABC Supply sandbox pricing connection test (2026-10-09)
+
+`POST /api/v1/supplier-integrations/abc/price-probe` accepts an exact
+`{ "productKey": "ABC-654210" }` JSON body. Requests pass through
+TradeOS user authentication, tenant-bound PostgreSQL session and
+`costbook.manage`; the authenticated actor must additionally be a
+workspace `owner` or `admin`. Organization and user identifiers
+cannot be supplied in the request. The backend requires the configured
+tenant ABC supplier, an observed/active/canonically mapped product with
+one unique SKU, then sends **one** ABC sandbox pricing line using the
+existing Vault-backed refresh-token rotation path. No Material or
+SupplierPriceUpdate is inserted and no UnitCost is applied.
+
+Response includes `supplierProductKey`, `sku`, `sourcePurchaseUnit`,
+`priced`, `price` (nullable), `currency`, `providerStatus`, plus
+explicit `providerStockingUnitVerified:false`,
+`materialCreated:false`, and `priceApplied:false`. A returned price
+must be positive, finite, four-decimal USD with ABC status OK. The
+source purchase unit is **not** provider stocking-UOM evidence;
+operator must check ABC stock unit and review a baseline before
+enabling the normal Material-linked review-first sync.
+
+
 ## Settings workflow actor identity (2026-10-09)
 
 The existing authenticated `GET /api/v1/settings` response now includes
