@@ -23,7 +23,8 @@ TradeOS user authentication, tenant-bound PostgreSQL session and
 workspace `owner` or `admin`. Organization and user identifiers
 cannot be supplied in the request. The backend requires the configured
 tenant ABC supplier, an observed/active/canonically mapped product with
-one unique SKU, then sends **one** ABC sandbox pricing line using the
+one unique SKU (only server-allowlisted `ABC-654210`), either unlinked or
+linked to exactly one matching tenant Material, then sends **one** ABC sandbox pricing line using the
 existing Vault-backed refresh-token rotation path. No Material or
 SupplierPriceUpdate is inserted and no UnitCost is applied.
 
