@@ -23,6 +23,11 @@ Vault-backed refresh-token durability. It bypasses the otherwise circular
 "no Material → no ABC API call → can't verify stocking unit" testing gap
 without skipping tenant permission checks or supplier evidence validation.
 
+Only the server-allowlisted `ABC-654210` key is eligible for this pilot.
+After Material activation, its link must still match exactly one tenant/supplier
+Material; a disjoint link fails closed. Known OAuth, pricing HTTP and timeout
+failures are returned as sanitized diagnostics without exposing credentials.
+
 A returned `priced:true` and positive USD `price` proves a priced
 sandbox line, but it **does not** establish the provider stocking unit
 (the current parser intentionally omits unit-of-measure), historical
