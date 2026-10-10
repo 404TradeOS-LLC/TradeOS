@@ -29,7 +29,8 @@ ships ABC tokens to the browser. Backend access requires both an active
 owner/admin role and `costbook.manage`.
 
 The operator probe validates one active supplier product, exact unique
-SKU, canonical mapping, nonzero observation and unlinked Material,
+SKU, canonical mapping, nonzero observation and either an unlinked
+product or exactly one linked Material verified in the same tenant and supplier,
 then makes a sandbox price request using the same durable Vault rotation
 helper as scheduled sync. It can report a positive USD price or a
 provider failure/status; its source purchase unit is explicitly **not**
