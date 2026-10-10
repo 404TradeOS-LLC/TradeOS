@@ -51,6 +51,9 @@ describe("ABC sandbox probe permissions", () => {
     const badKey = await request(app()).post("/api/v1/supplier-integrations/abc/price-probe")
       .send({ productKey: "../../../token" });
     expect(badKey.status).toBe(400);
+    const otherEligible = await request(app()).post("/api/v1/supplier-integrations/abc/price-probe")
+      .send({ productKey: "ABC-108115" });
+    expect(otherEligible.status).toBe(400);
     expect(probe).not.toHaveBeenCalled();
   });
 
