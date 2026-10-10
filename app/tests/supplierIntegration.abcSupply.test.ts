@@ -31,6 +31,7 @@ function okLine(id: string, unitPrice: number) {
     id,
     itemNumber: `ITEM-${id}`,
     unitPrice,
+    uom: "SQ",
     currency: { code: "USD", symbol: "$" },
     status: { code: "OK", message: "Priced Successfully" },
   };
@@ -263,6 +264,7 @@ describe("AbcSupplyPricingClient", () => {
         itemNumber: "02GASTZ3WW",
         quantity: 1,
         unitPrice: 135.36,
+        uom: "SQ",
         currencyCode: "USD",
         statusCode: "OK",
         statusMessage: "Priced Successfully",
@@ -364,9 +366,9 @@ describe("createAbcSupplyFeedFetcher", () => {
       } as Response;
     });
     const loadMaterials = jest.fn(async () => [
-      { id: "mat-1", sku: "SKU-1" },
-      { id: "mat-2", sku: "SKU-2" },
-      { id: "mat-3", sku: "SKU-3" },
+      { id: "mat-1", sku: "SKU-1", unitOfMeasure: "SQ" },
+      { id: "mat-2", sku: "SKU-2", unitOfMeasure: "SQ" },
+      { id: "mat-3", sku: "SKU-3", unitOfMeasure: "SQ" },
     ]);
     const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch);
     const pricing = new AbcSupplyPricingClient(auth, fetchFn as unknown as typeof fetch);
@@ -384,6 +386,7 @@ describe("createAbcSupplyFeedFetcher", () => {
         id: l.id,
         itemNumber: l.itemNumber,
         unitPrice: 100 + i,
+        uom: "SQ",
         currency: { code: "USD", symbol: "$" },
         status: { code: "OK", message: "Priced Successfully" },
       })),
@@ -391,6 +394,16 @@ describe("createAbcSupplyFeedFetcher", () => {
     const quotes = await fetcher("sup-1", "org-1");
     expect(quotes).toHaveLength(3);
     expect(quotes[0]).toMatchObject({ materialId: "mat-1", proposedUnitCost: 100 });
+  });
+
+  it("refuses a missing or different ABC stocking unit while accepting a matching unit", async () => {
+    const { fetcher } = fetcherSetup((body) => body.lines.map((l: any, i: number) => ({
+      ...okLine(l.id, 20 + i), itemNumber: l.itemNumber,
+      uom: i === 0 ? "PC" : i === 1 ? undefined : "sq",
+    })));
+    await expect(fetcher("sup-1", "org-1")).resolves.toEqual([
+      { materialId: "mat-3", proposedUnitCost: 22 },
+    ]);
   });
 
   it("skips non-OK lines and $0.00 lines", async () => {
@@ -401,6 +414,7 @@ describe("createAbcSupplyFeedFetcher", () => {
         id: "line-2",
         itemNumber: "SKU-3",
         unitPrice: 0,
+        uom: "SQ",
         currency: { code: "USD", symbol: "$" },
         status: { code: "Error", message: "Cannot price item SKU-3. Call for pricing." },
       },
@@ -440,9 +454,9 @@ describe("createAbcSupplyFeedFetcher", () => {
       } as Response;
     });
     const loadMaterials = jest.fn(async () => [
-      { id: "mat-a", sku: "DUP-SKU" },
-      { id: "mat-b", sku: "DUP-SKU" },
-      { id: "mat-c", sku: "UNIQUE-SKU" },
+      { id: "mat-a", sku: "DUP-SKU", unitOfMeasure: "SQ" },
+      { id: "mat-b", sku: "DUP-SKU", unitOfMeasure: "SQ" },
+      { id: "mat-c", sku: "UNIQUE-SKU", unitOfMeasure: "SQ" },
     ]);
     const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch);
     const pricing = new AbcSupplyPricingClient(auth, fetchFn as unknown as typeof fetch);
