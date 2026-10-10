@@ -11,7 +11,6 @@ jest.mock("../modules/supplier-integration/service", () => ({
 
 import express from "express";
 import request from "supertest";
-import { createServer } from "../backend/server";
 import { supplierIntegrationRouter } from "../backend/routes/supplierIntegration.routes";
 import { probeAbcSandboxPricing } from "../modules/supplier-integration/abcPricingProbe";
 import { requireOrgId, requirePermissions } from "../backend/requestContext";
