@@ -124,7 +124,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
   const [uploadingAssetKeys, setUploadingAssetKeys] = useState<Set<string>>(new Set());
   const [abcProbe, setAbcProbe] = useState<
     | { state: "idle" | "testing" }
-    | { state: "complete"; sku: string; priced: boolean; price: number | null; providerStatus: string }
+    | { state: "complete"; sku: string; priced: boolean; price: number | null; providerStatus: string; sourcePurchaseUnit: string; providerStockingUnit: string | null; providerStockingUnitVerified: boolean }
     | { state: "error"; message: string }
   >({ state: "idle" });
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -293,6 +293,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
     try {
       const result = await clientFetch<{
         sku: string; priced: boolean; price: number | null; providerStatus: string;
+        sourcePurchaseUnit: string; providerStockingUnit: string | null;
         providerStockingUnitVerified: boolean; materialCreated: boolean; priceApplied: boolean;
       }>("/api/v1/supplier-integrations/abc/price-probe", {
         method: "POST",
@@ -301,7 +302,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
       if (result.materialCreated || result.priceApplied) {
         throw new Error("The connection test returned an unexpected mutation claim");
       }
-      setAbcProbe({ state: "complete", sku: result.sku, priced: result.priced, price: result.price, providerStatus: result.providerStatus });
+      setAbcProbe({ state: "complete", sku: result.sku, priced: result.priced, price: result.price, providerStatus: result.providerStatus, sourcePurchaseUnit: result.sourcePurchaseUnit, providerStockingUnit: result.providerStockingUnit, providerStockingUnitVerified: result.providerStockingUnitVerified });
     } catch (error) {
       setAbcProbe({
         state: "error",
@@ -796,7 +797,9 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                       ? `Sandbox returned ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(abcProbe.price)} for SKU ${abcProbe.sku}.`
                       : `No eligible priced line for SKU ${abcProbe.sku} (provider status: ${abcProbe.providerStatus}).`}
                     <p className="mt-2 text-muted-foreground">
-                      ABC stocking unit is not verified. No price was saved or approved.
+                      {abcProbe.providerStockingUnit
+                        ? `ABC stocking unit: ${abcProbe.providerStockingUnit}. Source unit: ${abcProbe.sourcePurchaseUnit}. ${abcProbe.providerStockingUnitVerified ? "Units match." : "Unit mismatch — activation and price review remain blocked."}`
+                        : "ABC stocking unit not returned; activation and price review remain blocked."} No price was saved or approved.
                     </p>
                   </div>
                 ) : null}
