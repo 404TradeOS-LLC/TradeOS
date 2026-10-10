@@ -14,6 +14,24 @@ related_code:
 
 # ABC Supply live-pricing activation: governed pilot
 
+## Connection test before Material activation (2026-10-09)
+
+Use **Settings → Costbook → Test ABC connection** as an authenticated
+owner/admin. This sends a single reviewed `ABC-654210` item to the ABC
+sandbox Price Items API using the deployed server's provider secrets and
+Vault-backed refresh-token durability. It bypasses the otherwise circular
+"no Material → no ABC API call → can't verify stocking unit" testing gap
+without skipping tenant permission checks or supplier evidence validation.
+
+A returned `priced:true` and positive USD `price` proves a priced
+sandbox line, but it **does not** establish the provider stocking unit
+(the current parser intentionally omits unit-of-measure), historical
+source `SQ` is NOT sufficient, and it does not approve an initial
+Material unit cost. Only a separately reviewed and explicitly approved
+one-Material activation can feed the production scheduler. No automatic
+approval or production pricing assertion follows this connection test.
+
+
 ## Observed production state (2026-10-09; read-only verification)
 
 After the governed 47802 supplier-evidence import, a direct production read
