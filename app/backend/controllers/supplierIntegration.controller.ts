@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { SupplierIntegrationService } from "../../modules/supplier-integration/service";
+import { probeAbcSandboxPricing } from "../../modules/supplier-integration/abcPricingProbe";
+import { ApiError } from "../middleware/errorHandler";
 import { requireOrgId, requirePermissions } from "../requestContext";
 import { catalogQuerySchema, parseCatalogQuery } from "../../modules/shared/catalog-query";
 
@@ -20,7 +22,19 @@ const enqueueSchema = z.object({
   source: z.string().trim().min(1).max(64).optional(),
 }).strict();
 
+const abcProbeSchema = z.object({
+  productKey: z.string().trim().min(1).max(100).regex(/^[a-zA-Z0-9:_-]+$/),
+}).strict();
+
 export const supplierIntegrationController = {
+  async probeAbcSandbox(req: Request, res: Response) {
+    const actor = requirePermissions(req, ["costbook.manage"]);
+    if (!["owner", "admin"].includes(actor.role)) {
+      throw new ApiError(403, "Only a workspace owner/admin can test ABC sandbox pricing");
+    }
+    const { productKey } = abcProbeSchema.parse(req.body);
+    res.json(await probeAbcSandboxPricing(requireOrgId(req), productKey));
+  },
   async listQueue(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
     const parsed = listQuerySchema.parse(req.query);
