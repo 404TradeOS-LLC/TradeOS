@@ -48,7 +48,7 @@ describe("single ABC sandbox price probe (no Material)", () => {
     countObservations.mockResolvedValue(1);
     pricing.mockResolvedValue([{
       id: "review-0", itemNumber: "654210", quantity: 1, unitPrice: 19.75,
-      currencyCode: "USD", statusCode: "OK", statusMessage: "Priced Successfully",
+      currencyCode: "USD", uom: "SQ", statusCode: "OK", statusMessage: "Priced Successfully",
     }]);
   });
 
@@ -57,11 +57,12 @@ describe("single ABC sandbox price probe (no Material)", () => {
     else process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID = originalId;
   });
 
-  it("prices exactly one scoped SKU without claiming its stock UOM or writing prices", async () => {
+  it("returns verified provider stocking UOM without writing prices", async () => {
     await expect(probeAbcSandboxPricing(orgId, "ABC-654210")).resolves.toEqual({
       supplierProductKey: "ABC-654210", sku: "654210", sourcePurchaseUnit: "SQ",
       priced: true, price: 19.75, currency: "USD", providerStatus: "OK",
-      providerStockingUnitVerified: false, materialCreated: false, priceApplied: false,
+      providerStockingUnit: "SQ", providerStockingUnitVerified: true,
+      materialCreated: false, priceApplied: false,
     });
     expect(findSupplier).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: supplierId, orgId, apiIntegrationKey: "ABC_SUPPLY" },
@@ -70,6 +71,13 @@ describe("single ABC sandbox price probe (no Material)", () => {
       where: { orgId, supplierId, supplierProductKey: "ABC-654210" },
     }));
     expect(pricing).toHaveBeenCalledWith(orgId, supplierId, "654210");
+  });
+
+  it("reports mismatched and absent ABC stocking units without claiming compatibility", async () => {
+    pricing.mockResolvedValueOnce([{ id: "review-0", itemNumber: "654210", unitPrice: 22, currencyCode: "USD", uom: "PC", statusCode: "OK" }]);
+    expect(await probeAbcSandboxPricing(orgId, "ABC-654210")).toMatchObject({ priced: true, providerStockingUnit: "PC", providerStockingUnitVerified: false });
+    pricing.mockResolvedValueOnce([{ id: "review-0", itemNumber: "654210", unitPrice: 22, currencyCode: "USD", uom: null, statusCode: "OK" }]);
+    expect(await probeAbcSandboxPricing(orgId, "ABC-654210")).toMatchObject({ priced: true, providerStockingUnit: null, providerStockingUnitVerified: false });
   });
 
   it("refuses unverified, ambiguous or unobserved product before ABC is called", async () => {
