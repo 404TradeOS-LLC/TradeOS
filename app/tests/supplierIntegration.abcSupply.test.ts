@@ -517,11 +517,11 @@ describe("ABC quote response attribution and currency safety", () => {
       { id: "line-0", itemNumber: "SKU-1", quantity: 1, unitPrice: 22, currencyCode: "EUR", statusCode: "OK", statusMessage: "priced" },
       { id: "line-1", itemNumber: "SKU-2", quantity: 1, unitPrice: 4.12345, currencyCode: "USD", statusCode: "OK", statusMessage: "priced" },
       { id: "line-2", itemNumber: "SKU-3", quantity: 1, unitPrice: 100_000_000, currencyCode: "USD", statusCode: "OK", statusMessage: "priced" },
-      { id: "line-3", itemNumber: "SKU-4", quantity: 1, unitPrice: 43.25, currencyCode: "USD", statusCode: "OK", statusMessage: "priced" },
+      { id: "line-3", itemNumber: "SKU-4", quantity: 1, unitPrice: 43.25, uom: "SQ", currencyCode: "USD", statusCode: "OK", statusMessage: "priced" },
     ];
     const fetcher = createAbcSupplyFeedFetcher({
       config,
-      loadMaterials: async () => priceLines.map((p, i) => ({ id: `material-${i}`, sku: p.itemNumber })),
+      loadMaterials: async () => priceLines.map((p, i) => ({ id: `material-${i}`, sku: p.itemNumber, unitOfMeasure: "SQ" })),
       pricing: { priceItems: jest.fn(async () => priceLines) } as unknown as AbcSupplyPricingClient,
     });
     await expect(fetcher("abc-supplier", "org-1")).resolves.toEqual([
