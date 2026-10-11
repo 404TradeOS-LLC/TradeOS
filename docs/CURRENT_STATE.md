@@ -91,6 +91,15 @@ restricted database role, and owner/admin RLS permissions. This UI does not seed
 observations, grant roles, or certify live ABC pricing.
 
 
+## ABC sandbox stocking UOM gate — proposed 2026-10-10
+
+The ABC Price Items response carries `lines[].uom` for eligible priced lines.
+The new adapter preserves the provider-sourced unit and shows it in Settings.
+The supplier feed refuses to enqueue a proposed Material price unless the
+response unit matches the tenant Material unit of measure. Unknown or
+mismatched units fail closed without price conversion. This does not reauthorize
+OAuth, create a Material or approve supplier price updates.
+
 ## Supplier feed serverless activation — 2026-10-07
 
 The backend now has a Vercel-native supplier-price cron boundary at `GET /api/cron/supplier-price-sync`, scheduled daily by `app/vercel.json`. It is protected by `CRON_SECRET` plus a bounded IP rate limit, consumes only explicit `SUPPLIER_PRICE_SYNC_JOBS` targets, and reuses the existing membership-derived background database session and review-first supplier pricing flow.

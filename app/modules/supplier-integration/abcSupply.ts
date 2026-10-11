@@ -37,9 +37,8 @@ import type { SupplierFeedFetcher } from "./types";
  * - ABC prices up to 50 line items per request; larger catalogs are batched.
  * - Lines that come back non-OK or $0.00 are skipped: $0.00 means the branch
  *   has not entered pricing and ABC's own guidance is to call the branch.
- * - uom is omitted per line so ABC prices in each item's stocking UOM. The
- *   operator is responsible for keeping material unitOfMeasure aligned with
- *   ABC's stocking UOM until UOM-aware mapping lands.
+ * - uom is omitted from requests so ABC uses its stocking UOM. The response
+ *   UOM must match Material.unitOfMeasure before a price can enter review.
  *
  * Environment (all required, otherwise the fetcher is a no-op returning []):
  * - ABC_SUPPLY_SANDBOX_CLIENT_ID / ABC_SUPPLY_SANDBOX_CLIENT_SECRET
@@ -150,6 +149,7 @@ export interface AbcPriceRequestLine {
 
 export interface AbcPricedLine extends AbcPriceRequestLine {
   unitPrice: number;
+  uom: string | null;
   currencyCode: string;
   statusCode: string;
   statusMessage: string;
@@ -160,6 +160,7 @@ const priceLineSchema = z
     id: z.string(),
     itemNumber: z.string(),
     unitPrice: z.number(),
+    uom: z.string().trim().min(1).max(16).optional(),
     currency: z.object({ code: z.string(), symbol: z.string() }).passthrough().optional(),
     status: z.object({ code: z.string(), message: z.string() }).passthrough(),
   })
@@ -233,6 +234,7 @@ export class AbcSupplyPricingClient {
         itemNumber: requested.itemNumber,
         quantity: requested.quantity,
         unitPrice: l.unitPrice,
+        uom: l.uom ?? null,
         currencyCode: l.currency?.code ?? "",
         statusCode: l.status.code,
         statusMessage: l.status.message,
@@ -244,6 +246,7 @@ export class AbcSupplyPricingClient {
 export interface AbcSupplyMaterial {
   id: string;
   sku: string;
+  unitOfMeasure: string;
 }
 
 export interface AbcSupplyFeedDeps {
@@ -258,9 +261,11 @@ export interface AbcSupplyFeedDeps {
 async function defaultLoadMaterials(supplierId: string, orgId: string): Promise<AbcSupplyMaterial[]> {
   const rows = await prisma.material.findMany({
     where: { supplierId, orgId, isActive: true, sku: { not: null } },
-    select: { id: true, sku: true },
+    select: { id: true, sku: true, unitOfMeasure: true },
   });
-  return rows.flatMap((r) => (r.sku?.trim() ? [{ id: r.id, sku: r.sku.trim() }] : []));
+  return rows.flatMap((r) => (r.sku?.trim() && r.unitOfMeasure?.trim()
+    ? [{ id: r.id, sku: r.sku.trim(), unitOfMeasure: r.unitOfMeasure.trim() }]
+    : []));
 }
 
 /**
@@ -296,7 +301,7 @@ export function createAbcSupplyFeedFetcher(deps: AbcSupplyFeedDeps = {}): Suppli
     // Map ABC item numbers back to materials. When two materials share one
     // SKU the price cannot be attributed safely, so those SKUs are skipped
     // rather than silently pricing the wrong material.
-    const materialBySku = new Map<string, string>();
+    const materialBySku = new Map<string, AbcSupplyMaterial>();
     const ambiguousSkus = new Set<string>();
     for (const m of materials) {
       if (ambiguousSkus.has(m.sku)) continue;
@@ -304,20 +309,23 @@ export function createAbcSupplyFeedFetcher(deps: AbcSupplyFeedDeps = {}): Suppli
         ambiguousSkus.add(m.sku);
         materialBySku.delete(m.sku);
       } else {
-        materialBySku.set(m.sku, m.id);
+        materialBySku.set(m.sku, m);
       }
     }
     const quotes: { materialId: string; proposedUnitCost: number }[] = [];
     for (const line of priced) {
       if (ambiguousSkus.has(line.itemNumber)) continue;
-      const materialId = materialBySku.get(line.itemNumber);
-      if (!materialId) continue;
+      const material = materialBySku.get(line.itemNumber);
+      if (!material) continue;
       if (line.statusCode !== "OK" || line.currencyCode !== "USD") continue;
+      // ABC quotes its stocking UOM, which must match the Material unit.
+      // Never reinterpret a per-roll quote as a per-square Material cost.
+      if (!line.uom || line.uom.toUpperCase() !== material.unitOfMeasure.trim().toUpperCase()) continue;
       // Material.unitCost is a 12,4 USD decimal; reject unsupported amounts
       // rather than silently rounding or overflowing a reviewed proposal.
       if (!Number.isFinite(line.unitPrice) || line.unitPrice <= 0 || line.unitPrice > 99_999_999.9999) continue;
       if (Math.abs(line.unitPrice * 10_000 - Math.round(line.unitPrice * 10_000)) > 1e-6) continue;
-      quotes.push({ materialId, proposedUnitCost: line.unitPrice });
+      quotes.push({ materialId: material.id, proposedUnitCost: line.unitPrice });
     }
     return quotes;
   };

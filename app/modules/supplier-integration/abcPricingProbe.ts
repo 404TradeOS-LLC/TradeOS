@@ -6,7 +6,7 @@ import { priceOneAbcSandboxSku } from "./feed";
 /**
  * Probe one observed, unambiguous ABC SKU before a Material exists.
  * Does not create a Material, observation, SupplierPriceUpdate, or approval.
- * Provider stocking UOM is not returned by the current parsed ABC contract.
+ * Stocking unit is extracted from the provider's response, not inferred from historical evidence.
  */
 export async function probeAbcSandboxPricing(
   orgId: string,
@@ -19,7 +19,8 @@ export async function probeAbcSandboxPricing(
   price: number | null;
   currency: "USD" | null;
   providerStatus: string;
-  providerStockingUnitVerified: false;
+  providerStockingUnit: string | null;
+  providerStockingUnitVerified: boolean;
   materialCreated: false;
   priceApplied: false;
 }> {
@@ -117,7 +118,8 @@ export async function probeAbcSandboxPricing(
     price: validPrice ? line!.unitPrice : null,
     currency: validPrice ? "USD" : null,
     providerStatus: line?.statusCode?.slice(0, 48) ?? "no_matching_line",
-    providerStockingUnitVerified: false,
+    providerStockingUnit: validPrice ? (line?.uom ?? null) : null,
+    providerStockingUnitVerified: Boolean(validPrice && line?.uom && line.uom.toUpperCase() === unit.toUpperCase()),
     materialCreated: false,
     priceApplied: false,
   };

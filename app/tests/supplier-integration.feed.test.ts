@@ -212,7 +212,7 @@ describe("default supplier price feed (ABC routing)", () => {
     delete process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
 
     mockPrisma.$queryRaw.mockResolvedValueOnce([{ refresh_token: "vault-refresh-token" }]);
-    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1" }]);
+    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1", unitOfMeasure: "SQ" }]);
 
     const calls: string[] = [];
     global.fetch = jest.fn(async (url: string | URL, init?: RequestInit) => {
@@ -234,6 +234,7 @@ describe("default supplier price feed (ABC routing)", () => {
           id: "line-0",
           itemNumber: "SKU-1",
           unitPrice: 42.5,
+          uom: "SQ",
           currency: { code: "USD", symbol: "$" },
           status: { code: "OK", message: "Priced Successfully" },
         }],
@@ -268,7 +269,7 @@ describe("default supplier price feed (ABC routing)", () => {
 
     mockPrisma.$queryRaw.mockResolvedValueOnce([{ refresh_token: "vault-refresh-token" }]);
     mockPrisma.$executeRaw.mockRejectedValueOnce(new Error("vault persistence unavailable"));
-    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1" }]);
+    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1", unitOfMeasure: "SQ" }]);
 
     global.fetch = jest.fn(async (url: string | URL) => {
       if (String(url).includes("/v1/token")) {
@@ -294,7 +295,7 @@ describe("default supplier price feed (ABC routing)", () => {
     process.env.ABC_SUPPLY_BRANCH_NUMBER = "340";
     process.env.ABC_SUPPLY_SHIP_TO_NUMBER = "2010466-2";
     delete process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
-    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1" }]);
+    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1", unitOfMeasure: "SQ" }]);
     // fetch hangs until the abort signal fires, like a stalled provider
     global.fetch = jest.fn(
       (_url: string, init?: RequestInit) =>
