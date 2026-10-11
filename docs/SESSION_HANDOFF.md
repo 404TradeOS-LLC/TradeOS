@@ -309,3 +309,11 @@ Dependencies: S051 — DONE through merged PR #538.
 Overlap check: after the readiness PR merges, create exactly one isolated S073 implementation branch. Do not reopen or duplicate S052/S053/S064/S066/S067 lanes.
 Startup prompt: Execute S073 from current `main` using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`: build the release-critical S052-S060 resource/policy matrix, add missing live PostgreSQL same-org/cross-org and narrower-scope evidence, validate the matrix deterministically, and stop on any protected RLS/migration/auth/permission gap rather than widening policy inside S073.
 
+
+## Assembly Catalog two-role browser evidence handoff — 2026-10-10
+
+- Implementation PR #709 is merged into `main` at `e1f655b50833b8fd0ab6865fc0a4f2bebea63ad8`.
+- Current bounded branch `test/assembly-catalog-auth-evidence-518` adds the manual authenticated Playwright evidence contract and workflow for issue #518, **not runtime evidence**.
+- Guardrails: exact Preview deployment SHA, non-production Supabase project, canonical sanitized tenant ID, real distinct owner and read-only auth, desktop 1440 and mobile 390, no Assembly writes, cleanup and credential scanning.
+- Pending external gate: ensure isolated Preview is deployed to selected SHA, owner + read-only smoke accounts exist in one smoke org and required secrets are installed. Dispatch manual workflow and review reports/screenshots; do not mark issue #518 browser evidence complete before that.
+- If assertions fail, repair only reproducible role, responsive, or selector errors on this bounded path; do not disable a test or relax auth/RLS/deployment checks.
