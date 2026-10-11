@@ -132,7 +132,7 @@ mismatch, horizontal overflow, failed UI assertions, or a changed deployment
 fail the run. Authenticated Playwright traces and videos are disabled; only
 sanitized screenshots, diagnostic HTML, test outputs and attestation summaries
 are eligible for upload after runtime session deletion and credential scanning.
-The workflow does **not** perform mutations, certify production, or satisfy
+The Assembly evidence login now uses an opt-in **GET /api/proxy/costbook/workspace** identity check so the Settings route cannot seed legacy branding records. It compares the authenticated organization UUID with the expected smoke tenant and explicitly confirms Costbook read/write/manage permissions for each role; existing Beta auth behavior is unchanged in other modes. The workflow does **not** perform mutations, certify production, or satisfy
 issue #518 until an actual passing host run and its screenshots are reviewed.
 Two additional CI secrets must be provisioned for the reader identity:
 `BETA_RC_READONLY_SMOKE_EMAIL` and `BETA_RC_READONLY_SMOKE_PASSWORD`. The
