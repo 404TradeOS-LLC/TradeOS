@@ -103,7 +103,7 @@ before and after browser capture, verifies non-production Supabase branch
 configuration and exact deployed SHA, and requires a single canonical smoke
 organization ID for both accounts. It requires two additional secrets for a
 read-only smoke member: `BETA_RC_READONLY_SMOKE_EMAIL` and
-`BETA_RC_READONLY_SMOKE_PASSWORD`. It fails rather than skipping a role,
+`BETA_RC_READONLY_SMOKE_PASSWORD`. The Assembly-only auth path confirms the same organization and effective role through the read-only Costbook workspace API; it never loads Settings or its potentially mutating legacy-branding initialization. It fails rather than skipping a role,
 withholds credentials from PR/artifacts, removes runner-temp session state,
 and uploads screenshots only after a credential scan. A reviewer must inspect
 the actual run and its artifacts before checking off the browser-evidence gate;
