@@ -155,3 +155,6 @@ This lane deliberately records
 `exactDeploymentShaCorrelated: false`. It is useful browser evidence, but it is
 not exact-head release certification and does not replace Beta Evidence, its
 authenticated fixtures, data-plane proof, cleanup, or SHA-correlation contract.
+
+
+Current Vercel Preview deployments may use either `tradeos-costbook-web-<id>.vercel.app` or `tradeos-costbook-<id>.vercel.app`. The latter hostname pattern is also used by Production builds, so it is permitted **only in the Assembly evidence workflow after a successful S027 immutable Preview/Supabase attestation**, not merely because a workflow input declares Preview. The web agent's generic login checks still refuse un-attested hosts.
