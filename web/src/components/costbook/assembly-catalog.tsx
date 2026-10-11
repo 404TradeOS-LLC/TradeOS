@@ -457,7 +457,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
         </div>
         <div className="max-h-[420px] overflow-y-auto divide-y divide-border/70">{filtered.map((template) => {
           const installed = isStarterCatalogInstalled(template, installedCodes);
-          return <button key={template.id} type="button" onClick={() => { setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); setCostPreview({}); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
+          return <button key={template.id} type="button" aria-label={`Review assembly ${template.name}`} onClick={() => { setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); setCostPreview({}); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
             <span className="flex items-start justify-between gap-3"><span className="font-medium text-foreground">{template.name}</span>{installed ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-label="Installed" /> : null}</span>
             <span className="mt-1 block text-xs text-muted-foreground">{template.nahbGroup} · CSI {template.csiDivision} · {template.unitOfMeasure}</span>
           </button>;
