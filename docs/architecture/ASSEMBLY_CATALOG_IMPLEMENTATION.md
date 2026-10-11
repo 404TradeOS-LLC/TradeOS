@@ -167,3 +167,6 @@ these recipes are an official NAHB publication. CSI labels organize the catalog
 by MasterFormat division/section. TradeOS-authored recipe codes carry the
 `-TOS-###` suffix so they cannot be mistaken for a licensed cost database or an
 official pricing source.
+
+
+Because Vercel's current web project emits `tradeos-costbook-<deployment>-<scope>.vercel.app` for both preview and production, the workflow only sets `TRADEOS_AGENT_DEPLOYMENT_ATTESTED=true` after the independent S027 inspection has verified Preview target, exact SHA, branch-scoped non-production Supabase identity, and runner authorization. Bare production/main aliases remain refused.
