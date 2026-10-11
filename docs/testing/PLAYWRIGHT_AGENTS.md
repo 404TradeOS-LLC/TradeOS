@@ -93,6 +93,23 @@ TradeOS instructions. Reapply the runbook requirements, explicit MCP config
 and `--no-install`, and remove upstream healer instructions that skip/fixme
 correct failing tests. Never replace the meaningful seed with a blank test.
 
+## Assembly Catalog browser evidence (issue #518)
+
+A separate manual Action, `.github/workflows/assembly-catalog-browser-evidence.yml`,
+now executes `tests/playwright/assembly-catalog.spec.ts` with the real owner/admin
+and read-only smoke identities at desktop 1440px and mobile 390px. Unlike this
+agent diagnostic lane, it reuses the **S027 Vercel deployment identity check**
+before and after browser capture, verifies non-production Supabase branch
+configuration and exact deployed SHA, and requires a single canonical smoke
+organization ID for both accounts. It requires two additional secrets for a
+read-only smoke member: `BETA_RC_READONLY_SMOKE_EMAIL` and
+`BETA_RC_READONLY_SMOKE_PASSWORD`. The Assembly-only auth path confirms the same organization and effective role through the read-only Costbook workspace API; it never loads Settings or its potentially mutating legacy-branding initialization. It fails rather than skipping a role,
+withholds credentials from PR/artifacts, removes runner-temp session state,
+and uploads screenshots only after a credential scan. A reviewer must inspect
+the actual run and its artifacts before checking off the browser-evidence gate;
+this workflow alone does not certify a release, run against production, or
+change tenant records.
+
 ## Evidence boundary
 
 The target guard regression tests also run in the existing required Docs consistency
@@ -138,3 +155,6 @@ This lane deliberately records
 `exactDeploymentShaCorrelated: false`. It is useful browser evidence, but it is
 not exact-head release certification and does not replace Beta Evidence, its
 authenticated fixtures, data-plane proof, cleanup, or SHA-correlation contract.
+
+
+Current Vercel Preview deployments may use either `tradeos-costbook-web-<id>.vercel.app` or `tradeos-costbook-<id>.vercel.app`. The latter hostname pattern is also used by Production builds, so it is permitted **only in the Assembly evidence workflow after a successful S027 immutable Preview/Supabase attestation**, not merely because a workflow input declares Preview. The web agent's generic login checks still refuse un-attested hosts.

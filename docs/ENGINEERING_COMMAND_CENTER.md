@@ -370,3 +370,16 @@ authoritative for that proof.
 
 Founder-authorized operational work adds a bounded import path for the 3,188 verified Terre Haute supplier observations merged in PR #682. The implementation reuses the existing Regional Supplier Evidence service and background database session, creates only supplier records represented by the checked-in corpus, imports in bounded batches, and verifies exactly six suppliers plus 3,188 source products/observations. Source workbook canonical keys are deliberately not trusted during seed; existing governed matcher/review boundaries remain authoritative. The production workflow is manual, confirmation-gated, serialized, and scoped to one explicit organization/user context. No `Material.unitCost`, Estimate pricing, schema, RLS, auth, or numbered-sprint state changes are included.
 
+
+## Assembly Catalog browser-evidence follow-up (issue #518)
+
+PR #709 merged the NAHB/CSI/trade/unit/installation browse facets. The next
+bounded validation lane is the manually triggered
+`.github/workflows/assembly-catalog-browser-evidence.yml`: exact-SHA
+non-production Vercel/Supabase attestation, two real independently logged-in
+members of one sanitized tenant (owner/admin and Costbook read-only), desktop
+1440px and mobile 390px interaction/screenshot evidence. The login helper
+verifies effective Costbook permissions via the non-mutating workspace GET,
+not the Settings path. This is test infrastructure, not evidence of a passing
+hosted run or authorization for production deployment; an operator must supply
+the isolated deployment and two valid role fixtures first.

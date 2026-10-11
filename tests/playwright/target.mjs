@@ -7,7 +7,15 @@ export function resolveAgentTarget(env = {}) {
   }
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(target.hostname);
   if (local) return target.origin;
-  if (target.protocol !== 'https:' || target.port || !/^tradeos-costbook-web-[a-z0-9-]+\.vercel\.app$/.test(target.hostname) || target.hostname.includes('-git-main-')) {
+  // Vercel's current web project also emits "tradeos-costbook-<hash>-<scope>" URLs,
+  // including production builds. That form is allowed ONLY after the assembly
+  // workflow has independently attested an immutable non-production Preview.
+  const standardPreview = /^tradeos-costbook-web-[a-z0-9-]+\.vercel\.app$/.test(target.hostname);
+  const assemblyAttestedPreview =
+    /^tradeos-costbook-[a-z0-9-]+\.vercel\.app$/.test(target.hostname) &&
+    env.TRADEOS_ASSEMBLY_EVIDENCE === 'true' &&
+    env.TRADEOS_AGENT_DEPLOYMENT_ATTESTED === 'true';
+  if (target.protocol !== 'https:' || target.port || !(standardPreview || assemblyAttestedPreview) || target.hostname.includes('-git-main-')) {
     throw new Error('Playwright agents require loopback or an approved non-production TradeOS Preview origin');
   }
   if (!['preview', 'staging'].includes(env.TRADEOS_AGENT_ENVIRONMENT) || env.TRADEOS_AGENT_SANITIZED_TENANT !== 'true') {
