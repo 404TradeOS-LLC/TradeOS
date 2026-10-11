@@ -30,6 +30,12 @@ test("two distinct tenant-verified role sessions are mandatory, created at runne
   assert.match(workflow, /BETA_SMOKE_ORG_ID: \$\{\{ inputs\.smoke_org_id \}\}/);
   assert.match(workflow, /BETA_STORAGE_STATE_PATH: \$\{\{ runner\.temp \}\}\/tradeos-assembly-owner\.json/);
   assert.match(workflow, /BETA_STORAGE_STATE_PATH: \$\{\{ runner\.temp \}\}\/tradeos-assembly-reader\.json/);
+  assert.match(workflow, /Set ephemeral session paths outside repository/);
+  assert.match(workflow, /TRADEOS_ASSEMBLY_OWNER_STATE=\$\{RUNNER_TEMP\}\/tradeos-assembly-owner\.json/);
+  assert.match(workflow, /TRADEOS_ASSEMBLY_READER_STATE=\$\{RUNNER_TEMP\}\/tradeos-assembly-reader\.json/);
+  assert.match(workflow, /BETA_SMOKE_TENANT_VERIFY_MODE: costbook_read_only/g);
+  assert.match(workflow, /BETA_SMOKE_EXPECTED_COSTBOOK_WRITE: "true"/);
+  assert.match(workflow, /BETA_SMOKE_EXPECTED_COSTBOOK_WRITE: "false"/);
   assert.equal((workflow.match(/node app\/scripts\/beta-evidence\/auth-setup\.mjs/g) ?? []).length, 2);
   const removePos = workflow.indexOf("Remove both runtime sessions");
   const scanPos = workflow.indexOf("Scan all retained artifacts");
