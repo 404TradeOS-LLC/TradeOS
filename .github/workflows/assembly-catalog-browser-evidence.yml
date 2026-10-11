@@ -80,7 +80,6 @@ jobs:
         run: |
           node --test scripts/__tests__/assembly-catalog-browser-evidence.test.mjs
           npm run test:e2e:guards
-          node --input-type=module -e 'import { resolveAgentTarget } from "./tests/playwright/target.mjs"; if (resolveAgentTarget(process.env) !== process.env.TRADEOS_AGENT_BASE_URL) throw new Error("Target origin mismatch");'
       - name: Require both role credentials
         env:
           OWNER_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
@@ -110,6 +109,13 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: node app/scripts/s027-deployment-identity.mjs
+      - name: Activate independent Preview attestation for Playwright target
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "TRADEOS_AGENT_DEPLOYMENT_ATTESTED=true" >> "$GITHUB_ENV"
+      - name: Verify exact attested browser target
+        run: node --input-type=module -e 'import { resolveAgentTarget } from "./tests/playwright/target.mjs"; if (resolveAgentTarget(process.env) !== process.env.TRADEOS_AGENT_BASE_URL) throw new Error("Target origin mismatch");'
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Authenticate owner/admin through shipped login
