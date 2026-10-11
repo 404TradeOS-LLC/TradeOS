@@ -617,3 +617,6 @@ writes. Session paths are initialized from `$RUNNER_TEMP` in a step with the
 runner context and deleted before the artifact credential scan. Only a
 successful manually triggered run with inspected output supplies browser
 evidence; no PR merge automatically certifies or deploys the feature.
+
+
+The Playwright target resolver accepts the current `tradeos-costbook-<id>.vercel.app` domain pattern only for the dedicated Assembly workflow and only after the independent Vercel/Supabase identity step has succeeded. That domain pattern is **not** itself proof of Preview because Production uses it too; the old general `-web-` guard remains unchanged for other agent runs.
