@@ -53,6 +53,18 @@ S064 extends the existing Estimate Items picker without creating a parallel esti
 
 The picker also searches the reviewed TradeOS starter catalog. A starter recipe that is not installed is shown as **Setup required** with its mapping slots and catalog review metadata; it is not assigned an invented price and cannot be added as an Estimate line. The contractor can map every recipe slot inline to an active compatible Costbook item, with duplicate and incompatible mappings rejected before install. Once mapping is complete, the picker resolves the same read-only Cost Item unit-cost preview used by the Costbook catalog, installs through the existing tenant-scoped starter-catalog contract, converts the selection to the installed organization assembly, and still requires a separate explicit Estimate **Add**.
 
+## Assembly starter browse facets (October 2026)
+
+The residential starter browser filters the full, static, reviewed recipe
+payload by NAHB work group, CSI division, trade, output unit, installation
+status, and free-text search at once. Distinct dropdown choices come from the
+returned recipes, and installed status is based on the tenant's **complete
+active Assembly-code list** rather than just the current Assembly page.
+Changing any filter clears prior recipe Cost Item mappings and preview to avoid
+accidental cross-recipe reuse; the UI shows explicit empty and reset states.
+All filters are read-only; server-side tenant, compatibility, complete-mapping,
+price, and install permission checks are unchanged.
+
 ## Purpose
 
 Provide the tenant-scoped estimating catalog: divisions, categories, subcategories, cost items, labor rates, materials, equipment rates, and assemblies.
