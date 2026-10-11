@@ -141,6 +141,25 @@ export function buildBrowserBindingCookie(browserBinding: string, requestHostnam
 }
 
 /**
+ * Serializes the Set-Cookie value that expires the browser-binding cookie.
+ * Same name, Path, and Domain as the binding cookie with Max-Age=0, so the
+ * single-use secret does not linger in the browser after the callback.
+ */
+export function buildClearBrowserBindingCookie(requestHostname: string): string {
+  const parts = [
+    `${ABC_OAUTH_BROWSER_COOKIE_NAME}=`,
+    "Path=/",
+    "Max-Age=0",
+    "HttpOnly",
+    "Secure",
+    "SameSite=Lax",
+  ];
+  const domain = abcOAuthCookieDomain(requestHostname);
+  if (domain) parts.push(`Domain=${domain}`);
+  return parts.join("; ");
+}
+
+/**
  * Reads a single cookie value from a raw Cookie header without any
  * middleware dependency (the callback router intentionally runs before the
  * authenticated middleware stack).

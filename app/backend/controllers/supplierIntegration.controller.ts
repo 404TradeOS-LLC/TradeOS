@@ -8,6 +8,7 @@ import {
   ABC_OAUTH_SETTINGS_RETURN_URL,
   buildAuthorizeUrl,
   buildBrowserBindingCookie,
+  buildClearBrowserBindingCookie,
   consumeAuthorizationState,
   createAuthorizationState,
   exchangeAuthorizationCode,
@@ -114,7 +115,12 @@ export const supplierIntegrationController = {
    * provider bodies are logged or surfaced.
    */
   async handleAbcOAuthCallback(req: Request, res: Response) {
-    const finish = (flag: "success" | "error") => res.redirect(302, abcOAuthReturnUrl(flag));
+    // The binding secret is single-use: expire the cookie on every callback
+    // outcome so it never lingers in the browser past the flow.
+    const finish = (flag: "success" | "error") => {
+      res.setHeader("Set-Cookie", buildClearBrowserBindingCookie(req.hostname));
+      return res.redirect(302, abcOAuthReturnUrl(flag));
+    };
     try {
       const parsed = abcOAuthCallbackQuerySchema.parse(req.query);
       const browserBinding = readCookieValue(req.headers.cookie, ABC_OAUTH_BROWSER_COOKIE_NAME);

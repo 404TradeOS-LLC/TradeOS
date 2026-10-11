@@ -6,6 +6,7 @@ import {
   abcOAuthCookieDomain,
   buildAuthorizeUrl,
   buildBrowserBindingCookie,
+  buildClearBrowserBindingCookie,
   exchangeAuthorizationCode,
   generateBrowserBinding,
   generateOAuthState,
@@ -139,6 +140,18 @@ describe("browser-binding cookie", () => {
     expect(readCookieValue(`other=1; ${ABC_OAUTH_BROWSER_COOKIE_NAME}=abc123; x=2`, ABC_OAUTH_BROWSER_COOKIE_NAME)).toBe("abc123");
     expect(readCookieValue("other=1", ABC_OAUTH_BROWSER_COOKIE_NAME)).toBeNull();
     expect(readCookieValue(undefined, ABC_OAUTH_BROWSER_COOKIE_NAME)).toBeNull();
+  });
+
+  it("serializes an expiring cookie with matching name, path, and domain", () => {
+    const header = buildClearBrowserBindingCookie("api.404tradeos.com");
+    expect(header).toContain(`${ABC_OAUTH_BROWSER_COOKIE_NAME}=`);
+    expect(header).not.toContain("binding-secret");
+    expect(header).toContain("Max-Age=0");
+    expect(header).toContain("Path=/");
+    expect(header).toContain("Domain=404tradeos.com");
+    expect(header).toContain("HttpOnly");
+    expect(header).toContain("Secure");
+    expect(header).toContain("SameSite=Lax");
   });
 });
 

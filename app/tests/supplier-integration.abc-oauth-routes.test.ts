@@ -8,6 +8,9 @@ jest.mock("../modules/supplier-integration/abcOAuth", () => ({
   buildBrowserBindingCookie: jest.fn(
     (binding: string) => `abc_oauth_browser=${binding}; Path=/; HttpOnly; Secure; SameSite=Lax`,
   ),
+  buildClearBrowserBindingCookie: jest.fn(
+    () => `abc_oauth_browser=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`,
+  ),
   consumeAuthorizationState: jest.fn(),
   createAuthorizationState: jest.fn(),
   exchangeAuthorizationCode: jest.fn(),
@@ -244,6 +247,15 @@ describe("GET /abc/oauth/callback", () => {
       }),
     );
     expect(persist).toHaveBeenCalledWith(ORG_ID, SUPPLIER_ID, "new-rt");
+  });
+
+  it("expires the browser-binding cookie on the callback redirect", async () => {
+    const response = await callbackWithBinding("browser-binding-token", { code: "good-code", state: "state-token" });
+    expect(response.status).toBe(302);
+    const rawSetCookie = response.headers["set-cookie"];
+    const setCookie = Array.isArray(rawSetCookie) ? rawSetCookie.join("; ") : (rawSetCookie ?? "");
+    expect(setCookie).toContain(`${ABC_OAUTH_BROWSER_COOKIE_NAME}=`);
+    expect(setCookie).toContain("Max-Age=0");
   });
 
   it("redirects with an error flag when persistence fails", async () => {
