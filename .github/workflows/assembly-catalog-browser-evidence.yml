@@ -55,9 +55,13 @@ jobs:
       TRADEOS_AGENT_SANITIZED_TENANT: ${{ inputs.sanitized_tenant }}
       TRADEOS_AGENT_EVIDENCE: "true"
       TRADEOS_ASSEMBLY_EVIDENCE: "true"
-      TRADEOS_ASSEMBLY_OWNER_STATE: ${{ runner.temp }}/tradeos-assembly-owner.json
-      TRADEOS_ASSEMBLY_READER_STATE: ${{ runner.temp }}/tradeos-assembly-reader.json
     steps:
+      - name: Set ephemeral session paths outside repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "TRADEOS_ASSEMBLY_OWNER_STATE=${RUNNER_TEMP}/tradeos-assembly-owner.json" >> "$GITHUB_ENV"
+          echo "TRADEOS_ASSEMBLY_READER_STATE=${RUNNER_TEMP}/tradeos-assembly-reader.json" >> "$GITHUB_ENV"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -112,6 +116,8 @@ jobs:
         env:
           BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
           BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
+          BETA_SMOKE_TENANT_VERIFY_MODE: costbook_read_only
+          BETA_SMOKE_EXPECTED_COSTBOOK_WRITE: "true"
           BETA_STORAGE_STATE_PATH: ${{ runner.temp }}/tradeos-assembly-owner.json
           BETA_EVIDENCE_DIR: artifacts/assembly-catalog-browser-evidence/owner-auth
         run: node app/scripts/beta-evidence/auth-setup.mjs
@@ -119,6 +125,8 @@ jobs:
         env:
           BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_READONLY_SMOKE_EMAIL }}
           BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_READONLY_SMOKE_PASSWORD }}
+          BETA_SMOKE_TENANT_VERIFY_MODE: costbook_read_only
+          BETA_SMOKE_EXPECTED_COSTBOOK_WRITE: "false"
           BETA_STORAGE_STATE_PATH: ${{ runner.temp }}/tradeos-assembly-reader.json
           BETA_EVIDENCE_DIR: artifacts/assembly-catalog-browser-evidence/reader-auth
         run: node app/scripts/beta-evidence/auth-setup.mjs
