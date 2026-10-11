@@ -21,3 +21,15 @@ test('hosted runs fail closed on missing or production identity', () => {
     assert.throws(() => resolveAgentTarget({ TRADEOS_AGENT_BASE_URL: 'https://tradeos-costbook-web-test.vercel.app', ...identity }));
   }
 });
+
+
+test('current Vercel deployment hostname requires independent assembly evidence attestation', () => {
+  const origin = 'https://tradeos-costbook-ab123-billykshowalters.vercel.app';
+  const base = { TRADEOS_AGENT_BASE_URL: origin, TRADEOS_AGENT_ENVIRONMENT: 'preview', TRADEOS_AGENT_SANITIZED_TENANT: 'true' };
+  assert.throws(() => resolveAgentTarget(base));
+  assert.throws(() => resolveAgentTarget({ ...base, TRADEOS_ASSEMBLY_EVIDENCE: 'true' }));
+  assert.throws(() => resolveAgentTarget({ ...base, TRADEOS_AGENT_DEPLOYMENT_ATTESTED: 'true' }));
+  assert.equal(resolveAgentTarget({ ...base, TRADEOS_ASSEMBLY_EVIDENCE: 'true', TRADEOS_AGENT_DEPLOYMENT_ATTESTED: 'true' }), origin);
+  assert.throws(() => resolveAgentTarget({ ...base, TRADEOS_AGENT_BASE_URL: 'https://tradeos-costbook-git-main-team.vercel.app', TRADEOS_ASSEMBLY_EVIDENCE: 'true', TRADEOS_AGENT_DEPLOYMENT_ATTESTED: 'true' }));
+  assert.throws(() => resolveAgentTarget({ ...base, TRADEOS_AGENT_BASE_URL: 'https://app.404tradeos.com', TRADEOS_ASSEMBLY_EVIDENCE: 'true', TRADEOS_AGENT_DEPLOYMENT_ATTESTED: 'true' }));
+});
