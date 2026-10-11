@@ -72,3 +72,17 @@ test("no successful evidence can be silently inferred from test discovery or mis
   assert.match(workflow, /if \[\[ -z .*OWNER_EMAIL.*READER_PASSWORD.*\]\]/);
   assert.match(workflow, /if-no-files-found: error/);
 });
+
+
+test("current Vercel hostname is activated only after exact Preview and isolated data-plane proof", () => {
+  const identity = workflow.indexOf("Verify exact Preview deployment and isolated data plane");
+  const attested = workflow.indexOf("Activate independent Preview attestation for Playwright target");
+  const target = workflow.indexOf("Verify exact attested browser target");
+  assert.ok(identity > 0 && attested > identity && target > attested);
+  assert.match(workflow, /TRADEOS_AGENT_DEPLOYMENT_ATTESTED=true/);
+  assert.doesNotMatch(workflow.slice(0, identity), /TRADEOS_AGENT_DEPLOYMENT_ATTESTED=true/);
+  const agentGuard = fs.readFileSync("tests/playwright/target.mjs", "utf8");
+  assert.match(agentGuard, /env.TRADEOS_ASSEMBLY_EVIDENCE === 'true'/);
+  assert.match(agentGuard, /env.TRADEOS_AGENT_DEPLOYMENT_ATTESTED === 'true'/);
+  assert.match(agentGuard, /target.hostname.includes\('-git-main-'\)/);
+});
