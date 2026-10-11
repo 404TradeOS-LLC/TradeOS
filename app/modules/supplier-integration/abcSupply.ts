@@ -40,22 +40,27 @@ import type { SupplierFeedFetcher } from "./types";
  * - uom is omitted from requests so ABC uses its stocking UOM. The response
  *   UOM must match Material.unitOfMeasure before a price can enter review.
  *
- * Environment (all required, otherwise the fetcher is a no-op returning []):
- * - ABC_SUPPLY_SANDBOX_CLIENT_ID / ABC_SUPPLY_SANDBOX_CLIENT_SECRET
- * - ABC_SUPPLY_SANDBOX_REFRESH_TOKEN (bootstrap/recovery user refresh token, pricing.read;
- *   the default TradeOS feed persists provider rotations in Supabase Vault)
+ * Environment:
+ * - ABC_SUPPLY_SANDBOX_CLIENT_ID / ABC_SUPPLY_SANDBOX_CLIENT_SECRET (required)
  * - ABC_SUPPLY_BRANCH_NUMBER (e.g. "579" for Terre Haute; sandbox test
  *   ship-tos only serve their own branches — the sandbox feed currently uses
  *   "340" until production access lands)
- * - ABC_SUPPLY_SHIP_TO_NUMBER
+ * - ABC_SUPPLY_SHIP_TO_NUMBER (required)
+ * - ABC_SUPPLY_SANDBOX_REFRESH_TOKEN (optional bootstrap/recovery user
+ *   refresh token with pricing.read; the durable Vault credential is
+ *   authoritative once it exists, and the env token is only a fallback)
  *
  * Routing: the default supplier feed fetcher (feed.ts) sends a sync target to
  * this ABC fetcher only when its supplierId equals ABC_SUPPLY_SANDBOX_SUPPLIER_ID.
  */
 
-const SANDBOX_TOKEN_URL =
-  "https://sandbox.auth.partners.abcsupply.com/oauth2/aus1vp07knpuqf6Xz0h8/v1/token";
 const SANDBOX_API_BASE = "https://partners-sb.abcsupply.com";
+
+/** Sandbox OAuth endpoints. Hardcoded constants (never env/DB/request-derived) so this module cannot become an SSRF primitive. */
+export const SANDBOX_AUTHORIZE_URL =
+  "https://sandbox.auth.partners.abcsupply.com/oauth2/aus1vp07knpuqf6Xz0h8/v1/authorize";
+export const SANDBOX_TOKEN_URL =
+  "https://sandbox.auth.partners.abcsupply.com/oauth2/aus1vp07knpuqf6Xz0h8/v1/token";
 const PRICING_PATH = "/api/pricing/v2/prices";
 const MAX_LINES_PER_REQUEST = 50;
 const TOKEN_EXPIRY_MARGIN_MS = 60_000;
@@ -63,7 +68,12 @@ const TOKEN_EXPIRY_MARGIN_MS = 60_000;
 export interface AbcSupplyConfig {
   clientId: string;
   clientSecret: string;
-  refreshToken: string;
+  /**
+   * Bootstrap/recovery refresh token. Null when only the durable Vault
+   * credential exists; feed.ts resolves the durable value first and fails
+   * closed when neither is present.
+   */
+  refreshToken: string | null;
   branchNumber: string;
   shipToNumber: string;
 }
@@ -72,11 +82,16 @@ export interface AbcSupplyConfig {
 export function loadAbcSupplyConfig(env: NodeJS.ProcessEnv = process.env): AbcSupplyConfig | null {
   const clientId = env.ABC_SUPPLY_SANDBOX_CLIENT_ID?.trim();
   const clientSecret = env.ABC_SUPPLY_SANDBOX_CLIENT_SECRET?.trim();
-  const refreshToken = env.ABC_SUPPLY_SANDBOX_REFRESH_TOKEN?.trim();
   const branchNumber = env.ABC_SUPPLY_BRANCH_NUMBER?.trim();
   const shipToNumber = env.ABC_SUPPLY_SHIP_TO_NUMBER?.trim();
-  if (!clientId || !clientSecret || !refreshToken || !branchNumber || !shipToNumber) return null;
-  return { clientId, clientSecret, refreshToken, branchNumber, shipToNumber };
+  if (!clientId || !clientSecret || !branchNumber || !shipToNumber) return null;
+  return {
+    clientId,
+    clientSecret,
+    refreshToken: env.ABC_SUPPLY_SANDBOX_REFRESH_TOKEN?.trim() || null,
+    branchNumber,
+    shipToNumber,
+  };
 }
 
 const tokenResponseSchema = z
@@ -95,7 +110,7 @@ export interface AbcSupplyAuthHooks {
 /** Mints and caches ABC Supply user access tokens via the refresh_token grant. */
 export class AbcSupplyAuth {
   private cached: { accessToken: string; expiresAtMs: number } | null = null;
-  private refreshToken: string;
+  private refreshToken: string | null;
 
   constructor(
     private readonly config: AbcSupplyConfig,
@@ -111,9 +126,13 @@ export class AbcSupplyAuth {
     if (this.cached && this.cached.expiresAtMs - TOKEN_EXPIRY_MARGIN_MS > nowMs) {
       return this.cached.accessToken;
     }
+    const refreshToken = this.refreshToken;
+    if (!refreshToken) {
+      throw new Error("ABC Supply refresh token is not configured");
+    }
     const body = new URLSearchParams({
       grant_type: "refresh_token",
-      refresh_token: this.refreshToken,
+      refresh_token: refreshToken,
       scope: "pricing.read",
     });
     const response = await this.fetchFn(SANDBOX_TOKEN_URL, {

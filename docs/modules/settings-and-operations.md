@@ -19,6 +19,41 @@ related_code:
 
 # Settings and Operations
 
+## ABC Supply sandbox OAuth reauthorization (2026-10-11)
+
+Settings → Costbook has a guarded **Connect / Reauthorize ABC** button
+(visible to workspace `owner`/`admin` only; the backend enforces
+`costbook.manage` plus the owner/admin role). It calls
+`POST /api/v1/supplier-integrations/abc/oauth/authorize` through the
+existing same-origin API proxy and redirects the founder's browser to
+the ABC sandbox authorize URL. After the founder signs in at ABC and
+approves access, ABC redirects to the allowlisted TradeOS callback,
+which exchanges the code server-side and stores only the refresh token
+in the Vault-backed credential store. The browser lands back on
+Settings with a success/error flag; no ABC tokens are ever collected,
+displayed, or shipped to the browser.
+
+Operator prerequisite: the callback URI
+`https://api.404tradeos.com/api/v1/supplier-integrations/abc/oauth/callback`
+must be registered on the TradeOSCostbook sandbox app in the ABC
+Developer Portal (Manage Applications → TradeOSCostbook → Manage →
+OAuth 2.0 Redirect URIs → ADD ADDITIONAL) before the flow can complete.
+The API also requires `ABC_OAUTH_STATE_HMAC_SECRET` (a long random
+server-side secret, set on Vercel Production + Preview): it keys the
+HMAC-SHA256 hashes of OAuth state and browser-binding tokens stored in
+`abc_oauth_authorization_states`, and the authorize endpoint fails closed
+with 503 when it is unset. Rotating it invalidates only in-flight
+authorizations (10-minute TTL); stored refresh tokens are unaffected.
+Reconnecting does not create Materials, approve prices, or start the
+scheduled sync; verify with **Test ABC connection** afterwards.
+
+Security properties: the callback is bound to the initiating browser via
+a short-lived httpOnly/Secure/SameSite=Lax cookie (RFC 6749 section 10.12)
+whose secret never leaves the cookie; a missing or mismatched cookie
+rejects the callback without consuming the state. The web API proxy
+forwards upstream `Set-Cookie` headers so the backend-set binding cookie
+reaches the browser.
+
 ## ABC Supply sandbox connection test (2026-10-09)
 
 Settings → Costbook has a guarded **Test ABC connection** button for the
