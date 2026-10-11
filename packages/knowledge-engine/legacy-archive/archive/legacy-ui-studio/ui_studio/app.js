@@ -101,7 +101,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (page === 'dashboard') renderDashboard();
             else if (page === 'items') renderCostLibrary();
             else {
-                contentArea.innerHTML = `<div class="card" style="padding: 100px; text-align: center; opacity: 0.5;">${page.toUpperCase()} PREVIEW</div>`;
+                contentArea.innerHTML = '';
+                const previewCard = document.createElement('div');
+                previewCard.className = 'card';
+                previewCard.style.padding = '100px';
+                previewCard.style.textAlign = 'center';
+                previewCard.style.opacity = '0.5';
+                previewCard.textContent = `${page.toUpperCase()} PREVIEW`;
+                contentArea.appendChild(previewCard);
             }
         });
     });
