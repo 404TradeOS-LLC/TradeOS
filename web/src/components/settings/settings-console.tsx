@@ -41,6 +41,8 @@ interface SettingsConsoleProps {
   supplierWorkflowIdentity: { orgId: string; userId: string } | null;
   initialDraft: TradeOsSettingsDraft;
   persistedSettingKeys: string[];
+  /** OAuth result flag from the server-rendered URL (?abc_oauth=...); server and client agree, so no hydration mismatch. */
+  initialAbcOAuthResult: "success" | "error" | null;
   initialWorkspaceData: {
     currentRole: string;
     canManageWorkspace: boolean;
@@ -111,7 +113,7 @@ function isDirtyDraft(current: TradeOsSettingsDraft, saved: TradeOsSettingsDraft
   return JSON.stringify(current) !== JSON.stringify(saved);
 }
 
-export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persistedSettingKeys, initialWorkspaceData, developerMeta }: SettingsConsoleProps) {
+export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persistedSettingKeys, initialAbcOAuthResult, initialWorkspaceData, developerMeta }: SettingsConsoleProps) {
   const [draft, setDraft] = useState(initialDraft);
   const [savedDraft, setSavedDraft] = useState(initialDraft);
   const [persistedKeys, setPersistedKeys] = useState(() => new Set(persistedSettingKeys));
@@ -131,11 +133,19 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
     | { state: "idle" | "starting" }
     | { state: "error"; message: string }
   >({ state: "idle" });
-  const [abcOAuthResult] = useState<"success" | "error" | null>(() => {
-    if (typeof window === "undefined") return null;
-    const flag = new URLSearchParams(window.location.search).get("abc_oauth");
-    return flag === "success" || flag === "error" ? flag : null;
-  });
+  // Consume the OAuth result flag from the URL after mount so a reload or
+  // bookmark never shows a stale message. The flag value itself comes from
+  // the server-rendered prop, so server and client agree (no hydration
+  // mismatch); this effect only cleans the URL and sets no state.
+  useEffect(() => {
+    if (!initialAbcOAuthResult) return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("abc_oauth")) return;
+    params.delete("abc_oauth");
+    const query = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+  }, [initialAbcOAuthResult]);
+  const [abcOAuthResult] = useState(initialAbcOAuthResult);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const dirty = isDirtyDraft(draft, savedDraft);

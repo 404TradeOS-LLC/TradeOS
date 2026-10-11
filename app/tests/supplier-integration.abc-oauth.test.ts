@@ -1,12 +1,18 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import {
+  ABC_OAUTH_BROWSER_COOKIE_NAME,
   ABC_OAUTH_CALLBACK_URL,
   ABC_OAUTH_SCOPES,
+  abcOAuthCookieDomain,
   buildAuthorizeUrl,
+  buildBrowserBindingCookie,
   exchangeAuthorizationCode,
+  generateBrowserBinding,
   generateOAuthState,
   generatePkcePair,
-  sha256Hex,
+  hmacTokenHash,
+  isOAuthStateHmacConfigured,
+  readCookieValue,
 } from "../modules/supplier-integration/abcOAuth";
 import { AbcSupplyAuth, loadAbcSupplyConfig } from "../modules/supplier-integration/abcSupply";
 
@@ -65,8 +71,74 @@ describe("PKCE and state generation", () => {
     expect(a).toMatch(/^[A-Za-z0-9_-]+$/);
   });
 
-  it("hashes state deterministically", () => {
-    expect(sha256Hex("abc")).toBe(createHash("sha256").update("abc", "utf8").digest("hex"));
+  it("generates unique, URL-safe browser-binding secrets", () => {
+    const a = generateBrowserBinding();
+    const b = generateBrowserBinding();
+    expect(a).not.toBe(b);
+    expect(a).toMatch(/^[A-Za-z0-9_-]+$/);
+  });
+});
+
+describe("hmacTokenHash", () => {
+  const secret = "test-hmac-secret";
+
+  it("hashes deterministically with an explicit secret", () => {
+    const expected = createHmac("sha256", secret).update("state:abc", "utf8").digest("hex");
+    expect(hmacTokenHash("abc", "state", secret)).toBe(expected);
+  });
+
+  it("domain-separates state and browser-binding purposes", () => {
+    expect(hmacTokenHash("abc", "state", secret)).not.toBe(hmacTokenHash("abc", "browser-binding", secret));
+  });
+
+  it("fails closed when no secret is configured", () => {
+    const saved = process.env.ABC_OAUTH_STATE_HMAC_SECRET;
+    delete process.env.ABC_OAUTH_STATE_HMAC_SECRET;
+    try {
+      expect(() => hmacTokenHash("abc", "state")).toThrow("ABC OAuth state HMAC secret is not configured");
+      expect(isOAuthStateHmacConfigured()).toBe(false);
+    } finally {
+      if (saved !== undefined) process.env.ABC_OAUTH_STATE_HMAC_SECRET = saved;
+    }
+  });
+
+  it("reads the secret from the environment", () => {
+    process.env.ABC_OAUTH_STATE_HMAC_SECRET = secret;
+    try {
+      expect(isOAuthStateHmacConfigured()).toBe(true);
+      expect(hmacTokenHash("abc", "state")).toBe(hmacTokenHash("abc", "state", secret));
+    } finally {
+      delete process.env.ABC_OAUTH_STATE_HMAC_SECRET;
+    }
+  });
+});
+
+describe("browser-binding cookie", () => {
+  it("derives the shared registrable domain from the allowlisted callback", () => {
+    expect(abcOAuthCookieDomain("api.404tradeos.com")).toBe("404tradeos.com");
+    expect(abcOAuthCookieDomain("app.404tradeos.com")).toBe("404tradeos.com");
+  });
+
+  it("returns no domain outside the production domain", () => {
+    expect(abcOAuthCookieDomain("localhost")).toBeUndefined();
+    expect(abcOAuthCookieDomain("evil-404tradeos.com")).toBeUndefined();
+  });
+
+  it("serializes a hardened cookie", () => {
+    const header = buildBrowserBindingCookie("binding-secret", "api.404tradeos.com");
+    expect(header).toContain(`${ABC_OAUTH_BROWSER_COOKIE_NAME}=binding-secret`);
+    expect(header).toContain("HttpOnly");
+    expect(header).toContain("Secure");
+    expect(header).toContain("SameSite=Lax");
+    expect(header).toContain("Domain=404tradeos.com");
+    expect(header).toContain("Max-Age=600");
+    expect(header).toContain("Path=/");
+  });
+
+  it("reads the binding value from a Cookie header", () => {
+    expect(readCookieValue(`other=1; ${ABC_OAUTH_BROWSER_COOKIE_NAME}=abc123; x=2`, ABC_OAUTH_BROWSER_COOKIE_NAME)).toBe("abc123");
+    expect(readCookieValue("other=1", ABC_OAUTH_BROWSER_COOKIE_NAME)).toBeNull();
+    expect(readCookieValue(undefined, ABC_OAUTH_BROWSER_COOKIE_NAME)).toBeNull();
   });
 });
 

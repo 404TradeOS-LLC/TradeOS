@@ -38,8 +38,21 @@ Operator prerequisite: the callback URI
 must be registered on the TradeOSCostbook sandbox app in the ABC
 Developer Portal (Manage Applications → TradeOSCostbook → Manage →
 OAuth 2.0 Redirect URIs → ADD ADDITIONAL) before the flow can complete.
+The API also requires `ABC_OAUTH_STATE_HMAC_SECRET` (a long random
+server-side secret, set on Vercel Production + Preview): it keys the
+HMAC-SHA256 hashes of OAuth state and browser-binding tokens stored in
+`abc_oauth_authorization_states`, and the authorize endpoint fails closed
+with 503 when it is unset. Rotating it invalidates only in-flight
+authorizations (10-minute TTL); stored refresh tokens are unaffected.
 Reconnecting does not create Materials, approve prices, or start the
 scheduled sync; verify with **Test ABC connection** afterwards.
+
+Security properties: the callback is bound to the initiating browser via
+a short-lived httpOnly/Secure/SameSite=Lax cookie (RFC 6749 section 10.12)
+whose secret never leaves the cookie; a missing or mismatched cookie
+rejects the callback without consuming the state. The web API proxy
+forwards upstream `Set-Cookie` headers so the backend-set binding cookie
+reaches the browser.
 
 ## ABC Supply sandbox connection test (2026-10-09)
 

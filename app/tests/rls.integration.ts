@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Prisma, PrismaClient } from "@prisma/client";
 import {
   getRequestDatabaseClient,
@@ -1531,6 +1532,56 @@ describe("live organization row-level security", () => {
     );
     expect(audits).toHaveLength(1);
     expect(audits[0]).toMatchObject({ oldUnitCost: expect.anything(), actorRole: "admin" });
+  });
+
+  it("grants the restricted role execute on the ABC OAuth state wrappers with tenant binding", async () => {
+    const stateHash = `it-state-${randomUUID()}`;
+    const bindingHash = `it-binding-${randomUUID()}`;
+    const callbackUri = "https://api.404tradeos.com/api/v1/supplier-integrations/abc/oauth/callback";
+
+    // Without the provision-app-role.sql grants, every call below fails with
+    // "permission denied for function" under the restricted connection.
+    await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().$executeRaw(Prisma.sql`
+        select tradeos_private.create_abc_oauth_state(
+          ${orgA}::uuid, ${adminUser}::uuid, ${supplierA}::uuid,
+          ${stateHash}, ${"it-verifier"}, ${callbackUri}, ${bindingHash}, 600
+        )`),
+    );
+
+    // A wrong browser binding does not consume the state (RFC 6749 section 10.12).
+    const mismatched = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().$queryRaw<Array<{ org_id: string }>>(Prisma.sql`
+        select org_id from tradeos_private.consume_abc_oauth_state(${stateHash}, ${"wrong-binding"})`),
+    );
+    expect(mismatched).toHaveLength(0);
+
+    // The correct binding consumes exactly once and returns the tenant context.
+    const consumed = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().$queryRaw<Array<{ org_id: string; user_id: string; supplier_id: string }>>(Prisma.sql`
+        select org_id, user_id, supplier_id
+        from tradeos_private.consume_abc_oauth_state(${stateHash}, ${bindingHash})`),
+    );
+    expect(consumed).toHaveLength(1);
+    expect(consumed[0]).toMatchObject({ org_id: orgA, user_id: adminUser, supplier_id: supplierA });
+
+    // Replay returns nothing.
+    const replay = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().$queryRaw<Array<{ org_id: string }>>(Prisma.sql`
+        select org_id from tradeos_private.consume_abc_oauth_state(${stateHash}, ${bindingHash})`),
+    );
+    expect(replay).toHaveLength(0);
+
+    // Creation rejects a tenant session that does not match the parameters.
+    await expect(
+      inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().$executeRaw(Prisma.sql`
+          select tradeos_private.create_abc_oauth_state(
+            ${orgB}::uuid, ${adminUser}::uuid, ${supplierA}::uuid,
+            ${`it-other-${randomUUID()}`}, ${"v"}, ${callbackUri}, ${"b"}, 600
+          )`),
+      ),
+    ).rejects.toThrow();
   });
 
   it("enforces supplier write permissions and protects suppliers with price update history from deletion", async () => {

@@ -18,7 +18,10 @@ supplierIntegrationRouter.post("/queue/:id/reject", asyncHandler(ctrl.reject));
  * /api/v1 requireAuth/databaseSession middleware: ABC redirects the
  * founder's browser here without a JWT, so the single-use state token is
  * the credential. Rate-limited as defense in depth; state guessing is
- * infeasible (256-bit random, 10-minute TTL, consumed exactly once).
+ * infeasible (256-bit random, 10-minute TTL, consumed exactly once), and
+ * the callback additionally requires the httpOnly browser-binding cookie
+ * set at authorize time (RFC 6749 section 10.12), so a stolen authorize
+ * URL cannot be completed from another browser.
  */
 export const abcOAuthCallbackRouter = Router();
 

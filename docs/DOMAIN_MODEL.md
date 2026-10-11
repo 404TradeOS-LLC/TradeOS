@@ -293,6 +293,9 @@ Supplier OAuth credentials are operational secrets, not Costbook catalog entitie
 - `tradeos_app` receives execute access to the private helpers but no direct read/write privileges on Vault secrets or decrypted-secret views
 - the environment refresh token remains a bootstrap/recovery value; provider rotations replace the durable Vault value before the pricing request continues
 - this credential boundary does not change Material costs, supplier price approval, Estimate pricing, or catalog identity semantics
+- migration `20261011123000_add_abc_oauth_states` creates `abc_oauth_authorization_states` for the user-present reauthorization handshake (issue #711): 10-minute TTL, atomic single-use consume, and only HMAC-SHA256 hashes (keyed with the server-side `ABC_OAUTH_STATE_HMAC_SECRET`) of the state and browser-binding tokens stored at rest
+- the OAuth wrappers are SECURITY DEFINER with no app-role table access; `tradeos_app` receives explicit execute grants via `app/scripts/sql/provision-app-role.sql`
+- the callback is bound to the initiating browser via a short-lived httpOnly/Secure/SameSite=Lax cookie (RFC 6749 section 10.12); the raw binding secret never leaves the browser cookie or server memory, and a mismatched or missing cookie rejects the callback without consuming the state
 
 ## Costbook labor-rates foundation
 
