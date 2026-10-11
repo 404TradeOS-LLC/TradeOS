@@ -82,7 +82,11 @@ finish carpentry, electrical, plumbing, HVAC, and decks.
   Filtering clears stale recipe mapping/preview state and disables installation
   for read-only actors or already-installed recipe codes.
 - [ ] Add authenticated rendered browser evidence for owner/admin and read-only
-  roles against a disposable tenant.
+  roles against a disposable tenant. A manual SHA-attested, two-identity,
+  1440/390px Playwright evidence workflow has been added but **has not yet
+  produced authenticated runtime screenshots**; keep this item open until a
+  sanitized, non-production, exact-deployment run has passed and artifacts
+  have been reviewed.
 - [ ] Expand the reviewed recipe library trade by trade after qualified-estimator
   review; do not silently promote Knowledge Engine legacy assemblies.
 - [ ] Add a mapping-quality review queue and version history before supporting
@@ -107,6 +111,32 @@ above/below the starter browser remains keyset-paginated and tenant-scoped.
 No backend write path, schema migration, source recipe, cost or Estimate
 snapshot was altered. Authenticated owner/admin and read-only browser captures
 at desktop and 390px remain required before release certification.
+
+## Authenticated Assembly Catalog evidence lane (October 2026)
+
+`.github/workflows/assembly-catalog-browser-evidence.yml` is a manual-only
+Preview evidence runner for the implementation merged in PR #709. It requires
+an immutable Vercel Preview URL, exact deployed commit SHA, expected isolated
+Supabase project ref, and canonical sanitized smoke tenant ID. It authenticates
+**distinct owner/admin and read-only identities** through the real login form,
+using separate short-lived runner-temp storage states, then exercises the
+reviewed Assembly Catalog browse facets at 1440px and 390px using read-only
+navigation and filter interactions. The test requires installation enabled for
+owner/admin when an uninstalled recipe is selected and disabled for read-only
+staff. It verifies no Assembly API writes and checks for responsive overflow,
+empty-filter recovery, mapping reset, and available-recipe visibility.
+
+Both credential sets are required; absent identities, wrong tenant, stale
+Vercel SHA, wrong/production Supabase project, absent Vercel metadata, role
+mismatch, horizontal overflow, failed UI assertions, or a changed deployment
+fail the run. Authenticated Playwright traces and videos are disabled; only
+sanitized screenshots, diagnostic HTML, test outputs and attestation summaries
+are eligible for upload after runtime session deletion and credential scanning.
+The workflow does **not** perform mutations, certify production, or satisfy
+issue #518 until an actual passing host run and its screenshots are reviewed.
+Two additional CI secrets must be provisioned for the reader identity:
+`BETA_RC_READONLY_SMOKE_EMAIL` and `BETA_RC_READONLY_SMOKE_PASSWORD`. The
+existing owner smoke identity and Vercel/RC Supabase secrets are reused.
 
 ## Current catalog coverage
 
