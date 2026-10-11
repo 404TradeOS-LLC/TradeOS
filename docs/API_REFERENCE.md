@@ -14,6 +14,44 @@ related_code:
 
 # API Reference
 
+## ABC Supply sandbox OAuth reauthorization (2026-10-11)
+
+ABC requires user-authorized access for third-party customer-specific
+pricing, so a fresh `authorization_code` grant is the only way to mint a
+valid refresh token once the stored one is lost or rotated away.
+
+`POST /api/v1/supplier-integrations/abc/oauth/authorize` starts the flow.
+Requests pass through TradeOS user authentication, tenant-bound
+PostgreSQL session and `costbook.manage`; the authenticated actor must
+additionally be a workspace `owner` or `admin`. It creates a short-lived
+(10-minute), single-use authorization state bound to the initiating
+tenant session (stored as a hash in `abc_oauth_authorization_states`,
+never readable by the app role directly) and returns
+`{ "authorizeUrl" }`. The founder's browser completes authorization at
+the ABC sandbox; the authorize URL carries PKCE S256 and the narrow
+`pricing.read offline_access` scope.
+
+`GET /api/v1/supplier-integrations/abc/oauth/callback` is
+**unauthenticated by design**: ABC redirects the founder's browser here
+without a JWT, so the single-use state token is the credential. It
+consumes the state exactly once (unknown, expired, or replayed states
+are rejected), validates the redirect URI against the strict allowlist
+(`https://api.404tradeos.com/api/v1/supplier-integrations/abc/oauth/callback`,
+which must be registered in the ABC Developer Portal), exchanges the
+code server-side (the client secret never leaves the backend), and
+persists the refresh token through the existing
+`abcSupplyRefreshTokenStore.persist` owner/admin Vault path inside a
+tenant-scoped background session. Every outcome 302-redirects to
+Settings with a sanitized `?abc_oauth=success|error` flag; no codes,
+tokens, secrets, or provider response bodies are logged or surfaced.
+The endpoint is rate-limited (60 per 15 minutes per IP) as defense in
+depth.
+
+The env `ABC_SUPPLY_SANDBOX_REFRESH_TOKEN` is now bootstrap/recovery
+only: `loadAbcSupplyConfig` is valid without it, the durable Vault
+credential is authoritative, and pricing fails closed with a sanitized
+"not connected" error when no token exists anywhere.
+
 ## ABC Supply sandbox pricing connection test (2026-10-09)
 
 `POST /api/v1/supplier-integrations/abc/price-probe` accepts an exact

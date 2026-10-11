@@ -63,6 +63,26 @@ related_code:
 
 # TradeOS Current State
 
+## ABC sandbox OAuth reauthorization — 2026-10-11
+
+The stored ABC refresh token is gone (0 saved tokens in Vault), and ABC
+requires user-present authorization for third-party customer-specific
+pricing, so the connection cannot be restored by retrying the old token.
+A new user-present reauthorization flow is implemented but not yet
+exercised end to end: owner/admin `POST
+/api/v1/supplier-integrations/abc/oauth/authorize` returns the ABC
+sandbox authorize URL (PKCE S256, `pricing.read offline_access`,
+10-minute single-use state bound to the initiating tenant session), and
+the unauthenticated `GET
+/api/v1/supplier-integrations/abc/oauth/callback` consumes the state
+exactly once, exchanges the code server-side, and persists the refresh
+token through the existing Vault path. The env bootstrap refresh token
+is now recovery-only; the durable Vault credential is authoritative and
+pricing fails closed when no token exists. The callback URI must still
+be registered in the ABC Developer Portal before the flow can run, and
+the daily cron must not consume user-context pricing tokens until ABC
+confirms unattended customer-specific pricing in writing.
+
 ## ABC sandbox connection probe — 2026-10-09
 
 The existing cron/Price Items integration still cannot contact ABC

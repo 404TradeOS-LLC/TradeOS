@@ -86,6 +86,9 @@ export async function probeAbcSandboxPricing(
     if (message === "ABC sandbox credentials are not configured") {
       throw new ApiError(503, "ABC sandbox credentials are not configured on the API");
     }
+    if (message === "ABC sandbox refresh token is not configured") {
+      throw new ApiError(503, "ABC pricing access is not connected. Reauthorize ABC pricing access.");
+    }
     const oauth = /^ABC Supply token refresh failed: HTTP (\d{3})$/.exec(message);
     if (oauth) {
       throw new ApiError(502, `ABC sandbox OAuth rejected the refresh (HTTP ${oauth[1]}). Reauthorize ABC pricing access.`);

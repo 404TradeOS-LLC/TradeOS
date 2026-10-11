@@ -127,6 +127,15 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
     | { state: "complete"; sku: string; priced: boolean; price: number | null; providerStatus: string; sourcePurchaseUnit: string; providerStockingUnit: string | null; providerStockingUnitVerified: boolean }
     | { state: "error"; message: string }
   >({ state: "idle" });
+  const [abcOAuth, setAbcOAuth] = useState<
+    | { state: "idle" | "starting" }
+    | { state: "error"; message: string }
+  >({ state: "idle" });
+  const [abcOAuthResult] = useState<"success" | "error" | null>(() => {
+    if (typeof window === "undefined") return null;
+    const flag = new URLSearchParams(window.location.search).get("abc_oauth");
+    return flag === "success" || flag === "error" ? flag : null;
+  });
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const dirty = isDirtyDraft(draft, savedDraft);
@@ -307,6 +316,26 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
       setAbcProbe({
         state: "error",
         message: error instanceof Error ? error.message : "The sandbox request did not complete",
+      });
+    }
+  }
+
+  async function connectAbcOAuth() {
+    if (abcOAuth.state === "starting") return;
+    setAbcOAuth({ state: "starting" });
+    try {
+      const result = await clientFetch<{ authorizeUrl: string }>(
+        "/api/v1/supplier-integrations/abc/oauth/authorize",
+        { method: "POST" },
+      );
+      if (!result.authorizeUrl || !result.authorizeUrl.startsWith("https://")) {
+        throw new Error("The ABC authorization URL was invalid");
+      }
+      window.location.href = result.authorizeUrl;
+    } catch (error) {
+      setAbcOAuth({
+        state: "error",
+        message: error instanceof Error ? error.message : "Could not start ABC authorization",
       });
     }
   }
@@ -774,6 +803,37 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
               </div>
               <a href="/costbook" className="shrink-0 font-medium text-primary underline-offset-4 hover:underline">Open Costbook</a>
             </div>
+          ) : null}
+
+          {selectedSection.id === "costbook" && supplierWorkflowIdentity && ["owner", "admin"].includes(initialWorkspaceData.currentRole) ? (
+            <Card className="rounded-[24px] border-border/70">
+              <CardHeader>
+                <CardTitle>Connect / Reauthorize ABC</CardTitle>
+                <CardDescription>
+                  Restore ABC Supply sandbox pricing with a fresh user-authorized connection.
+                  You will sign in at ABC and approve access; TradeOS stores only the refresh token.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button type="button" disabled={abcOAuth.state === "starting"} onClick={() => void connectAbcOAuth()}>
+                  {abcOAuth.state === "starting" ? <LoaderCircle className="mr-2 size-4 animate-spin" aria-hidden="true" /> : null}
+                  {abcOAuth.state === "starting" ? "Opening ABC..." : "Connect / Reauthorize ABC"}
+                </Button>
+                {abcOAuthResult === "success" ? (
+                  <p role="status" className="text-sm text-muted-foreground">
+                    ABC pricing access was reconnected. Use the connection test below to verify it.
+                  </p>
+                ) : null}
+                {abcOAuthResult === "error" ? (
+                  <p role="alert" className="text-sm text-destructive">
+                    ABC authorization did not complete. Please try again.
+                  </p>
+                ) : null}
+                {abcOAuth.state === "error" ? (
+                  <p role="alert" className="text-sm text-destructive">{abcOAuth.message}</p>
+                ) : null}
+              </CardContent>
+            </Card>
           ) : null}
 
           {selectedSection.id === "costbook" && supplierWorkflowIdentity ? (
