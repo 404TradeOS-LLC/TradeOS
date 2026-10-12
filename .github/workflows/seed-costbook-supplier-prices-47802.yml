@@ -68,7 +68,7 @@ jobs:
         run: npm ci
 
       - name: Verify fixed seed contract
-        run: npx jest --runInBand --runTestsByPath tests/costbook-supplier-prices-47802-seed.test.ts tests/costbook-supplier-prices-47802.test.ts
+        run: npx jest --runInBand --runTestsByPath tests/costbook-supplier-prices-47802-seed.test.ts tests/costbook-supplier-prices-47802.test.ts tests/costbook-47802-seed-workflow.test.ts
 
       - name: Resolve restricted application database role
         env:
