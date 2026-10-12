@@ -78,11 +78,13 @@ existing Vault-backed refresh-token rotation path. No Material or
 SupplierPriceUpdate is inserted and no UnitCost is applied.
 
 Response includes `supplierProductKey`, `sku`, `sourcePurchaseUnit`,
-`priced`, `price` (nullable), `currency`, `providerStatus`, and nullable
-`providerMessage` (an item-level ABC `status.message` **only** for a failed
-matching line if it passes short plain-text secret/URL/identifier filters; otherwise
-null). The Settings owner/admin UI labels it "ABC response" and falls back to a
-generic diagnostic if missing/unsafe. No untrusted raw response body is returned. Also includes
+`priced`, `price` (nullable), `currency`, `providerStatus`, plus
+`providerStatusMessage` (nullable, at most 160 characters; only from an
+exact matching failed ABC item, after conservative plain-language filtering).
+URLs, markup, credential-like text, ship-to/account numbers and opaque
+identifiers are suppressed entirely, rather than echoed or merely truncated.
+Settings shows either the safe provider explanation or a generic fallback.
+A successful line does not surface raw provider status text,
 `providerStockingUnit` (actual ABC response UOM or null),
 `providerStockingUnitVerified` (true only when that provider UOM matches the
 historical purchase unit), `materialCreated:false`, and `priceApplied:false`.

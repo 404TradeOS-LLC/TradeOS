@@ -4,21 +4,17 @@ import { validateAbcMaterialCandidate } from "./abcMaterialActivation";
 import { priceOneAbcSandboxSku } from "./feed";
 
 /**
- * ABC's line-level status.message is untrusted provider text. Permit only a
- * short plain-language diagnostic, and fail closed for markup, URLs, account
- * identifiers, credentials or token-shaped content. Never return raw provider
- * response bodies or use these messages as pricing evidence.
+ * ABC line status messages are untrusted. Disclose only a short plain-language
+ * diagnostic for an exact matching failed SKU. Reject URLs, markup, credentials,
+ * and account/ship-to identifiers rather than echoing provider response bodies.
  */
-function safeAbcProviderMessage(raw: unknown): string | null {
+function safeAbcProviderStatusMessage(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const message = raw.trim();
   if (!message || message.length > 160 || !/^[a-z0-9][a-z0-9 ,.:;!?()'/-]*$/i.test(message)) return null;
   if (/\b(?:bearer|token|password|secret|credential|authorization|refresh|session|cookie|https?|www|client[ -]?id|client[ -]?secret|api[ -]?key|access[ -]?key|private[ -]?key)\b/i.test(message)) return null;
-  // Bare domains, hyphenated ship-to numbers (e.g. 2010466-2), and
-  // seven-digit account identifiers are sensitive even without URL schemes.
-  if (/\b(?:[a-z0-9-]+\.)+[a-z]{2,}\b/i.test(message)) return null;
-  if (/\d{7,}|\d{6,}-\d+/.test(message)) return null;
-  if (/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(message)) return null;
+  if (/(?:[a-z0-9-]+\.)+[a-z]{2,}/i.test(message)) return null;
+  if (/\d{7,}|\d{6,}-\d+|[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}/i.test(message)) return null;
   if (/[a-z0-9_-]{32,}/i.test(message)) return null;
   return message;
 }
@@ -39,7 +35,8 @@ export async function probeAbcSandboxPricing(
   price: number | null;
   currency: "USD" | null;
   providerStatus: string;
-  providerMessage: string | null;
+  /** A bounded, screened explanation only for a failed, matching provider line; otherwise null. */
+  providerStatusMessage: string | null;
   providerStockingUnit: string | null;
   providerStockingUnitVerified: boolean;
   materialCreated: false;
@@ -142,8 +139,8 @@ export async function probeAbcSandboxPricing(
     price: validPrice ? line!.unitPrice : null,
     currency: validPrice ? "USD" : null,
     providerStatus: line?.statusCode?.slice(0, 48) ?? "no_matching_line",
-    providerMessage: !validPrice && line?.statusCode !== "OK"
-      ? safeAbcProviderMessage(line?.statusMessage) : null,
+    providerStatusMessage: !validPrice && line?.statusCode !== "OK"
+      ? safeAbcProviderStatusMessage(line?.statusMessage) : null,
     providerStockingUnit: validPrice ? (line?.uom ?? null) : null,
     providerStockingUnitVerified: Boolean(validPrice && line?.uom && line.uom.toUpperCase() === unit.toUpperCase()),
     materialCreated: false,

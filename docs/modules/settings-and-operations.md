@@ -92,10 +92,13 @@ SKU, canonical mapping, nonzero observation and either an unlinked
 product or exactly one linked Material verified in the same tenant and supplier,
 then makes a sandbox price request using the same durable Vault rotation
 helper as scheduled sync. It can report a positive USD price or a
-provider failure/status, including only a bounded, validated item-level ABC
-status explanation. Untrusted, credential-like, or unsafe status text is
-suppressed; Settings shows a generic fallback. It also displays the ABC response UOM (when supplied)
-and flags whether it matches the historical source unit. That source unit by
+provider failure/status; it also displays the ABC response UOM (when supplied)
+and flags whether it matches the historical source unit. When a line is not
+priced, the panel shows `providerStatusMessage` only when a matching failed
+line includes a short, safe, plain-language explanation. The API suppresses
+untrusted URLs, markup, account/ship-to numbers and credential-like or opaque
+identifiers; Settings displays a neutral fallback if the message is withheld.
+This is diagnostic only, not proof of product eligibility. That source unit by
 itself is not proof of ABC stocking UOM. The background ABC feed refuses
 price proposals with missing or mismatched response units. No Materials,
 SupplierPriceUpdates, MaterialPriceAudits or Estimate prices are written by the
