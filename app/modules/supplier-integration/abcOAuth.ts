@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { basePrisma, prisma } from "../../db/client";
@@ -46,6 +46,42 @@ export const ABC_OAUTH_STATE_TTL_SECONDS = 10 * 60;
 
 function base64Url(bytes: Buffer): string {
   return bytes.toString("base64url");
+}
+
+const BROWSER_COOKIE_ENC_ALGO = "aes-256-gcm";
+const BROWSER_COOKIE_IV_BYTES = 12;
+
+function browserCookieKey(): Buffer {
+  // Derive a stable 32-byte key from existing server secret material.
+  // This avoids introducing new required env vars while keeping keying
+  // server-side only.
+  return createHash("sha256")
+    .update(oauthStateHmacKey())
+    .update(":browser-cookie:v1")
+    .digest();
+}
+
+function encryptBrowserCookieValue(plainText: string): string {
+  const iv = randomBytes(BROWSER_COOKIE_IV_BYTES);
+  const cipher = createCipheriv(BROWSER_COOKIE_ENC_ALGO, browserCookieKey(), iv);
+  const ciphertext = Buffer.concat([cipher.update(plainText, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([iv, tag, ciphertext]).toString("base64url");
+}
+
+function decryptBrowserCookieValue(encoded: string): string | null {
+  try {
+    const payload = Buffer.from(encoded, "base64url");
+    if (payload.length <= BROWSER_COOKIE_IV_BYTES + 16) return null;
+    const iv = payload.subarray(0, BROWSER_COOKIE_IV_BYTES);
+    const tag = payload.subarray(BROWSER_COOKIE_IV_BYTES, BROWSER_COOKIE_IV_BYTES + 16);
+    const ciphertext = payload.subarray(BROWSER_COOKIE_IV_BYTES + 16);
+    const decipher = createDecipheriv(BROWSER_COOKIE_ENC_ALGO, browserCookieKey(), iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
+  } catch {
+    return null;
+  }
 }
 
 /** 256-bit cryptographically random OAuth state token. */
@@ -127,8 +163,9 @@ export function abcOAuthCookieDomain(requestHostname: string): string | undefine
  * cookie-safe without encoding.
  */
 export function buildBrowserBindingCookie(browserBinding: string, requestHostname: string): string {
+  const protectedValue = encryptBrowserCookieValue(browserBinding);
   const parts = [
-    `${ABC_OAUTH_BROWSER_COOKIE_NAME}=${browserBinding}`,
+    `${ABC_OAUTH_BROWSER_COOKIE_NAME}=${protectedValue}`,
     "Path=/",
     `Max-Age=${ABC_OAUTH_BROWSER_COOKIE_MAX_AGE_SECONDS}`,
     "HttpOnly",
@@ -170,7 +207,12 @@ export function readCookieValue(cookieHeader: string | undefined, name: string):
     const index = part.indexOf("=");
     if (index < 0) continue;
     if (part.slice(0, index).trim() === name) {
-      return part.slice(index + 1).trim() || null;
+      const value = part.slice(index + 1).trim() || null;
+      if (!value) return null;
+      if (name === ABC_OAUTH_BROWSER_COOKIE_NAME) {
+        return decryptBrowserCookieValue(value);
+      }
+      return value;
     }
   }
   return null;
