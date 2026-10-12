@@ -12,6 +12,10 @@ import { OrganizationProvisioningService } from "../modules/organization-provisi
 import { MaterialDatabaseService } from "../modules/material-database/service";
 import { SupplierIntegrationService } from "../modules/supplier-integration/service";
 import { runSupplierPriceSyncJob } from "../modules/supplier-integration/worker";
+import {
+  consumeAuthorizationState,
+  createAuthorizationState,
+} from "../modules/supplier-integration/abcOAuth";
 import { AssembliesDatabaseService } from "../modules/assemblies-database/service";
 import { ProposalsService } from "../modules/proposals/service";
 import { EstimateEngineService } from "../modules/estimate-engine/service";
@@ -1582,6 +1586,31 @@ describe("live organization row-level security", () => {
           )`),
       ),
     ).rejects.toThrow();
+  });
+
+  it("creates ABC OAuth states through the module path only inside a tenant session", async () => {
+    process.env.ABC_OAUTH_STATE_HMAC_SECRET = "integration-test-hmac-secret-not-a-real-secret";
+    const request = { orgId: orgA, userId: adminUser, supplierId: supplierA };
+
+    // Regression: the authorize endpoint 500'd in production because the TTL
+    // reached Postgres as bigint while the wrapper takes integer (42883). The
+    // module path must also fail closed without a tenant session, per the
+    // wrapper's contract.
+    await expect(createAuthorizationState(request)).rejects.toThrow();
+
+    // Inside the request's tenant session (as the endpoint now does), the module
+    // path creates the state and the callback path consumes it exactly once.
+    const created = await inSession(adminUser, orgA, "admin", () => createAuthorizationState(request));
+    expect(created.state).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(created.codeChallenge).toBeTruthy();
+    expect(created.browserBinding).toBeTruthy();
+
+    const consumed = await consumeAuthorizationState(created.state, created.browserBinding);
+    expect(consumed).toMatchObject({ orgId: orgA, userId: adminUser, supplierId: supplierA });
+    expect(consumed?.codeVerifier).toBeTruthy();
+
+    // Single-use: a second consume returns nothing.
+    await expect(consumeAuthorizationState(created.state, created.browserBinding)).resolves.toBeNull();
   });
 
   it("enforces supplier write permissions and protects suppliers with price update history from deletion", async () => {

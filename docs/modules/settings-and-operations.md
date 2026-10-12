@@ -54,6 +54,11 @@ rejects the callback without consuming the state. The web API proxy
 forwards upstream `Set-Cookie` headers so the backend-set binding cookie
 reaches the browser.
 
+Fix note 2026-10-11: the authorize endpoint initially 500'd in
+production (TTL parameter type mismatch against the state-table
+wrapper); the call now casts explicitly and the button works as
+described above.
+
 ## ABC Supply sandbox connection test (2026-10-09)
 
 Settings → Costbook has a guarded **Test ABC connection** button for the

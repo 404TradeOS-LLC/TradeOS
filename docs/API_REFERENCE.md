@@ -27,7 +27,11 @@ additionally be a workspace `owner` or `admin`. It creates a short-lived
 (10-minute), single-use authorization state bound to the initiating
 tenant session (stored as a hash in `abc_oauth_authorization_states`,
 never readable by the app role directly) and returns
-`{ "authorizeUrl" }`. The founder's browser completes authorization at
+`{ "authorizeUrl" }`. Implementation note: the TTL argument is cast to
+`integer` at the call site — the Prisma client binds JS numbers as
+bigint, which would otherwise fail to resolve the
+`tradeos_private.create_abc_oauth_state(..., integer)` overload
+(Postgres 42883) and 500 the endpoint. The founder's browser completes authorization at
 the ABC sandbox; the authorize URL carries PKCE S256 and the narrow
 `pricing.read offline_access` scope.
 
