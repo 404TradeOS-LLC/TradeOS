@@ -61,6 +61,7 @@ describe("single ABC sandbox price probe (no Material)", () => {
     await expect(probeAbcSandboxPricing(orgId, "ABC-654210")).resolves.toEqual({
       supplierProductKey: "ABC-654210", sku: "654210", sourcePurchaseUnit: "SQ",
       priced: true, price: 19.75, currency: "USD", providerStatus: "OK",
+      providerStatusMessage: "Priced Successfully",
       providerStockingUnit: "SQ", providerStockingUnitVerified: true,
       materialCreated: false, priceApplied: false,
     });
@@ -139,5 +140,14 @@ describe("single ABC sandbox price probe (no Material)", () => {
     pricing.mockResolvedValueOnce([{ id: "review-0", itemNumber: "654210", unitPrice: 12,
       currencyCode: "EUR", statusCode: "OK" }]);
     expect((await probeAbcSandboxPricing(orgId, "ABC-654210")).priced).toBe(false);
+  });
+
+  it("surfaces the provider's per-line status message when a line is not priced", async () => {
+    pricing.mockResolvedValueOnce([{ id: "review-0", itemNumber: "654210", unitPrice: 0,
+      currencyCode: "USD", uom: null, statusCode: "Error", statusMessage: "Item not found for branch" }]);
+    const result = await probeAbcSandboxPricing(orgId, "ABC-654210");
+    expect(result.priced).toBe(false);
+    expect(result.providerStatus).toBe("Error");
+    expect(result.providerStatusMessage).toBe("Item not found for branch");
   });
 });
