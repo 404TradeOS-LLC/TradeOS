@@ -19,6 +19,8 @@ export async function probeAbcSandboxPricing(
   price: number | null;
   currency: "USD" | null;
   providerStatus: string;
+  /** ABC's per-line status message (e.g. why a line was not priced). Sanitized length, no tokens. */
+  providerStatusMessage: string | null;
   providerStockingUnit: string | null;
   providerStockingUnitVerified: boolean;
   materialCreated: false;
@@ -121,6 +123,7 @@ export async function probeAbcSandboxPricing(
     price: validPrice ? line!.unitPrice : null,
     currency: validPrice ? "USD" : null,
     providerStatus: line?.statusCode?.slice(0, 48) ?? "no_matching_line",
+    providerStatusMessage: line?.statusMessage?.slice(0, 200) ?? null,
     providerStockingUnit: validPrice ? (line?.uom ?? null) : null,
     providerStockingUnitVerified: Boolean(validPrice && line?.uom && line.uom.toUpperCase() === unit.toUpperCase()),
     materialCreated: false,
