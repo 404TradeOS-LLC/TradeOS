@@ -33,17 +33,23 @@ function parseArgs(argv: readonly string[]): CliArgs {
   let limit = 0;
 
   for (let i = 0; i < argv.length; i += 1) {
-    if (argv[i] === "--org-id") orgId = argv[i + 1];
-    if (argv[i] === "--user-id") userId = argv[i + 1];
-    if (argv[i] === "--supplier-key") supplierKey = argv[i + 1] ?? supplierKey;
-    if (argv[i] === "--dry-run") dryRun = true;
-    if (argv[i] === "--limit") limit = Number(argv[i + 1]);
+    const flag = argv[i];
+    if (flag === "--dry-run") { dryRun = true; continue; }
+    if (!["--org-id", "--user-id", "--supplier-key", "--limit"].includes(flag)) {
+      throw new Error(`Unrecognized argument: ${flag}`);
+    }
+    const value = argv[++i];
+    if (!value || value.startsWith("-")) {
+      throw new Error(`Missing or invalid value for ${flag}`);
+    }
+    if (flag === "--org-id") orgId = value;
+    if (flag === "--user-id") userId = value;
+    if (flag === "--supplier-key") supplierKey = value;
+    if (flag === "--limit") limit = Number(value);
   }
 
-  if (!dryRun && (!orgId || !userId)) {
-    throw new Error(
-      "Usage: backfill-abc-materials.ts [--dry-run] --org-id <uuid> --user-id <uuid> [--supplier-key ABC_SUPPLY] [--limit N]"
-    );
+  if (!orgId || !userId) {
+    throw new Error("Both --org-id and --user-id are required, including for dry runs");
   }
   if (!Number.isInteger(limit) || limit < 0) {
     throw new Error("--limit must be a non-negative integer");
@@ -112,7 +118,7 @@ async function main(): Promise<void> {
 
   if (dryRun) {
     console.log(
-      "[abc-backfill] DRY RUN — no writes. Pass --org-id/--user-id for a live run."
+      "[abc-backfill] DRY RUN — no writes. Tenant owner/admin identity is required."
     );
   }
 
@@ -129,11 +135,11 @@ async function main(): Promise<void> {
     basePrisma,
     {
       jobName: "abc-material-backfill",
-      orgId: orgId ?? "dry-run",
-      userId: userId ?? "dry-run",
+      orgId: orgId!,
+      userId: userId!,
     },
     async (auth) => {
-      if (!dryRun) requireCostbookManage(auth);
+      requireCostbookManage(auth);
 
       const supplier = await prisma.supplier.findFirst({
         where: { orgId, apiIntegrationKey: supplierKey },
