@@ -115,6 +115,17 @@ models a held request connection with an independent rotation transaction.
 Cross-instance concurrent refresh serialization and live ABC validation are
 separate unverified gates, and this PR is not yet deployed.
 
+## ABC sandbox Settings account selector — proposed 2026-10-12
+
+Following the merged read-only Ship-To discovery API, the next proposed web
+slice adds owner/admin Settings account and branch selection. The screen
+fetches accounts from the authenticated same-origin proxy and shows only
+branches linked to the selected Ship-To. Handles empty responses, safe 409
+reauthorization guidance and generic errors. Selection is **ephemeral and
+read-only**, with no preference storage or pricing probe routing changes.
+Actual live account discovery and priced item/UOM remain unverified; ABC
+production access still requires Third-Party Aggregator approval.
+
 ## ABC sandbox Ship-To discovery API — 2026-10-12
 
 After merging PR #718, the bounded sandbox account discovery client is ready.

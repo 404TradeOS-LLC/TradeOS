@@ -86,3 +86,18 @@ test("ABC error explanations are server-filtered, nullable and do not update pri
   assert.match(source, /ABC did not provide a safe item-level explanation/);
   assert.match(source, /No price was saved or approved/);
 });
+
+test("ABC account selection stays read-only and only uses the authenticated same-origin API", async () => {
+  const source = await readSource("./settings-console.tsx");
+  assert.match(source, /clientFetch<\{ accounts: AbcShipToAccountOption\[\] \}>/);
+  assert.match(source, /"\/api\/v1\/supplier-integrations\/abc\/accounts"/);
+  assert.match(source, /ABC Supply accounts and branches/);
+  assert.match(source, /Find ABC accounts/);
+  assert.match(source, /id="abc-shipto-account"/);
+  assert.match(source, /id="abc-branch"/);
+  assert.match(source, /setSelectedAbcBranch\(""\)/);
+  assert.match(source, /Selection is temporary and read-only/);
+  assert.match(source, /the ABC price test still uses its separately configured sandbox account/);
+  assert.match(source, /abcAccountDiscovery\.state === "needs-authorization"/);
+  assert.doesNotMatch(source, /localStorage\.setItem\("abc/);
+});

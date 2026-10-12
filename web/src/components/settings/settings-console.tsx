@@ -24,7 +24,7 @@ import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
 import { removeSettingsAssetAction, uploadSettingsAssetAction } from "@/app/actions/settings";
-import { clientFetch } from "@/lib/clientApi";
+import { clientFetch, ClientApiError } from "@/lib/clientApi";
 import { validateSettingsAssetUpload } from "@/lib/settingsAssetUpload";
 import { cn } from "@/lib/utils";
 import { type OrganizationSettingsResponse, type SettingsRoleProfile, type SettingsTeamMember, type TradeOsSettingsDraft } from "@/lib/settings";
@@ -68,6 +68,13 @@ interface SettingsSearchResult {
   description: string;
   anchorId: string;
   keywords: string[];
+}
+
+interface AbcShipToAccountOption {
+  number: string;
+  name: string;
+  status: string;
+  branches: Array<{ number: string; name: string; status: string; homeBranch: boolean }>;
 }
 
 interface ToastMessage {
@@ -133,6 +140,19 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
     | { state: "idle" | "starting" }
     | { state: "error"; message: string }
   >({ state: "idle" });
+  // ABC account numbers remain in component memory only. This is a read-only
+  // selection preview; pricing still uses its separate server-governed probe.
+  const [abcAccountDiscovery, setAbcAccountDiscovery] = useState<
+    | { state: "idle" | "loading" | "needs-authorization" }
+    | { state: "ready"; accounts: AbcShipToAccountOption[] }
+    | { state: "error" }
+  >({ state: "idle" });
+  const [selectedAbcShipTo, setSelectedAbcShipTo] = useState("");
+  const [selectedAbcBranch, setSelectedAbcBranch] = useState("");
+  const selectedAbcAccount = abcAccountDiscovery.state === "ready"
+    ? abcAccountDiscovery.accounts.find((account) => account.number === selectedAbcShipTo)
+    : undefined;
+
   // Consume the OAuth result flag from the URL after mount so a reload or
   // bookmark never shows a stale message. The flag value itself comes from
   // the server-rendered prop, so server and client agree (no hydration
@@ -305,6 +325,26 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
   const advancedSections = sections.filter((section) => !contractorSectionIds.includes(section.id as (typeof contractorSectionIds)[number]));
 
   const selectedSection = sections.find((section) => section.id === selectedSectionId) ?? sections[0];
+
+  async function discoverAbcShipToAccounts() {
+    if (abcAccountDiscovery.state === "loading") return;
+    setAbcAccountDiscovery({ state: "loading" });
+    setSelectedAbcShipTo("");
+    setSelectedAbcBranch("");
+    try {
+      const result = await clientFetch<{ accounts: AbcShipToAccountOption[] }>(
+        "/api/v1/supplier-integrations/abc/accounts",
+      );
+      if (!Array.isArray(result.accounts)) throw new Error("Invalid ABC account response");
+      setAbcAccountDiscovery({ state: "ready", accounts: result.accounts });
+    } catch (error) {
+      // The backend maps a missing/insufficient account.read grant to HTTP 409.
+      // All other failures remain generic to avoid echoing provider data.
+      setAbcAccountDiscovery(error instanceof ClientApiError && error.status === 409
+        ? { state: "needs-authorization" }
+        : { state: "error" });
+    }
+  }
 
   async function testAbcConnection() {
     if (abcProbe.state === "testing") return;
@@ -842,6 +882,90 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                 ) : null}
                 {abcOAuth.state === "error" ? (
                   <p role="alert" className="text-sm text-destructive">{abcOAuth.message}</p>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {selectedSection.id === "costbook" && supplierWorkflowIdentity && ["owner", "admin"].includes(initialWorkspaceData.currentRole) ? (
+            <Card className="rounded-[24px] border-border/70">
+              <CardHeader>
+                <CardTitle>ABC Supply accounts and branches</CardTitle>
+                <CardDescription>
+                  Discover Ship-To accounts authorized through your ABC sandbox connection.
+                  Choose an account and branch to inspect the available options.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={abcAccountDiscovery.state === "loading"}
+                  onClick={() => void discoverAbcShipToAccounts()}
+                >
+                  {abcAccountDiscovery.state === "loading" ? <LoaderCircle className="mr-2 size-4 animate-spin" aria-hidden="true" /> : null}
+                  {abcAccountDiscovery.state === "loading" ? "Finding ABC accounts..." : "Find ABC accounts"}
+                </Button>
+                {abcAccountDiscovery.state === "needs-authorization" ? (
+                  <p role="alert" className="text-sm text-destructive">
+                    ABC account access needs a fresh authorization with account.read. Use Connect / Reauthorize ABC above, then try again.
+                  </p>
+                ) : null}
+                {abcAccountDiscovery.state === "error" ? (
+                  <p role="alert" className="text-sm text-destructive">
+                    Account discovery did not complete. Check the sandbox connection and try again.
+                  </p>
+                ) : null}
+                {abcAccountDiscovery.state === "ready" && abcAccountDiscovery.accounts.length === 0 ? (
+                  <p role="status" className="text-sm text-muted-foreground">
+                    ABC returned no eligible Ship-To accounts with branches for this sandbox authorization.
+                  </p>
+                ) : null}
+                {abcAccountDiscovery.state === "ready" && abcAccountDiscovery.accounts.length > 0 ? (
+                  <div className="space-y-4">
+                    <SelectField
+                      id="abc-shipto-account"
+                      label="ABC Ship-To account"
+                      value={selectedAbcShipTo}
+                      onChange={(event) => {
+                        setSelectedAbcShipTo(event.target.value);
+                        setSelectedAbcBranch("");
+                      }}
+                      hint="Showing only accounts returned for your authorized sandbox connection."
+                      className="h-11 rounded-xl"
+                    >
+                      <option value="">Select an account</option>
+                      {abcAccountDiscovery.accounts.map((account) => (
+                        <option key={account.number} value={account.number}>
+                          {account.name} · {account.number} ({account.status})
+                        </option>
+                      ))}
+                    </SelectField>
+                    <SelectField
+                      id="abc-branch"
+                      label="ABC branch"
+                      value={selectedAbcBranch}
+                      onChange={(event) => setSelectedAbcBranch(event.target.value)}
+                      disabled={!selectedAbcAccount}
+                      hint="Branches are limited to those associated with the selected Ship-To account."
+                      className="h-11 rounded-xl"
+                    >
+                      <option value="">Select a branch</option>
+                      {selectedAbcAccount?.branches.map((branch) => (
+                        <option key={branch.number} value={branch.number}>
+                          {branch.name} · {branch.number} ({branch.status}){branch.homeBranch ? " · Home branch" : ""}
+                        </option>
+                      ))}
+                    </SelectField>
+                    {selectedAbcAccount && selectedAbcBranch ? (
+                      <p role="status" className="text-sm text-foreground">
+                        Selected {selectedAbcAccount.name} and branch {selectedAbcBranch} for this view.
+                      </p>
+                    ) : null}
+                    <p className="text-sm text-muted-foreground">
+                      Selection is temporary and read-only. Nothing is saved; the ABC price test still uses its separately configured sandbox account and branch.
+                    </p>
+                  </div>
                 ) : null}
               </CardContent>
             </Card>

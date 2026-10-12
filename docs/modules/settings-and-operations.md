@@ -94,9 +94,13 @@ Discovery has a 15-second deadline, bounded provider pagination, a normalized
 account/branch response, and safe 409 responses for insufficient account grant.
 No account selection, saved preference, pricing request, Material update or
 unattended customer-price synchronization is performed by this endpoint.
-The Settings account/branch UI and selected-account quote path are subsequent
-governed slices; production access remains subject to ABC Third-Party
-Aggregator approval.
+The Settings Costbook panel now offers an owner/admin read-only **Find ABC accounts**
+action. It shows account/branch choices from this authenticated endpoint, including
+empty-results, reconnect and generic failure states. The chosen Ship-To and branch
+exist only as ephemeral component state, never saved in TradeOS settings or browser
+storage; they are **not** passed to the price probe or used for scheduled sync.
+The selected-account quote path remains subsequent governed work. Production
+access remains subject to ABC Third-Party Aggregator approval.
 
 ## ABC Supply sandbox connection test (2026-10-09)
 
