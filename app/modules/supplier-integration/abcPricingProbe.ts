@@ -14,7 +14,11 @@ function safeAbcProviderMessage(raw: unknown): string | null {
   const message = raw.trim();
   if (!message || message.length > 160 || !/^[a-z0-9][a-z0-9 ,.:;!?()'/-]*$/i.test(message)) return null;
   if (/\b(?:bearer|token|password|secret|credential|authorization|refresh|session|cookie|https?|www|client[ -]?id|client[ -]?secret|api[ -]?key|access[ -]?key|private[ -]?key)\b/i.test(message)) return null;
-  if (/\b\d{8,}\b/.test(message) || /[a-z0-9_-]{32,}/i.test(message)) return null;
+  // Bare domains, hyphenated ship-to numbers (e.g. 2010466-2), and
+  // seven-digit account identifiers are sensitive even without URL schemes.
+  if (/\b(?:[a-z0-9-]+\.)+[a-z]{2,}\b/i.test(message)) return null;
+  if (/\b\d{7,}(?:-\d+)*\b|\b\d{6,}-\d+\b/.test(message)) return null;
+  if (/[a-z0-9_-]{32,}/i.test(message)) return null;
   return message;
 }
 
