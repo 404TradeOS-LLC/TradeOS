@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AbcSupplyAuth } from "./abcSupply";
+import { AbcAccountAuthorizationError } from "./abcAccountAuthorizationError";
 
 /**
  * Thin client over the ABC Supply sandbox Account API (Search Accounts).
@@ -105,7 +106,9 @@ export class AbcSupplyAccountClient {
         signal,
       });
       if (!response.ok) {
-        throw new Error(`ABC Supply Search Accounts request failed: HTTP ${response.status}`);
+        const message = `ABC Supply Search Accounts request failed: HTTP ${response.status}`;
+        if (response.status === 403) throw new AbcAccountAuthorizationError(message);
+        throw new Error(message);
       }
       // A malformed provider response must not masquerade as "no accounts"
       // or produce an incomplete list. Never return provider payload details.

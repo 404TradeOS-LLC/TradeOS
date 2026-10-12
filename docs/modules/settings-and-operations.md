@@ -82,9 +82,10 @@ step carries no secrets and the Settings UI behavior is unchanged.
 
 The authenticated `GET /api/v1/supplier-integrations/abc/accounts` endpoint
 offers a read-only foundation for the future Settings Ship-To selector.
-It checks `costbook.manage`, owner/admin role, active organization and matching
-ABC Supplier before loading the tenant's server-side Vault credential and
-querying the ABC **sandbox** Search Accounts API. OAuth client credentials
+Role access and tenant isolation follow the shared [RBAC matrix](../RBAC_MATRIX.md)
+and [domain model](../DOMAIN_MODEL.md); the endpoint additionally requires
+a matching ABC Supplier before loading the tenant's server-side Vault
+credential and querying the ABC **sandbox** Search Accounts API. OAuth client credentials
 are sufficient to begin discovery even if branch and Ship-To have not been
 selected: pricing configuration still requires those values. No request-provided
 organization, supplier, branch or Ship-To account is accepted. ABC's `account.read`

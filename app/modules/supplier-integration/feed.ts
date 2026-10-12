@@ -5,6 +5,7 @@ import { logInfo } from "../../backend/logging";
 import { AbcSupplyAuth, AbcSupplyPricingClient, createAbcSupplyFeedFetcher, loadAbcSupplyConfig } from "./abcSupply";
 import type { AbcSupplyAuthConfig } from "./abcSupply";
 import { abcSupplyRefreshTokenStore } from "./credentialStore";
+import { AbcAccountAuthorizationError } from "./abcAccountAuthorizationError";
 
 const endpointMapSchema = z.record(z.string().uuid(), z.string().url());
 const feedSchema = z.object({
@@ -107,7 +108,7 @@ export async function createDurableAbcAuth<T extends AbcSupplyAuthConfig>(
   // calling ABC with an empty credential.
   const refreshToken = durableRefreshToken ?? config.refreshToken;
   if (!refreshToken) {
-    throw new Error("ABC sandbox refresh token is not configured");
+    throw new AbcAccountAuthorizationError("ABC sandbox refresh token is not configured");
   }
   const authConfig = { ...config, refreshToken };
   const auth = new AbcSupplyAuth(authConfig, fetch, Date.now, {

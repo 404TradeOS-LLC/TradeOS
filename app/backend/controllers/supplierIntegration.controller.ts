@@ -3,6 +3,7 @@ import { z } from "zod";
 import { SupplierIntegrationService } from "../../modules/supplier-integration/service";
 import { probeAbcSandboxPricing } from "../../modules/supplier-integration/abcPricingProbe";
 import { AbcSupplyAccountClient } from "../../modules/supplier-integration/abcAccount";
+import { AbcAccountAuthorizationError } from "../../modules/supplier-integration/abcAccountAuthorizationError";
 import { loadAbcSupplyAuthConfig } from "../../modules/supplier-integration/abcSupply";
 import { createDurableAbcAuth } from "../../modules/supplier-integration/feed";
 import {
@@ -216,7 +217,7 @@ export const supplierIntegrationController = {
       }
       // Older grants have pricing.read but not account.read. Do not echo
       // provider response bodies, access/refresh tokens or account numbers.
-      if (error instanceof Error && /^(?:ABC sandbox refresh token is not configured|ABC Supply token refresh failed: HTTP (?:400|403)|ABC Supply Search Accounts request failed: HTTP 403)$/.test(error.message)) {
+      if (error instanceof AbcAccountAuthorizationError) {
         throw new ApiError(409, "ABC account access needs a fresh authorization with account.read");
       }
       throw error;

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "../../db/client";
+import { AbcAccountAuthorizationError } from "./abcAccountAuthorizationError";
 import type { SupplierFeedFetcher } from "./types";
 
 /**
@@ -152,7 +153,7 @@ export class AbcSupplyAuth {
     }
     const refreshToken = this.refreshToken;
     if (!refreshToken) {
-      throw new Error("ABC Supply refresh token is not configured");
+      throw new AbcAccountAuthorizationError("ABC Supply refresh token is not configured");
     }
     const body = new URLSearchParams({
       grant_type: "refresh_token",
@@ -172,7 +173,11 @@ export class AbcSupplyAuth {
       signal,
     });
     if (!response.ok) {
-      throw new Error(`ABC Supply token refresh failed: HTTP ${response.status}`);
+      const message = `ABC Supply token refresh failed: HTTP ${response.status}`;
+      if (response.status === 400 || response.status === 403) {
+        throw new AbcAccountAuthorizationError(message);
+      }
+      throw new Error(message);
     }
     const parsed = tokenResponseSchema.parse(await response.json());
     if (parsed.refresh_token && parsed.refresh_token !== this.refreshToken) {

@@ -75,6 +75,8 @@ import { loadAbcSupplyAuthConfig } from "../modules/supplier-integration/abcSupp
 import { AbcSupplyAccountClient } from "../modules/supplier-integration/abcAccount";
 import { requireOrgId, requirePermissions } from "../backend/requestContext";
 import { prisma } from "../db/client";
+import { ApiError } from "../backend/middleware/errorHandler";
+import { AbcAccountAuthorizationError } from "../modules/supplier-integration/abcAccountAuthorizationError";
 
 const buildUrl = buildAuthorizeUrl as jest.Mock;
 const consume = consumeAuthorizationState as jest.Mock;
@@ -98,7 +100,8 @@ function app() {
   server.use("/api/v1/supplier-integrations", abcOAuthCallbackRouter);
   server.use("/api/v1/supplier-integrations", supplierIntegrationRouter);
   server.use((error: any, _req: any, res: any, _next: any) => {
-    res.status(error?.statusCode || error?.status || 400).json({ error: "rejected" });
+    const status = error?.statusCode || error?.status || (error?.name === "ZodError" ? 400 : 500);
+    res.status(status).json({ error: error instanceof ApiError ? error.message : "rejected" });
   });
   return server;
 }
@@ -380,7 +383,7 @@ describe("GET /abc/accounts (read-only sandbox Ship-To discovery)", () => {
     "ABC Supply token refresh failed: HTTP 403",
     "ABC Supply Search Accounts request failed: HTTP 403",
   ])("returns a safe 409 reconnection instruction for %s", async (reason) => {
-    search.mockRejectedValue(new Error(reason));
+    search.mockRejectedValue(new AbcAccountAuthorizationError(reason));
     const response = await request(app()).get(path);
     expect(response.status).toBe(409);
     expect(response.body.error).toContain("account.read");
@@ -388,7 +391,7 @@ describe("GET /abc/accounts (read-only sandbox Ship-To discovery)", () => {
   });
 
   it("returns a reconnect response if Vault has no ABC refresh grant", async () => {
-    getAuth.mockRejectedValueOnce(new Error("ABC sandbox refresh token is not configured"));
+    getAuth.mockRejectedValueOnce(new AbcAccountAuthorizationError("ABC sandbox refresh token is not configured"));
     const response = await request(app()).get(path);
     expect(response.status).toBe(409);
     expect(response.body.error).toContain("account.read");
@@ -403,8 +406,9 @@ describe("GET /abc/accounts (read-only sandbox Ship-To discovery)", () => {
   });
 
   it("never initiates a provider request when costbook.manage is denied", async () => {
-    permissions.mockImplementation(() => { throw new Error("permission denied"); });
-    await request(app()).get(path);
+    permissions.mockImplementation(() => { throw new ApiError(403, "Permission denied"); });
+    const response = await request(app()).get(path);
+    expect(response.status).toBe(403);
     expect(findSupplier).not.toHaveBeenCalled();
     expect(getAuth).not.toHaveBeenCalled();
     expect(search).not.toHaveBeenCalled();
