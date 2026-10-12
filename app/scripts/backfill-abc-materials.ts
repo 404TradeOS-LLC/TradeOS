@@ -119,7 +119,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     scanned, linked, skippedUnapproved, skippedDuplicate, skippedConflict,
     materialCreates: 0, materialPriceUpdates: 0, historicalPricePromotions: 0 }));
 }
-const directlyInvoked = typeof process.argv[1] === "string" && /backfill-abc-materials(\\.[cm]?[jt]s)?$/.test(process.argv[1]);
+const directlyInvoked = typeof process.argv[1] === "string" && process.argv[1].includes("backfill-abc-materials");
 if (directlyInvoked) {
   main().catch(e => { console.error("[abc-backfill]", e); process.exitCode = 1; })
     .finally(async () => { await basePrisma.$disconnect(); });
