@@ -33,10 +33,12 @@ jobs:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: "20"
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24"
           cache: npm
           cache-dependency-path: app/package-lock.json
       - name: Verify operator authorization inputs
@@ -53,24 +55,21 @@ jobs:
         run: |
           npm ci
           npx jest --runInBand --runTestsByPath tests/backfill-abc-materials.test.ts
-      - name: Link approved materials only
+      - name: Resolve restricted application database role
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_ADMIN_URL: ${{ secrets.DATABASE_ADMIN_URL }}
           APP_DB_ROLE_PASSWORD: ${{ secrets.APP_DB_ROLE_PASSWORD }}
           APP_DB_ROLE_NAME: ${{ secrets.APP_DB_ROLE_NAME }}
+        run: node scripts/derive-restricted-database-url.cjs
+      - name: Link approved materials only
+        env:
           ORG_ID: ${{ inputs.org_id }}
           USER_ID: ${{ inputs.user_id }}
           DRY_RUN: ${{ inputs.dry_run }}
           NODE_ENV: production
         run: |
           set -euo pipefail
-          if [[ -z "${DATABASE_URL:-}" ]]; then
-            [[ -n "${DATABASE_ADMIN_URL:-}" && -n "${APP_DB_ROLE_PASSWORD:-}" ]] || { echo "Restricted role credentials required" >&2; exit 1; }
-            DATABASE_URL="$(node -e 'const u=new URL(process.env.DATABASE_ADMIN_URL); const role=process.env.APP_DB_ROLE_NAME||"tradeos_app";const admin=decodeURIComponent(u.username);const pooler=u.hostname.endsWith(".pooler.supabase.com");const suffix=pooler&&admin.includes(".")?admin.slice(admin.indexOf(".")):"";if(!["postgres:","postgresql:"].includes(u.protocol)||!/^[A-Za-z_][A-Za-z0-9_]*$/.test(role)||role==="postgres"||role===admin.split(".")[0]||(pooler&&!/^\.[a-z0-9]+$/.test(suffix)))process.exit(1);u.username=role+suffix;u.password=process.env.APP_DB_ROLE_PASSWORD;process.stdout.write(u.toString());')"
-            export DATABASE_URL
-          fi
-          [[ -z "${DATABASE_ADMIN_URL:-}" || "$DATABASE_URL" != "$DATABASE_ADMIN_URL" ]] || { echo "Admin connection prohibited" >&2; exit 1; }
           args=(--org-id "$ORG_ID" --user-id "$USER_ID")
           if [[ "$DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
           npx ts-node scripts/backfill-abc-materials.ts "${args[@]}"
