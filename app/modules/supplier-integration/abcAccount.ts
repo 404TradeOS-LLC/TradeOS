@@ -53,6 +53,13 @@ const shipToSchema = z
 
 const searchAccountsResponseSchema = z
   .object({
+    pagination: z
+      .object({
+        pageNumber: z.number(),
+        totalPages: z.number(),
+      })
+      .passthrough()
+      .optional(),
     shipTos: z.array(shipToSchema).default([]),
   })
   .passthrough();
@@ -68,26 +75,38 @@ export class AbcSupplyAccountClient {
    * Requires the `account.read` scope grant; a pricing-only token gets a
    * sanitized 403 here, which callers should translate into a
    * re-authorization prompt.
+   *
+   * Traverses every result page: the endpoint paginates and only page 1
+   * would silently omit accounts for users with many Ship-Tos.
    */
   async searchShipToAccounts(signal?: AbortSignal): Promise<AbcShipToAccount[]> {
     const token = await this.auth.getAccountToken(signal);
-    const response = await this.fetchFn(`${SANDBOX_API_BASE}${SEARCH_ACCOUNTS_PATH}`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        filters: [{ key: "accountType", condition: "equals", values: ["Ship-To"] }],
-        pagination: { itemsPerPage: 50, pageNumber: 1 },
-      }),
-      signal,
-    });
-    if (!response.ok) {
-      throw new Error(`ABC Supply Search Accounts request failed: HTTP ${response.status}`);
-    }
-    const parsed = searchAccountsResponseSchema.parse(await response.json());
-    return parsed.shipTos
+    const allShipTos: z.infer<typeof shipToSchema>[] = [];
+    let pageNumber = 1;
+    let totalPages = 1;
+    do {
+      const response = await this.fetchFn(`${SANDBOX_API_BASE}${SEARCH_ACCOUNTS_PATH}`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          // Exact value from the official Search Accounts example request.
+          filters: [{ key: "accountType", condition: "equals", values: ["Ship-to"] }],
+          pagination: { itemsPerPage: 50, pageNumber },
+        }),
+        signal,
+      });
+      if (!response.ok) {
+        throw new Error(`ABC Supply Search Accounts request failed: HTTP ${response.status}`);
+      }
+      const parsed = searchAccountsResponseSchema.parse(await response.json());
+      allShipTos.push(...parsed.shipTos);
+      pageNumber = (parsed.pagination?.pageNumber ?? pageNumber) + 1;
+      totalPages = parsed.pagination?.totalPages ?? 1;
+    } while (pageNumber <= totalPages);
+    return allShipTos
       .filter((shipTo) => shipTo.branches.length > 0)
       .map((shipTo) => ({
         number: shipTo.number,

@@ -60,7 +60,7 @@ describe("AbcSupplyAccountClient.searchShipToAccounts", () => {
     expect(init.method).toBe("POST");
     expect((init.headers as Record<string, string>).authorization).toBe("Bearer account-token");
     const body = JSON.parse(String(init.body));
-    expect(body.filters).toEqual([{ key: "accountType", condition: "equals", values: ["Ship-To"] }]);
+    expect(body.filters).toEqual([{ key: "accountType", condition: "equals", values: ["Ship-to"] }]);
     expect(body.pagination).toEqual({ itemsPerPage: 50, pageNumber: 1 });
   });
 
@@ -101,6 +101,38 @@ describe("AbcSupplyAccountClient.searchShipToAccounts", () => {
     await auth.getPricingToken();
     await auth.getAccountToken();
     expect(tokenFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("traverses every result page before filtering retired accounts", async () => {
+    const auth = new AbcSupplyAuth(config, (async () => ({
+      ok: true,
+      json: async () => ({ access_token: "t", expires_in: 1800 }),
+    })) as unknown as typeof fetch);
+    const page = (pageNumber: number, totalPages: number, shipTos: unknown[]) => ({
+      ok: true,
+      json: async () => ({
+        pagination: { itemsPerPage: 1, pageNumber, totalPages, totalItems: totalPages },
+        shipTos,
+      }),
+    });
+    const shipTo = (number: string) => ({
+      number,
+      name: `ACCOUNT ${number}`,
+      status: "active",
+      branches: [{ number: "340", name: "Branch 340", status: "active", homeBranch: true }],
+    });
+    const searchFetch = jest
+      .fn()
+      .mockResolvedValueOnce(page(1, 2, [shipTo("2010466-2")]))
+      .mockResolvedValueOnce(page(2, 2, [shipTo("2010466-3")]));
+    const client = new AbcSupplyAccountClient(auth, searchFetch as unknown as typeof fetch);
+
+    const accounts = await client.searchShipToAccounts();
+
+    expect(accounts.map((a) => a.number)).toEqual(["2010466-2", "2010466-3"]);
+    expect(searchFetch).toHaveBeenCalledTimes(2);
+    const secondBody = JSON.parse(String((searchFetch.mock.calls[1] as [string, RequestInit])[1].body));
+    expect(secondBody.pagination).toEqual({ itemsPerPage: 50, pageNumber: 2 });
   });
 
   it("throws a sanitized error on non-OK responses without leaking the body", async () => {
