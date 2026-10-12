@@ -145,13 +145,13 @@ export const supplierIntegrationController = {
         });
         return finish("error", step);
       }
+      step = "exchange";
       const clientId = process.env.ABC_SUPPLY_SANDBOX_CLIENT_ID?.trim();
       const clientSecret = process.env.ABC_SUPPLY_SANDBOX_CLIENT_SECRET?.trim();
       if (!clientId || !clientSecret) {
         logError("supplier_integration.abc_oauth_callback_failed", { reason: "credentials_not_configured", step });
         return finish("error", step);
       }
-      step = "exchange";
       const { refreshToken } = await exchangeAuthorizationCode({
         code: parsed.code,
         codeVerifier: consumed.codeVerifier,

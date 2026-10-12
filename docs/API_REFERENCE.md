@@ -48,8 +48,9 @@ persists the refresh token through the existing
 tenant-scoped background session. Every outcome 302-redirects to
 Settings with a sanitized `?abc_oauth=success|error` flag; on error the
 redirect also carries `?abc_oauth_step=request|state|exchange|persist`
-naming the callback stage that failed (no codes, tokens, secrets, or
-provider response bodies are logged or surfaced). The endpoint is
+naming the callback stage that failed. The `exchange` stage includes missing
+callback client credentials as well as rejected token exchanges (no codes,
+tokens, secrets, or provider response bodies are logged or surfaced). The endpoint is
 rate-limited (60 per 15 minutes per IP) as defense in depth.
 
 The env `ABC_SUPPLY_SANDBOX_REFRESH_TOKEN` is now bootstrap/recovery

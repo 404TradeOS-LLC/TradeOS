@@ -226,6 +226,23 @@ describe("GET /abc/oauth/callback", () => {
     expect(persist).not.toHaveBeenCalled();
   });
 
+  it.each(["ABC_SUPPLY_SANDBOX_CLIENT_ID", "ABC_SUPPLY_SANDBOX_CLIENT_SECRET"] as const)(
+    "classifies missing %s as an exchange-stage failure after valid state consumption",
+    async (credential) => {
+      delete process.env[credential];
+      const response = await callbackWithBinding("browser-binding-token", {
+        code: "good-code",
+        state: "state-token",
+      });
+      expect(response.status).toBe(302);
+      expect(response.headers.location).toContain("abc_oauth=error");
+      expect(response.headers.location).toContain("abc_oauth_step=exchange");
+      expect(consume).toHaveBeenCalledWith("state-token", "browser-binding-token");
+      expect(exchange).not.toHaveBeenCalled();
+      expect(persist).not.toHaveBeenCalled();
+    },
+  );
+
   it("sanitizes provider exchange failures: status flag only, no error text in the redirect", async () => {
     exchange.mockRejectedValue(
       new Error("ABC Supply authorization code exchange failed: HTTP 400 :: planted-secret-marker"),

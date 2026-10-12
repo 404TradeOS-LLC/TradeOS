@@ -63,7 +63,7 @@ Diagnostic note 2026-10-12: when the callback fails, the Settings
 redirect carries `?abc_oauth_step=request|state|exchange|persist`
 alongside `?abc_oauth=error`, naming the stage that failed — `request`
 (ABC returned no code), `state` (unknown/expired/replayed state or a
-missing/mismatched browser-binding cookie), `exchange` (ABC rejected
+missing/mismatched browser-binding cookie), `exchange` (callback client credentials are missing or ABC rejected
 the code exchange), or `persist` (refresh-token storage failed). The
 step carries no secrets and the Settings UI behavior is unchanged.
 
