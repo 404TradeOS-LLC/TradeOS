@@ -127,7 +127,7 @@ export class AbcSupplyAuth {
   private refreshToken: string | null;
 
   constructor(
-    private readonly config: AbcSupplyAuthConfig,
+    private readonly config: AbcSupplyAuthConfig | AbcSupplyConfig,
     private readonly fetchFn: typeof fetch = fetch,
     private readonly now: () => number = Date.now,
     private readonly hooks: AbcSupplyAuthHooks = {},
