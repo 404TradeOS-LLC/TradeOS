@@ -17,7 +17,8 @@ function safeAbcProviderMessage(raw: unknown): string | null {
   // Bare domains, hyphenated ship-to numbers (e.g. 2010466-2), and
   // seven-digit account identifiers are sensitive even without URL schemes.
   if (/\b(?:[a-z0-9-]+\.)+[a-z]{2,}\b/i.test(message)) return null;
-  if (/\b\d{7,}(?:-\d+)*\b|\b\d{6,}-\d+\b/.test(message)) return null;
+  if (/\d{7,}|\d{6,}-\d+/.test(message)) return null;
+  if (/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(message)) return null;
   if (/[a-z0-9_-]{32,}/i.test(message)) return null;
   return message;
 }

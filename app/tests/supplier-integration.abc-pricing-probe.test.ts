@@ -96,6 +96,8 @@ describe("single ABC sandbox price probe (no Material)", () => {
     ["bare-domain without path", "Open portal.abcsupply.com"],
     ["hyphenated ship-to", "Ship-to 2010466-2 is not authorized"],
     ["seven-digit account", "Account 2010466 was rejected"],
+    ["embedded long numeric account", "Account A123456789012B was rejected"],
+    ["UUID-shaped identifier", "Account abcdefab-1234-1234-1234-abcdef123456 was rejected"],
     ["email address", "Contact staff@example.com"],
     ["long opaque identifier", "abcdefghij1234567890abcdef1234567890"],
     ["numeric account identifier", "Account 123456789012 was rejected"],
