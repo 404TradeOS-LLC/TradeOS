@@ -355,5 +355,7 @@ The seed runtime uses only a restricted application-role database connection. It
 
 The manual `Seed 47802 Costbook supplier evidence` workflow (`.github/workflows/seed-costbook-supplier-prices-47802.yml`) is the governed operator path for importing the checked-in 3,188-row Terre Haute supplier corpus into the existing tenant-scoped `Supplier`, `SupplierProduct`, and `SupplierPriceObservation` boundaries. It is production-environment gated, confirmation-gated, serialized, and replay-idempotent. The workflow does not promote observations into `Material.unitCost`, reprice Estimates, or treat source workbook canonical keys as authoritative TradeOS identity.
 
+### ABC Supply link-only Material backfill
+
 The protected `.github/workflows/backfill-abc-materials.yml` operator workflow now supports a confirmation-gated, production-environment, restricted-role **link-only** backfill with dry-run enabled by default. The runner processes at most 25 supplier products per tenant-scoped database session, advances by product ID, and links only a unique eligible ABC supplier SKU to an existing active Material with the same supplier, SKU, and purchase unit. It creates no Materials and changes no Material prices; new Materials still require separately reviewed, owner-approved single-product activation. This workflow has not been production-executed or proven by live ABC sandbox pricing.
 
