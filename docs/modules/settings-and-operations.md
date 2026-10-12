@@ -64,8 +64,10 @@ Prisma connection-pool timeout (pool limit 1) while persisting the new
 authorization-code refresh token. The callback's tenant-validated background
 session already owns a transaction; the Vault write now reuses that same
 transaction without acquiring a second pool connection. Provider-driven
-refresh-token rotations during pricing still use an independently committed
-transaction. An unsuccessful callback does not establish a connected ABC
+refresh-token rotations during pricing use an independently committed
+transaction through a lazily initialized, separate, bounded Prisma pool.
+The existing tenant-scoped Vault SQL wrapper is unchanged; the new pool avoids
+a deadlock if the caller holds the only connection in the request pool. An unsuccessful callback does not establish a connected ABC
 account; retry user-present authorization after deployment.
 
 Diagnostic note 2026-10-12: when the callback fails, the Settings

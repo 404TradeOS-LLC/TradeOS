@@ -5,7 +5,12 @@ const mockPrisma = {
   $executeRaw: jest.fn(async (..._args: unknown[]) => 1),
 };
 
-jest.mock("../db/client", () => ({ prisma: mockPrisma, basePrisma: mockPrisma }));
+const mockRotationClient = { $transaction: jest.fn() };
+jest.mock("../db/client", () => ({
+  prisma: mockPrisma,
+  basePrisma: mockPrisma,
+  getSupplierTokenRotationClient: jest.fn(() => mockRotationClient),
+}));
 const mockRunWithDatabaseSession = jest.fn(async (
   _client: unknown, _actor: unknown, action: () => Promise<unknown>
 ) => action());
@@ -248,13 +253,14 @@ describe("default supplier price feed (ABC routing)", () => {
     expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
     expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
     expect(mockRunWithDatabaseSession).toHaveBeenCalledWith(
-      mockPrisma,
+      mockRotationClient,
       expect.objectContaining({ orgId, role: "owner" }),
       expect.any(Function),
       "supplier_refresh_token_rotation",
     );
     const persistSql = mockPrisma.$executeRaw.mock.calls[0][0] as { values: unknown[] };
-    expect(persistSql.values).toEqual(expect.arrayContaining([orgId, abcSupplierId, "rotated-refresh-token"]));
+    expect(persistSql.values).toEqual([orgId, abcSupplierId, "rotated-refresh-token"]);
+    expect(persistSql.strings.join("?")).toMatch(/tradeos_private\.put_abc_supply_refresh_token\s*\(/);
     expect(calls).toHaveLength(2);
   });
 

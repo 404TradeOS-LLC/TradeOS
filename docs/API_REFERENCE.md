@@ -48,7 +48,9 @@ persists the refresh token through
 already-open, tenant-scoped owner/admin Vault transaction (no nested pool
 connection acquisition). Provider-initiated refresh rotations continue using
 `abcSupplyRefreshTokenStore.persist`, which commits in a separate session
-before pricing proceeds. Every outcome 302-redirects to
+before pricing proceeds. This path now uses a lazy, dedicated bounded Prisma
+client with the same restricted tenant-RLS role and Supabase transaction pooler,
+so a one-connection request pool cannot block its separate commit. Every outcome 302-redirects to
 Settings with a sanitized `?abc_oauth=success|error` flag; on error the
 redirect also carries `?abc_oauth_step=request|state|exchange|persist`
 naming the callback stage that failed. The `exchange` stage includes missing

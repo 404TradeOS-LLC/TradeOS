@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { basePrisma, prisma } from "../../db/client";
+import { getSupplierTokenRotationClient, prisma } from "../../db/client";
 import { getCurrentDatabaseSessionActor, getRequestDatabaseClient, runWithDatabaseSession } from "../../db/requestSession";
 
 export interface SupplierRefreshTokenStore {
@@ -47,9 +47,10 @@ export const abcSupplyRefreshTokenStore: SupplierRefreshTokenStore = {
   async persist(orgId, supplierId, refreshToken) {
     const actor = requireAuthorizedActor(orgId);
 
-    // Provider-driven refresh rotates an already-live token. Preserve its
-    // independent COMMIT even if the caller's pricing transaction rolls back.
-    await runWithDatabaseSession(basePrisma, actor, () =>
+    // ABC invalidates the prior token when it rotates. Use a separate bounded
+    // pool so a caller holding basePrisma's sole connection cannot block this
+    // independent commit; retain the same RLS-scoped Vault SQL wrapper.
+    await runWithDatabaseSession(getSupplierTokenRotationClient(), actor, () =>
       writeRefreshToken(orgId, supplierId, refreshToken), "supplier_refresh_token_rotation");
   },
 

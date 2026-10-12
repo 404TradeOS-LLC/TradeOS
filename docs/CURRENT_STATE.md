@@ -105,6 +105,16 @@ an owner/admin-guarded in-session Vault write, while retaining independent
 commits for provider refresh-token rotation. This patch alone is not proof of
 an authorized sandbox quote, a stored token, or a production deployment.
 
+Provider refresh-token rotation hardening proposed 2026-10-12: the rotation
+helper previously acquired a nested transaction from the request's one-
+connection Prisma pool, risking the same timeout as the OAuth callback.
+A lazily initialized independent Prisma client now commits provider rotations
+through a separate restricted tenant-RLS session before pricing continues.
+Focused tests assert Vault write argument order/SQL and a PostgreSQL test
+models a held request connection with an independent rotation transaction.
+Cross-instance concurrent refresh serialization and live ABC validation are
+separate unverified gates, and this PR is not yet deployed.
+
 ## ABC sandbox connection probe — 2026-10-09
 
 The existing cron/Price Items integration still cannot contact ABC

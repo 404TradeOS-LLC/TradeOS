@@ -1,4 +1,6 @@
 const mockExecuteRaw = jest.fn(async () => 1);
+const mockRotationClient = { $transaction: jest.fn() };
+const mockBaseClient = {};
 const mockCurrentActor = jest.fn();
 const mockRequestDatabase = jest.fn();
 const mockSeparateSession = jest.fn(async (
@@ -6,8 +8,9 @@ const mockSeparateSession = jest.fn(async (
 ) => operation());
 
 jest.mock("../db/client", () => ({
-  basePrisma: {},
+  basePrisma: mockBaseClient,
   prisma: { $executeRaw: mockExecuteRaw },
+  getSupplierTokenRotationClient: jest.fn(() => mockRotationClient),
 }));
 jest.mock("../db/requestSession", () => ({
   getCurrentDatabaseSessionActor: mockCurrentActor,
@@ -38,9 +41,9 @@ describe("ABC OAuth token persistence / independent refresh rotation", () => {
     await abcSupplyRefreshTokenStore.persistInCurrentSession(orgId, supplierId, refreshToken);
     expect(mockSeparateSession).not.toHaveBeenCalled();
     expect(mockExecuteRaw).toHaveBeenCalledTimes(1);
-    expect(mockExecuteRaw).toHaveBeenCalledWith(expect.objectContaining({
-      values: expect.arrayContaining([orgId, supplierId, refreshToken]),
-    }));
+    const write = mockExecuteRaw.mock.calls[0][0] as { strings: readonly string[]; values: unknown[] };
+    expect(write.values).toEqual([orgId, supplierId, refreshToken]);
+    expect(write.strings.join("?")).toMatch(/tradeos_private\.put_abc_supply_refresh_token\s*\(/);
   });
 
   it("refuses callback writes with no ambient transaction", async () => {
@@ -67,12 +70,13 @@ describe("ABC OAuth token persistence / independent refresh rotation", () => {
     mockRequestDatabase.mockReturnValue(undefined);
     await abcSupplyRefreshTokenStore.persist(orgId, supplierId, refreshToken);
     expect(mockSeparateSession).toHaveBeenCalledWith(
-      expect.anything(), actor, expect.any(Function), "supplier_refresh_token_rotation",
+      mockRotationClient, actor, expect.any(Function), "supplier_refresh_token_rotation",
     );
+    expect(mockRotationClient).not.toBe(mockBaseClient);
     expect(mockExecuteRaw).toHaveBeenCalledTimes(1);
-    expect(mockExecuteRaw).toHaveBeenCalledWith(expect.objectContaining({
-      values: expect.arrayContaining([orgId, supplierId, refreshToken]),
-    }));
+    const write = mockExecuteRaw.mock.calls[0][0] as { strings: readonly string[]; values: unknown[] };
+    expect(write.values).toEqual([orgId, supplierId, refreshToken]);
+    expect(write.strings.join("?")).toMatch(/tradeos_private\.put_abc_supply_refresh_token\s*\(/);
   });
 
   it("does not open a rotation transaction or write for unauthorized actors", async () => {
