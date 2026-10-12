@@ -14,6 +14,55 @@ related_code:
 
 # API Reference
 
+## ABC Supply sandbox OAuth reauthorization (2026-10-11)
+
+ABC requires user-authorized access for third-party customer-specific
+pricing, so a fresh `authorization_code` grant is the only way to mint a
+valid refresh token once the stored one is lost or rotated away.
+
+`POST /api/v1/supplier-integrations/abc/oauth/authorize` starts the flow.
+Requests pass through TradeOS user authentication, tenant-bound
+PostgreSQL session and `costbook.manage`; the authenticated actor must
+additionally be a workspace `owner` or `admin`. It creates a short-lived
+(10-minute), single-use authorization state bound to the initiating
+tenant session (stored as a hash in `abc_oauth_authorization_states`,
+never readable by the app role directly) and returns
+`{ "authorizeUrl" }`. Implementation note: the TTL argument is cast to
+`integer` at the call site — the Prisma client binds JS numbers as
+bigint, which would otherwise fail to resolve the
+`tradeos_private.create_abc_oauth_state(..., integer)` overload
+(Postgres 42883) and 500 the endpoint. The founder's browser completes authorization at
+the ABC sandbox; the authorize URL carries PKCE S256 and the
+`pricing.read offline_access account.read` scope.
+
+`GET /api/v1/supplier-integrations/abc/oauth/callback` is
+**unauthenticated by design**: ABC redirects the founder's browser here
+without a JWT, so the single-use state token is the credential. It
+consumes the state exactly once (unknown, expired, or replayed states
+are rejected), validates the redirect URI against the strict allowlist
+(`https://api.404tradeos.com/api/v1/supplier-integrations/abc/oauth/callback`,
+which must be registered in the ABC Developer Portal), exchanges the
+code server-side (the client secret never leaves the backend), and
+persists the refresh token through
+`abcSupplyRefreshTokenStore.persistInCurrentSession` in the callback's
+already-open, tenant-scoped owner/admin Vault transaction (no nested pool
+connection acquisition). Provider-initiated refresh rotations continue using
+`abcSupplyRefreshTokenStore.persist`, which commits in a separate session
+before pricing proceeds. This path now uses a lazy, dedicated bounded Prisma
+client with the same restricted tenant-RLS role and Supabase transaction pooler,
+so a one-connection request pool cannot block its separate commit. Every outcome 302-redirects to
+Settings with a sanitized `?abc_oauth=success|error` flag; on error the
+redirect also carries `?abc_oauth_step=request|state|exchange|persist`
+naming the callback stage that failed. The `exchange` stage includes missing
+callback client credentials as well as rejected token exchanges (no codes,
+tokens, secrets, or provider response bodies are logged or surfaced). The endpoint is
+rate-limited (60 per 15 minutes per IP) as defense in depth.
+
+The env `ABC_SUPPLY_SANDBOX_REFRESH_TOKEN` is now bootstrap/recovery
+only: `loadAbcSupplyConfig` is valid without it, the durable Vault
+credential is authoritative, and pricing fails closed with a sanitized
+"not connected" error when no token exists anywhere.
+
 ## ABC Supply sandbox pricing connection test (2026-10-09)
 
 `POST /api/v1/supplier-integrations/abc/price-probe` accepts an exact
@@ -30,12 +79,19 @@ SupplierPriceUpdate is inserted and no UnitCost is applied.
 
 Response includes `supplierProductKey`, `sku`, `sourcePurchaseUnit`,
 `priced`, `price` (nullable), `currency`, `providerStatus`, plus
-explicit `providerStockingUnitVerified:false`,
-`materialCreated:false`, and `priceApplied:false`. A returned price
-must be positive, finite, four-decimal USD with ABC status OK. The
-source purchase unit is **not** provider stocking-UOM evidence;
-operator must check ABC stock unit and review a baseline before
-enabling the normal Material-linked review-first sync.
+`providerStatusMessage` (nullable, at most 160 characters; only from an
+exact matching failed ABC item, after conservative plain-language filtering).
+URLs, markup, credential-like text, ship-to/account numbers and opaque
+identifiers are suppressed entirely, rather than echoed or merely truncated.
+Settings shows either the safe provider explanation or a generic fallback.
+A successful line does not surface raw provider status text,
+`providerStockingUnit` (actual ABC response UOM or null),
+`providerStockingUnitVerified` (true only when that provider UOM matches the
+historical purchase unit), `materialCreated:false`, and `priceApplied:false`.
+A returned price must be positive, finite, four-decimal USD with ABC status OK.
+The source unit alone is not provider evidence. Missing or mismatched UOM
+cannot enter the Material price-update queue; a separate operator approval
+is still required for an initial Material unit cost.
 
 
 ## Settings workflow actor identity (2026-10-09)

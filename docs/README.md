@@ -369,3 +369,7 @@ attestation, verifies Costbook membership through a read-only workspace GET,
 removes both runner-temp sessions, and credential-scans screenshots and reports
 before artifact publication. No live browser capture or release certification
 is implied by adding the workflow; see `docs/testing/PLAYWRIGHT_AGENTS.md`.
+### ABC Supply link-only Material backfill
+
+The protected `.github/workflows/backfill-abc-materials.yml` operator workflow now supports a confirmation-gated, production-environment, restricted-role **link-only** backfill with dry-run enabled by default. The runner processes at most 25 supplier products per tenant-scoped database session, advances by product ID, and links only a unique eligible ABC supplier SKU to an existing active Material with the same supplier, SKU, and purchase unit. It creates no Materials and changes no Material prices; new Materials still require separately reviewed, owner-approved single-product activation. This workflow has not been production-executed or proven by live ABC sandbox pricing.
+

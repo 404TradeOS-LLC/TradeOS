@@ -5,7 +5,12 @@ const mockPrisma = {
   $executeRaw: jest.fn(async (..._args: unknown[]) => 1),
 };
 
-jest.mock("../db/client", () => ({ prisma: mockPrisma, basePrisma: mockPrisma }));
+const mockRotationClient = { $transaction: jest.fn() };
+jest.mock("../db/client", () => ({
+  prisma: mockPrisma,
+  basePrisma: mockPrisma,
+  getSupplierTokenRotationClient: jest.fn(() => mockRotationClient),
+}));
 const mockRunWithDatabaseSession = jest.fn(async (
   _client: unknown, _actor: unknown, action: () => Promise<unknown>
 ) => action());
@@ -212,7 +217,7 @@ describe("default supplier price feed (ABC routing)", () => {
     delete process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
 
     mockPrisma.$queryRaw.mockResolvedValueOnce([{ refresh_token: "vault-refresh-token" }]);
-    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1" }]);
+    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1", unitOfMeasure: "SQ" }]);
 
     const calls: string[] = [];
     global.fetch = jest.fn(async (url: string | URL, init?: RequestInit) => {
@@ -234,6 +239,7 @@ describe("default supplier price feed (ABC routing)", () => {
           id: "line-0",
           itemNumber: "SKU-1",
           unitPrice: 42.5,
+          uom: "SQ",
           currency: { code: "USD", symbol: "$" },
           status: { code: "OK", message: "Priced Successfully" },
         }],
@@ -247,13 +253,14 @@ describe("default supplier price feed (ABC routing)", () => {
     expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
     expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
     expect(mockRunWithDatabaseSession).toHaveBeenCalledWith(
-      mockPrisma,
+      mockRotationClient,
       expect.objectContaining({ orgId, role: "owner" }),
       expect.any(Function),
       "supplier_refresh_token_rotation",
     );
-    const persistSql = mockPrisma.$executeRaw.mock.calls[0][0] as { values: unknown[] };
-    expect(persistSql.values).toEqual(expect.arrayContaining([orgId, abcSupplierId, "rotated-refresh-token"]));
+    const persistSql = mockPrisma.$executeRaw.mock.calls[0][0] as { strings: readonly string[]; values: unknown[] };
+    expect(persistSql.values).toEqual([orgId, abcSupplierId, "rotated-refresh-token"]);
+    expect(persistSql.strings.join("?")).toMatch(/tradeos_private\.put_abc_supply_refresh_token\s*\(/);
     expect(calls).toHaveLength(2);
   });
 
@@ -268,7 +275,7 @@ describe("default supplier price feed (ABC routing)", () => {
 
     mockPrisma.$queryRaw.mockResolvedValueOnce([{ refresh_token: "vault-refresh-token" }]);
     mockPrisma.$executeRaw.mockRejectedValueOnce(new Error("vault persistence unavailable"));
-    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1" }]);
+    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1", unitOfMeasure: "SQ" }]);
 
     global.fetch = jest.fn(async (url: string | URL) => {
       if (String(url).includes("/v1/token")) {
@@ -294,7 +301,7 @@ describe("default supplier price feed (ABC routing)", () => {
     process.env.ABC_SUPPLY_BRANCH_NUMBER = "340";
     process.env.ABC_SUPPLY_SHIP_TO_NUMBER = "2010466-2";
     delete process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
-    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1" }]);
+    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1", unitOfMeasure: "SQ" }]);
     // fetch hangs until the abort signal fires, like a stalled provider
     global.fetch = jest.fn(
       (_url: string, init?: RequestInit) =>

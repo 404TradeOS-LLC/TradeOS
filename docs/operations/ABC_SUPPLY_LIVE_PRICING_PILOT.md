@@ -29,12 +29,13 @@ Material; a disjoint link fails closed. Known OAuth, pricing HTTP and timeout
 failures are returned as sanitized diagnostics without exposing credentials.
 
 A returned `priced:true` and positive USD `price` proves a priced
-sandbox line, but it **does not** establish the provider stocking unit
-(the current parser intentionally omits unit-of-measure), historical
-source `SQ` is NOT sufficient, and it does not approve an initial
-Material unit cost. Only a separately reviewed and explicitly approved
-one-Material activation can feed the production scheduler. No automatic
-approval or production pricing assertion follows this connection test.
+sandbox line. ABC Price Items also returns stocking `lines[].uom`; the
+TradeOS probe now preserves and displays it beside the historical purchase
+unit. `providerStockingUnitVerified:true` means the returned provider unit
+matches the historical unit; it does not approve an initial Material cost.
+Missing or mismatched UOM blocks the normal background feed from proposing
+a unit price. Only a separately approved Material activation is eligible.
+The probe does not approve prices or prove production ABC access.
 
 
 ## Observed production state (2026-10-09; read-only verification)

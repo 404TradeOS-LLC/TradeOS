@@ -63,6 +63,58 @@ related_code:
 
 # TradeOS Current State
 
+## ABC sandbox OAuth reauthorization — 2026-10-11
+
+The stored ABC refresh token is gone (0 saved tokens in Vault), and ABC
+requires user-present authorization for third-party customer-specific
+pricing, so the connection cannot be restored by retrying the old token.
+A new user-present reauthorization flow is implemented but not yet
+exercised end to end: owner/admin `POST
+/api/v1/supplier-integrations/abc/oauth/authorize` returns the ABC
+sandbox authorize URL (PKCE S256, `pricing.read offline_access account.read`,
+10-minute single-use state bound to the initiating tenant session), and
+the unauthenticated `GET
+/api/v1/supplier-integrations/abc/oauth/callback` consumes the state
+exactly once, exchanges the code server-side, and persists the refresh
+token through the existing Vault path. The env bootstrap refresh token
+is now recovery-only; the durable Vault credential is authoritative and
+pricing fails closed when no token exists. The callback URI must still
+be registered in the ABC Developer Portal before the flow can run, and
+the daily cron must not consume user-context pricing tokens until ABC
+confirms unattended customer-specific pricing in writing.
+
+Fix 2026-10-11: the authorize endpoint 500'd in production because the
+TTL parameter reached Postgres as bigint while
+`tradeos_private.create_abc_oauth_state` takes integer (42883); the call
+site now casts it explicitly. No API or flow change.
+
+Status 2026-10-12: the flow has now been exercised end to end three
+times (user + automated browser, two clients) and fails deterministically
+at the callback: ABC sandbox sign-in succeeds and redirects back, but
+Settings lands on `?abc_oauth=error`. The callback now reports the
+failing stage via `?abc_oauth_step=request|state|exchange|persist` so
+the next attempt identifies whether the failure is in state validation,
+the ABC code exchange, or token persistence.
+
+Callback persistence repair proposed 2026-10-12: production runtime logs on
+`0119f731` identified `abc_oauth_step=persist` failing with Prisma's
+connection pool timeout (10 seconds, limit 1). The callback wrapped Vault
+persistence in a tenant-scoped transaction while the rotation-oriented helper
+opened another transaction. The focused fix gives the authorization callback
+an owner/admin-guarded in-session Vault write, while retaining independent
+commits for provider refresh-token rotation. This patch alone is not proof of
+an authorized sandbox quote, a stored token, or a production deployment.
+
+Provider refresh-token rotation hardening proposed 2026-10-12: the rotation
+helper previously acquired a nested transaction from the request's one-
+connection Prisma pool, risking the same timeout as the OAuth callback.
+A lazily initialized independent Prisma client now commits provider rotations
+through a separate restricted tenant-RLS session before pricing continues.
+Focused tests assert Vault write argument order/SQL and a PostgreSQL test
+models a held request connection with an independent rotation transaction.
+Cross-instance concurrent refresh serialization and live ABC validation are
+separate unverified gates, and this PR is not yet deployed.
+
 ## ABC sandbox connection probe — 2026-10-09
 
 The existing cron/Price Items integration still cannot contact ABC
@@ -75,6 +127,24 @@ the existing durable Vault token-rotation helper; no production ABC
 token or provider quote has been verified merely by adding this code.
 The response does not certify stock UOM. The governed approval and
 existing Estimate snapshots remain unchanged.
+
+Update 2026-10-12: ABC probe provider status visibility is limited to a
+matching failed line with a short, safe plain-language explanation. Bare
+domains, URLs, embedded account digits, ship-to identifiers, UUID-shaped IDs,
+markup and credential-like text are rejected; absent/unsafe messages result
+in a generic Settings fallback. A successful quote or other raw status message
+is not disclosed through `providerStatusMessage`. No Material, price,
+approval, OAuth or account-selection behavior changes.
+
+Separate production-access gate: ABC's official Third-Party Aggregator track
+requires a production application request and integration review demonstration
+before real customer accounts/pricing can be used. The TradeOS adapter still
+hardcodes sandbox endpoints. Before enabling production API access, validate
+the required user-present pricing model and ABC restrictions against
+competitive price comparison; existing scheduled supplier sync is not a
+certification of terms compliance. See
+https://apidocs.abcsupply.com/third-party-aggregator-integration-track/ and
+https://apidocs.abcsupply.com/getting-started/.
 
 
 ## Authenticated supplier-workflow IDs — 2026-10-09
@@ -90,6 +160,15 @@ and the underlying GitHub workflow still requires its production confirmation,
 restricted database role, and owner/admin RLS permissions. This UI does not seed
 observations, grant roles, or certify live ABC pricing.
 
+
+## ABC sandbox stocking UOM gate — proposed 2026-10-10
+
+The ABC Price Items response carries `lines[].uom` for eligible priced lines.
+The new adapter preserves the provider-sourced unit and shows it in Settings.
+The supplier feed refuses to enqueue a proposed Material price unless the
+response unit matches the tenant Material unit of measure. Unknown or
+mismatched units fail closed without price conversion. This does not reauthorize
+OAuth, create a Material or approve supplier price updates.
 
 ## Supplier feed serverless activation — 2026-10-07
 

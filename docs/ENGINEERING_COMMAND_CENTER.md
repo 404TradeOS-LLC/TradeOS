@@ -383,3 +383,11 @@ verifies effective Costbook permissions via the non-mutating workspace GET,
 not the Settings path. This is test infrastructure, not evidence of a passing
 hosted run or authorization for production deployment; an operator must supply
 the isolated deployment and two valid role fixtures first.
+
+## ABC Supply Material backfill review (PR #705)
+
+**Current status (PR #705):** The guarded link-only production workflow exists, with bounded per-session pagination, duplicate-SKU and conflicting-link checks, and no promotion of supplier observations into Material costs. No live import or link operation has been authorized. The ABC sandbox pricing result remains unverified; newly created Materials still require the separately reviewed single-product activation path.
+
+## PR #705 bounded linking operator implementation
+
+The protected `.github/workflows/backfill-abc-materials.yml` operator workflow now supports a confirmation-gated, production-environment, restricted-role **link-only** backfill with dry-run enabled by default. The runner processes at most 25 supplier products per tenant-scoped database session, advances by product ID, and links only a unique eligible ABC supplier SKU to an existing active Material with the same supplier, SKU, and purchase unit. It creates no Materials and changes no Material prices; new Materials still require separately reviewed, owner-approved single-product activation. This workflow has not been production-executed or proven by live ABC sandbox pricing.

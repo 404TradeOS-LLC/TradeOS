@@ -94,13 +94,21 @@ export async function priceOneAbcSandboxSku(
   }
 }
 
-async function createDurableAbcAuth(
+/** Resolves the durable Vault refresh token, falling back to the env bootstrap token. Exported as a test seam. */
+export async function createDurableAbcAuth(
   config: NonNullable<ReturnType<typeof loadAbcSupplyConfig>>,
   orgId: string,
   supplierId: string,
 ) {
   const durableRefreshToken = await abcSupplyRefreshTokenStore.load(orgId, supplierId);
-  const authConfig = { ...config, refreshToken: durableRefreshToken ?? config.refreshToken };
+  // The durable Vault credential is authoritative. The env token is only a
+  // bootstrap/recovery fallback. When neither exists, fail closed instead of
+  // calling ABC with an empty credential.
+  const refreshToken = durableRefreshToken ?? config.refreshToken;
+  if (!refreshToken) {
+    throw new Error("ABC sandbox refresh token is not configured");
+  }
+  const authConfig = { ...config, refreshToken };
   const auth = new AbcSupplyAuth(authConfig, fetch, Date.now, {
     onRefreshTokenRotated: async (next) => {
       await abcSupplyRefreshTokenStore.persist(orgId, supplierId, next);
