@@ -48,9 +48,17 @@ const abcOAuthCallbackQuerySchema = z.object({
   state: z.string().min(1).max(512),
 });
 
-function abcOAuthReturnUrl(flag: "success" | "error"): string {
+/**
+ * Diagnostic step identifying where the ABC OAuth callback failed. Carries
+ * no secrets, codes, or tokens — only the stage name, so a failed
+ * reauthorization can be triaged from the redirect URL alone.
+ */
+export type AbcOAuthCallbackStep = "request" | "state" | "exchange" | "persist";
+
+function abcOAuthReturnUrl(flag: "success" | "error", step?: AbcOAuthCallbackStep): string {
   const url = new URL(ABC_OAUTH_SETTINGS_RETURN_URL);
   url.searchParams.set("abc_oauth", flag);
+  if (flag === "error" && step) url.searchParams.set("abc_oauth_step", step);
   return url.toString();
 }
 
@@ -117,22 +125,32 @@ export const supplierIntegrationController = {
   async handleAbcOAuthCallback(req: Request, res: Response) {
     // The binding secret is single-use: expire the cookie on every callback
     // outcome so it never lingers in the browser past the flow.
-    const finish = (flag: "success" | "error") => {
+    const finish = (flag: "success" | "error", step?: AbcOAuthCallbackStep) => {
       res.setHeader("Set-Cookie", buildClearBrowserBindingCookie(req.hostname));
-      return res.redirect(302, abcOAuthReturnUrl(flag));
+      return res.redirect(302, abcOAuthReturnUrl(flag, step));
     };
+    // Tracks the callback stage for the diagnostic step flag. A failed
+    // state validation is otherwise silent server-side (consume returns
+    // null rather than throwing), so the step is the only signal.
+    let step: AbcOAuthCallbackStep = "request";
     try {
       const parsed = abcOAuthCallbackQuerySchema.parse(req.query);
       const browserBinding = readCookieValue(req.headers.cookie, ABC_OAUTH_BROWSER_COOKIE_NAME);
+      step = "state";
       const consumed = await consumeAuthorizationState(parsed.state, browserBinding);
       if (!consumed || consumed.redirectUri !== ABC_OAUTH_CALLBACK_URL) {
-        return finish("error");
+        logError("supplier_integration.abc_oauth_callback_failed", {
+          reason: "authorization_state_invalid",
+          step,
+        });
+        return finish("error", step);
       }
+      step = "exchange";
       const clientId = process.env.ABC_SUPPLY_SANDBOX_CLIENT_ID?.trim();
       const clientSecret = process.env.ABC_SUPPLY_SANDBOX_CLIENT_SECRET?.trim();
       if (!clientId || !clientSecret) {
-        logError("supplier_integration.abc_oauth_callback_failed", { reason: "credentials_not_configured" });
-        return finish("error");
+        logError("supplier_integration.abc_oauth_callback_failed", { reason: "credentials_not_configured", step });
+        return finish("error", step);
       }
       const { refreshToken } = await exchangeAuthorizationCode({
         code: parsed.code,
@@ -141,6 +159,7 @@ export const supplierIntegrationController = {
         clientId,
         clientSecret,
       });
+      step = "persist";
       await runWithBackgroundDatabaseSession(
         basePrisma,
         { jobName: "abc-oauth-callback", orgId: consumed.orgId, userId: consumed.userId },
@@ -156,8 +175,9 @@ export const supplierIntegrationController = {
     } catch (error) {
       logError("supplier_integration.abc_oauth_callback_failed", {
         error: error instanceof Error ? error.message : String(error),
+        step,
       });
-      return finish("error");
+      return finish("error", step);
     }
   },
 

@@ -59,6 +59,14 @@ production (TTL parameter type mismatch against the state-table
 wrapper); the call now casts explicitly and the button works as
 described above.
 
+Diagnostic note 2026-10-12: when the callback fails, the Settings
+redirect carries `?abc_oauth_step=request|state|exchange|persist`
+alongside `?abc_oauth=error`, naming the stage that failed — `request`
+(ABC returned no code), `state` (unknown/expired/replayed state or a
+missing/mismatched browser-binding cookie), `exchange` (callback client credentials are missing or ABC rejected
+the code exchange), or `persist` (refresh-token storage failed). The
+step carries no secrets and the Settings UI behavior is unchanged.
+
 ## ABC Supply sandbox connection test (2026-10-09)
 
 Settings → Costbook has a guarded **Test ABC connection** button for the

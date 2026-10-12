@@ -88,6 +88,14 @@ TTL parameter reached Postgres as bigint while
 `tradeos_private.create_abc_oauth_state` takes integer (42883); the call
 site now casts it explicitly. No API or flow change.
 
+Status 2026-10-12: the flow has now been exercised end to end three
+times (user + automated browser, two clients) and fails deterministically
+at the callback: ABC sandbox sign-in succeeds and redirects back, but
+Settings lands on `?abc_oauth=error`. The callback now reports the
+failing stage via `?abc_oauth_step=request|state|exchange|persist` so
+the next attempt identifies whether the failure is in state validation,
+the ABC code exchange, or token persistence.
+
 ## ABC sandbox connection probe — 2026-10-09
 
 The existing cron/Price Items integration still cannot contact ABC

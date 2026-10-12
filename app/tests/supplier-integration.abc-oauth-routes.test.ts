@@ -193,6 +193,7 @@ describe("GET /abc/oauth/callback", () => {
     const response = await callbackWithBinding("browser-binding-token", { code: "code", state: "replayed-or-unknown" });
     expect(response.status).toBe(302);
     expect(response.headers.location).toContain("abc_oauth=error");
+    expect(response.headers.location).toContain("abc_oauth_step=state");
     expect(exchange).not.toHaveBeenCalled();
     expect(persist).not.toHaveBeenCalled();
   });
@@ -201,6 +202,7 @@ describe("GET /abc/oauth/callback", () => {
     const response = await request(app()).get("/api/v1/supplier-integrations/abc/oauth/callback");
     expect(response.status).toBe(302);
     expect(response.headers.location).toContain("abc_oauth=error");
+    expect(response.headers.location).toContain("abc_oauth_step=request");
     expect(consume).not.toHaveBeenCalled();
   });
 
@@ -208,6 +210,7 @@ describe("GET /abc/oauth/callback", () => {
     const response = await callbackWithBinding(null, { code: "good-code", state: "state-token" });
     expect(response.status).toBe(302);
     expect(response.headers.location).toContain("abc_oauth=error");
+    expect(response.headers.location).toContain("abc_oauth_step=state");
     expect(consume).toHaveBeenCalledWith("state-token", null);
     expect(exchange).not.toHaveBeenCalled();
     expect(persist).not.toHaveBeenCalled();
@@ -217,10 +220,28 @@ describe("GET /abc/oauth/callback", () => {
     const response = await callbackWithBinding("attacker-binding", { code: "good-code", state: "state-token" });
     expect(response.status).toBe(302);
     expect(response.headers.location).toContain("abc_oauth=error");
+    expect(response.headers.location).toContain("abc_oauth_step=state");
     expect(consume).toHaveBeenCalledWith("state-token", "attacker-binding");
     expect(exchange).not.toHaveBeenCalled();
     expect(persist).not.toHaveBeenCalled();
   });
+
+  it.each(["ABC_SUPPLY_SANDBOX_CLIENT_ID", "ABC_SUPPLY_SANDBOX_CLIENT_SECRET"] as const)(
+    "classifies missing %s as an exchange-stage failure after valid state consumption",
+    async (credential) => {
+      delete process.env[credential];
+      const response = await callbackWithBinding("browser-binding-token", {
+        code: "good-code",
+        state: "state-token",
+      });
+      expect(response.status).toBe(302);
+      expect(response.headers.location).toContain("abc_oauth=error");
+      expect(response.headers.location).toContain("abc_oauth_step=exchange");
+      expect(consume).toHaveBeenCalledWith("state-token", "browser-binding-token");
+      expect(exchange).not.toHaveBeenCalled();
+      expect(persist).not.toHaveBeenCalled();
+    },
+  );
 
   it("sanitizes provider exchange failures: status flag only, no error text in the redirect", async () => {
     exchange.mockRejectedValue(
@@ -229,6 +250,7 @@ describe("GET /abc/oauth/callback", () => {
     const response = await callbackWithBinding("browser-binding-token", { code: "bad-code", state: "state-token" });
     expect(response.status).toBe(302);
     expect(response.headers.location).toContain("abc_oauth=error");
+    expect(response.headers.location).toContain("abc_oauth_step=exchange");
     expect(response.headers.location).not.toContain("planted-secret-marker");
     expect(persist).not.toHaveBeenCalled();
   });
@@ -237,6 +259,7 @@ describe("GET /abc/oauth/callback", () => {
     const response = await callbackWithBinding("browser-binding-token", { code: "good-code", state: "state-token" });
     expect(response.status).toBe(302);
     expect(response.headers.location).toContain("abc_oauth=success");
+    expect(response.headers.location).not.toContain("abc_oauth_step=");
     expect(exchange).toHaveBeenCalledWith(
       expect.objectContaining({
         code: "good-code",
@@ -263,5 +286,6 @@ describe("GET /abc/oauth/callback", () => {
     const response = await callbackWithBinding("browser-binding-token", { code: "good-code", state: "state-token" });
     expect(response.status).toBe(302);
     expect(response.headers.location).toContain("abc_oauth=error");
+    expect(response.headers.location).toContain("abc_oauth_step=persist");
   });
 });
