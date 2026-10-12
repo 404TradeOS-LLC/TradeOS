@@ -54,7 +54,7 @@ jobs:
       - name: Install and verify backfill contract
         run: |
           npm ci
-          npx jest --runInBand --runTestsByPath tests/backfill-abc-materials.test.ts
+          npx jest --runInBand --runTestsByPath tests/backfill-abc-materials.test.ts tests/costbook-47802-seed-workflow.test.ts
       - name: Resolve restricted application database role
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
