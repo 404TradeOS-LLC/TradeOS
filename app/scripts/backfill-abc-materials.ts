@@ -4,277 +4,123 @@ import { basePrisma, prisma } from "../db/client";
 import { runWithBackgroundDatabaseSession } from "../db/requestSession";
 
 /**
- * Backfills Material rows from seeded SupplierProduct rows so the ABC Supply
- * price-sync feed has materials to price.
- *
- * The feed's default material loader reads Material rows carrying the
- * supplier's id and the supplier item number in `sku`. The governed seed only
- * writes suppliers / supplier products / price observations, so the feed
- * short-circuits with zero materials until this linkage exists.
- *
- * Idempotent: materials are matched on (orgId, supplierId, sku). Re-running
- * never duplicates; existing rows keep human-set pricing (unitCost is only
- * filled when it is currently zero).
+ * Conservatively link ABC supplier products to *existing approved* Materials.
+ * NEVER create Materials or promote historical observation prices.
+ * New Materials require the separately reviewed single-product activation path.
+ * Cursor progression makes every bounded batch a separate tenant-scoped RLS session.
  */
-
-interface CliArgs {
-  orgId?: string;
-  userId?: string;
-  supplierKey: string;
-  dryRun: boolean;
-  limit: number;
+export const ABC_BACKFILL_BATCH_SIZE = 25;
+export interface CliArgs {
+  orgId: string; userId: string; supplierKey: string; dryRun: boolean; limit: number;
 }
-
-function parseArgs(argv: readonly string[]): CliArgs {
-  let orgId: string | undefined;
-  let userId: string | undefined;
-  let supplierKey = "ABC_SUPPLY";
-  let dryRun = false;
-  let limit = 0;
-
-  for (let i = 0; i < argv.length; i += 1) {
+export function parseArgs(argv: readonly string[]): CliArgs {
+  let orgId = "", userId = "", supplierKey = "ABC_SUPPLY", dryRun = false, limit = 0;
+  for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
     if (flag === "--dry-run") { dryRun = true; continue; }
     if (!["--org-id", "--user-id", "--supplier-key", "--limit"].includes(flag)) {
       throw new Error(`Unrecognized argument: ${flag}`);
     }
     const value = argv[++i];
-    if (!value || value.startsWith("-")) {
-      throw new Error(`Missing or invalid value for ${flag}`);
-    }
+    if (!value || value.startsWith("-")) throw new Error(`Missing or invalid value for ${flag}`);
     if (flag === "--org-id") orgId = value;
     if (flag === "--user-id") userId = value;
     if (flag === "--supplier-key") supplierKey = value;
     if (flag === "--limit") limit = Number(value);
   }
-
-  if (!orgId || !userId) {
-    throw new Error("Both --org-id and --user-id are required, including for dry runs");
-  }
-  if (!Number.isInteger(limit) || limit < 0) {
-    throw new Error("--limit must be a non-negative integer");
-  }
-
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuid.test(orgId) || !uuid.test(userId)) throw new Error("Valid --org-id and --user-id UUIDs are required in all modes");
+  if (supplierKey !== "ABC_SUPPLY") throw new Error("Only the ABC_SUPPLY integration is eligible");
+  if (!Number.isSafeInteger(limit) || limit < 0) throw new Error("--limit must be a non-negative integer");
   return { orgId, userId, supplierKey, dryRun, limit };
 }
-
-function requireCostbookManage(auth: AuthContext): void {
-  if (!auth.permissions?.includes("costbook.manage")) {
-    throw new Error(
-      "ABC material backfill identity must have costbook.manage permission"
-    );
+function requireCostbookManage(actor: AuthContext): void {
+  if (!["owner", "admin"].includes(actor.role) || !actor.permissions?.includes("costbook.manage")) {
+    throw new Error("ABC linking requires active owner/admin with costbook.manage");
   }
 }
-
 export interface BackfillProductInput {
-  id: string;
-  sku: string;
-  name: string;
-  purchaseUnit: string | null;
-  manufacturerPartNumber: string | null;
-  materialId: string | null;
+  id: string; sku: string; name: string; purchaseUnit: string | null;
+  manufacturerPartNumber: string | null; materialId: string | null;
 }
-
 export interface BackfillMaterialRow {
-  name: string;
-  unitOfMeasure: string;
-  unitCost: number;
-  sku: string;
+  name: string; unitOfMeasure: string; unitCost: number; sku: string;
 }
-
-/** Pure mapping: supplier product (+ latest observed price) -> material row. */
-export function buildMaterialRow(
-  product: BackfillProductInput,
-  latestEffectivePrice: number | null
-): BackfillMaterialRow {
-  return {
-    name: product.name,
-    unitOfMeasure: product.purchaseUnit?.trim() || "EA",
-    unitCost: latestEffectivePrice ?? 0,
-    sku: product.sku.trim(),
-  };
+/** Historical price is intentionally ignored: an observation is not approval. */
+export function buildMaterialRow(product: BackfillProductInput, _historicalPrice: number | null): BackfillMaterialRow {
+  return { name: product.name, unitOfMeasure: product.purchaseUnit?.trim() || "EA", unitCost: 0, sku: product.sku.trim() };
 }
-
-/**
- * Never clobber human pricing: only fill unitCost when the existing material
- * carries no price yet.
- */
-export function shouldFillUnitCost(existingUnitCost: unknown): boolean {
-  return Number(existingUnitCost ?? 0) === 0;
+/** No bulk changes to Material.unitCost, including zero or null values. */
+export function shouldFillUnitCost(_existingUnitCost: unknown): boolean { return false; }
+export function nextCursor(ids: readonly string[], previous: string | undefined): string | undefined {
+  if (ids.length === 0) return previous;
+  const last = ids[ids.length - 1];
+  if (previous && last <= previous) throw new Error("ABC backfill cursor did not advance");
+  return last;
 }
-
-interface BackfillCounts {
-  productsScanned: number;
-  materialsCreated: number;
-  materialsLinked: number;
-  unitCostsFilled: number;
-  productsLinked: number;
-  skippedNoPrice: number;
-}
-
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
-  const { orgId, userId, supplierKey, dryRun, limit } = args;
-
-  if (dryRun) {
-    console.log(
-      "[abc-backfill] DRY RUN — no writes. Tenant owner/admin identity is required."
-    );
-  }
-
-  const counts: BackfillCounts = {
-    productsScanned: 0,
-    materialsCreated: 0,
-    materialsLinked: 0,
-    unitCostsFilled: 0,
-    productsLinked: 0,
-    skippedNoPrice: 0,
-  };
-
-  await runWithBackgroundDatabaseSession(
-    basePrisma,
-    {
-      jobName: "abc-material-backfill",
-      orgId: orgId!,
-      userId: userId!,
-    },
-    async (auth) => {
-      requireCostbookManage(auth);
-
+export async function main(argv: readonly string[] = process.argv.slice(2)): Promise<void> {
+  const args = parseArgs(argv);
+  let cursor: string | undefined;
+  let scanned = 0, linked = 0, skippedUnapproved = 0, skippedDuplicate = 0, skippedConflict = 0;
+  while (true) {
+    const take = args.limit ? Math.min(ABC_BACKFILL_BATCH_SIZE, args.limit - scanned) : ABC_BACKFILL_BATCH_SIZE;
+    if (take <= 0) break;
+    const page = await runWithBackgroundDatabaseSession(basePrisma, {
+      jobName: "abc-material-backfill", orgId: args.orgId, userId: args.userId,
+    }, async (actor) => {
+      requireCostbookManage(actor);
       const supplier = await prisma.supplier.findFirst({
-        where: { orgId, apiIntegrationKey: supplierKey },
-        select: { id: true, displayName: true },
+        where: { orgId: args.orgId, apiIntegrationKey: args.supplierKey }, select: { id: true },
       });
-      if (!supplier) {
-        throw new Error(
-          `No supplier with apiIntegrationKey '${supplierKey}' in org ${orgId}`
-        );
-      }
-      console.log(
-        `[abc-backfill] supplier: ${supplier.displayName} (${supplier.id})`
-      );
-
+      if (!supplier) throw new Error("ABC_SUPPLY supplier not found in the authorized organization");
       const products = await prisma.supplierProduct.findMany({
-        where: {
-          orgId,
-          supplierId: supplier.id,
-          isActive: true,
-          sku: { not: null },
-        },
-        select: {
-          id: true,
-          sku: true,
-          name: true,
-          purchaseUnit: true,
-          manufacturerPartNumber: true,
-          materialId: true,
-        },
-        orderBy: { id: "asc" },
-        ...(limit > 0 ? { take: limit } : {}),
+        where: { orgId: args.orgId, supplierId: supplier.id, isActive: true, sku: { not: null },
+          ...(cursor ? { id: { gt: cursor } } : {}) },
+        orderBy: { id: "asc" }, take,
+        select: { id: true, sku: true, purchaseUnit: true, materialId: true },
       });
-      console.log(
-        `[abc-backfill] ${products.length} active supplier products with SKUs`
-      );
-
+      let pageLinked = 0, pageUnapproved = 0, pageDuplicate = 0, pageConflict = 0;
       for (const product of products) {
         const sku = product.sku?.trim();
-        if (!sku) continue;
-        counts.productsScanned += 1;
-
-        const latest = await prisma.supplierPriceObservation.findFirst({
-          where: {
-            orgId,
-            supplierProductId: product.id,
-            effectivePrice: { not: null },
-          },
-          orderBy: { observedAt: "desc" },
-          select: { effectivePrice: true },
+        const unit = product.purchaseUnit?.trim();
+        if (!sku || !unit) { pageUnapproved++; continue; }
+        const duplicates = await prisma.supplierProduct.count({
+          where: { orgId: args.orgId, supplierId: supplier.id, sku },
         });
-        const price =
-          latest?.effectivePrice == null
-            ? null
-            : Number(latest.effectivePrice);
-        if (price == null) counts.skippedNoPrice += 1;
-
-        const row = buildMaterialRow(
-          {
-            id: product.id,
-            sku,
-            name: product.name,
-            purchaseUnit: product.purchaseUnit,
-            manufacturerPartNumber: product.manufacturerPartNumber,
-            materialId: product.materialId,
-          },
-          price
-        );
-
-        if (dryRun) {
-          console.log(
-            `[abc-backfill] would upsert material sku=${row.sku} unit=${row.unitOfMeasure} cost=${row.unitCost}`
-          );
-          continue;
-        }
-
-        const existing = await prisma.material.findFirst({
-          where: { orgId, supplierId: supplier.id, sku: row.sku },
-          select: { id: true, unitCost: true, supplierId: true, sku: true },
+        if (duplicates !== 1) { pageDuplicate++; continue; }
+        const matches = await prisma.material.findMany({
+          where: { orgId: args.orgId, supplierId: supplier.id, sku, isActive: true },
+          select: { id: true, unitOfMeasure: true }, take: 2,
         });
-
-        let materialId: string;
-        if (existing) {
-          materialId = existing.id;
-          counts.materialsLinked += 1;
-          const data: Record<string, unknown> = {};
-          if (!existing.supplierId) data.supplierId = supplier.id;
-          if (!existing.sku) data.sku = row.sku;
-          if (price != null && shouldFillUnitCost(existing.unitCost)) {
-            data.unitCost = price;
-            data.lastPriceUpdate = new Date();
-            counts.unitCostsFilled += 1;
-          }
-          if (Object.keys(data).length > 0) {
-            await prisma.material.update({ where: { id: materialId }, data });
-          }
-        } else {
-          const created = await prisma.material.create({
-            data: {
-              orgId: orgId!,
-              supplierId: supplier.id,
-              sku: row.sku,
-              name: row.name,
-              unitOfMeasure: row.unitOfMeasure,
-              unitCost: row.unitCost,
-              wasteFactorPct: 0,
-              lastPriceUpdate: new Date(),
-            },
-            select: { id: true },
+        if (matches.length !== 1 || matches[0].unitOfMeasure !== unit) { pageUnapproved++; continue; }
+        const targetId = matches[0].id;
+        if (product.materialId && product.materialId !== targetId) { pageConflict++; continue; }
+        if (product.materialId === targetId) continue;
+        if (!args.dryRun) {
+          const result = await prisma.supplierProduct.updateMany({
+            where: { id: product.id, orgId: args.orgId, supplierId: supplier.id, materialId: null },
+            data: { materialId: targetId },
           });
-          materialId = created.id;
-          counts.materialsCreated += 1;
+          if (result.count !== 1) { pageConflict++; continue; }
         }
-
-        if (!product.materialId) {
-          await prisma.supplierProduct.update({
-            where: { id: product.id },
-            data: { materialId },
-          });
-          counts.productsLinked += 1;
-        }
+        pageLinked++;
       }
-    }
-  );
-
-  console.log(
-    `[abc-backfill] done: scanned=${counts.productsScanned} ` +
-      `created=${counts.materialsCreated} linked=${counts.materialsLinked} ` +
-      `costsFilled=${counts.unitCostsFilled} productsLinked=${counts.productsLinked} ` +
-      `noPrice=${counts.skippedNoPrice}`
-  );
+      return { ids: products.map(p => p.id), pageLinked, pageUnapproved, pageDuplicate, pageConflict };
+    });
+    cursor = nextCursor(page.ids, cursor);
+    scanned += page.ids.length;
+    linked += page.pageLinked;
+    skippedUnapproved += page.pageUnapproved;
+    skippedDuplicate += page.pageDuplicate;
+    skippedConflict += page.pageConflict;
+    if (page.ids.length < take) break;
+  }
+  console.log(JSON.stringify({ status: args.dryRun ? "dry-run" : "linked", writes: !args.dryRun,
+    scanned, linked, skippedUnapproved, skippedDuplicate, skippedConflict,
+    materialCreates: 0, materialPriceUpdates: 0, historicalPricePromotions: 0 }));
 }
-
-if (require.main === module) {
-  main().catch((error) => {
-    console.error("[abc-backfill] FAILED:", error);
-    process.exit(1);
-  });
+const directlyInvoked = typeof process.argv[1] === "string" && /backfill-abc-materials(\\.[cm]?[jt]s)?$/.test(process.argv[1]);
+if (directlyInvoked) {
+  main().catch(e => { console.error("[abc-backfill]", e); process.exitCode = 1; })
+    .finally(async () => { await basePrisma.$disconnect(); });
 }
