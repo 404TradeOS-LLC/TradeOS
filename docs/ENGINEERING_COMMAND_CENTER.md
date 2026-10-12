@@ -368,7 +368,7 @@ Founder-authorized operational work adds a bounded import path for the 3,188 ver
 
 ## ABC Supply Material backfill review (PR #705)
 
-This PR remains a **non-operational bulk-backfill proposal**, not authorization to run a production import. The standalone backfill workflow described in older documentation is not yet present; the current supported path is the guarded, single-product `preview-abc-supply-material.yml` preview and explicitly approved activation script. In particular, historical `SupplierPriceObservation` values are not live sandbox quotes or approved Material prices. Before any bulk execution, bound database sessions, resolve duplicate supplier SKUs and existing links, add the governed workflow, and verify tenant authorization and pricing approval. The backfill CLI now requires an organization and user identity even in dry-run mode.
+**Current status (PR #705):** The guarded link-only production workflow exists, with bounded per-session pagination, duplicate-SKU and conflicting-link checks, and no promotion of supplier observations into Material costs. No live import or link operation has been authorized. The ABC sandbox pricing result remains unverified; newly created Materials still require the separately reviewed single-product activation path.
 
 ## PR #705 bounded linking operator implementation
 
