@@ -164,7 +164,7 @@ export const supplierIntegrationController = {
         basePrisma,
         { jobName: "abc-oauth-callback", orgId: consumed.orgId, userId: consumed.userId },
         async () => {
-          await abcSupplyRefreshTokenStore.persist(consumed.orgId, consumed.supplierId, refreshToken);
+          await abcSupplyRefreshTokenStore.persistInCurrentSession(consumed.orgId, consumed.supplierId, refreshToken);
         },
       );
       logInfo("supplier_integration.abc_oauth_reauthorized", {
