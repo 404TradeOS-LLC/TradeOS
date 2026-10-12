@@ -39,7 +39,7 @@ export const ABC_OAUTH_CALLBACK_URL =
 /** Founder-facing landing page after the provider redirects back. */
 export const ABC_OAUTH_SETTINGS_RETURN_URL = "https://app.404tradeos.com/settings";
 
-export const ABC_OAUTH_SCOPES = "pricing.read offline_access";
+export const ABC_OAUTH_SCOPES = "pricing.read offline_access account.read";
 
 /** Authorization states live 10 minutes and are consumed exactly once. */
 export const ABC_OAUTH_STATE_TTL_SECONDS = 10 * 60;
