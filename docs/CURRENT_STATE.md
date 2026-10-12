@@ -83,6 +83,11 @@ be registered in the ABC Developer Portal before the flow can run, and
 the daily cron must not consume user-context pricing tokens until ABC
 confirms unattended customer-specific pricing in writing.
 
+Fix 2026-10-11: the authorize endpoint 500'd in production because the
+TTL parameter reached Postgres as bigint while
+`tradeos_private.create_abc_oauth_state` takes integer (42883); the call
+site now casts it explicitly. No API or flow change.
+
 ## ABC sandbox connection probe — 2026-10-09
 
 The existing cron/Price Items integration still cannot contact ABC
