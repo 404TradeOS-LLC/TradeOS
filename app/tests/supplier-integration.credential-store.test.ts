@@ -1,4 +1,4 @@
-const mockExecuteRaw = jest.fn(async () => 1);
+const mockExecuteRaw = jest.fn(async (_sql: unknown) => 1);
 const mockRotationClient = { $transaction: jest.fn() };
 const mockBaseClient = {};
 const mockCurrentActor = jest.fn();

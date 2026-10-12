@@ -258,7 +258,7 @@ describe("default supplier price feed (ABC routing)", () => {
       expect.any(Function),
       "supplier_refresh_token_rotation",
     );
-    const persistSql = mockPrisma.$executeRaw.mock.calls[0][0] as { values: unknown[] };
+    const persistSql = mockPrisma.$executeRaw.mock.calls[0][0] as { strings: readonly string[]; values: unknown[] };
     expect(persistSql.values).toEqual([orgId, abcSupplierId, "rotated-refresh-token"]);
     expect(persistSql.strings.join("?")).toMatch(/tradeos_private\.put_abc_supply_refresh_token\s*\(/);
     expect(calls).toHaveLength(2);
