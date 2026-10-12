@@ -128,6 +128,11 @@ token or provider quote has been verified merely by adding this code.
 The response does not certify stock UOM. The governed approval and
 existing Estimate snapshots remain unchanged.
 
+Update 2026-10-12: the probe response now also surfaces ABC's per-line
+status message (`providerStatusMessage`, sanitized), displayed in the
+Settings panel when a line is not priced, so provider-side failures
+(e.g. item/branch mismatch) are diagnosable without log access.
+
 
 ## Authenticated supplier-workflow IDs — 2026-10-09
 
