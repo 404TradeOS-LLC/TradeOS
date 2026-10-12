@@ -128,10 +128,23 @@ token or provider quote has been verified merely by adding this code.
 The response does not certify stock UOM. The governed approval and
 existing Estimate snapshots remain unchanged.
 
-Update 2026-10-12: the probe response now also surfaces ABC's per-line
-status message (`providerStatusMessage`, sanitized), displayed in the
-Settings panel when a line is not priced, so provider-side failures
-(e.g. item/branch mismatch) are diagnosable without log access.
+Update 2026-10-12: ABC probe provider status visibility is limited to a
+matching failed line with a short, safe plain-language explanation. Bare
+domains, URLs, embedded account digits, ship-to identifiers, UUID-shaped IDs,
+markup and credential-like text are rejected; absent/unsafe messages result
+in a generic Settings fallback. A successful quote or other raw status message
+is not disclosed through `providerStatusMessage`. No Material, price,
+approval, OAuth or account-selection behavior changes.
+
+Separate production-access gate: ABC's official Third-Party Aggregator track
+requires a production application request and integration review demonstration
+before real customer accounts/pricing can be used. The TradeOS adapter still
+hardcodes sandbox endpoints. Before enabling production API access, validate
+the required user-present pricing model and ABC restrictions against
+competitive price comparison; existing scheduled supplier sync is not a
+certification of terms compliance. See
+https://apidocs.abcsupply.com/third-party-aggregator-integration-track/ and
+https://apidocs.abcsupply.com/getting-started/.
 
 
 ## Authenticated supplier-workflow IDs — 2026-10-09
