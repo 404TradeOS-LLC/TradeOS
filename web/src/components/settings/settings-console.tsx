@@ -866,7 +866,14 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                   <div role="status" className="rounded-lg border border-border p-3 text-sm">
                     {abcProbe.priced && abcProbe.price !== null
                       ? `Sandbox returned ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(abcProbe.price)} for SKU ${abcProbe.sku}.`
-                      : `No eligible priced line for SKU ${abcProbe.sku} (provider status: ${abcProbe.providerStatus}${abcProbe.providerStatusMessage ? ` — ${abcProbe.providerStatusMessage}` : ""}).`}
+                      : `No eligible priced line for SKU ${abcProbe.sku} (provider status: ${abcProbe.providerStatus}).`}
+                    {!abcProbe.priced ? (
+                      <p className="mt-2 text-muted-foreground">
+                        {abcProbe.providerStatusMessage
+                          ? `ABC response: ${abcProbe.providerStatusMessage}`
+                          : "ABC did not provide a safe item-level explanation. Verify the SKU, sandbox branch and ship-to pricing access."}
+                      </p>
+                    ) : null}
                     <p className="mt-2 text-muted-foreground">
                       {abcProbe.providerStockingUnit
                         ? `ABC stocking unit: ${abcProbe.providerStockingUnit}. Source unit: ${abcProbe.sourcePurchaseUnit}. ${abcProbe.providerStockingUnitVerified ? "Units match." : "Unit mismatch — supplier price proposals are blocked. Confirm the provider unit before Material activation."}`

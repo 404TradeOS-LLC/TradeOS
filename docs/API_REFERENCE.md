@@ -79,8 +79,12 @@ SupplierPriceUpdate is inserted and no UnitCost is applied.
 
 Response includes `supplierProductKey`, `sku`, `sourcePurchaseUnit`,
 `priced`, `price` (nullable), `currency`, `providerStatus`, plus
-`providerStatusMessage` (ABC's per-line status message, sanitized to 200
-chars, surfaced so provider-side pricing failures are diagnosable),
+`providerStatusMessage` (nullable, at most 160 characters; only from an
+exact matching failed ABC item, after conservative plain-language filtering).
+URLs, markup, credential-like text, ship-to/account numbers and opaque
+identifiers are suppressed entirely, rather than echoed or merely truncated.
+Settings shows either the safe provider explanation or a generic fallback.
+A successful line does not surface raw provider status text,
 `providerStockingUnit` (actual ABC response UOM or null),
 `providerStockingUnitVerified` (true only when that provider UOM matches the
 historical purchase unit), `materialCreated:false`, and `priceApplied:false`.

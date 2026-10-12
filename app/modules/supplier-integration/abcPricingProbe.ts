@@ -4,6 +4,22 @@ import { validateAbcMaterialCandidate } from "./abcMaterialActivation";
 import { priceOneAbcSandboxSku } from "./feed";
 
 /**
+ * ABC line status messages are untrusted. Disclose only a short plain-language
+ * diagnostic for an exact matching failed SKU. Reject URLs, markup, credentials,
+ * and account/ship-to identifiers rather than echoing provider response bodies.
+ */
+function safeAbcProviderStatusMessage(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const message = raw.trim();
+  if (!message || message.length > 160 || !/^[a-z0-9][a-z0-9 ,.:;!?()'/-]*$/i.test(message)) return null;
+  if (/\b(?:bearer|token|password|secret|credential|authorization|refresh|session|cookie|https?|www|client[ -]?id|client[ -]?secret|api[ -]?key|access[ -]?key|private[ -]?key)\b/i.test(message)) return null;
+  if (/(?:[a-z0-9-]+\.)+[a-z]{2,}/i.test(message)) return null;
+  if (/\d{7,}|\d{6,}-\d+|[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}/i.test(message)) return null;
+  if (/[a-z0-9_-]{32,}/i.test(message)) return null;
+  return message;
+}
+
+/**
  * Probe one observed, unambiguous ABC SKU before a Material exists.
  * Does not create a Material, observation, SupplierPriceUpdate, or approval.
  * Stocking unit is extracted from the provider's response, not inferred from historical evidence.
@@ -19,7 +35,7 @@ export async function probeAbcSandboxPricing(
   price: number | null;
   currency: "USD" | null;
   providerStatus: string;
-  /** ABC's per-line status message (e.g. why a line was not priced). Sanitized length, no tokens. */
+  /** A bounded, screened explanation only for a failed, matching provider line; otherwise null. */
   providerStatusMessage: string | null;
   providerStockingUnit: string | null;
   providerStockingUnitVerified: boolean;
@@ -123,7 +139,8 @@ export async function probeAbcSandboxPricing(
     price: validPrice ? line!.unitPrice : null,
     currency: validPrice ? "USD" : null,
     providerStatus: line?.statusCode?.slice(0, 48) ?? "no_matching_line",
-    providerStatusMessage: line?.statusMessage?.slice(0, 200) ?? null,
+    providerStatusMessage: !validPrice && line?.statusCode !== "OK"
+      ? safeAbcProviderStatusMessage(line?.statusMessage) : null,
     providerStockingUnit: validPrice ? (line?.uom ?? null) : null,
     providerStockingUnitVerified: Boolean(validPrice && line?.uom && line.uom.toUpperCase() === unit.toUpperCase()),
     materialCreated: false,
