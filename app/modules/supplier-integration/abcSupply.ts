@@ -109,7 +109,12 @@ export interface AbcSupplyAuthHooks {
 
 /** Mints and caches ABC Supply user access tokens via the refresh_token grant. */
 export class AbcSupplyAuth {
-  private cached: { accessToken: string; expiresAtMs: number } | null = null;
+  /**
+   * Token cache keyed by scope: a pricing-scoped token must never be reused
+   * for Account API calls (or vice versa) — the provider rejects wrong-scope
+   * tokens with 403.
+   */
+  private cached = new Map<string, { accessToken: string; expiresAtMs: number }>();
   private refreshToken: string | null;
 
   constructor(
@@ -122,9 +127,19 @@ export class AbcSupplyAuth {
   }
 
   async getPricingToken(signal?: AbortSignal): Promise<string> {
+    return this.getScopedToken("pricing.read", signal);
+  }
+
+  /** Access token for the Account API (Search Accounts). Requires the account.read scope grant. */
+  async getAccountToken(signal?: AbortSignal): Promise<string> {
+    return this.getScopedToken("account.read", signal);
+  }
+
+  private async getScopedToken(scope: string, signal?: AbortSignal): Promise<string> {
     const nowMs = this.now();
-    if (this.cached && this.cached.expiresAtMs - TOKEN_EXPIRY_MARGIN_MS > nowMs) {
-      return this.cached.accessToken;
+    const cached = this.cached.get(scope);
+    if (cached && cached.expiresAtMs - TOKEN_EXPIRY_MARGIN_MS > nowMs) {
+      return cached.accessToken;
     }
     const refreshToken = this.refreshToken;
     if (!refreshToken) {
@@ -133,7 +148,7 @@ export class AbcSupplyAuth {
     const body = new URLSearchParams({
       grant_type: "refresh_token",
       refresh_token: refreshToken,
-      scope: "pricing.read",
+      scope,
     });
     const response = await this.fetchFn(SANDBOX_TOKEN_URL, {
       method: "POST",
@@ -155,7 +170,7 @@ export class AbcSupplyAuth {
       await this.hooks.onRefreshTokenRotated?.(parsed.refresh_token);
       this.refreshToken = parsed.refresh_token;
     }
-    this.cached = { accessToken: parsed.access_token, expiresAtMs: nowMs + parsed.expires_in * 1000 };
+    this.cached.set(scope, { accessToken: parsed.access_token, expiresAtMs: nowMs + parsed.expires_in * 1000 });
     return parsed.access_token;
   }
 }

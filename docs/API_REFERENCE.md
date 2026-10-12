@@ -32,8 +32,8 @@ never readable by the app role directly) and returns
 bigint, which would otherwise fail to resolve the
 `tradeos_private.create_abc_oauth_state(..., integer)` overload
 (Postgres 42883) and 500 the endpoint. The founder's browser completes authorization at
-the ABC sandbox; the authorize URL carries PKCE S256 and the narrow
-`pricing.read offline_access` scope.
+the ABC sandbox; the authorize URL carries PKCE S256 and the
+`pricing.read offline_access account.read` scope.
 
 `GET /api/v1/supplier-integrations/abc/oauth/callback` is
 **unauthenticated by design**: ABC redirects the founder's browser here

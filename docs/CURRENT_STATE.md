@@ -71,7 +71,7 @@ pricing, so the connection cannot be restored by retrying the old token.
 A new user-present reauthorization flow is implemented but not yet
 exercised end to end: owner/admin `POST
 /api/v1/supplier-integrations/abc/oauth/authorize` returns the ABC
-sandbox authorize URL (PKCE S256, `pricing.read offline_access`,
+sandbox authorize URL (PKCE S256, `pricing.read offline_access account.read`,
 10-minute single-use state bound to the initiating tenant session), and
 the unauthenticated `GET
 /api/v1/supplier-integrations/abc/oauth/callback` consumes the state
