@@ -72,7 +72,10 @@ describe("AbcSupplyAccountClient.searchShipToAccounts", () => {
     const auth = new AbcSupplyAuth(config, tokenFetch as unknown as typeof fetch);
     const client = new AbcSupplyAccountClient(auth, (async () => ({
       ok: true,
-      json: async () => ({ shipTos: [] }),
+      json: async () => ({
+        pagination: { pageNumber: 1, totalPages: 1 },
+        shipTos: [],
+      }),
     })) as unknown as typeof fetch);
 
     await client.searchShipToAccounts();
@@ -133,6 +136,93 @@ describe("AbcSupplyAccountClient.searchShipToAccounts", () => {
     expect(searchFetch).toHaveBeenCalledTimes(2);
     const secondBody = JSON.parse(String((searchFetch.mock.calls[1] as [string, RequestInit])[1].body));
     expect(secondBody.pagination).toEqual({ itemsPerPage: 50, pageNumber: 2 });
+  });
+
+  it("rejects a missing shipTos field instead of treating it as zero accounts", async () => {
+    const auth = new AbcSupplyAuth(config, (async () => ({
+      ok: true, json: async () => ({ access_token: "t", expires_in: 1800 }),
+    })) as unknown as typeof fetch);
+    const client = new AbcSupplyAccountClient(auth, (async () => ({
+      ok: true, json: async () => ({ pagination: { pageNumber: 1, totalPages: 1 } }),
+    })) as unknown as typeof fetch);
+    await expect(client.searchShipToAccounts()).rejects.toThrow("response is invalid");
+  });
+
+  it("accepts a genuinely empty result only with an explicit shipTos array", async () => {
+    const auth = new AbcSupplyAuth(config, (async () => ({
+      ok: true, json: async () => ({ access_token: "t", expires_in: 1800 }),
+    })) as unknown as typeof fetch);
+    const client = new AbcSupplyAccountClient(auth, (async () => ({
+      ok: true, json: async () => ({
+        pagination: { pageNumber: 1, totalPages: 1 }, shipTos: [],
+      }),
+    })) as unknown as typeof fetch);
+    await expect(client.searchShipToAccounts()).resolves.toEqual([]);
+  });
+
+  it.each([
+    ["missing pagination", { shipTos: [] }],
+    ["mismatched page", { pagination: { pageNumber: 2, totalPages: 2 }, shipTos: [] }],
+    ["fractional total", { pagination: { pageNumber: 1, totalPages: 1.5 }, shipTos: [] }],
+    ["zero total", { pagination: { pageNumber: 1, totalPages: 0 }, shipTos: [] }],
+    ["invalid shipTos", { pagination: { pageNumber: 1, totalPages: 1 }, shipTos: null }],
+    ["oversized single page", { pagination: { pageNumber: 1, totalPages: 1 }, shipTos: Array.from({ length: 51 }, () => ({
+      number: "2010466-2", name: "Test", status: "active", branches: [],
+    })) }],
+  ])("fails closed on %s", async (_case, body) => {
+    const auth = new AbcSupplyAuth(config, (async () => ({
+      ok: true, json: async () => ({ access_token: "t", expires_in: 1800 }),
+    })) as unknown as typeof fetch);
+    const client = new AbcSupplyAccountClient(auth, (async () => ({
+      ok: true, json: async () => body,
+    })) as unknown as typeof fetch);
+    await expect(client.searchShipToAccounts()).rejects.toThrow("response is invalid");
+  });
+
+  it("rejects excessive page counts without silently returning a truncated list", async () => {
+    const auth = new AbcSupplyAuth(config, (async () => ({
+      ok: true, json: async () => ({ access_token: "t", expires_in: 1800 }),
+    })) as unknown as typeof fetch);
+    const searchFetch = jest.fn().mockResolvedValue({
+      ok: true, json: async () => ({
+        pagination: { pageNumber: 1, totalPages: 101 }, shipTos: [],
+      }),
+    });
+    const client = new AbcSupplyAccountClient(auth, searchFetch as unknown as typeof fetch);
+    await expect(client.searchShipToAccounts()).rejects.toThrow("safe page limit");
+    expect(searchFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects inconsistent pagination rather than returning incomplete accounts", async () => {
+    const auth = new AbcSupplyAuth(config, (async () => ({
+      ok: true, json: async () => ({ access_token: "t", expires_in: 1800 }),
+    })) as unknown as typeof fetch);
+    const searchFetch = jest.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({
+        pagination: { pageNumber: 1, totalPages: 2 }, shipTos: [],
+      }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({
+        pagination: { pageNumber: 2, totalPages: 1 }, shipTos: [],
+      }) });
+    const client = new AbcSupplyAccountClient(auth, searchFetch as unknown as typeof fetch);
+    await expect(client.searchShipToAccounts()).rejects.toThrow("pagination changed");
+    expect(searchFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not fetch a later page after the caller aborts", async () => {
+    const controller = new AbortController();
+    const auth = new AbcSupplyAuth(config, (async () => ({
+      ok: true, json: async () => ({ access_token: "t", expires_in: 1800 }),
+    })) as unknown as typeof fetch);
+    const searchFetch = jest.fn().mockImplementation(async () => {
+      controller.abort();
+      return { ok: true, json: async () => ({
+        pagination: { pageNumber: 1, totalPages: 2 }, shipTos: [],
+      }) };
+    });
+    const client = new AbcSupplyAccountClient(auth, searchFetch as unknown as typeof fetch);
+    await expect(client.searchShipToAccounts(controller.signal)).rejects.toThrow("was canceled");
+    expect(searchFetch).toHaveBeenCalledTimes(1);
   });
 
   it("throws a sanitized error on non-OK responses without leaking the body", async () => {
