@@ -3,7 +3,7 @@ import { z } from "zod";
 import { SupplierIntegrationService } from "../../modules/supplier-integration/service";
 import { probeAbcSandboxPricing } from "../../modules/supplier-integration/abcPricingProbe";
 import { AbcSupplyAccountClient } from "../../modules/supplier-integration/abcAccount";
-import { loadAbcSupplyConfig } from "../../modules/supplier-integration/abcSupply";
+import { loadAbcSupplyAuthConfig } from "../../modules/supplier-integration/abcSupply";
 import { createDurableAbcAuth } from "../../modules/supplier-integration/feed";
 import {
   ABC_OAUTH_BROWSER_COOKIE_NAME,
@@ -202,12 +202,12 @@ export const supplierIntegrationController = {
     abcAccountsQuerySchema.parse(req.query);
     const orgId = requireOrgId(req);
     const supplierId = await resolveAbcSupplier(orgId);
-    const config = loadAbcSupplyConfig();
-    if (!config) throw new ApiError(503, "ABC sandbox credentials are not configured on the API");
-    const { auth } = await createDurableAbcAuth(config, orgId, supplierId);
+    const config = loadAbcSupplyAuthConfig();
+    if (!config) throw new ApiError(503, "ABC sandbox OAuth client credentials are not configured on the API");
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), ABC_ACCOUNTS_TIMEOUT_MS);
     try {
+      const { auth } = await createDurableAbcAuth(config, orgId, supplierId);
       const accounts = await new AbcSupplyAccountClient(auth).searchShipToAccounts(controller.signal);
       return res.json({ accounts });
     } catch (error) {
@@ -216,7 +216,7 @@ export const supplierIntegrationController = {
       }
       // Older grants have pricing.read but not account.read. Do not echo
       // provider response bodies, access/refresh tokens or account numbers.
-      if (error instanceof Error && /^(?:ABC Supply token refresh failed: HTTP (?:400|403)|ABC Supply Search Accounts request failed: HTTP 403)$/.test(error.message)) {
+      if (error instanceof Error && /^(?:ABC sandbox refresh token is not configured|ABC Supply token refresh failed: HTTP (?:400|403)|ABC Supply Search Accounts request failed: HTTP 403)$/.test(error.message)) {
         throw new ApiError(409, "ABC account access needs a fresh authorization with account.read");
       }
       throw error;

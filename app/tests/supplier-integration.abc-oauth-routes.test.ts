@@ -40,7 +40,7 @@ jest.mock("../modules/supplier-integration/feed", () => ({
   createDurableAbcAuth: jest.fn(),
 }));
 jest.mock("../modules/supplier-integration/abcSupply", () => ({
-  loadAbcSupplyConfig: jest.fn(),
+  loadAbcSupplyAuthConfig: jest.fn(),
 }));
 jest.mock("../modules/supplier-integration/abcAccount", () => ({
   AbcSupplyAccountClient: jest.fn(),
@@ -71,7 +71,7 @@ import {
 } from "../modules/supplier-integration/abcOAuth";
 import { abcSupplyRefreshTokenStore } from "../modules/supplier-integration/credentialStore";
 import { createDurableAbcAuth } from "../modules/supplier-integration/feed";
-import { loadAbcSupplyConfig } from "../modules/supplier-integration/abcSupply";
+import { loadAbcSupplyAuthConfig } from "../modules/supplier-integration/abcSupply";
 import { AbcSupplyAccountClient } from "../modules/supplier-integration/abcAccount";
 import { requireOrgId, requirePermissions } from "../backend/requestContext";
 import { prisma } from "../db/client";
@@ -307,7 +307,7 @@ describe("GET /abc/oauth/callback", () => {
 describe("GET /abc/accounts (read-only sandbox Ship-To discovery)", () => {
   const oldEnv = process.env;
   const getAuth = createDurableAbcAuth as jest.Mock;
-  const loadConfig = loadAbcSupplyConfig as jest.Mock;
+  const loadConfig = loadAbcSupplyAuthConfig as jest.Mock;
   const accountClient = AbcSupplyAccountClient as jest.Mock;
   const search = jest.fn();
 
@@ -317,7 +317,8 @@ describe("GET /abc/accounts (read-only sandbox Ship-To discovery)", () => {
     org.mockReturnValue(ORG_ID);
     permissions.mockReturnValue({ role: "owner", userId: USER_ID });
     findSupplier.mockResolvedValue({ id: SUPPLIER_ID });
-    loadConfig.mockReturnValue({ clientId: "cid", clientSecret: "private", refreshToken: null, branchNumber: "340", shipToNumber: "2010466-2" });
+    // Search Accounts requires no preselected branch or Ship-To.
+    loadConfig.mockReturnValue({ clientId: "cid", clientSecret: "private", refreshToken: null });
     getAuth.mockResolvedValue({ auth: { getAccountToken: jest.fn() } });
     accountClient.mockImplementation(() => ({ searchShipToAccounts: search }));
     search.mockResolvedValue([{ number: "2010466-2", name: "Example account", status: "active",
@@ -374,6 +375,7 @@ describe("GET /abc/accounts (read-only sandbox Ship-To discovery)", () => {
   });
 
   it.each([
+    "ABC sandbox refresh token is not configured",
     "ABC Supply token refresh failed: HTTP 400",
     "ABC Supply token refresh failed: HTTP 403",
     "ABC Supply Search Accounts request failed: HTTP 403",
@@ -383,6 +385,14 @@ describe("GET /abc/accounts (read-only sandbox Ship-To discovery)", () => {
     expect(response.status).toBe(409);
     expect(response.body.error).toContain("account.read");
     expect(JSON.stringify(response.body)).not.toContain("private");
+  });
+
+  it("returns a reconnect response if Vault has no ABC refresh grant", async () => {
+    getAuth.mockRejectedValueOnce(new Error("ABC sandbox refresh token is not configured"));
+    const response = await request(app()).get(path);
+    expect(response.status).toBe(409);
+    expect(response.body.error).toContain("account.read");
+    expect(search).not.toHaveBeenCalled();
   });
 
   it("does not return an untrusted provider failure body", async () => {

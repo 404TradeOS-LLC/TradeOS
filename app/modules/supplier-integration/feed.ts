@@ -3,6 +3,7 @@ import { prisma } from "../../db/client";
 import type { SupplierFeedFetcher } from "./types";
 import { logInfo } from "../../backend/logging";
 import { AbcSupplyAuth, AbcSupplyPricingClient, createAbcSupplyFeedFetcher, loadAbcSupplyConfig } from "./abcSupply";
+import type { AbcSupplyAuthConfig } from "./abcSupply";
 import { abcSupplyRefreshTokenStore } from "./credentialStore";
 
 const endpointMapSchema = z.record(z.string().uuid(), z.string().url());
@@ -95,8 +96,8 @@ export async function priceOneAbcSandboxSku(
 }
 
 /** Resolves the durable Vault refresh token, falling back to the env bootstrap token. Exported as a test seam. */
-export async function createDurableAbcAuth(
-  config: NonNullable<ReturnType<typeof loadAbcSupplyConfig>>,
+export async function createDurableAbcAuth<T extends AbcSupplyAuthConfig>(
+  config: T,
   orgId: string,
   supplierId: string,
 ) {

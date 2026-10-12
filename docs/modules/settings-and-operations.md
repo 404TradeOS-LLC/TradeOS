@@ -84,7 +84,9 @@ The authenticated `GET /api/v1/supplier-integrations/abc/accounts` endpoint
 offers a read-only foundation for the future Settings Ship-To selector.
 It checks `costbook.manage`, owner/admin role, active organization and matching
 ABC Supplier before loading the tenant's server-side Vault credential and
-querying the ABC **sandbox** Search Accounts API. No request-provided
+querying the ABC **sandbox** Search Accounts API. OAuth client credentials
+are sufficient to begin discovery even if branch and Ship-To have not been
+selected: pricing configuration still requires those values. No request-provided
 organization, supplier, branch or Ship-To account is accepted. ABC's `account.read`
 scope requires a fresh user-present reauthorization for older pricing-only grants.
 Discovery has a 15-second deadline, bounded provider pagination, a normalized

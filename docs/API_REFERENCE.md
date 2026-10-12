@@ -71,9 +71,11 @@ The request passes the TradeOS JWT + tenant-scoped database transaction
 middleware, requires `costbook.manage` and an active `owner` or `admin` role,
 and validates the ABC Supplier row belongs to that organization.
 No body/query IDs, account numbers, URLs or branch overrides are accepted.
-The API loads the existing durable tenant Vault refresh token and requests
-`account.read` from ABC through the sandbox Account API with a bounded
-15-second deadline. Response: `{ "accounts": [ { "number": "...",
+The API loads client ID/secret using an **auth-only configuration** (no prior
+branch or Ship-To values required), then loads the tenant's durable Vault
+refresh token and requests `account.read` through the sandbox Account API
+with a bounded 15-second deadline. An absent Vault/bootstrap grant also
+returns the safe reauthorization instruction rather than a generic error. Response: `{ "accounts": [ { "number": "...",
 "name": "...", "status": "...", "branches": [ { "number": "...",
 "name": "...", "status": "...", "homeBranch": true } ] } ] }`.
 An old pricing-only grant returns 409 with a sanitized request to reconnect

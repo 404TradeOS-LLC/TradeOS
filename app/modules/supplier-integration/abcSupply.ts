@@ -65,7 +65,8 @@ const PRICING_PATH = "/api/pricing/v2/prices";
 const MAX_LINES_PER_REQUEST = 50;
 const TOKEN_EXPIRY_MARGIN_MS = 60_000;
 
-export interface AbcSupplyConfig {
+/** ABC user OAuth auth works before any branch or Ship-To has been selected. */
+export interface AbcSupplyAuthConfig {
   clientId: string;
   clientSecret: string;
   /**
@@ -74,24 +75,32 @@ export interface AbcSupplyConfig {
    * closed when neither is present.
    */
   refreshToken: string | null;
+}
+
+export interface AbcSupplyConfig extends AbcSupplyAuthConfig {
   branchNumber: string;
   shipToNumber: string;
 }
 
-/** Returns null when the ABC Supply sandbox integration is not configured. */
-export function loadAbcSupplyConfig(env: NodeJS.ProcessEnv = process.env): AbcSupplyConfig | null {
+/** Sandbox account discovery needs client credentials, never a selected branch. */
+export function loadAbcSupplyAuthConfig(env: NodeJS.ProcessEnv = process.env): AbcSupplyAuthConfig | null {
   const clientId = env.ABC_SUPPLY_SANDBOX_CLIENT_ID?.trim();
   const clientSecret = env.ABC_SUPPLY_SANDBOX_CLIENT_SECRET?.trim();
-  const branchNumber = env.ABC_SUPPLY_BRANCH_NUMBER?.trim();
-  const shipToNumber = env.ABC_SUPPLY_SHIP_TO_NUMBER?.trim();
-  if (!clientId || !clientSecret || !branchNumber || !shipToNumber) return null;
+  if (!clientId || !clientSecret) return null;
   return {
     clientId,
     clientSecret,
     refreshToken: env.ABC_SUPPLY_SANDBOX_REFRESH_TOKEN?.trim() || null,
-    branchNumber,
-    shipToNumber,
   };
+}
+
+/** Pricing still requires explicitly configured branch and Ship-To values. */
+export function loadAbcSupplyConfig(env: NodeJS.ProcessEnv = process.env): AbcSupplyConfig | null {
+  const authConfig = loadAbcSupplyAuthConfig(env);
+  const branchNumber = env.ABC_SUPPLY_BRANCH_NUMBER?.trim();
+  const shipToNumber = env.ABC_SUPPLY_SHIP_TO_NUMBER?.trim();
+  if (!authConfig || !branchNumber || !shipToNumber) return null;
+  return { ...authConfig, branchNumber, shipToNumber };
 }
 
 const tokenResponseSchema = z
@@ -118,7 +127,7 @@ export class AbcSupplyAuth {
   private refreshToken: string | null;
 
   constructor(
-    private readonly config: AbcSupplyConfig,
+    private readonly config: AbcSupplyAuthConfig,
     private readonly fetchFn: typeof fetch = fetch,
     private readonly now: () => number = Date.now,
     private readonly hooks: AbcSupplyAuthHooks = {},
