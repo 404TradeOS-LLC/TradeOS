@@ -63,6 +63,113 @@ related_code:
 
 # TradeOS Current State
 
+## ABC sandbox OAuth reauthorization — 2026-10-11
+
+The stored ABC refresh token is gone (0 saved tokens in Vault), and ABC
+requires user-present authorization for third-party customer-specific
+pricing, so the connection cannot be restored by retrying the old token.
+A new user-present reauthorization flow is implemented but not yet
+exercised end to end: owner/admin `POST
+/api/v1/supplier-integrations/abc/oauth/authorize` returns the ABC
+sandbox authorize URL (PKCE S256, `pricing.read offline_access account.read`,
+10-minute single-use state bound to the initiating tenant session), and
+the unauthenticated `GET
+/api/v1/supplier-integrations/abc/oauth/callback` consumes the state
+exactly once, exchanges the code server-side, and persists the refresh
+token through the existing Vault path. The env bootstrap refresh token
+is now recovery-only; the durable Vault credential is authoritative and
+pricing fails closed when no token exists. The callback URI must still
+be registered in the ABC Developer Portal before the flow can run, and
+the daily cron must not consume user-context pricing tokens until ABC
+confirms unattended customer-specific pricing in writing.
+
+Fix 2026-10-11: the authorize endpoint 500'd in production because the
+TTL parameter reached Postgres as bigint while
+`tradeos_private.create_abc_oauth_state` takes integer (42883); the call
+site now casts it explicitly. No API or flow change.
+
+Status 2026-10-12: the flow has now been exercised end to end three
+times (user + automated browser, two clients) and fails deterministically
+at the callback: ABC sandbox sign-in succeeds and redirects back, but
+Settings lands on `?abc_oauth=error`. The callback now reports the
+failing stage via `?abc_oauth_step=request|state|exchange|persist` so
+the next attempt identifies whether the failure is in state validation,
+the ABC code exchange, or token persistence.
+
+Callback persistence repair proposed 2026-10-12: production runtime logs on
+`0119f731` identified `abc_oauth_step=persist` failing with Prisma's
+connection pool timeout (10 seconds, limit 1). The callback wrapped Vault
+persistence in a tenant-scoped transaction while the rotation-oriented helper
+opened another transaction. The focused fix gives the authorization callback
+an owner/admin-guarded in-session Vault write, while retaining independent
+commits for provider refresh-token rotation. This patch alone is not proof of
+an authorized sandbox quote, a stored token, or a production deployment.
+
+Provider refresh-token rotation hardening proposed 2026-10-12: the rotation
+helper previously acquired a nested transaction from the request's one-
+connection Prisma pool, risking the same timeout as the OAuth callback.
+A lazily initialized independent Prisma client now commits provider rotations
+through a separate restricted tenant-RLS session before pricing continues.
+Focused tests assert Vault write argument order/SQL and a PostgreSQL test
+models a held request connection with an independent rotation transaction.
+Cross-instance concurrent refresh serialization and live ABC validation are
+separate unverified gates, and this PR is not yet deployed.
+
+## ABC sandbox connection probe — 2026-10-09
+
+The existing cron/Price Items integration still cannot contact ABC
+with zero SKU-linked active Materials. A new authenticated,
+owner/admin-only `POST /api/v1/supplier-integrations/abc/price-probe`
+and Settings → Costbook button permit **one server-allowlisted** reviewed supplier SKU
+(`ABC-654210`) to be quoted directly, even after verified Material activation, against the sandbox **without**
+creating any Material or price-update proposal. Both paths share
+the existing durable Vault token-rotation helper; no production ABC
+token or provider quote has been verified merely by adding this code.
+The response does not certify stock UOM. The governed approval and
+existing Estimate snapshots remain unchanged.
+
+Update 2026-10-12: ABC probe provider status visibility is limited to a
+matching failed line with a short, safe plain-language explanation. Bare
+domains, URLs, embedded account digits, ship-to identifiers, UUID-shaped IDs,
+markup and credential-like text are rejected; absent/unsafe messages result
+in a generic Settings fallback. A successful quote or other raw status message
+is not disclosed through `providerStatusMessage`. No Material, price,
+approval, OAuth or account-selection behavior changes.
+
+Separate production-access gate: ABC's official Third-Party Aggregator track
+requires a production application request and integration review demonstration
+before real customer accounts/pricing can be used. The TradeOS adapter still
+hardcodes sandbox endpoints. Before enabling production API access, validate
+the required user-present pricing model and ABC restrictions against
+competitive price comparison; existing scheduled supplier sync is not a
+certification of terms compliance. See
+https://apidocs.abcsupply.com/third-party-aggregator-integration-track/ and
+https://apidocs.abcsupply.com/getting-started/.
+
+
+## Authenticated supplier-workflow IDs — 2026-10-09
+
+TradeOS Settings → Costbook exposes the existing protected 47802 supplier-evidence
+workflow's organization UUID and **application** user UUID to signed-in owners/admins.
+The Settings API returns `currentUserId` from the verified backend authentication
+context; the UI verifies that this actor belongs to exactly one active owner/admin
+entry in the same tenant-scoped membership list before showing individual Copy
+controls. Email, membership UUID, Supabase auth subject, and Supabase project ID
+are never substituted. The panel fails closed for missing or ambiguous identities,
+and the underlying GitHub workflow still requires its production confirmation,
+restricted database role, and owner/admin RLS permissions. This UI does not seed
+observations, grant roles, or certify live ABC pricing.
+
+
+## ABC sandbox stocking UOM gate — proposed 2026-10-10
+
+The ABC Price Items response carries `lines[].uom` for eligible priced lines.
+The new adapter preserves the provider-sourced unit and shows it in Settings.
+The supplier feed refuses to enqueue a proposed Material price unless the
+response unit matches the tenant Material unit of measure. Unknown or
+mismatched units fail closed without price conversion. This does not reauthorize
+OAuth, create a Material or approve supplier price updates.
+
 ## Supplier feed serverless activation — 2026-10-07
 
 The backend now has a Vercel-native supplier-price cron boundary at `GET /api/cron/supplier-price-sync`, scheduled daily by `app/vercel.json`. It is protected by `CRON_SECRET` plus a bounded IP rate limit, consumes only explicit `SUPPLIER_PRICE_SYNC_JOBS` targets, and reuses the existing membership-derived background database session and review-first supplier pricing flow.
@@ -725,7 +832,7 @@ Repository governance additionally uses documentation consistency, dependency re
 - Stripe Billing sandbox runtime configuration is incomplete until an API credential, webhook-signing secret, webhook endpoint, app URL, and active Customer Portal configuration are installed and exercised. Stripe Connect/direct contractor customer payments remain a separate follow-up integration and are not provided by PR #491.
 - Production environment values, Preview isolation, runtime-authenticated RC sessions, and multi-viewport browser artifacts must be verified externally rather than inferred from repository state.
 - Settings brand-asset uploads use a shipped S017 orphan reconciler: stale generated, non-current objects can remain in private Storage until an authorized operator runs the dry-run-by-default cleanup after the 24-hour grace period. No automatic cleanup scheduler exists by design.
-- The residential Assembly Catalog now pins catalog/recipe metadata and quantities, publishes its NAHB/CSI coverage matrix, validates Cost Item unit/type compatibility on both client and server, and installs within an explicit transaction that composes with the active request transaction. Live RLS integration coverage verifies tenant-scoped starter installation and cross-tenant rejection. Authenticated rendered browser evidence and qualified-estimator expansion beyond the 14-recipe baseline remain outstanding; see `docs/architecture/ASSEMBLY_CATALOG_IMPLEMENTATION.md`.
+- The residential Assembly Catalog pins catalog/recipe metadata and quantities, publishes its NAHB/CSI coverage matrix, validates Cost Item unit/type compatibility on client and server, and installs within an explicit tenant/RLS transaction. The October 2026 browse-facet slice filters the reviewed starter payload by NAHB, CSI division, trade, output unit and tenant installed status; it derives installation status from all active assemblies and resets stale mappings when switching filters. Live tenant isolation coverage for the install flow already exists. Authenticated rendered browser evidence and qualified-estimator expansion beyond the 14-recipe baseline remain outstanding; see `docs/architecture/ASSEMBLY_CATALOG_IMPLEMENTATION.md`.
 
 ## Canonical sequencing
 
@@ -896,6 +1003,7 @@ Merged PR #694 (`fd1e6479968fe890db2e9ffedef0af41c11e6827`) established the foun
 - All 88 `TradeosAssembly` entries now carry `nahbPhase` (`"1000"`–`"6000"`, NAHB job-cost build sequence) alongside the preserved `csiDivision`; new `tradeosAssembliesByNahbPhase` helper and `NAHB_PHASE_TITLES`/`isNahbPhase` in `app/modules/costbook/tradeosAssemblies.ts`. Distribution: 13/11/10/16/38 across phases 1000–5000; 6000 intentionally empty (completion/inspection is not assembly work).
 - Migration `20261008132000_add_material_classification_codes` adds nullable `omniclass_23` and `unspsc` to `materials` plus an index; no NOT NULL, no backfill, existing import/pricing paths untouched. Material create/update/bulk-import accept both codes and the DTO returns them (`unspsc` validated as 8-digit at the API boundary).
 - New `app/modules/costbook/canonicalMaterialCodes.ts`: `CANONICAL_MATERIAL_CODES` keyed by static-corpus `canonicalKey` with mapped/ambiguous/unmapped statuses, provenance, deterministic backfill queue, and coverage helpers. Verified coverage is deliberately progressive: 17 roofing/exterior materials use UNSPSC Codeset v8.1201 (e.g. shingles → `30151508`, siding → `30151802`, gutters → `30151703`), plus three governed untreated SPF 2×4 framing-stud keys use `30103605` (`Wood planks`) from the published UNSPSC v17.1001 detailed list. Treated, engineered, and otherwise ambiguous lumber remains unmapped; 7 roofing/exterior entries remain explicitly ambiguous and never silently merge. OmniClass 23 codes are pending verification against the CSI publication.
+- **2026-10-08 five-family backfill (merged follow-up):** the full research program landed in `CANONICAL_MATERIAL_CODES` — 397 new rows (319 mapped, 78 ambiguous), all read from UNSPSC Codeset v8.1201, zero invented: framing lumber (83 → `30103603`), engineered lumber (27 → `30103601/602/606/607`), fasteners (109 → 17 verified fastener commodities), concrete/masonry (62 → 5 verified commodities), insulation (116 → `30141503/504/506/507`). Codeset gaps (bagged concrete mix, grout, pavers, housewrap/WRB, tapes, baffles) stay ambiguous with empty code fields and documented reasons. Map now holds 425 entries; 267 map to keys in the static corpus (74 greenfield framing/engineered keys are canonical-ready but not in the corpus yet). Packages live under `docs/research/costbook-classification-backfill/`.
 - Classification-assisted matching in `canonicalProductMatcher.ts`: supplier-carried UNSPSC/OmniClass codes confirm an already-strong text match, narrow weak matches to human review, and downgrade code conflicts to human review (duplicate/misattribution prevention). With no codes present, matcher behavior is byte-identical to before.
 
 
@@ -918,3 +1026,34 @@ unchanged. The web type accepts missing code fields during phased runtime
 rollout. Live migration/backfill, authenticated responsive browser evidence,
 and hosted checks require separate verification; the Figma target designs do
 not establish backend capability.
+
+
+## ABC Supply SKU onboarding / live-price evidence (PR #701, 2026-10-09)
+
+Branch `feat/abc-supply-reviewed-material-pilot` proposes a single-product,
+operator-reviewed ABC SupplierProduct → Material activation. The operator defaults
+to read-only; any mutation requires a validated active owner/admin Costbook
+membership, exact product-key/SKU/unit acknowledgements, a separate explicitly
+approved baseline price, and an atomic audit/linking transaction. The existing
+supplier-worker review queue, rather than automatic price mutation, remains
+authoritative. ABC Price Items response lines are additionally checked for
+known request ID, matching SKU, USD denomination and representable precision.
+
+**Production database read-only evidence, 2026-10-09:** six Supplier rows,
+510 SupplierProducts, 510 SupplierPriceObservations, zero Materials, zero
+SupplierPriceUpdates. All 510 observations are ABC Supply **static 2026-09-14
+source data**, occupying source rows 1–510; 165 ABC products carry SKUs and none
+is linked to a Material. The complete checked-in dataset expects 584 ABC /
+3,188 total products. The governed bulk seed is therefore incomplete. A
+successful supplier cron with `proposed: 0` does not prove ABC Pricing was
+contacted. No new token refresh, real ABC quote, seed, Material write, queue
+approval or production deployment was performed for PR #701.
+
+Pending after code review: finish idempotent restricted-role import and verify
+3,188 records; manually select one genuinely sandbox-quotable SKU and independently
+approved baseline cost; verify unit compatibility; run explicit single-product
+activation; trigger protected cron; check for an attributed, tenant-scoped
+**pending** proposal and provider token continuity; have a human review before
+any Material update. Vercel environment listing returned HTTP 403 in this
+inspection, so configuration completeness was not independently verified.
+See `docs/operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md`.

@@ -89,3 +89,68 @@ function formatList(values: readonly string[]) {
   if (values.length === 2) return `${values[0]} or ${values[1]}`;
   return `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`;
 }
+
+
+/**
+ * Read-only browse facets over server-returned, price-neutral starter recipes.
+ * Installation is derived from the tenant's active Assembly codes, not
+ * template metadata. These helpers never grant write access or change recipes.
+ */
+export type StarterCatalogInstallation = "all" | "installed" | "available";
+
+export type StarterCatalogFilters = {
+  query: string;
+  nahbGroup: string;
+  csiDivision: string;
+  trade: string;
+  unit: string;
+  installation: StarterCatalogInstallation;
+};
+
+export const DEFAULT_STARTER_CATALOG_FILTERS: StarterCatalogFilters = {
+  query: "",
+  nahbGroup: "all",
+  csiDivision: "all",
+  trade: "all",
+  unit: "all",
+  installation: "all",
+};
+
+export function buildStarterCatalogFacets(templates: readonly StarterCatalogTemplate[]) {
+  const unique = (values: string[]) =>
+    [...new Set(values.filter((value) => value.trim()))]
+      .sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
+  return {
+    nahbGroups: unique(templates.map((template) => template.nahbGroup)),
+    csiDivisions: unique(templates.map((template) => template.csiDivision)),
+    trades: unique(templates.map((template) => template.trade)),
+    units: unique(templates.map((template) => template.unitOfMeasure)),
+  };
+}
+
+export function isStarterCatalogInstalled(template: Pick<StarterCatalogTemplate, "code">, installedCodes: ReadonlySet<string>) {
+  return installedCodes.has(template.code.trim().toUpperCase());
+}
+
+export function filterStarterCatalogTemplates(
+  templates: readonly StarterCatalogTemplate[],
+  filters: StarterCatalogFilters,
+  installedCodes: ReadonlySet<string>,
+): StarterCatalogTemplate[] {
+  const text = filters.query.trim().toLocaleLowerCase();
+  return templates.filter((template) => {
+    if (filters.nahbGroup !== "all" && template.nahbGroup !== filters.nahbGroup) return false;
+    if (filters.csiDivision !== "all" && template.csiDivision !== filters.csiDivision) return false;
+    if (filters.trade !== "all" && template.trade !== filters.trade) return false;
+    if (filters.unit !== "all" && template.unitOfMeasure !== filters.unit) return false;
+    const installed = isStarterCatalogInstalled(template, installedCodes);
+    if (filters.installation === "installed" && !installed) return false;
+    if (filters.installation === "available" && installed) return false;
+    if (!text) return true;
+    return [
+      template.name, template.code, template.description, template.trade,
+      template.csiTitle, template.csiDivision, template.nahbGroup,
+      template.measurementBasis, template.unitOfMeasure,
+    ].some((value) => value.toLocaleLowerCase().includes(text));
+  });
+}

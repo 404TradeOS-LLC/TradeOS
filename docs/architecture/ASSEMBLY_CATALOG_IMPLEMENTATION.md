@@ -75,6 +75,12 @@ finish carpentry, electrical, plumbing, HVAC, and decks.
   session with live RLS integration tests.
 - [x] Replace bounded dropdown-only mapping with server-backed Cost Item search
   and prevent duplicate or incompatible selections in the UI.
+- [x] Add price-neutral browse facets for NAHB group, CSI division, trade,
+  assembly output unit, and installed status with combined text search.
+  Installation status is derived from all paginated active assemblies in the
+  authenticated tenant, not guessed from the current page or source recipe.
+  Filtering clears stale recipe mapping/preview state and disables installation
+  for read-only actors or already-installed recipe codes.
 - [ ] Add authenticated rendered browser evidence for owner/admin and read-only
   roles against a disposable tenant.
 - [ ] Expand the reviewed recipe library trade by trade after qualified-estimator
@@ -83,6 +89,24 @@ finish carpentry, electrical, plumbing, HVAC, and decks.
   organization-wide recipe upgrades.
 - [ ] Connect future plan takeoff quantities only after the installed assembly
   workflow has production evidence.
+
+## Browse-facet contract (October 2026)
+
+The starter catalog endpoint is unchanged: it returns one bounded,
+price-neutral reviewed catalog containing NAHB and CSI classification. The
+web UI derives four classification/unit dropdowns from returned recipes and
+adds an **Installed / Not installed** facet using the complete active
+Assembly-code list loaded in the authenticated workspace. Combined searches
+are case-insensitive; empty sets, clear filters, and matching-result counts are
+explicit. Changing any facet deselects the prior recipe and clears Cost Item
+mappings and unit-cost preview so no hidden recipe inherits stale mappings.
+Selecting a new template restores the existing review and mapping workflow.
+These are **client-side starter-template facets**, not a server query over a
+bounded tenant catalog or a second pricing system. The existing Assembly list
+above/below the starter browser remains keyset-paginated and tenant-scoped.
+No backend write path, schema migration, source recipe, cost or Estimate
+snapshot was altered. Authenticated owner/admin and read-only browser captures
+at desktop and 390px remain required before release certification.
 
 ## Current catalog coverage
 

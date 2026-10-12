@@ -12,6 +12,12 @@ import type { CostbookAssembly } from "@/lib/costbook-api";
 import type { CostItemCatalogRecord } from "@/components/costbook/cost-item-catalog-actions";
 import {
   assessCostItemMapping,
+  buildStarterCatalogFacets,
+  DEFAULT_STARTER_CATALOG_FILTERS,
+  filterStarterCatalogTemplates,
+  isStarterCatalogInstalled,
+  type StarterCatalogFilters,
+  type StarterCatalogInstallation,
   type StarterCatalogComponent,
   type StarterCatalogCoverage,
   type StarterCatalogTemplate,
@@ -225,7 +231,7 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
     <StarterAssemblyCatalog
       costItems={costItems}
       canWrite={canWrite}
-      installedCodes={new Set(availableChildAssemblies.map((assembly) => assembly.code))}
+      installedCodes={new Set(availableChildAssemblies.map((assembly) => assembly.code.trim().toUpperCase()))}
       saving={saving}
       onSaving={setSaving}
       onError={setError}
@@ -301,17 +307,32 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [mappings, setMappings] = useState<Record<string, string>>({});
   const [mappingItems, setMappingItems] = useState<Record<string, CostItemCatalogRecord>>({});
-  const [query, setQuery] = useState("");
-  const [nahbGroup, setNahbGroup] = useState("all");
+  const [filters, setFilters] = useState<StarterCatalogFilters>({ ...DEFAULT_STARTER_CATALOG_FILTERS });
   const [previewQuantity, setPreviewQuantity] = useState("1");
   const [costPreview, setCostPreview] = useState<Record<string, CostPreview>>({});
   const [loading, setLoading] = useState(true);
-  const selected = templates.find((template) => template.id === selectedTemplateId) ?? null;
-  const groups = useMemo(() => [...new Set(templates.map((template) => template.nahbGroup))], [templates]);
-  const filtered = useMemo(() => templates.filter((template) => {
-    const text = `${template.name} ${template.code} ${template.trade} ${template.csiTitle} ${template.nahbGroup}`.toLowerCase();
-    return (nahbGroup === "all" || template.nahbGroup === nahbGroup) && text.includes(query.trim().toLowerCase());
-  }), [templates, query, nahbGroup]);
+  const facets = useMemo(() => buildStarterCatalogFacets(templates), [templates]);
+  const filtered = filterStarterCatalogTemplates(templates, filters, installedCodes);
+  // A filtered-out template is never allowed to retain visible mapping inputs.
+  const selected = filtered.find((template) => template.id === selectedTemplateId) ?? null;
+  const hasActiveFilters = (Object.keys(DEFAULT_STARTER_CATALOG_FILTERS) as (keyof StarterCatalogFilters)[])
+    .some((key) => filters[key] !== DEFAULT_STARTER_CATALOG_FILTERS[key]);
+
+  function updateFilter<K extends keyof StarterCatalogFilters>(key: K, value: StarterCatalogFilters[K]) {
+    setFilters((current) => ({ ...current, [key]: value }));
+    setSelectedTemplateId("");
+    setMappings({});
+    setMappingItems({});
+    setCostPreview({});
+  }
+
+  function resetFilters() {
+    setFilters({ ...DEFAULT_STARTER_CATALOG_FILTERS });
+    setSelectedTemplateId("");
+    setMappings({});
+    setMappingItems({});
+    setCostPreview({});
+  }
 
   const mappedCount = selected ? selected.components.filter((component) => mappings[component.key]).length : 0;
   const mappingComplete = Boolean(selected && mappedCount === selected.components.length);
@@ -407,16 +428,40 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
     {loading ? <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden="true" />Loading starter catalog…</div> : <div className="grid lg:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.6fr)]">
       <div className="border-b border-border/70 lg:border-b-0 lg:border-r">
         <div className="grid gap-2 border-b border-border/70 p-3 sm:grid-cols-2 lg:grid-cols-1">
-          <Input aria-label="Search starter assemblies" placeholder="Search assemblies, trades, or CSI…" value={query} onChange={(event) => setQuery(event.target.value)} />
-          <select aria-label="Filter by NAHB group" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={nahbGroup} onChange={(event) => setNahbGroup(event.target.value)}><option value="all">All residential groups</option>{groups.map((group) => <option key={group} value={group}>{group}</option>)}</select>
+          <Input aria-label="Search starter assemblies" placeholder="Search assemblies, trades, or CSI…" value={filters.query} onChange={(event) => updateFilter("query", event.target.value)} />
+          <select aria-label="Filter by NAHB group" className="h-9 min-w-0 rounded-md border border-input bg-background px-3 text-sm" value={filters.nahbGroup} onChange={(event) => updateFilter("nahbGroup", event.target.value)}>
+            <option value="all">All residential groups</option>
+            {facets.nahbGroups.map((group) => <option key={group} value={group}>{group}</option>)}
+          </select>
+          <select aria-label="Filter by CSI division" className="h-9 min-w-0 rounded-md border border-input bg-background px-3 text-sm" value={filters.csiDivision} onChange={(event) => updateFilter("csiDivision", event.target.value)}>
+            <option value="all">All CSI divisions</option>
+            {facets.csiDivisions.map((division) => <option key={division} value={division}>CSI {division}</option>)}
+          </select>
+          <select aria-label="Filter by trade" className="h-9 min-w-0 rounded-md border border-input bg-background px-3 text-sm" value={filters.trade} onChange={(event) => updateFilter("trade", event.target.value)}>
+            <option value="all">All trades</option>
+            {facets.trades.map((trade) => <option key={trade} value={trade}>{trade}</option>)}
+          </select>
+          <select aria-label="Filter by assembly unit" className="h-9 min-w-0 rounded-md border border-input bg-background px-3 text-sm" value={filters.unit} onChange={(event) => updateFilter("unit", event.target.value)}>
+            <option value="all">All output units</option>
+            {facets.units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+          </select>
+          <select aria-label="Filter by installation status" className="h-9 min-w-0 rounded-md border border-input bg-background px-3 text-sm" value={filters.installation} onChange={(event) => updateFilter("installation", event.target.value as StarterCatalogInstallation)}>
+            <option value="all">All installation statuses</option>
+            <option value="available">Not installed</option>
+            <option value="installed">Installed</option>
+          </select>
+          <div className="flex items-center justify-between gap-2 sm:col-span-2 lg:col-span-1">
+            <p role="status" aria-live="polite" className="text-xs text-muted-foreground">{filtered.length} of {templates.length} recipes</p>
+            {hasActiveFilters ? <Button type="button" size="sm" variant="ghost" onClick={resetFilters}>Clear filters</Button> : null}
+          </div>
         </div>
         <div className="max-h-[420px] overflow-y-auto divide-y divide-border/70">{filtered.map((template) => {
-          const installed = installedCodes.has(template.code);
-          return <button key={template.id} type="button" onClick={() => { setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
+          const installed = isStarterCatalogInstalled(template, installedCodes);
+          return <button key={template.id} type="button" onClick={() => { setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); setCostPreview({}); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
             <span className="flex items-start justify-between gap-3"><span className="font-medium text-foreground">{template.name}</span>{installed ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-label="Installed" /> : null}</span>
             <span className="mt-1 block text-xs text-muted-foreground">{template.nahbGroup} · CSI {template.csiDivision} · {template.unitOfMeasure}</span>
           </button>;
-        })}{filtered.length === 0 ? <p className="p-4 text-sm text-muted-foreground">No starter assemblies match those filters.</p> : null}</div>
+        })}{filtered.length === 0 ? <div className="grid gap-2 p-4"><p className="text-sm text-muted-foreground">No starter assemblies match those filters.</p><Button type="button" variant="outline" size="sm" onClick={resetFilters}>Clear filters</Button></div> : null}</div>
       </div>
       {!selected ? <EmptyState title="Choose a starter assembly" description="Select a recipe to review its measurement basis and component mapping." /> : <div className="grid content-start gap-5 p-4 sm:p-5">
         <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
@@ -434,7 +479,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
           <label className="grid gap-1 text-sm font-medium"><span>Output quantity</span><Input type="number" min="0.0001" step="0.0001" value={previewQuantity} onChange={(event) => setPreviewQuantity(event.target.value)} disabled={!mappingComplete || saving} /></label>
           <div className="min-w-36 text-right"><p className="text-xs text-muted-foreground">{previewLoading ? "Loading cost" : previewUnitCost === null ? "Unit cost" : `Per 1 ${selected.unitOfMeasure}`}</p><p className="text-lg font-semibold text-foreground">{previewLoading ? "…" : previewUnitCost === null ? "—" : money(previewUnitCost)}</p><p className="text-xs text-muted-foreground">{previewError ? "Cost unavailable" : previewJobCost === null ? "Complete mapping first" : `Job cost · ${money(previewJobCost)}`}</p></div>
         </div>
-        <div className="flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">Review production rates, waste, code, permits, and local conditions before using the installed assembly in an estimate.</p><Button type="button" onClick={install} disabled={!canWrite || saving || installedCodes.has(selected.code)}>{installedCodes.has(selected.code) ? "Installed" : saving ? "Installing" : "Install assembly"}</Button></div>
+        <div className="flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">Review production rates, waste, code, permits, and local conditions before using the installed assembly in an estimate.</p><Button type="button" onClick={install} disabled={!canWrite || saving || isStarterCatalogInstalled(selected, installedCodes)}>{isStarterCatalogInstalled(selected, installedCodes) ? "Installed" : saving ? "Installing" : "Install assembly"}</Button></div>
       </div>}
     </div>}
   </section>;

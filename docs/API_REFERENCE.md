@@ -14,6 +14,100 @@ related_code:
 
 # API Reference
 
+## ABC Supply sandbox OAuth reauthorization (2026-10-11)
+
+ABC requires user-authorized access for third-party customer-specific
+pricing, so a fresh `authorization_code` grant is the only way to mint a
+valid refresh token once the stored one is lost or rotated away.
+
+`POST /api/v1/supplier-integrations/abc/oauth/authorize` starts the flow.
+Requests pass through TradeOS user authentication, tenant-bound
+PostgreSQL session and `costbook.manage`; the authenticated actor must
+additionally be a workspace `owner` or `admin`. It creates a short-lived
+(10-minute), single-use authorization state bound to the initiating
+tenant session (stored as a hash in `abc_oauth_authorization_states`,
+never readable by the app role directly) and returns
+`{ "authorizeUrl" }`. Implementation note: the TTL argument is cast to
+`integer` at the call site — the Prisma client binds JS numbers as
+bigint, which would otherwise fail to resolve the
+`tradeos_private.create_abc_oauth_state(..., integer)` overload
+(Postgres 42883) and 500 the endpoint. The founder's browser completes authorization at
+the ABC sandbox; the authorize URL carries PKCE S256 and the
+`pricing.read offline_access account.read` scope.
+
+`GET /api/v1/supplier-integrations/abc/oauth/callback` is
+**unauthenticated by design**: ABC redirects the founder's browser here
+without a JWT, so the single-use state token is the credential. It
+consumes the state exactly once (unknown, expired, or replayed states
+are rejected), validates the redirect URI against the strict allowlist
+(`https://api.404tradeos.com/api/v1/supplier-integrations/abc/oauth/callback`,
+which must be registered in the ABC Developer Portal), exchanges the
+code server-side (the client secret never leaves the backend), and
+persists the refresh token through
+`abcSupplyRefreshTokenStore.persistInCurrentSession` in the callback's
+already-open, tenant-scoped owner/admin Vault transaction (no nested pool
+connection acquisition). Provider-initiated refresh rotations continue using
+`abcSupplyRefreshTokenStore.persist`, which commits in a separate session
+before pricing proceeds. This path now uses a lazy, dedicated bounded Prisma
+client with the same restricted tenant-RLS role and Supabase transaction pooler,
+so a one-connection request pool cannot block its separate commit. Every outcome 302-redirects to
+Settings with a sanitized `?abc_oauth=success|error` flag; on error the
+redirect also carries `?abc_oauth_step=request|state|exchange|persist`
+naming the callback stage that failed. The `exchange` stage includes missing
+callback client credentials as well as rejected token exchanges (no codes,
+tokens, secrets, or provider response bodies are logged or surfaced). The endpoint is
+rate-limited (60 per 15 minutes per IP) as defense in depth.
+
+The env `ABC_SUPPLY_SANDBOX_REFRESH_TOKEN` is now bootstrap/recovery
+only: `loadAbcSupplyConfig` is valid without it, the durable Vault
+credential is authoritative, and pricing fails closed with a sanitized
+"not connected" error when no token exists anywhere.
+
+## ABC Supply sandbox pricing connection test (2026-10-09)
+
+`POST /api/v1/supplier-integrations/abc/price-probe` accepts an exact
+`{ "productKey": "ABC-654210" }` JSON body. Requests pass through
+TradeOS user authentication, tenant-bound PostgreSQL session and
+`costbook.manage`; the authenticated actor must additionally be a
+workspace `owner` or `admin`. Organization and user identifiers
+cannot be supplied in the request. The backend requires the configured
+tenant ABC supplier, an observed/active/canonically mapped product with
+one unique SKU (only server-allowlisted `ABC-654210`), either unlinked or
+linked to exactly one matching tenant Material, then sends **one** ABC sandbox pricing line using the
+existing Vault-backed refresh-token rotation path. No Material or
+SupplierPriceUpdate is inserted and no UnitCost is applied.
+
+Response includes `supplierProductKey`, `sku`, `sourcePurchaseUnit`,
+`priced`, `price` (nullable), `currency`, `providerStatus`, plus
+`providerStatusMessage` (nullable, at most 160 characters; only from an
+exact matching failed ABC item, after conservative plain-language filtering).
+URLs, markup, credential-like text, ship-to/account numbers and opaque
+identifiers are suppressed entirely, rather than echoed or merely truncated.
+Settings shows either the safe provider explanation or a generic fallback.
+A successful line does not surface raw provider status text,
+`providerStockingUnit` (actual ABC response UOM or null),
+`providerStockingUnitVerified` (true only when that provider UOM matches the
+historical purchase unit), `materialCreated:false`, and `priceApplied:false`.
+A returned price must be positive, finite, four-decimal USD with ABC status OK.
+The source unit alone is not provider evidence. Missing or mismatched UOM
+cannot enter the Material price-update queue; a separate operator approval
+is still required for an initial Material unit cost.
+
+
+## Settings workflow actor identity (2026-10-09)
+
+The existing authenticated `GET /api/v1/settings` response now includes
+`currentUserId`, the verified TradeOS `AppUser.id` from the request's
+authentication context, alongside its existing `orgId`, `currentRole`,
+`canManageWorkspace`, and `teamMembers`. This is an additive read-only
+response field; it does not add an unauthenticated identity endpoint.
+Settings → Costbook only exposes the supplier import workflow IDs if the
+backend reports owner/admin access and exactly one active owner/admin team
+member matches `currentUserId`. It does not use emails, membership IDs, or
+Supabase auth subjects as surrogate user IDs. The existing GitHub workflow
+still enforces the active owner/admin background session, restricted database
+credentials, and explicit production-seed confirmation.
+
 ## Namespace conventions
 
 The backend is mounted under `/api/v1`.
@@ -578,7 +672,7 @@ persisted organization branding when authenticated context is available.
 
 PR #216 extends the existing Costbook namespace without adding parallel domain systems: `/api/v1/costbook/assemblies` exposes the existing Assembly model and composition service; `POST /api/v1/costbook/pricing/preview` is calculation-only and reuses Estimate pricing formulas; `GET /api/v1/costbook/pricing/resolve` is the read-only canonical-price trust contract added by the 2026-10-02 data foundation; and `GET /api/v1/costbook/price-history` returns tenant-scoped `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport remains under the existing supplier-integration surface, accepts endpoints only from trusted server configuration, and enqueues review proposals rather than mutating Material prices automatically. PR #684 adds a sandbox-only ABC Supply feed fetcher (`app/modules/supplier-integration/abcSupply.ts`) implementing the `SupplierFeedFetcher` contract: refresh-token user auth, batched pricing with `purpose=estimating`, no-op when `ABC_SUPPLY_SANDBOX_*` env is absent. The follow-up wiring makes it the default: `SupplierIntegrationService` now uses `fetchDefaultSupplierFeed`, which routes the `ABC_SUPPLY_SANDBOX_SUPPLIER_ID` sync target to the ABC fetcher and all other suppliers to the generic trusted-endpoint fetcher, so scheduled syncs and the worker reach the ABC feed without per-call-site changes (no HTTP controller sync route exists; the controller serves the review queue). The ABC route applies the same 15-second abort deadline as the generic fetcher, and a rotated refresh token is persisted to Supabase Vault before pricing continues; the environment token is bootstrap/recovery configuration. These additions preserve the existing `costbook.read` / `costbook.write` / `costbook.manage` split and introduce no Athena Costbook write route.
 
-`GET /api/v1/costbook/assemblies/starter-catalog` requires `costbook.read` and returns `{ catalogVersion, coverage, items }`. Recipes include NAHB work groups, CSI codes, measurement bases, review/version metadata, and component slots with `compatibleUnits` and `allowedCostItemKinds`; `coverage` is derived from those recipes. The response contains no prices. `POST /api/v1/costbook/assemblies/starter-catalog/install` requires `costbook.write`; its strict body contains `templateId` and a `componentMappings` array of `{ componentKey, costItemId }`. Every required slot and every distinct Cost Item must appear exactly once. Each Cost Item must be active, owned by the authenticated organization, and compatible with the slot's unit and kind. The route atomically creates an ordinary tenant-scoped reusable Assembly and AssemblyItem set by joining the active request transaction or opening a direct-service transaction. Duplicate assembly codes return `409`; missing, unknown, or duplicate mappings return `400`; unavailable or cross-tenant Cost Items return `404`; incompatible unit/type mappings return `422`.
+`GET /api/v1/costbook/assemblies/starter-catalog` requires `costbook.read` and returns `{ catalogVersion, coverage, items }`. The web Assembly starter browser derives combined NAHB/CSI/trade/unit facets locally from this full **static starter payload**, using tenant-scoped active Assembly codes for the installed/not-installed facet. This does not filter a bounded DB page or add a new API write path. Recipes include NAHB work groups, CSI codes, measurement bases, review/version metadata, and component slots with `compatibleUnits` and `allowedCostItemKinds`; `coverage` is derived from those recipes. The response contains no prices. `POST /api/v1/costbook/assemblies/starter-catalog/install` requires `costbook.write`; its strict body contains `templateId` and a `componentMappings` array of `{ componentKey, costItemId }`. Every required slot and every distinct Cost Item must appear exactly once. Each Cost Item must be active, owned by the authenticated organization, and compatible with the slot's unit and kind. The route atomically creates an ordinary tenant-scoped reusable Assembly and AssemblyItem set by joining the active request transaction or opening a direct-service transaction. Duplicate assembly codes return `409`; missing, unknown, or duplicate mappings return `400`; unavailable or cross-tenant Cost Items return `404`; incompatible unit/type mappings return `422`.
 
 The S027 catalog continuation applies the same page envelope and opaque
 keyset-cursor contract to materials, labor rates, equipment, hierarchy,
@@ -693,3 +787,32 @@ ordinary scheduling and assignments but cannot override conflicts. Conflict
 checks and the subsequent mutation run under transaction-scoped,
 organization/technician-keyed PostgreSQL advisory locks so concurrent scheduling
 attempts cannot both pass the check for the same technician.
+
+
+## ABC Supply reviewed Material activation (operator-only, PR #701)
+
+No new HTTP API endpoint is introduced. The single-SKU onboarding entry point is an
+authenticated database operator command, not an API available to an external
+customer or unauthenticated client:
+
+`cd app && npm run costbook:activate-abc-material -- --org-id=<uuid> --user-id=<uuid> --product-key=<exact-key>`
+
+This command defaults to a read-only preview. Apply mode requires an active
+tenant owner/admin with `costbook.manage`, a separately approved positive
+initial unit cost, exact SKU/unit confirmations, the
+`ACTIVATE_ONE_ABC_MATERIAL` phrase, and `--apply`. It uses an RLS-backed
+session and creates one Material, an explicit SupplierProduct link, and an
+ActivityEvent audit atomically. It does **not** write a SupplierPriceUpdate
+approval or use a static source observation as a live quote.
+
+Existing supplier price review remains the only authorized path from an
+ABC price proposal to an updated Material unit cost. The ABC Price Items
+response client now rejects a mismatched provider response request ID and
+discards returned rows unless their request-line ID and item number match the
+outbound request. Only positive representable USD
+amounts with at most four decimal places reach proposals; unknown/non-USD/
+out-of-range prices fail closed. Existing HTTP queue approval endpoints and
+Estimate snapshots are unchanged.
+
+See `docs/operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md` for the complete
+runbook, explicit apply command and live-verification gates.

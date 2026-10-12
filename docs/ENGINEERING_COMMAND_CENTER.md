@@ -43,6 +43,11 @@ related_code:
 
 # TradeOS Engineering Command Center
 
+## ABC Supply material activation pilot — 2026-10-09
+
+Production SQL read verification after the 47802 evidence seed reports 3,188 SupplierProducts, 3,188 source price observations, six Suppliers, and **zero active Materials / zero SupplierPriceUpdates**; observations are assigned to one tenant and historical rather than authenticated live ABC quotes. The new protected GitHub Actions workflow `preview-abc-supply-material.yml` makes the existing exact-product activation operator's **read-only** mode available to an owner/admin on mobile using the application user/organization IDs exposed by Settings → Costbook. Actual activation still needs independent SKU/UOM and baseline-cost authorization and explicit `--apply` outside this workflow. Live ABC sandbox quote and durable token rotation remain unproven until a reviewed Material becomes eligible.
+
+
 ## S073 release-critical RLS coverage — READY 2026-10-05
 
 Founder authorization starts S073 from current `main` `37deee0bad44d8c3ca4ad65f7e89d15190d7cae3`. Dependency S051 is DONE and no live S073 implementation lane exists. The implementation target is evidence, not policy redesign: derive every S052-S060 persisted resource from the S051 matrix/current route-service code, map it to current forced-RLS migration/policy evidence, and require disposable-PostgreSQL same-org/cross-org proof. Existing `rls.integration.ts` covers many core records, but direct live coverage is absent for at least customer-portal token/session rows, estimate line items, and invoice line items. If testing exposes a policy defect, record a blocking owner and stop before schema/migration/RLS/auth changes.

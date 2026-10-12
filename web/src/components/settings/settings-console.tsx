@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Command,
+  Copy,
   LoaderCircle,
   Save,
   Search,
@@ -37,8 +38,11 @@ import {
 } from "./settings-schema";
 
 interface SettingsConsoleProps {
+  supplierWorkflowIdentity: { orgId: string; userId: string } | null;
   initialDraft: TradeOsSettingsDraft;
   persistedSettingKeys: string[];
+  /** OAuth result flag from the server-rendered URL (?abc_oauth=...); server and client agree, so no hydration mismatch. */
+  initialAbcOAuthResult: "success" | "error" | null;
   initialWorkspaceData: {
     currentRole: string;
     canManageWorkspace: boolean;
@@ -109,7 +113,7 @@ function isDirtyDraft(current: TradeOsSettingsDraft, saved: TradeOsSettingsDraft
   return JSON.stringify(current) !== JSON.stringify(saved);
 }
 
-export function SettingsConsole({ initialDraft, persistedSettingKeys, initialWorkspaceData, developerMeta }: SettingsConsoleProps) {
+export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persistedSettingKeys, initialAbcOAuthResult, initialWorkspaceData, developerMeta }: SettingsConsoleProps) {
   const [draft, setDraft] = useState(initialDraft);
   const [savedDraft, setSavedDraft] = useState(initialDraft);
   const [persistedKeys, setPersistedKeys] = useState(() => new Set(persistedSettingKeys));
@@ -120,6 +124,28 @@ export function SettingsConsole({ initialDraft, persistedSettingKeys, initialWor
   const [isPending, startTransition] = useTransition();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [uploadingAssetKeys, setUploadingAssetKeys] = useState<Set<string>>(new Set());
+  const [abcProbe, setAbcProbe] = useState<
+    | { state: "idle" | "testing" }
+    | { state: "complete"; sku: string; priced: boolean; price: number | null; providerStatus: string; providerStatusMessage: string | null; sourcePurchaseUnit: string; providerStockingUnit: string | null; providerStockingUnitVerified: boolean }
+    | { state: "error"; message: string }
+  >({ state: "idle" });
+  const [abcOAuth, setAbcOAuth] = useState<
+    | { state: "idle" | "starting" }
+    | { state: "error"; message: string }
+  >({ state: "idle" });
+  // Consume the OAuth result flag from the URL after mount so a reload or
+  // bookmark never shows a stale message. The flag value itself comes from
+  // the server-rendered prop, so server and client agree (no hydration
+  // mismatch); this effect only cleans the URL and sets no state.
+  useEffect(() => {
+    if (!initialAbcOAuthResult) return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("abc_oauth")) return;
+    params.delete("abc_oauth");
+    const query = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+  }, [initialAbcOAuthResult]);
+  const [abcOAuthResult] = useState(initialAbcOAuthResult);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const dirty = isDirtyDraft(draft, savedDraft);
@@ -279,6 +305,60 @@ export function SettingsConsole({ initialDraft, persistedSettingKeys, initialWor
   const advancedSections = sections.filter((section) => !contractorSectionIds.includes(section.id as (typeof contractorSectionIds)[number]));
 
   const selectedSection = sections.find((section) => section.id === selectedSectionId) ?? sections[0];
+
+  async function testAbcConnection() {
+    if (abcProbe.state === "testing") return;
+    setAbcProbe({ state: "testing" });
+    try {
+      const result = await clientFetch<{
+        sku: string; priced: boolean; price: number | null; providerStatus: string;
+        providerStatusMessage: string | null;
+        sourcePurchaseUnit: string; providerStockingUnit: string | null;
+        providerStockingUnitVerified: boolean; materialCreated: boolean; priceApplied: boolean;
+      }>("/api/v1/supplier-integrations/abc/price-probe", {
+        method: "POST",
+        body: JSON.stringify({ productKey: "ABC-654210" }),
+      });
+      if (result.materialCreated || result.priceApplied) {
+        throw new Error("The connection test returned an unexpected mutation claim");
+      }
+      setAbcProbe({ state: "complete", sku: result.sku, priced: result.priced, price: result.price, providerStatus: result.providerStatus, providerStatusMessage: result.providerStatusMessage ?? null, sourcePurchaseUnit: result.sourcePurchaseUnit, providerStockingUnit: result.providerStockingUnit, providerStockingUnitVerified: result.providerStockingUnitVerified });
+    } catch (error) {
+      setAbcProbe({
+        state: "error",
+        message: error instanceof Error ? error.message : "The sandbox request did not complete",
+      });
+    }
+  }
+
+  async function connectAbcOAuth() {
+    if (abcOAuth.state === "starting") return;
+    setAbcOAuth({ state: "starting" });
+    try {
+      const result = await clientFetch<{ authorizeUrl: string }>(
+        "/api/v1/supplier-integrations/abc/oauth/authorize",
+        { method: "POST" },
+      );
+      if (!result.authorizeUrl || !result.authorizeUrl.startsWith("https://")) {
+        throw new Error("The ABC authorization URL was invalid");
+      }
+      window.location.href = result.authorizeUrl;
+    } catch (error) {
+      setAbcOAuth({
+        state: "error",
+        message: error instanceof Error ? error.message : "Could not start ABC authorization",
+      });
+    }
+  }
+
+  async function copyWorkflowId(label: string, value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      showToast({ title: `${label} copied`, description: "Paste it into the GitHub supplier seed workflow.", tone: "success" });
+    } catch {
+      showToast({ title: "Could not copy", description: "Select the UUID below and copy it manually.", tone: "error" });
+    }
+  }
 
   function showToast(toast: Omit<ToastMessage, "id">) {
     const id = window.setTimeout(() => {
@@ -734,6 +814,117 @@ export function SettingsConsole({ initialDraft, persistedSettingKeys, initialWor
               </div>
               <a href="/costbook" className="shrink-0 font-medium text-primary underline-offset-4 hover:underline">Open Costbook</a>
             </div>
+          ) : null}
+
+          {selectedSection.id === "costbook" && supplierWorkflowIdentity && ["owner", "admin"].includes(initialWorkspaceData.currentRole) ? (
+            <Card className="rounded-[24px] border-border/70">
+              <CardHeader>
+                <CardTitle>Connect / Reauthorize ABC</CardTitle>
+                <CardDescription>
+                  Restore ABC Supply sandbox pricing with a fresh user-authorized connection.
+                  You will sign in at ABC and approve access; TradeOS stores only the refresh token.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button type="button" disabled={abcOAuth.state === "starting"} onClick={() => void connectAbcOAuth()}>
+                  {abcOAuth.state === "starting" ? <LoaderCircle className="mr-2 size-4 animate-spin" aria-hidden="true" /> : null}
+                  {abcOAuth.state === "starting" ? "Opening ABC..." : "Connect / Reauthorize ABC"}
+                </Button>
+                {abcOAuthResult === "success" ? (
+                  <p role="status" className="text-sm text-muted-foreground">
+                    ABC pricing access was reconnected. Use the connection test below to verify it.
+                  </p>
+                ) : null}
+                {abcOAuthResult === "error" ? (
+                  <p role="alert" className="text-sm text-destructive">
+                    ABC authorization did not complete. Please try again.
+                  </p>
+                ) : null}
+                {abcOAuth.state === "error" ? (
+                  <p role="alert" className="text-sm text-destructive">{abcOAuth.message}</p>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {selectedSection.id === "costbook" && supplierWorkflowIdentity ? (
+            <Card className="rounded-[24px] border-border/70">
+              <CardHeader>
+                <CardTitle>ABC Supply connection test</CardTitle>
+                <CardDescription>
+                  Test one verified supplier item against the ABC sandbox using your secure TradeOS connection.
+                  This checks the provider response without creating a Material or applying a price.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">Test item: underlayment · ABC SKU 654210</p>
+                <Button type="button" disabled={abcProbe.state === "testing"} onClick={() => void testAbcConnection()}>
+                  {abcProbe.state === "testing" ? <LoaderCircle className="mr-2 size-4 animate-spin" aria-hidden="true" /> : null}
+                  {abcProbe.state === "testing" ? "Testing ABC sandbox..." : "Test ABC connection"}
+                </Button>
+                {abcProbe.state === "complete" ? (
+                  <div role="status" className="rounded-lg border border-border p-3 text-sm">
+                    {abcProbe.priced && abcProbe.price !== null
+                      ? `Sandbox returned ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(abcProbe.price)} for SKU ${abcProbe.sku}.`
+                      : `No eligible priced line for SKU ${abcProbe.sku} (provider status: ${abcProbe.providerStatus}).`}
+                    {!abcProbe.priced ? (
+                      <p className="mt-2 text-muted-foreground">
+                        {abcProbe.providerStatusMessage
+                          ? `ABC response: ${abcProbe.providerStatusMessage}`
+                          : "ABC did not provide a safe item-level explanation. Verify the SKU, sandbox branch and ship-to pricing access."}
+                      </p>
+                    ) : null}
+                    <p className="mt-2 text-muted-foreground">
+                      {abcProbe.providerStockingUnit
+                        ? `ABC stocking unit: ${abcProbe.providerStockingUnit}. Source unit: ${abcProbe.sourcePurchaseUnit}. ${abcProbe.providerStockingUnitVerified ? "Units match." : "Unit mismatch — supplier price proposals are blocked. Confirm the provider unit before Material activation."}`
+                        : "ABC stocking unit was not returned, so supplier price proposals are blocked. Confirm the provider unit before Material activation."} No price was saved or approved.
+                    </p>
+                  </div>
+                ) : null}
+                {abcProbe.state === "error" ? (
+                  <p role="alert" className="text-sm text-destructive">{abcProbe.message}</p>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {selectedSection.id === "costbook" && supplierWorkflowIdentity ? (
+            <Card className="rounded-[24px] border-border/70">
+              <CardHeader>
+                <CardTitle>Supplier workflow IDs</CardTitle>
+                <CardDescription>
+                  Verified from your active TradeOS owner/admin session. GitHub requires the organization UUID and
+                  the application user UUID, not a membership ID or Supabase project ID.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {([
+                  ["Organization UUID", supplierWorkflowIdentity.orgId],
+                  ["Owner/admin user UUID", supplierWorkflowIdentity.userId],
+                ] as const).map(([label, value]) => (
+                  <div key={label} className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <code className="min-w-0 flex-1 select-all break-all rounded-lg border border-border bg-muted/40 p-3 text-xs text-foreground">
+                        {value}
+                      </code>
+                      <Button type="button" variant="outline" aria-label={`Copy ${label}`} onClick={() => void copyWorkflowId(label, value)}>
+                        <Copy className="mr-2 size-4" aria-hidden="true" />
+                        Copy
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                <a
+                  href="https://github.com/404TradeOS-LLC/TradeOS/actions/workflows/seed-costbook-supplier-prices-47802.yml"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Open supplier import workflow <ArrowUpRight className="size-4" aria-hidden="true" />
+                </a>
+              </CardContent>
+            </Card>
           ) : null}
 
           {isPending ? (

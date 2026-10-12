@@ -32,7 +32,7 @@ import { adminDashboardRouter } from "./routes/adminDashboard.routes";
 import { projectCustomerScopeRouter } from "./routes/projectCustomerScope.routes";
 import { projectsRouter } from "./routes/projects.routes";
 import { changeOrdersRouter } from "./routes/changeOrders.routes";
-import { supplierIntegrationRouter } from "./routes/supplierIntegration.routes";
+import { supplierIntegrationRouter, abcOAuthCallbackRouter } from "./routes/supplierIntegration.routes";
 import { supplierPriceSyncCronRouter } from "./routes/supplierPriceSyncCron.routes";
 import { organizationProvisioningRouter } from "./routes/organizationProvisioning.routes";
 import { authRouter } from "./routes/auth.routes";
@@ -95,6 +95,11 @@ export function createServer() {
   app.use("/api/v1/platform", organizationProvisioningRouter);
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1/customer-portal", customerPortalRouter);
+  // The ABC OAuth callback is a browser redirect from the provider and carries
+  // no JWT, so it must not enter the user-authenticated /api/v1 middleware.
+  // The single-use state token is the credential; the handler re-enters the
+  // tenant-scoped background-session boundary before persisting anything.
+  app.use("/api/v1/supplier-integrations", abcOAuthCallbackRouter);
   app.use("/api/v1", requireAuth, databaseSession);
   app.use("/api/v1/account", accountRouter);
   app.use("/api/v1/billing", billingRouter);

@@ -73,3 +73,24 @@ select format(
 )
 where to_regprocedure('tradeos_private.consume_supplier_cron_rate_limit(text,integer)') is not null
 \gexec
+
+-- ABC OAuth reauthorization states (issue #711). The migration revokes the
+-- default PUBLIC execute privilege on both wrappers, so the app role needs
+-- explicit grants or the authorize/callback endpoints fail with
+-- "permission denied for function" under the restricted connection. The
+-- role can only create states bound to its active tenant session and
+-- consume them through the SECURITY DEFINER wrappers; it never touches the
+-- state table directly.
+select format(
+  'grant execute on function tradeos_private.create_abc_oauth_state(uuid, uuid, uuid, text, text, text, text, integer) to %I',
+  :'role_name'
+)
+where to_regprocedure('tradeos_private.create_abc_oauth_state(uuid,uuid,uuid,text,text,text,text,integer)') is not null
+\gexec
+
+select format(
+  'grant execute on function tradeos_private.consume_abc_oauth_state(text, text) to %I',
+  :'role_name'
+)
+where to_regprocedure('tradeos_private.consume_abc_oauth_state(text,text)') is not null
+\gexec
