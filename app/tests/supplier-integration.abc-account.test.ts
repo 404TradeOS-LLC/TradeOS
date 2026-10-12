@@ -1,5 +1,5 @@
 import { AbcSupplyAccountClient } from "../modules/supplier-integration/abcAccount";
-import { AbcSupplyAuth } from "../modules/supplier-integration/abcSupply";
+import { AbcSupplyAuth, loadAbcSupplyAuthConfig, loadAbcSupplyConfig } from "../modules/supplier-integration/abcSupply";
 
 const config = {
   clientId: "cid",
@@ -238,5 +238,24 @@ describe("AbcSupplyAccountClient.searchShipToAccounts", () => {
     await expect(client.searchShipToAccounts()).rejects.toThrow(
       "ABC Supply Search Accounts request failed: HTTP 403",
     );
+  });
+});
+
+// Account discovery precedes pricing account selection; don't require those
+// pricing-only environment variables to discover authorized Ship-Tos.
+describe("ABC sandbox OAuth auth-only configuration", () => {
+  it("loads OAuth client credentials without a branch or Ship-To", () => {
+    const env = {
+      ABC_SUPPLY_SANDBOX_CLIENT_ID: "cid",
+      ABC_SUPPLY_SANDBOX_CLIENT_SECRET: "private",
+    };
+    expect(loadAbcSupplyAuthConfig(env)).toEqual({
+      clientId: "cid", clientSecret: "private", refreshToken: null,
+    });
+    expect(loadAbcSupplyConfig(env)).toBeNull();
+  });
+
+  it("fails closed without client credentials", () => {
+    expect(loadAbcSupplyAuthConfig({ ABC_SUPPLY_SANDBOX_CLIENT_ID: "cid" })).toBeNull();
   });
 });

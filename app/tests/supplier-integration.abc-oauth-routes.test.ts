@@ -36,6 +36,15 @@ jest.mock("../modules/supplier-integration/credentialStore", () => ({
 jest.mock("../modules/supplier-integration/service", () => ({
   SupplierIntegrationService: jest.fn().mockImplementation(() => ({})),
 }));
+jest.mock("../modules/supplier-integration/feed", () => ({
+  createDurableAbcAuth: jest.fn(),
+}));
+jest.mock("../modules/supplier-integration/abcSupply", () => ({
+  loadAbcSupplyAuthConfig: jest.fn(),
+}));
+jest.mock("../modules/supplier-integration/abcAccount", () => ({
+  AbcSupplyAccountClient: jest.fn(),
+}));
 jest.mock("../db/requestSession", () => ({
   runWithBackgroundDatabaseSession: jest.fn((_client: unknown, _input: unknown, operation: () => Promise<unknown>) =>
     operation(),
@@ -61,8 +70,13 @@ import {
   isOAuthStateHmacConfigured,
 } from "../modules/supplier-integration/abcOAuth";
 import { abcSupplyRefreshTokenStore } from "../modules/supplier-integration/credentialStore";
+import { createDurableAbcAuth } from "../modules/supplier-integration/feed";
+import { loadAbcSupplyAuthConfig } from "../modules/supplier-integration/abcSupply";
+import { AbcSupplyAccountClient } from "../modules/supplier-integration/abcAccount";
 import { requireOrgId, requirePermissions } from "../backend/requestContext";
 import { prisma } from "../db/client";
+import { ApiError } from "../backend/middleware/errorHandler";
+import { AbcAccountAuthorizationError } from "../modules/supplier-integration/abcAccountAuthorizationError";
 
 const buildUrl = buildAuthorizeUrl as jest.Mock;
 const consume = consumeAuthorizationState as jest.Mock;
@@ -86,7 +100,8 @@ function app() {
   server.use("/api/v1/supplier-integrations", abcOAuthCallbackRouter);
   server.use("/api/v1/supplier-integrations", supplierIntegrationRouter);
   server.use((error: any, _req: any, res: any, _next: any) => {
-    res.status(error?.statusCode || error?.status || 400).json({ error: "rejected" });
+    const status = error?.statusCode || error?.status || (error?.name === "ZodError" ? 400 : 500);
+    res.status(status).json({ error: error instanceof ApiError ? error.message : "rejected" });
   });
   return server;
 }
@@ -289,5 +304,113 @@ describe("GET /abc/oauth/callback", () => {
     expect(response.status).toBe(302);
     expect(response.headers.location).toContain("abc_oauth=error");
     expect(response.headers.location).toContain("abc_oauth_step=persist");
+  });
+});
+
+describe("GET /abc/accounts (read-only sandbox Ship-To discovery)", () => {
+  const oldEnv = process.env;
+  const getAuth = createDurableAbcAuth as jest.Mock;
+  const loadConfig = loadAbcSupplyAuthConfig as jest.Mock;
+  const accountClient = AbcSupplyAccountClient as jest.Mock;
+  const search = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...oldEnv, ABC_SUPPLY_SANDBOX_SUPPLIER_ID: SUPPLIER_ID };
+    org.mockReturnValue(ORG_ID);
+    permissions.mockReturnValue({ role: "owner", userId: USER_ID });
+    findSupplier.mockResolvedValue({ id: SUPPLIER_ID });
+    // Search Accounts requires no preselected branch or Ship-To.
+    loadConfig.mockReturnValue({ clientId: "cid", clientSecret: "private", refreshToken: null });
+    getAuth.mockResolvedValue({ auth: { getAccountToken: jest.fn() } });
+    accountClient.mockImplementation(() => ({ searchShipToAccounts: search }));
+    search.mockResolvedValue([{ number: "2010466-2", name: "Example account", status: "active",
+      branches: [{ number: "340", name: "Branch 340", status: "active", homeBranch: true }] }]);
+  });
+
+  afterAll(() => { process.env = oldEnv; });
+
+  const path = "/api/v1/supplier-integrations/abc/accounts";
+
+  it.each(["owner", "admin"])("returns authorized Ship-To accounts for a %s without writing prices", async (role) => {
+    permissions.mockReturnValue({ role, userId: USER_ID });
+    const response = await request(app()).get(path);
+    expect(response.status).toBe(200);
+    expect(response.body.accounts).toHaveLength(1);
+    expect(response.body.accounts[0].branches[0].number).toBe("340");
+    expect(response.body).not.toHaveProperty("refreshToken");
+    expect(permissions).toHaveBeenCalledWith(expect.anything(), ["costbook.manage"]);
+    expect(findSupplier).toHaveBeenCalledWith({ where: { id: SUPPLIER_ID, orgId: ORG_ID, apiIntegrationKey: "ABC_SUPPLY" }, select: { id: true } });
+    expect(getAuth).toHaveBeenCalledWith(expect.objectContaining({ clientId: "cid" }), ORG_ID, SUPPLIER_ID);
+    expect(search).toHaveBeenCalledWith(expect.any(AbortSignal));
+    expect(independentRotation).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-owner/admin roles even when they have costbook.manage", async () => {
+    permissions.mockReturnValue({ role: "estimator", userId: USER_ID });
+    expect((await request(app()).get(path)).status).toBe(403);
+    expect(findSupplier).not.toHaveBeenCalled();
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it("rejects tenant, branch, or supplier overrides from request query", async () => {
+    const response = await request(app()).get(path).query({ orgId: "another-org", branchNumber: "579" });
+    expect(response.status).toBe(400);
+    expect(findSupplier).not.toHaveBeenCalled();
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the ABC supplier belongs to another workspace", async () => {
+    findSupplier.mockResolvedValue(null);
+    expect((await request(app()).get(path)).status).toBe(404);
+    expect(getAuth).not.toHaveBeenCalled();
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it("fails closed with missing tenant supplier routing or sandbox credentials", async () => {
+    delete process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID;
+    expect((await request(app()).get(path)).status).toBe(503);
+    expect(getAuth).not.toHaveBeenCalled();
+    process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID = SUPPLIER_ID;
+    loadConfig.mockReturnValue(null);
+    expect((await request(app()).get(path)).status).toBe(503);
+    expect(getAuth).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "ABC sandbox refresh token is not configured",
+    "ABC Supply token refresh failed: HTTP 400",
+    "ABC Supply token refresh failed: HTTP 403",
+    "ABC Supply Search Accounts request failed: HTTP 403",
+  ])("returns a safe 409 reconnection instruction for %s", async (reason) => {
+    search.mockRejectedValue(new AbcAccountAuthorizationError(reason));
+    const response = await request(app()).get(path);
+    expect(response.status).toBe(409);
+    expect(response.body.error).toContain("account.read");
+    expect(JSON.stringify(response.body)).not.toContain("private");
+  });
+
+  it("returns a reconnect response if Vault has no ABC refresh grant", async () => {
+    getAuth.mockRejectedValueOnce(new AbcAccountAuthorizationError("ABC sandbox refresh token is not configured"));
+    const response = await request(app()).get(path);
+    expect(response.status).toBe(409);
+    expect(response.body.error).toContain("account.read");
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it("does not return an untrusted provider failure body", async () => {
+    search.mockRejectedValue(new Error("ABC Supply Search Accounts request failed: HTTP 502"));
+    const response = await request(app()).get(path);
+    expect(response.status).toBe(500);
+    expect(JSON.stringify(response.body)).not.toContain("502");
+  });
+
+  it("never initiates a provider request when costbook.manage is denied", async () => {
+    permissions.mockImplementation(() => { throw new ApiError(403, "Permission denied"); });
+    const response = await request(app()).get(path);
+    expect(response.status).toBe(403);
+    expect(findSupplier).not.toHaveBeenCalled();
+    expect(getAuth).not.toHaveBeenCalled();
+    expect(search).not.toHaveBeenCalled();
   });
 });

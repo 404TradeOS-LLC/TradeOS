@@ -3,7 +3,9 @@ import { prisma } from "../../db/client";
 import type { SupplierFeedFetcher } from "./types";
 import { logInfo } from "../../backend/logging";
 import { AbcSupplyAuth, AbcSupplyPricingClient, createAbcSupplyFeedFetcher, loadAbcSupplyConfig } from "./abcSupply";
+import type { AbcSupplyAuthConfig } from "./abcSupply";
 import { abcSupplyRefreshTokenStore } from "./credentialStore";
+import { AbcAccountAuthorizationError } from "./abcAccountAuthorizationError";
 
 const endpointMapSchema = z.record(z.string().uuid(), z.string().url());
 const feedSchema = z.object({
@@ -95,8 +97,8 @@ export async function priceOneAbcSandboxSku(
 }
 
 /** Resolves the durable Vault refresh token, falling back to the env bootstrap token. Exported as a test seam. */
-export async function createDurableAbcAuth(
-  config: NonNullable<ReturnType<typeof loadAbcSupplyConfig>>,
+export async function createDurableAbcAuth<T extends AbcSupplyAuthConfig>(
+  config: T,
   orgId: string,
   supplierId: string,
 ) {
@@ -106,7 +108,7 @@ export async function createDurableAbcAuth(
   // calling ABC with an empty credential.
   const refreshToken = durableRefreshToken ?? config.refreshToken;
   if (!refreshToken) {
-    throw new Error("ABC sandbox refresh token is not configured");
+    throw new AbcAccountAuthorizationError("ABC sandbox refresh token is not configured");
   }
   const authConfig = { ...config, refreshToken };
   const auth = new AbcSupplyAuth(authConfig, fetch, Date.now, {

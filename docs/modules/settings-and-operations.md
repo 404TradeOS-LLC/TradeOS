@@ -78,6 +78,26 @@ missing/mismatched browser-binding cookie), `exchange` (callback client credenti
 the code exchange), or `persist` (refresh-token storage failed). The
 step carries no secrets and the Settings UI behavior is unchanged.
 
+## ABC Supply Ship-To account discovery API (2026-10-12)
+
+The authenticated `GET /api/v1/supplier-integrations/abc/accounts` endpoint
+offers a read-only foundation for the future Settings Ship-To selector.
+Role access and tenant isolation follow the shared [RBAC matrix](../RBAC_MATRIX.md)
+and [domain model](../DOMAIN_MODEL.md); the endpoint additionally requires
+a matching ABC Supplier before loading the tenant's server-side Vault
+credential and querying the ABC **sandbox** Search Accounts API. OAuth client credentials
+are sufficient to begin discovery even if branch and Ship-To have not been
+selected: pricing configuration still requires those values. No request-provided
+organization, supplier, branch or Ship-To account is accepted. ABC's `account.read`
+scope requires a fresh user-present reauthorization for older pricing-only grants.
+Discovery has a 15-second deadline, bounded provider pagination, a normalized
+account/branch response, and safe 409 responses for insufficient account grant.
+No account selection, saved preference, pricing request, Material update or
+unattended customer-price synchronization is performed by this endpoint.
+The Settings account/branch UI and selected-account quote path are subsequent
+governed slices; production access remains subject to ABC Third-Party
+Aggregator approval.
+
 ## ABC Supply sandbox connection test (2026-10-09)
 
 Settings → Costbook has a guarded **Test ABC connection** button for the

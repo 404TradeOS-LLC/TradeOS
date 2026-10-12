@@ -2,6 +2,10 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { SupplierIntegrationService } from "../../modules/supplier-integration/service";
 import { probeAbcSandboxPricing } from "../../modules/supplier-integration/abcPricingProbe";
+import { AbcSupplyAccountClient } from "../../modules/supplier-integration/abcAccount";
+import { AbcAccountAuthorizationError } from "../../modules/supplier-integration/abcAccountAuthorizationError";
+import { loadAbcSupplyAuthConfig } from "../../modules/supplier-integration/abcSupply";
+import { createDurableAbcAuth } from "../../modules/supplier-integration/feed";
 import {
   ABC_OAUTH_BROWSER_COOKIE_NAME,
   ABC_OAUTH_CALLBACK_URL,
@@ -42,6 +46,11 @@ const enqueueSchema = z.object({
 const abcProbeSchema = z.object({
   productKey: z.literal("ABC-654210"),
 }).strict();
+
+// No caller-supplied tenant, supplier, Ship-To, branch or provider URL.
+// All values come from the authenticated session and server configuration.
+const abcAccountsQuerySchema = z.object({}).strict();
+const ABC_ACCOUNTS_TIMEOUT_MS = 15_000;
 
 const abcOAuthCallbackQuerySchema = z.object({
   code: z.string().min(1).max(2048),
@@ -178,6 +187,42 @@ export const supplierIntegrationController = {
         step,
       });
       return finish("error", step);
+    }
+  },
+
+  /**
+   * Read-only ABC sandbox Ship-To discovery for the active authenticated
+   * tenant. Requires a user-present account.read grant in Supabase Vault.
+   * Never accepts account IDs or supplier URLs from request parameters.
+   */
+  async listAbcSandboxAccounts(req: Request, res: Response) {
+    const actor = requirePermissions(req, ["costbook.manage"]);
+    if (!["owner", "admin"].includes(actor.role)) {
+      throw new ApiError(403, "Only a workspace owner/admin can view ABC sandbox accounts");
+    }
+    abcAccountsQuerySchema.parse(req.query);
+    const orgId = requireOrgId(req);
+    const supplierId = await resolveAbcSupplier(orgId);
+    const config = loadAbcSupplyAuthConfig();
+    if (!config) throw new ApiError(503, "ABC sandbox OAuth client credentials are not configured on the API");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ABC_ACCOUNTS_TIMEOUT_MS);
+    try {
+      const { auth } = await createDurableAbcAuth(config, orgId, supplierId);
+      const accounts = await new AbcSupplyAccountClient(auth).searchShipToAccounts(controller.signal);
+      return res.json({ accounts });
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new ApiError(504, "ABC sandbox account discovery timed out");
+      }
+      // Older grants have pricing.read but not account.read. Do not echo
+      // provider response bodies, access/refresh tokens or account numbers.
+      if (error instanceof AbcAccountAuthorizationError) {
+        throw new ApiError(409, "ABC account access needs a fresh authorization with account.read");
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
     }
   },
 

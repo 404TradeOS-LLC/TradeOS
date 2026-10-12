@@ -8,6 +8,7 @@ export const supplierIntegrationRouter = Router();
 // Requires the authenticated /api/v1 tenant database session and costbook.manage.
 supplierIntegrationRouter.post("/abc/oauth/authorize", asyncHandler(ctrl.initiateAbcOAuth));
 supplierIntegrationRouter.post("/abc/price-probe", asyncHandler(ctrl.probeAbcSandbox));
+supplierIntegrationRouter.get("/abc/accounts", asyncHandler(ctrl.listAbcSandboxAccounts));
 supplierIntegrationRouter.get("/queue", asyncHandler(ctrl.listQueue));
 supplierIntegrationRouter.post("/queue", asyncHandler(ctrl.enqueue));
 supplierIntegrationRouter.post("/queue/:id/approve", asyncHandler(ctrl.approve));
