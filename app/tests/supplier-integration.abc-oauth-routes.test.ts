@@ -31,7 +31,7 @@ jest.mock("../backend/requestContext", () => ({
   requirePermissions: jest.fn(),
 }));
 jest.mock("../modules/supplier-integration/credentialStore", () => ({
-  abcSupplyRefreshTokenStore: { load: jest.fn(), persist: jest.fn() },
+  abcSupplyRefreshTokenStore: { load: jest.fn(), persist: jest.fn(), persistInCurrentSession: jest.fn() },
 }));
 jest.mock("../modules/supplier-integration/service", () => ({
   SupplierIntegrationService: jest.fn().mockImplementation(() => ({})),
@@ -71,7 +71,8 @@ const exchange = exchangeAuthorizationCode as jest.Mock;
 const hmacConfigured = isOAuthStateHmacConfigured as jest.Mock;
 const permissions = requirePermissions as jest.Mock;
 const org = requireOrgId as jest.Mock;
-const persist = abcSupplyRefreshTokenStore.persist as jest.Mock;
+const persist = abcSupplyRefreshTokenStore.persistInCurrentSession as jest.Mock;
+const independentRotation = abcSupplyRefreshTokenStore.persist as jest.Mock;
 const findSupplier = (prisma.supplier.findFirst as jest.Mock);
 
 const ORG_ID = "6d9fbc90-e4db-45b5-b6c7-852def03695a";
@@ -270,6 +271,7 @@ describe("GET /abc/oauth/callback", () => {
       }),
     );
     expect(persist).toHaveBeenCalledWith(ORG_ID, SUPPLIER_ID, "new-rt");
+    expect(independentRotation).not.toHaveBeenCalled();
   });
 
   it("expires the browser-binding cookie on the callback redirect", async () => {

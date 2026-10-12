@@ -43,9 +43,14 @@ are rejected), validates the redirect URI against the strict allowlist
 (`https://api.404tradeos.com/api/v1/supplier-integrations/abc/oauth/callback`,
 which must be registered in the ABC Developer Portal), exchanges the
 code server-side (the client secret never leaves the backend), and
-persists the refresh token through the existing
-`abcSupplyRefreshTokenStore.persist` owner/admin Vault path inside a
-tenant-scoped background session. Every outcome 302-redirects to
+persists the refresh token through
+`abcSupplyRefreshTokenStore.persistInCurrentSession` in the callback's
+already-open, tenant-scoped owner/admin Vault transaction (no nested pool
+connection acquisition). Provider-initiated refresh rotations continue using
+`abcSupplyRefreshTokenStore.persist`, which commits in a separate session
+before pricing proceeds. This path now uses a lazy, dedicated bounded Prisma
+client with the same restricted tenant-RLS role and Supabase transaction pooler,
+so a one-connection request pool cannot block its separate commit. Every outcome 302-redirects to
 Settings with a sanitized `?abc_oauth=success|error` flag; on error the
 redirect also carries `?abc_oauth_step=request|state|exchange|persist`
 naming the callback stage that failed. The `exchange` stage includes missing
