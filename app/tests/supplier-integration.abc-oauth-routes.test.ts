@@ -41,6 +41,7 @@ jest.mock("../modules/supplier-integration/feed", () => ({
 }));
 jest.mock("../modules/supplier-integration/abcSupply", () => ({
   loadAbcSupplyAuthConfig: jest.fn(),
+  AbcSupplyPricingClient: jest.fn(),
 }));
 jest.mock("../modules/supplier-integration/abcAccount", () => ({
   AbcSupplyAccountClient: jest.fn(),
@@ -71,7 +72,7 @@ import {
 } from "../modules/supplier-integration/abcOAuth";
 import { abcSupplyRefreshTokenStore } from "../modules/supplier-integration/credentialStore";
 import { createDurableAbcAuth } from "../modules/supplier-integration/feed";
-import { loadAbcSupplyAuthConfig } from "../modules/supplier-integration/abcSupply";
+import { AbcSupplyPricingClient, loadAbcSupplyAuthConfig } from "../modules/supplier-integration/abcSupply";
 import { AbcSupplyAccountClient } from "../modules/supplier-integration/abcAccount";
 import { requireOrgId, requirePermissions } from "../backend/requestContext";
 import { prisma } from "../db/client";
@@ -412,5 +413,125 @@ describe("GET /abc/accounts (read-only sandbox Ship-To discovery)", () => {
     expect(findSupplier).not.toHaveBeenCalled();
     expect(getAuth).not.toHaveBeenCalled();
     expect(search).not.toHaveBeenCalled();
+  });
+});
+
+describe("selected ABC sandbox quote enforces account membership and no-write boundaries", () => {
+  const oldEnv = process.env;
+  const auth = createDurableAbcAuth as jest.Mock;
+  const config = loadAbcSupplyAuthConfig as jest.Mock;
+  const accounts = AbcSupplyAccountClient as jest.Mock;
+  const pricing = AbcSupplyPricingClient as jest.Mock;
+  const search = jest.fn();
+  const quote = jest.fn();
+  const path = "/api/v1/supplier-integrations/abc/selected-price-probe";
+  const body = { shipToNumber: "2010466-2", branchNumber: "340", sku: "654210" };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...oldEnv, ABC_SUPPLY_SANDBOX_SUPPLIER_ID: SUPPLIER_ID };
+    org.mockReturnValue(ORG_ID);
+    permissions.mockReturnValue({ role: "owner", userId: USER_ID });
+    findSupplier.mockResolvedValue({ id: SUPPLIER_ID });
+    config.mockReturnValue({ clientId: "cid", clientSecret: "private", refreshToken: null });
+    auth.mockResolvedValue({ auth: { getAccountToken: jest.fn(), getPricingToken: jest.fn() } });
+    accounts.mockImplementation(() => ({ searchShipToAccounts: search }));
+    pricing.mockImplementation(() => ({ priceItems: quote }));
+    search.mockResolvedValue([{ number: body.shipToNumber, status: "active", branches: [
+      { number: body.branchNumber, status: "active", homeBranch: true },
+    ] }]);
+    quote.mockResolvedValue([{ id: "selected-review-0", itemNumber: "654210",
+      statusCode: "OK", currencyCode: "USD", unitPrice: 19.5, uom: "RL" }]);
+  });
+  afterAll(() => { process.env = oldEnv; });
+
+  it("returns read-only provider price and UOM without approving or saving them", async () => {
+    const response = await request(app()).post(path).send(body);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      priced: true, price: 19.5, currency: "USD", stockingUnit: "RL",
+      materialCreated: false, priceApplied: false, accountPreferenceSaved: false,
+      unitMappingVerified: false,
+    });
+    expect(search).toHaveBeenCalledWith(expect.any(AbortSignal));
+    expect(quote).toHaveBeenCalledWith(
+      [{ id: "selected-review-0", itemNumber: "654210", quantity: 1 }],
+      { shipToNumber: body.shipToNumber, branchNumber: body.branchNumber },
+      expect.any(AbortSignal),
+    );
+    expect(findSupplier).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: SUPPLIER_ID, orgId: ORG_ID, apiIntegrationKey: "ABC_SUPPLY" },
+    }));
+  });
+
+  it.each([
+    ["other account", { ...body, shipToNumber: "another" }],
+    ["other branch", { ...body, branchNumber: "987" }],
+  ])("denies %s before pricing", async (_name, payload) => {
+    expect((await request(app()).post(path).send(payload)).status).toBe(403);
+    expect(quote).not.toHaveBeenCalled();
+  });
+
+  it("requires active branch and active account", async () => {
+    search.mockResolvedValue([{ number: body.shipToNumber, status: "inactive",
+      branches: [{ number: body.branchNumber, status: "active" }] }]);
+    expect((await request(app()).post(path).send(body)).status).toBe(403);
+    search.mockResolvedValue([{ number: body.shipToNumber, status: "active",
+      branches: [{ number: body.branchNumber, status: "inactive" }] }]);
+    expect((await request(app()).post(path).send(body)).status).toBe(403);
+    expect(quote).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { ...body, sku: "UNKNOWN" },
+    { ...body, sku: "../../../token" },
+    { ...body, orgId: ORG_ID },
+    { ...body, quantity: 10 },
+  ])("rejects unallowlisted or excess request input", async (payload) => {
+    expect((await request(app()).post(path).send(payload)).status).toBe(400);
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it("denies staff roles before retrieving customer data", async () => {
+    permissions.mockReturnValue({ role: "estimator", userId: USER_ID });
+    expect((await request(app()).post(path).send(body)).status).toBe(403);
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it("does not quote from another tenant's supplier", async () => {
+    findSupplier.mockResolvedValue(null);
+    expect((await request(app()).post(path).send(body)).status).toBe(404);
+    expect(quote).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["Error", 0, "USD", "RL"],
+    ["OK", 0, "USD", "RL"],
+    ["OK", 19.5, "EUR", "RL"],
+    ["OK", 19.5, "USD", null],
+  ])("rejects untrusted line status/price/unit %s %s %s %s", async (statusCode, unitPrice, currencyCode, uom) => {
+    quote.mockResolvedValue([{ id: "selected-review-0", itemNumber: body.sku,
+      statusCode, unitPrice, currencyCode, uom }]);
+    const response = await request(app()).post(path).send(body);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ priced: false, price: null, stockingUnit: null, priceApplied: false });
+  });
+
+  it("does not expose provider messages and rejects duplicate matching lines", async () => {
+    quote.mockResolvedValueOnce([
+      { id: "selected-review-0", itemNumber: body.sku, statusCode: "OK", unitPrice: 1, uom: "RL", currencyCode: "USD" },
+      { id: "selected-review-0", itemNumber: body.sku, statusCode: "OK", unitPrice: 2, uom: "RL", currencyCode: "USD" },
+    ]);
+    expect((await request(app()).post(path).send(body)).status).toBe(502);
+    quote.mockRejectedValueOnce(new Error("ABC provider returned private account details"));
+    const response = await request(app()).post(path).send(body);
+    expect(response.status).toBe(502);
+    expect(JSON.stringify(response.body)).not.toContain("private account details");
+  });
+
+  it("gives a safe reconnect response if the account grant is stale", async () => {
+    search.mockRejectedValue(new AbcAccountAuthorizationError("ABC Search Accounts rejected grant"));
+    expect((await request(app()).post(path).send(body)).status).toBe(409);
+    expect(quote).not.toHaveBeenCalled();
   });
 });

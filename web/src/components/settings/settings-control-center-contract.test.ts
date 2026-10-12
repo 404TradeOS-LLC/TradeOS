@@ -101,3 +101,16 @@ test("ABC account selection stays read-only and only uses the authenticated same
   assert.match(source, /abcAccountDiscovery\.state === "needs-authorization"/);
   assert.doesNotMatch(source, /localStorage\.setItem\("abc/);
 });
+
+test("selected ABC quote is explicit, account/branch bound, and no-write", async () => {
+  const source = await readSource("./settings-console.tsx");
+  assert.match(source, /"\/api\/v1\/supplier-integrations\/abc\/selected-price-probe"/);
+  assert.match(source, /shipToNumber: selectedAbcAccount\.number/);
+  assert.match(source, /branchNumber: selectedAbcBranch/);
+  assert.match(source, /Test selected ABC price/);
+  assert.match(source, /02GASTZ3WW/);
+  assert.match(source, /result\.materialCreated \|\| result\.priceApplied \|\| result\.accountPreferenceSaved/);
+  assert.match(source, /Material unit mapping was not verified/);
+  assert.match(source, /setAbcSelectedQuote\(\{ state: "idle" \}\)/);
+  assert.doesNotMatch(source, /localStorage\.setItem\("abc/);
+});

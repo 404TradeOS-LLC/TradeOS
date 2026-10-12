@@ -99,8 +99,17 @@ action. It shows account/branch choices from this authenticated endpoint, includ
 empty-results, reconnect and generic failure states. The chosen Ship-To and branch
 exist only as ephemeral component state, never saved in TradeOS settings or browser
 storage; they are **not** passed to the price probe or used for scheduled sync.
-The selected-account quote path remains subsequent governed work. Production
-access remains subject to ABC Third-Party Aggregator approval.
+Settings offers an explicit **Test selected ABC price** action for two
+server-allowlisted sandbox diagnostic SKUs. The new read-only endpoint
+re-fetches the active authorized Ship-To and associated active branch on each
+request, and obtains a user-scoped ABC `pricing.read` quote only after that
+check. No selected account is persisted and no Material, supplier observation,
+price proposal or pending approval is created. Quoted stocking units are
+displayed as provider evidence but are not verified against a canonical
+Material mapping. The existing connection probe remains separate.
+Actual successful ABC sandbox pricing requires a user-present grant and
+provider verification; CI alone does not establish it. Production access
+remains subject to ABC Third-Party Aggregator approval (issue #719).
 
 ## ABC Supply sandbox connection test (2026-10-09)
 

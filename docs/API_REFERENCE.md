@@ -85,6 +85,32 @@ Price Items requests or creates/approves Materials or prices. Account selection
 and sandbox pricing wiring remain separate reviewed work; ABC production
 aggregator approval is still required for real customer accounts.
 
+## ABC Supply selected-account read-only sandbox quote (2026-10-12)
+
+`POST /api/v1/supplier-integrations/abc/selected-price-probe` requires an
+authenticated workspace owner/admin with `costbook.manage`, and a strict body:
+`{ "shipToNumber": "...", "branchNumber": "...", "sku": "654210" }`.
+For now `sku` is restricted to `654210` or the ABC documented sample
+`02GASTZ3WW` (not guaranteed to be priceable in the sandbox). Callers cannot
+specify tenant, supplier, URL, quantity, unit, or purpose. This is a single
+explicit user-initiated diagnostic, not scheduled price synchronization.
+
+Before quoting, the API loads the tenant's ABC supplier, uses its durable
+Vault-backed user grant, and re-fetches Search Accounts with `account.read`.
+It verifies an active Ship-To and an active branch associated with that
+account. Then it requests one `pricing.read` item at quantity 1, with
+`purpose=estimating`, under a 15-second deadline and a 30-per-15-minute
+rate limit. A valid result requires one attributable matching response line,
+status `OK`, positive finite USD price, and a nonempty stocking unit.
+Nonmatching, ambiguous, zero-price, missing-UOM and error lines cannot be
+trusted as eligible. The response includes `sku`, `quantity`, `priced`,
+nullable `price`/`currency`/`stockingUnit`, and `providerStatus`, plus
+`materialCreated:false`, `priceApplied:false`,
+`accountPreferenceSaved:false`, `unitMappingVerified:false`.
+No account preference, Material, observation or price proposal is created.
+Unsafe provider bodies, tokens, account IDs and raw errors are not echoed.
+Successful CI does not prove a live sandbox quote or production access.
+
 ## ABC Supply sandbox pricing connection test (2026-10-09)
 
 `POST /api/v1/supplier-integrations/abc/price-probe` accepts an exact
