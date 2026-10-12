@@ -46,10 +46,11 @@ code server-side (the client secret never leaves the backend), and
 persists the refresh token through the existing
 `abcSupplyRefreshTokenStore.persist` owner/admin Vault path inside a
 tenant-scoped background session. Every outcome 302-redirects to
-Settings with a sanitized `?abc_oauth=success|error` flag; no codes,
-tokens, secrets, or provider response bodies are logged or surfaced.
-The endpoint is rate-limited (60 per 15 minutes per IP) as defense in
-depth.
+Settings with a sanitized `?abc_oauth=success|error` flag; on error the
+redirect also carries `?abc_oauth_step=request|state|exchange|persist`
+naming the callback stage that failed (no codes, tokens, secrets, or
+provider response bodies are logged or surfaced). The endpoint is
+rate-limited (60 per 15 minutes per IP) as defense in depth.
 
 The env `ABC_SUPPLY_SANDBOX_REFRESH_TOKEN` is now bootstrap/recovery
 only: `loadAbcSupplyConfig` is valid without it, the durable Vault
