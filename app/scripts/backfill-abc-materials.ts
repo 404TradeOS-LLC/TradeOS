@@ -39,19 +39,6 @@ function requireCostbookManage(actor: AuthContext): void {
     throw new Error("ABC linking requires active owner/admin with costbook.manage");
   }
 }
-export interface BackfillProductInput {
-  id: string; sku: string; name: string; purchaseUnit: string | null;
-  manufacturerPartNumber: string | null; materialId: string | null;
-}
-export interface BackfillMaterialRow {
-  name: string; unitOfMeasure: string; unitCost: number; sku: string;
-}
-/** Historical price is intentionally ignored: an observation is not approval. */
-export function buildMaterialRow(product: BackfillProductInput, _historicalPrice: number | null): BackfillMaterialRow {
-  return { name: product.name, unitOfMeasure: product.purchaseUnit?.trim() || "EA", unitCost: 0, sku: product.sku.trim() };
-}
-/** No bulk changes to Material.unitCost, including zero or null values. */
-export function shouldFillUnitCost(_existingUnitCost: unknown): boolean { return false; }
 export function nextCursor(ids: readonly string[], previous: string | undefined): string | undefined {
   if (ids.length === 0) return previous;
   const last = ids[ids.length - 1];
@@ -83,11 +70,18 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
       for (const product of products) {
         const sku = product.sku?.trim();
         const unit = product.purchaseUnit?.trim();
-        if (!sku || !unit) { pageUnapproved++; continue; }
-        const duplicates = await prisma.supplierProduct.count({
-          where: { orgId: args.orgId, supplierId: supplier.id, sku },
+        if (!sku || !unit || product.sku !== sku || product.purchaseUnit !== unit) {
+          pageUnapproved++;
+          continue;
+        }
+        // Suppliers may provide padded variants of the same SKU. Matching only
+        // the exact database value would silently link two source products.
+        const candidates = await prisma.supplierProduct.findMany({
+          where: { orgId: args.orgId, supplierId: supplier.id, sku: { contains: sku } },
+          select: { sku: true },
         });
-        if (duplicates !== 1) { pageDuplicate++; continue; }
+        const duplicateCount = candidates.filter(candidate => candidate.sku?.trim() === sku).length;
+        if (duplicateCount !== 1) { pageDuplicate++; continue; }
         const matches = await prisma.material.findMany({
           where: { orgId: args.orgId, supplierId: supplier.id, sku, isActive: true },
           select: { id: true, unitOfMeasure: true }, take: 2,
@@ -96,6 +90,11 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
         const targetId = matches[0].id;
         if (product.materialId && product.materialId !== targetId) { pageConflict++; continue; }
         if (product.materialId === targetId) continue;
+        const existingLinks = await prisma.supplierProduct.count({
+          where: { orgId: args.orgId, supplierId: supplier.id,
+            materialId: targetId, id: { not: product.id } },
+        });
+        if (existingLinks) { pageConflict++; continue; }
         if (!args.dryRun) {
           const result = await prisma.supplierProduct.updateMany({
             where: { id: product.id, orgId: args.orgId, supplierId: supplier.id, materialId: null },
