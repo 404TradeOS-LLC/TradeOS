@@ -115,6 +115,20 @@ models a held request connection with an independent rotation transaction.
 Cross-instance concurrent refresh serialization and live ABC validation are
 separate unverified gates, and this PR is not yet deployed.
 
+## ABC sandbox Ship-To discovery API — 2026-10-12
+
+After merging PR #718, the bounded sandbox account discovery client is ready.
+The scoped next slice exposes `GET /api/v1/supplier-integrations/abc/accounts`
+under an existing authenticated, tenant-RLS, owner/admin `costbook.manage`
+gate. It resolves only the tenant's configured ABC Supplier, loads its durable
+Vault refresh token, and performs bounded, read-only `account.read` Search
+Accounts with a 15-second deadline. Unknown or old pricing-only grants get a
+sanitized reauthorization status; no provider response body, token, Material
+or price updates are returned/written. This is **not** evidence of a live
+sandbox account discovery, a user account picker, successful priced SKU or
+ABC production approval. The selector, chosen-account price request, and
+aggregator production compliance are later governed steps.
+
 ## ABC sandbox connection probe — 2026-10-09
 
 The existing cron/Price Items integration still cannot contact ABC

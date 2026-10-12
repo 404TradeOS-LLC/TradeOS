@@ -63,6 +63,26 @@ only: `loadAbcSupplyConfig` is valid without it, the durable Vault
 credential is authoritative, and pricing fails closed with a sanitized
 "not connected" error when no token exists anywhere.
 
+## ABC Supply sandbox Ship-To account discovery (2026-10-12)
+
+`GET /api/v1/supplier-integrations/abc/accounts` lists read-only ABC sandbox
+Ship-To accounts and authorized branches for the authenticated organization.
+The request passes the TradeOS JWT + tenant-scoped database transaction
+middleware, requires `costbook.manage` and an active `owner` or `admin` role,
+and validates the ABC Supplier row belongs to that organization.
+No body/query IDs, account numbers, URLs or branch overrides are accepted.
+The API loads the existing durable tenant Vault refresh token and requests
+`account.read` from ABC through the sandbox Account API with a bounded
+15-second deadline. Response: `{ "accounts": [ { "number": "...",
+"name": "...", "status": "...", "branches": [ { "number": "...",
+"name": "...", "status": "...", "homeBranch": true } ] } ] }`.
+An old pricing-only grant returns 409 with a sanitized request to reconnect
+ABC with `account.read`; provider bodies, OAuth tokens and secrets are
+never returned. No Ship-To preference is saved and this endpoint never sends
+Price Items requests or creates/approves Materials or prices. Account selection
+and sandbox pricing wiring remain separate reviewed work; ABC production
+aggregator approval is still required for real customer accounts.
+
 ## ABC Supply sandbox pricing connection test (2026-10-09)
 
 `POST /api/v1/supplier-integrations/abc/price-probe` accepts an exact
