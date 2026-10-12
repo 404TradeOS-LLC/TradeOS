@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { assertApprovedRcUrl } from "./lib/rc-target.mjs";
 import { assertStorageStatePathOutsideRepo } from "./lib/storage-state-path.mjs";
+import { assertCostbookEvidenceIdentity } from "./lib/costbook-identity.mjs";
 
 const baseUrlInput = process.env.BETA_RC_BASE_URL_RESOLVED;
 const email = process.env.BETA_SMOKE_EMAIL;
@@ -133,44 +134,62 @@ try {
 
   // 3. Tenant assertion — the session must belong to the expected smoke org.
   {
-    const signOut = page.getByRole("button", { name: "Sign out", exact: true }).first();
-    if (!(await signOut.isVisible())) {
-      // The Control Dock keeps account actions in its responsive More sheet.
-      await page.getByRole("button", { name: "Open more menu", exact: true }).click();
-      await signOut.waitFor({ state: "visible", timeout: 5_000 });
-    }
-    const settingsResponse = await page.goto(new URL("/settings", parsedBaseUrl).toString(), {
-      waitUntil: "networkidle",
-      timeout: 60_000,
-    });
-    const settingsText = (await page.locator("body").innerText()).trim();
-    const status = settingsResponse?.status() ?? 0;
-    if (status >= 400) {
-      throw new Error(`Settings route returned HTTP ${status} while asserting tenant identity.`);
-    }
-    if (expectedOrgId) {
-      const settings = await context.request.get(new URL("/api/proxy/settings", parsedBaseUrl).toString());
-      if (settings.status() !== 200 || (await settings.json()).orgId !== expectedOrgId) {
-        throw new Error("Authenticated settings API did not match the expected canonical smoke organization ID.");
+    if (process.env.BETA_SMOKE_TENANT_VERIFY_MODE === "costbook_read_only") {
+      // The Settings GET path may seed a BrandProfile for legacy tenants.
+      // Authenticated Assembly evidence MUST use a genuinely read-only API
+      // that returns the request-authenticated tenant and effective permissions.
+      if (!expectedOrgId) throw new Error("Canonical smoke organization ID required for read-only Costbook identity verification");
+      const workspaceResponse = await context.request.get(
+        new URL("/api/proxy/costbook/workspace", parsedBaseUrl).toString(),
+      );
+      if (workspaceResponse.status() !== 200) {
+        throw new Error(`Read-only Costbook identity endpoint returned HTTP ${workspaceResponse.status()}`);
       }
+      assertCostbookEvidenceIdentity(
+        await workspaceResponse.json(),
+        expectedOrgId,
+        process.env.BETA_SMOKE_EXPECTED_COSTBOOK_WRITE,
+      );
     } else {
-      // The Settings page keeps the organization label in the editable
-      // companyName field; it is not guaranteed to be visible in body text
-      // until the user opens the relevant panel. Read the rendered field value
-      // as the tenant signal too, while retaining the visible-text fallback
-      // for deployments that expose the label in their shell or preview cards.
-      const companyName = await page
-        .locator('input[id$="-companyName-input"]')
-        .first()
-        .inputValue()
-        .catch(() => "");
-      if (!settingsText.includes(expectedOrg) && companyName !== expectedOrg) {
-        throw new Error(
-          `Authenticated session is not scoped to the expected smoke tenant "${expectedOrg}". ` +
-            "Refusing to capture evidence against an unexpected organization.",
-        );
+      const signOut = page.getByRole("button", { name: "Sign out", exact: true }).first();
+      if (!(await signOut.isVisible())) {
+        // The Control Dock keeps account actions in its responsive More sheet.
+        await page.getByRole("button", { name: "Open more menu", exact: true }).click();
+        await signOut.waitFor({ state: "visible", timeout: 5_000 });
       }
-    }
+      const settingsResponse = await page.goto(new URL("/settings", parsedBaseUrl).toString(), {
+        waitUntil: "networkidle",
+        timeout: 60_000,
+      });
+      const settingsText = (await page.locator("body").innerText()).trim();
+      const status = settingsResponse?.status() ?? 0;
+      if (status >= 400) {
+        throw new Error(`Settings route returned HTTP ${status} while asserting tenant identity.`);
+      }
+      if (expectedOrgId) {
+        const settings = await context.request.get(new URL("/api/proxy/settings", parsedBaseUrl).toString());
+        if (settings.status() !== 200 || (await settings.json()).orgId !== expectedOrgId) {
+          throw new Error("Authenticated settings API did not match the expected canonical smoke organization ID.");
+        }
+      } else {
+        // The Settings page keeps the organization label in the editable
+        // companyName field; it is not guaranteed to be visible in body text
+        // until the user opens the relevant panel. Read the rendered field value
+        // as the tenant signal too, while retaining the visible-text fallback
+        // for deployments that expose the label in their shell or preview cards.
+        const companyName = await page
+          .locator('input[id$="-companyName-input"]')
+          .first()
+          .inputValue()
+          .catch(() => "");
+        if (!settingsText.includes(expectedOrg) && companyName !== expectedOrg) {
+          throw new Error(
+            `Authenticated session is not scoped to the expected smoke tenant "${expectedOrg}". ` +
+              "Refusing to capture evidence against an unexpected organization.",
+          );
+        }
+      }
+      }
     record("session is scoped to the expected smoke tenant", true);
   }
 

@@ -1,0 +1,177 @@
+name: Assembly Catalog authenticated browser evidence
+
+# Manual-only, no production aliases and no mutations. Exact deployment SHA,
+# Preview Supabase data plane and both real authenticated roles are mandatory.
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Exact non-production TradeOS Preview origin (no path or query)
+        required: true
+        type: string
+      expected_sha:
+        description: Full 40-character SHA deployed at this immutable Preview URL
+        required: true
+        type: string
+      smoke_tenant_label:
+        description: Sanitized smoke tenant organization label
+        required: true
+        default: TradeOS Beta Smoke
+        type: string
+      smoke_org_id:
+        description: Canonical UUID of the SAME sanitized smoke tenant for both roles
+        required: true
+        type: string
+      sanitized_tenant:
+        description: I confirm this Preview contains only sanitized smoke data
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: assembly-catalog-auth-evidence
+  cancel-in-progress: false
+
+jobs:
+  evidence:
+    name: Assembly Catalog 1440/390 owner and read-only
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      S027_BASE_URL: ${{ inputs.base_url }}
+      S027_EXPECTED_SHA: ${{ inputs.expected_sha }}
+      S027_SANITIZED_TENANT: ${{ inputs.sanitized_tenant }}
+      S027_EVIDENCE_DIR: artifacts/assembly-catalog-browser-evidence
+      BETA_RC_BASE_URL_RESOLVED: ${{ inputs.base_url }}
+      BETA_RC_SUPABASE_PROJECT_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF }}
+      BETA_SMOKE_ORG_LABEL: ${{ inputs.smoke_tenant_label }}
+      BETA_SMOKE_ORG_ID: ${{ inputs.smoke_org_id }}
+      TRADEOS_AGENT_BASE_URL: ${{ inputs.base_url }}
+      TRADEOS_AGENT_ENVIRONMENT: preview
+      TRADEOS_AGENT_SANITIZED_TENANT: ${{ inputs.sanitized_tenant }}
+      TRADEOS_AGENT_EVIDENCE: "true"
+      TRADEOS_ASSEMBLY_EVIDENCE: "true"
+    steps:
+      - name: Set ephemeral session paths outside repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "TRADEOS_ASSEMBLY_OWNER_STATE=${RUNNER_TEMP}/tradeos-assembly-owner.json" >> "$GITHUB_ENV"
+          echo "TRADEOS_ASSEMBLY_READER_STATE=${RUNNER_TEMP}/tradeos-assembly-reader.json" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            app/package-lock.json
+      - name: Install test and authenticating dependencies
+        run: |
+          npm ci
+          npm ci --prefix app
+      - name: Verify evidence contracts and approved target
+        run: |
+          node --test scripts/__tests__/assembly-catalog-browser-evidence.test.mjs
+          npm run test:e2e:guards
+      - name: Require both role credentials
+        env:
+          OWNER_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
+          OWNER_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
+          READER_EMAIL: ${{ secrets.BETA_RC_READONLY_SMOKE_EMAIL }}
+          READER_PASSWORD: ${{ secrets.BETA_RC_READONLY_SMOKE_PASSWORD }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ "${S027_SANITIZED_TENANT}" != "true" || -z "${BETA_SMOKE_ORG_ID}" || -z "${BETA_RC_SUPABASE_PROJECT_REF}" ]]; then
+            echo "::error::Sanitized tenant confirmation, canonical tenant UUID and Preview Supabase ref are mandatory."
+            exit 1
+          fi
+          if [[ -z "${OWNER_EMAIL}" || -z "${OWNER_PASSWORD}" || -z "${READER_EMAIL}" || -z "${READER_PASSWORD}" ]]; then
+            echo "::error::Configure both dedicated owner and read-only Beta smoke identities."
+            exit 1
+          fi
+          if [[ "${OWNER_EMAIL}" == "${READER_EMAIL}" ]]; then
+            echo "::error::Two distinct role identities are required for this evidence matrix."
+            exit 1
+          fi
+          if [[ -z "${VERCEL_TOKEN}" ]]; then
+            echo "::error::VERCEL_TOKEN is mandatory for deployment SHA and data-plane attestation."
+            exit 1
+          fi
+      - name: Verify exact Preview deployment and isolated data plane
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node app/scripts/s027-deployment-identity.mjs
+      - name: Activate independent Preview attestation for Playwright target
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "TRADEOS_AGENT_DEPLOYMENT_ATTESTED=true" >> "$GITHUB_ENV"
+      - name: Verify exact attested browser target
+        run: node --input-type=module -e 'import { resolveAgentTarget } from "./tests/playwright/target.mjs"; if (resolveAgentTarget(process.env) !== process.env.TRADEOS_AGENT_BASE_URL) throw new Error("Target origin mismatch");'
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Authenticate owner/admin through shipped login
+        env:
+          BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
+          BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
+          BETA_SMOKE_TENANT_VERIFY_MODE: costbook_read_only
+          BETA_SMOKE_EXPECTED_COSTBOOK_WRITE: "true"
+          BETA_STORAGE_STATE_PATH: ${{ runner.temp }}/tradeos-assembly-owner.json
+          BETA_EVIDENCE_DIR: artifacts/assembly-catalog-browser-evidence/owner-auth
+        run: node app/scripts/beta-evidence/auth-setup.mjs
+      - name: Authenticate read-only through shipped login
+        env:
+          BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_READONLY_SMOKE_EMAIL }}
+          BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_READONLY_SMOKE_PASSWORD }}
+          BETA_SMOKE_TENANT_VERIFY_MODE: costbook_read_only
+          BETA_SMOKE_EXPECTED_COSTBOOK_WRITE: "false"
+          BETA_STORAGE_STATE_PATH: ${{ runner.temp }}/tradeos-assembly-reader.json
+          BETA_EVIDENCE_DIR: artifacts/assembly-catalog-browser-evidence/reader-auth
+        run: node app/scripts/beta-evidence/auth-setup.mjs
+      - name: Capture authenticated 1440 and 390px catalog evidence
+        run: npx --no-install playwright test tests/playwright/assembly-catalog.spec.ts --project=chromium
+      - name: Verify Preview identity has not changed during evidence
+        if: always()
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [[ -f artifacts/assembly-catalog-browser-evidence/deployment-identity.json ]]; then
+            node app/scripts/s027-deployment-identity.mjs --verify
+          fi
+      - name: Remove both runtime sessions
+        if: always()
+        run: |
+          rm -f "${TRADEOS_ASSEMBLY_OWNER_STATE}" "${TRADEOS_ASSEMBLY_READER_STATE}"
+      - name: Scan all retained artifacts for credential material
+        id: credential_scan
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d artifacts/assembly-catalog-browser-evidence
+          paths=(artifacts/assembly-catalog-browser-evidence)
+          if [[ -d playwright-report ]]; then paths+=(playwright-report); fi
+          if [[ -d test-results ]]; then paths+=(test-results); fi
+          if grep -rIlE '"cookies"[[:space:]]*:|sb-[a-z0-9-]+-auth-token|tradeos_(access|refresh)_token|Bearer [A-Za-z0-9._-]{20,}' "${paths[@]}" >/dev/null 2>&1; then
+            echo "::error::Credential material found in browser artifacts. Refusing upload."
+            exit 1
+          fi
+      - name: Upload sanitized evidence only after credential scan
+        if: ${{ always() && steps.credential_scan.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: assembly-catalog-browser-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/assembly-catalog-browser-evidence
+            playwright-report
+            test-results
+          if-no-files-found: error
+          retention-days: 30

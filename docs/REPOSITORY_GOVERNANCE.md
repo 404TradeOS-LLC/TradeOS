@@ -603,6 +603,24 @@ authenticated evidence path.
 
 The seed is additive and replay-idempotent through the existing Regional Supplier Evidence service. It may create missing supplier records represented by the checked-in corpus, upsert supplier products, and append/replay immutable price observations. It must not mutate `Material.unitCost`, approve `SupplierPriceUpdate` rows, reprice Estimate snapshots, change schema/RLS/auth, scrape live retail sites, or promote the corpus's source canonical-key vocabulary into authoritative TradeOS identity. Any changed evidence under an existing observation key remains a hard conflict rather than an overwrite.
 
+
+## Assembly Catalog read-only authenticated evidence control
+
+The manual `.github/workflows/assembly-catalog-browser-evidence.yml` workflow
+reuses the attested S027 Preview deployment-identity check, both before and
+after capture, and requires two distinct real smoke identities in the same
+sanitized, non-production organization. The opt-in read-only auth bootstrap
+validates the authenticated org ID and Costbook role permissions via
+`GET /api/v1/costbook/workspace`; it never calls the Settings GET route,
+which may create legacy brand defaults. Four Playwright viewport/role cases
+exercise catalog browsing only at 1440px and 390px and prohibit Assembly API
+writes. Session paths are initialized from `$RUNNER_TEMP` in a step with the
+runner context and deleted before the artifact credential scan. Only a
+successful manually triggered run with inspected output supplies browser
+evidence; no PR merge automatically certifies or deploys the feature.
+
+
+The Playwright target resolver accepts the current `tradeos-costbook-<id>.vercel.app` domain pattern only for the dedicated Assembly workflow and only after the independent Vercel/Supabase identity step has succeeded. That domain pattern is **not** itself proof of Preview because Production uses it too; the old general `-web-` guard remains unchanged for other agent runs.
 ### ABC Supply link-only Material backfill
 
 The protected `.github/workflows/backfill-abc-materials.yml` operator workflow now supports a confirmation-gated, production-environment, restricted-role **link-only** backfill with dry-run enabled by default. The runner processes at most 25 supplier products per tenant-scoped database session, advances by product ID, and links only a unique eligible ABC supplier SKU to an existing active Material with the same supplier, SKU, and purchase unit. It creates no Materials and changes no Material prices; new Materials still require separately reviewed, owner-approved single-product activation. This workflow has not been production-executed or proven by live ABC sandbox pricing.
