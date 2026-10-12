@@ -238,7 +238,7 @@ export async function createAuthorizationState(
       ${verifier},
       ${ABC_OAUTH_CALLBACK_URL},
       ${hmacTokenHash(browserBinding, "browser-binding", crypto.hmacSecret)},
-      ${ABC_OAUTH_STATE_TTL_SECONDS}
+      ${ABC_OAUTH_STATE_TTL_SECONDS}::integer
     )
   `);
   return { state, codeChallenge: challenge, browserBinding };
