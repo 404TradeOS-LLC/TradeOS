@@ -1,0 +1,76 @@
+name: Backfill ABC supplier materials (link only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type LINK_EXISTING_ABC_MATERIALS to authorize link-only production operation
+        type: string
+        required: true
+      org_id:
+        description: Target TradeOS organization UUID
+        type: string
+        required: true
+      user_id:
+        description: Active owner/admin AppUser UUID
+        type: string
+        required: true
+      dry_run:
+        description: Preview links only; no writes
+        type: boolean
+        required: true
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: abc-material-link-production
+  cancel-in-progress: false
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Verify operator authorization inputs
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          ORG_ID: ${{ inputs.org_id }}
+          USER_ID: ${{ inputs.user_id }}
+        run: |
+          set -euo pipefail
+          [[ "$CONFIRMATION" == "LINK_EXISTING_ABC_MATERIALS" ]] || { echo "Confirmation required" >&2; exit 1; }
+          uuid_re='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+          [[ "$ORG_ID" =~ $uuid_re && "$USER_ID" =~ $uuid_re ]] || { echo "Valid UUIDs required" >&2; exit 1; }
+      - name: Install and verify backfill contract
+        run: |
+          npm ci
+          npx jest --runInBand --runTestsByPath tests/backfill-abc-materials.test.ts
+      - name: Link approved materials only
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_ADMIN_URL: ${{ secrets.DATABASE_ADMIN_URL }}
+          APP_DB_ROLE_PASSWORD: ${{ secrets.APP_DB_ROLE_PASSWORD }}
+          APP_DB_ROLE_NAME: ${{ secrets.APP_DB_ROLE_NAME }}
+          ORG_ID: ${{ inputs.org_id }}
+          USER_ID: ${{ inputs.user_id }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          NODE_ENV: production
+        run: |
+          set -euo pipefail
+          if [[ -z "${DATABASE_URL:-}" ]]; then
+            [[ -n "${DATABASE_ADMIN_URL:-}" && -n "${APP_DB_ROLE_PASSWORD:-}" ]] || { echo "Restricted role credentials required" >&2; exit 1; }
+            DATABASE_URL="$(node -e 'const u=new URL(process.env.DATABASE_ADMIN_URL); const role=process.env.APP_DB_ROLE_NAME||"tradeos_app";const admin=decodeURIComponent(u.username);const pooler=u.hostname.endsWith(".pooler.supabase.com");const suffix=pooler&&admin.includes(".")?admin.slice(admin.indexOf(".")):"";if(!["postgres:","postgresql:"].includes(u.protocol)||!/^[A-Za-z_][A-Za-z0-9_]*$/.test(role)||role==="postgres"||role===admin.split(".")[0]||(pooler&&!/^\.[a-z0-9]+$/.test(suffix)))process.exit(1);u.username=role+suffix;u.password=process.env.APP_DB_ROLE_PASSWORD;process.stdout.write(u.toString());')"
+            export DATABASE_URL
+          fi
+          [[ -z "${DATABASE_ADMIN_URL:-}" || "$DATABASE_URL" != "$DATABASE_ADMIN_URL" ]] || { echo "Admin connection prohibited" >&2; exit 1; }
+          args=(--org-id "$ORG_ID" --user-id "$USER_ID")
+          if [[ "$DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
+          npx ts-node scripts/backfill-abc-materials.ts "${args[@]}"
