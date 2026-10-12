@@ -60,7 +60,7 @@ describe("single ABC sandbox price probe (no Material)", () => {
   it("returns verified provider stocking UOM without writing prices", async () => {
     await expect(probeAbcSandboxPricing(orgId, "ABC-654210")).resolves.toEqual({
       supplierProductKey: "ABC-654210", sku: "654210", sourcePurchaseUnit: "SQ",
-      priced: true, price: 19.75, currency: "USD", providerStatus: "OK",
+      priced: true, price: 19.75, currency: "USD", providerStatus: "OK", providerMessage: null,
       providerStockingUnit: "SQ", providerStockingUnitVerified: true,
       materialCreated: false, priceApplied: false,
     });
@@ -71,6 +71,48 @@ describe("single ABC sandbox price probe (no Material)", () => {
       where: { orgId, supplierId, supplierProductKey: "ABC-654210" },
     }));
     expect(pricing).toHaveBeenCalledWith(orgId, supplierId, "654210");
+  });
+
+  it("returns a plain-language ABC line error without certifying a price or unit", async () => {
+    pricing.mockResolvedValueOnce([{
+      id: "review-0", itemNumber: "654210", unitPrice: 0,
+      currencyCode: "USD", uom: null, statusCode: "Error",
+      statusMessage: "Item not available for branch 340",
+    }]);
+    const result = await probeAbcSandboxPricing(orgId, "ABC-654210");
+    expect(result).toMatchObject({
+      priced: false, price: null, providerStatus: "Error",
+      providerMessage: "Item not available for branch 340",
+      providerStockingUnit: null, providerStockingUnitVerified: false,
+      materialCreated: false, priceApplied: false,
+    });
+  });
+
+  it.each([
+    ["token disclosure", "Bearer aBcDExampleToken"],
+    ["HTML content", "<script>alert(1)</script>"],
+    ["URL content", "See https://example.com/private"],
+    ["email address", "Contact staff@example.com"],
+    ["long opaque identifier", "abcdefghij1234567890abcdef1234567890"],
+    ["numeric account identifier", "Account 123456789012 was rejected"],
+    ["overlong message", "a".repeat(161)],
+    ["empty message", "  "],
+  ])("does not disclose untrusted ABC status text: %s", async (_label, statusMessage) => {
+    pricing.mockResolvedValueOnce([{
+      id: "review-0", itemNumber: "654210", unitPrice: 0,
+      currencyCode: "USD", statusCode: "Error", statusMessage,
+    }]);
+    await expect(probeAbcSandboxPricing(orgId, "ABC-654210"))
+      .resolves.toMatchObject({ priced: false, providerMessage: null });
+  });
+
+  it("does not quote a mismatched line or expose its message", async () => {
+    pricing.mockResolvedValueOnce([{
+      id: "other-line", itemNumber: "654210", unitPrice: 0,
+      currencyCode: "USD", statusCode: "Error", statusMessage: "Not available",
+    }]);
+    await expect(probeAbcSandboxPricing(orgId, "ABC-654210"))
+      .resolves.toMatchObject({ priced: false, providerStatus: "no_matching_line", providerMessage: null });
   });
 
   it("reports mismatched and absent ABC stocking units without claiming compatibility", async () => {

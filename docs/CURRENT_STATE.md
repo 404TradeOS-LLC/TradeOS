@@ -115,6 +115,18 @@ models a held request connection with an independent rotation transaction.
 Cross-instance concurrent refresh serialization and live ABC validation are
 separate unverified gates, and this PR is not yet deployed.
 
+## ABC sandbox item-level diagnostic visibility — proposed 2026-10-12
+
+The production ABC connection probe on `1be29b68` completed an authenticated
+Price Items request with HTTP 200 but returned line status `Error` and no
+eligible price or UOM for `ABC-654210`. Its parser already retained
+`status.message` but the probe dropped it. The scoped proposed change adds
+`providerMessage` only for matching, failed lines when its short plain-text
+content passes secret/URL/account-identifier checks; unsafe or absent text
+is null. Settings shows the safe ABC diagnostic or a generic fallback. No
+Material, supplier proposal, price application, token or role changes. This
+does not establish the actual ABC error reason or a live priced quote.
+
 ## ABC sandbox connection probe — 2026-10-09
 
 The existing cron/Price Items integration still cannot contact ABC

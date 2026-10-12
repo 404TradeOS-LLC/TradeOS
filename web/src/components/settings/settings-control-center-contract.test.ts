@@ -78,3 +78,11 @@ test("developer metadata does not claim live health or hidden inventory", async 
   assert.doesNotMatch(page, /healthStatus: "Nominal"/);
   assert.doesNotMatch(page, /project-workspace, ai-estimate-assist, estimate-compare/);
 });
+
+test("ABC connection test shows only the server-sanitized item-level explanation", async () => {
+  const source = await readSource("./settings-console.tsx");
+  assert.match(source, /providerMessage: result\.providerMessage/);
+  assert.match(source, /ABC response: \$\{abcProbe\.providerMessage\}/);
+  assert.match(source, /ABC did not provide a safe item-level explanation/);
+  assert.match(source, /No price was saved or approved/);
+});

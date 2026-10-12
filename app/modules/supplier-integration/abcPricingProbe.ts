@@ -4,6 +4,21 @@ import { validateAbcMaterialCandidate } from "./abcMaterialActivation";
 import { priceOneAbcSandboxSku } from "./feed";
 
 /**
+ * ABC's line-level status.message is untrusted provider text. Permit only a
+ * short plain-language diagnostic, and fail closed for markup, URLs, account
+ * identifiers, credentials or token-shaped content. Never return raw provider
+ * response bodies or use these messages as pricing evidence.
+ */
+function safeAbcProviderMessage(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const message = raw.trim();
+  if (!message || message.length > 160 || !/^[a-z0-9][a-z0-9 ,.:;!?()'/-]*$/i.test(message)) return null;
+  if (/\b(?:bearer|token|password|secret|credential|authorization|refresh|session|cookie|https?|www|client[ -]?id|client[ -]?secret|api[ -]?key|access[ -]?key|private[ -]?key)\b/i.test(message)) return null;
+  if (/\b\d{8,}\b/.test(message) || /[a-z0-9_-]{32,}/i.test(message)) return null;
+  return message;
+}
+
+/**
  * Probe one observed, unambiguous ABC SKU before a Material exists.
  * Does not create a Material, observation, SupplierPriceUpdate, or approval.
  * Stocking unit is extracted from the provider's response, not inferred from historical evidence.
@@ -19,6 +34,7 @@ export async function probeAbcSandboxPricing(
   price: number | null;
   currency: "USD" | null;
   providerStatus: string;
+  providerMessage: string | null;
   providerStockingUnit: string | null;
   providerStockingUnitVerified: boolean;
   materialCreated: false;
@@ -121,6 +137,8 @@ export async function probeAbcSandboxPricing(
     price: validPrice ? line!.unitPrice : null,
     currency: validPrice ? "USD" : null,
     providerStatus: line?.statusCode?.slice(0, 48) ?? "no_matching_line",
+    providerMessage: !validPrice && line?.statusCode !== "OK"
+      ? safeAbcProviderMessage(line?.statusMessage) : null,
     providerStockingUnit: validPrice ? (line?.uom ?? null) : null,
     providerStockingUnitVerified: Boolean(validPrice && line?.uom && line.uom.toUpperCase() === unit.toUpperCase()),
     materialCreated: false,

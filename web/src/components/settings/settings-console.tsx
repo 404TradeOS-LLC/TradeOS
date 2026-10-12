@@ -126,7 +126,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
   const [uploadingAssetKeys, setUploadingAssetKeys] = useState<Set<string>>(new Set());
   const [abcProbe, setAbcProbe] = useState<
     | { state: "idle" | "testing" }
-    | { state: "complete"; sku: string; priced: boolean; price: number | null; providerStatus: string; sourcePurchaseUnit: string; providerStockingUnit: string | null; providerStockingUnitVerified: boolean }
+    | { state: "complete"; sku: string; priced: boolean; price: number | null; providerStatus: string; providerMessage: string | null; sourcePurchaseUnit: string; providerStockingUnit: string | null; providerStockingUnitVerified: boolean }
     | { state: "error"; message: string }
   >({ state: "idle" });
   const [abcOAuth, setAbcOAuth] = useState<
@@ -311,7 +311,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
     setAbcProbe({ state: "testing" });
     try {
       const result = await clientFetch<{
-        sku: string; priced: boolean; price: number | null; providerStatus: string;
+        sku: string; priced: boolean; price: number | null; providerStatus: string; providerMessage: string | null;
         sourcePurchaseUnit: string; providerStockingUnit: string | null;
         providerStockingUnitVerified: boolean; materialCreated: boolean; priceApplied: boolean;
       }>("/api/v1/supplier-integrations/abc/price-probe", {
@@ -321,7 +321,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
       if (result.materialCreated || result.priceApplied) {
         throw new Error("The connection test returned an unexpected mutation claim");
       }
-      setAbcProbe({ state: "complete", sku: result.sku, priced: result.priced, price: result.price, providerStatus: result.providerStatus, sourcePurchaseUnit: result.sourcePurchaseUnit, providerStockingUnit: result.providerStockingUnit, providerStockingUnitVerified: result.providerStockingUnitVerified });
+      setAbcProbe({ state: "complete", sku: result.sku, priced: result.priced, price: result.price, providerStatus: result.providerStatus, providerMessage: result.providerMessage, sourcePurchaseUnit: result.sourcePurchaseUnit, providerStockingUnit: result.providerStockingUnit, providerStockingUnitVerified: result.providerStockingUnitVerified });
     } catch (error) {
       setAbcProbe({
         state: "error",
@@ -866,6 +866,13 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                     {abcProbe.priced && abcProbe.price !== null
                       ? `Sandbox returned ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(abcProbe.price)} for SKU ${abcProbe.sku}.`
                       : `No eligible priced line for SKU ${abcProbe.sku} (provider status: ${abcProbe.providerStatus}).`}
+                    {!abcProbe.priced ? (
+                      <p className="mt-2 text-muted-foreground">
+                        {abcProbe.providerMessage
+                          ? `ABC response: ${abcProbe.providerMessage}`
+                          : "ABC did not provide a safe item-level explanation. Verify SKU and sandbox branch/ship-to pricing access."}
+                      </p>
+                    ) : null}
                     <p className="mt-2 text-muted-foreground">
                       {abcProbe.providerStockingUnit
                         ? `ABC stocking unit: ${abcProbe.providerStockingUnit}. Source unit: ${abcProbe.sourcePurchaseUnit}. ${abcProbe.providerStockingUnitVerified ? "Units match." : "Unit mismatch — supplier price proposals are blocked. Confirm the provider unit before Material activation."}`
