@@ -10,6 +10,10 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Autonomous Figma-to-code checkpoint — 2026-10-13
+
+Continue existing draft PR #731 on `feat/p0-first-estimate-quickstart-20261013`, from main `6096d806`. Partial-save recovery retains Project identity and typed input, reauthorizes Project reads, and never repeats either creation POST on resume. Eight behavioral tests and all 487 web tests, lint/typecheck/build and docs/preflight passed locally. Onboarding remains TARGET, unmerged and uncertified. Chromium v1248 installation returned invalid ZIP; authenticated responsive evidence is blocked. Shell push credentials are unavailable; publish through the authenticated GitHub connector. The discovery/maturity ledger and next five TODOs are in `docs/design/FIGMA_TO_CODE_EXECUTION_LEDGER.md`. No sprint/deployment/certification status is advanced.
+
 ## Founder-authorized Costbook legacy assembly audit — active 2026-10-08
 
 - Classification: `NEW_WORK_REQUIRED`; branch `fix/costbook-legacy-assembly-match-audit` from current `main` `bd28d751f1a63fde36dce880cc1ea6fe2f735ac7`. No overlapping open Costbook/assembly canonicalization PR was found; open PRs #690/#691/#692 are separate prevailing-wage/supplier-sync lanes.

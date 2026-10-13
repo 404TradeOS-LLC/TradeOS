@@ -63,6 +63,13 @@ related_code:
 
 # TradeOS Current State
 
+## First-estimate quick-start recovery — PR #731, unmerged 2026-10-13
+
+The first-estimate branch adds a dedicated server action over the existing authenticated Project/Estimate APIs. A failed draft creation retains the confirmed Project and typed form inputs. Resume rechecks access with the current session, opens the draft or Project workspace and never repeats either creation POST. Saved fields are read-only; pending and recovery controls remain visible. Auth, RLS, permissions, pricing approvals and schema are unchanged.
+
+Eight behavioral tests, 487 web tests, lint, TypeScript and production build passed locally. Authenticated browser/live database verification is uncollected; Chromium installation returned an invalid archive. Figma onboarding remains TARGET; full wizard/parity and demo certification are unfinished. Lost initial Project response, reload recovery and cross-tab/backend idempotency remain open. See `docs/design/FIGMA_TO_CODE_EXECUTION_LEDGER.md`.
+
+
 ## P0 first-estimate onboarding quick start — 2026-10-13 (draft PR #731)
 
 Founder-directed demo-readiness slice on `feat/p0-first-estimate-quickstart-20261013`.

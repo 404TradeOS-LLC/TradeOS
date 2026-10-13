@@ -8,7 +8,7 @@ The Figma First Estimate views remain **TARGET** until exact-head runtime eviden
 ## What this PR does
 
 - Gives an authenticated owner/admin a real `/onboarding` route to create the first Project and draft Estimate.
-- Reuses `createProjectAction` and `GET /api/v1/customers`; does not introduce a second Project/Estimate persistence path.
+- Uses a dedicated first-estimate server action over the existing Project/Estimate APIs and `GET /api/v1/customers`; no new backend persistence path.
 - Requires a real project name and work description; the server persists `Project.simpleScope` then creates the draft Estimate with the existing backend before navigating to it.
 - Gives empty organizations a single primary next action on Today. Existing organizations are not automatically sent through setup.
 - Provides a direct **Go to Today** path. Optional Customer lookup errors are displayed rather than misreported as an empty result.
@@ -20,7 +20,7 @@ The Figma First Estimate views remain **TARGET** until exact-head runtime eviden
 - No fictional labor rate, location, supplier availability, verified price, or customer record is shown.
 - No tenant bootstrap, RLS, authentication bypass, migration, ABC integration, payments or supplier synchronization change.
 - No new auto-redirect for returning users.
-- A failed draft Estimate POST after a successful Project POST is a known recovery gap of the reused action. Follow up before demo certification with a tested, idempotent resume path.
+- A failed draft Estimate POST retains the confirmed Project ID and controlled form inputs. Continue with saved project reauthorizes the reference through the current session and opens a persisted draft or the Project workspace. Resume never repeats either POST, including when an earlier request commits late. Saved fields are read-only. Action state is not authorization: malformed references and inaccessible Project reads fail closed.
 - Existing onboarding target status must not be relabeled as shipped until PR checks, authenticated browser evidence, and full first-estimate workflow pass.
 
 ## Acceptance gates before demo
@@ -33,8 +33,16 @@ The Figma First Estimate views remain **TARGET** until exact-head runtime eviden
 
 ## Five next TODOs
 
-1. Fix failed draft creation recovery/idempotency on `createProjectAction`.
+1. Verify saved-project recovery against a sanitized non-production backend, including delayed commits and denied access.
 2. Add a persisted skip/resume or first-value state only after choosing its tenant-scoped data model and measuring actual activation.
 3. Complete desktop/mobile Figma parity and explicit loading/error/permission states.
 4. Run the canonical Beta Evidence flow with 1440/1024/768/390 screenshots and tenant-isolation checks on a sanitized non-production deployment.
 5. Certify Entry → Today → first estimate with exact deployed SHA; only then consider the P0 demo-ready.
+
+## Verification checkpoint — 2026-10-13
+
+Eight behavioral workflow tests and all 487 web tests pass; lint, TypeScript and production build pass locally. Docs ownership/preflight pass. No authenticated browser, live RLS or production verification is claimed. The pinned Chromium v1248 download returned an invalid ZIP, preventing viewport/keyboard/console evidence.
+
+Desktop Figma context/screenshot `58:2` and mobile `59:4` were inspected. Full parity remains open: standalone onboarding shell, persisted step progression, known work/labor/region defaults, example controls and automatic Athena interpretation are not delivered by this repair. Figma remains TARGET. The primary button now uses the target's Build My First Estimate wording, with explicit saved-project recovery states.
+
+Lost initial Project responses without an ID, reload recovery and cross-tab submissions remain limitations. The UI directs contractors to check Projects before resubmitting an ambiguous initial save. Backend idempotency is not claimed. See `FIGMA_TO_CODE_EXECUTION_LEDGER.md` for continuation.
