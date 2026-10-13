@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { clientFetch } from "@/lib/clientApi";
+import { isEstimateScopeReviewCurrent, type EstimateScopeReview } from "@/lib/estimate-scope-review";
 
 interface ContextualSuggestion {
   id: string;
@@ -48,9 +49,13 @@ export function ContextualAthenaPanel({
   const [error, setError] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+  const [reviewedScope, setReviewedScope] = useState<EstimateScopeReview | null>(null);
+  const currentScope = { projectId, estimateId, scope: scopeOfWork.trim() };
+  const reviewIsCurrent = isEstimateScopeReviewCurrent(reviewedScope, currentScope);
+  const canApplySuggestions = isDraft && state === "ready" && reviewIsCurrent && addingId === null;
 
   async function addSuggestion(suggestion: ContextualSuggestion) {
-    if (!suggestion.resolution.target || addedIds.has(suggestion.id)) return;
+    if (!canApplySuggestions || !suggestion.resolution.target || addedIds.has(suggestion.id)) return;
     setAddingId(suggestion.id);
     setError(null);
     try {
@@ -73,15 +78,17 @@ export function ContextualAthenaPanel({
   }
 
   async function askAthena() {
-    if (!scopeOfWork.trim()) return;
+    if (!scopeOfWork.trim() || state === "loading" || addingId !== null) return;
+    const reviewRequest = { projectId, estimateId, scope: scopeOfWork.trim() };
     setState("loading");
     setError(null);
     try {
       const response = await clientFetch<SuggestionsResponse>(`/estimates/${estimateId}/ai-suggestions`, {
         method: "POST",
-        body: JSON.stringify({ scopeOfWork: scopeOfWork.trim() }),
+        body: JSON.stringify({ scopeOfWork: reviewRequest.scope }),
       });
       setSuggestions(response.suggestions ?? []);
+      setReviewedScope(reviewRequest);
       setState("ready");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Athena could not review this scope.");
@@ -99,12 +106,18 @@ export function ContextualAthenaPanel({
             <p className="mt-1 text-sm text-muted-foreground">Suggest assemblies and Costbook matches from this scope. Nothing is added until you review it.</p>
           </div>
         </div>
-        <Button type="button" size="sm" onClick={askAthena} disabled={state === "loading" || !scopeOfWork.trim()}>
+        <Button type="button" size="sm" onClick={askAthena} disabled={state === "loading" || addingId !== null || !scopeOfWork.trim()}>
           {state === "loading" ? "Reviewing…" : state === "ready" ? "Refresh" : "Ask Athena"}
         </Button>
       </div>
 
       {!scopeOfWork.trim() ? <p className="mt-3 text-sm text-muted-foreground">Add a short scope to unlock suggestions.</p> : null}
+
+      {reviewedScope && !reviewIsCurrent ? (
+        <p className="mt-3 text-sm text-warning" role="status">
+          The scope or estimate changed. Ask Athena again before adding these suggestions.
+        </p>
+      ) : null}
 
       {error ? (
         <p className="mt-3 flex items-start gap-2 text-sm text-destructive" role="alert">
@@ -113,7 +126,7 @@ export function ContextualAthenaPanel({
         </p>
       ) : null}
 
-      {state === "ready" && suggestions.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No confident Costbook matches yet. Review the scope or add a custom line.</p> : null}
+      {state === "ready" && reviewIsCurrent && suggestions.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No confident Costbook matches yet. Review the scope or add a custom line.</p> : null}
 
       {suggestions.length > 0 ? (
         <div className="mt-4 divide-y divide-primary/20 border-t border-primary/20">
@@ -138,7 +151,7 @@ export function ContextualAthenaPanel({
                       size="sm"
                       variant={addedIds.has(suggestion.id) ? "outline" : "secondary"}
                       onClick={() => addSuggestion(suggestion)}
-                      disabled={addingId === suggestion.id || addedIds.has(suggestion.id)}
+                      disabled={!canApplySuggestions || addedIds.has(suggestion.id)}
                     >
                       {addedIds.has(suggestion.id) ? <><Check className="size-4" aria-hidden="true" />Added</> : addingId === suggestion.id ? "Adding…" : "Add to estimate"}
                     </Button>

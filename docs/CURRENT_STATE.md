@@ -63,6 +63,11 @@ related_code:
 
 # TradeOS Current State
 
+## Contextual Athena scope freshness — proposed 2026-10-13
+
+The estimate context panel now binds advisory suggestions to the project, estimate and normalized scope actually sent for review. Editing the scope or changing record context marks the result stale, announces the required refresh and disables Add. A late response cannot make suggestions current for a later edit. Loading/error states disable applying previous results, and suggestion writes/reviews are serialized in the UI. The existing authenticated line-item API, source keys, reviewed quantities, pricing resolution and explicit Add contract remain unchanged. Predicate tests verify scope/record freshness; runtime browser and real API evidence remain separate. No one-question clarification capability or full Figma parity is claimed.
+
+
 ## ABC live sandbox evidence and safe failed-line diagnostics — 2026-10-13
 
 The live Vercel backend confirms a successful user-present ABC OAuth
