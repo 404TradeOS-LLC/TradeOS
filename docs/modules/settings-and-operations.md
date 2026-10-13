@@ -362,3 +362,27 @@ Material unit cost until named reviewer approval. Do not expose Vault
 credentials, administrative database URLs, or token values in logs or
 operator examples. The static September 2026 supplier observations are
 not customer-specific live ABC prices.
+
+
+## ABC Supply provider-backed catalog browse — proposed issue #735 slice (2026-10-13)
+
+The distinct ABC Supply Product API lane uses the sandbox Third-Party Aggregator
+\`client_credentials\` grant with \`product.read\`, the same existing sandbox
+app client ID/secret variables, and **never** a customer refresh token. Set
+\`ABC_SUPPLY_CATALOG_BROWSE_ENABLED=true\` only where authorized sandbox
+product credentials are installed. Disabled or unconfigured browsing returns
+503 and does not present test results as prices. \`GET /api/v1/costbook/abc/catalog\`
+requires an authenticated \`costbook.read\` member, is read-only, sends
+\`Cache-Control: no-store\`, and fetches a bounded live provider page without
+database writes. Product data is not retained in TradeOS. The frontend
+\`/costbook/abc-catalog\` is a distinct sandbox, unpriced browse experience.
+
+**ABC data-rights gate:** the provider's April 9, 2026 API Terms of Use
+prohibit building databases/permanent copies absent express permission and
+restrict caching to provider headers. Do not enable durable shared-catalog
+replication, ingestion checkpoints containing payloads, or image storage until
+written ABC permission and display/retention rules are established. Existing
+user-present \`account.read\`/\`pricing.read\` OAuth, review gates and historical
+estimate snapshots remain unchanged. This branch is not production access.
+Sources: https://apidocs.abcsupply.com/third-party-aggregator-integration-track/
+and https://www.abcsupply.com/legal/.
