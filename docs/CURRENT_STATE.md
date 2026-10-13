@@ -1146,8 +1146,8 @@ See `docs/operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md`.
 ## ABC Supply Product API catalog — issue #735 proposed code, not live verified (2026-10-13)
 
 A bounded first-slice implementation is proposed on
-\`feat/abc-catalog-provider-backed-browse-735\`: sandbox
-\`client_credentials\`/\`product.read\` with bearer-token separation from
+`feat/abc-catalog-provider-backed-browse-735`: sandbox
+`client_credentials`/`product.read` with bearer-token separation from
 existing user-present customer pricing, read-only provider-page validation,
 rate/backoff handling, and server-side paginated authenticated Costbook browse.
 The route is disabled by default and writes no SupplierProduct, Material,
