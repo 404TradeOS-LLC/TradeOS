@@ -5,7 +5,7 @@ import test from "node:test";
 const pageUrl = new URL("./page.tsx", import.meta.url);
 const formUrl = new URL("./first-estimate-form.tsx", import.meta.url);
 const dashboardUrl = new URL("../dashboard/page.tsx", import.meta.url);
-const projectActionUrl = new URL("../../../actions/projects.ts", import.meta.url);
+const projectActionUrl = new URL("../../actions/projects.ts", import.meta.url);
 
 async function sources() {
   const [page, form, dashboard, actions] = await Promise.all([
