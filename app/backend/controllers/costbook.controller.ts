@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { CostbookService } from "../../modules/costbook";
 import { RegionalSupplierEvidenceService } from "../../modules/regional-supplier-evidence/service";
+import { getSandboxAbcCatalogClient, isCatalogEnabled } from "../../modules/supplier-integration/abcCatalog";
 import { requireAuthContext, requirePermissions } from "../requestContext";
 import { catalogBooleanQuery, catalogQuerySchema, parseCatalogQuery } from "../../modules/shared/catalog-query";
 
@@ -9,6 +10,14 @@ const service = new CostbookService();
 const regionalSupplierEvidenceService = new RegionalSupplierEvidenceService();
 
 const idParamSchema = z.object({ id: z.string().uuid() });
+const abcCatalogQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(100_000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+  q: z.string().trim().min(1).max(120).optional(),
+  searchBy: z.enum(["itemDescription", "itemNumber"]).optional(),
+  familyId: z.string().trim().min(1).max(120).optional(),
+}).strict();
+
 const maxUnitCost = 99_999_999.9999;
 
 const requiredNumberSchema = z.preprocess(
@@ -214,6 +223,28 @@ const subcategoryUpdateSchema = subcategorySchema.omit({ categoryId: true }).par
 );
 
 export const costbookController = {
+  async abcCatalog(req: Request, res: Response) {
+    requirePermissions(req, ["costbook.read"]);
+    res.setHeader("Cache-Control", "no-store");
+    if (!isCatalogEnabled()) {
+      res.status(503).json({ error: "abc_catalog_browse_disabled", message: "ABC sandbox catalog browsing is not enabled" });
+      return;
+    }
+    const client = getSandboxAbcCatalogClient();
+    if (!client) {
+      res.status(503).json({ error: "abc_catalog_credentials_missing", message: "ABC sandbox catalog credentials are not configured" });
+      return;
+    }
+    const query = abcCatalogQuerySchema.parse(req.query);
+    res.json(await client.list({
+      pageNumber: query.page,
+      itemsPerPage: query.limit,
+      q: query.q,
+      searchBy: query.searchBy,
+      familyId: query.familyId,
+    }));
+  },
+
   async listRegionalSupplierEvidence(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
     const filters = regionalSupplierEvidenceListQuerySchema.parse(req.query);
