@@ -114,3 +114,12 @@ test("selected ABC quote is explicit, account/branch bound, and no-write", async
   assert.match(source, /setAbcSelectedQuote\(\{ state: "idle" \}\)/);
   assert.doesNotMatch(source, /localStorage\.setItem\("abc/);
 });
+
+test("ABC selected quote aborts stale requests when account, branch, or SKU changes", async () => {
+  const source = await readSource("./settings-console.tsx");
+  assert.match(source, /const abcQuoteVersion = useRef\(0\)/);
+  assert.match(source, /abcQuoteAbortRef\.current\?\.abort\(\)/);
+  assert.match(source, /if \(version !== abcQuoteVersion\.current\) return/);
+  assert.match(source, /signal: controller\.signal/);
+  assert.match(source, /resetAbcSelectedQuote\(\)/);
+});

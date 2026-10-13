@@ -1,5 +1,6 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
+import { SharedSupplierCronRateLimitStore } from "./supplierCronRateLimitStore";
 import { supplierIntegrationController as ctrl } from "../controllers/supplierIntegration.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
 
@@ -11,7 +12,10 @@ supplierIntegrationRouter.post("/abc/price-probe", asyncHandler(ctrl.probeAbcSan
 supplierIntegrationRouter.get("/abc/accounts", asyncHandler(ctrl.listAbcSandboxAccounts));
 supplierIntegrationRouter.post(
   "/abc/selected-price-probe",
-  rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false }),
+  rateLimit({
+    store: new SharedSupplierCronRateLimitStore("abc-selected-quote"),
+    windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false,
+  }),
   asyncHandler(ctrl.probeSelectedAbcSandbox),
 );
 supplierIntegrationRouter.get("/queue", asyncHandler(ctrl.listQueue));

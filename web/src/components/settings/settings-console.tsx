@@ -155,6 +155,9 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
     | { state: "ready"; sku: string; priced: boolean; price: number | null; stockingUnit: string | null; providerStatus: string }
     | { state: "needs-authorization" | "error" }
   >({ state: "idle" });
+  const abcQuoteVersion = useRef(0);
+  const abcQuoteAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => { abcQuoteAbortRef.current?.abort(); }, []);
   const selectedAbcAccount = abcAccountDiscovery.state === "ready"
     ? abcAccountDiscovery.accounts.find((account) => account.number === selectedAbcShipTo)
     : undefined;
@@ -332,12 +335,19 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
 
   const selectedSection = sections.find((section) => section.id === selectedSectionId) ?? sections[0];
 
+  function resetAbcSelectedQuote() {
+    abcQuoteVersion.current += 1;
+    abcQuoteAbortRef.current?.abort();
+    abcQuoteAbortRef.current = null;
+    setAbcSelectedQuote({ state: "idle" });
+  }
+
   async function discoverAbcShipToAccounts() {
     if (abcAccountDiscovery.state === "loading") return;
     setAbcAccountDiscovery({ state: "loading" });
     setSelectedAbcShipTo("");
     setSelectedAbcBranch("");
-    setAbcSelectedQuote({ state: "idle" });
+    resetAbcSelectedQuote();
     try {
       const result = await clientFetch<{ accounts: AbcShipToAccountOption[] }>(
         "/api/v1/supplier-integrations/abc/accounts",
@@ -355,6 +365,9 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
 
   async function testSelectedAbcSandboxPrice() {
     if (!selectedAbcAccount || !selectedAbcBranch || abcSelectedQuote.state === "loading") return;
+    const version = ++abcQuoteVersion.current;
+    const controller = new AbortController();
+    abcQuoteAbortRef.current = controller;
     setAbcSelectedQuote({ state: "loading" });
     try {
       const result = await clientFetch<{
@@ -368,7 +381,9 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
           branchNumber: selectedAbcBranch,
           sku: selectedAbcSku,
         }),
+        signal: controller.signal,
       });
+      if (version !== abcQuoteVersion.current) return;
       if (result.materialCreated || result.priceApplied || result.accountPreferenceSaved || result.unitMappingVerified) {
         throw new Error("ABC sandbox quote unexpectedly claimed a stored or trusted price");
       }
@@ -378,8 +393,11 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
         providerStatus: result.providerStatus,
       });
     } catch (error) {
+      if (version !== abcQuoteVersion.current) return;
       setAbcSelectedQuote(error instanceof ClientApiError && error.status === 409
         ? { state: "needs-authorization" } : { state: "error" });
+    } finally {
+      if (abcQuoteAbortRef.current === controller) abcQuoteAbortRef.current = null;
     }
   }
 
@@ -967,7 +985,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                       onChange={(event) => {
                         setSelectedAbcShipTo(event.target.value);
                         setSelectedAbcBranch("");
-                        setAbcSelectedQuote({ state: "idle" });
+                        resetAbcSelectedQuote();
                       }}
                       hint="Showing only accounts returned for your authorized sandbox connection."
                       className="h-11 rounded-xl"
@@ -985,7 +1003,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                       value={selectedAbcBranch}
                       onChange={(event) => {
                         setSelectedAbcBranch(event.target.value);
-                        setAbcSelectedQuote({ state: "idle" });
+                        resetAbcSelectedQuote();
                       }}
                       disabled={!selectedAbcAccount}
                       hint="Branches are limited to those associated with the selected Ship-To account."
@@ -1011,7 +1029,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                           value={selectedAbcSku}
                           onChange={(event) => {
                             setSelectedAbcSku(event.target.value as "654210" | "02GASTZ3WW");
-                            setAbcSelectedQuote({ state: "idle" });
+                            resetAbcSelectedQuote();
                           }}
                         >
                           <option value="02GASTZ3WW">02GASTZ3WW · ABC documentation sample</option>

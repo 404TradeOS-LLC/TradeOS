@@ -46,6 +46,12 @@ jest.mock("../modules/supplier-integration/abcSupply", () => ({
 jest.mock("../modules/supplier-integration/abcAccount", () => ({
   AbcSupplyAccountClient: jest.fn(),
 }));
+jest.mock("../backend/routes/supplierCronRateLimitStore", () => ({
+  SharedSupplierCronRateLimitStore: jest.fn().mockImplementation(() => ({
+    init: jest.fn(),
+    increment: jest.fn(async () => ({ totalHits: 1, resetTime: new Date("2026-10-13T01:00:00Z") })),
+  })),
+}));
 jest.mock("../db/requestSession", () => ({
   runWithBackgroundDatabaseSession: jest.fn((_client: unknown, _input: unknown, operation: () => Promise<unknown>) =>
     operation(),

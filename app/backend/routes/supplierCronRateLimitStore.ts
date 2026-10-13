@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import type { IncrementResponse, Options, Store } from "express-rate-limit";
 import { basePrisma } from "../../db/client";
 
-export type SupplierCronRateLimitNamespace = "authorized" | "unauthorized";
+export type SupplierCronRateLimitNamespace = "authorized" | "unauthorized" | "abc-selected-quote";
 
 /**
  * A shared rate-limit store for horizontally scaled Vercel functions.

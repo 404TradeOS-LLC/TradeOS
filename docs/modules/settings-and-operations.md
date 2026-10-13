@@ -107,6 +107,11 @@ check. No selected account is persisted and no Material, supplier observation,
 price proposal or pending approval is created. Quoted stocking units are
 displayed as provider evidence but are not verified against a canonical
 Material mapping. The existing connection probe remains separate.
+The quote screen cancels in-flight requests when Ship-To, branch or SKU changes
+and ignores stale responses, so a returned amount cannot be shown under a
+different selection. The request budget is shared atomically across Vercel
+instances through the existing protected supplier cron SQL limiter, in a
+separate `abc-selected-quote` namespace; the limiter fails closed.
 Actual successful ABC sandbox pricing requires a user-present grant and
 provider verification; CI alone does not establish it. Production access
 remains subject to ABC Third-Party Aggregator approval (issue #719).
