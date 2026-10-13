@@ -1,3 +1,7 @@
+---
+status: current
+---
+
 # Costbook classification backfill — research evidence
 
 Source data for the 397 rows added to `CANONICAL_MATERIAL_CODES`
@@ -36,8 +40,4 @@ never silently merged.
 
 ## Full packages
 
-The complete research packages (normalization rules JSON, supplier price
-observations, implementation recommendations) live in the workspace goal
-directory, outside the repo:
-
-`~/workspace/goals/tradeos-costbook-data-source-research/files/{framing-lumber,engineered-lumber,fasteners,concrete-masonry,insulation}/`
+The auditable classification CSVs and verification reports are committed here. External working notes and supplier observation material are not included in this repository and are not necessary to reproduce the checked-in classification decisions.
