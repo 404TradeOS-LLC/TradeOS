@@ -25,6 +25,7 @@ jest.mock("../db/requestSession", () => ({
 
 import { fetchConfiguredSupplierFeed, createDefaultSupplierFeedFetcher } from "../modules/supplier-integration/feed";
 import type { SupplierFeedFetcher } from "../modules/supplier-integration/types";
+import { executeBackgroundAttempt } from "../modules/background/retry";
 
 const supplierId = "11111111-1111-4111-8111-111111111111";
 const materialId = "22222222-2222-4222-8222-222222222222";
@@ -222,6 +223,18 @@ describe("default supplier price feed (ABC routing)", () => {
       "ABC unattended customer pricing is disabled",
     );
     expect(global.fetch).not.toHaveBeenCalled();
+    const outcome = await executeBackgroundAttempt({
+      orgId, workerId: "44444444-4444-4444-8444-444444444444",
+      jobName: "supplier-price-sync",
+    }, () => fetcher(abcSupplierId, orgId));
+    expect(outcome).toMatchObject({
+      status: "terminal_failure",
+      failure: {
+        code: "abc_user_present_required",
+        retryable: false,
+        nextAttemptAt: null,
+      },
+    });
     expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
     expect(mockPrisma.$executeRaw).not.toHaveBeenCalled();
     expect(mockPrisma.material.findMany).not.toHaveBeenCalled();

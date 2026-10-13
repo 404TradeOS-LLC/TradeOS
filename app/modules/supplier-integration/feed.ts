@@ -125,8 +125,15 @@ export async function createDurableAbcAuth<T extends AbcSupplyAuthConfig>(
  * request time. Background cron cannot impersonate that user. No env flag,
  * scheduler identity or Vault refresh token grants an exception.
  */
-const ABC_UNATTENDED_PRICING_DISABLED =
-  "ABC unattended customer pricing is disabled: a user-present request is required";
+export class AbcUnattendedPricingError extends Error {
+  readonly code = "abc_user_present_required" as const;
+  readonly retryable = false as const;
+
+  constructor() {
+    super("ABC unattended customer pricing is disabled: a user-present request is required");
+    this.name = "AbcUnattendedPricingError";
+  }
+}
 
 export function createDefaultSupplierFeedFetcher(
   deps: DefaultSupplierFeedDeps = {},
@@ -137,7 +144,7 @@ export function createDefaultSupplierFeedFetcher(
       // The explicit override is a test seam only; a production cron may
       // never use injected credentials or an alternate provider transport.
       if (process.env.NODE_ENV !== "test" || !deps.abcFetcher) {
-        throw new Error(ABC_UNATTENDED_PRICING_DISABLED);
+        throw new AbcUnattendedPricingError();
       }
       return deps.abcFetcher(supplierId, orgId);
     }

@@ -56,8 +56,9 @@ authorized sandbox account/price pair is on record. Do not claim otherwise.
 - [ ] Explicitly demonstrate zero side effects: no account preference
       stored, no Material, PriceObservation, SupplierPriceUpdate or invoice
       rewritten, no stocking-to-purchase UOM mapping certified.
-- [ ] Check tenant isolation: a different organization and a non-owner
-      account cannot access the same customer data or quote route.
+- [ ] Check tenant isolation: a different organization and a role **outside**
+      the owner/admin boundary (for example, member or technician) cannot
+      access the same customer data or quote route. Admins are authorized.
 - [ ] Confirm the scheduled supplier-price worker **does not call ABC**:
       customer pricing requires an active connected user. Other supplier
       sync feeds and the reviewer approval queue must remain independent.
