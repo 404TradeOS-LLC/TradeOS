@@ -206,15 +206,15 @@ export function parseDavisBaconSyncJobSpecs(raw: string | undefined): DavisBacon
     }
     const record = entry as Record<string, unknown>;
     for (const field of ["orgId", "userId", "state", "county"] as const) {
-      if (typeof record[field] !== "string" || (record[field] as string).length === 0) {
+      if (typeof record[field] !== "string" || (record[field] as string).trim().length === 0) {
         throw new Error(`DAVIS_BACON_SYNC_JOBS[${index}].${field} must be a non-empty string`);
       }
     }
     const spec: DavisBaconSyncJobSpec = {
       orgId: record.orgId as string,
       userId: record.userId as string,
-      state: record.state as string,
-      county: record.county as string,
+      state: (record.state as string).trim().toUpperCase(),
+      county: (record.county as string).trim(),
     };
     if (typeof record.label === "string" && record.label.length > 0) spec.label = record.label;
     return spec;
