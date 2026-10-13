@@ -421,4 +421,4 @@ The data-foundation slice does not add replacement catalog models. `SupplierProd
 
 ## Davis-Bacon reference rates (PR #700, pending)
 
-`DavisBaconDetermination` stores tenant-scoped SAM.gov WD metadata and county coverage. `DavisBaconRate` stores versioned, provenance-labeled prevailing-wage floor rows and references its parent by both determination ID and organization ID, enforced by a composite foreign key. Forced row-level security protects reads and writes. These government-contract floors are not commercial estimating prices, and syncing does not reprices existing estimates.
+`DavisBaconDetermination` stores tenant-scoped SAM.gov WD metadata and county coverage. `DavisBaconRate` stores versioned, provenance-labeled prevailing-wage floor rows and references its parent by both determination ID and organization ID, enforced by a composite foreign key. Forced row-level security protects reads and writes. These government-contract floors are not commercial estimating prices, and syncing does not reprice existing estimates.
