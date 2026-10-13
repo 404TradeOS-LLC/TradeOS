@@ -37,9 +37,9 @@
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "cors": "^2.8.5",
-    "dotenv": "^18.0.5",
+    "dotenv": "^18.0.7",
     "express": "^4.22.3",
-    "express-rate-limit": "^8.7.0",
+    "express-rate-limit": "^8.7.1",
     "jose": "^4.15.9",
     "node-cron": "^4.6.0",
     "pdfkit": "^0.20.2",
