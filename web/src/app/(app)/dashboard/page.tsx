@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
 import {
   getDispatchSummary,
   getOrganizationSettings,
@@ -342,6 +344,24 @@ export default async function DashboardPage() {
         todaysJobsCount={scheduleWindow.today.total}
         projectScopeLabel={projectScopeLabel}
       />
+
+      {token && projects.length === 0 ? (
+        <section aria-labelledby="first-estimate-next-step" className="flex flex-col gap-4 rounded-2xl border border-border/80 bg-card p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-copper">Your first job</p>
+            <h2 id="first-estimate-next-step" className="mt-1 font-heading text-xl font-semibold tracking-tight">
+              Start with an estimate, not a setup checklist.
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Describe work you have already quoted. TradeOS will create a Project
+              and open a draft Estimate; company settings and supplier connections can come later.
+            </p>
+          </div>
+          <Link href="/onboarding" className={buttonVariants({ variant: "default", className: "shrink-0" })}>
+            Build first estimate
+          </Link>
+        </section>
+      ) : null}
 
       <TodayCommandBoard
         currentSchedule={currentSchedule}
