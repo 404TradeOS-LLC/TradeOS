@@ -63,6 +63,20 @@ related_code:
 
 # TradeOS Current State
 
+## ABC aggregator unattended-pricing protection — proposed 2026-10-12
+
+ABC's official Third-Party Aggregator policy requires a user present for
+customer-specific price requests. The next governed change protects TradeOS
+against treating a scheduler worker's saved identity or Vault refresh grant
+as user presence: background ABC pricing fails closed before any provider
+request, while the currently implemented owner/admin sandbox connection and
+selected-account read-only quote controls remain available. Other supplier
+cron targets are unaffected. This is policy-hardening code, **not** live ABC
+account/price verification, a Production API entitlement, or permission
+to conduct multi-supplier price comparisons using ABC-derived prices.
+The operator evidence/demo plan lives in
+`docs/operations/ABC_SUPPLY_AGGREGATOR_PRODUCTION_DEMO.md`.
+
 ## ABC sandbox OAuth reauthorization — 2026-10-11
 
 The stored ABC refresh token is gone (0 saved tokens in Vault), and ABC

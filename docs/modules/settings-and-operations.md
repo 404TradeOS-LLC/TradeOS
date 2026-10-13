@@ -78,6 +78,29 @@ missing/mismatched browser-binding cookie), `exchange` (callback client credenti
 the code exchange), or `persist` (refresh-token storage failed). The
 step carries no secrets and the Settings UI behavior is unchanged.
 
+## ABC user-presence / scheduled-pricing compliance guard (2026-10-12)
+
+ABC's Third-Party Aggregator guidance says real customer pricing is
+user-present. Even a valid owner/admin identity in a scheduled worker
+is **not** an active ABC-authenticated person at pricing-request time.
+The default supplier sync now **rejects background ABC pricing before reading
+the Vault refresh token or calling ABC**, with a durable failure outcome
+rather than a silent success or an unsupported supplier price proposal.
+Do not configure the ABC supplier in `SUPPLIER_PRICE_SYNC_JOBS` or enable
+unattended ABC price collection. The Vercel cron remains available for
+other supported supplier feeds, without bypassing existing approval gates.
+For ABC, use an explicit owner/admin action in Settings to list accounts,
+select a Ship-To and branch, then request a read-only sandbox quote.
+No unit mapping or estimate price is certified by the demo.
+
+This is also a **production-access gate**: requesting an ABC Partner
+Developer Production application, providing the required logo and attending
+ABC's integration demo are founder/provider actions, not deployment flags.
+See [ABC aggregator demo and production checklist](../operations/ABC_SUPPLY_AGGREGATOR_PRODUCTION_DEMO.md).
+Official sources:
+https://apidocs.abcsupply.com/getting-started/ and
+https://apidocs.abcsupply.com/third-party-aggregator-integration-track/.
+
 ## ABC Supply Ship-To account discovery API (2026-10-12)
 
 The authenticated `GET /api/v1/supplier-integrations/abc/accounts` endpoint

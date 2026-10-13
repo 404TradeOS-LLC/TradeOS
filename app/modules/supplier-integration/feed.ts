@@ -2,7 +2,7 @@ import { z } from "zod";
 import { prisma } from "../../db/client";
 import type { SupplierFeedFetcher } from "./types";
 import { logInfo } from "../../backend/logging";
-import { AbcSupplyAuth, AbcSupplyPricingClient, createAbcSupplyFeedFetcher, loadAbcSupplyConfig } from "./abcSupply";
+import { AbcSupplyAuth, AbcSupplyPricingClient, loadAbcSupplyConfig } from "./abcSupply";
 import type { AbcSupplyAuthConfig } from "./abcSupply";
 import { abcSupplyRefreshTokenStore } from "./credentialStore";
 import { AbcAccountAuthorizationError } from "./abcAccountAuthorizationError";
@@ -58,8 +58,8 @@ async function readBodyWithinLimit(response: Response): Promise<string> {
  * `npm run db:import-suppliers` (app/scripts/import-suppliers-from-dataset.ts),
  * which derives Supplier rows from the static costbook dataset and prints the
  * supplierCode -> UUID table — do not hand-make the row. When it matches the
- * sync target, the ABC sandbox pricing feed runs (a no-op [] when the
- * ABC_SUPPLY_SANDBOX_* credentials are absent). All other supplier IDs fall
+ * sync target, unattended ABC customer pricing is blocked (even when the
+ * ABC_SUPPLY_SANDBOX_* credentials are present). All other supplier IDs fall
  * through to fetchConfiguredSupplierFeed, preserving existing behavior exactly.
  */
 export interface DefaultSupplierFeedDeps {
@@ -120,28 +120,13 @@ export async function createDurableAbcAuth<T extends AbcSupplyAuthConfig>(
   return { authConfig, auth };
 }
 
-function buildAbcFetcher(): SupplierFeedFetcher {
-  return async (supplierId, orgId) => {
-    const config = loadAbcSupplyConfig();
-    if (!config) return [];
-
-    const { authConfig, auth } = await createDurableAbcAuth(config, orgId, supplierId);
-    const pricing = new AbcSupplyPricingClient(auth, fetch);
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), ABC_FEED_TIMEOUT_MS);
-    try {
-      return await createAbcSupplyFeedFetcher({
-        config: authConfig,
-        auth,
-        pricing,
-        signal: controller.signal,
-      })(supplierId, orgId);
-    } finally {
-      clearTimeout(timeout);
-    }
-  };
-}
+/**
+ * Third-Party Aggregator pricing requires an active, connected user at
+ * request time. Background cron cannot impersonate that user. No env flag,
+ * scheduler identity or Vault refresh token grants an exception.
+ */
+const ABC_UNATTENDED_PRICING_DISABLED =
+  "ABC unattended customer pricing is disabled: a user-present request is required";
 
 export function createDefaultSupplierFeedFetcher(
   deps: DefaultSupplierFeedDeps = {},
@@ -149,7 +134,12 @@ export function createDefaultSupplierFeedFetcher(
   return async (supplierId, orgId) => {
     const abcSupplierId = process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID?.trim();
     if (abcSupplierId && abcSupplierId === supplierId) {
-      return (deps.abcFetcher ?? buildAbcFetcher())(supplierId, orgId);
+      // The explicit override is a test seam only; a production cron may
+      // never use injected credentials or an alternate provider transport.
+      if (process.env.NODE_ENV !== "test" || !deps.abcFetcher) {
+        throw new Error(ABC_UNATTENDED_PRICING_DISABLED);
+      }
+      return deps.abcFetcher(supplierId, orgId);
     }
     return fetchConfiguredSupplierFeed(supplierId, orgId);
   };

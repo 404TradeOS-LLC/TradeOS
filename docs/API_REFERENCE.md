@@ -85,6 +85,19 @@ Price Items requests or creates/approves Materials or prices. Account selection
 and sandbox pricing wiring remain separate reviewed work; ABC production
 aggregator approval is still required for real customer accounts.
 
+## ABC Third-Party Aggregator user-present pricing guard (2026-10-12)
+
+The unattended supplier-price scheduler, Vercel cron and one-shot worker
+**must not request ABC customer-specific pricing**. The default ABC supplier
+feed throws an explicit, fail-closed user-presence error before reading
+Vault credentials, Material rows or invoking ABC. This policy also prevents
+substituting a generic configured HTTPS supplier endpoint for the designated
+ABC supplier. Other authorized non-ABC supplier feeds retain their existing
+behavior. The explicitly user-initiated `/abc/price-probe` and
+`/abc/selected-price-probe` remain sandbox diagnostics, never price writes.
+Restoring ABC unattended pricing requires an ABC-approved use-case and
+separately reviewed architecture, not an environment toggle.
+
 ## ABC Supply selected-account read-only sandbox quote (2026-10-12)
 
 `POST /api/v1/supplier-integrations/abc/selected-price-probe` requires an
