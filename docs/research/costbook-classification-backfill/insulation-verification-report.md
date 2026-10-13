@@ -1,3 +1,7 @@
+---
+status: current
+---
+
 # Insulation — Classification Verification Report
 
 **Date:** 2026-10-08

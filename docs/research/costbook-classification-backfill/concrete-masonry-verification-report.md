@@ -1,3 +1,7 @@
+---
+status: current
+---
+
 # Concrete & Masonry — Classification Verification Report
 
 **Date:** 2026-10-08
