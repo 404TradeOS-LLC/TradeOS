@@ -327,6 +327,8 @@ The repository's CodeQL and frontend code-quality autofix workflows are governed
 
 ### GitHub Actions runtime maintenance
 
+The 2026-10-13 `actions/setup-node` v7.1.0 refresh updates the Node-bootstrap action across 18 existing workflow files. Workflows that already used immutable action SHAs now reference `949feb2413d6458794dcd2491c4babbbce0c15c1`; three existing version-tagged invocations use `v7.1.0`. Node workload versions remain set independently by each job (`20` or `24`). This is an action maintenance change, not a change to CI authority, runtime deployment, environment approval, or secret handling.
+
 `.github/workflows/codeql-autofix.yml` pins `actions/github-script` v9.0.0 by immutable commit SHA. Its script uses only the injected `github`, `context`, and `core` objects; it does not use CommonJS `require('@actions/github')` or redeclare the v9-injected `getOctokit` parameter. This is CI-runtime maintenance only and does not change TradeOS workload runtimes, workflow permissions, product behavior, auth/RLS, schema, or billing semantics.
 
 ### Sprint governance base scope

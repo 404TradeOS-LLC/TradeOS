@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { SupplierIntegrationService } from "../../modules/supplier-integration/service";
-import { probeAbcSandboxPricing } from "../../modules/supplier-integration/abcPricingProbe";
+import { probeAbcSandboxPricing, safeAbcProviderStatusMessage } from "../../modules/supplier-integration/abcPricingProbe";
 import { AbcSupplyAccountClient } from "../../modules/supplier-integration/abcAccount";
 import { AbcAccountAuthorizationError } from "../../modules/supplier-integration/abcAccountAuthorizationError";
 import { AbcSupplyPricingClient, loadAbcSupplyAuthConfig } from "../../modules/supplier-integration/abcSupply";
@@ -270,6 +270,10 @@ export const supplierIntegrationController = {
         currency: eligible ? "USD" : null,
         stockingUnit: eligible ? line!.uom : null,
         providerStatus: line?.statusCode?.slice(0, 48) ?? "no_matching_line",
+        // Share only the same short, privacy-screened failed-line reason as
+        // the existing pilot. Never echo raw provider bodies or credentials.
+        providerStatusMessage: !eligible && line?.statusCode !== "OK"
+          ? safeAbcProviderStatusMessage(line?.statusMessage) : null,
         materialCreated: false, priceApplied: false, accountPreferenceSaved: false,
         unitMappingVerified: false,
       });

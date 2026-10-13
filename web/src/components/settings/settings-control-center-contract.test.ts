@@ -123,3 +123,11 @@ test("ABC selected quote aborts stale requests when account, branch, or SKU chan
   assert.match(source, /signal: controller\.signal/);
   assert.match(source, /resetAbcSelectedQuote\(\)/);
 });
+
+test("selected sandbox diagnostics show only server-screened failed-line explanations", async () => {
+  const source = await readSource("./settings-console.tsx");
+  assert.match(source, /providerStatusMessage: string \| null/);
+  assert.match(source, /providerStatusMessage: result\.providerStatusMessage/);
+  assert.match(source, /ABC says:/);
+  assert.match(source, /No price or account preference was saved/);
+});

@@ -537,6 +537,47 @@ describe("selected ABC sandbox quote enforces account membership and no-write bo
     expect(JSON.stringify(response.body)).not.toContain("private account details");
   });
 
+  it("returns only a safe exact-line ABC failure explanation", async () => {
+    quote.mockResolvedValueOnce([{ id: "selected-review-0", itemNumber: body.sku,
+      statusCode: "Error", statusMessage: "Item not available for this location",
+      currencyCode: "USD", unitPrice: 0 }]);
+    const response = await request(app()).post(path).send(body);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      priced: false, price: null, providerStatus: "Error",
+      providerStatusMessage: "Item not available for this location",
+      priceApplied: false, accountPreferenceSaved: false,
+    });
+  });
+
+  it.each([
+    "Bearer abc-private-token",
+    "Account 2010466-2 is not eligible",
+    "https://abc.example.invalid/retry",
+    "<script>alert(1)</script>",
+  ])("hides unsafe ABC status messages", async (unsafeMessage) => {
+    quote.mockResolvedValueOnce([{ id: "selected-review-0", itemNumber: body.sku,
+      statusCode: "Error", statusMessage: unsafeMessage,
+      currencyCode: "USD", unitPrice: 0 }]);
+    const response = await request(app()).post(path).send(body);
+    expect(response.status).toBe(200);
+    expect(response.body.providerStatusMessage).toBeNull();
+    expect(JSON.stringify(response.body)).not.toContain(unsafeMessage);
+  });
+
+  it("never invents a statusMessage for an unobserved or valid quote", async () => {
+    quote.mockResolvedValueOnce([]);
+    const missing = await request(app()).post(path).send(body);
+    expect(missing.body).toMatchObject({
+      priced: false, providerStatus: "no_matching_line", providerStatusMessage: null,
+    });
+    quote.mockResolvedValueOnce([{ id: "selected-review-0", itemNumber: body.sku,
+      statusCode: "OK", statusMessage: "Priced Successfully",
+      currencyCode: "USD", unitPrice: 12.5, uom: "RL" }]);
+    const valid = await request(app()).post(path).send(body);
+    expect(valid.body).toMatchObject({ priced: true, providerStatusMessage: null });
+  });
+
   it("gives a safe reconnect response if the account grant is stale", async () => {
     search.mockRejectedValue(new AbcAccountAuthorizationError("ABC Search Accounts rejected grant"));
     expect((await request(app()).post(path).send(body)).status).toBe(409);

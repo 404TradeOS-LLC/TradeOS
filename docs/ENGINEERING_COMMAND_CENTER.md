@@ -223,6 +223,8 @@ The manual `Repair RC beta Vercel wiring` workflow is the guarded operational pa
 
 ## Required verification
 
+The October 2026 CI action-refresh lane updates `actions/setup-node` from 7.0.0 to 7.1.0 across the existing GitHub Actions workflows without changing workflow triggers, permissions, target Node workload versions, or the set of protected required checks. SHA-pinned uses advance to `949feb2413d6458794dcd2491c4babbbce0c15c1`; existing version-tagged uses advance to `v7.1.0`. The workflow-security policy and Actions lint checks remain expected supplemental evidence. Documentation ownership checks still require this Command Center, the docs entrypoint, and Repository Governance for workflow edits.
+
 Expected required CI jobs include:
 
 - `Docs consistency` — validates PR-description structure first, then PR-preflight tests, autonomy-reconciliation regressions, and documentation ownership validation;
