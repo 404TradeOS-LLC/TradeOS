@@ -19,6 +19,22 @@ related_code:
 
 # Settings and Operations
 
+## ABC selected-account failed-line explanation (2026-10-13)
+
+The Settings **Test selected ABC price** result now shows a short, screened
+`ABC says:` explanation only when the matching provider line has a
+non-OK status and the API's existing privacy filter accepts it. Opaque
+messages containing customer/Ship-To identifiers, credentials, URLs,
+markup or secrets are replaced with the existing status-only fallback.
+This is a diagnostic aid for provider-eligibility discussions: it does not
+change account/branch validation, OAuth, quote amount eligibility, Material
+cost, pricing approvals or persistent account selection.
+
+Live OAuth and Ship-To discovery succeeded on October 13. SKU `654210`
+still returned an ABC per-line `Error`, not an eligible priced item.
+A valid ABC test item/account must be verified; do not make up pricing or
+request extra OAuth grants merely because a line is ineligible.
+
 ## ABC Supply sandbox OAuth reauthorization (2026-10-11)
 
 Settings → Costbook has a guarded **Connect / Reauthorize ABC** button

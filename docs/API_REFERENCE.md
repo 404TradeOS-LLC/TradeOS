@@ -98,6 +98,24 @@ behavior. The explicitly user-initiated `/abc/price-probe` and
 Restoring ABC unattended pricing requires an ABC-approved use-case and
 separately reviewed architecture, not an environment toggle.
 
+## Selected ABC sandbox line-level error diagnostics (2026-10-13)
+
+The selected-account `POST /api/v1/supplier-integrations/abc/selected-price-probe` now returns
+`providerStatusMessage: string | null` in addition to `providerStatus`.
+For an exactly attributable non-OK provider line, this optional diagnostic is
+disclosed **only** after the existing `safeAbcProviderStatusMessage`
+screening rejects credentials, account/Ship-To numbers, URLs, markup, opaque
+identifiers or excessively long messages. Successful or missing lines and
+unsafe messages return `null`. The status message is never used to qualify
+a line as a price or to map the provider stocking UOM.
+
+Live 2026-10-13 sandbox evidence: OAuth reauthorization completed, account
+discovery HTTP 200, and selected-account pricing requests reached the API
+and completed HTTP 200. SKU `654210` had provider line status `Error`
+in the authenticated Settings UI; **no successful priced line or eligible
+stocking UOM has been verified**. The diagnostic is not proof of a live price
+or ABC Production API entitlement.
+
 ## ABC Supply selected-account read-only sandbox quote (2026-10-12)
 
 `POST /api/v1/supplier-integrations/abc/selected-price-probe` requires an
