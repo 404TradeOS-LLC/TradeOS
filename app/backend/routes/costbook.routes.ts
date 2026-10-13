@@ -10,6 +10,8 @@ import { asyncHandler } from "../middleware/asyncHandler";
 export const costbookRouter = Router();
 
 costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
+// Provider-backed read, no persistent ABC catalog copy or customer-price access.
+costbookRouter.get("/abc/catalog", asyncHandler(ctrl.abcCatalog));
 costbookRouter.get("/supplier-evidence/summary", asyncHandler(ctrl.regionalSupplierEvidenceSummary));
 costbookRouter.get("/supplier-evidence", asyncHandler(ctrl.listRegionalSupplierEvidence));
 costbookRouter.post("/supplier-evidence/import", asyncHandler(ctrl.importRegionalSupplierEvidence));
