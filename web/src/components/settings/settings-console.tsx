@@ -152,7 +152,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
   const [selectedAbcSku, setSelectedAbcSku] = useState<"654210" | "02GASTZ3WW">("02GASTZ3WW");
   const [abcSelectedQuote, setAbcSelectedQuote] = useState<
     | { state: "idle" | "loading" }
-    | { state: "ready"; sku: string; priced: boolean; price: number | null; stockingUnit: string | null; providerStatus: string }
+    | { state: "ready"; sku: string; priced: boolean; price: number | null; stockingUnit: string | null; providerStatus: string; providerStatusMessage: string | null }
     | { state: "needs-authorization" | "error" }
   >({ state: "idle" });
   const abcQuoteVersion = useRef(0);
@@ -372,7 +372,8 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
     try {
       const result = await clientFetch<{
         sku: string; priced: boolean; price: number | null; stockingUnit: string | null;
-        providerStatus: string; materialCreated: boolean; priceApplied: boolean;
+        providerStatus: string; providerStatusMessage: string | null;
+        materialCreated: boolean; priceApplied: boolean;
         accountPreferenceSaved: boolean; unitMappingVerified: boolean;
       }>("/api/v1/supplier-integrations/abc/selected-price-probe", {
         method: "POST",
@@ -391,6 +392,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
         state: "ready", sku: result.sku, priced: result.priced,
         price: result.price, stockingUnit: result.stockingUnit,
         providerStatus: result.providerStatus,
+        providerStatusMessage: result.providerStatusMessage,
       });
     } catch (error) {
       if (version !== abcQuoteVersion.current) return;
@@ -1051,6 +1053,8 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                             {abcSelectedQuote.priced && abcSelectedQuote.price !== null
                               ? `ABC sandbox returned ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(abcSelectedQuote.price)} per ${abcSelectedQuote.stockingUnit ?? "unknown unit"} for ${abcSelectedQuote.sku}.`
                               : `ABC did not return an eligible price for ${abcSelectedQuote.sku} (status: ${abcSelectedQuote.providerStatus}).`}
+                            {!abcSelectedQuote.priced && abcSelectedQuote.providerStatusMessage
+                              ? ` ABC says: ${abcSelectedQuote.providerStatusMessage}.` : ""}
                             {" "}No price or account preference was saved; Material unit mapping was not verified.
                           </p>
                         ) : null}

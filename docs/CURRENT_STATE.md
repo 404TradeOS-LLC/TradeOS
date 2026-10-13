@@ -63,6 +63,23 @@ related_code:
 
 # TradeOS Current State
 
+## ABC live sandbox evidence and safe failed-line diagnostics — 2026-10-13
+
+The live Vercel backend confirms a successful user-present ABC OAuth
+callback, followed by a successful authenticated Search Accounts request
+and two selected-account pricing requests returning HTTP 200 at the HTTP
+boundary. The Settings test for supplier SKU `654210` shows provider
+line status `Error`, with no eligible positive-priced line/UOM.
+Therefore account authorization is proven at the HTTP workflow level,
+but **a valid ABC sandbox priced SKU is not yet proven**.
+
+The next scoped feature allows the browser to show only a short,
+privacy-screened `status.message` from a matching failed ABC Price Items
+line, reusing the older probe's screening. Unsafe/missing text stays
+unavailable, and no Material updates or account preferences are saved.
+Real ABC Production entitlement remains dependent on provider approval.
+
+
 ## ABC sandbox OAuth reauthorization — 2026-10-11
 
 The stored ABC refresh token is gone (0 saved tokens in Vault), and ABC
