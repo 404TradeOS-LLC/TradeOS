@@ -6,7 +6,7 @@ Canonical Figma: https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY
 ## Reconciliation
 
 - Clean main `6096d806782382c987c7e0c15df1da9cb4d30ad4` fetched. Repository, upstream and linked worktree inspected.
-- **EXISTING_WORK_FOUND**: continue draft [PR #731](https://github.com/404TradeOS-LLC/TradeOS/pull/731), branch `feat/p0-first-estimate-quickstart-20261013`; no competing implementation.
+- **EXISTING_WORK_FOUND**: continue open [PR #731](https://github.com/404TradeOS-LLC/TradeOS/pull/731), branch `feat/p0-first-estimate-quickstart-20261013`; no competing implementation.
 - Other open PRs #700 (Davis-Bacon) and #702 (Field contracts) have distinct scope. Closed search surfaced Entry #640 and Settings #575, already merged with different scope.
 - Allowed: first-estimate route/form, dedicated frontend action/workflow/tests and implementation/current-state/handoff docs. Excluded: backend/schema/migrations, auth/RLS policy, pricing/payment authority, dependencies/infrastructure.
 - Acceptance: retain typed scope and confirmed Project on partial failure, reauthorize resume, never repeat creation POSTs on resume, show pending/recovery controls, preserve review-first estimating.
@@ -38,7 +38,7 @@ Cover, Getting Started, Mobile, States and Archive page names were also discover
 ## Maturity and limits
 
 - #731 repair is CODED / locally TESTED at workflow seams. Existing authenticated APIs are wired; actual database integration is unverified.
-- Nine behavioral tests, 489 web tests, ESLint, TypeScript and production build pass. Docs ownership/preflight pass.
+- Ten behavioral tests, 490 web tests, ESLint, TypeScript and production build pass. Docs ownership/preflight pass.
 - Browser plugin runtime is unavailable. Regular Playwright attempted; Chromium v1248 ZIP is invalid. Screenshots/keyboard/console/viewports and authenticated flow evidence remain uncollected.
 - No production data write, OAuth, migration or pricing approval performed. No #731 merge/deployment/production verification claim.
 - Lost first Project response without ID, reload and cross-tab submissions remain limitations. Resume itself repeats neither POST.
@@ -52,3 +52,11 @@ Cover, Getting Started, Mobile, States and Archive page names were also discover
 5. Continue canonical P0/P1 workflow reconciliation; TARGET designs stay open until capability/data contracts support them.
 
 Review continuation: #731 now gates Today/onboarding/action against the backend-reported role and shared canonical CRM write permission. Restricted and permission-unavailable states are explicit; role/write-denial tests added. The independent Entry control repair is on `fix/entry-mobile-control-parity` with 476 passing web tests and clean lint/typecheck/build/docs. Browser evidence remains blocked for both lanes.
+
+## Execution continuation — 2026-10-13
+
+Main reconciled to `8d5b119f`: #733 required integration-job execution fix merged at `acfb78e6`; #734 contextual Athena freshness repair merged at `1c059565`; #732 canonical mobile Entry identity/control geometry merged at `8d5b119f`. All four required checks, branch currency and unresolved-thread gates were verified before those merges. No deployment or rendered-browser certification is claimed.
+
+#731 head `26365ea5` passed all four required checks including real App integration tests. Normal merge was rejected by GitHub: earlier CodeRabbit review `5508322792` remains CHANGES_REQUESTED despite repaired findings and resolved threads. Fresh review was requested; CodeRabbit replied review rate limited. Do not dismiss the review or bypass protections. This branch now inherits merged Scope and Entry work; latest required CI remains pending after reconciliation. The owner or reviewer can provide the protected review disposition after checking the concrete repairs; safest default is wait for a fresh review.
+
+The next independent slice is `fix/universal-create-role-options`, based on current main: role-gated Create entry links using existing backend contracts. It is not merged or live verified. BrowserAct daemon and cloud localhost connectivity failed; isolated Chromium npm tarballs returned HTTP 403. Authenticated responsive, keyboard, live data and production verification remain open across these lanes.
