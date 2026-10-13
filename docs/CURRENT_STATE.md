@@ -115,6 +115,21 @@ models a held request connection with an independent rotation transaction.
 Cross-instance concurrent refresh serialization and live ABC validation are
 separate unverified gates, and this PR is not yet deployed.
 
+## ABC selected-account sandbox quote — proposed 2026-10-12
+
+The next reviewed slice adds a user-initiated, **read-only** selected-account
+price probe. Its API re-fetches the ABC sandbox authorized Ship-To/branch
+relationship on every request and uses the same Vault-backed user grant to
+request one strictly allowlisted sample item with quantity 1. Quotes require
+one matched `OK` line, a positive USD price and provider stocking unit.
+It does not save account preferences, approve a Material price, insert
+observations or validate the provider unit against TradeOS Material mapping.
+The optional ABC documentation sample SKU is not proof that a given sandbox
+account can price it. No user-authorized live account/price evidence was
+available during this implementation; completion of that real-world test
+requires a fresh founder browser authorization and the sandbox response.
+Production API activation requires ABC Third-Party Aggregator approval (#719).
+
 ## ABC sandbox Settings account selector — proposed 2026-10-12
 
 Following the merged read-only Ship-To discovery API, the next proposed web
