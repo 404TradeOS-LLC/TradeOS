@@ -25,3 +25,5 @@ Run web tests, ESLint, TypeScript, production build, docs ownership/preflight an
 5. Verify authenticated Entry → Today; implement boot states only from actual workspace readiness.
 
 Local verification complete: 476/476 web tests pass, ESLint and TypeScript pass, Next.js production build passes after installing worktree-local dependencies, docs ownership/preflight and diff check pass. The first build attempt with a dependency symlink failed Turbopack filesystem-root validation; no source/dependency change was needed. Browser evidence remains blocked.
+
+The password reveal button uses 2px vertical margins inside the 48px field, retaining the canonical 44px touch target instead of shrinking to 40px. Final rendered geometry still needs browser evidence.
