@@ -43,6 +43,11 @@ related_code:
 
 # TradeOS Engineering Command Center
 
+## ABC Supply material activation pilot — 2026-10-09
+
+Production SQL read verification after the 47802 evidence seed reports 3,188 SupplierProducts, 3,188 source price observations, six Suppliers, and **zero active Materials / zero SupplierPriceUpdates**; observations are assigned to one tenant and historical rather than authenticated live ABC quotes. The new protected GitHub Actions workflow `preview-abc-supply-material.yml` makes the existing exact-product activation operator's **read-only** mode available to an owner/admin on mobile using the application user/organization IDs exposed by Settings → Costbook. Actual activation still needs independent SKU/UOM and baseline-cost authorization and explicit `--apply` outside this workflow. Live ABC sandbox quote and durable token rotation remain unproven until a reviewed Material becomes eligible.
+
+
 ## S073 release-critical RLS coverage — READY 2026-10-05
 
 Founder authorization starts S073 from current `main` `37deee0bad44d8c3ca4ad65f7e89d15190d7cae3`. Dependency S051 is DONE and no live S073 implementation lane exists. The implementation target is evidence, not policy redesign: derive every S052-S060 persisted resource from the S051 matrix/current route-service code, map it to current forced-RLS migration/policy evidence, and require disposable-PostgreSQL same-org/cross-org proof. Existing `rls.integration.ts` covers many core records, but direct live coverage is absent for at least customer-portal token/session rows, estimate line items, and invoice line items. If testing exposes a policy defect, record a blocking owner and stop before schema/migration/RLS/auth changes.
@@ -365,3 +370,24 @@ authoritative for that proof.
 
 Founder-authorized operational work adds a bounded import path for the 3,188 verified Terre Haute supplier observations merged in PR #682. The implementation reuses the existing Regional Supplier Evidence service and background database session, creates only supplier records represented by the checked-in corpus, imports in bounded batches, and verifies exactly six suppliers plus 3,188 source products/observations. Source workbook canonical keys are deliberately not trusted during seed; existing governed matcher/review boundaries remain authoritative. The production workflow is manual, confirmation-gated, serialized, and scoped to one explicit organization/user context. No `Material.unitCost`, Estimate pricing, schema, RLS, auth, or numbered-sprint state changes are included.
 
+
+## Assembly Catalog browser-evidence follow-up (issue #518)
+
+PR #709 merged the NAHB/CSI/trade/unit/installation browse facets. The next
+bounded validation lane is the manually triggered
+`.github/workflows/assembly-catalog-browser-evidence.yml`: exact-SHA
+non-production Vercel/Supabase attestation, two real independently logged-in
+members of one sanitized tenant (owner/admin and Costbook read-only), desktop
+1440px and mobile 390px interaction/screenshot evidence. The login helper
+verifies effective Costbook permissions via the non-mutating workspace GET,
+not the Settings path. This is test infrastructure, not evidence of a passing
+hosted run or authorization for production deployment; an operator must supply
+the isolated deployment and two valid role fixtures first.
+
+## ABC Supply Material backfill review (PR #705)
+
+**Current status (PR #705):** The guarded link-only production workflow exists, with bounded per-session pagination, duplicate-SKU and conflicting-link checks, and no promotion of supplier observations into Material costs. No live import or link operation has been authorized. The ABC sandbox pricing result remains unverified; newly created Materials still require the separately reviewed single-product activation path.
+
+## PR #705 bounded linking operator implementation
+
+The protected `.github/workflows/backfill-abc-materials.yml` operator workflow now supports a confirmation-gated, production-environment, restricted-role **link-only** backfill with dry-run enabled by default. The runner processes at most 25 supplier products per tenant-scoped database session, advances by product ID, and links only a unique eligible ABC supplier SKU to an existing active Material with the same supplier, SKU, and purchase unit. It creates no Materials and changes no Material prices; new Materials still require separately reviewed, owner-approved single-product activation. This workflow has not been production-executed or proven by live ABC sandbox pricing.

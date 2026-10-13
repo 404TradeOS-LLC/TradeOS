@@ -1,7 +1,3 @@
----
-status: current
----
-
 # Framing & Lumber — Classification Verification Report
 
 **Date:** 2026-10-08

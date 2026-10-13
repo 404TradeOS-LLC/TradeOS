@@ -78,3 +78,26 @@ test("developer metadata does not claim live health or hidden inventory", async 
   assert.doesNotMatch(page, /healthStatus: "Nominal"/);
   assert.doesNotMatch(page, /project-workspace, ai-estimate-assist, estimate-compare/);
 });
+
+test("ABC error explanations are server-filtered, nullable and do not update prices", async () => {
+  const source = await readSource("./settings-console.tsx");
+  assert.match(source, /providerStatusMessage: result\.providerStatusMessage \?\? null/);
+  assert.match(source, /ABC response: \$\{abcProbe\.providerStatusMessage\}/);
+  assert.match(source, /ABC did not provide a safe item-level explanation/);
+  assert.match(source, /No price was saved or approved/);
+});
+
+test("ABC account selection stays read-only and only uses the authenticated same-origin API", async () => {
+  const source = await readSource("./settings-console.tsx");
+  assert.match(source, /clientFetch<\{ accounts: AbcShipToAccountOption\[\] \}>/);
+  assert.match(source, /"\/api\/v1\/supplier-integrations\/abc\/accounts"/);
+  assert.match(source, /ABC Supply accounts and branches/);
+  assert.match(source, /Find ABC accounts/);
+  assert.match(source, /id="abc-shipto-account"/);
+  assert.match(source, /id="abc-branch"/);
+  assert.match(source, /setSelectedAbcBranch\(""\)/);
+  assert.match(source, /Selection is temporary and read-only/);
+  assert.match(source, /the ABC price test still uses its separately configured sandbox account/);
+  assert.match(source, /abcAccountDiscovery\.state === "needs-authorization"/);
+  assert.doesNotMatch(source, /localStorage\.setItem\("abc/);
+});

@@ -51,16 +51,6 @@ These invariants are enforced in PostgreSQL as well as in application service be
 
 `public._prisma_migrations` is deployment control-plane state rather than application data. It remains writable by the Prisma migration administrator/table owner, has row-level security enabled, and is intentionally outside the runtime application role's table privileges.
 
-## Davis-Bacon wage determinations
-
-`DavisBaconDetermination` and `DavisBaconRate` store organization-scoped
-prevailing-wage reference data obtained from SAM.gov. Determinations are unique
-per `(orgId, wdNumber)` and own their rate rows. They are protected by forced
-row-level security: members can read only their organization’s records, while
-writes require the established application write capability. These rates are
-government-contract wage floors with source provenance; they are not open-market
-labor pricing.
-
 ## Customer
 
 A company-scoped account or homeowner record stored in `Customer`.
@@ -293,6 +283,20 @@ C002 exposes the existing `Material` model through the unified Costbook boundary
 - material unit-cost changes continue to write `MaterialPriceAudit` rows for audit history, but C002 does not introduce a price-history engine or pricing calculations
 - a later follow-up (migration `20260912120000_add_material_active_state`) adds an `isActive` flag to `Material`, matching the C005 Division/Category/Subcategory and existing CostItem/LaborRate soft-delete pattern; deactivating a material (`DELETE /api/v1/costbook/materials/:id`, or a PATCH that sets `isActive`) requires `costbook.manage` and never deletes the row, preserving historical CostItem/Estimate references. `materials_write_policy` already restricted every material write to the `costbook.manage` boundary, so no RLS policy changed.
 
+## Supplier integration credential boundary
+
+Supplier OAuth credentials are operational secrets, not Costbook catalog entities.
+
+- the `Supplier` row keeps only its canonical integration identifier such as `ABC_SUPPLY`; rotated OAuth refresh tokens are not stored in `suppliers.api_integration_key`
+- migration `20261007031500_add_supplier_refresh_token_vault` creates a non-public `tradeos_private` helper boundary over Supabase Vault
+- ABC refresh-token reads/writes require the active organization/user session, an owner/admin membership, and an `ABC_SUPPLY` Supplier belonging to that organization
+- `tradeos_app` receives execute access to the private helpers but no direct read/write privileges on Vault secrets or decrypted-secret views
+- the environment refresh token remains a bootstrap/recovery value; provider rotations replace the durable Vault value before the pricing request continues
+- this credential boundary does not change Material costs, supplier price approval, Estimate pricing, or catalog identity semantics
+- migration `20261011123000_add_abc_oauth_states` creates `abc_oauth_authorization_states` for the user-present reauthorization handshake (issue #711): 10-minute TTL, atomic single-use consume, and only HMAC-SHA256 hashes (keyed with the server-side `ABC_OAUTH_STATE_HMAC_SECRET`) of the state and browser-binding tokens stored at rest
+- the OAuth wrappers are SECURITY DEFINER with no app-role table access; `tradeos_app` receives explicit execute grants via `app/scripts/sql/provision-app-role.sql`
+- the callback is bound to the initiating browser via a short-lived httpOnly/Secure/SameSite=Lax cookie (RFC 6749 section 10.12); the raw binding secret never leaves the browser cookie or server memory, and a mismatched or missing cookie rejects the callback without consuming the state
+
 ## Costbook labor-rates foundation
 
 C003 exposes the existing `LaborRate` model through the unified Costbook boundary.
@@ -414,3 +418,7 @@ S030 uses the existing Job and JobAssignment entities as the dispatcher work que
 The data-foundation slice does not add replacement catalog models. `SupplierProduct.canonicalMaterialKey` remains the supplier-listing → canonical-material bridge. A governed 12-item Terre Haute pilot registry and deterministic matcher can auto-link only unambiguous identities; unresolved products remain unlinked until a `costbook.manage` reviewer explicitly selects a governed pilot key through the supplier-evidence canonical-match route.
 
 `SupplierPriceObservation` remains tenant-scoped under forced RLS. `PriceResolver` is a read model over eligible evidence, not a table: it rejects cross-tenant, incompatible-unit and expired candidates, ranks trust before price, and returns provenance/confidence/freshness with the selected value. Existing `EstimateLineItem.unitCost`/`lineCost` values remain the historical consumption snapshot; the resolver does not rewrite them.
+
+## Davis-Bacon reference rates (PR #700, pending)
+
+`DavisBaconDetermination` stores tenant-scoped SAM.gov WD metadata and county coverage. `DavisBaconRate` stores versioned, provenance-labeled prevailing-wage floor rows and references its parent by both determination ID and organization ID, enforced by a composite foreign key. Forced row-level security protects reads and writes. These government-contract floors are not commercial estimating prices, and syncing does not reprices existing estimates.

@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { prisma } from "../../db/client";
 import type { SupplierFeedFetcher } from "./types";
-import { AbcSupplyAuth, createAbcSupplyFeedFetcher, loadAbcSupplyConfig } from "./abcSupply";
+import { logInfo } from "../../backend/logging";
+import { AbcSupplyAuth, AbcSupplyPricingClient, createAbcSupplyFeedFetcher, loadAbcSupplyConfig } from "./abcSupply";
+import type { AbcSupplyAuthConfig } from "./abcSupply";
+import { abcSupplyRefreshTokenStore } from "./credentialStore";
+import { AbcAccountAuthorizationError } from "./abcAccountAuthorizationError";
 
 const endpointMapSchema = z.record(z.string().uuid(), z.string().url());
 const feedSchema = z.object({
@@ -66,42 +70,73 @@ export interface DefaultSupplierFeedDeps {
 /** Deadline applied to the ABC Supply sandbox route, matching the generic endpoint fetcher. */
 const ABC_FEED_TIMEOUT_MS = 15_000;
 
-/**
- * Refresh token most recently issued by ABC's rotation, retained in memory for
- * the life of this process. Written only by the rotation hook in
- * buildAbcFetcher; never logged.
- */
-let retainedAbcRefreshToken: string | null = null;
-
-function buildAbcFetcher(): SupplierFeedFetcher {
+/** Read-only single-SKU sandbox quote. Uses the SAME durable Vault rotation path as cron. */
+export async function priceOneAbcSandboxSku(
+  orgId: string,
+  supplierId: string,
+  sku: string,
+): Promise<import("./abcSupply").AbcPricedLine[]> {
   const config = loadAbcSupplyConfig();
-  if (!config) return async () => [];
-  // A rotated refresh token is retained in memory for the life of this process
-  // so subsequent syncs keep authenticating instead of resubmitting the
-  // invalidated secret. Durability across restarts still requires the operator
-  // to update the ABC_SUPPLY_SANDBOX_REFRESH_TOKEN secret (rotation is logged
-  // as an error); the token value itself is never logged.
-  const refreshToken = retainedAbcRefreshToken ?? config.refreshToken;
+  if (!config) throw new Error("ABC sandbox credentials are not configured");
+  if (process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID?.trim() !== supplierId) {
+    throw new Error("ABC sandbox supplier does not match configured tenant supplier");
+  }
+  const { authConfig, auth } = await createDurableAbcAuth(config, orgId, supplierId);
+  const pricing = new AbcSupplyPricingClient(auth, fetch);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ABC_FEED_TIMEOUT_MS);
+  try {
+    return await pricing.priceItems(
+      [{ id: "review-0", itemNumber: sku, quantity: 1 }],
+      { branchNumber: authConfig.branchNumber, shipToNumber: authConfig.shipToNumber },
+      controller.signal,
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/** Resolves the durable Vault refresh token, falling back to the env bootstrap token. Exported as a test seam. */
+export async function createDurableAbcAuth<T extends AbcSupplyAuthConfig>(
+  config: T,
+  orgId: string,
+  supplierId: string,
+) {
+  const durableRefreshToken = await abcSupplyRefreshTokenStore.load(orgId, supplierId);
+  // The durable Vault credential is authoritative. The env token is only a
+  // bootstrap/recovery fallback. When neither exists, fail closed instead of
+  // calling ABC with an empty credential.
+  const refreshToken = durableRefreshToken ?? config.refreshToken;
+  if (!refreshToken) {
+    throw new AbcAccountAuthorizationError("ABC sandbox refresh token is not configured");
+  }
   const authConfig = { ...config, refreshToken };
   const auth = new AbcSupplyAuth(authConfig, fetch, Date.now, {
-    onRefreshTokenRotated: (next) => {
-      retainedAbcRefreshToken = next;
-      // eslint-disable-next-line no-console
-      console.error(
-        "[supplier-integration] ABC Supply refresh token rotated — in-memory token updated for this process; update the ABC_SUPPLY_SANDBOX_REFRESH_TOKEN secret or the feed will stop authenticating after a restart",
-      );
+    onRefreshTokenRotated: async (next) => {
+      await abcSupplyRefreshTokenStore.persist(orgId, supplierId, next);
+      logInfo("supplier_integration.abc_refresh_token_rotated", { orgId, supplierId, persisted: true });
     },
   });
+  return { authConfig, auth };
+}
+
+function buildAbcFetcher(): SupplierFeedFetcher {
   return async (supplierId, orgId) => {
-    // Same 15-second deadline as the generic endpoint fetcher: a stalled ABC
-    // token or pricing request must not hold the scheduler/worker indefinitely.
+    const config = loadAbcSupplyConfig();
+    if (!config) return [];
+
+    const { authConfig, auth } = await createDurableAbcAuth(config, orgId, supplierId);
+    const pricing = new AbcSupplyPricingClient(auth, fetch);
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), ABC_FEED_TIMEOUT_MS);
     try {
-      return await createAbcSupplyFeedFetcher({ config: authConfig, auth, signal: controller.signal })(
-        supplierId,
-        orgId,
-      );
+      return await createAbcSupplyFeedFetcher({
+        config: authConfig,
+        auth,
+        pricing,
+        signal: controller.signal,
+      })(supplierId, orgId);
     } finally {
       clearTimeout(timeout);
     }

@@ -31,12 +31,20 @@ async function handle(request: NextRequest, segments: string[]): Promise<Respons
   });
 
   const text = await upstream.text();
+  const headers = new Headers({
+    "Content-Type": upstream.headers.get("content-type") ?? "application/json",
+    "Cache-Control": "no-store",
+  });
+  // Forward upstream Set-Cookie headers (e.g. the ABC OAuth browser-binding
+  // cookie set by POST /api/v1/supplier-integrations/abc/oauth/authorize).
+  // The backend is first-party and trusted; without this the browser never
+  // receives server-set cookies issued through the proxy.
+  for (const setCookie of upstream.headers.getSetCookie()) {
+    headers.append("Set-Cookie", setCookie);
+  }
   return new Response(text || null, {
     status: upstream.status,
-    headers: {
-      "Content-Type": upstream.headers.get("content-type") ?? "application/json",
-      "Cache-Control": "no-store",
-    },
+    headers,
   });
 }
 

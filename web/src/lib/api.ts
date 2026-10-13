@@ -249,6 +249,9 @@ export interface CostbookMaterial {
   wasteFactorPct: number;
   supplierId: string | null;
   supplierName: string | null;
+  // Material codes are nullable and may be absent during phased API rollout.
+  omniclass23?: string | null;
+  unspsc?: string | null;
   lastPriceUpdate: string | null;
   isActive: boolean;
   createdAt: string;

@@ -4,6 +4,7 @@ import { CreditCard } from "lucide-react";
 import { SettingsConsole } from "@/components/settings/settings-console";
 import { getOrganizationSettings } from "@/lib/api";
 import { mergeTradeOsSettingsDraft } from "@/lib/settings";
+import { resolveSupplierWorkflowIdentity } from "@/lib/supplierWorkflowIdentity";
 import { getSessionToken } from "@/lib/session";
 
 export const metadata: Metadata = {
@@ -11,13 +12,24 @@ export const metadata: Metadata = {
   description: "TradeOS Control Center for company administration, branding, AI, estimating, security, and platform operations.",
 };
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ abc_oauth?: string | string[] }>;
+}) {
   const token = await getSessionToken();
   const persisted = token ? await getOrganizationSettings(token) : null;
+  const supplierWorkflowIdentity = resolveSupplierWorkflowIdentity(persisted);
   const gitCommit =
     process.env.VERCEL_GIT_COMMIT_SHA ??
     process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
     "local-dev";
+  // Server-read OAuth result flag: passed as a prop so the server render and
+  // the client hydration agree (reading window.location in the client would
+  // produce a hydration mismatch).
+  const rawAbcOAuth = (await searchParams).abc_oauth;
+  const initialAbcOAuthResult =
+    rawAbcOAuth === "success" || rawAbcOAuth === "error" ? rawAbcOAuth : null;
 
   return (
     <>
@@ -31,8 +43,10 @@ export default async function SettingsPage() {
         </Link>
       </div>
       <SettingsConsole
+        supplierWorkflowIdentity={supplierWorkflowIdentity}
         initialDraft={mergeTradeOsSettingsDraft(persisted?.settings)}
         persistedSettingKeys={Object.keys(persisted?.settings ?? {})}
+        initialAbcOAuthResult={initialAbcOAuthResult}
         initialWorkspaceData={{
           currentRole: persisted?.currentRole ?? "technician",
           canManageWorkspace: persisted?.canManageWorkspace ?? false,

@@ -5,6 +5,12 @@ import type { CustomerPortalContext } from "../modules/customer-portal/service";
 import { getRolePermissions, normalizeRole, SupportedRole } from "../domain";
 
 const requestDatabase = new AsyncLocalStorage<Prisma.TransactionClient>();
+const sessionActor = new AsyncLocalStorage<AuthContext>();
+
+/** Only actors established by a validated request or background session are exposed. */
+export function getCurrentDatabaseSessionActor(): AuthContext | undefined {
+  return sessionActor.getStore();
+}
 
 export function getRequestDatabaseClient(): Prisma.TransactionClient | undefined {
   return requestDatabase.getStore();
@@ -37,7 +43,7 @@ export async function runWithDatabaseSession<T>(
           set_config('app.session_source', ${sessionSource}, true)
       `);
 
-      return requestDatabase.run(transaction, operation);
+      return requestDatabase.run(transaction, () => sessionActor.run(auth, operation));
     },
     { maxWait, timeout }
   );

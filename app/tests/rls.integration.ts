@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Prisma, PrismaClient } from "@prisma/client";
 import {
   getRequestDatabaseClient,
@@ -11,6 +12,10 @@ import { OrganizationProvisioningService } from "../modules/organization-provisi
 import { MaterialDatabaseService } from "../modules/material-database/service";
 import { SupplierIntegrationService } from "../modules/supplier-integration/service";
 import { runSupplierPriceSyncJob } from "../modules/supplier-integration/worker";
+import {
+  consumeAuthorizationState,
+  createAuthorizationState,
+} from "../modules/supplier-integration/abcOAuth";
 import { AssembliesDatabaseService } from "../modules/assemblies-database/service";
 import { ProposalsService } from "../modules/proposals/service";
 import { EstimateEngineService } from "../modules/estimate-engine/service";
@@ -101,6 +106,7 @@ const generationReviewViewer = "10000000-0000-0000-0000-000000000127";
 const generationTechnician = "10000000-0000-0000-0000-000000000128";
 const generationReviewTechnician = "10000000-0000-0000-0000-000000000129";
 const portalContractA = "10000000-0000-0000-0000-000000000206";
+
 const davisBaconDeterminationA = "rls-davis-bacon-determination-a";
 const davisBaconDeterminationB = "rls-davis-bacon-determination-b";
 const davisBaconRateA = "rls-davis-bacon-rate-a";
@@ -1645,6 +1651,81 @@ describe("live organization row-level security", () => {
     );
     expect(audits).toHaveLength(1);
     expect(audits[0]).toMatchObject({ oldUnitCost: expect.anything(), actorRole: "admin" });
+  });
+
+  it("grants the restricted role execute on the ABC OAuth state wrappers with tenant binding", async () => {
+    const stateHash = `it-state-${randomUUID()}`;
+    const bindingHash = `it-binding-${randomUUID()}`;
+    const callbackUri = "https://api.404tradeos.com/api/v1/supplier-integrations/abc/oauth/callback";
+
+    // Without the provision-app-role.sql grants, every call below fails with
+    // "permission denied for function" under the restricted connection.
+    await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().$executeRaw(Prisma.sql`
+        select tradeos_private.create_abc_oauth_state(
+          ${orgA}::uuid, ${adminUser}::uuid, ${supplierA}::uuid,
+          ${stateHash}, ${"it-verifier"}, ${callbackUri}, ${bindingHash}, 600
+        )`),
+    );
+
+    // A wrong browser binding does not consume the state (RFC 6749 section 10.12).
+    const mismatched = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().$queryRaw<Array<{ org_id: string }>>(Prisma.sql`
+        select org_id from tradeos_private.consume_abc_oauth_state(${stateHash}, ${"wrong-binding"})`),
+    );
+    expect(mismatched).toHaveLength(0);
+
+    // The correct binding consumes exactly once and returns the tenant context.
+    const consumed = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().$queryRaw<Array<{ org_id: string; user_id: string; supplier_id: string }>>(Prisma.sql`
+        select org_id, user_id, supplier_id
+        from tradeos_private.consume_abc_oauth_state(${stateHash}, ${bindingHash})`),
+    );
+    expect(consumed).toHaveLength(1);
+    expect(consumed[0]).toMatchObject({ org_id: orgA, user_id: adminUser, supplier_id: supplierA });
+
+    // Replay returns nothing.
+    const replay = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().$queryRaw<Array<{ org_id: string }>>(Prisma.sql`
+        select org_id from tradeos_private.consume_abc_oauth_state(${stateHash}, ${bindingHash})`),
+    );
+    expect(replay).toHaveLength(0);
+
+    // Creation rejects a tenant session that does not match the parameters.
+    await expect(
+      inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().$executeRaw(Prisma.sql`
+          select tradeos_private.create_abc_oauth_state(
+            ${orgB}::uuid, ${adminUser}::uuid, ${supplierA}::uuid,
+            ${`it-other-${randomUUID()}`}, ${"v"}, ${callbackUri}, ${"b"}, 600
+          )`),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("creates ABC OAuth states through the module path only inside a tenant session", async () => {
+    process.env.ABC_OAUTH_STATE_HMAC_SECRET = "integration-test-hmac-secret-not-a-real-secret";
+    const request = { orgId: orgA, userId: adminUser, supplierId: supplierA };
+
+    // Regression: the authorize endpoint 500'd in production because the TTL
+    // reached Postgres as bigint while the wrapper takes integer (42883). The
+    // module path must also fail closed without a tenant session, per the
+    // wrapper's contract.
+    await expect(createAuthorizationState(request)).rejects.toThrow();
+
+    // Inside the request's tenant session (as the endpoint now does), the module
+    // path creates the state and the callback path consumes it exactly once.
+    const created = await inSession(adminUser, orgA, "admin", () => createAuthorizationState(request));
+    expect(created.state).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(created.codeChallenge).toBeTruthy();
+    expect(created.browserBinding).toBeTruthy();
+
+    const consumed = await consumeAuthorizationState(created.state, created.browserBinding);
+    expect(consumed).toMatchObject({ orgId: orgA, userId: adminUser, supplierId: supplierA });
+    expect(consumed?.codeVerifier).toBeTruthy();
+
+    // Single-use: a second consume returns nothing.
+    await expect(consumeAuthorizationState(created.state, created.browserBinding)).resolves.toBeNull();
   });
 
   it("enforces supplier write permissions and protects suppliers with price update history from deletion", async () => {

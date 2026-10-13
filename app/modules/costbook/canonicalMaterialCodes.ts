@@ -841,7 +841,7 @@ export const CANONICAL_MATERIAL_CODES: Readonly<Record<string, CanonicalMaterial
   "FAST-NAIL-COLLATED-SIDING-15DEG-1_7-8-3_6M": {
     unspsc: "31162006", unspscTitle: "Wire nails", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Collated siding nails are wire nails; collation is packaging. No verified rule; left unmapped per policy. Fasteners; commodity verified in UNSPSC Codeset v8.1201.",
+    note: "Collated siding nails are wire nails; collation is packaging. UNSPSC 31162006 Wire nails verified in Codeset v8.1201.",
   },
   "FAST-NAIL-FINISH-15GA-DA-2_1-2-4M": {
     unspsc: "31162003", unspscTitle: "Finishing nails", status: "mapped",
@@ -1681,9 +1681,9 @@ export const CANONICAL_MATERIAL_CODES: Readonly<Record<string, CanonicalMaterial
     note: "Batt/roll form. Class 30141500 Thermal insulation; WRB rows stay ambiguous (no WRB commodity).",
   },
   "INSUL-FOAM-GUN-GREATSTUFF-PRO-24OZ": {
-    unspsc: "30141507", unspscTitle: "Rigid board insulation", status: "mapped",
+    unspsc: "30141503", unspscTitle: "Foam insulation", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Rigid board form; XPS/polyiso/EPS are material attributes. Class 30141500 Thermal insulation; WRB rows stay ambiguous (no WRB commodity).",
+    note: "Gun-applied expanding insulating foam sealant; UNSPSC 30141503 Foam insulation.",
   },
   "INSUL-FOAM-POLYISO-1IN-4X8": {
     unspsc: "30141507", unspscTitle: "Rigid board insulation", status: "mapped",

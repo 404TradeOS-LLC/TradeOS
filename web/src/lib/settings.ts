@@ -68,6 +68,8 @@ export interface TradeOsSettingsDraft {
 
 export interface OrganizationSettingsResponse {
   orgId: string;
+  /** Backend-authenticated AppUser ID; absent on older backend deployments. */
+  currentUserId?: string;
   settings: Partial<TradeOsSettingsDraft>;
   updatedAt: string | null;
   currentRole: string;

@@ -56,6 +56,7 @@ export class OrganizationSettingsService {
 
     return {
       orgId,
+      currentUserId: auth.userId,
       updatedAt: row?.updatedAt ?? null,
       currentRole: normalizeRole(auth.role),
       canManageWorkspace,
@@ -109,6 +110,7 @@ export class OrganizationSettingsService {
 
     return {
       orgId,
+      currentUserId: auth.userId,
       updatedAt: row.updatedAt,
       currentRole: normalizeRole(auth.role),
       canManageWorkspace: auth.role === "owner" || auth.role === "admin",

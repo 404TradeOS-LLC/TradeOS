@@ -1,77 +1,68 @@
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+const { resolveRestrictedDatabaseUrl } = require("../scripts/derive-restricted-database-url.cjs");
+const workflow = fs.readFileSync(path.resolve(__dirname,
+  "../../.github/workflows/seed-costbook-supplier-prices-47802.yml"), "utf8");
+const abcWorkflow = fs.readFileSync(path.resolve(__dirname,
+  "../../.github/workflows/backfill-abc-materials.yml"), "utf8");
 
-const workflow = fs.readFileSync(
-  path.resolve(__dirname, "../../.github/workflows/seed-costbook-supplier-prices-47802.yml"),
-  "utf8"
-);
-const restrictedRoleCommand = workflow.match(/DATABASE_URL="\$\(node -e '([^']+)'\)"/)?.[1];
-
-function derivedUrl(admin: string, role: string): URL {
-  if (!restrictedRoleCommand) throw new Error("Missing guarded restricted-role fallback in seed workflow");
-  return new URL(execFileSync(process.execPath, ["-e", restrictedRoleCommand], {
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      DATABASE_ADMIN_URL: admin,
-      APP_DB_ROLE_NAME: role,
-      APP_DB_ROLE_PASSWORD: "test-restricted-password",
-    },
+function resolved(admin: string, role = "tradeos_app"): URL {
+  return new URL(resolveRestrictedDatabaseUrl({
+    DATABASE_ADMIN_URL: admin, APP_DB_ROLE_NAME: role, APP_DB_ROLE_PASSWORD: "test-restricted-password",
   }));
 }
 
-describe("production supplier seed restricted database credentials", () => {
-  it("derives a role-specific URL without changing host/database/schema", () => {
-    const url = derivedUrl(
-      "postgresql://postgres:admin-test@db.example.invalid:5432/tradeos?schema=public",
-      "tradeos_app"
-    );
+describe("shared restricted-role database URL resolver", () => {
+  it("preserves host, schema, and database for direct PostgreSQL", () => {
+    const url = resolved("postgresql://postgres:admin@db.example.invalid:5432/tradeos?schema=public");
     expect(url.username).toBe("tradeos_app");
     expect(url.password).toBe("test-restricted-password");
     expect(url.hostname).toBe("db.example.invalid");
     expect(url.pathname).toBe("/tradeos");
     expect(url.searchParams.get("schema")).toBe("public");
   });
-
-  it("preserves the Supavisor project suffix for restricted session-pooler connections", () => {
-    const url = derivedUrl(
-      "postgresql://postgres.exampleprojectref:admin@aws-1-us-west-2.pooler.supabase.com:5432/tradeos?schema=public",
-      "tradeos_app"
-    );
+  it("preserves the Supavisor session pooler project suffix", () => {
+    const url = resolved("postgresql://postgres.exampleprojectref:admin@aws-1-us-west-2.pooler.supabase.com:5432/tradeos");
     expect(url.username).toBe("tradeos_app.exampleprojectref");
     expect(url.hostname).toBe("aws-1-us-west-2.pooler.supabase.com");
     expect(url.port).toBe("5432");
-    expect(url.password).toBe("test-restricted-password");
   });
-
-  it("fails closed rather than guessing a project suffix for a malformed pooler username", () => {
-    expect(() => derivedUrl(
-      "postgresql://postgres:admin@aws-1-us-west-2.pooler.supabase.com:5432/tradeos",
-      "tradeos_app"
-    )).toThrow();
+  it("accepts an explicitly restricted application connection", () => {
+    const url = resolveRestrictedDatabaseUrl({
+      DATABASE_URL: "postgresql://tradeos_app:pw@db.example.invalid:5432/tradeos",
+    });
+    expect(new URL(url).username).toBe("tradeos_app");
   });
-
-  it("rejects use of the administrative identity as the application role", () => {
-    expect(() => derivedUrl("postgresql://postgres:admin@db.example.invalid/db", "postgres")).toThrow();
-    expect(() => derivedUrl("postgresql://admin:admin@db.example.invalid/db", "admin")).toThrow();
-    expect(() => derivedUrl("postgresql://admin.exampleprojectref:admin@aws-1-us-west-2.pooler.supabase.com:5432/db", "admin")).toThrow();
+  it("rejects direct admin identities or malformed pooling users", () => {
+    expect(() => resolveRestrictedDatabaseUrl({
+      DATABASE_URL: "postgresql://postgres:pw@db.example.invalid/tradeos",
+    })).toThrow();
+    expect(() => resolveRestrictedDatabaseUrl({
+      DATABASE_URL: "postgresql://tradeos_app:pw@aws-1.pooler.supabase.com/tradeos",
+    })).toThrow();
+    expect(() => resolved("postgresql://postgres:pw@aws-1.pooler.supabase.com/tradeos")).toThrow();
+    expect(() => resolved("postgresql://postgres:pw@db.example.invalid/tradeos", "postgres")).toThrow();
+    expect(() => resolved("postgresql://admin:pw@db.example.invalid/tradeos", "admin")).toThrow();
+    expect(() => resolved("https://postgres:pw@db.example.invalid/tradeos")).toThrow();
+    expect(() => resolved("postgresql://postgres:pw@db.example.invalid/tradeos", "invalid role")).toThrow();
   });
-
-  it("defaults to tradeos_app when the optional role override is blank", () => {
-    const url = derivedUrl("postgresql://postgres:admin@db.example.invalid/db", "");
-    expect(url.username).toBe("tradeos_app");
+  it("rejects project-suffix mismatches and missing credentials", () => {
+    expect(() => resolveRestrictedDatabaseUrl({
+      DATABASE_URL: "postgresql://tradeos_app.otherproject:pw@aws-1.pooler.supabase.com/db",
+      DATABASE_ADMIN_URL: "postgresql://postgres.correctproject:pw@aws-1.pooler.supabase.com/db",
+    })).toThrow();
+    expect(() => resolveRestrictedDatabaseUrl({})).toThrow();
   });
-
-  it("rejects invalid role names and non-Postgres URL protocols", () => {
-    expect(() => derivedUrl("postgresql://postgres:admin@db.example.invalid/db", "bad role")).toThrow();
-    expect(() => derivedUrl("https://postgres:admin@db.example.invalid/db", "tradeos_app")).toThrow();
-  });
-
-  it("retains the absent-secret and admin-URL fail-closed guards", () => {
-    expect(workflow).toContain('-z "${APP_DB_ROLE_PASSWORD:-}"');
-    expect(workflow).toContain('"$DATABASE_URL" == "$DATABASE_ADMIN_URL"');
-    expect(workflow).toContain("environment: production");
+  it("uses the exact shared resolver in both protected workflows", () => {
+    for (const content of [workflow, abcWorkflow]) {
+      expect(content).toContain("node scripts/derive-restricted-database-url.cjs");
+      expect(content).toContain("environment: production");
+      expect(content).toContain("persist-credentials: false");
+      expect(content).not.toContain("node -e 'const u");
+    }
     expect(workflow).toContain("IMPORT_47802_SUPPLIER_EVIDENCE");
+    expect(abcWorkflow).toContain("LINK_EXISTING_ABC_MATERIALS");
+    expect(abcWorkflow).toContain("default: true");
+    expect(abcWorkflow).toContain("tests/backfill-abc-materials.test.ts");
   });
 });

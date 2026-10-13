@@ -42,3 +42,55 @@ grant execute on all functions in schema public to :"role_name";
 alter default privileges in schema public grant select, insert, update, delete on tables to :"role_name";
 alter default privileges in schema public grant usage, select on sequences to :"role_name";
 alter default privileges in schema public grant execute on functions to :"role_name";
+
+-- Private operational helpers are not part of the Data API/public schema.
+-- Keep this conditional so standalone role provisioning still works before a
+-- deployment has applied the supplier-credential migration. Grant only the two
+-- reviewed helper signatures rather than every future function in the schema.
+select format('grant usage on schema tradeos_private to %I', :'role_name')
+where exists (select 1 from pg_namespace where nspname = 'tradeos_private')
+\gexec
+
+select format(
+  'grant execute on function tradeos_private.get_abc_supply_refresh_token(uuid, uuid) to %I',
+  :'role_name'
+)
+where to_regprocedure('tradeos_private.get_abc_supply_refresh_token(uuid,uuid)') is not null
+\gexec
+
+select format(
+  'grant execute on function tradeos_private.put_abc_supply_refresh_token(uuid, uuid, text) to %I',
+  :'role_name'
+)
+where to_regprocedure('tradeos_private.put_abc_supply_refresh_token(uuid,uuid,text)') is not null
+\gexec
+
+-- The Vercel Cron limiter shares one atomic budget between function instances.
+-- The app role can execute only this private wrapper, never write its table.
+select format(
+  'grant execute on function tradeos_private.consume_supplier_cron_rate_limit(text, integer) to %I',
+  :'role_name'
+)
+where to_regprocedure('tradeos_private.consume_supplier_cron_rate_limit(text,integer)') is not null
+\gexec
+
+-- ABC OAuth reauthorization states (issue #711). The migration revokes the
+-- default PUBLIC execute privilege on both wrappers, so the app role needs
+-- explicit grants or the authorize/callback endpoints fail with
+-- "permission denied for function" under the restricted connection. The
+-- role can only create states bound to its active tenant session and
+-- consume them through the SECURITY DEFINER wrappers; it never touches the
+-- state table directly.
+select format(
+  'grant execute on function tradeos_private.create_abc_oauth_state(uuid, uuid, uuid, text, text, text, text, integer) to %I',
+  :'role_name'
+)
+where to_regprocedure('tradeos_private.create_abc_oauth_state(uuid,uuid,uuid,text,text,text,text,integer)') is not null
+\gexec
+
+select format(
+  'grant execute on function tradeos_private.consume_abc_oauth_state(text, text) to %I',
+  :'role_name'
+)
+where to_regprocedure('tradeos_private.consume_abc_oauth_state(text,text)') is not null
+\gexec

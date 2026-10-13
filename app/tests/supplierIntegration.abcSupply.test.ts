@@ -21,7 +21,9 @@ function tokenResponse(overrides: Record<string, unknown> = {}) {
 }
 
 function priceResponse(lines: unknown[]) {
-  return { requestId: "r1", lines };
+  // The provider request ID is optional; a dedicated regression below
+  // verifies that a present but mismatched ID fails closed.
+  return { lines };
 }
 
 function okLine(id: string, unitPrice: number) {
@@ -29,6 +31,7 @@ function okLine(id: string, unitPrice: number) {
     id,
     itemNumber: `ITEM-${id}`,
     unitPrice,
+    uom: "SQ",
     currency: { code: "USD", symbol: "$" },
     status: { code: "OK", message: "Priced Successfully" },
   };
@@ -123,6 +126,79 @@ describe("AbcSupplyAuth", () => {
     expect(onRefreshTokenRotated).toHaveBeenCalledWith("rt-new");
   });
 
+  it("awaits refresh-token persistence and reuses the rotated token on the next refresh", async () => {
+    let nowMs = 1_000_000;
+    const refreshBodies: string[] = [];
+    const onRefreshTokenRotated = jest.fn(async () => undefined);
+    const fetchFn = jest.fn(async (_url: string, init?: RequestInit) => {
+      refreshBodies.push(String(init?.body));
+      const first = refreshBodies.length === 1;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => tokenResponse(first ? { refresh_token: "rt-new" } : {}),
+      } as Response;
+    });
+    const auth = new AbcSupplyAuth(
+      config,
+      fetchFn as unknown as typeof fetch,
+      () => nowMs,
+      { onRefreshTokenRotated },
+    );
+
+    await auth.getPricingToken();
+    nowMs += 1800 * 1000;
+    await auth.getPricingToken();
+
+    expect(onRefreshTokenRotated).toHaveBeenCalledTimes(1);
+    expect(new URLSearchParams(refreshBodies[0]).get("refresh_token")).toBe("rt");
+    expect(new URLSearchParams(refreshBodies[1]).get("refresh_token")).toBe("rt-new");
+  });
+
+  it("does not return an access token until a rotated refresh token is durably persisted", async () => {
+    let releasePersist!: () => void;
+    let notifyPersistStarted!: () => void;
+    const persistGate = new Promise<void>((resolve) => { releasePersist = resolve; });
+    const persistStarted = new Promise<void>((resolve) => { notifyPersistStarted = resolve; });
+    const fetchFn = mockFetch(() => tokenResponse({ refresh_token: "rt-new" }));
+    const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch, Date.now, {
+      onRefreshTokenRotated: async () => {
+        notifyPersistStarted();
+        await persistGate;
+      },
+    });
+
+    let resolved = false;
+    const request = auth.getPricingToken().then(() => { resolved = true; });
+    await persistStarted;
+    await Promise.resolve();
+    expect(resolved).toBe(false);
+    releasePersist();
+    await request;
+    expect(resolved).toBe(true);
+  });
+
+  it("retries using the original refresh token if persistence rejects", async () => {
+    const refreshTokens: string[] = [];
+    const fetchFn = jest.fn(async (_url: string, init?: RequestInit) => {
+      refreshTokens.push(new URLSearchParams(String(init?.body)).get("refresh_token") ?? "");
+      return { ok: true, status: 200, json: async () => tokenResponse({ refresh_token: "rt-new" }) } as Response;
+    });
+    const onRefreshTokenRotated = jest.fn()
+      .mockRejectedValueOnce(new Error("Vault persistence unavailable"))
+      .mockResolvedValue(undefined);
+    const auth = new AbcSupplyAuth(
+      config,
+      fetchFn as unknown as typeof fetch,
+      Date.now,
+      { onRefreshTokenRotated },
+    );
+
+    await expect(auth.getPricingToken()).rejects.toThrow("Vault persistence unavailable");
+    await expect(auth.getPricingToken()).resolves.toBeTruthy();
+    expect(refreshTokens).toEqual(["rt", "rt"]);
+  });
+
   it("forwards the abort signal to the token request", async () => {
     const fetchFn = mockFetch(() => tokenResponse());
     const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch);
@@ -167,7 +243,7 @@ describe("AbcSupplyPricingClient", () => {
 
   it("posts to the sandbox Price Items endpoint with purpose estimating", async () => {
     const { pricing, seen } = pricingTestSetup((body) =>
-      priceResponse([okLine(body.lines[0].id, 135.36)]),
+      priceResponse([{ ...okLine(body.lines[0].id, 135.36), itemNumber: body.lines[0].itemNumber }]),
     );
     const priced = await pricing.priceItems([{ id: "line-0", itemNumber: "02GASTZ3WW", quantity: 1 }], {
       branchNumber: "579",
@@ -188,6 +264,7 @@ describe("AbcSupplyPricingClient", () => {
         itemNumber: "02GASTZ3WW",
         quantity: 1,
         unitPrice: 135.36,
+        uom: "SQ",
         currencyCode: "USD",
         statusCode: "OK",
         statusMessage: "Priced Successfully",
@@ -235,7 +312,7 @@ describe("AbcSupplyPricingClient", () => {
 
   it("batches more than 50 lines into separate requests", async () => {
     const { pricing, seen } = pricingTestSetup((body) =>
-      priceResponse(body.lines.map((l: any) => okLine(l.id, 10))),
+      priceResponse(body.lines.map((l: any) => ({ ...okLine(l.id, 10), itemNumber: l.itemNumber }))),
     );
     const lines = Array.from({ length: 51 }, (_, i) => ({
       id: `line-${i}`,
@@ -289,9 +366,9 @@ describe("createAbcSupplyFeedFetcher", () => {
       } as Response;
     });
     const loadMaterials = jest.fn(async () => [
-      { id: "mat-1", sku: "SKU-1" },
-      { id: "mat-2", sku: "SKU-2" },
-      { id: "mat-3", sku: "SKU-3" },
+      { id: "mat-1", sku: "SKU-1", unitOfMeasure: "SQ" },
+      { id: "mat-2", sku: "SKU-2", unitOfMeasure: "SQ" },
+      { id: "mat-3", sku: "SKU-3", unitOfMeasure: "SQ" },
     ]);
     const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch);
     const pricing = new AbcSupplyPricingClient(auth, fetchFn as unknown as typeof fetch);
@@ -309,6 +386,7 @@ describe("createAbcSupplyFeedFetcher", () => {
         id: l.id,
         itemNumber: l.itemNumber,
         unitPrice: 100 + i,
+        uom: "SQ",
         currency: { code: "USD", symbol: "$" },
         status: { code: "OK", message: "Priced Successfully" },
       })),
@@ -316,6 +394,16 @@ describe("createAbcSupplyFeedFetcher", () => {
     const quotes = await fetcher("sup-1", "org-1");
     expect(quotes).toHaveLength(3);
     expect(quotes[0]).toMatchObject({ materialId: "mat-1", proposedUnitCost: 100 });
+  });
+
+  it("refuses a missing or different ABC stocking unit while accepting a matching unit", async () => {
+    const { fetcher } = fetcherSetup((body) => body.lines.map((l: any, i: number) => ({
+      ...okLine(l.id, 20 + i), itemNumber: l.itemNumber,
+      uom: i === 0 ? "PC" : i === 1 ? undefined : "sq",
+    })));
+    await expect(fetcher("sup-1", "org-1")).resolves.toEqual([
+      { materialId: "mat-3", proposedUnitCost: 22 },
+    ]);
   });
 
   it("skips non-OK lines and $0.00 lines", async () => {
@@ -326,6 +414,7 @@ describe("createAbcSupplyFeedFetcher", () => {
         id: "line-2",
         itemNumber: "SKU-3",
         unitPrice: 0,
+        uom: "SQ",
         currency: { code: "USD", symbol: "$" },
         status: { code: "Error", message: "Cannot price item SKU-3. Call for pricing." },
       },
@@ -365,9 +454,9 @@ describe("createAbcSupplyFeedFetcher", () => {
       } as Response;
     });
     const loadMaterials = jest.fn(async () => [
-      { id: "mat-a", sku: "DUP-SKU" },
-      { id: "mat-b", sku: "DUP-SKU" },
-      { id: "mat-c", sku: "UNIQUE-SKU" },
+      { id: "mat-a", sku: "DUP-SKU", unitOfMeasure: "SQ" },
+      { id: "mat-b", sku: "DUP-SKU", unitOfMeasure: "SQ" },
+      { id: "mat-c", sku: "UNIQUE-SKU", unitOfMeasure: "SQ" },
     ]);
     const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch);
     const pricing = new AbcSupplyPricingClient(auth, fetchFn as unknown as typeof fetch);
@@ -376,6 +465,67 @@ describe("createAbcSupplyFeedFetcher", () => {
     // dropped rather than pricing the wrong material.
     await expect(fetcher("sup-1", "org-1")).resolves.toEqual([
       { materialId: "mat-c", proposedUnitCost: 42 },
+    ]);
+  });
+});
+
+describe("ABC quote response attribution and currency safety", () => {
+  const config = {
+    clientId: "cid", clientSecret: "secret", refreshToken: "refresh",
+    branchNumber: "340", shipToNumber: "2010466-2",
+  };
+
+  it("rejects provider lines with unknown response IDs or mismatched item numbers", async () => {
+    const auth = { getPricingToken: jest.fn(async () => "user-token") } as unknown as AbcSupplyAuth;
+    const fetchFn = jest.fn(async () => ({
+      ok: true, status: 200,
+      json: async () => ({
+        lines: [
+          { ...okLine("unrequested", 99), itemNumber: "SKU-1" },
+          { ...okLine("line-0", 123), itemNumber: "OTHER-SKU" },
+          { ...okLine("line-0", 42), itemNumber: "SKU-1" },
+        ],
+      }),
+    }) as Response);
+    const pricing = new AbcSupplyPricingClient(auth, fetchFn as unknown as typeof fetch);
+    await expect(pricing.priceItems(
+      [{ id: "line-0", itemNumber: "SKU-1", quantity: 1 }],
+      { branchNumber: "340", shipToNumber: "2010466-2" },
+    )).resolves.toEqual([expect.objectContaining({
+      id: "line-0", itemNumber: "SKU-1", unitPrice: 42,
+    })]);
+  });
+
+  it("rejects a stale provider request ID before attributing any price", async () => {
+    const auth = { getPricingToken: jest.fn(async () => "token") } as unknown as AbcSupplyAuth;
+    const fetchFn = jest.fn(async () => ({
+      ok: true, status: 200,
+      json: async () => ({
+        requestId: "other-request",
+        lines: [{ ...okLine("line-0", 42), itemNumber: "SKU-1" }],
+      }),
+    }) as Response);
+    const pricing = new AbcSupplyPricingClient(auth, fetchFn as unknown as typeof fetch);
+    await expect(pricing.priceItems(
+      [{ id: "line-0", itemNumber: "SKU-1", quantity: 1 }],
+      { branchNumber: "340", shipToNumber: "2010466-2", requestId: "expected-request" },
+    )).rejects.toThrow("requestId mismatch");
+  });
+
+  it("does not propose unknown, non-USD, unrepresentable, or overprecision amounts", async () => {
+    const priceLines = [
+      { id: "line-0", itemNumber: "SKU-1", quantity: 1, unitPrice: 22, currencyCode: "EUR", statusCode: "OK", statusMessage: "priced" },
+      { id: "line-1", itemNumber: "SKU-2", quantity: 1, unitPrice: 4.12345, currencyCode: "USD", statusCode: "OK", statusMessage: "priced" },
+      { id: "line-2", itemNumber: "SKU-3", quantity: 1, unitPrice: 100_000_000, currencyCode: "USD", statusCode: "OK", statusMessage: "priced" },
+      { id: "line-3", itemNumber: "SKU-4", quantity: 1, unitPrice: 43.25, uom: "SQ", currencyCode: "USD", statusCode: "OK", statusMessage: "priced" },
+    ];
+    const fetcher = createAbcSupplyFeedFetcher({
+      config,
+      loadMaterials: async () => priceLines.map((p, i) => ({ id: `material-${i}`, sku: p.itemNumber, unitOfMeasure: "SQ" })),
+      pricing: { priceItems: jest.fn(async () => priceLines) } as unknown as AbcSupplyPricingClient,
+    });
+    await expect(fetcher("abc-supplier", "org-1")).resolves.toEqual([
+      { materialId: "material-3", proposedUnitCost: 43.25 },
     ]);
   });
 });

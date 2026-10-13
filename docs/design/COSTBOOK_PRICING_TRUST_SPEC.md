@@ -210,3 +210,38 @@ At 390 px:
 3. Map those fields to one shared `PricingProvenance` grammar without collapsing distinct evidence types.
 4. Prepare S064's embedded Assembly Picker using explicit add + snapshot/refresh behavior.
 5. Add focused browser evidence showing missing evidence, unavailable evidence, setup-required, reviewed research, and a normal catalog item at 390/1440.
+
+## Material classification UI reconciliation — 2026-10-08
+
+PR #694 merged at `fd1e6479968fe890db2e9ffedef0af41c11e6827` and added nullable
+`omniclass23` and `unspsc` values to the organization-scoped Material DTO.
+This does **not** establish that the migration has been deployed, that existing
+Material rows have been backfilled, or that a code independently verifies
+an exact supplier identity.
+
+The smallest web display slice lives in
+`web/src/components/costbook/material-classification.tsx`, consumed by
+`web/src/components/costbook/materials-catalog.tsx` on desktop and mobile.
+
+- **Classification codes recorded** means at least one code string exists on
+  the persisted Material. It is not a verified-price or product-equivalence
+  verdict. Surface both fields individually and say "Not recorded" for a
+  nullable counterpart.
+- **Classification unmapped** means both fields are explicitly returned as null
+  (or blank) by the API. Do not insert a guessed code or hide the Material.
+- **Classification unavailable** means one or both fields are omitted by an
+  older/partial API response, with no other recorded code to display. Do not
+  mistake missing API fields for a persisted unmapped classification.
+- No classification edit action, autonomous supplier link, price approval, or
+  Estimate repricing is introduced by this UI slice.
+- Research-corpus status (`mapped | unmapped | ambiguous`) is distinct from
+  the persisted Material DTO. Do not project research verification onto
+  an organization Material without a governed evidence-binding contract.
+- Supplier/date pricing provenance stays in the existing
+  `PricingProvenance` component, separate from classification display.
+- Existing Costbook tenant permissions, Material mutation payload, review
+  requirements, and price-snapshot semantics are unchanged.
+
+Figma authority: Material Classification + Matching `681:4281`, Supplier
+Evidence Review `691:4545`, and shared StatusBadge treatment `693:2200`,
+all TARGET as to any unimplemented verification or matching workflow.
