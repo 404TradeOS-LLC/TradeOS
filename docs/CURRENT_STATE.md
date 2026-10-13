@@ -63,6 +63,39 @@ related_code:
 
 # TradeOS Current State
 
+## ABC live sandbox evidence and safe failed-line diagnostics — 2026-10-13
+
+The live Vercel backend confirms a successful user-present ABC OAuth
+callback, followed by a successful authenticated Search Accounts request
+and two selected-account pricing requests returning HTTP 200 at the HTTP
+boundary. The Settings test for supplier SKU `654210` shows provider
+line status `Error`, with no eligible positive-priced line/UOM.
+Therefore account authorization is proven at the HTTP workflow level,
+but **a valid ABC sandbox priced SKU is not yet proven**.
+
+The next scoped feature allows the browser to show only a short,
+privacy-screened `status.message` from a matching failed ABC Price Items
+line, reusing the older probe's screening. Unsafe/missing text stays
+unavailable, and no Material updates or account preferences are saved.
+Real ABC Production entitlement remains dependent on provider approval.
+
+
+## ABC aggregator unattended-pricing protection — implemented in PR #723
+
+ABC's Third-Party Aggregator user-presence requirements are enforced in the
+background supplier feed: a scheduler identity or stored Vault grant is not
+user presence. Unattended ABC pricing fails closed before any provider
+request. The default ABC UUID match rejects immediately, and a second
+check blocks an ABC-tagged supplier from generic HTTPS transport when the
+configured ABC supplier UUID is missing or stale. Other suppliers continue
+through the reviewed supplier feed path. Owner/admin user-clicked sandbox
+account discovery and selected-account read-only quotes remain available.
+This does **not** establish a live eligible ABC price, production API
+entitlement, or permission
+to conduct multi-supplier price comparisons using ABC-derived prices.
+The operator evidence/demo plan lives in
+`docs/operations/ABC_SUPPLY_AGGREGATOR_PRODUCTION_DEMO.md`.
+
 ## ABC sandbox OAuth reauthorization — 2026-10-11
 
 The stored ABC refresh token is gone (0 saved tokens in Vault), and ABC
@@ -512,7 +545,7 @@ Implemented Costbook surfaces include:
 - calculation-only pricing preview
 - Material price audit/history and Estimate pricing snapshots
 - supplier-feed proposal/review flow
-- ABC Supply sandbox feed fetcher (PR #684, wired by default): provider-specific `SupplierFeedFetcher` implementation against the Connect Partner sandbox APIs (refresh-token user auth, batched `purpose=estimating` pricing, no-op when unconfigured); `SupplierIntegrationService` now defaults to `fetchDefaultSupplierFeed`, which routes the `ABC_SUPPLY_SANDBOX_SUPPLIER_ID` target to the ABC fetcher and everything else to the generic endpoint fetcher, so the scheduler/worker paths reach it (no HTTP controller sync route exists; the controller serves the review queue). Quotes flow into the existing proposal/approval queue. Live sandbox validation succeeded 2026-10-06 (OAuth → pricing HTTP 200; sandbox branch 340 + ship-to 2010466-2; real branch 579 is sandbox-rejected and returns at production access). Duplicate-SKU lines are skipped rather than misattributed; a rotated refresh token is persisted in Supabase Vault before pricing continues, while the environment token remains bootstrap/recovery configuration. Billy decided to stay in sandbox.
+- ABC Supply sandbox adapter (PR #684; **background use superseded**): mapping/token code remains, but `fetchDefaultSupplierFeed` now blocks the ABC supplier's unattended scheduled sync with a terminal `abc_user_present_required` outcome before Vault/Material/provider access. Other supplier feeds continue unchanged, and ABC does not fall back to configured generic feed URLs. ABC's user-present, owner/admin selected-account sandbox diagnostic route remains read-only with Vault token rotation, account/branch revalidation and positive USD/UOM checks; it never creates a price proposal or updates Materials. Historical 2026-10-06 sandbox HTTP 200/OAuth evidence does **not** prove an eligible priced line; live successful Ship-To/branch and unit pricing remain unverified. No ABC Production entitlement is known.
 - regional supplier evidence intake (PR #531): normalized supplier workbooks are staged into tenant-scoped `SupplierProduct` and `SupplierPriceObservation` evidence through authenticated, manager-gated endpoints. Priced, unavailable, and not-listed states are preserved; the importer never changes `Material.unitCost` or creates `SupplierPriceUpdate` rows. The supplied validation bundle contains 8 workbooks, 5,189 products/observations, and 701 unavailable observations; Carter Lumber remains catalog-only because all 670 observations are unavailable. The authenticated `/costbook/supplier-evidence` review surface reads those same rows, shows stored availability/price/source facts, previews the governed pilot canonical matcher, and lets `costbook.manage` actors confirm only a suggested canonical identity through the existing reviewed-match endpoint. That review changes `SupplierProduct.canonicalMaterialKey` only; the mutation re-runs the governed matcher and rejects a different key or a relink of an already-linked product. The review surface preserves each observation's stored currency and pages through the evidence set with an organization-scoped cursor; it never promotes an observation into `Material.unitCost` or reprices an Estimate.
 - authenticated `/costbook/import` batching for governed composite installed-price benchmarks; its same-origin server proxy checks mutation origin before reading the HttpOnly session, keeps the bearer token server-side, accepts 1–500 row API batches, and the browser import client sends batches of up to 100 rows and up to 80 KiB of encoded request data while preserving the same authorization, tenant scope, validation, and idempotent upsert boundary; any individual encoded row larger than 80 KiB is rejected before upload so an oversized one-row batch cannot cross the backend parser boundary
 - bounded search/filter/sort/cursor pagination across canonical catalog collections

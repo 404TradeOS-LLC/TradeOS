@@ -395,6 +395,8 @@ Required policy:
 
 ## Documentation ownership
 
+For GitHub Actions Node-bootstrap maintenance, upgrading `actions/setup-node` to v7.1.0 must preserve each workflow's existing pinning style: use immutable commit `949feb2413d6458794dcd2491c4babbbce0c15c1` where the action was already SHA-pinned and the `v7.1.0` tag only where the original invocation used a version tag. Keep the explicit job Node versions (20/24), existing workflow triggers, permissions, and protected status-check names unchanged. An automated action bump that touches `.github/workflows/**` must also update the required owning documentation rather than weakening `docs:check` or branch protections.
+
 `docs/DOC_OWNERSHIP.yml` is enforced repository policy.
 
 When a changed file triggers an ownership requirement, the owning document must be included and updated meaningfully in the same PR. Do not add an empty or cosmetic edit merely to satisfy the checker.
