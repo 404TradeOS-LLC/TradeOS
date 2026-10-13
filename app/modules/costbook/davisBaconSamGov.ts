@@ -110,7 +110,7 @@ export class DavisBaconClient {
    * Fetch with timeout + retries. Throws DavisBaconApiError on non-2xx after
    * retries are exhausted, or on timeout/network failure wrapped as one.
    */
-  async fetchWithRetry(url: string, init: RequestInit = {}): Promise<Response> {
+  async fetchWithRetry(url: string, init: RequestInit = {}, readBody: "json" | "text" | null = null): Promise<Response> {
     let attempt = 0;
     // eslint-disable-next-line no-constant-condition
     while (true) {
@@ -128,6 +128,19 @@ export class DavisBaconClient {
           { ...init, headers: { ...this.headers, ...(init.headers ?? {}) }, signal: controller.signal },
         );
         if (response.ok || !RETRYABLE_STATUSES.has(response.status) || attempt >= this.maxRetries) {
+          // Parse the body before releasing the abort timer. SAM.gov can return
+          // headers and then stall while streaming its search JSON or WD text.
+          // Materialize the consumed response so existing callers retain the
+          // Response API without reading an unbounded network stream later.
+          if (response.ok && readBody) {
+            const body = readBody === "json"
+              ? JSON.stringify(await response.json())
+              : await response.text();
+            return new Response(body, {
+              status: response.status,
+              statusText: response.statusText,
+            });
+          }
           return response;
         }
         const retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
@@ -264,6 +277,7 @@ export async function searchDeterminations(
         headers: { Accept: "application/hal+json" },
         signal: options.signal,
       },
+      "json",
     );
     if (!response.ok) {
       throw new DavisBaconApiError(
@@ -330,6 +344,7 @@ export async function fetchDeterminationText(
   const response = await client.fetchWithRetry(
     determinationDownloadUrl(wdNumber, revisionNumber),
     { signal },
+    "text",
   );
   if (!response.ok) {
     throw new DavisBaconApiError(
