@@ -1039,7 +1039,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                       </div>
                     ) : null}
                     <p className="text-sm text-muted-foreground">
-                      Selection is temporary and read-only. The selected-account price check revalidates your account and branch on the server and cannot apply a Material cost.
+                      Selection is temporary and read-only; the ABC price test still uses its separately configured sandbox account. The selected-account price check revalidates your selection on the server and cannot apply a Material cost.
                     </p>
                   </div>
                 ) : null}
