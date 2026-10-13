@@ -115,7 +115,7 @@ export async function handleDavisBaconSyncCron(_req: Request, res: Response): Pr
 
   const totals = reports.reduce(
     (acc, r) => {
-      if ("report" in r) {
+      if (r.report) {
         acc.checked += r.report.checked;
         acc.added += r.report.added;
         acc.updated += r.report.updated;

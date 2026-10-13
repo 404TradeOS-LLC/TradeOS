@@ -133,6 +133,15 @@ export async function syncCountyWageDeterminations(
   report.checked = discovered.length;
 
   const stored = await inStoreSession(() => deps.store.listDeterminations(spec.orgId, spec.state));
+  // Empty search results can mean an upstream outage, not that all wage
+  // floors were withdrawn. Never erase a county on a single empty response.
+  if (
+    discovered.length === 0 &&
+    stored.some((row) => row.isActive !== false &&
+      row.counties?.some((county) => county.toLowerCase() === spec.county.toLowerCase()))
+  ) {
+    throw new Error(`Davis-Bacon discovery returned no active determinations for ${spec.state}/${spec.county}; retaining existing county coverage`);
+  }
   const storedByWd = new Map(stored.map((row) => [row.wdNumber, row]));
 
   for (const determination of discovered) {

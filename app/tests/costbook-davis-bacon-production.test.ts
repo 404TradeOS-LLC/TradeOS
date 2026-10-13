@@ -463,6 +463,18 @@ describe("syncCountyWageDeterminations", () => {
     expect(report.added).toBe(1);
   });
 
+  it("refuses to retire the entire county after an unexpected empty search", async () => {
+    const store = fakeStore([
+      { id: "id-prev", wdNumber: "IN20260050", revisionNumber: 1,
+        modifiedDate: null, counties: ["Vigo"], isActive: true },
+    ]);
+    await expect(syncCountyWageDeterminations(spec, {
+      store,
+      discover: async () => [],
+    })).rejects.toThrow("retaining existing county coverage");
+    expect(store.retired).toEqual([]);
+  });
+
   it("removes obsolete county coverage but keeps other counties active", async () => {
     const store = fakeStore([
       { id: "id-old", wdNumber: "IN20250003", revisionNumber: 1,
