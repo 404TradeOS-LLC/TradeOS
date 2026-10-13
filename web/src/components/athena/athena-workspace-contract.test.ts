@@ -78,7 +78,10 @@ test("Athena navigation is feature-gated and retries one transient capability fa
   assert.match(layout, /return \{ enabled: capabilities\.kernelEnabled === true, retryOnClient: false \}/);
   assert.match(layout, /return \{ enabled: false, retryOnClient: true \}/);
   assert.match(layout, /athenaCapability\.retryOnClient \? randomUUID\(\) : null/);
-  assert.doesNotMatch(layout, /getOrganizationSettings|isAthenaOperatorRole|canViewAthena/);
+  const athenaResolver = layout.match(/async function resolveAthenaEnabled[\s\S]*?(?=\nasync function|\nexport default)/)?.[0];
+  assert.ok(athenaResolver);
+  assert.doesNotMatch(athenaResolver, /getOrganizationSettings|currentRole/);
+  assert.doesNotMatch(layout, /isAthenaOperatorRole|canViewAthena/);
 });
 
 test("Athena root scope normalizes repeated query params and never blocks on operator discovery", async () => {

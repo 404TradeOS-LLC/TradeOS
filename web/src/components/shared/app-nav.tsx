@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { clientFetch } from "@/lib/clientApi";
 import { buildUniversalCreateHref, type UniversalCreateKind } from "@/lib/universal-create";
+import { canUseUniversalCreate } from "@/lib/universal-create-access";
 import { cn } from "@/lib/utils";
 
 interface NavLink {
@@ -161,12 +162,14 @@ function NavPill({
 
 export function AppNav({
   email,
+  currentRole = null,
   athenaEnabled = false,
   athenaCapabilityRetryKey = null,
   teamTimeEnabled = false,
   dispatchAttentionCount = null,
 }: {
   email?: string | null;
+  currentRole?: string | null;
   athenaEnabled?: boolean;
   athenaCapabilityRetryKey?: string | null;
   teamTimeEnabled?: boolean;
@@ -190,7 +193,7 @@ export function AppNav({
     : athenaEnabled;
   const primaryLinks = effectiveAthenaEnabled ? [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK] : PRIMARY_NAV_LINKS;
   const createOptions = CREATE_OPTIONS
-    .filter((option) => option.kind !== "athena" || effectiveAthenaEnabled)
+    .filter((option) => canUseUniversalCreate(option.kind, currentRole, Boolean(effectiveAthenaEnabled)))
     .map((option) => ({ ...option, href: buildUniversalCreateHref(option.kind, pathname) }));
 
   useBodyScrollLock(mobileOpen || createOpen);
@@ -421,6 +424,13 @@ export function AppNav({
               Close
             </button>
           </div>
+          {createOptions.length === 0 ? (
+            <p role="status" className="mb-4 text-sm text-muted-foreground">
+              {currentRole
+                ? "No creation workflows are available for your workspace access."
+                : "Could not confirm your workspace access. Reload to try again."}
+            </p>
+          ) : null}
           <nav aria-label="Create options" className="grid gap-2">
             {createOptions.map((option) => {
               const Icon = option.icon;
