@@ -132,3 +132,7 @@ PR #338 verifies draft persistence/reload for custom and Costbook-backed lines, 
 ## Pre-beta handoff safeguards
 
 The estimate builder keeps proposal creation behind finalization, surfaces an actionable empty Costbook state, announces search results with combobox/listbox semantics, and preserves partial search results when one catalog query fails. Finalization backfills an unpriced legacy proposal only when no explicit proposal price or range exists. The proposal and invoice handoff paths consume persisted customer-facing prices rather than direct costs.
+
+## Contextual review freshness
+
+Contextual Athena stores the project/estimate/scope snapshot associated with its response. Suggestions are actionable only for that same non-empty normalized scope while the panel is ready and no Add is pending. Scope or record changes require refreshing review; failed/loading reviews never authorize applying previous suggestions. This is a frontend freshness guard over existing authenticated API/RLS and idempotent source keys, not a new financial or permission policy.
