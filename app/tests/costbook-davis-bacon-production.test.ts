@@ -198,6 +198,62 @@ describe("DavisBaconClient hardening", () => {
     await expect(client.fetchWithRetry("https://example.test/x")).rejects.toThrow(DavisBaconApiError);
   });
 
+  it("times out if the search JSON body stalls after response headers", async () => {
+    const fetchImpl = jest.fn((_url: string, init?: RequestInit) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers(),
+        json: () => new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new Error("body read aborted")), { once: true });
+        }),
+      } as Response),
+    );
+    const client = new DavisBaconClient({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      sleepImpl: () => Promise.resolve(),
+      minDelayMs: 0,
+      timeoutMs: 25,
+      maxRetries: 0,
+    });
+    await expect(client.fetchWithRetry("https://example.test/search", {}, "json"))
+      .rejects.toThrow(DavisBaconApiError);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a body-stream timeout before returning a complete determination text", async () => {
+    const fetchImpl = jest.fn((_url: string, init?: RequestInit) => {
+      if (fetchImpl.mock.calls.length === 1) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          headers: new Headers(),
+          text: () => new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(new Error("body read aborted")), { once: true });
+          }),
+        } as Response);
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers(),
+        text: () => Promise.resolve(fixtureText),
+      } as Response);
+    });
+    const client = new DavisBaconClient({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      sleepImpl: () => Promise.resolve(),
+      minDelayMs: 0,
+      timeoutMs: 25,
+      maxRetries: 1,
+    });
+    await expect(fetchDeterminationText("IN20260050", 1, undefined, client)).resolves.toBe(fixtureText);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it("does not fetch when the caller already aborted", async () => {
     const controller = new AbortController();
     controller.abort();
@@ -555,6 +611,22 @@ describe("parseDavisBaconSyncJobSpecs", () => {
       JSON.stringify([{ orgId: "o", userId: "u", state: "IN", county: "Vigo", label: "test" }]),
     );
     expect(specs).toEqual([{ orgId: "o", userId: "u", state: "IN", county: "Vigo", label: "test" }]);
+  });
+
+  it("normalizes state and county at the sync configuration boundary", () => {
+    const specs = parseDavisBaconSyncJobSpecs(
+      JSON.stringify([{ orgId: "o", userId: "u", state: " in ", county: "  Vigo  " }]),
+    );
+    expect(specs).toEqual([{ orgId: "o", userId: "u", state: "IN", county: "Vigo" }]);
+  });
+
+  it("rejects whitespace-only job configuration identifiers", () => {
+    expect(() => parseDavisBaconSyncJobSpecs(
+      JSON.stringify([{ orgId: "o", userId: "u", state: "   ", county: "Vigo" }]),
+    )).toThrow(".state must be a non-empty string");
+    expect(() => parseDavisBaconSyncJobSpecs(
+      JSON.stringify([{ orgId: "o", userId: "u", state: "IN", county: "  " }]),
+    )).toThrow(".county must be a non-empty string");
   });
 
   it("returns [] for missing or blank config", () => {
