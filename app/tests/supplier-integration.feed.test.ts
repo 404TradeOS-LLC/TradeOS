@@ -73,6 +73,22 @@ describe("configured supplier price feed", () => {
     expect(global.fetch).toBe(originalFetch);
   });
 
+  it("blocks generic supplier URL transport for ABC-tagged rows when ABC UUID configuration is absent", async () => {
+    delete process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID;
+    process.env.SUPPLIER_PRICE_FEED_ENDPOINTS = JSON.stringify({ [supplierId]: "https://supplier.example/prices" });
+    mockPrisma.supplier.findFirst.mockResolvedValue({ id: supplierId, apiIntegrationKey: "ABC_SUPPLY" });
+    global.fetch = jest.fn() as unknown as typeof fetch;
+    const outcome = await executeBackgroundAttempt({
+      orgId, workerId: "44444444-4444-4444-8444-444444444444",
+      jobName: "supplier-price-sync",
+    }, () => createDefaultSupplierFeedFetcher()(supplierId, orgId));
+    expect(outcome).toMatchObject({
+      status: "terminal_failure",
+      failure: { code: "abc_user_present_required", retryable: false, nextAttemptAt: null },
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("fetches a strict quote payload with the supplier bearer key", async () => {
     process.env.SUPPLIER_PRICE_FEED_ENDPOINTS = JSON.stringify({ [supplierId]: "https://supplier.example/prices" });
     mockPrisma.supplier.findFirst.mockResolvedValue({ id: supplierId, apiIntegrationKey: "secret-key" });

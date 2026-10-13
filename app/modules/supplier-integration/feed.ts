@@ -185,6 +185,11 @@ export const fetchConfiguredSupplierFeed: SupplierFeedFetcher = async (supplierI
     select: { id: true, apiIntegrationKey: true },
   });
   if (!supplier) throw new Error(`Supplier ${supplierId} is not visible in organization ${orgId}`);
+  // Defense-in-depth: if the operator's ABC supplier UUID config drifts,
+  // never route an ABC-tagged supplier through the generic endpoint.
+  if (supplier.apiIntegrationKey === "ABC_SUPPLY") {
+    throw new AbcUnattendedPricingError();
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
