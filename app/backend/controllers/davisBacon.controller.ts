@@ -8,7 +8,7 @@ import {
 } from "../../modules/costbook/davisBaconService";
 
 const determinationsQuerySchema = z.object({
-  state: z.string().trim().min(1).max(4).optional(),
+  state: z.string().trim().length(2).transform((v) => v.toUpperCase()).optional(),
   county: z.string().trim().min(1).max(80).optional(),
   activeOnly: z
     .enum(["true", "false"])
@@ -21,7 +21,7 @@ const ratesQuerySchema = z.object({
 });
 
 const countyRatesQuerySchema = z.object({
-  state: z.string().trim().min(1).max(4),
+  state: z.string().trim().length(2).transform((v) => v.toUpperCase()),
   county: z.string().trim().min(1).max(80),
 });
 

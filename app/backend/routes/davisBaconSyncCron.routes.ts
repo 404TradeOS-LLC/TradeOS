@@ -5,13 +5,14 @@
  * bearer (constant-time comparison, same pattern as the supplier-price cron).
  * Reads DAVIS_BACON_SYNC_JOBS (JSON array of { orgId, userId, state, county,
  * label? }) and runs the hardened key-free SAM.gov sync per job inside a
- * background database session (RLS-scoped to the job's org).
+ * short background database sessions for writes (RLS-scoped to each org).
+ * SAM.gov requests always occur outside database transactions.
  *
  * This route intentionally shares CRON_SECRET with the other cron routes:
  * one secret, one Vercel Cron configuration surface.
  */
 import { createHash, timingSafeEqual } from "crypto";
-import { Request, Response, Router } from "express";
+import { NextFunction, Request, Response, Router } from "express";
 import rateLimit from "express-rate-limit";
 import { logError, logInfo } from "../logging";
 import { runWithBackgroundDatabaseSession } from "../../db/requestSession";
@@ -73,13 +74,26 @@ export async function handleDavisBaconSyncCron(_req: Request, res: Response): Pr
 
   for (const spec of jobSpecs) {
     try {
-      const report = await runWithBackgroundDatabaseSession(
-        prisma,
-        { jobName: "davis-bacon-sync", orgId: spec.orgId, userId: spec.userId },
-        async () =>
-          syncCountyWageDeterminations(spec, { client, store: prismaDavisBaconStore }),
-      );
-      reports.push({ status: "succeeded" as const, report });
+      const report = await syncCountyWageDeterminations(spec, {
+        client,
+        store: prismaDavisBaconStore,
+        withStoreSession: (operation) =>
+          runWithBackgroundDatabaseSession(
+            prisma,
+            { jobName: "davis-bacon-sync", orgId: spec.orgId, userId: spec.userId },
+            async () => operation(),
+          ),
+      });
+      if (report.failed.length > 0) {
+        failedJobs += 1;
+        logError("davis_bacon_sync.cron_determinations_failed", {
+          orgId: spec.orgId,
+          state: spec.state,
+          county: spec.county,
+          failedDeterminations: report.failed.length,
+        });
+      }
+      reports.push({ status: report.failed.length > 0 ? "failed" as const : "succeeded" as const, report });
     } catch (error) {
       failedJobs += 1;
       const message = error instanceof Error ? error.message : String(error);
@@ -101,16 +115,17 @@ export async function handleDavisBaconSyncCron(_req: Request, res: Response): Pr
 
   const totals = reports.reduce(
     (acc, r) => {
-      if (r.status === "succeeded") {
+      if ("report" in r) {
         acc.checked += r.report.checked;
         acc.added += r.report.added;
         acc.updated += r.report.updated;
         acc.unchanged += r.report.unchanged;
+        acc.retired += r.report.retired;
         acc.failedDeterminations += r.report.failed.length;
       }
       return acc;
     },
-    { checked: 0, added: 0, updated: 0, unchanged: 0, failedDeterminations: 0 },
+    { checked: 0, added: 0, updated: 0, unchanged: 0, retired: 0, failedDeterminations: 0 },
   );
 
   if (failedJobs > 0) {
@@ -133,8 +148,8 @@ export function createDavisBaconSyncCronRouter(): Router {
     "/davis-bacon-sync",
     davisBaconCronRateLimit,
     requireAuthorizedCronRequest,
-    (req: Request, res: Response) => {
-      void handleDavisBaconSyncCron(req, res);
+    (req: Request, res: Response, next: NextFunction) => {
+      handleDavisBaconSyncCron(req, res).catch(next);
     },
   );
   return router;

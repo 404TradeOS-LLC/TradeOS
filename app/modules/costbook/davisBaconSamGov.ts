@@ -114,7 +114,9 @@ export class DavisBaconClient {
     let attempt = 0;
     // eslint-disable-next-line no-constant-condition
     while (true) {
+      if (init.signal?.aborted) throw new Error("SAM.gov request aborted by caller");
       await this.pace();
+      if (init.signal?.aborted) throw new Error("SAM.gov request aborted by caller");
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
       // An explicit caller signal aborts the timeout-linked controller too.
@@ -132,6 +134,7 @@ export class DavisBaconClient {
         await response.arrayBuffer().catch(() => undefined); // drain before retry
         await this.sleepImpl(this.backoffDelayMs(attempt, retryAfterMs));
       } catch (error) {
+        if (init.signal?.aborted) throw error;
         if (attempt >= this.maxRetries) {
           throw new DavisBaconApiError(
             0,
