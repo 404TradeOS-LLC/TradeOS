@@ -63,6 +63,24 @@ related_code:
 
 # TradeOS Current State
 
+## P0 first-estimate onboarding quick start — 2026-10-13 (draft PR #731)
+
+Founder-directed demo-readiness slice on `feat/p0-first-estimate-quickstart-20261013`.
+The new authenticated `/onboarding` Web route uses the existing
+`createProjectAction` for a real Project.simpleScope and draft Estimate,
+without new persistence, authorization rules, pricing approval, or provider
+integration. A successfully loaded, truly empty Today Project list offers one
+first-estimate action; returning organizations remain on their normal Today.
+The Customer lookup can fail visibly while allowing an unlinked Project.
+
+**This is PR-only implementation, not a shipped route or certified onboarding.**
+The canonical Figma 22 — Onboarding views remain TARGET, and there is no
+persisted multi-step wizard, skip/resume completion state or automatic Athena
+apply. The existing Project-created/Estimate-create-failed recovery gap,
+hosted authenticated 1440/1024/768/390 flow, tenant/role negatives, and
+exact deployment-SHA reconciliation remain release blockers. See
+`docs/design/P0_FIRST_ESTIMATE_ONBOARDING.md`.
+
 ## ABC live sandbox evidence and safe failed-line diagnostics — 2026-10-13
 
 The live Vercel backend confirms a successful user-present ABC OAuth
