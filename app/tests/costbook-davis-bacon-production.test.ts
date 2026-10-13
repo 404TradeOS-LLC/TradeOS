@@ -223,8 +223,10 @@ describe("DavisBaconClient hardening", () => {
   });
 
   it("retries a body-stream timeout before returning a complete determination text", async () => {
+    let attempt = 0;
     const fetchImpl = jest.fn((_url: string, init?: RequestInit) => {
-      if (fetchImpl.mock.calls.length === 1) {
+      attempt += 1;
+      if (attempt === 1) {
         return Promise.resolve({
           ok: true,
           status: 200,
