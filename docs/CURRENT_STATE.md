@@ -83,9 +83,12 @@ The Customer lookup can fail visibly while allowing an unlinked Project. Today a
 **This is PR-only implementation, not a shipped route or certified onboarding.**
 The canonical Figma 22 — Onboarding views remain TARGET, and there is no
 persisted multi-step wizard, skip/resume completion state or automatic Athena
-apply. The existing Project-created/Estimate-create-failed recovery gap,
-hosted authenticated 1440/1024/768/390 flow, tenant/role negatives, and
-exact deployment-SHA reconciliation remain release blockers. See
+apply. Saved-Project resume is implemented; end-to-end recovery verification,
+lost initial Project responses, reload/cross-tab recovery, hosted authenticated
+1440/1024/768/390 flow, tenant/role negatives and exact deployment-SHA
+reconciliation remain release blockers. Invalid saved references and ambiguous
+initial save responses now lock the form and direct the user to Projects;
+replaying locked action state never issues another creation request. See
 `docs/design/P0_FIRST_ESTIMATE_ONBOARDING.md`.
 
 ## ABC live sandbox evidence and safe failed-line diagnostics — 2026-10-13

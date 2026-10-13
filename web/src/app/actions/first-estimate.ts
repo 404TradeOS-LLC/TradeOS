@@ -26,5 +26,5 @@ export async function createFirstEstimateAction(previous: FirstEstimateState, fo
     revalidatePath(`/projects/${result.projectId}`);
   }
   if (result.destination) redirect(result.destination);
-  return { error: result.error, projectId: result.projectId };
+  return { error: result.error, projectId: result.projectId, locked: result.locked };
 }

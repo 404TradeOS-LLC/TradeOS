@@ -88,7 +88,22 @@ test("invalid recovery reference never silently starts a new project", async () 
   const { calls, form, dependencies } = fixture();
   const result = await runFirstEstimateWorkflow({ projectId: "../foreign" }, form, dependencies);
   assert.ok(result.error);
+  assert.equal(result.locked, true);
+  assert.equal(result.projectId, undefined);
+  const replay = await runFirstEstimateWorkflow(result, form, dependencies);
+  assert.equal(replay.locked, true);
   assert.deepEqual(calls, []);
+});
+
+test("ambiguous initial project response locks replay rather than duplicating a save", async () => {
+  const { calls, form, dependencies } = fixture();
+  dependencies.createProject = async () => { calls.push("ambiguous-project"); throw new Error("response lost"); };
+  const result = await runFirstEstimateWorkflow(undefined, form, dependencies);
+  assert.equal(result.locked, true);
+  assert.equal(result.projectId, undefined);
+  const replay = await runFirstEstimateWorkflow(result, form, dependencies);
+  assert.equal(replay.locked, true);
+  assert.deepEqual(calls, ["ambiguous-project"]);
 });
 
 test("completed project opens its workspace instead of creating a new revision", async () => {

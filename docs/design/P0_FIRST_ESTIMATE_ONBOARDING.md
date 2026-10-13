@@ -48,3 +48,5 @@ Desktop Figma context/screenshot `58:2` and mobile `59:4` were inspected. Full p
 Lost initial Project responses without an ID, reload recovery and cross-tab submissions remain limitations. The UI directs contractors to check Projects before resubmitting an ambiguous initial save. Backend idempotency is not claimed. See `FIGMA_TO_CODE_EXECUTION_LEDGER.md` for continuation.
 
 Review repair: Today CTA, onboarding form and action consult the backend-reported role against canonical `crm.write`. Unknown/failed role reads fail closed; technicians/viewers see restricted feedback. This changes presentation, not backend role policy.
+
+Recovery review hardening: malformed saved references and ambiguous first Project responses carry a non-identifying lock flag. The form disables further submit and preserves inputs, directing the contractor to Projects. Locked-state replay makes no service calls. Reload/cross-tab recovery and real backend idempotency remain unproven.

@@ -1,6 +1,6 @@
 import { isSafeProjectId } from "../../lib/projectFileStorage.ts";
 
-export type FirstEstimateState = { error?: string; projectId?: string } | undefined;
+export type FirstEstimateState = { error?: string; projectId?: string; locked?: boolean } | undefined;
 type FirstEstimateResult = NonNullable<FirstEstimateState> & { destination?: string };
 type ProjectInput = { name: string; simpleScope: string; customerId?: string };
 
@@ -17,7 +17,11 @@ export async function runFirstEstimateWorkflow(
   form: FormData,
   dependencies: FirstEstimateDependencies,
 ): Promise<FirstEstimateResult> {
+  if (previous?.locked) return { locked: true, error: "Open Projects to find your saved work before starting another estimate." };
   let projectId = previous?.projectId;
+  if (projectId && !isSafeProjectId(projectId)) {
+    return { locked: true, error: "Invalid saved project reference. Open Projects to find your saved work." };
+  }
   const token = await dependencies.getSessionToken();
   if (!token) return { projectId, error: "Sign in again before starting or resuming your estimate." };
   try {
@@ -27,7 +31,6 @@ export async function runFirstEstimateWorkflow(
   }
 
   if (projectId) {
-    if (!isSafeProjectId(projectId)) return { error: "Invalid saved project reference. Open Projects to find your saved work." };
     try {
       // Action state is untrusted input. The current authenticated API/RLS
       // boundary must authorize it again before resuming any write.
@@ -51,7 +54,7 @@ export async function runFirstEstimateWorkflow(
       const project = await dependencies.createProject(token, { name, simpleScope, customerId: customerId || undefined });
       projectId = project.id;
     } catch {
-      return { error: "Could not confirm that your project was saved. Check Projects before submitting again." };
+      return { locked: true, error: "Could not confirm that your project was saved. Check Projects before starting another estimate." };
     }
   }
 
