@@ -12,6 +12,8 @@ Canonical Figma mobile response context/screenshot [548:2780](https://www.figma.
 
 ## Verification and limitations
 
+Continuation: canonical mobile default frame `547:2218` was inspected with high-fidelity context and screenshot. The existing official dark wordmark is restored to the mobile slot (24px left / 40px top / 126px rendered width), the mobile tagline moves to the specified 106px top with 34px line height, and the unchanged 154×186 copper drawing moves to its outer exported-asset slot (right 0 / top 22px). The unreferenced mobile underline is removed. Static asset contents, auth actions and tablet/desktop composition are unchanged. Actual rendered comparison remains required before claiming full parity.
+
 Run web tests, ESLint, TypeScript, production build, docs ownership/preflight and diff check. No new test that merely mirrors the class strings is added; existing Entry contracts preserve auth action, password reveal, assets and recovery links. Actual rendered 390/768/1024/1440 geometry, focus/keyboard, console health and assets still need evidence. Chromium installation was attempted with repo v1248 and runtime v1234; both returned invalid ZIP archives. No browser, full visual parity, merge, deployment or production claim is made by this document.
 
 ## Next five TODOs

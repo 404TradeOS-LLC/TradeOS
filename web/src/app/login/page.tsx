@@ -18,6 +18,14 @@ export default function LoginPage() {
         aria-label="TradeOS"
         className="relative min-h-[226px] overflow-hidden bg-[#1b1d1f] text-[#f7f5f1] sm:min-h-[220px] lg:min-h-screen"
       >
+        <Image
+          src="/tradeos-entry-official.svg"
+          alt="TradeOS"
+          width={175}
+          height={61}
+          priority
+          className="absolute left-6 top-10 h-auto w-[126px] sm:hidden"
+        />
         <div className="absolute inset-x-6 top-6 hidden items-center justify-between border-b border-white/10 pb-4 sm:flex lg:inset-x-12 lg:top-10">
           <Image
             src="/tradeos-entry-official.svg"
@@ -32,15 +40,15 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="absolute left-6 top-[92px] z-10 max-w-[18rem] sm:left-[31%] sm:top-[58px] sm:max-w-[27rem] lg:left-16 lg:top-[148px] lg:max-w-[44rem]">
-          <p className="font-heading text-[30px] font-medium leading-[1.08] tracking-[-0.035em] sm:text-[38px] lg:text-[64px]">
+        <div className="absolute left-6 top-[106px] z-10 max-w-[280px] sm:left-[31%] sm:top-[58px] sm:max-w-[27rem] lg:left-16 lg:top-[148px] lg:max-w-[44rem]">
+          <p className="font-heading text-[30px] font-medium leading-[34px] tracking-[-0.035em] sm:text-[38px] sm:leading-[1.08] lg:text-[64px]">
             Built for what
             <br />
             you build.
           </p>
         </div>
 
-        <div className="pointer-events-none absolute inset-y-0 right-[-18px] flex items-center sm:hidden" aria-hidden="true">
+        <div className="pointer-events-none absolute right-0 top-[22px] sm:hidden" aria-hidden="true">
           <Image
             src="/tradeos-entry-copper-identity-mobile.svg"
             alt=""
@@ -71,7 +79,6 @@ export default function LoginPage() {
           />
         </div>
 
-        <span className="absolute left-6 top-36 h-px w-10 bg-[#c2825c] sm:hidden" aria-hidden="true" />
       </section>
 
       <section className="relative flex min-h-[618px] items-start justify-center px-6 py-11 sm:min-h-[804px] sm:items-start sm:px-12 sm:pt-[78px] lg:min-h-screen lg:items-center lg:px-12 lg:py-16">

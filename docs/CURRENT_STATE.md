@@ -65,6 +65,8 @@ related_code:
 
 ## Entry control geometry — proposed 2026-10-13
 
+The same Entry parity lane now restores the existing official wordmark to the canonical mobile brand slot, aligns mobile tagline/drawing placement with default frame `547:2218`, and removes an unreferenced underline. Existing static assets are reused without editing bytes. This is code-backed parity work; screenshot/asset comparison remains unverified. BrowserAct CLI's daemon failed to initialize, and the available cloud browser cannot reach this workspace's localhost server.
+
 The canonical mobile Entry response frame `548:2780` specifies 48px credential inputs/sign-in action and a 44px recovery target. The login page now overrides shared Input/Button default heights at its own callsites and announces pending submission through `aria-busy`. Password reveal inherits the larger field's geometry. Existing auth action, navigation, assets and shared default sizes remain intact. Rendered viewport/keyboard evidence is still required; local Chromium downloads return invalid archives. This is control-geometry parity only, not full Entry/boot certification.
 
 ## ABC live sandbox evidence and safe failed-line diagnostics — 2026-10-13
