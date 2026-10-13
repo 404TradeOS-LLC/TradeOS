@@ -12,7 +12,7 @@ related_docs:
 
 ## Autonomous Figma-to-code checkpoint — 2026-10-13
 
-Continue existing draft PR #731 on `feat/p0-first-estimate-quickstart-20261013`, from main `6096d806`. Partial-save recovery retains Project identity and typed input, reauthorizes Project reads, and never repeats either creation POST on resume. Eight behavioral tests and all 487 web tests, lint/typecheck/build and docs/preflight passed locally. Onboarding remains TARGET, unmerged and uncertified. Chromium v1248 installation returned invalid ZIP; authenticated responsive evidence is blocked. Shell push credentials are unavailable; publish through the authenticated GitHub connector. The discovery/maturity ledger and next five TODOs are in `docs/design/FIGMA_TO_CODE_EXECUTION_LEDGER.md`. No sprint/deployment/certification status is advanced.
+Continue existing draft PR #731 on `feat/p0-first-estimate-quickstart-20261013`, from main `6096d806`. Partial-save recovery retains Project identity and typed input, reauthorizes Project reads, and never repeats either creation POST on resume. Nine behavioral tests and all 489 web tests, lint/typecheck/build and docs/preflight passed locally. Onboarding remains TARGET, unmerged and uncertified. Chromium v1248 installation returned invalid ZIP; authenticated responsive evidence is blocked. Shell push credentials are unavailable; publish through the authenticated GitHub connector. The discovery/maturity ledger and next five TODOs are in `docs/design/FIGMA_TO_CODE_EXECUTION_LEDGER.md`. No sprint/deployment/certification status is advanced.
 
 ## Founder-authorized Costbook legacy assembly audit — active 2026-10-08
 

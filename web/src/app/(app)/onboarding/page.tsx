@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { listCustomers, type Customer } from "@/lib/api";
+import { getOrganizationSettings, listCustomers, type Customer } from "@/lib/api";
+import { canStartFirstEstimate } from "@/lib/first-estimate-access";
 import { getSessionToken } from "@/lib/session";
 import { buttonVariants } from "@/components/ui/button";
+import { FeedbackState } from "@/components/ui/feedback-state";
 import { FirstEstimateForm } from "./first-estimate-form";
 
 export const metadata = {
@@ -13,6 +15,18 @@ export const metadata = {
 export default async function FirstEstimateOnboardingPage() {
   const token = await getSessionToken();
   if (!token) redirect("/login");
+
+  const settings = await getOrganizationSettings(token).catch(() => null);
+  if (!canStartFirstEstimate(settings?.currentRole)) {
+    return (
+      <FeedbackState
+        kind={settings ? "restricted" : "error"}
+        title={settings ? "Estimate creation is unavailable for your role" : "Couldn’t verify your access"}
+        description={settings ? "Ask an owner or administrator to start the project and estimate. You can return to your assigned work on Today." : "Your permissions could not be loaded. Return to Today and retry when the connection is available."}
+        action={<Link href="/dashboard" className={buttonVariants({ variant: "outline" })}>Go to Today</Link>}
+      />
+    );
+  }
 
   let customers: Customer[] = [];
   let customerLookupUnavailable = false;

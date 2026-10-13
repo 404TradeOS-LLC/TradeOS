@@ -38,7 +38,7 @@ Cover, Getting Started, Mobile, States and Archive page names were also discover
 ## Maturity and limits
 
 - #731 repair is CODED / locally TESTED at workflow seams. Existing authenticated APIs are wired; actual database integration is unverified.
-- Eight behavioral tests, 487 web tests, ESLint, TypeScript and production build pass. Docs ownership/preflight pass.
+- Nine behavioral tests, 489 web tests, ESLint, TypeScript and production build pass. Docs ownership/preflight pass.
 - Browser plugin runtime is unavailable. Regular Playwright attempted; Chromium v1248 ZIP is invalid. Screenshots/keyboard/console/viewports and authenticated flow evidence remain uncollected.
 - No production data write, OAuth, migration or pricing approval performed. No #731 merge/deployment/production verification claim.
 - Lost first Project response without ID, reload and cross-tab submissions remain limitations. Resume itself repeats neither POST.
@@ -50,3 +50,5 @@ Cover, Getting Started, Mobile, States and Archive page names were also discover
 3. Audit Entry response/boot designs against login/auth routes; fix the first supported P0 mismatch in a bounded lane after overlap search.
 4. Audit actual Scope → Athena → reviewed Items → Price → Review persistence; preserve explicit Apply and pricing authority.
 5. Continue canonical P0/P1 workflow reconciliation; TARGET designs stay open until capability/data contracts support them.
+
+Review continuation: #731 now gates Today/onboarding/action against the backend-reported role and shared canonical CRM write permission. Restricted and permission-unavailable states are explicit; role/write-denial tests added. The independent Entry control repair is on `fix/entry-mobile-control-parity` with 476 passing web tests and clean lint/typecheck/build/docs. Browser evidence remains blocked for both lanes.

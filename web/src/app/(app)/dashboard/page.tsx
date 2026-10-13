@@ -22,6 +22,7 @@ import {
 } from "@/lib/api";
 import { formatScheduleInZone } from "@/lib/document-workflow";
 import { getSessionToken } from "@/lib/session";
+import { canStartFirstEstimate } from "@/lib/first-estimate-access";
 import type { OwnerScheduleItem } from "@/components/dashboard/owner-dashboard-data";
 import type { AttentionStartRow } from "@/components/dashboard/needs-attention-card";
 import {
@@ -345,7 +346,7 @@ export default async function DashboardPage() {
         projectScopeLabel={projectScopeLabel}
       />
 
-      {token && projects.length === 0 ? (
+      {token && projects.length === 0 && canStartFirstEstimate(settingsResponse?.currentRole) ? (
         <section aria-labelledby="first-estimate-next-step" className="flex flex-col gap-4 rounded-2xl border border-border/80 bg-card p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-copper">Your first job</p>

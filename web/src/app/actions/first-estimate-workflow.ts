@@ -6,6 +6,7 @@ type ProjectInput = { name: string; simpleScope: string; customerId?: string };
 
 export type FirstEstimateDependencies = {
   getSessionToken: () => Promise<string | null>;
+  canCreate: (token: string) => Promise<boolean>;
   createProject: (token: string, input: ProjectInput) => Promise<{ id: string }>;
   getProject: (token: string, id: string) => Promise<{ id: string; estimates: Array<{ id: string; status: string }> }>;
   createEstimate: (token: string, projectId: string) => Promise<{ id: string }>;
@@ -19,6 +20,11 @@ export async function runFirstEstimateWorkflow(
   let projectId = previous?.projectId;
   const token = await dependencies.getSessionToken();
   if (!token) return { projectId, error: "Sign in again before starting or resuming your estimate." };
+  try {
+    if (!await dependencies.canCreate(token)) return { projectId, error: "Your role cannot create projects or estimates. Return to Today or ask an owner or administrator." };
+  } catch {
+    return { projectId, error: "Could not verify your access. Retry when the connection is available; no creation request was made." };
+  }
 
   if (projectId) {
     if (!isSafeProjectId(projectId)) return { error: "Invalid saved project reference. Open Projects to find your saved work." };

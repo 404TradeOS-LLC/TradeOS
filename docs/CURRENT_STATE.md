@@ -67,18 +67,18 @@ related_code:
 
 The first-estimate branch adds a dedicated server action over the existing authenticated Project/Estimate APIs. A failed draft creation retains the confirmed Project and typed form inputs. Resume rechecks access with the current session, opens the draft or Project workspace and never repeats either creation POST. Saved fields are read-only; pending and recovery controls remain visible. Auth, RLS, permissions, pricing approvals and schema are unchanged.
 
-Eight behavioral tests, 487 web tests, lint, TypeScript and production build passed locally. Authenticated browser/live database verification is uncollected; Chromium installation returned an invalid archive. Figma onboarding remains TARGET; full wizard/parity and demo certification are unfinished. Lost initial Project response, reload recovery and cross-tab/backend idempotency remain open. See `docs/design/FIGMA_TO_CODE_EXECUTION_LEDGER.md`.
+Nine behavioral tests, 489 web tests, lint, TypeScript and production build passed locally. Authenticated browser/live database verification is uncollected; Chromium installation returned an invalid archive. Figma onboarding remains TARGET; full wizard/parity and demo certification are unfinished. Lost initial Project response, reload recovery and cross-tab/backend idempotency remain open. See `docs/design/FIGMA_TO_CODE_EXECUTION_LEDGER.md`.
 
 
 ## P0 first-estimate onboarding quick start — 2026-10-13 (draft PR #731)
 
 Founder-directed demo-readiness slice on `feat/p0-first-estimate-quickstart-20261013`.
 The new authenticated `/onboarding` Web route uses the existing
-`createProjectAction` for a real Project.simpleScope and draft Estimate,
+`createFirstEstimateAction` and `runFirstEstimateWorkflow` for real Project.simpleScope and draft Estimate,
 without new persistence, authorization rules, pricing approval, or provider
 integration. A successfully loaded, truly empty Today Project list offers one
 first-estimate action; returning organizations remain on their normal Today.
-The Customer lookup can fail visibly while allowing an unlinked Project.
+The Customer lookup can fail visibly while allowing an unlinked Project. Today and onboarding gate creation on the backend-reported role and canonical CRM write permissions. Denied/unknown permissions render restricted/retry feedback instead of a form. The server action also rechecks capability; backend authorization and RLS remain authoritative.
 
 **This is PR-only implementation, not a shipped route or certified onboarding.**
 The canonical Figma 22 — Onboarding views remain TARGET, and there is no

@@ -11,6 +11,7 @@ function fixture() {
   form.set("simpleScope", "Remove worn coating and paint the garage floor.");
   const dependencies: FirstEstimateDependencies = {
     getSessionToken: async () => "session",
+    canCreate: async () => true,
     createProject: async (_token, input) => { calls.push("project"); assert.equal(input.simpleScope, form.get("simpleScope")); return { id: projectId }; },
     getProject: async () => { calls.push("authorize-project"); return { id: projectId, estimates: [] }; },
     createEstimate: async () => { calls.push("estimate"); return { id: estimateId }; },
@@ -61,6 +62,16 @@ test("missing authentication performs no reads or writes", async () => {
   assert.match(result.error!, /sign in/i);
   assert.equal(result.projectId, projectId);
   assert.deepEqual(calls, []);
+});
+
+test("denied role or unavailable capability performs no creation or project reads", async () => {
+  for (const fails of [false, true]) {
+    const { calls, form, dependencies } = fixture();
+    dependencies.canCreate = async () => { if (fails) throw new Error("unavailable"); return false; };
+    const result = await runFirstEstimateWorkflow(undefined, form, dependencies);
+    assert.ok(result.error);
+    assert.deepEqual(calls, []);
+  }
 });
 
 test("server validates scope and name before any creation", async () => {
