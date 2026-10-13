@@ -85,6 +85,68 @@ Price Items requests or creates/approves Materials or prices. Account selection
 and sandbox pricing wiring remain separate reviewed work; ABC production
 aggregator approval is still required for real customer accounts.
 
+## ABC Third-Party Aggregator user-present pricing guard (2026-10-12)
+
+The unattended supplier-price scheduler, Vercel cron and one-shot worker
+**must not request ABC customer-specific pricing**. The default ABC supplier
+feed throws an explicit, fail-closed user-presence error before reading
+Vault credentials, Material rows or invoking ABC. This policy also prevents
+substituting a generic configured HTTPS supplier endpoint for the designated
+ABC supplier. Other authorized non-ABC supplier feeds retain their existing
+behavior. The explicitly user-initiated `/abc/price-probe` and
+`/abc/selected-price-probe` remain sandbox diagnostics, never price writes.
+Restoring ABC unattended pricing requires an ABC-approved use-case and
+separately reviewed architecture, not an environment toggle.
+
+## Selected ABC sandbox line-level error diagnostics (2026-10-13)
+
+The selected-account `POST /api/v1/supplier-integrations/abc/selected-price-probe` now returns
+`providerStatusMessage: string | null` in addition to `providerStatus`.
+For an exactly attributable non-OK provider line, this optional diagnostic is
+disclosed **only** after the existing `safeAbcProviderStatusMessage`
+screening rejects credentials, account/Ship-To numbers, URLs, markup, opaque
+identifiers or excessively long messages. Successful or missing lines and
+unsafe messages return `null`. The status message is never used to qualify
+a line as a price or to map the provider stocking UOM.
+
+Live 2026-10-13 sandbox evidence: OAuth reauthorization completed, account
+discovery HTTP 200, and selected-account pricing requests reached the API
+and completed HTTP 200. SKU `654210` had provider line status `Error`
+in the authenticated Settings UI; **no successful priced line or eligible
+stocking UOM has been verified**. The diagnostic is not proof of a live price
+or ABC Production API entitlement.
+
+## ABC Supply selected-account read-only sandbox quote (2026-10-12)
+
+`POST /api/v1/supplier-integrations/abc/selected-price-probe` requires an
+authenticated workspace owner/admin with `costbook.manage`, and a strict body:
+`{ "shipToNumber": "...", "branchNumber": "...", "sku": "654210" }`.
+For now `sku` is restricted to `654210` or the ABC documented sample
+`02GASTZ3WW` (not guaranteed to be priceable in the sandbox). Callers cannot
+specify tenant, supplier, URL, quantity, unit, or purpose. This is a single
+explicit user-initiated diagnostic, not scheduled price synchronization.
+
+Before quoting, the API loads the tenant's ABC supplier, uses its durable
+Vault-backed user grant, and re-fetches Search Accounts with `account.read`.
+It verifies an active Ship-To and an active branch associated with that
+account. Then it requests one `pricing.read` item at quantity 1, with
+`purpose=estimating`, under a 15-second deadline and a 30-per-15-minute
+rate limit, enforced by the existing PostgreSQL-backed shared atomic
+`SharedSupplierCronRateLimitStore` with a dedicated
+`abc-selected-quote` namespace. Authenticated requests use the existing
+independent, restricted Prisma pool rather than recursively waiting on the
+one-connection request pool. A serverless cold start does not reset the
+request budget; the limiter fails closed if its private SQL wrapper fails. A valid result requires one attributable matching response line,
+status `OK`, positive finite USD price, and a nonempty stocking unit.
+Nonmatching, ambiguous, zero-price, missing-UOM and error lines cannot be
+trusted as eligible. The response includes `sku`, `quantity`, `priced`,
+nullable `price`/`currency`/`stockingUnit`, and `providerStatus`, plus
+`materialCreated:false`, `priceApplied:false`,
+`accountPreferenceSaved:false`, `unitMappingVerified:false`.
+No account preference, Material, observation or price proposal is created.
+Unsafe provider bodies, tokens, account IDs and raw errors are not echoed.
+Successful CI does not prove a live sandbox quote or production access.
+
 ## ABC Supply sandbox pricing connection test (2026-10-09)
 
 `POST /api/v1/supplier-integrations/abc/price-probe` accepts an exact
@@ -692,7 +754,7 @@ persisted organization branding when authenticated context is available.
 
 ## Costbook continuation API additions
 
-PR #216 extends the existing Costbook namespace without adding parallel domain systems: `/api/v1/costbook/assemblies` exposes the existing Assembly model and composition service; `POST /api/v1/costbook/pricing/preview` is calculation-only and reuses Estimate pricing formulas; `GET /api/v1/costbook/pricing/resolve` is the read-only canonical-price trust contract added by the 2026-10-02 data foundation; and `GET /api/v1/costbook/price-history` returns tenant-scoped `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport remains under the existing supplier-integration surface, accepts endpoints only from trusted server configuration, and enqueues review proposals rather than mutating Material prices automatically. PR #684 adds a sandbox-only ABC Supply feed fetcher (`app/modules/supplier-integration/abcSupply.ts`) implementing the `SupplierFeedFetcher` contract: refresh-token user auth, batched pricing with `purpose=estimating`, no-op when `ABC_SUPPLY_SANDBOX_*` env is absent. The follow-up wiring makes it the default: `SupplierIntegrationService` now uses `fetchDefaultSupplierFeed`, which routes the `ABC_SUPPLY_SANDBOX_SUPPLIER_ID` sync target to the ABC fetcher and all other suppliers to the generic trusted-endpoint fetcher, so scheduled syncs and the worker reach the ABC feed without per-call-site changes (no HTTP controller sync route exists; the controller serves the review queue). The ABC route applies the same 15-second abort deadline as the generic fetcher, and a rotated refresh token is persisted to Supabase Vault before pricing continues; the environment token is bootstrap/recovery configuration. These additions preserve the existing `costbook.read` / `costbook.write` / `costbook.manage` split and introduce no Athena Costbook write route.
+PR #216 extends the existing Costbook namespace without adding parallel domain systems: `/api/v1/costbook/assemblies` exposes the existing Assembly model and composition service; `POST /api/v1/costbook/pricing/preview` is calculation-only and reuses Estimate pricing formulas; `GET /api/v1/costbook/pricing/resolve` is the read-only canonical-price trust contract added by the 2026-10-02 data foundation; and `GET /api/v1/costbook/price-history` returns tenant-scoped `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport remains under the existing supplier-integration surface, accepts endpoints only from trusted server configuration, and enqueues review proposals rather than mutating Material prices automatically. PR #684 originally added a sandbox-only ABC Supply feed adapter (`app/modules/supplier-integration/abcSupply.ts`), including refresh-token auth and batched `purpose=estimating` line mapping. **That legacy scheduled ABC integration has since been superseded:** `fetchDefaultSupplierFeed` now rejects the designated `ABC_SUPPLY_SANDBOX_SUPPLIER_ID` background target with a terminal, non-retryable `abc_user_present_required` failure before reading Vault or calling ABC. It does not fall back to a generic endpoint. Other supplier jobs keep their review-first flow. User-initiated sandbox account discovery/selected quote endpoints remain explicitly authenticated, tenant-scoped and read-only, using durable Vault token rotation with a 15-second timeout; no estimate or Material cost is updated. These changes preserve the existing `costbook.read` / `costbook.write` / `costbook.manage` split.
 
 `GET /api/v1/costbook/assemblies/starter-catalog` requires `costbook.read` and returns `{ catalogVersion, coverage, items }`. The web Assembly starter browser derives combined NAHB/CSI/trade/unit facets locally from this full **static starter payload**, using tenant-scoped active Assembly codes for the installed/not-installed facet. This does not filter a bounded DB page or add a new API write path. Recipes include NAHB work groups, CSI codes, measurement bases, review/version metadata, and component slots with `compatibleUnits` and `allowedCostItemKinds`; `coverage` is derived from those recipes. The response contains no prices. `POST /api/v1/costbook/assemblies/starter-catalog/install` requires `costbook.write`; its strict body contains `templateId` and a `componentMappings` array of `{ componentKey, costItemId }`. Every required slot and every distinct Cost Item must appear exactly once. Each Cost Item must be active, owned by the authenticated organization, and compatible with the slot's unit and kind. The route atomically creates an ordinary tenant-scoped reusable Assembly and AssemblyItem set by joining the active request transaction or opening a direct-service transaction. Duplicate assembly codes return `409`; missing, unknown, or duplicate mappings return `400`; unavailable or cross-tenant Cost Items return `404`; incompatible unit/type mappings return `422`.
 

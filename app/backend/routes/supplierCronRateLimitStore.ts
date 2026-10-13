@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import type { IncrementResponse, Options, Store } from "express-rate-limit";
-import { basePrisma } from "../../db/client";
+import { basePrisma, getSupplierTokenRotationClient } from "../../db/client";
 
-export type SupplierCronRateLimitNamespace = "authorized" | "unauthorized";
+export type SupplierCronRateLimitNamespace = "authorized" | "unauthorized" | "abc-selected-quote";
 
 /**
  * A shared rate-limit store for horizontally scaled Vercel functions.
@@ -37,7 +37,12 @@ export class SharedSupplierCronRateLimitStore implements Store {
     const keyHash = createHash("sha256")
       .update(`supplier-sync-cron:${this.namespace}:${key}`)
       .digest("hex");
-    const rows = await basePrisma.$queryRaw<Array<{
+    // Authenticated request sessions may hold the only basePrisma connection
+    // on Vercel. Use the independent bounded restricted pool for this
+    // user-initiated limiter to avoid acquiring basePrisma recursively.
+    const client = this.namespace === "abc-selected-quote"
+      ? getSupplierTokenRotationClient() : basePrisma;
+    const rows = await client.$queryRaw<Array<{
       total_hits: number;
       window_resets_at: Date;
     }>>(Prisma.sql`

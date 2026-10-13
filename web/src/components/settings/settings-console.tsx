@@ -149,6 +149,15 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
   >({ state: "idle" });
   const [selectedAbcShipTo, setSelectedAbcShipTo] = useState("");
   const [selectedAbcBranch, setSelectedAbcBranch] = useState("");
+  const [selectedAbcSku, setSelectedAbcSku] = useState<"654210" | "02GASTZ3WW">("02GASTZ3WW");
+  const [abcSelectedQuote, setAbcSelectedQuote] = useState<
+    | { state: "idle" | "loading" }
+    | { state: "ready"; sku: string; priced: boolean; price: number | null; stockingUnit: string | null; providerStatus: string; providerStatusMessage: string | null }
+    | { state: "needs-authorization" | "error" }
+  >({ state: "idle" });
+  const abcQuoteVersion = useRef(0);
+  const abcQuoteAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => { abcQuoteAbortRef.current?.abort(); }, []);
   const selectedAbcAccount = abcAccountDiscovery.state === "ready"
     ? abcAccountDiscovery.accounts.find((account) => account.number === selectedAbcShipTo)
     : undefined;
@@ -326,11 +335,19 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
 
   const selectedSection = sections.find((section) => section.id === selectedSectionId) ?? sections[0];
 
+  function resetAbcSelectedQuote() {
+    abcQuoteVersion.current += 1;
+    abcQuoteAbortRef.current?.abort();
+    abcQuoteAbortRef.current = null;
+    setAbcSelectedQuote({ state: "idle" });
+  }
+
   async function discoverAbcShipToAccounts() {
     if (abcAccountDiscovery.state === "loading") return;
     setAbcAccountDiscovery({ state: "loading" });
     setSelectedAbcShipTo("");
     setSelectedAbcBranch("");
+    resetAbcSelectedQuote();
     try {
       const result = await clientFetch<{ accounts: AbcShipToAccountOption[] }>(
         "/api/v1/supplier-integrations/abc/accounts",
@@ -343,6 +360,46 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
       setAbcAccountDiscovery(error instanceof ClientApiError && error.status === 409
         ? { state: "needs-authorization" }
         : { state: "error" });
+    }
+  }
+
+  async function testSelectedAbcSandboxPrice() {
+    if (!selectedAbcAccount || !selectedAbcBranch || abcSelectedQuote.state === "loading") return;
+    const version = ++abcQuoteVersion.current;
+    const controller = new AbortController();
+    abcQuoteAbortRef.current = controller;
+    setAbcSelectedQuote({ state: "loading" });
+    try {
+      const result = await clientFetch<{
+        sku: string; priced: boolean; price: number | null; stockingUnit: string | null;
+        providerStatus: string; providerStatusMessage: string | null;
+        materialCreated: boolean; priceApplied: boolean;
+        accountPreferenceSaved: boolean; unitMappingVerified: boolean;
+      }>("/api/v1/supplier-integrations/abc/selected-price-probe", {
+        method: "POST",
+        body: JSON.stringify({
+          shipToNumber: selectedAbcAccount.number,
+          branchNumber: selectedAbcBranch,
+          sku: selectedAbcSku,
+        }),
+        signal: controller.signal,
+      });
+      if (version !== abcQuoteVersion.current) return;
+      if (result.materialCreated || result.priceApplied || result.accountPreferenceSaved || result.unitMappingVerified) {
+        throw new Error("ABC sandbox quote unexpectedly claimed a stored or trusted price");
+      }
+      setAbcSelectedQuote({
+        state: "ready", sku: result.sku, priced: result.priced,
+        price: result.price, stockingUnit: result.stockingUnit,
+        providerStatus: result.providerStatus,
+        providerStatusMessage: result.providerStatusMessage,
+      });
+    } catch (error) {
+      if (version !== abcQuoteVersion.current) return;
+      setAbcSelectedQuote(error instanceof ClientApiError && error.status === 409
+        ? { state: "needs-authorization" } : { state: "error" });
+    } finally {
+      if (abcQuoteAbortRef.current === controller) abcQuoteAbortRef.current = null;
     }
   }
 
@@ -930,6 +987,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                       onChange={(event) => {
                         setSelectedAbcShipTo(event.target.value);
                         setSelectedAbcBranch("");
+                        resetAbcSelectedQuote();
                       }}
                       hint="Showing only accounts returned for your authorized sandbox connection."
                       className="h-11 rounded-xl"
@@ -945,7 +1003,10 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                       id="abc-branch"
                       label="ABC branch"
                       value={selectedAbcBranch}
-                      onChange={(event) => setSelectedAbcBranch(event.target.value)}
+                      onChange={(event) => {
+                        setSelectedAbcBranch(event.target.value);
+                        resetAbcSelectedQuote();
+                      }}
                       disabled={!selectedAbcAccount}
                       hint="Branches are limited to those associated with the selected Ship-To account."
                       className="h-11 rounded-xl"
@@ -962,8 +1023,45 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                         Selected {selectedAbcAccount.name} and branch {selectedAbcBranch} for this view.
                       </p>
                     ) : null}
+                    {selectedAbcAccount && selectedAbcBranch ? (
+                      <div className="space-y-3 rounded-lg border border-border p-3">
+                        <SelectField
+                          id="abc-selected-quote-sku"
+                          label="Read-only sandbox test item"
+                          value={selectedAbcSku}
+                          onChange={(event) => {
+                            setSelectedAbcSku(event.target.value as "654210" | "02GASTZ3WW");
+                            resetAbcSelectedQuote();
+                          }}
+                        >
+                          <option value="02GASTZ3WW">02GASTZ3WW · ABC documentation sample</option>
+                          <option value="654210">654210 · TradeOS pilot SKU</option>
+                        </SelectField>
+                        <Button type="button" variant="outline"
+                          disabled={abcSelectedQuote.state === "loading"}
+                          onClick={() => void testSelectedAbcSandboxPrice()}>
+                          {abcSelectedQuote.state === "loading" ? "Checking sandbox price..." : "Test selected ABC price"}
+                        </Button>
+                        {abcSelectedQuote.state === "needs-authorization" ? (
+                          <p role="alert" className="text-sm text-destructive">Reconnect ABC to authorize account and pricing access, then retry.</p>
+                        ) : null}
+                        {abcSelectedQuote.state === "error" ? (
+                          <p role="alert" className="text-sm text-destructive">Selected-account sandbox pricing did not complete. Check ABC access and try again.</p>
+                        ) : null}
+                        {abcSelectedQuote.state === "ready" ? (
+                          <p role="status" className="text-sm text-foreground">
+                            {abcSelectedQuote.priced && abcSelectedQuote.price !== null
+                              ? `ABC sandbox returned ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(abcSelectedQuote.price)} per ${abcSelectedQuote.stockingUnit ?? "unknown unit"} for ${abcSelectedQuote.sku}.`
+                              : `ABC did not return an eligible price for ${abcSelectedQuote.sku} (status: ${abcSelectedQuote.providerStatus}).`}
+                            {!abcSelectedQuote.priced && abcSelectedQuote.providerStatusMessage
+                              ? ` ABC says: ${abcSelectedQuote.providerStatusMessage}${/[.!?]$/.test(abcSelectedQuote.providerStatusMessage) ? "" : "."}` : ""}
+                            {" "}No price or account preference was saved; Material unit mapping was not verified.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
                     <p className="text-sm text-muted-foreground">
-                      Selection is temporary and read-only. Nothing is saved; the ABC price test still uses its separately configured sandbox account and branch.
+                      Selection is temporary and read-only; the ABC price test still uses its separately configured sandbox account. The selected-account price check revalidates your selection on the server and cannot apply a Material cost.
                     </p>
                   </div>
                 ) : null}
