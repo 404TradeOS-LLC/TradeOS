@@ -49,6 +49,8 @@ jest.mock("../modules/supplier-integration/abcAccount", () => ({
 jest.mock("../backend/routes/supplierCronRateLimitStore", () => ({
   SharedSupplierCronRateLimitStore: jest.fn().mockImplementation(() => ({
     init: jest.fn(),
+    decrement: jest.fn(),
+    resetKey: jest.fn(),
     increment: jest.fn(async () => ({ totalHits: 1, resetTime: new Date("2026-10-13T01:00:00Z") })),
   })),
 }));
