@@ -150,3 +150,7 @@ These workflows do not:
 Automation validates evidence and shortens feedback loops; repository governance remains authoritative.
 
 The full run also accepts a scenario selector. `canonical` preserves the existing end-to-end beta path; opt-in `s052` adds Customer/ServiceAddress/Project owner+admin persistence, validation/duplicate, inactive-membership, responsive, and cross-tenant certification; opt-in `s053` adds authenticated Athena review/no-silent-write/apply/pricing/persistence checkpoints. Neither scenario changes runtime product authorization. A passing full workflow run is required before the corresponding sprint can cite current-head browser evidence.
+
+## Required integration context execution — 2026-10-13
+
+`Verify repository` runs the actual `App integration tests` job for every pull request, merge-group and main push after scope detection. The prior backend-path condition skipped this branch-protection-required context on frontend-only PRs such as #731/#732. The required integration/migration rehearsal now executes regardless of App/Web scope; other non-required backend jobs retain path scoping. No synthetic success context, branch-protection change, credential change or production database access is introduced. Existing psql provisioning and the disposable-database test runner remain unchanged. Hosted execution is required before claiming integration PASS. Rollback is restoring the job condition, which also restores the known skipped-context gap.
