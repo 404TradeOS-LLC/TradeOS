@@ -176,7 +176,7 @@ jobs:
   app-integration:
     name: App integration tests
     needs: changes
-    if: needs.changes.outputs.app == 'true'
+    # Required branch-protection context: execute the real suite on every PR.
     runs-on: ubuntu-latest
     defaults:
       run:
