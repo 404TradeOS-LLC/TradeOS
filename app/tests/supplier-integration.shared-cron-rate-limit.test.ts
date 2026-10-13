@@ -2,9 +2,11 @@ const mockQueryRaw = jest.fn();
 
 jest.mock("../db/client", () => ({
   basePrisma: { $queryRaw: mockQueryRaw },
+  getSupplierTokenRotationClient: jest.fn(() => ({ $queryRaw: mockQueryRaw })),
 }));
 
 import { SharedSupplierCronRateLimitStore } from "../backend/routes/supplierCronRateLimitStore";
+import { getSupplierTokenRotationClient } from "../db/client";
 
 describe("Vercel-shared supplier Cron budgets", () => {
   beforeEach(() => jest.clearAllMocks());
@@ -31,6 +33,7 @@ describe("Vercel-shared supplier Cron budgets", () => {
     expect((await unauthorizedB.increment("203.0.113.8")).totalHits).toBe(2);
     expect((await authorized.increment("203.0.113.8")).totalHits).toBe(1);
     expect((await selectedQuote.increment("203.0.113.8")).totalHits).toBe(1);
+    expect(getSupplierTokenRotationClient).toHaveBeenCalledTimes(1);
     expect(hits.size).toBe(3);
     expect([...hits.keys()].every((key) => !key.includes("203.0.113.8"))).toBe(true);
   });

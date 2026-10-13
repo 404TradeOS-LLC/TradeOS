@@ -102,7 +102,9 @@ account. Then it requests one `pricing.read` item at quantity 1, with
 `purpose=estimating`, under a 15-second deadline and a 30-per-15-minute
 rate limit, enforced by the existing PostgreSQL-backed shared atomic
 `SharedSupplierCronRateLimitStore` with a dedicated
-`abc-selected-quote` namespace. A serverless cold start does not reset the
+`abc-selected-quote` namespace. Authenticated requests use the existing
+independent, restricted Prisma pool rather than recursively waiting on the
+one-connection request pool. A serverless cold start does not reset the
 request budget; the limiter fails closed if its private SQL wrapper fails. A valid result requires one attributable matching response line,
 status `OK`, positive finite USD price, and a nonempty stocking unit.
 Nonmatching, ambiguous, zero-price, missing-UOM and error lines cannot be

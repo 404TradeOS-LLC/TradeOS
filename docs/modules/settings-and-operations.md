@@ -111,7 +111,9 @@ The quote screen cancels in-flight requests when Ship-To, branch or SKU changes
 and ignores stale responses, so a returned amount cannot be shown under a
 different selection. The request budget is shared atomically across Vercel
 instances through the existing protected supplier cron SQL limiter, in a
-separate `abc-selected-quote` namespace; the limiter fails closed.
+separate `abc-selected-quote` namespace. It uses the existing independent
+bounded restricted Prisma pool, not the busy authenticated request pool,
+and fails closed on database errors.
 Actual successful ABC sandbox pricing requires a user-present grant and
 provider verification; CI alone does not establish it. Production access
 remains subject to ABC Third-Party Aggregator approval (issue #719).
