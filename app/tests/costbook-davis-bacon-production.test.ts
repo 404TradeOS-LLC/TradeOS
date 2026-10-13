@@ -198,6 +198,36 @@ describe("DavisBaconClient hardening", () => {
     await expect(client.fetchWithRetry("https://example.test/x")).rejects.toThrow(DavisBaconApiError);
   });
 
+  it("does not fetch when the caller already aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fetchImpl = jest.fn();
+    const client = new DavisBaconClient({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      sleepImpl: () => Promise.resolve(),
+      minDelayMs: 0,
+    });
+    await expect(client.fetchWithRetry("https://example.test/x", { signal: controller.signal }))
+      .rejects.toThrow("aborted by caller");
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("does not retry a caller-cancelled fetch", async () => {
+    const controller = new AbortController();
+    const fetchImpl = jest.fn(async () => {
+      controller.abort();
+      throw new Error("aborted");
+    });
+    const client = new DavisBaconClient({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      sleepImpl: () => Promise.resolve(),
+      minDelayMs: 0,
+    });
+    await expect(client.fetchWithRetry("https://example.test/x", { signal: controller.signal }))
+      .rejects.toThrow("aborted");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   it("sends the TradeOS user agent on every request", async () => {
     const fetchImpl = jest.fn().mockResolvedValue(okResponse());
     const client = new DavisBaconClient({
@@ -305,13 +335,16 @@ function determination(overrides: Partial<DavisBaconDetermination> = {}): DavisB
 function fakeStore(initial: StoredDavisBaconDetermination[] = []): DavisBaconStore & {
   upserts: unknown[];
   replaced: unknown[];
+  retired: string[];
 } {
   const stored = new Map(initial.map((row) => [row.wdNumber, row]));
   const upserts: unknown[] = [];
   const replaced: unknown[] = [];
+  const retired: string[] = [];
   return {
     upserts,
     replaced,
+    retired,
     listDeterminations: async () => [...stored.values()],
     upsertDetermination: async ({ determination }) => {
       const created = !stored.has(determination.wdNumber);
@@ -320,6 +353,8 @@ function fakeStore(initial: StoredDavisBaconDetermination[] = []): DavisBaconSto
         wdNumber: determination.wdNumber,
         revisionNumber: determination.revisionNumber,
         modifiedDate: determination.modifiedDate || null,
+        counties: determination.counties,
+        isActive: determination.isActive,
       });
       upserts.push(determination.wdNumber);
       return { id: `id-${determination.wdNumber}`, created };
@@ -327,6 +362,19 @@ function fakeStore(initial: StoredDavisBaconDetermination[] = []): DavisBaconSto
     replaceRates: async (input) => {
       replaced.push(input.wdNumber);
       return 3;
+    },
+    retireMissingCounty: async (_orgId, _state, county, seen) => {
+      let count = 0;
+      for (const row of stored.values()) {
+        if (seen.includes(row.wdNumber) || row.isActive === false) continue;
+        if (!row.counties?.some((c) => c.toLowerCase() === county.toLowerCase())) continue;
+        const remaining = row.counties.filter((c) => c.toLowerCase() !== county.toLowerCase());
+        row.counties = remaining;
+        row.isActive = remaining.length > 0;
+        retired.push(row.wdNumber);
+        count += 1;
+      }
+      return count;
     },
   };
 }
@@ -413,6 +461,67 @@ describe("syncCountyWageDeterminations", () => {
     expect(report.failed).toHaveLength(1);
     expect(report.failed[0]).toMatchObject({ wdNumber: "IN20260050", error: "boom" });
     expect(report.added).toBe(1);
+  });
+
+  it("removes obsolete county coverage but keeps other counties active", async () => {
+    const store = fakeStore([
+      { id: "id-old", wdNumber: "IN20250003", revisionNumber: 1,
+        modifiedDate: null, counties: ["Vigo", "Clay"], isActive: true },
+      { id: "id-withdrawn", wdNumber: "IN20250004", revisionNumber: 1,
+        modifiedDate: null, counties: ["Vigo"], isActive: true },
+    ]);
+    const report = await syncCountyWageDeterminations(spec, {
+      store,
+      discover: async () => [determination()],
+      fetchText: async () => fixtureText,
+      parseDocument: parseOk,
+    });
+    expect(report.retired).toBe(2);
+    expect(store.retired).toEqual(["IN20250003", "IN20250004"]);
+    const rows = await store.listDeterminations(spec.orgId, spec.state);
+    expect(rows.find((row) => row.wdNumber === "IN20250003")).toMatchObject({
+      counties: ["Clay"], isActive: true,
+    });
+    expect(rows.find((row) => row.wdNumber === "IN20250004")).toMatchObject({
+      counties: [], isActive: false,
+    });
+  });
+
+  it("keeps external discovery and downloads outside persistence sessions", async () => {
+    const store = fakeStore();
+    let sessionActive = false;
+    const list = store.listDeterminations.bind(store);
+    const upsert = store.upsertDetermination.bind(store);
+    store.listDeterminations = async (...args) => {
+      expect(sessionActive).toBe(true);
+      return list(...args);
+    };
+    store.upsertDetermination = async (...args) => {
+      expect(sessionActive).toBe(true);
+      return upsert(...args);
+    };
+    const report = await syncCountyWageDeterminations(spec, {
+      store,
+      withStoreSession: async (operation) => {
+        expect(sessionActive).toBe(false);
+        sessionActive = true;
+        try { return await operation(); } finally { sessionActive = false; }
+      },
+      discover: async () => {
+        expect(sessionActive).toBe(false);
+        return [determination()];
+      },
+      fetchText: async () => {
+        expect(sessionActive).toBe(false);
+        return fixtureText;
+      },
+      parseDocument: () => {
+        expect(sessionActive).toBe(false);
+        return parseOk();
+      },
+    });
+    expect(report.added).toBe(1);
+    expect(sessionActive).toBe(false);
   });
 
   it("throws a descriptive error when discovery itself fails", async () => {

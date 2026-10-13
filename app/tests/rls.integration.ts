@@ -745,6 +745,25 @@ describe("live organization row-level security", () => {
       )
     ).rejects.toThrow();
 
+    // A writable tenant may not reference a different tenant's WD. PostgreSQL
+    // FK checks bypass RLS, so this must be enforced by the composite FK.
+    await expect(
+      inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().davisBaconRate.create({
+          data: {
+            id: "rls-davis-bacon-cross-parent",
+            orgId: orgA,
+            determinationId: davisBaconDeterminationB,
+            wdNumber: "IN20260003",
+            revisionNumber: 2,
+            rateIdentifier: "TEST-CROSS-ORG",
+            occupation: "LABORER",
+            baseRate: 20,
+          },
+        })
+      )
+    ).rejects.toThrow();
+
     await expect(
       inSession(viewerUser, orgA, "viewer", async () =>
         currentTransaction().davisBaconRate.create({
