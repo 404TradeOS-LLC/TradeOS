@@ -90,7 +90,7 @@ export default function LoginPage() {
             <p className="mt-1 text-sm text-muted-foreground">Sign in to your workspace.</p>
           </header>
 
-          <form action={formAction} className="mt-8 flex flex-col gap-5">
+          <form action={formAction} aria-busy={isPending} className="mt-8 flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -99,6 +99,7 @@ export default function LoginPage() {
                 type="email"
                 autoComplete="email"
                 placeholder="you@company.com"
+                className="min-h-12"
                 required
               />
             </div>
@@ -112,7 +113,7 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   placeholder="Enter your password"
-                  className="pr-16"
+                  className="min-h-12 pr-16"
                   required
                 />
                 <button
@@ -133,7 +134,7 @@ export default function LoginPage() {
               </p>
             ) : null}
 
-            <Button type="submit" disabled={isPending} className="mt-1 w-full">
+            <Button type="submit" disabled={isPending} className="mt-1 min-h-12 w-full">
               {isPending ? "Signing in…" : "Sign in"}
             </Button>
           </form>
@@ -141,7 +142,7 @@ export default function LoginPage() {
           <div className="mt-4 text-center">
             <Link
               href="/forgot-password"
-              className="inline-flex min-h-10 items-center rounded-lg px-3 text-sm font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               Forgot password?
             </Link>

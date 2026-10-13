@@ -63,6 +63,10 @@ related_code:
 
 # TradeOS Current State
 
+## Entry control geometry — proposed 2026-10-13
+
+The canonical mobile Entry response frame `548:2780` specifies 48px credential inputs/sign-in action and a 44px recovery target. The login page now overrides shared Input/Button default heights at its own callsites and announces pending submission through `aria-busy`. Password reveal inherits the larger field's geometry. Existing auth action, navigation, assets and shared default sizes remain intact. Rendered viewport/keyboard evidence is still required; local Chromium downloads return invalid archives. This is control-geometry parity only, not full Entry/boot certification.
+
 ## ABC live sandbox evidence and safe failed-line diagnostics — 2026-10-13
 
 The live Vercel backend confirms a successful user-present ABC OAuth
