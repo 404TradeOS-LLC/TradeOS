@@ -6,6 +6,7 @@ import { assembliesDatabaseController as assemblyCtrl } from "../controllers/ass
 import { costbookCandidatesController as candidateCtrl } from "../controllers/costbookCandidates.controller";
 import { costbookCompositeBenchmarksController as compositeBenchmarkCtrl } from "../controllers/costbookCompositeBenchmarks.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
+import { davisBaconController as davisBaconCtrl } from "../controllers/davisBacon.controller";
 
 export const costbookRouter = Router();
 
@@ -18,6 +19,9 @@ costbookRouter.post("/supplier-evidence/products/:id/canonical-match", asyncHand
 costbookRouter.post("/pricing/preview", asyncHandler(pricingCtrl.preview));
 costbookRouter.get("/pricing/resolve", asyncHandler(pricingCtrl.resolve));
 costbookRouter.get("/price-history", asyncHandler(pricingCtrl.history));
+costbookRouter.get("/davis-bacon/determinations", asyncHandler(davisBaconCtrl.listDeterminations));
+costbookRouter.get("/davis-bacon/rates", asyncHandler(davisBaconCtrl.listRates));
+costbookRouter.get("/davis-bacon/county-rates", asyncHandler(davisBaconCtrl.countyRates));
 
 costbookRouter.get("/cost-items", asyncHandler(costItemCtrl.list));
 costbookRouter.get("/cost-items/search", asyncHandler(costItemCtrl.search));
