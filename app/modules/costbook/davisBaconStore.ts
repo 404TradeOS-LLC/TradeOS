@@ -21,9 +21,9 @@ export const prismaDavisBaconStore: DavisBaconStore = {
   async listDeterminations(orgId, state) {
     const rows = await db().davisBaconDetermination.findMany({
       where: { orgId, state },
-      select: { id: true, wdNumber: true, revisionNumber: true, modifiedDate: true },
+      select: { id: true, wdNumber: true, revisionNumber: true, modifiedDate: true, counties: true, isActive: true },
     });
-    return rows;
+    return rows.map((row) => ({ ...row, counties: Array.isArray(row.counties) ? row.counties.filter((c): c is string => typeof c === "string") : [] }));
   },
 
   async upsertDetermination({ orgId, determination }) {
@@ -56,8 +56,29 @@ export const prismaDavisBaconStore: DavisBaconStore = {
     return { id: created.id, created: true };
   },
 
+  async retireMissingCounty(orgId, state, county, seenWdNumbers) {
+    const rows = await db().davisBaconDetermination.findMany({
+      where: { orgId, state, isActive: true, wdNumber: { notIn: seenWdNumbers } },
+      select: { id: true, counties: true },
+    });
+    let retired = 0;
+    for (const row of rows) {
+      const counties = Array.isArray(row.counties)
+        ? row.counties.filter((c): c is string => typeof c === "string")
+        : [];
+      const remaining = counties.filter((c) => c.toLowerCase() !== county.toLowerCase());
+      if (remaining.length === counties.length) continue;
+      await db().davisBaconDetermination.update({
+        where: { id: row.id, orgId },
+        data: { counties: toJsonArray(remaining), isActive: remaining.length > 0 },
+      });
+      retired += 1;
+    }
+    return retired;
+  },
+
   async replaceRates({ determinationId, orgId, wdNumber, revisionNumber, rates }) {
-    await db().davisBaconRate.deleteMany({ where: { determinationId } });
+    await db().davisBaconRate.deleteMany({ where: { determinationId, orgId } });
     if (rates.length === 0) return 0;
     const result = await db().davisBaconRate.createMany({
       data: rates.map((rate) => ({

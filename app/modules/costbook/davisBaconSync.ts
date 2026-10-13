@@ -37,6 +37,7 @@ export interface DavisBaconSyncReport {
   added: number;
   updated: number;
   unchanged: number;
+  retired: number;
   failed: DavisBaconSyncFailure[];
   fetchedAt: string;
 }
@@ -47,6 +48,8 @@ export interface StoredDavisBaconDetermination {
   wdNumber: string;
   revisionNumber: number;
   modifiedDate: string | null;
+  counties?: string[];
+  isActive?: boolean;
 }
 
 /**
@@ -59,6 +62,7 @@ export interface DavisBaconStore {
     orgId: string;
     determination: DavisBaconDetermination;
   }): Promise<{ id: string; created: boolean }>;
+  retireMissingCounty(orgId: string, state: string, county: string, seenWdNumbers: string[]): Promise<number>;
   replaceRates(input: {
     determinationId: string;
     orgId: string;
@@ -71,6 +75,8 @@ export interface DavisBaconStore {
 export interface DavisBaconSyncDeps {
   client?: DavisBaconClient;
   store: DavisBaconStore;
+  /** Keep only persistence in a short RLS-scoped database transaction. */
+  withStoreSession?: <T>(operation: () => Promise<T>) => Promise<T>;
   /** Parse override for tests; defaults to the production parser. */
   parseDocument?: (text: string, revisionNumber: number) => DavisBaconDocument;
   fetchText?: (wdNumber: string, revisionNumber: number) => Promise<string>;
@@ -82,7 +88,8 @@ function needsRefresh(
   discovered: DavisBaconDetermination,
   stored: StoredDavisBaconDetermination | undefined,
 ): boolean {
-  if (!stored) return true;
+  if (!stored || stored.isActive === false) return true;
+  if (stored.counties && [...stored.counties].sort().join("|") !== [...discovered.counties].sort().join("|")) return true;
   if (discovered.revisionNumber !== stored.revisionNumber) return true;
   const discoveredModified = discovered.modifiedDate || "";
   const storedModified = stored.modifiedDate || "";
@@ -94,6 +101,7 @@ export async function syncCountyWageDeterminations(
   deps: DavisBaconSyncDeps,
 ): Promise<DavisBaconSyncReport> {
   const client = deps.client ?? defaultDavisBaconClient;
+  const inStoreSession = deps.withStoreSession ?? (async <T>(operation: () => Promise<T>) => operation());
   const parseDocument = deps.parseDocument ?? parseDeterminationText;
   const fetchText =
     deps.fetchText ?? ((wdNumber, revisionNumber) => fetchDeterminationText(wdNumber, revisionNumber, undefined, client));
@@ -109,6 +117,7 @@ export async function syncCountyWageDeterminations(
     added: 0,
     updated: 0,
     unchanged: 0,
+    retired: 0,
     failed: [],
     fetchedAt: new Date().toISOString(),
   };
@@ -123,7 +132,7 @@ export async function syncCountyWageDeterminations(
   }
   report.checked = discovered.length;
 
-  const stored = await deps.store.listDeterminations(spec.orgId, spec.state);
+  const stored = await inStoreSession(() => deps.store.listDeterminations(spec.orgId, spec.state));
   const storedByWd = new Map(stored.map((row) => [row.wdNumber, row]));
 
   for (const determination of discovered) {
@@ -135,16 +144,21 @@ export async function syncCountyWageDeterminations(
     try {
       const text = await fetchText(determination.wdNumber, determination.revisionNumber);
       const document = parseDocument(text, determination.revisionNumber);
-      const { id, created } = await deps.store.upsertDetermination({
-        orgId: spec.orgId,
-        determination,
-      });
-      await deps.store.replaceRates({
-        determinationId: id,
-        orgId: spec.orgId,
-        wdNumber: determination.wdNumber,
-        revisionNumber: determination.revisionNumber,
-        rates: document.rates,
+      // Network download and parsing happened outside the transaction.
+      // Upsert + rate replacement must commit or roll back together.
+      const { created } = await inStoreSession(async () => {
+        const { id, created } = await deps.store.upsertDetermination({
+          orgId: spec.orgId,
+          determination,
+        });
+        await deps.store.replaceRates({
+          determinationId: id,
+          orgId: spec.orgId,
+          wdNumber: determination.wdNumber,
+          revisionNumber: determination.revisionNumber,
+          rates: document.rates,
+        });
+        return { created };
       });
       if (created) report.added += 1;
       else report.updated += 1;
@@ -156,6 +170,11 @@ export async function syncCountyWageDeterminations(
     }
   }
 
+  // Only reconcile after complete successful discovery. A withdrawn WD must
+  // stop appearing for this county; multi-county WDs remain valid elsewhere.
+  report.retired = await inStoreSession(() =>
+    deps.store.retireMissingCounty(spec.orgId, spec.state, spec.county, discovered.map((d) => d.wdNumber)),
+  );
   return report;
 }
 
