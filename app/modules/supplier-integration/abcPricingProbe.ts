@@ -8,7 +8,7 @@ import { priceOneAbcSandboxSku } from "./feed";
  * diagnostic for an exact matching failed SKU. Reject URLs, markup, credentials,
  * and account/ship-to identifiers rather than echoing provider response bodies.
  */
-function safeAbcProviderStatusMessage(raw: unknown): string | null {
+export function safeAbcProviderStatusMessage(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const message = raw.trim();
   if (!message || message.length > 160 || !/^[a-z0-9][a-z0-9 ,.:;!?()'/-]*$/i.test(message)) return null;
