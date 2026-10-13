@@ -653,6 +653,7 @@ model DavisBaconDetermination {
   rates        DavisBaconRate[]
 
   @@unique([orgId, wdNumber])
+  @@unique([id, orgId])
   @@index([orgId, state])
   @@map("davis_bacon_determinations")
 }
@@ -673,8 +674,9 @@ model DavisBaconRate {
   createdAt       DateTime @default(now()) @map("created_at")
 
   organization  Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  determination DavisBaconDetermination @relation(fields: [determinationId], references: [id], onDelete: Cascade)
+  determination DavisBaconDetermination @relation(fields: [determinationId, orgId], references: [id, orgId], onDelete: Cascade)
 
+  @@index([determinationId])
   @@index([orgId, wdNumber])
   @@index([orgId, occupation])
   @@map("davis_bacon_rates")

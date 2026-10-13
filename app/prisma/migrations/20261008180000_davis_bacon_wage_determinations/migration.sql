@@ -18,7 +18,8 @@ create table davis_bacon_determinations (
     fetched_at timestamptz not null default now(),
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
-    unique (org_id, wd_number)
+    unique (org_id, wd_number),
+    unique (id, org_id)
 );
 
 create index idx_davis_bacon_determinations_org_state
@@ -27,7 +28,7 @@ create index idx_davis_bacon_determinations_org_state
 create table davis_bacon_rates (
     id text primary key,
     org_id uuid not null references organizations (id) on delete cascade,
-    determination_id text not null references davis_bacon_determinations (id) on delete cascade,
+    determination_id text not null,
     wd_number text not null,
     revision_number integer not null,
     rate_identifier text not null,
@@ -37,9 +38,14 @@ create table davis_bacon_rates (
     rate_unit text not null default 'hour',
     fringe numeric(12, 2),
     fringe_expression text,
-    created_at timestamptz not null default now()
+    created_at timestamptz not null default now(),
+    constraint davis_bacon_rates_determination_org_fkey
+        foreign key (determination_id, org_id)
+        references davis_bacon_determinations (id, org_id) on delete cascade
 );
 
+create index idx_davis_bacon_rates_determination
+    on davis_bacon_rates (determination_id);
 create index idx_davis_bacon_rates_org_wd
     on davis_bacon_rates (org_id, wd_number);
 create index idx_davis_bacon_rates_org_occupation
