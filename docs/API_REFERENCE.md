@@ -100,7 +100,7 @@ separately reviewed architecture, not an environment toggle.
 
 ## Selected ABC sandbox line-level error diagnostics (2026-10-13)
 
-The selected-account `POST /abc/selected-price-probe` now returns
+The selected-account `POST /api/v1/supplier-integrations/abc/selected-price-probe` now returns
 `providerStatusMessage: string | null` in addition to `providerStatus`.
 For an exactly attributable non-OK provider line, this optional diagnostic is
 disclosed **only** after the existing `safeAbcProviderStatusMessage`

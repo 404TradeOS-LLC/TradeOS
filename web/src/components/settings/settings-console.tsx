@@ -1054,7 +1054,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                               ? `ABC sandbox returned ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(abcSelectedQuote.price)} per ${abcSelectedQuote.stockingUnit ?? "unknown unit"} for ${abcSelectedQuote.sku}.`
                               : `ABC did not return an eligible price for ${abcSelectedQuote.sku} (status: ${abcSelectedQuote.providerStatus}).`}
                             {!abcSelectedQuote.priced && abcSelectedQuote.providerStatusMessage
-                              ? ` ABC says: ${abcSelectedQuote.providerStatusMessage}.` : ""}
+                              ? ` ABC says: ${abcSelectedQuote.providerStatusMessage}${/[.!?]$/.test(abcSelectedQuote.providerStatusMessage) ? "" : "."}` : ""}
                             {" "}No price or account preference was saved; Material unit mapping was not verified.
                           </p>
                         ) : null}
