@@ -71,6 +71,8 @@ export default async function AbcCatalogPage({ searchParams }: { searchParams: P
         </div>
       </section>
 
+      <p className="text-sm text-muted-foreground">Explore the supplier’s official <Link className="font-semibold text-primary underline underline-offset-4" href="/costbook/abc-catalog/hierarchy">product hierarchy</Link> to see ABC-defined groups, categories, and brands.</p>
+
       <form method="get" action="/costbook/abc-catalog" className="grid gap-3 rounded-xl border border-border/70 bg-card p-4 sm:grid-cols-[minmax(0,1fr)_170px_auto]">
         <label className="space-y-1">
           <span className="text-xs font-semibold text-muted-foreground">ABC product</span>
@@ -117,7 +119,9 @@ export default async function AbcCatalogPage({ searchParams }: { searchParams: P
                     <span className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">Unpriced</span>
                   </div>
                   <h2 className="mt-3 text-base font-semibold leading-6 text-foreground">
-                    {product.name || "ABC item — description not supplied"}
+                    <Link className="hover:text-primary hover:underline" href={"/costbook/abc-catalog/" + encodeURIComponent(product.itemNumber)}>
+                      {product.name || "ABC item — description not supplied"}
+                    </Link>
                   </h2>
                   <p className="mt-1 break-all font-mono text-xs text-muted-foreground">ABC #{product.itemNumber}</p>
                   <dl className="mt-3 grid gap-1 text-sm text-muted-foreground">
@@ -130,6 +134,10 @@ export default async function AbcCatalogPage({ searchParams }: { searchParams: P
                   <p className="mt-3 border-t border-border/70 pt-3 text-xs text-muted-foreground">
                     Requires account-scoped pricing and reviewed Material activation before estimating.
                   </p>
+                  <Link href={"/costbook/abc-catalog/" + encodeURIComponent(product.itemNumber)}
+                    className="mt-3 inline-flex text-sm font-semibold text-primary underline-offset-4 hover:underline">
+                    View units, variants &amp; provider details
+                  </Link>
                 </article>
               ))}
             </div>
