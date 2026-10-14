@@ -418,3 +418,37 @@ export function listAbcSupplyCatalog(
     cache: "no-store",
   });
 }
+
+
+/** Read ABC provider-sourced item attributes; never an approved TradeOS Material. */
+export interface AbcCatalogDetail extends AbcCatalogProduct {
+  marketingDescription: string | null;
+  status: "active" | "inactive" | "unknown";
+  familyItems: Array<{ itemNumber: string; name: string; color: string | null }>;
+  hierarchy: Array<{ level: string; code: string; label: string }>;
+  environment: "sandbox";
+  pricing: "not-requested";
+  persisted: false;
+}
+
+export interface AbcHierarchyResult {
+  paths: Array<Array<{ level: string; code: string; label: string }>>;
+  pagination: AbcCatalogResult["pagination"];
+  source: "ABC Supply";
+  environment: "sandbox";
+  pricing: "not-requested";
+  persisted: false;
+}
+
+export function getAbcSupplyCatalogItem(token: string, itemNumber: string) {
+  return apiFetch<AbcCatalogDetail>("/api/v1/costbook/abc/catalog/" + encodeURIComponent(itemNumber), {
+    token, cache: "no-store",
+  });
+}
+
+export function listAbcSupplyHierarchy(token: string, page = 1, limit = 25) {
+  return apiFetch<AbcHierarchyResult>(
+    "/api/v1/costbook/abc/hierarchy?" + new URLSearchParams({ page: String(page), limit: String(limit) }),
+    { token, cache: "no-store" },
+  );
+}
