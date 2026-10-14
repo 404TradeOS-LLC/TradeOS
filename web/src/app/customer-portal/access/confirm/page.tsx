@@ -36,7 +36,7 @@ export default async function ConfirmCustomerPortalAccessPage() {
             One-time invitation
           </p>
           <p className="text-sm leading-6 text-muted-foreground">
-            Your invitation is ready. Continue to securely view your shared documents.
+            Continue to securely view your shared documents.
           </p>
           <form action="/customer-portal/access/redeem" method="post">
             <button type="submit" className={cn(buttonVariants({ size: "lg" }), "min-h-11 w-full")}>
