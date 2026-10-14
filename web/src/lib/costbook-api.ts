@@ -437,3 +437,21 @@ export function getAbcSupplyCatalogItem(token: string, itemNumber: string) {
     { token, cache: "no-store" },
   );
 }
+
+
+/** ABC's real six-level Product Hierarchy, read on demand from sandbox; no copy or price. */
+export interface AbcHierarchyResult {
+  paths: Array<Array<{ level: string; code: string; label: string }>>;
+  pagination: AbcCatalogResult["pagination"];
+  source: "ABC Supply";
+  environment: "sandbox";
+  pricing: "not-requested";
+  persisted: false;
+}
+
+export function listAbcSupplyHierarchy(token: string, page = 1, limit = 25) {
+  return apiFetch<AbcHierarchyResult>(
+    "/api/v1/costbook/abc/hierarchy?" + new URLSearchParams({ page: String(page), limit: String(limit) }),
+    { token, cache: "no-store" },
+  );
+}
