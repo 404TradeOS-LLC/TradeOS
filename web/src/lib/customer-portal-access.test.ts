@@ -48,6 +48,29 @@ test("redemption requires an explicit exact-origin POST and clears the pending t
   assert.doesNotMatch(confirmPage, /name="token"|value=\{pendingToken\}/);
 });
 
+
+test("portal confirmation keeps explicit POST and renders no bearer value in the public UI", () => {
+  const confirm = readSource("app/customer-portal/access/confirm/page.tsx");
+  const shell = readSource("components/customer-portal/portal-access-shell.tsx");
+  assert.match(confirm, /isValidCustomerPortalAccessToken\(pendingToken\)/);
+  assert.match(confirm, /redirect\("\/customer-portal\/access-error"\)/);
+  assert.match(confirm, /action="\/customer-portal\/access\/redeem" method="post"/);
+  assert.match(confirm, /Open your project documents/);
+  assert.match(confirm, /Only continue if you were expecting this invitation/);
+  assert.match(confirm, /min-h-11 w-full/);
+  assert.match(shell, /TradeOS Customer Portal/);
+  assert.doesNotMatch(confirm, /name="token"|value=\{pendingToken\}|searchParams/);
+  assert.doesNotMatch(shell, /AppNav|ControlDock|staff session/i);
+});
+
+test("portal recovery uses a single non-enumerating message without unsupported customer actions", () => {
+  const denied = readSource("app/customer-portal/access-error/page.tsx");
+  assert.match(denied, /This link is no longer available/);
+  assert.match(denied, /Ask your contractor for a new invitation/);
+  assert.match(denied, /PortalAccessShell/);
+  assert.doesNotMatch(denied, /<form|<button|<Link|customerId|token=|Request a new access link/);
+});
+
 function readSource(relativePath: string): string {
   return fs.readFileSync(path.join(srcRoot, relativePath), "utf8");
 }
