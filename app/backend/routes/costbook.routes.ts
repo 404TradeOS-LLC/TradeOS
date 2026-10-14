@@ -25,6 +25,7 @@ const abcCatalogLimiter = rateLimit({
 });
 costbookRouter.get("/abc/catalog", abcCatalogLimiter, asyncHandler(ctrl.abcCatalog));
 costbookRouter.get("/abc/catalog/items/:itemNumber", abcCatalogLimiter, asyncHandler(ctrl.abcCatalogItem));
+costbookRouter.get("/abc/hierarchy", abcCatalogLimiter, asyncHandler(ctrl.abcCatalogHierarchy));
 costbookRouter.get("/supplier-evidence/summary", asyncHandler(ctrl.regionalSupplierEvidenceSummary));
 costbookRouter.get("/supplier-evidence", asyncHandler(ctrl.listRegionalSupplierEvidence));
 costbookRouter.post("/supplier-evidence/import", asyncHandler(ctrl.importRegionalSupplierEvidence));
