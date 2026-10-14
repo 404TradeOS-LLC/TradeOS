@@ -184,6 +184,18 @@ export default async function AbcProductDetailPage({
         </section>
       ) : null}
 
+      <section className="rounded-xl border border-border/70 bg-card p-4">
+        <h2 className="font-semibold">Branch ordering eligibility</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Verify which ABC branches list this item and its ordering length options.
+          This does not confirm inventory quantities, your authorized Ship-To location, or pricing.
+        </p>
+        <Link className="mt-3 inline-block text-sm font-semibold text-primary underline underline-offset-4"
+          href={"/costbook/abc-catalog/" + encodeURIComponent(product.itemNumber) + "/availability"}>
+          Check ABC listed branches
+        </Link>
+      </section>
+
       <Link href="/costbook/abc-catalog" className="inline-flex items-center gap-2 text-sm font-medium underline-offset-4 hover:underline">
         <ArrowLeft className="size-4" /> Back to ABC Catalog
       </Link>
