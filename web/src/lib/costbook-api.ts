@@ -455,3 +455,31 @@ export function listAbcSupplyHierarchy(token: string, page = 1, limit = 25) {
     { token, cache: "no-store" },
   );
 }
+
+
+/** ABC provider-listed order eligibility is NOT a stock-quantity or customer-price quote. */
+export interface AbcItemAvailability {
+  itemNumber: string;
+  branches: Array<{
+    branchNumber: string;
+    isDimensional: boolean;
+    variations: Array<{ size: string; length: string | null }>;
+  }>;
+  providerBranchCount: number;
+  selectedBranch: string | null;
+  selectedBranchListed: boolean | null;
+  truncated: boolean;
+  source: "ABC Supply";
+  environment: "sandbox";
+  availabilityMeaning: "listed_for_ordering_not_stock_quantity";
+  pricing: "not-requested";
+  persisted: false;
+}
+
+export function getAbcItemAvailability(token: string, itemNumber: string, branchNumber?: string) {
+  const qs = branchNumber ? "?" + new URLSearchParams({ branchNumber }) : "";
+  return apiFetch<AbcItemAvailability>(
+    "/api/v1/costbook/abc/catalog/items/" + encodeURIComponent(itemNumber) + "/availability" + qs,
+    { token, cache: "no-store" },
+  );
+}
