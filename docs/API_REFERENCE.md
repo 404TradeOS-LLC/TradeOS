@@ -937,3 +937,14 @@ https://www.abcsupply.com/legal/.
 ## ABC sandbox Product API read-only runtime evidence (issue #735, proposed)
 
 The manual `app/scripts/probe-abc-sandbox-catalog.ts` task is **not** an HTTP endpoint, import worker, or price API. It reads at most two 25-item sandbox pages through the existing `AbcCatalogClient` with an independent server `product.read` token. It validates the server-only response contract, pagination consistency, active product identities, and explicit `pricing:"not-requested"`/`persisted:false` boundary. Its sanitized metadata output contains provider-reported totals and active item counts only; no API body/SKU or credentials are printed or persisted. To run, use the reviewed manual GitHub Actions workflow and `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md`. Existing authenticated Costbook catalog HTTP routes and pricing authorization are unchanged.
+
+
+## ABC sandbox Product API detail and hierarchy — proposed issue #735 slice
+
+Under the existing authenticated Costbook router, three distinct **provider-backed sandbox-only** reads are available, each requiring `costbook.read`, `ABC_SUPPLY_CATALOG_BROWSE_ENABLED=true`, and configured server-side ABC TPA `product.read` credentials:
+
+- `GET /api/v1/costbook/abc/catalog` — provider-paginated search/list; unchanged.
+- `GET /api/v1/costbook/abc/catalog/:itemNumber` — ABC official Get Item; exact supplier identity required; validated item number only. The response supplies normalized provider marketing description, units, nested `dimensions.variations`, ABC hierarchy, provider status and optional family items without provider pricing or a TradeOS Material write.
+- `GET /api/v1/costbook/abc/hierarchy?page=1&limit=25` — ABC official Get Product Hierarchy; pages of six supplier-defined classification levels with true provider codes and labels, no inferred UNSPSC or TradeOS category mapping. Limit 1–50.
+
+All three use the **same** durable globally budgeted `abc-catalog` supplier rate limiter, explicitly send `Cache-Control: no-store`, and return `pricing:"not-requested"` / `persisted:false`. The Get Item detail and hierarchy are *not* branch availability or account pricing endpoints. The source data is not saved in a catalog database; long-term storage and automated data ingestion still require explicit ABC permission. No production Product API host is enabled by these routes.
