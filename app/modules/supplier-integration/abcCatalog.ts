@@ -15,6 +15,8 @@ import { loadAbcSupplyAuthConfig, SANDBOX_TOKEN_URL } from "./abcSupply";
  */
 const ITEMS_URL = "https://partners-sb.abcsupply.com/api/product/v1/items";
 const SEARCH_URL = "https://partners-sb.abcsupply.com/api/product/v1/search/items";
+const HIERARCHY_URL = "https://partners-sb.abcsupply.com/api/product/v1/hierarchy";
+const ABC_ITEM_NUMBER = /^[A-Za-z0-9._:-]{1,80}$/;
 const REQUEST_TIMEOUT_MS = 12_000;
 const TOKEN_EXPIRY_MARGIN_MS = 60_000;
 const MAX_ATTEMPTS = 3;
@@ -39,6 +41,9 @@ const catalogItemSchema = z.object({
   finish: z.unknown().optional(),
   prop65Warnings: z.unknown().optional(),
   variations: z.unknown().optional(),
+  marketingDescription: z.string().nullable().optional(),
+  familyItems: z.unknown().optional(),
+  hierarchy: z.unknown().optional(),
 }).passthrough();
 
 const pageSchema = z.object({
@@ -67,6 +72,57 @@ export type AbcCatalogItem = {
   source: "ABC Supply";
   priceStatus: "unpriced";
 };
+
+export type AbcCatalogDetail = AbcCatalogItem & {
+  marketingDescription: string | null;
+  status: "active" | "inactive" | "unknown";
+  familyItems: Array<{ itemNumber: string; name: string; color: string | null }>;
+  hierarchy: Array<{ level: string; code: string; label: string }>;
+  environment: "sandbox";
+  pricing: "not-requested";
+  persisted: false;
+};
+
+export type AbcHierarchyPage = {
+  paths: Array<Array<{ level: string; code: string; label: string }>>;
+  pagination: { itemsPerPage: number; pageNumber: number; totalPages: number; totalItems: number };
+  source: "ABC Supply";
+  environment: "sandbox";
+  pricing: "not-requested";
+  persisted: false;
+};
+
+const abcHierarchySchema = z.object({
+  pagination: z.object({
+    itemsPerPage: z.number().int().min(1).max(1000),
+    pageNumber: z.number().int().positive(),
+    totalPages: z.number().int().nonnegative(),
+    totalItems: z.number().int().nonnegative(),
+  }),
+  hierarchies: z.array(z.unknown()).max(50),
+}).passthrough();
+
+const HIERARCHY_KEYS = ["productGroup", "category", "productType", "materialComposition", "warranty", "brandLine"] as const;
+
+function hierarchyPath(value: unknown): Array<{ level: string; code: string; label: string }> {
+  const entries: Array<{ level: string; code: string; label: string }> = [];
+  let current: unknown = value;
+  for (const level of HIERARCHY_KEYS) {
+    if (typeof current !== "object" || current === null || Array.isArray(current)) break;
+    const record = current as Record<string, unknown>;
+    const node = record[level];
+    if (typeof node !== "object" || node === null || Array.isArray(node)) break;
+    const fields = node as Record<string, unknown>;
+    if (typeof fields.code !== "string" || !fields.code.trim() ||
+        typeof fields.label !== "string" || !fields.label.trim()) {
+      throw new Error("ABC hierarchy missing provider code or label");
+    }
+    entries.push({ level, code: fields.code, label: fields.label });
+    current = node;
+  }
+  if (entries.length === 0) throw new Error("ABC hierarchy missing productGroup");
+  return entries;
+}
 
 export interface AbcCatalogPage {
   items: AbcCatalogItem[];
@@ -105,7 +161,10 @@ function mapItem(item: z.infer<typeof catalogItemSchema>): AbcCatalogItem {
     dimensions: item.dimensions ?? null,
     color: item.color ?? null,
     finish: item.finish ?? null,
-    variations: arrayOrEmpty(item.variations),
+    variations: arrayOrEmpty(item.variations).length > 0
+      ? arrayOrEmpty(item.variations)
+      : (typeof item.dimensions === "object" && item.dimensions !== null && !Array.isArray(item.dimensions)
+        ? arrayOrEmpty((item.dimensions as Record<string, unknown>).variations) : []),
     prop65Warnings: arrayOrEmpty(item.prop65Warnings),
     source: "ABC Supply",
     priceStatus: "unpriced",
@@ -168,6 +227,62 @@ export class AbcCatalogClient {
       }
     }
     throw new Error("ABC catalog provider request failed");
+  }
+
+  /** Get Item: never persisting provider metadata and never requesting prices. */
+  async getItem(itemNumber: string): Promise<AbcCatalogDetail> {
+    if (!ABC_ITEM_NUMBER.test(itemNumber)) throw new Error("Invalid ABC item number");
+    const token = await this.serverToken();
+    const response = await this.callWithRetry(
+      ITEMS_URL + "/" + encodeURIComponent(itemNumber) + "?embed=%5Bvariations%5D&familyItems=false",
+      { method: "GET", headers: { authorization: "Bearer " + token } },
+    );
+    const item = catalogItemSchema.parse(await response.json());
+    if (item.itemNumber !== itemNumber) throw new Error("ABC Get Item identity mismatch");
+
+    const familyItems = arrayOrEmpty(item.familyItems).map((entry) => {
+      const parsed = z.object({
+        itemNumber: z.string().min(1),
+        itemDescription: z.string().nullable().optional(),
+        color: z.string().nullable().optional(),
+      }).passthrough().parse(entry);
+      return { itemNumber: parsed.itemNumber, name: parsed.itemDescription ?? "", color: parsed.color ?? null };
+    }).slice(0, 50);
+
+    return {
+      ...mapItem(item),
+      marketingDescription: item.marketingDescription ?? null,
+      status: item.status?.toLowerCase() === "active" ? "active"
+        : item.status?.toLowerCase() === "inactive" ? "inactive" : "unknown",
+      familyItems,
+      hierarchy: item.hierarchy == null ? [] : hierarchyPath(item.hierarchy),
+      environment: "sandbox", pricing: "not-requested", persisted: false,
+    };
+  }
+
+  /** ABC's own 6-level product hierarchy, paginated provider reads only. */
+  async listHierarchy(pageNumber: number, itemsPerPage = 25): Promise<AbcHierarchyPage> {
+    if (!Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > 100_000 ||
+        !Number.isInteger(itemsPerPage) || itemsPerPage < 1 || itemsPerPage > 50) {
+      throw new Error("Invalid ABC hierarchy pagination");
+    }
+    const token = await this.serverToken();
+    const params = new URLSearchParams({ itemsPerPage: String(itemsPerPage), pageNumber: String(pageNumber) });
+    const response = await this.callWithRetry(HIERARCHY_URL + "?" + params.toString(), {
+      method: "GET", headers: { authorization: "Bearer " + token },
+    });
+    const parsed = abcHierarchySchema.parse(await response.json());
+    if (parsed.pagination.pageNumber !== pageNumber ||
+        parsed.pagination.itemsPerPage !== itemsPerPage ||
+        parsed.hierarchies.length > itemsPerPage ||
+        (parsed.pagination.totalPages > 0 && pageNumber > parsed.pagination.totalPages)) {
+      throw new Error("ABC hierarchy pagination mismatch");
+    }
+    return {
+      paths: parsed.hierarchies.map(hierarchyPath),
+      pagination: parsed.pagination,
+      source: "ABC Supply", environment: "sandbox", pricing: "not-requested", persisted: false,
+    };
   }
 
   async list(query: AbcCatalogQuery): Promise<AbcCatalogPage> {
