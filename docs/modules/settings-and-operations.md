@@ -400,3 +400,7 @@ The new provider-backed Get Item detail screen reuses the same `ABC_SUPPLY_CATAL
 ### Official ABC supplier product hierarchy: read-only operator boundary (#735)
 
 The supplier hierarchy view is an opt-in sandbox Product API read under `ABC_SUPPLY_CATALOG_BROWSE_ENABLED`, authorized by `costbook.read` and the server `product.read` scope. It inherits the shared global 2/s catalog rate limiter and no-store response. The supplier's actual six-level codes/labels are displayed without guessing UNSPSC/OmniClass mappings, writing Material categories, or caching product records. Account/branch availability, approved pricing, and full import remain separate rights-gated steps.
+
+### ABC provider-listed branch ordering eligibility — no inventory or quote (#735)
+
+The new read-only sandbox Product API Item Availability endpoint is accessible only through authenticated Costbook detail pages and shares the existing global `abc-catalog` rate limit. Optional exact-branch filters require a numeric branch number; supplier data is not saved. Display must distinguish provider-listed branches and lengths from **physical stock quantities**, tenant-authorized Ship-To branches, and reviewed Price Items data. It does not use customer OAuth or the pricing refresh token. Live verification and full-catalog rights are separately tracked in issue #735.
