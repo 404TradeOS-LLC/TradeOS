@@ -119,13 +119,11 @@ function hierarchyLabels(hierarchy: unknown): string[] {
   let node: unknown = (hierarchy as Record<string, unknown>).productGroup;
   const levels = ["category", "productType", "materialComposition", "warranty", "brandLine"];
   const names: string[] = [];
-  for (const key of [null, ...levels]) {
+  for (const key of [...levels, null]) {
     if (!node || typeof node !== "object" || Array.isArray(node)) break;
     const row = node as Record<string, unknown>;
     if (typeof row.label === "string" && row.label.trim()) names.push(row.label.trim());
-    node = key === null ? row.category : row[key];
-    // The first node is the product group; each subsequent level is nested
-    // under the previous level with the next level's name.
+    if (key !== null) node = row[key];
   }
   return names;
 }
