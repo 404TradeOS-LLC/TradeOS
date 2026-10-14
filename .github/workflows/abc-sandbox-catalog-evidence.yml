@@ -1,0 +1,100 @@
+name: ABC Supply sandbox Product API evidence
+
+# Manual-only read. No database connection, price write, or provider content copy.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type VERIFY_ABC_SANDBOX_PRODUCT_READ to request a live sandbox provider call
+        required: true
+        type: string
+      two_pages:
+        description: Verify up to two 25-product pages
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: abc-sandbox-product-catalog-verification
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: ABC product.read sandbox evidence (no writes)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: abc-sandbox
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Require operator confirmation
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          if [[ "${CONFIRMATION}" != "VERIFY_ABC_SANDBOX_PRODUCT_READ" ]]; then
+            echo "::error::Sandbox Product API verification requires an exact confirmation."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Validate probe contract without credentials
+        run: npx --no-install jest --runInBand --runTestsByPath tests/supplier-integration.abc-live-catalog-probe.test.ts tests/supplier-integration.abc-catalog.test.ts
+
+      - name: Read one or two real ABC sandbox catalog pages
+        env:
+          ABC_SUPPLY_SANDBOX_CLIENT_ID: ${{ secrets.ABC_SUPPLY_SANDBOX_CLIENT_ID }}
+          ABC_SUPPLY_SANDBOX_CLIENT_SECRET: ${{ secrets.ABC_SUPPLY_SANDBOX_CLIENT_SECRET }}
+          TWO_PAGES: ${{ inputs.two_pages }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${ABC_SUPPLY_SANDBOX_CLIENT_ID:-}" || -z "${ABC_SUPPLY_SANDBOX_CLIENT_SECRET:-}" ]]; then
+            echo "::error::Sandbox product.read app credentials have not been installed in the abc-sandbox environment or repo secrets."
+            exit 1
+          fi
+          if [[ "${TWO_PAGES}" == "true" ]]; then
+            npx --no-install ts-node scripts/probe-abc-sandbox-catalog.ts --two-pages > "${RUNNER_TEMP}/abc-catalog-metadata.json"
+          else
+            npx --no-install ts-node scripts/probe-abc-sandbox-catalog.ts > "${RUNNER_TEMP}/abc-catalog-metadata.json"
+          fi
+          node -e '
+            const fs = require("node:fs");
+            const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            if (p.status !== "verified_sandbox_page" || p.provider !== "ABC Supply" ||
+                p.environment !== "sandbox" || p.storedProducts !== 0 ||
+                p.providerPricingRequested !== false || p.pagesVerified < 1 ||
+                p.providerReportedTotalItems < 1 || p.uniqueActiveProductIdentitiesChecked < 1) {
+              throw new Error("Live sandbox catalog proof did not meet validation contract");
+            }
+            console.log("ABC sandbox Product API validation: PASSED (metadata only)");
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+              "## ABC Supply sandbox Product API evidence\n\n" +
+              "| Field | Result |\n|---|---|\n" +
+              "| Auth | client_credentials, product.read |\n" +
+              "| Provider total items | " + p.providerReportedTotalItems + " |\n" +
+              "| Provider total pages | " + p.providerReportedTotalPages + " |\n" +
+              "| Pages sampled | " + p.pagesVerified + " |\n" +
+              "| Active items returned | " + p.activeProductsReturned + " |\n" +
+              "| Unique active item identities checked | " + p.uniqueActiveProductIdentitiesChecked + " |\n" +
+              "| Stored catalog items | 0 |\n" +
+              "| Customer pricing requested | No |\n\n" +
+              "This is NOT proof of completed full import, deployed UI or an authorized quote.\n");
+          ' "${RUNNER_TEMP}/abc-catalog-metadata.json"
+          rm -f "${RUNNER_TEMP}/abc-catalog-metadata.json"
