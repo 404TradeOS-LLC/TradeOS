@@ -14,6 +14,7 @@ import { loadAbcSupplyAuthConfig, SANDBOX_TOKEN_URL } from "./abcSupply";
  *           https://apidocs.abcsupply.com/search-items/
  */
 const ITEMS_URL = "https://partners-sb.abcsupply.com/api/product/v1/items";
+const AVAILABILITY_ITEMS_URL = "https://partners-sb.abcsupply.com/api/product/v1/availability/items";
 const SEARCH_URL = "https://partners-sb.abcsupply.com/api/product/v1/search/items";
 const HIERARCHY_URL = "https://partners-sb.abcsupply.com/api/product/v1/hierarchy";
 const REQUEST_TIMEOUT_MS = 12_000;
@@ -79,6 +80,32 @@ export type AbcCatalogItem = {
   source: "ABC Supply";
   priceStatus: "unpriced";
 };
+
+export type AbcItemAvailability = {
+  itemNumber: string;
+  branches: Array<{
+    branchNumber: string;
+    isDimensional: boolean;
+    variations: Array<{ size: string; length: string | null }>;
+  }>;
+  providerBranchCount: number;
+  selectedBranch: string | null;
+  selectedBranchListed: boolean | null;
+  truncated: boolean;
+  source: "ABC Supply";
+  environment: "sandbox";
+  availabilityMeaning: "listed_for_ordering_not_stock_quantity";
+  pricing: "not-requested";
+  persisted: false;
+};
+
+const abcAvailabilitySchema = z.object({
+  branches: z.array(z.object({
+    number: z.union([z.string().trim().min(1), z.number().int().nonnegative()]),
+    isDimensional: z.boolean().optional(),
+    variations: z.array(z.unknown()).optional().nullable(),
+  }).passthrough()).max(2000),
+}).passthrough();
 
 export interface AbcCatalogDetail extends AbcCatalogItem {
   marketingDescription: string | null;
@@ -251,6 +278,49 @@ export class AbcCatalogClient {
       }
     }
     throw new Error("ABC catalog provider request failed");
+  }
+
+  /**
+   * Provider-listed branches for order eligibility, not actual stock quantity.
+   * A selected branch is an exact filter over the provider response, never a
+   * price/account entitlement; no data leaves this request's memory.
+   */
+  async getItemAvailability(itemNumber: string, branchNumber?: string): Promise<AbcItemAvailability> {
+    if (!/^[A-Za-z0-9_-]{1,80}$/.test(itemNumber) ||
+        (branchNumber !== undefined && !/^[0-9]{1,6}$/.test(branchNumber))) {
+      throw new Error("Invalid ABC availability lookup");
+    }
+    const token = await this.serverToken();
+    const response = await this.callWithRetry(
+      AVAILABILITY_ITEMS_URL + "/" + encodeURIComponent(itemNumber) + "/branches",
+      { method: "GET", headers: { authorization: "Bearer " + token } },
+    );
+    const raw = abcAvailabilitySchema.parse(await response.json());
+    const all = raw.branches.map((branch) => {
+      const variations = (branch.variations ?? []).slice(0, 100).map((entry) => {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) return { size: "", length: null };
+        const value = entry as Record<string, unknown>;
+        const len = value.length && typeof value.length === "object" && !Array.isArray(value.length)
+          ? value.length as Record<string, unknown> : {};
+        const length = typeof len.value === "string" ? len.value : null;
+        const unit = typeof len.uomCode === "string" ? len.uomCode : "";
+        return { size: typeof value.size === "string" ? value.size : "",
+          length: length ? [length, unit].filter(Boolean).join(" ") : null };
+      });
+      return { branchNumber: String(branch.number), isDimensional: branch.isDimensional === true, variations };
+    });
+    const filtered = branchNumber === undefined ? all : all.filter((entry) => entry.branchNumber === branchNumber);
+    return {
+      itemNumber,
+      branches: filtered.slice(0, 50),
+      providerBranchCount: all.length,
+      selectedBranch: branchNumber ?? null,
+      selectedBranchListed: branchNumber === undefined ? null : filtered.length > 0,
+      truncated: filtered.length > 50,
+      source: "ABC Supply", environment: "sandbox",
+      availabilityMeaning: "listed_for_ordering_not_stock_quantity",
+      pricing: "not-requested", persisted: false,
+    };
   }
 
   /** A bounded on-demand product detail read; never a stored Material. */
