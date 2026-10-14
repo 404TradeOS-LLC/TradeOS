@@ -418,3 +418,22 @@ export function listAbcSupplyCatalog(
     cache: "no-store",
   });
 }
+
+
+/** On-demand ABC Get Item detail; no customer-specific price or branch proof. */
+export interface AbcCatalogProductDetail extends AbcCatalogProduct {
+  marketingDescription: string | null;
+  hierarchyLabels: string[];
+  familyItems: Array<{ itemNumber: string; name: string; color: string | null }>;
+  environment: "sandbox";
+  persisted: false;
+  pricing: "not-requested";
+  branchAvailability: "not-verified";
+}
+
+export function getAbcSupplyCatalogItem(token: string, itemNumber: string) {
+  return apiFetch<AbcCatalogProductDetail>(
+    "/api/v1/costbook/abc/catalog/items/" + encodeURIComponent(itemNumber),
+    { token, cache: "no-store" },
+  );
+}
