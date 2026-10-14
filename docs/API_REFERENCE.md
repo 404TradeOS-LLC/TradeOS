@@ -937,3 +937,10 @@ https://www.abcsupply.com/legal/.
 ## ABC sandbox Product API read-only runtime evidence (issue #735, proposed)
 
 The manual `app/scripts/probe-abc-sandbox-catalog.ts` task is **not** an HTTP endpoint, import worker, or price API. It reads at most two 25-item sandbox pages through the existing `AbcCatalogClient` with an independent server `product.read` token. It validates the server-only response contract, pagination consistency, active product identities, and explicit `pricing:"not-requested"`/`persisted:false` boundary. Its sanitized metadata output contains provider-reported totals and active item counts only; no API body/SKU or credentials are printed or persisted. To run, use the reviewed manual GitHub Actions workflow and `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md`. Existing authenticated Costbook catalog HTTP routes and pricing authorization are unchanged.
+
+
+## ABC Get Item provider-backed read (issue #735 proposed)
+
+`GET /api/v1/costbook/abc/catalog/items/:itemNumber` requires an authenticated `costbook.read` member and the disabled-by-default `ABC_SUPPLY_CATALOG_BROWSE_ENABLED=true` configuration. The item number is an opaque ASCII letter/digit/`_`/`-` string, 1–80 characters; invalid path data is rejected before any upstream call. It shares the existing global ABC Product API sandbox limiter and calls `GET https://partners-sb.abcsupply.com/api/product/v1/items/{itemNumber}?embed=variations&familyItems=true` using only a server `product.read` client-credentials token. The response must match the exact requested item number and be Active; inactive, mismatched, malformed, or denied products fail closed.
+
+The JSON response is normalized to an unpriced product with `marketingDescription`, `hierarchyLabels`, `familyItems`, and dimensional variations derived from `dimensions.variations` (ABC's documented nesting). It explicitly sets `branchAvailability:"not-verified"`, `pricing:"not-requested"`, `persisted:false`. This route is no-store and never quotes prices or maps supplier items to tenant Materials. No images are cached or redistributed.
