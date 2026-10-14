@@ -69,6 +69,8 @@ test("portal recovery uses a single non-enumerating message without unsupported 
   assert.match(denied, /This link is no longer available/);
   assert.match(denied, /Ask your contractor for a new invitation/);
   assert.match(denied, /PortalAccessShell/);
+  assert.match(denied, /border-warning bg-foreground/);
+  assert.doesNotMatch(denied, /\b(?:bg|text)-(?:zinc|amber)-/);
   assert.doesNotMatch(denied, /<form|<button|<Link|customerId|token=|Request a new access link/);
 });
 
