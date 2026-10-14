@@ -15,6 +15,7 @@ import { loadAbcSupplyAuthConfig, SANDBOX_TOKEN_URL } from "./abcSupply";
  */
 const ITEMS_URL = "https://partners-sb.abcsupply.com/api/product/v1/items";
 const SEARCH_URL = "https://partners-sb.abcsupply.com/api/product/v1/search/items";
+const HIERARCHY_URL = "https://partners-sb.abcsupply.com/api/product/v1/hierarchy";
 const REQUEST_TIMEOUT_MS = 12_000;
 const TOKEN_EXPIRY_MARGIN_MS = 60_000;
 const MAX_ATTEMPTS = 3;
@@ -87,6 +88,47 @@ export interface AbcCatalogDetail extends AbcCatalogItem {
   persisted: false;
   pricing: "not-requested";
   branchAvailability: "not-verified";
+}
+
+export interface AbcHierarchyPage {
+  paths: Array<Array<{ level: string; code: string; label: string }>>;
+  pagination: { itemsPerPage: number; pageNumber: number; totalPages: number; totalItems: number };
+  source: "ABC Supply";
+  environment: "sandbox";
+  pricing: "not-requested";
+  persisted: false;
+}
+
+const abcHierarchySchema = z.object({
+  pagination: z.object({
+    itemsPerPage: z.number().int().min(1).max(1000),
+    pageNumber: z.number().int().positive(),
+    totalPages: z.number().int().nonnegative(),
+    totalItems: z.number().int().nonnegative(),
+  }),
+  hierarchies: z.array(z.unknown()).max(50),
+}).passthrough();
+
+// Follows the actual Get Product Hierarchy response shape, not inferred category mapping.
+const HIERARCHY_KEYS = ["productGroup", "category", "productType", "materialComposition", "warranty", "brandLine"] as const;
+
+function hierarchyPath(value: unknown): Array<{ level: string; code: string; label: string }> {
+  const path: Array<{ level: string; code: string; label: string }> = [];
+  let current: unknown = value;
+  for (const level of HIERARCHY_KEYS) {
+    if (typeof current !== "object" || current === null || Array.isArray(current)) break;
+    const node = (current as Record<string, unknown>)[level];
+    if (typeof node !== "object" || node === null || Array.isArray(node)) break;
+    const fields = node as Record<string, unknown>;
+    if (typeof fields.code !== "string" || !fields.code.trim() ||
+        typeof fields.label !== "string" || !fields.label.trim()) {
+      throw new Error("ABC hierarchy missing provider code or label");
+    }
+    path.push({ level, code: fields.code, label: fields.label });
+    current = node;
+  }
+  if (!path.length) throw new Error("ABC hierarchy missing productGroup");
+  return path;
 }
 
 export interface AbcCatalogPage {
@@ -243,6 +285,31 @@ export class AbcCatalogClient {
       persisted: false,
       pricing: "not-requested",
       branchAvailability: "not-verified",
+    };
+  }
+
+  /** Official Get Product Hierarchy: no storage, no customer quote, no category guesses. */
+  async listHierarchy(pageNumber: number, itemsPerPage = 25): Promise<AbcHierarchyPage> {
+    if (!Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > 100_000 ||
+        !Number.isInteger(itemsPerPage) || itemsPerPage < 1 || itemsPerPage > 50) {
+      throw new Error("Invalid ABC hierarchy pagination");
+    }
+    const token = await this.serverToken();
+    const params = new URLSearchParams({ itemsPerPage: String(itemsPerPage), pageNumber: String(pageNumber) });
+    const response = await this.callWithRetry(HIERARCHY_URL + "?" + params.toString(), {
+      method: "GET", headers: { authorization: "Bearer " + token },
+    });
+    const parsed = abcHierarchySchema.parse(await response.json());
+    if (parsed.pagination.pageNumber !== pageNumber ||
+        parsed.pagination.itemsPerPage !== itemsPerPage ||
+        parsed.hierarchies.length > itemsPerPage ||
+        (parsed.pagination.totalPages > 0 && pageNumber > parsed.pagination.totalPages)) {
+      throw new Error("ABC hierarchy pagination mismatch");
+    }
+    return {
+      paths: parsed.hierarchies.map(hierarchyPath),
+      pagination: parsed.pagination,
+      source: "ABC Supply", environment: "sandbox", pricing: "not-requested", persisted: false,
     };
   }
 
