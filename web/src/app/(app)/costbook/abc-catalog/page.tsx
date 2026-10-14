@@ -127,6 +127,12 @@ export default async function AbcCatalogPage({ searchParams }: { searchParams: P
                     {product.isDimensional ? <div>Dimensional item — verify exact variation and length before pricing</div> : null}
                     {product.prop65Warnings.length ? <div>Product carries manufacturer/Prop 65 warning information</div> : null}
                   </dl>
+                  <Link
+                    href={"/costbook/abc-catalog/" + encodeURIComponent(product.itemNumber)}
+                    className="mt-3 inline-flex rounded-md border border-primary/40 px-3 py-2 text-sm font-medium text-foreground outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    View product details
+                  </Link>
                   <p className="mt-3 border-t border-border/70 pt-3 text-xs text-muted-foreground">
                     Requires account-scoped pricing and reviewed Material activation before estimating.
                   </p>
