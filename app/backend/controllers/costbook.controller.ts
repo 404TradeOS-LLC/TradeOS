@@ -18,6 +18,14 @@ const abcCatalogQuerySchema = z.object({
   familyId: z.string().trim().min(1).max(120).optional(),
 }).strict();
 
+const abcItemParamSchema = z.object({
+  itemNumber: z.string().regex(/^[A-Za-z0-9._:-]{1,80}$/),
+}).strict();
+const abcHierarchyQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(100_000).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(25),
+}).strict();
+
 const maxUnitCost = 99_999_999.9999;
 
 const requiredNumberSchema = z.preprocess(
@@ -243,6 +251,38 @@ export const costbookController = {
       searchBy: query.searchBy,
       familyId: query.familyId,
     }));
+  },
+
+  async abcCatalogItem(req: Request, res: Response) {
+    requirePermissions(req, ["costbook.read"]);
+    res.setHeader("Cache-Control", "no-store");
+    if (!isCatalogEnabled()) {
+      res.status(503).json({ error: "abc_catalog_browse_disabled", message: "ABC sandbox catalog browsing is not enabled" });
+      return;
+    }
+    const client = getSandboxAbcCatalogClient();
+    if (!client) {
+      res.status(503).json({ error: "abc_catalog_credentials_missing", message: "ABC sandbox catalog credentials are not configured" });
+      return;
+    }
+    const { itemNumber } = abcItemParamSchema.parse(req.params);
+    res.json(await client.getItem(itemNumber));
+  },
+
+  async abcCatalogHierarchy(req: Request, res: Response) {
+    requirePermissions(req, ["costbook.read"]);
+    res.setHeader("Cache-Control", "no-store");
+    if (!isCatalogEnabled()) {
+      res.status(503).json({ error: "abc_catalog_browse_disabled", message: "ABC sandbox catalog browsing is not enabled" });
+      return;
+    }
+    const client = getSandboxAbcCatalogClient();
+    if (!client) {
+      res.status(503).json({ error: "abc_catalog_credentials_missing", message: "ABC sandbox catalog credentials are not configured" });
+      return;
+    }
+    const { page, limit } = abcHierarchyQuerySchema.parse(req.query);
+    res.json(await client.listHierarchy(page, limit));
   },
 
   async listRegionalSupplierEvidence(req: Request, res: Response) {
