@@ -1,4 +1,5 @@
-import { AbcCatalogClient, type AbcCatalogPage, loadAbcSupplyAuthConfig } from "../modules/supplier-integration/abcCatalog";
+import { AbcCatalogClient, type AbcCatalogPage } from "../modules/supplier-integration/abcCatalog";
+import { loadAbcSupplyAuthConfig } from "../modules/supplier-integration/abcSupply";
 
 export interface AbcCatalogProbeSummary {
   status: "verified_sandbox_page";
