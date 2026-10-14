@@ -396,3 +396,7 @@ The `abc-sandbox-catalog-evidence.yml` GitHub Actions workflow is a manual, conf
 ## ABC Catalog item detail boundary (issue #735)
 
 The new provider-backed Get Item detail screen reuses the same `ABC_SUPPLY_CATALOG_BROWSE_ENABLED` opt-in and sandbox-only TPA `product.read` credentials as catalog search. Both authenticated read routes share one global rate-limit namespace, independent of account- and branch-authorized pricing. Read-only details include provider hierarchy, units, optional variations, source warning text, and same-family items; family availability and pricing are **not verified**. No persistent source catalog copy, image cache, or automatic cost activation is introduced. See `docs/API_REFERENCE.md`, `docs/CURRENT_STATE.md` and issue #735.
+
+### Official ABC supplier product hierarchy: read-only operator boundary (#735)
+
+The supplier hierarchy view is an opt-in sandbox Product API read under `ABC_SUPPLY_CATALOG_BROWSE_ENABLED`, authorized by `costbook.read` and the server `product.read` scope. It inherits the shared global 2/s catalog rate limiter and no-store response. The supplier's actual six-level codes/labels are displayed without guessing UNSPSC/OmniClass mappings, writing Material categories, or caching product records. Account/branch availability, approved pricing, and full import remain separate rights-gated steps.
