@@ -57,6 +57,7 @@ test("portal confirmation keeps explicit POST and renders no bearer value in the
   assert.match(confirm, /action="\/customer-portal\/access\/redeem" method="post"/);
   assert.match(confirm, /Open your project documents/);
   assert.match(confirm, /Only continue if you were expecting this invitation/);
+  assert.doesNotMatch(confirm, /Your invitation is ready/);
   assert.match(confirm, /min-h-11 w-full/);
   assert.match(shell, /TradeOS Customer Portal/);
   assert.doesNotMatch(confirm, /name="token"|value=\{pendingToken\}|searchParams/);
