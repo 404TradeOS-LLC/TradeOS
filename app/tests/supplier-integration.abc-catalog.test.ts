@@ -139,3 +139,71 @@ describe("ABC Supply provider-backed catalog (#735)", () => {
     expect(fetchFn).not.toHaveBeenCalled();
   });
 });
+
+
+describe("ABC Supply Get Item on-demand detail (#735)", () => {
+  const config = { clientId: "client", clientSecret: "secret" };
+
+  function clientFor(providerBody: unknown) {
+    const fetchFn = jest.fn()
+      .mockResolvedValueOnce(json({ access_token: "server-token", expires_in: 1800 }))
+      .mockResolvedValueOnce(json(providerBody));
+    const client = new AbcCatalogClient(config, fetchFn as unknown as typeof fetch,
+      () => 1_000_000, async () => undefined);
+    return { client, fetchFn };
+  }
+
+  it("reads genuine provider detail fields, hierarchy and nested variations without pricing", async () => {
+    const { client, fetchFn } = clientFor({
+      itemNumber: "02GASTZ3WW",
+      status: "Active",
+      itemDescription: "Test roofing shingles",
+      marketingDescription: "Provider description",
+      isDimensional: true,
+      uoms: [{ code: "BD", name: "Bundle", description: "stocking" }],
+      dimensions: { variations: [
+        { size: "Length A", conversionFactor: 1, length: { value: "10", uom: "feet" } },
+      ] },
+      familyItems: [{ itemNumber: "ABC2", itemDescription: "Other color", color: "Gray" }],
+      prop65Warnings: [{ display: true, label: "Provider warning" }],
+      hierarchy: { productGroup: { label: "Roofing", category: {
+        label: "Shingles", productType: {
+          label: "Architectural", materialComposition: {
+            label: "Asphalt", warranty: { label: "Limited", brandLine: { label: "Provider brand" } },
+          },
+        },
+      } } },
+    });
+    const detail = await client.getItem("02GASTZ3WW");
+    expect(fetchFn.mock.calls[1][0]).toBe(
+      "https://partners-sb.abcsupply.com/api/product/v1/items/02GASTZ3WW?embed=variations&familyItems=true",
+    );
+    expect(detail).toMatchObject({
+      itemNumber: "02GASTZ3WW", isDimensional: true,
+      marketingDescription: "Provider description",
+      priceStatus: "unpriced", branchAvailability: "not-verified",
+      persisted: false, pricing: "not-requested", environment: "sandbox",
+      familyItems: [{ itemNumber: "ABC2", name: "Other color", color: "Gray" }],
+      hierarchyLabels: ["Roofing", "Shingles", "Architectural", "Asphalt", "Limited", "Provider brand"],
+      variations: [{ size: "Length A", conversionFactor: 1 }],
+    });
+    expect(JSON.stringify(detail)).not.toContain("unitPrice");
+    expect(JSON.stringify(detail)).not.toContain("access_token");
+  });
+
+  it("rejects path-like item numbers before provider calls", async () => {
+    const fetchFn = jest.fn();
+    const client = new AbcCatalogClient(config, fetchFn as unknown as typeof fetch);
+    for (const unsafe of ["../secret", "ABC?foo=bar", "", "ABC/123", "x".repeat(81)]) {
+      await expect(client.getItem(unsafe)).rejects.toThrow("Invalid ABC item number");
+    }
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when provider returns another item or an inactive record", async () => {
+    await expect(clientFor({ itemNumber: "OTHER", status: "Active" }).client.getItem("ABC123"))
+      .rejects.toThrow("identity mismatch");
+    await expect(clientFor({ itemNumber: "ABC123", status: "Inactive" }).client.getItem("ABC123"))
+      .rejects.toThrow("not active");
+  });
+});

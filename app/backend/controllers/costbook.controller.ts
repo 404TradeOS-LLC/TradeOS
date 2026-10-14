@@ -10,6 +10,7 @@ const service = new CostbookService();
 const regionalSupplierEvidenceService = new RegionalSupplierEvidenceService();
 
 const idParamSchema = z.object({ id: z.string().uuid() });
+const abcItemParamsSchema = z.object({ itemNumber: z.string().regex(/^[A-Za-z0-9_-]{1,80}$/) });
 const abcCatalogQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(100_000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25),
@@ -223,6 +224,22 @@ const subcategoryUpdateSchema = subcategorySchema.omit({ categoryId: true }).par
 );
 
 export const costbookController = {
+  async abcCatalogItem(req: Request, res: Response) {
+    requirePermissions(req, ["costbook.read"]);
+    res.setHeader("Cache-Control", "no-store");
+    if (!isCatalogEnabled()) {
+      res.status(503).json({ error: "abc_catalog_browse_disabled", message: "ABC sandbox catalog browsing is not enabled" });
+      return;
+    }
+    const client = getSandboxAbcCatalogClient();
+    if (!client) {
+      res.status(503).json({ error: "abc_catalog_credentials_missing", message: "ABC sandbox catalog credentials are not configured" });
+      return;
+    }
+    const { itemNumber } = abcItemParamsSchema.parse(req.params);
+    res.json(await client.getItem(itemNumber));
+  },
+
   async abcCatalog(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
     res.setHeader("Cache-Control", "no-store");

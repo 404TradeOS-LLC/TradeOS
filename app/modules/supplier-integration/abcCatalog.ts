@@ -41,6 +41,17 @@ const catalogItemSchema = z.object({
   variations: z.unknown().optional(),
 }).passthrough();
 
+const detailSchema = catalogItemSchema.extend({
+  status: z.string().trim().min(1),
+  marketingDescription: z.string().nullable().optional(),
+  hierarchy: z.unknown().optional(),
+  familyItems: z.array(z.object({
+    itemNumber: z.string().trim().min(1),
+    itemDescription: z.string().nullable().optional(),
+    color: z.string().nullable().optional(),
+  }).passthrough()).nullable().optional(),
+}).passthrough();
+
 const pageSchema = z.object({
   pagination: z.object({
     itemsPerPage: z.number().int().min(1).max(1000),
@@ -68,6 +79,16 @@ export type AbcCatalogItem = {
   priceStatus: "unpriced";
 };
 
+export interface AbcCatalogDetail extends AbcCatalogItem {
+  marketingDescription: string | null;
+  hierarchyLabels: string[];
+  familyItems: Array<{ itemNumber: string; name: string; color: string | null }>;
+  environment: "sandbox";
+  persisted: false;
+  pricing: "not-requested";
+  branchAvailability: "not-verified";
+}
+
 export interface AbcCatalogPage {
   items: AbcCatalogItem[];
   pagination: { itemsPerPage: number; pageNumber: number; totalPages: number; totalItems: number };
@@ -93,6 +114,25 @@ function arrayOrEmpty(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
+function hierarchyLabels(hierarchy: unknown): string[] {
+  if (!hierarchy || typeof hierarchy !== "object" || Array.isArray(hierarchy)) return [];
+  let node: unknown = (hierarchy as Record<string, unknown>).productGroup;
+  const levels = ["category", "productType", "materialComposition", "warranty", "brandLine"];
+  const names: string[] = [];
+  for (const key of [...levels, null]) {
+    if (!node || typeof node !== "object" || Array.isArray(node)) break;
+    const row = node as Record<string, unknown>;
+    if (typeof row.label === "string" && row.label.trim()) names.push(row.label.trim());
+    if (key !== null) node = row[key];
+  }
+  return names;
+}
+
+function dimensionVariations(value: unknown): unknown[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  return arrayOrEmpty((value as Record<string, unknown>).variations);
+}
+
 function mapItem(item: z.infer<typeof catalogItemSchema>): AbcCatalogItem {
   return {
     itemNumber: item.itemNumber,
@@ -105,7 +145,8 @@ function mapItem(item: z.infer<typeof catalogItemSchema>): AbcCatalogItem {
     dimensions: item.dimensions ?? null,
     color: item.color ?? null,
     finish: item.finish ?? null,
-    variations: arrayOrEmpty(item.variations),
+    variations: arrayOrEmpty(item.variations).length > 0
+      ? arrayOrEmpty(item.variations) : dimensionVariations(item.dimensions),
     prop65Warnings: arrayOrEmpty(item.prop65Warnings),
     source: "ABC Supply",
     priceStatus: "unpriced",
@@ -168,6 +209,41 @@ export class AbcCatalogClient {
       }
     }
     throw new Error("ABC catalog provider request failed");
+  }
+
+  /** A bounded on-demand product detail read; never a stored Material. */
+  async getItem(itemNumber: string): Promise<AbcCatalogDetail> {
+    // ABC item numbers are opaque identifiers; retain leading zeroes and case.
+    // Restrict path grammar before URL construction (no slashes, hosts or query).
+    if (!/^[A-Za-z0-9_-]{1,80}$/.test(itemNumber)) {
+      throw new Error("Invalid ABC item number");
+    }
+    const token = await this.serverToken();
+    const response = await this.callWithRetry(
+      ITEMS_URL + "/" + encodeURIComponent(itemNumber) + "?embed=variations&familyItems=true",
+      { method: "GET", headers: { authorization: "Bearer " + token } },
+    );
+    const raw = detailSchema.parse(await response.json());
+    if (raw.itemNumber !== itemNumber) {
+      throw new Error("ABC product identity mismatch");
+    }
+    if (raw.status.toLowerCase() !== "active") {
+      throw new Error("ABC product is not active");
+    }
+    return {
+      ...mapItem(raw),
+      marketingDescription: raw.marketingDescription ?? null,
+      hierarchyLabels: hierarchyLabels(raw.hierarchy),
+      familyItems: (raw.familyItems ?? []).map((family) => ({
+        itemNumber: family.itemNumber,
+        name: family.itemDescription ?? "",
+        color: family.color ?? null,
+      })),
+      environment: "sandbox",
+      persisted: false,
+      pricing: "not-requested",
+      branchAvailability: "not-verified",
+    };
   }
 
   async list(query: AbcCatalogQuery): Promise<AbcCatalogPage> {
