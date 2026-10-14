@@ -391,3 +391,8 @@ and https://www.abcsupply.com/legal/.
 ## ABC Product API read-only live-probe operator controls (issue #735)
 
 The `abc-sandbox-catalog-evidence.yml` GitHub Actions workflow is a manual, confirmation-gated probe requiring sandbox Third-Party Aggregator `ABC_SUPPLY_SANDBOX_CLIENT_ID` and `ABC_SUPPLY_SANDBOX_CLIENT_SECRET` with `product.read` in the repository or `abc-sandbox` GitHub Environment. It does not read Vercel secrets, customer OAuth credentials, user-specific prices, or any database; it writes only sanitized counts into the job summary. A missing credential is a hard failure. The full runbook is `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md`; green mocked tests alone do not prove provider access. ABC Terms authorization for durable full-catalog data storage remains separate and unresolved.
+
+
+### ABC supplier catalog detail and hierarchy access (issue #735)
+
+The Costbook read permission, independent server-side sandbox TPA `product.read` token and existing `ABC_SUPPLY_CATALOG_BROWSE_ENABLED` flag also govern on-demand Get Item and Get Product Hierarchy reads. These routes share the existing cross-instance ABC Product API rate limiter with list/search; none are administrative product syncs, do not read customer refresh tokens, and perform no DB or Material writes. Get Item exposes provider identity, status, units, length variations and ABC-classification labels only. Availability for a specific branch and customer-specific price require separate approved account-scoped Product Availability and Pricing flows. ABC data-storage/redistribution rights remain unresolved.
