@@ -374,3 +374,47 @@ export function promoteCostbookCandidate(token: string, id: string) {
     body: JSON.stringify({}),
   });
 }
+
+
+/** ABC Supply sandbox Product API — provider-backed, read-only, unpriced; no database cache. */
+export interface AbcCatalogProduct {
+  itemNumber: string;
+  name: string;
+  familyId: string | null;
+  familyName: string | null;
+  manufacturer: string | null;
+  isDimensional: boolean;
+  uoms: unknown[];
+  dimensions: unknown | null;
+  color: unknown | null;
+  finish: unknown | null;
+  variations: unknown[];
+  prop65Warnings: unknown[];
+  source: "ABC Supply";
+  priceStatus: "unpriced";
+}
+
+export interface AbcCatalogResult {
+  items: AbcCatalogProduct[];
+  pagination: { pageNumber: number; itemsPerPage: number; totalPages: number; totalItems: number };
+  source: "ABC Supply";
+  environment: "sandbox";
+  pricing: "not-requested";
+  persisted: false;
+}
+
+export function listAbcSupplyCatalog(
+  token: string,
+  params: { q?: string; searchBy?: "itemDescription" | "itemNumber"; familyId?: string; page?: number; limit?: number },
+) {
+  const query = new URLSearchParams();
+  if (params.q) query.set("q", params.q);
+  if (params.searchBy) query.set("searchBy", params.searchBy);
+  if (params.familyId) query.set("familyId", params.familyId);
+  query.set("page", String(params.page ?? 1));
+  query.set("limit", String(params.limit ?? 25));
+  return apiFetch<AbcCatalogResult>("/api/v1/costbook/abc/catalog?" + query.toString(), {
+    token,
+    cache: "no-store",
+  });
+}

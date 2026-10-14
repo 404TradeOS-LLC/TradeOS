@@ -1141,3 +1141,27 @@ activation; trigger protected cron; check for an attributed, tenant-scoped
 any Material update. Vercel environment listing returned HTTP 403 in this
 inspection, so configuration completeness was not independently verified.
 See `docs/operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md`.
+
+
+## ABC Supply Product API catalog — issue #735 proposed code, not live verified (2026-10-13)
+
+A bounded first-slice implementation is proposed on
+`feat/abc-catalog-provider-backed-browse-735`: sandbox
+`client_credentials`/`product.read` with bearer-token separation from
+existing user-present customer pricing, read-only provider-page validation,
+rate/backoff handling, and server-side paginated authenticated Costbook browse.
+The route is disabled by default and writes no SupplierProduct, Material,
+SupplierPriceObservation, CostItem, or Estimate records. All returned products
+are labeled unpriced; the browser surfaces no false current/local pricing.
+Tests are proposed but CI/runtime evidence is required before marking shipped.
+
+The requested permanent, indexed 200k+ shared catalog replication and delta
+synchronization are **not implemented**. ABC API Terms (Apr 9, 2026) prohibit
+building a database or permanent copy of content without express permission
+and restrict caching; obtain written ABC approval (storage, retention, search
+display, image use, deletion/inactive semantics) before that persistence slice.
+Existing September research-seed ABC rows must not be counted as an authenticated
+Get All Items import. No verified live item count, user-authorized positive
+customer quote, database import, deployed UI, or estimate-from-live-ABC test
+is claimed for issue #735. Provider-backed browse is not the final acceptance
+of the founder's full-catalog mission.

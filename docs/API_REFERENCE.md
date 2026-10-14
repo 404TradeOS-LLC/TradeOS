@@ -900,3 +900,35 @@ Estimate snapshots are unchanged.
 
 See `docs/operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md` for the complete
 runbook, explicit apply command and live-verification gates.
+
+
+## ABC Supply provider-backed catalog API — issue #735 proposed slice (2026-10-13)
+
+`GET /api/v1/costbook/abc/catalog` (authenticated JWT plus `costbook.read`,
+behind `ABC_SUPPLY_CATALOG_BROWSE_ENABLED=true` and configured sandbox
+`ABC_SUPPLY_SANDBOX_CLIENT_ID`/`ABC_SUPPLY_SANDBOX_CLIENT_SECRET`).
+Query: `page` 1–100000, `limit` 1–100 (default 25), optional
+`q` up to 120 characters, `searchBy` one of
+`itemDescription`/`itemNumber`, `familyId` up to 120 characters.
+Without q or family, proxy `GET /api/product/v1/items` with provider
+pagination and `familyItems=false`; with q/family, call ABC
+`POST /api/product/v1/search/items` with the documented two-filter maximum.
+The backend mints a separate **client_credentials / product.read** token, not
+a user refresh token. Returns provider-derived
+`{items,pagination,source:"ABC Supply",environment:"sandbox",
+pricing:"not-requested",persisted:false}`, where every visible product
+reports `priceStatus:"unpriced"`. Inactive products are omitted from the
+page's visible items; pagination totals remain the provider's counts.
+
+Missing credentials/disabled flag: 503. Invalid query: existing Zod error
+handler. Product API upstream errors: fail closed, no customer-price fallback.
+Server and frontend are `no-store`; no database or Material/Estimate writes.
+Neither provider-level availability nor customer-specific pricing is claimed.
+
+**Not a full catalog import endpoint.** Persistent replication, delta
+checkpoints, and local indexes require express ABC storage permission, a new
+governed schema/RLS design, and live provider/CI verification. The existing
+customer OAuth and price-review endpoints remain separate.
+Docs: https://apidocs.abcsupply.com/get-all-items/,
+https://apidocs.abcsupply.com/search-items/,
+https://www.abcsupply.com/legal/.

@@ -1,4 +1,7 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
+import { SharedSupplierCronRateLimitStore } from "./supplierCronRateLimitStore";
+import { isCatalogEnabled } from "../../modules/supplier-integration/abcCatalog";
 import { costbookController as ctrl } from "../controllers/costbook.controller";
 import { costbookPricingController as pricingCtrl } from "../controllers/costbookPricing.controller";
 import { costDatabaseController as costItemCtrl } from "../controllers/costDatabase.controller";
@@ -10,6 +13,22 @@ import { asyncHandler } from "../middleware/asyncHandler";
 export const costbookRouter = Router();
 
 costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
+// Provider-backed read, no persistent ABC catalog copy or customer-price access.
+costbookRouter.get(
+  "/abc/catalog",
+  rateLimit({
+    // Global key: TPA provider Product API budget is shared across every tenant
+    // and every Vercel instance. Cap conservatively to accommodate token/429 retries.
+    store: new SharedSupplierCronRateLimitStore("abc-catalog"),
+    windowMs: 1000,
+    limit: 2,
+    keyGenerator: () => "abc-sandbox-product-read",
+    skip: () => !isCatalogEnabled(),
+    standardHeaders: true,
+    legacyHeaders: false,
+  }),
+  asyncHandler(ctrl.abcCatalog),
+);
 costbookRouter.get("/supplier-evidence/summary", asyncHandler(ctrl.regionalSupplierEvidenceSummary));
 costbookRouter.get("/supplier-evidence", asyncHandler(ctrl.listRegionalSupplierEvidence));
 costbookRouter.post("/supplier-evidence/import", asyncHandler(ctrl.importRegionalSupplierEvidence));
