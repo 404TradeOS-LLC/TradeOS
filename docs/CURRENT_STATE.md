@@ -1165,3 +1165,10 @@ Get All Items import. No verified live item count, user-authorized positive
 customer quote, database import, deployed UI, or estimate-from-live-ABC test
 is claimed for issue #735. Provider-backed browse is not the final acceptance
 of the founder's full-catalog mission.
+
+
+## ABC Supply Product API real-sandbox verification — proposed follow-up (2026-10-13)
+
+PR #736 is merged on `main` as `e3e8a872227e7a52cad3a216e357a88f3c03f760`; its provider-backed catalog browse remains disabled until intentionally configured. The next bounded branch `feat/abc-catalog-live-sandbox-proof-735` adds a manual guarded sandbox Product API proof. It will verify `client_credentials`/`product.read` and one or two real pages, then report only provider totals and checked in-memory identity counts; it never stores catalog data, changes Materials, or requests customer-specific prices.
+
+Until a **successful manual Actions run** using authorized credentials exists, no live sandbox item totals, imported records, checked branch availability, deployed browse URL, or verified positive customer price should be claimed. The separate ABC Terms permission for permanent replicated catalog storage remains pending. Full data ingestion and incremental sync are not complete.
