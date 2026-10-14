@@ -24,6 +24,10 @@ const abcHierarchyQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(25),
 }).strict();
 
+const abcAvailabilityQuerySchema = z.object({
+  branchNumber: z.string().regex(/^[0-9]{1,6}$/).optional(),
+}).strict();
+
 const maxUnitCost = 99_999_999.9999;
 
 const requiredNumberSchema = z.preprocess(
@@ -243,6 +247,23 @@ export const costbookController = {
     }
     const { itemNumber } = abcItemParamsSchema.parse(req.params);
     res.json(await client.getItem(itemNumber));
+  },
+
+  async abcCatalogAvailability(req: Request, res: Response) {
+    requirePermissions(req, ["costbook.read"]);
+    res.setHeader("Cache-Control", "no-store");
+    if (!isCatalogEnabled()) {
+      res.status(503).json({ error: "abc_catalog_browse_disabled", message: "ABC sandbox catalog browsing is not enabled" });
+      return;
+    }
+    const client = getSandboxAbcCatalogClient();
+    if (!client) {
+      res.status(503).json({ error: "abc_catalog_credentials_missing", message: "ABC sandbox catalog credentials are not configured" });
+      return;
+    }
+    const { itemNumber } = abcItemParamsSchema.parse(req.params);
+    const { branchNumber } = abcAvailabilityQuerySchema.parse(req.query);
+    res.json(await client.getItemAvailability(itemNumber, branchNumber));
   },
 
   async abcCatalogHierarchy(req: Request, res: Response) {
