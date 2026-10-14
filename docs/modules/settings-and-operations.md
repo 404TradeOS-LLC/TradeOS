@@ -386,3 +386,8 @@ user-present `account.read`/`pricing.read` OAuth, review gates and historical
 estimate snapshots remain unchanged. This branch is not production access.
 Sources: https://apidocs.abcsupply.com/third-party-aggregator-integration-track/
 and https://www.abcsupply.com/legal/.
+
+
+## ABC Product API read-only live-probe operator controls (issue #735)
+
+The `abc-sandbox-catalog-evidence.yml` GitHub Actions workflow is a manual, confirmation-gated probe requiring sandbox Third-Party Aggregator `ABC_SUPPLY_SANDBOX_CLIENT_ID` and `ABC_SUPPLY_SANDBOX_CLIENT_SECRET` with `product.read` in the repository or `abc-sandbox` GitHub Environment. It does not read Vercel secrets, customer OAuth credentials, user-specific prices, or any database; it writes only sanitized counts into the job summary. A missing credential is a hard failure. The full runbook is `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md`; green mocked tests alone do not prove provider access. ABC Terms authorization for durable full-catalog data storage remains separate and unresolved.
