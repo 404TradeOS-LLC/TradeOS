@@ -10,6 +10,16 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+
+## Figma-to-code customer portal access parity — active 2026-10-14
+
+- Sprint ID: NONE; bounded founder-requested frontend design parity, not S059 release certification.
+- Autonomy preflight: NEW_WORK_REQUIRED; remote `main` at `b3eb5ce9edae61d363b763bcc9ce426005a2454a`. No open access UI overlap; open first-estimate PR #731 remains separate. An old `ui/customer-portal-action-workspace-20261003` branch edits only the portal home page and is not replaced or deleted.
+- Branch: `feat/portal-access-figma-parity-20261014`; GitHub connector-only implementation with no local checkout or worktree (local git fetch/status and npm validations unavailable).
+- Scope: public access confirmation/recovery layout, contract-preserving source regressions, current-state and portal-module documentation. Preserve explicit same-origin POST, pending HttpOnly token handling, non-enumerating denial, customer/tenant principal and all financial permissions.
+- Required checks: Web test/lint/build, docs/governance/preflight, hosted exact-head CI and review; authenticated 390/768/1024/1440 browser and negative customer-session evidence remain pending. No production access or deployments.
+- Next five TODOs: verify fresh PR checks; repair scoped failures; inspect exact-head diff and review threads; capture sanitized responsive/authentication negative evidence; obtain legitimate merge decision and reconcile main before the next UI slice.
+
 ## Founder-authorized Costbook legacy assembly audit — active 2026-10-08
 
 - Classification: `NEW_WORK_REQUIRED`; branch `fix/costbook-legacy-assembly-match-audit` from current `main` `bd28d751f1a63fde36dce880cc1ea6fe2f735ac7`. No overlapping open Costbook/assembly canonicalization PR was found; open PRs #690/#691/#692 are separate prevailing-wage/supplier-sync lanes.

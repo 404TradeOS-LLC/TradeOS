@@ -63,6 +63,12 @@ related_code:
 
 # TradeOS Current State
 
+## Public portal access design parity — proposed 2026-10-14
+
+The bounded `feat/portal-access-figma-parity-20261014` frontend branch aligns the customer magic-link confirmation and generic denial presentation with canonical Figma frames 205:34, 205:35, 651:3762, and 651:3845. A reusable customer-only public shell provides consistent branding and responsive card layout. The confirm route still reads only the HttpOnly pending cookie, denies malformed tokens, and submits only an explicit POST to the existing same-origin redemption endpoint. The access-error page remains non-enumerating and exposes no unsupported invitation/retry action.
+
+This is frontend presentation and source-regression coverage only. No backend, portal session, customer identity, tenant/RLS, contract signing, proposal decision, payment, or token-handling behavior changes. Hosted CI, authenticated portal browser evidence, accessibility checks and production deployment remain unverified until collected. This branch is not an S059 certification or release-readiness claim.
+
 ## Entry control geometry — proposed 2026-10-13
 
 The same Entry parity lane now restores the existing official wordmark to the canonical mobile brand slot, aligns mobile tagline/drawing placement with default frame `547:2218`, and removes an unreferenced underline. Existing static assets are reused without editing bytes. This is code-backed parity work; screenshot/asset comparison remains unverified. BrowserAct CLI's daemon failed to initialize, and the available cloud browser cannot reach this workspace's localhost server.
