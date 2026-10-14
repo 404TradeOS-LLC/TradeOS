@@ -71,6 +71,8 @@ export default async function AbcCatalogPage({ searchParams }: { searchParams: P
         </div>
       </section>
 
+      <p className="text-sm text-muted-foreground">Browse <Link className="font-semibold text-primary underline underline-offset-4" href="/costbook/abc-catalog/hierarchy">ABC’s official product hierarchy</Link> to explore actual supplier groups, categories, and brands.</p>
+
       <form method="get" action="/costbook/abc-catalog" className="grid gap-3 rounded-xl border border-border/70 bg-card p-4 sm:grid-cols-[minmax(0,1fr)_170px_auto]">
         <label className="space-y-1">
           <span className="text-xs font-semibold text-muted-foreground">ABC product</span>
