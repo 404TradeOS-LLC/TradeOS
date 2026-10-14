@@ -932,3 +932,8 @@ customer OAuth and price-review endpoints remain separate.
 Docs: https://apidocs.abcsupply.com/get-all-items/,
 https://apidocs.abcsupply.com/search-items/,
 https://www.abcsupply.com/legal/.
+
+
+## ABC sandbox Product API read-only runtime evidence (issue #735, proposed)
+
+The manual `app/scripts/probe-abc-sandbox-catalog.ts` task is **not** an HTTP endpoint, import worker, or price API. It reads at most two 25-item sandbox pages through the existing `AbcCatalogClient` with an independent server `product.read` token. It validates the server-only response contract, pagination consistency, active product identities, and explicit `pricing:"not-requested"`/`persisted:false` boundary. Its sanitized metadata output contains provider-reported totals and active item counts only; no API body/SKU or credentials are printed or persisted. To run, use the reviewed manual GitHub Actions workflow and `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md`. Existing authenticated Costbook catalog HTTP routes and pricing authorization are unchanged.
