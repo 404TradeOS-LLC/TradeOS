@@ -1172,3 +1172,10 @@ of the founder's full-catalog mission.
 PR #736 is merged on `main` as `e3e8a872227e7a52cad3a216e357a88f3c03f760`; its provider-backed catalog browse remains disabled until intentionally configured. The next bounded branch `feat/abc-catalog-live-sandbox-proof-735` adds a manual guarded sandbox Product API proof. It will verify `client_credentials`/`product.read` and one or two real pages, then report only provider totals and checked in-memory identity counts; it never stores catalog data, changes Materials, or requests customer-specific prices.
 
 Until a **successful manual Actions run** using authorized credentials exists, no live sandbox item totals, imported records, checked branch availability, deployed browse URL, or verified positive customer price should be claimed. The separate ABC Terms permission for permanent replicated catalog storage remains pending. Full data ingestion and incremental sync are not complete.
+
+
+## ABC Product API item details & product hierarchy — issue #735 proposed slice, 2026-10-13
+
+Built on merged #736 provider browse and #737 live sandbox evidence workflow, branch `feat/abc-product-detail-hierarchy-735` adds the official ABC **Get Item** and **Get Product Hierarchy** on-demand read surfaces. The Costbook catalog links to item-detail pages showing original unit/variation semantics and official ABC codes/labels, and to paginated hierarchy paths. API endpoints remain authenticated, sandbox-only, opt-in, globally rate-limited and non-persistent; neither product identity nor branch stock or price is presumed to be a TradeOS-approved Material.
+
+**Evidence boundary:** Typechecks, tests and review must pass before merging this branch. No true provider sandbox Get Item/Hierarchy response, actual catalog total, source-data license for durable indexing, branch-aware availability or customer quote has been live-verified by this branch. The ABC feature flag remains disabled by default; full ABC catalog import and synchronization remain unimplemented.
