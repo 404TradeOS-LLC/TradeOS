@@ -49,15 +49,15 @@ describe('BLS PPI commodity series (WPU)', () => {
     const latest = latestPpiObservation('WPU1333');
     expect(latest).toBeDefined();
     expect(latest!.year).toBe(2026);
-    expect(latest!.month).toBe(8);
-    expect(latest!.value).toBeCloseTo(395.186, 3);
+    expect(latest!.month).toBe(9);
+    expect(latest!.value).toBeCloseTo(395.319, 3);
   });
 
   it('computes year-over-year change from real data', () => {
-    // Lumber Aug 2025 -> Aug 2026: pulled live 2026-10-06
+    // Lumber Sep 2025 -> Sep 2026: pulled live 2026-10-15
     const yoy = ppiYearOverYear('WPU0811');
     expect(yoy).toBeDefined();
-    expect(yoy!).toBeCloseTo(11.8, 0);
+    expect(yoy!).toBeCloseTo(14.2, 0);
   });
 
   it('escalates an observed price by index movement', () => {
