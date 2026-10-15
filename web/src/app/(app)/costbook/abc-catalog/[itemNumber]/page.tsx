@@ -4,7 +4,8 @@ import { ArrowLeft, Package, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getSessionToken } from "@/lib/session";
-import { getAbcSupplyCatalogItem } from "@/lib/costbook-api";
+import { getAbcSupplyCatalogItem, listAbcSupplyCatalog, type AbcCatalogProductDetail } from "@/lib/costbook-api";
+import { parseAbcCatalogSource, type AbcCatalogSourceSearchParams } from "@/lib/abc-catalog-navigation";
 
 export const metadata: Metadata = {
   title: "ABC Supply Product | Costbook | TradeOS",
@@ -48,24 +49,45 @@ function variations(value: unknown) {
 
 export default async function AbcProductDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ itemNumber: string }>;
+  searchParams: Promise<AbcCatalogSourceSearchParams>;
 }) {
   const { itemNumber } = await params;
+  const source = parseAbcCatalogSource(await searchParams);
+  // ABC documents that Get All Items can include products which a server-token
+  // Get Item request returns 403 for. Re-read only the exact page the user
+  // selected, without saving or serializing ABC product attributes in the URL.
+  const listingOnly = source !== null;
   const token = await getSessionToken();
   if (!token) {
     return <EmptyState title="Sign in required" description="Sign in to inspect ABC Supply product details." />;
   }
 
-  let product: Awaited<ReturnType<typeof getAbcSupplyCatalogItem>> | null = null;
+  let product: AbcCatalogProductDetail | null = null;
   try {
-    product = await getAbcSupplyCatalogItem(token, itemNumber);
+    if (source) {
+      const listing = await listAbcSupplyCatalog(token, {
+        page: source.page, limit: 25, q: source.q,
+        familyId: source.familyId, searchBy: source.searchBy,
+      });
+      const item = listing.items.find((candidate) => candidate.itemNumber === itemNumber);
+      if (!item) throw new Error("ABC product no longer found on the selected provider page");
+      product = {
+        ...item, marketingDescription: null, hierarchyLabels: [], familyItems: [],
+        environment: "sandbox", persisted: false, pricing: "not-requested",
+        branchAvailability: "not-verified",
+      };
+    } else {
+      product = await getAbcSupplyCatalogItem(token, itemNumber);
+    }
   } catch {
     // Never display raw upstream provider errors or reveal credentials.
     return (
       <div className="flex flex-col gap-5">
         <PageHeader title="ABC Supply product unavailable" description="The product could not be verified against the authorized sandbox catalog." backHref="/costbook/abc-catalog" backLabel="ABC Catalog" />
-        <EmptyState title="No verified product details" description="The product may be inactive, no longer listed, or the sandbox integration is not enabled. No Costbook data has changed." />
+        <EmptyState title="No verified product details" description="The provider did not return this item through the authorized lookup. Return to the catalog and select it again; no Costbook records or prices were changed." />
       </div>
     );
   }
@@ -83,7 +105,7 @@ export default async function AbcProductDetailPage({
     <div className="flex flex-col gap-5">
       <PageHeader
         title={product.name || "ABC Supply product"}
-        description={"ABC Supply item " + product.itemNumber + " · Sandbox Product API · Unpriced"}
+        description={"ABC Supply item " + product.itemNumber + (listingOnly ? " · Live catalog listing" : " · Product detail") + " · Unpriced"}
         backHref="/costbook/abc-catalog"
         backLabel="ABC Catalog"
       />
@@ -91,11 +113,14 @@ export default async function AbcProductDetailPage({
       <div className="flex gap-3 rounded-xl border border-border/70 bg-card p-4">
         <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Product details are not a priced Costbook Material</h2>
+          <h2 className="text-sm font-semibold text-foreground">
+            {listingOnly ? "Verified catalog listing — full item access may be restricted" : "Product details are not a priced Costbook Material"}
+          </h2>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            This provider record is viewed on demand. No product data, authorized customer-specific price,
-            or availability has been saved to TradeOS. Check an eligible Ship-To account, branch,
-            exact units and lengths before requesting a quote, then review the resulting Material cost.
+            {listingOnly
+              ? "These attributes were fetched again from ABC’s current catalog listing. ABC may restrict its separate Get Item endpoint to products eligible at your authorized branches. More detailed descriptions, family relationships and pricing are not verified here."
+              : "This provider record is viewed on demand. No product data or authorized customer-specific price has been saved to TradeOS."}
+            {" "}Confirm your ABC Ship-To, branch, units and variations before requesting pricing. This view does not create a Costbook Material.
           </p>
         </div>
       </div>
@@ -185,15 +210,24 @@ export default async function AbcProductDetailPage({
       ) : null}
 
       <section className="rounded-xl border border-border/70 bg-card p-4">
-        <h2 className="font-semibold">Branch ordering eligibility</h2>
+        <h2 className="font-semibold">Pricing and branch access</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Verify which ABC branches list this item and its ordering length options.
           This does not confirm inventory quantities, your authorized Ship-To location, or pricing.
         </p>
-        <Link className="mt-3 inline-block text-sm font-semibold text-primary underline underline-offset-4"
-          href={"/costbook/abc-catalog/" + encodeURIComponent(product.itemNumber) + "/availability"}>
-          Check ABC listed branches
-        </Link>
+        <div className="mt-3 flex flex-wrap items-center gap-4">
+          <Link className="text-sm font-semibold text-primary underline underline-offset-4"
+            href={"/costbook/abc-catalog/" + encodeURIComponent(product.itemNumber) + "/availability"}>
+            Check ABC listed branches
+          </Link>
+          <Link className="text-sm font-semibold text-primary underline underline-offset-4" href="/settings">
+            Connect ABC pricing in Settings
+          </Link>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+          The existing ABC sandbox pricing test covers only explicitly supported sample SKUs.
+          It cannot price every product in this catalog yet. No customer-specific quote was requested on this page.
+        </p>
       </section>
 
       <Link href="/costbook/abc-catalog" className="inline-flex items-center gap-2 text-sm font-medium underline-offset-4 hover:underline">

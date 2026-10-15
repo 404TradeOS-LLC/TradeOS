@@ -63,6 +63,15 @@ related_code:
 
 # TradeOS Current State
 
+## ABC Supply catalog card navigation and item visibility — pending PR validation (2026-10-15)
+
+Actual production catalog page requests succeeded after the backend browse flag was set to lowercase `true`. However, a real selected item (`03CTLP4MN`) caused provider `Get Item` HTTP 403 in production, and repeated attempts coincided with Prisma connection-pool timeout errors. ABC's official TPA documentation states `Get All Items` can expose catalog listings for items that other item-specific endpoints do not return without appropriate branch access; this is a provider authorization distinction, not a successful per-item entitlement.
+
+The frontend repair makes the complete authenticated product card a keyboard-accessible link and passes **only** the selected page/search context and item number. The product screen fetches that exact ABC catalog page *again* on demand, verifies the selected item identity in the live page, and displays only provider-supplied listing attributes. It does not attempt the branch-restricted `Get Item` call for these listing-origin navigations, invent full descriptions, copy catalog data to TradeOS storage, expose provider credentials, or treat a catalog listing as a priced Material. Direct detail URLs without that context retain the existing Get Item lookup and may be rejected by ABC.
+
+`Pricing` remains **not requested**. The existing Settings → Costbook ABC authorization/selected quote pilot requires a user-present ABC grant and restricts quote probes to the documented pilot SKUs. No arbitrary-product customer quote, price display, supplier product activation or Estimate handoff is implied by this UI repair. GitHub CI, hosted responsive checks and production deployment must pass before considering the navigation fix delivered. Issue #735 stays open.
+
+
 ## Public portal access design parity — proposed 2026-10-14
 
 The bounded `feat/portal-access-figma-parity-20261014` frontend branch aligns the customer magic-link confirmation and generic denial presentation with canonical Figma frames 205:34, 205:35, 651:3762, and 651:3845. A reusable customer-only public shell provides consistent branding and responsive card layout. The confirm route still reads only the HttpOnly pending cookie, denies malformed tokens, and submits only an explicit POST to the existing same-origin redemption endpoint. The access-error page remains non-enumerating and exposes no unsupported invitation/retry action.
