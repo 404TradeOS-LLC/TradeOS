@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Estimate } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { canAddReviewedEstimateCatalogItem } from "@/lib/estimate-catalog-review";
 
 interface LineItem {
   id: string;
@@ -586,10 +587,21 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
   const activeResultIndex = orderedResults.length === 0 ? 0 : Math.min(activeIndex, orderedResults.length - 1);
   const activeResult = orderedResults[activeResultIndex] ?? null;
   const selectedAssemblyId = selected?.kind === "assembly" ? selected.id : null;
+  const selectedCostItemId = selected?.kind === "costItem" ? selected.id : null;
+  const { data: costItemPreview, isLoading: costItemPreviewLoading, isFetching: costItemPreviewFetching,
+    isError: costItemPreviewFailed, error: costItemPreviewError } = useQuery({
+    queryKey: ["cost-item-preview", selectedCostItemId],
+    queryFn: () => {
+      if (!selectedCostItemId) throw new Error("Select a Costbook item first.");
+      return clientFetch<{ totalUnitCost: number }>(`/costbook/cost-items/${selectedCostItemId}/unit-cost`);
+    },
+    enabled: Boolean(selectedCostItemId), staleTime: 60_000,
+  });
 
   const {
     data: assemblyPreview,
     isLoading: assemblyPreviewLoading,
+    isFetching: assemblyPreviewFetching,
     isError: assemblyPreviewFailed,
     error: assemblyPreviewError,
   } = useQuery({
@@ -637,7 +649,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
   }, []);
 
   const commitLineItem = (item?: PickerResult | null) => {
-    const target = item ?? selected ?? activeResult;
+    const target = item ?? selected;
     if (!target) {
       setError("Pick a result from the list first.");
       return;
@@ -649,6 +661,10 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
     const qty = Number(quantity);
     if (!Number.isFinite(qty) || qty <= 0) {
       setError("Quantity must be a positive number");
+      return;
+    }
+    if (!canAddReviewedLine) {
+      setError("Review the selected item's current Costbook cost before adding.");
       return;
     }
     addLineItem.mutate({ item: target, quantity: qty, section, costType: costType || undefined, taxable, sourceKey: `builder:${crypto.randomUUID()}` });
@@ -683,6 +699,16 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       onAdded();
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to add line item"),
+  });
+
+  const previewUnitCost = selected?.kind === "costItem"
+    ? costItemPreview?.totalUnitCost
+    : selected?.kind === "assembly" ? assemblyPreview?.unitCost : undefined;
+  const previewPending = selected?.kind === "costItem"
+    ? costItemPreviewLoading || costItemPreviewFetching
+    : selected?.kind === "assembly" ? assemblyPreviewLoading || assemblyPreviewFetching : true;
+  const canAddReviewedLine = canAddReviewedEstimateCatalogItem({
+    kind: selected?.kind ?? null, quantity, unitCost: previewUnitCost, previewPending, adding: addLineItem.isPending,
   });
 
   const customAdd = useMutation({
@@ -729,7 +755,6 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
                 if (orderedResults.length === 0) return;
                 const nextIndex = Math.min(activeResultIndex + 1, orderedResults.length - 1);
                 setActiveIndex(nextIndex);
-                setSelected(orderedResults[nextIndex] ?? null);
                 return;
               }
               if (event.key === "ArrowUp") {
@@ -737,17 +762,22 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
                 if (orderedResults.length === 0) return;
                 const nextIndex = Math.max(activeResultIndex - 1, 0);
                 setActiveIndex(nextIndex);
-                setSelected(orderedResults[nextIndex] ?? null);
                 return;
               }
               if (event.key === "Enter") {
                 event.preventDefault();
-                const target = selected ?? activeResult;
-                if (!target) {
+                if (selected) {
+                  quantityInputRef.current?.focus();
+                  return;
+                }
+                if (!activeResult) {
                   setError("Pick a result from the list first.");
                   return;
                 }
-                commitLineItem(target);
+                setSelected(activeResult);
+                setQuery(activeResult.name);
+                setError(null);
+                if (activeResult.kind !== "starterAssembly") quantityInputRef.current?.focus();
                 return;
               }
               if (event.key === "Escape") {
@@ -781,17 +811,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
             aria-invalid={quantityInvalid}
             aria-describedby={quantityInvalid ? "quantity-error" : undefined}
             onChange={(e) => setQuantity(e.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                const target = selected ?? activeResult;
-                if (!target) {
-                  setError("Pick a result from the list first.");
-                  return;
-                }
-                commitLineItem(target);
-              }
-            }}
+
           />
           {quantityInvalid ? (
             <p id="quantity-error" className="text-xs text-destructive">
@@ -802,10 +822,10 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
 
         <Button
           type="button"
-          onClick={() => commitLineItem(selected ?? activeResult)}
-          disabled={addLineItem.isPending || (!selected && !activeResult) || (selected ?? activeResult)?.kind === "starterAssembly"}
+          onClick={() => commitLineItem()}
+          disabled={!canAddReviewedLine}
         >
-          {addLineItem.isPending ? "Adding…" : (selected ?? activeResult)?.kind === "starterAssembly" ? "Setup required" : "Add"}
+          {addLineItem.isPending ? "Adding…" : selected?.kind === "starterAssembly" ? "Setup required" : "Add to estimate"}
         </Button>
       </div>
 
@@ -971,6 +991,27 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
             </Button>
           </div>
 
+
+          {selected.kind === "costItem" ? (
+            <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3" aria-live="polite">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Current Costbook cost preview</p>
+              {costItemPreviewLoading || costItemPreviewFetching ? (
+                <p className="text-sm text-muted-foreground">Resolving stored unit cost…</p>
+              ) : costItemPreviewFailed ? (
+                <p className="text-sm text-warning" role="alert">
+                  Cost preview unavailable. {costItemPreviewError instanceof Error ? costItemPreviewError.message : "Try again or choose a custom item."}
+                </p>
+              ) : costItemPreview && Number.isFinite(costItemPreview.totalUnitCost) && costItemPreview.totalUnitCost >= 0 ? (
+                <div className="text-sm">
+                  <strong className="font-medium">{formatCurrency(costItemPreview.totalUnitCost)}</strong> / {selected.unitOfMeasure} stored cost
+                  <p className="mt-1 text-muted-foreground">
+                    {formatCurrency(costItemPreview.totalUnitCost * (Number(quantity) > 0 ? Number(quantity) : 0))} estimated direct job cost for {quantity || "0"} {selected.unitOfMeasure}.
+                  </p>
+                </div>
+              ) : <p className="text-sm text-warning">Cost preview is unavailable.</p>}
+              <p className="text-xs text-muted-foreground">This is a stored Costbook cost, not a live supplier quote. Estimate Engine saves its own cost snapshot when you explicitly Add.</p>
+            </div>
+          ) : null}
           {selected.kind === "assembly" ? (
             <div className="grid gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 sm:grid-cols-[minmax(0,1fr)_auto]">
               <div className="space-y-2">
@@ -1014,7 +1055,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
                   </div>
                 ) : null}
                 <p className="text-xs text-muted-foreground">
-                  Provenance: organization Costbook assembly + live component pricing. Supplier/date citations are shown only when the underlying Costbook data provides them; none are invented here.
+                  Source: organization Costbook assembly with current resolved component costs, not a live supplier quote. Estimate Engine captures a new snapshot on Add.
                 </p>
               </div>
               <div className="text-right">
@@ -1096,6 +1137,7 @@ function StarterAssemblySetup({
       if (!mappingComplete) throw new Error("Map every recipe slot before installing the assembly.");
       if (duplicateMapping) throw new Error("Use a different Costbook item for each recipe slot.");
       if (incompatibleComponent) throw new Error(`${incompatibleComponent.label} is mapped to an incompatible Costbook item.`);
+      if (!previewReady) throw new Error("Review the mapped Costbook cost before installing.");
       return clientFetch<{ id: string; name: string; code: string; unitOfMeasure: string; description?: string | null }>(
         "/assemblies/starter-catalog/install",
         {
@@ -1117,6 +1159,8 @@ function StarterAssemblySetup({
     onError: (err) => setError(err instanceof Error ? err.message : "Starter assembly could not be installed."),
   });
 
+  const previewReady = !preview.isLoading && !preview.isFetching && !preview.isError &&
+    preview.data !== undefined && Number.isFinite(preview.data.unitCost) && preview.data.unitCost >= 0;
   const outputQuantity = Number(quantity) > 0 ? Number(quantity) : 0;
 
   return (
@@ -1181,7 +1225,7 @@ function StarterAssemblySetup({
         <Button
           type="button"
           onClick={() => install.mutate()}
-          disabled={install.isPending || !mappingComplete || duplicateMapping || Boolean(incompatibleComponent)}
+          disabled={install.isPending || !mappingComplete || duplicateMapping || Boolean(incompatibleComponent) || !previewReady}
         >
           {install.isPending ? "Installing…" : "Install assembly"}
         </Button>
