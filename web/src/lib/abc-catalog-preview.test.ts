@@ -13,6 +13,8 @@ test("provider text fields are rendered only when supplied", () => {
 
 test("ABC unit options are bounded and sanitized", () => {
   assert.deepEqual(abcUnitLabels([{ code: "EA" }, { name: "Bundle" }, {}, null]), ["EA", "Bundle"]);
+  assert.deepEqual(abcUnitLabels([{ code: "BD", name: "Bundle", description: "stocking" }]), ["Bundle (BD) · stocking"]);
+  assert.deepEqual(abcUnitLabels([{ code: "EA", name: "EA", description: "ordering" }]), ["EA · ordering"]);
   assert.equal(abcUnitLabels(Array.from({ length: 100 }, (_, i) => ({ code: String(i) }))).length, 25);
 });
 
