@@ -63,6 +63,17 @@ related_code:
 
 # TradeOS Current State
 
+## ABC catalog no-refetch product disclosure — 2026-10-15 pending CI
+
+Production's catalog route now returns ABC sandbox products, but its default 25-product page can spend seconds waiting for the upstream provider (one observed page took ~29 seconds), and some concurrent request-scoped auth sessions fail with Prisma connection pool timeout (connection limit 1, timeout 10s). This supersedes PR #745's product-card navigation: that previous approach made a second catalog request for its details screen. This could hit the same connection bottleneck and did not establish a reliable production click-through.
+
+This bounded frontend follow-up replaces the catalog's whole-card navigation with native `<details>/<summary>` disclosure inside the **already authenticated and loaded** provider listing. Selecting a product requires **zero additional HTTP calls**, database sessions or ABC OAuth activity. It displays only provider-listed item number, manufacturer, family, ID, unit options, color, finish, available variations and provider-supplied warnings; absent attributes are explicitly "Not supplied." The UI makes it clear these are catalog listing attributes, not deeper Get Item verification, branch stock, customer-authorized prices or approved Materials. The former standalone product-detail route remains for direct URLs but is not an advertised navigation path until item-level authorization is proven.
+
+This does **not** repair the separate Prisma pool exhaustion on page loads or grant ABC Get Item / customer-specific pricing access. Those are independently tracked follow-ups and must not be hidden by UI verification. No catalog replication/cache is introduced under ABC's terms. Required GitHub checks and real hosted signed-in browser proof are pending; keep #735 open.
+
+
+
+
 ## Reviewed Costbook insertion in Estimate Items — proposed 2026-10-15
 
 The bounded branch `fix/estimate-picker-reviewed-add-20261015` changes the existing desktop/mobile Estimate Items picker, not the Estimate Engine or supplier pricing authority. Search keyboard Enter now selects a Costbook item/assembly for review instead of inserting a highlighted result. A selected tenant Cost Item uses the existing read-only `/costbook/cost-items/:id/unit-cost` endpoint for its current stored-cost preview; installed assemblies retain the existing current-unit-cost/recipe preview. Estimate Add is enabled only for an explicitly selected installed source with a finite nonnegative resolved preview, positive quantity, and no pending mutation or preview refresh. A mapped starter assembly cannot install until its read-only cost preview resolves; installation and Estimate Add remain separate explicit actions. Failed/unknown previews do not silently use zero or write Estimate lines. The backend remains the authority for cost snapshots at line creation, so after adding contractors should review the persisted line before finalizing.
