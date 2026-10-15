@@ -74,7 +74,7 @@ test("embedded assembly picker previews installed assemblies and gates unmapped 
   assert.match(builder, /\/assemblies\/\$\{selectedAssemblyId\}\/items\?limit=6&sort=sortOrder&order=asc/);
   assert.match(builder, /Current Costbook recipe\. Estimate Engine captures the pricing snapshot and assembly source when you explicitly add it\./);
   assert.match(builder, /Estimated job cost for/);
-  assert.match(builder, /Provenance: organization Costbook assembly \+ live component pricing/);
+  assert.match(builder, /Source: organization Costbook assembly with current resolved component costs, not a live supplier quote/);
   assert.match(builder, /Setup required before this assembly can be priced or added\./);
   assert.match(builder, /Map each starter recipe slot to an active, compatible Costbook item/);
   assert.match(builder, /TradeOS will not invent those mappings or a price/);
@@ -95,9 +95,31 @@ test("starter assembly setup stays inline and requires install before estimate a
   assert.match(builder, /Use a different Costbook item for each recipe slot/);
   assert.match(builder, /Installation creates the tenant assembly only\. Review its resolved cost, then use the separate Add action to write the estimate line\./);
   assert.match(builder, /onInstalled=\{\(assembly\) => \{[\s\S]*setSelected\(\{ \.\.\.assembly, kind: "assembly" \}\)/);
-  assert.match(builder, /disabled=\{addLineItem\.isPending \|\| \(!selected && !activeResult\) \|\| \(selected \?\? activeResult\)\?\.kind === "starterAssembly"\}/);
+  assert.match(builder, /disabled=\{!canAddReviewedLine\}/);
+  assert.match(builder, /disabled=\{install\.isPending \|\| !mappingComplete \|\| duplicateMapping \|\| Boolean\(incompatibleComponent\) \|\| !previewReady\}/);
   assert.match(builder, /const resultsId = useId\(\)/);
   assert.doesNotMatch(builder, /Math\.random\(\)/);
+});
+
+test("Costbook picker selects on Enter, never inserts an unreviewed search highlight", async () => {
+  const builder = await readSource("./builder.tsx");
+  const search = builder.slice(builder.indexOf('id="item-search"'), builder.indexOf('<Label htmlFor="costbook-section">'));
+  assert.match(search, /setSelected\(activeResult\)/);
+  assert.doesNotMatch(search, /commitLineItem\(/);
+  assert.match(builder, /const target = item \?\? selected;/);
+  assert.match(builder, /disabled=\{!canAddReviewedLine\}/);
+  assert.match(builder, /onClick=\{\(\) => commitLineItem\(\)\}/);
+  assert.match(builder, /Review the selected item's current Costbook cost before adding/);
+});
+
+test("selected Costbook items resolve source cost for review before a persisted Add", async () => {
+  const builder = await readSource("./builder.tsx");
+  assert.match(builder, /\/costbook\/cost-items\/\$\{selectedCostItemId\}\/unit-cost/);
+  assert.match(builder, /costItemPreview\.totalUnitCost/);
+  assert.match(builder, /canAddReviewedEstimateCatalogItem/);
+  assert.match(builder, /stored Costbook cost, not a live supplier quote/);
+  assert.match(builder, /const previewReady = !preview\.isLoading && !preview\.isFetching && !preview\.isError/);
+  assert.match(builder, /if \(!previewReady\) throw new Error/);
 });
 
 test("Athena stays review-first and Review preserves finalize-before-proposal lifecycle", async () => {
