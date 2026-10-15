@@ -33,6 +33,8 @@ jobs:
         working-directory: app
     steps:
       - name: Require operator confirmation
+        # Checkout has not run yet, so the app/ directory does not exist.
+        working-directory: .
         env:
           CONFIRMATION: ${{ inputs.confirmation }}
         run: |
