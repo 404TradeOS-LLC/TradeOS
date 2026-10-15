@@ -11,6 +11,16 @@ related_docs:
 ---
 
 
+## Estimate Costbook selection and preview guard — 2026-10-15
+
+- Sprint ID: NONE; bounded founder-requested Figma-to-code fix from `main` `049ff512470e1997edf5afcdc8a9ff9cdca76a76`.
+- Autonomy preflight: NEW_WORK_REQUIRED. Open Costbook PRs #700 (wages) and #745 (ABC catalog detail) do not overlap the Estimate Items picker. Previous S064 assembly picker and starter mapping are already implemented on main.
+- Branch: `fix/estimate-picker-reviewed-add-20261015`. GitHub connector edits only; local git checkout/npm execution unavailable due blocked GitHub DNS. Do not treat remote CI as local test evidence.
+- Scope: explicit Costbook/assembly search selection, read-only unit-cost preview, quantity and error gates, mapped starter install before separate Estimate Add, focused tests and owner docs.
+- Safety: backend Estimate pricing snapshots/tenant/RLS/auth, schema/migrations, API contracts, supplier quotes, automation and proposal/invoice flows unchanged.
+- Validation: exact-head Web tests/lint/build and repository documentation CI, branch currency, review and authenticated 390/768/1024/1440 checks still need reconciliation. No hosted screenshot or tenant-negative evidence yet.
+- Next five TODOs: reconcile fresh PR checks; repair deterministic review/test failures; capture authenticated search/preview/add/cancel and failed cost cases on 390/1440; verify stored Estimate snapshot matches the backend resolved cost without historical repricing; then merge through protected PR gates and verify main.
+
 ## Figma-to-code customer portal access parity — active 2026-10-14
 
 - Sprint ID: NONE; bounded founder-requested frontend design parity, not S059 release certification.
