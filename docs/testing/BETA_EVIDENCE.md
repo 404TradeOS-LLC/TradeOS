@@ -31,6 +31,10 @@ tenant-scoped product workflow, meaningful assertions, four viewports, retained
 artifacts, and security validation — all passing in one run.
 
 ## Architecture
+### Proposal handoff locator parity (2026-10-16)
+
+The current finalized Estimate workspace may show two legitimate proposal links: a header Create proposal navigation and the focused Review-stage Review proposal draft action. The canonical Beta Evidence run intentionally clicks the *exact* Review proposal draft link, not a union locator that matches both and fails strict Playwright resolution. This preserves the explicit finalize → draft review → Create boundary without introducing a new write or changing the page UI. Source-level regression tests protect uniqueness. Full authenticated run still requires an isolated non-production tenant and current deployed SHA; this source fix does not certify it.
+
 ### Focused Estimate → Proposal browser evidence parity (2026-10-16)
 
 The canonical/s052/s053 runner now detects the existing responsive Estimate stage navigation and selects **Items → Price → Review** explicitly on focused-stage workspaces. Legacy desktop workbenches without a navigator remain supported above 1024px, but missing mobile stage navigation fails; current-stage verification reads the actual `aria-current="step"` button after navigation. The s053 Athena review returns to the builder before resuming the canonical line-item flow.

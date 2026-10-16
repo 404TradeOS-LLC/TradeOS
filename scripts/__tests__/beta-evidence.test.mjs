@@ -419,7 +419,8 @@ test("canonical evidence navigates focused estimate stages at 390/768 and checks
   assert.match(capture, /navigateEstimateStage\("Items"\)/);
   assert.match(capture, /navigateEstimateStage\("Price"\)/);
   assert.match(capture, /navigateEstimateStage\("Review"\)/);
-  assert.match(capture, /getByRole\("link", \{ name: \/\^\(Create proposal\|Review proposal draft\)\$\//);
+  assert.match(capture, /getByRole\("link", \{ name: "Review proposal draft", exact: true \}\)/);
+  assert.doesNotMatch(capture, /Create proposal\|Review proposal draft/);
   assert.match(capture, /runS053Certification\(projectId, estimateId\);[\s\S]*page\.goto/);
 });
 

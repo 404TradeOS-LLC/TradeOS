@@ -76,6 +76,10 @@ A read-only browser matrix passed at 390/768/1024/1440 with explicitly synthetic
 
 
 # TradeOS Current State
+## Focused Estimate proposal handoff evidence selector — 2026-10-16
+
+After responsive stage PR #755 merged, the finalized Estimate page has both header Create proposal navigation and Review-stage Review proposal draft; the existing Beta Evidence union locator can match both. The bounded branch `test/beta-estimate-proposal-review-link-20261016` selects the existing exact Review-stage handoff instead. Only the non-production evidence runner, its source-contract test, and owner docs change. This does not create a Proposal, alter backend totals, bypass financial authorization, or constitute a passing authenticated certification run.
+
 
 ## Estimate finalization recovery focus — bounded frontend slice (2026-10-16)
 
