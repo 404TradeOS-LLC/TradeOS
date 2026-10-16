@@ -410,25 +410,28 @@ function MobileEstimateFlow({
 
   return (
     <section className="space-y-4 lg:hidden" aria-label="Mobile estimate workflow">
-      <div className="grid grid-cols-4 border-b border-border/70" role="tablist" aria-label="Estimate stages">
-        {stages.map((stage, index) => (
-          <button
-            key={stage.id}
-            type="button"
-            role="tab"
-            aria-selected={mobileStage === stage.id}
-            onClick={() => void goToStage(stage.id)}
-            disabled={scopeSavePending && mobileStage === "scope" && stage.id !== "scope"}
-            className={cn(
-              "min-h-11 border-b-2 px-1 text-xs font-semibold transition-colors",
-              mobileStage === stage.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"
-            )}
-          >
-            <span className="mr-1 text-[10px] tabular-nums">{index + 1}</span>
-            {stage.label}
-          </button>
-        ))}
-      </div>
+      <nav aria-label="Estimate stages">
+        <ol className="grid grid-cols-4 border-b border-border/70">
+          {stages.map((stage, index) => (
+            <li key={stage.id} className="min-w-0">
+              <button
+                type="button"
+                aria-current={mobileStage === stage.id ? "step" : undefined}
+                onClick={() => void goToStage(stage.id)}
+                disabled={scopeSavePending && mobileStage === "scope" && stage.id !== "scope"}
+                className={cn(
+                  "min-h-11 w-full border-b-2 px-1 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  mobileStage === stage.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"
+                )}
+              >
+                <span className="mr-1 text-[10px] tabular-nums" aria-hidden="true">{index + 1}</span>
+                <span className="sr-only">Step {index + 1} of {stages.length}: </span>
+                {stage.label}
+              </button>
+            </li>
+          ))}
+        </ol>
+      </nav>
 
       {mobileStage === "scope" ? (
         <div className="space-y-4">
