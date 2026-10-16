@@ -77,6 +77,13 @@ A read-only browser matrix passed at 390/768/1024/1440 with explicitly synthetic
 
 # TradeOS Current State
 
+## Estimate mobile step navigation accessibility — 2026-10-16, proposed
+
+The bounded branch fix/estimate-mobile-stage-navigation-20261016 converts the existing Scope → Items → Price → Review tracker from incomplete ARIA tablist semantics into semantic navigation containing an ordered list of native buttons. The active step announces aria-current="step". Native buttons receive Tab focus and Enter/Space activation; visible focus and 44px touch targets remain. The current goToStage helper still awaits successful Project scope persistence before leaving an edited draft scope and disables stage changes while the save is pending. A failed scope save leaves the contractor in Scope with unsaved text intact.
+
+This changes no Estimate Engine, tenant/RLS/auth, Costbook pricing, supplier, proposal, backend or financial behavior. Source tests cover the navigation contract and asynchronous save gating. Authenticated 390/768 keyboard and save-failure browser evidence and 1024/1440 desktop coexistence are not yet collected; implementation and production certification must remain separate.
+
+
 ## Universal Create access — proposed 2026-10-13
 
 The mobile Create sheet now derives its write entry points from the backend-authenticated current role. CRM and billing entries reuse the shared permission contract; Job/Schedule use the normalized manager roles accepted by JobsService. Technician/viewer and unknown roles do not receive write entry links. Advisory Ask Athena retains its independent existing capability gate. The shell reads role and Athena capability concurrently with bounded requests, and missing role confirmation leaves write entries unavailable with retry guidance. Dock geometry, sheet focus/scroll/close behavior, destinations and backend authorization remain unchanged. Role predicate tests are evidence for presentation gating; rendered role/viewport and live tenant/API verification remain open.
