@@ -34,6 +34,10 @@ test.describe('Estimate stage navigation', () => {
           await test.info().attach(`${width}-${stage}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
         }
       };
+      const expectNoHorizontalOverflow = async () => {
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      };
+      await expectNoHorizontalOverflow();
       await capture('scope');
       const scope = nav.getByRole('button', { name: /Step 1 of 4: Scope/ });
       const items = nav.getByRole('button', { name: /Step 2 of 4: Items/ });
@@ -64,6 +68,7 @@ test.describe('Estimate stage navigation', () => {
       await expect(items).toHaveAttribute('aria-current', 'step');
       await expect(page.getByRole('heading', { name: 'Estimate items', exact: true })).toBeVisible();
       await expect(page.getByRole('textbox', { name: 'Estimate scope', exact: true })).toBeHidden();
+      await expectNoHorizontalOverflow();
       await capture('items');
       await page.getByRole('button', { name: 'Edit', exact: true }).first().click();
       await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Unsaved isolated line edit');
@@ -73,6 +78,7 @@ test.describe('Estimate stage navigation', () => {
       await page.keyboard.press('Space');
       await expect(price).toHaveAttribute('aria-current', 'step');
       await expect(page.getByRole('heading', { name: 'Price the work' })).toBeVisible();
+      await expectNoHorizontalOverflow();
       await capture('price');
       await page.getByRole('spinbutton', { name: 'Percentage', exact: true }).fill('31');
       await price.focus();
@@ -81,6 +87,7 @@ test.describe('Estimate stage navigation', () => {
       await page.keyboard.press('Enter');
       await expect(review).toHaveAttribute('aria-current', 'step');
       await expect(page.getByRole('button', { name: 'Finalize estimate', exact: true })).toBeVisible();
+      await expectNoHorizontalOverflow();
       await capture('review');
       await page.keyboard.press('Shift+Tab');
       await expect(price).toBeFocused();
@@ -99,7 +106,7 @@ test.describe('Estimate stage navigation', () => {
       await scope.click();
       expect(submitted).toEqual([{ simpleScope: draft }, { simpleScope: draft }]);
       expect(attempts).toBe(2);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      await expectNoHorizontalOverflow();
     });
   }
 
