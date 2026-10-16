@@ -69,6 +69,13 @@ The focused recovery continuation brings failed-finalization notices into view a
 
 The actual builder reproduced the 390 px error beneath fixed controls before repair. A four-width isolated synthetic browser matrix passes repeated failure, pending, focused/unobscured notice, keyboard retry and no false proposal handoff. Authenticated API persistence, tenant-negative and production functionality are not certified by these tests. Exact-head CI/merge/deployment status is recorded in the focused PR and session handoff.
 
+## Proposal failure input retention — 2026-10-16
+
+The existing proposal creation form lost uncontrolled edits when its server action returned validation/API errors: React treated the returned error state as a fulfilled action and reset the fields. A real incomplete-payment-row reproduction restored the initial company/scope and erased the entered milestone. The form now cancels that native reset; successful creation still follows the existing redirect. Failed attempts retain all fields/checkboxes and focus an alert followed by the retry submit in keyboard order. No server action, validation, financial or authorization behavior changes.
+
+Four executed local browser cases at 390/768/1024/1440 submit the real server action's payment validation twice and verify all edits survive. Explicit synthetic form props only; no backend creation call or authenticated persistence claim. Selected-price #752 is merged at `3811e583`, production source READY. Separate estimate recovery #751 has green technical gates but its normal merge was rejected by GitHub because CodeRabbit's stale CHANGES_REQUESTED review remains; re-review is externally rate-limited.
+
+
 ## Selected Estimate price in proposal review — 2026-10-16
 
 The existing proposal-new form previously displayed the project's intake price range even when a finalized Estimate was selected. The backend instead snapshots that Estimate's saved total as the new proposal's fixed price. The focused frontend continuation now displays the selected Estimate total, preserves cents, announces changes and identifies the pricing basis; intake-only selection is labeled Intake range and does not imply a fixed price. The existing server action and backend financial/lifecycle/authorization rules are unchanged.
