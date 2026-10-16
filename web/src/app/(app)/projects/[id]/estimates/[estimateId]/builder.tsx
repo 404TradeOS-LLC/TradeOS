@@ -306,6 +306,14 @@ function EstimateStageFlow({
     { id: "review", label: "Review" },
   ];
   const stageIndex = stages.findIndex((stage) => stage.id === activeStage);
+  const stageHeadingRefs = useRef<Partial<Record<EstimateStage, HTMLHeadingElement | null>>>({});
+  const focusOnStageChange = useRef(false);
+
+  useEffect(() => {
+    if (!focusOnStageChange.current) return;
+    focusOnStageChange.current = false;
+    stageHeadingRefs.current[activeStage]?.focus();
+  }, [activeStage]);
 
   const goToStage = async (stage: EstimateStage) => {
     if (stage === activeStage || scopeSavePending) return;
@@ -313,6 +321,7 @@ function EstimateStageFlow({
       const saved = await onSaveScope();
       if (!saved) return;
     }
+    focusOnStageChange.current = true;
     onStageChange(stage);
   };
 
@@ -349,7 +358,7 @@ function EstimateStageFlow({
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)]">
         <div className="min-w-0 bg-card px-4 py-6 sm:px-6">
           <div hidden={activeStage !== "scope"} className="space-y-4 pb-24 lg:pb-0">
-            <h2 className="font-heading text-xl font-medium">Start with the work.</h2>
+            <h2 ref={(node) => { stageHeadingRefs.current.scope = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Start with the work.</h2>
             <EstimateScopeEditor
               value={simpleScope}
               onChange={onScopeChange}
@@ -367,7 +376,7 @@ function EstimateStageFlow({
 
           <div hidden={activeStage !== "items"} className="space-y-4 pb-24 lg:pb-0">
             <div>
-              <h2 className="font-heading text-xl font-medium">Estimate items</h2>
+              <h2 ref={(node) => { stageHeadingRefs.current.items = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Estimate items</h2>
               <p className="mt-1 text-sm text-muted-foreground">{estimate.lineItems.length} saved lines · review sources, quantities and costs before pricing.</p>
             </div>
             {isDraft ? <LineItemPicker estimateId={estimateId} onAdded={onUpdated} active={activeStage === "items"} /> : null}
@@ -399,7 +408,7 @@ function EstimateStageFlow({
           </div>
 
           <div hidden={activeStage !== "price"} className="space-y-4 pb-24 lg:pb-0">
-            <h2 className="font-heading text-xl font-medium">Price the work</h2>
+            <h2 ref={(node) => { stageHeadingRefs.current.price = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Price the work</h2>
             <p className="text-sm text-muted-foreground">Use Apply or Save overhead / tax to save pricing changes. Review uses the saved estimate total.</p>
             <EstimateDirectCostBreakdown lineItems={estimate.lineItems} />
             <PricingPanel
@@ -418,7 +427,7 @@ function EstimateStageFlow({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Internal estimate review</p>
-                  <h2 className="mt-2 text-xl font-semibold text-foreground">{projectName}</h2>
+                  <h2 ref={(node) => { stageHeadingRefs.current.review = node; }} tabIndex={-1} className="mt-2 text-xl font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">{projectName}</h2>
                 </div>
                 <StatusBadge status={estimate.status} />
               </div>
