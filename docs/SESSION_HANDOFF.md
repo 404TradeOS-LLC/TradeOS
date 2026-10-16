@@ -14,9 +14,19 @@ related_docs:
 
 - Base main `5469bfe276b253fd31310bfa75ba83acf618e74c` (#755 merged), branch `test/beta-estimate-proposal-review-link-20261016`, sprint NONE. Existing main evidence runner #756 already verifies saved Estimate and Proposal fixed totals; this repair makes the final Review-stage proposal link unique under strict Playwright mode.
 - Allowed: evidence script, source regression and owned documentation only; no production deploy or data mutation, auth/RLS/tenant/financial code, migration or provider integration.
-- No verified full Beta Evidence run: the dedicated nonproduction TradeOS Staging Supabase project is INACTIVE, newest staging Vercel attempt CANCELED, and deployment/data-plane isolation for the latest SHA has not been proven. Do not run against production.
+- No verified full Beta Evidence run: the dedicated nonproduction TradeOS Staging Supabase project has been restored ACTIVE_HEALTHY, but exact Preview identity and tenant data-plane isolation remain unverified, and deployment/data-plane isolation for the latest SHA has not been proven. Do not run against production.
 - PR #751 has been closed **without merge**, so do not claim its enhanced focus-recovery logic shipped. It remains historical/unfinished work.
 - Next five TODOs: pass exact-head evidence test and governance CI; protected merge without bypass; verify main and targeted evidence script version; restore and certify isolated staging with owner authorization if any cost/credential changes are needed; then perform authenticated four-width estimate-to-proposal plus role/tenant-negative checks and retain sanitized artifacts.
+
+
+## Active finalization recovery focus — 2026-10-16
+
+- Founder-directed P0 continuation; base main `5469bfe276b253fd31310bfa75ba83acf618e74c` (#755 merged). Separate prior PR #751 closed **without merge** by owner; do not reopen, dismiss its review, or copy its outdated two-layout implementation.
+- Branch `fix/estimate-finalization-error-focus-20261016`. Existing shared Review stage only; repair visible error focus/scroll then keyboard Retry without touching server finalization, Costbook, money calculations, proposal, authorization, database, payments or production environment.
+- Shared Review rendering now uses one `EstimateFinalizationError` notice for an actual failed finalize; focus is prevented for hidden stage content. Existing state guards require server confirmation before proposal.
+- Verification: Web test/lint/build, App integration and governed PR CI/review pending. Authenticated non-production failed-finalize / focus / retry across 390/768/1024/1440 remains a release gate.
+- Other priority state: #756 Beta evidence runner merged, #755 responsive UI merged and Vercel source READY; staging Supabase restore is ACTIVE_HEALTHY but Vercel Preview environment metadata GET returned 403, so tenant data-plane isolation remains **UNPROVEN** and full mutating Beta Evidence must not run.
+- Next five TODOs: (1) exact-head CI/review this focus slice; (2) merge normally if allowed, verify main and deployed source; (3) obtain Vercel Preview environment attestation without revealing secrets; (4) deploy approved exact-SHA RC against verified nonproduction staging; (5) run four-width authenticated Estimate → Proposal persistence and foreign-tenant denial with sanitized artifacts.
 
 
 ## Active Estimate → Proposal evidence parity — 2026-10-16

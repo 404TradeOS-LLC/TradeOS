@@ -81,6 +81,13 @@ A read-only browser matrix passed at 390/768/1024/1440 with explicitly synthetic
 After responsive stage PR #755 merged, the finalized Estimate page has both header Create proposal navigation and Review-stage Review proposal draft; the existing Beta Evidence union locator can match both. The bounded branch `test/beta-estimate-proposal-review-link-20261016` selects the existing exact Review-stage handoff instead. Only the non-production evidence runner, its source-contract test, and owner docs change. This does not create a Proposal, alter backend totals, bypass financial authorization, or constitute a passing authenticated certification run.
 
 
+## Estimate finalization recovery focus — bounded frontend slice (2026-10-16)
+
+The responsive Estimate Workspace merged in #755, with one Review stage at all breakpoints and a distinct finalized-to-proposal handoff. The earlier independent PR #751 was closed without merge; its focusable recovery UI is **not** in main. The branch `fix/estimate-finalization-error-focus-20261016` ports only the still-needed accessibility behavior onto that current shared Review stage: on actual finalize mutation failure, the visible error notice gains focus and scrolls above fixed mobile controls; keyboard focus then proceeds to Retry. Failed writes keep the saved draft; a successful finalize remains server-acknowledged before the Proposal link appears.
+
+No API mutation, customer delivery, financial computation, Costbook source, role/tenant/RLS, database, or production config changes. Source assertions are distinct from authenticated failed-server browser verification. PR CI/review and deployment remain separate.
+
+
 ## Estimate → Proposal authenticated evidence hardening — proposed 2026-10-16
 
 The isolated branch `test/estimate-proposal-evidence-parity-20261016` repairs the canonical Beta Evidence runner for the actual focused-stage Estimate workspace: it explicitly navigates Items / Price / Review, including returning from the s053 Athena assistant page. It refuses silently skipping a missing mobile navigator and verifies `aria-current="step"` before interacting. The browser test now checks authenticated persisted Estimate line costs and subtotal, saved ready state/total, and persisted Proposal `estimateId`/`finalPrice` equality after separate explicit Create. The existing non-production host/data-plane guards, synthetic run identities, tenant denial, four viewport screenshots, source-keyed fixed-price mathematics and credential-artifact scanning are unchanged. No production data mutation or auth mechanism changes.
