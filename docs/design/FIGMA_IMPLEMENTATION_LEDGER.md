@@ -45,3 +45,12 @@ Scoped counts: 5 PARTIALLY IMPLEMENTED; 1 IMPLEMENTED + UNVERIFIED; 0 IMPLEMENTE
 ## Universal Create continuation — 2026-10-16
 
 EXISTING_WORK_FOUND on `fix/universal-create-role-options` (`96515786`), reconciled to main `7a9d965a`. Existing shell/ControlDock mapping `635:2376` and `.stitch/DESIGN.md` remain the visual authority. This is a presentation repair preserving dock geometry and sheet behavior: creation links reflect the authenticated backend role and canonical permissions; missing role confirmation fails closed. The existing backend still authorizes every write. No new design variant, permission or unsupported feature is introduced. Current State and session handoff contain the exact allowed paths and next steps; PR records final-head tests and delivery. The shared-component group remains PARTIALLY IMPLEMENTED until rendered role/viewport evidence exists.
+
+
+## Proposal price-basis continuation — 2026-10-16
+
+The existing Review → proposal group remains PARTIALLY IMPLEMENTED. Related approved source: [canonical Estimate Review 287:240](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=287-240), Customer Portal page `4:16`, [Copperline Review Mobile 361:119](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=361-119). The latter contains scripted signature targets; this slice implements no new public action.
+
+Route `/projects/:id/proposals/new?estimateId=…`; files `web/src/app/(app)/projects/[id]/proposals/new/form.tsx`, existing `web/src/app/actions/proposals.ts` and backend `app/modules/proposals/service.ts` (read, unchanged). Dependencies: existing finalized Estimate totals, project draft preview and proposal create API. Current source discrepancy: intake range displayed despite selected fixed-price Estimate. The local focused branch `fix/proposal-selected-estimate-price-20261016` now displays the selected saved total, cents and price basis using existing summary components and controlled selection; intake-only mode remains explicitly ranged.
+
+Four executed isolated synthetic browser cases pass at 390/768/1024/1440: two totals, form identity, intake mode, no writes or overflow. Web 504 tests/lint/build/typecheck and docs/preflight pass. Not yet merged/deployed; authenticated creation, stored proposal price and final-head CI remain to verify in the focused PR. No financial policy changes or full Copperline parity claim. Next: merge only after current main/CI/reviews reconcile, then verify persisted proposal handoff on sanitized Preview.

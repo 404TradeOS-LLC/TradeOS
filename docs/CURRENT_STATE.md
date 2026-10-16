@@ -61,6 +61,13 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Selected Estimate price in proposal review — 2026-10-16
+
+The existing proposal-new form previously displayed the project's intake price range even when a finalized Estimate was selected. The backend instead snapshots that Estimate's saved total as the new proposal's fixed price. The focused frontend continuation now displays the selected Estimate total, preserves cents, announces changes and identifies the pricing basis; intake-only selection is labeled Intake range and does not imply a fixed price. The existing server action and backend financial/lifecycle/authorization rules are unchanged.
+
+A read-only browser matrix passed at 390/768/1024/1440 with explicitly synthetic local props, two different saved totals, selection changes, submitted form identity and no write requests. The temporary route/config is removed. Authenticated proposal creation, persistence and production functionality remain unverified; CI/merge/deployment belong to the focused PR.
+
+
 # TradeOS Current State
 
 ## Universal Create access — proposed 2026-10-13

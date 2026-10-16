@@ -10,6 +10,18 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Active proposal price-basis continuation — 2026-10-16
+
+- NEW_WORK_REQUIRED from main `4f4adf7d`; no overlapping proposal-new price summary in open/recent closed PRs or remote branches. #751 independently owns estimate finalization recovery and is awaiting final-head CI/review. Branch `fix/proposal-selected-estimate-price-20261016`; Sprint ID NONE.
+- Allowed: existing proposal-new form, focused read-only Playwright regression and Current State/proposals/ledger/handoff docs. Backend/server action, financial calculations/approval rules, auth/RLS, schema, suppliers and infrastructure excluded. Main's unrelated modified concept image is preserved.
+- Root cause reproduced on the real form with explicit synthetic local props: selected saved Estimate total $121.37, displayed intake range $100–$200, no selected-price summary. Backend `createFromEstimate` already snapshots the selected total; frontend now shows that existing price basis, preserves cents and announces selection changes. Unknown/draft selection cannot become an eligible option.
+- Figma checkpoint: Estimates canonical Review `287:240` requires pricing review before proposal; Copperline Review Mobile `361:119` presents proposed total and scope. Only the staff handoff price discrepancy is repaired; no customer signature/payment capability or full Copperline visual parity is claimed.
+- Verification: four read-only browser cases pass at 390/768/1024/1440 with two different saved totals, submitted Estimate identity, return to intake range and no writes/overflow. Isolated synthetic props, not authenticated creation/persistence. Temporary fixture route/config removed; Web 504 tests, lint/build/typecheck and root docs/preflight pass. Hosted final-head CI/merge/deployment pending.
+- Next five actions: finish #751 governed merge; reconcile this branch onto the landed main without dropping its docs/code; publish price-basis PR and pass exact-head CI/review; merge and verify exact-source deployment; verify authenticated finalized Estimate → proposal creation and stored fixed total on sanitized Preview.
+
+Earlier handoff entries are historical.
+
+
 
 ## Active Universal Create presentation repair — 2026-10-16
 
