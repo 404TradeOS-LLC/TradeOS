@@ -55,7 +55,10 @@ test("stage navigation preserves fail-closed asynchronous scope-save transitions
   const builder = await readSource("./builder.tsx");
   assert.match(builder, /if \(stage === activeStage \|\| scopeSavePending\) return;/);
   assert.match(builder, /if \(activeStage === "scope" && isDraft && scopeDirty\)/);
-  assert.match(builder, /const saved = await onSaveScope\(\);\s*if \(!saved\) return;\s*\}\s*onStageChange\(stage\);/);
+  assert.match(builder, /const saved = await onSaveScope\(\);\s*if \(!saved\) return;\s*\}\s*focusOnStageChange\.current = true;\s*onStageChange\(stage\);/);
+  assert.match(builder, /if \(!focusOnStageChange\.current\) return;/);
+  assert.match(builder, /stageHeadingRefs\.current\[activeStage\]\?\.focus\(\)/);
+  assert.match(builder, /tabIndex=\{-1\}/);
   assert.match(builder, /onClick=\{\(\) => void goToStage\(stage.id\)\}/);
   assert.match(builder, /disabled=\{scopeSavePending && activeStage === "scope" && stage.id !== "scope"\}/);
   assert.match(builder, /min-h-11 w-full/);
