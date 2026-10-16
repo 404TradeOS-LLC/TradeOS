@@ -10,6 +10,15 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+
+## Current continuation: mobile Estimate step navigation — 2026-10-16
+
+- Founder-directed NEW_WORK_REQUIRED. Main verified at 73d8f5f4f914584d0a6fb1c8bbca1889341c3b64; existing PR #751 owns finalization-error recovery and remains formally blocked by a stale CodeRabbit requested-changes review, not to be dismissed or bypassed under this task.
+- Branch fix/estimate-mobile-stage-navigation-20261016. Preserves canonical four-stage Figma layout and design-system patterns. Allowed: Estimate Builder stage navigation semantics, focused tests, owner docs. Forbidden: backend, Costbook, payments, tenant/RLS/auth, financial computation, deployment settings, proposal acceptance.
+- Replaces incomplete tablist with semantic ordered step buttons and active aria-current="step", preserving keyboard activation and the awaited dirty-scope-save transition gate.
+- Required: Web tests/lint/build, App integration, docs/preflight, head currency/review, authenticated 390/768 keyboard and 1024/1440 desktop proof. Source-only checks are not hosted workflow certification.
+- Next five TODOs: reconcile CI; repair review findings and merge if governed; confirm main and exact-source Vercel deployment; run signed-in four-width stage/save/keyboard checks; resume #751 after legitimate review disposition and certify persisted Estimate-to-Proposal amount.
+
 ## Current proposal retention / blocked recovery checkpoint — 2026-10-16
 
 - Main: `3811e5832c801957604cedb7d1ff1a914d26a8c1` (#752). Vercel production source READY: `dpl_Dk3KsHe5djrEtwvuLZYUSAFpEbfn`. Authenticated proposal persistence remains unverified. #731 remains closed without merge; preserve its branch. Main's unrelated concept PNG is untouched.
