@@ -1,4 +1,7 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
+import { SharedSupplierCronRateLimitStore } from "./supplierCronRateLimitStore";
+import { isCatalogEnabled } from "../../modules/supplier-integration/abcCatalog";
 import { costbookController as ctrl } from "../controllers/costbook.controller";
 import { costbookPricingController as pricingCtrl } from "../controllers/costbookPricing.controller";
 import { costDatabaseController as costItemCtrl } from "../controllers/costDatabase.controller";
@@ -10,6 +13,20 @@ import { asyncHandler } from "../middleware/asyncHandler";
 export const costbookRouter = Router();
 
 costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
+// Product API browsing and details use one shared global rate-limit budget.
+const abcCatalogLimiter = rateLimit({
+  store: new SharedSupplierCronRateLimitStore("abc-catalog"),
+  windowMs: 1000,
+  limit: 2,
+  keyGenerator: () => "abc-sandbox-product-read",
+  skip: () => !isCatalogEnabled(),
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+costbookRouter.get("/abc/catalog", abcCatalogLimiter, asyncHandler(ctrl.abcCatalog));
+costbookRouter.get("/abc/catalog/items/:itemNumber", abcCatalogLimiter, asyncHandler(ctrl.abcCatalogItem));
+costbookRouter.get("/abc/catalog/items/:itemNumber/availability", abcCatalogLimiter, asyncHandler(ctrl.abcCatalogAvailability));
+costbookRouter.get("/abc/hierarchy", abcCatalogLimiter, asyncHandler(ctrl.abcCatalogHierarchy));
 costbookRouter.get("/supplier-evidence/summary", asyncHandler(ctrl.regionalSupplierEvidenceSummary));
 costbookRouter.get("/supplier-evidence", asyncHandler(ctrl.listRegionalSupplierEvidence));
 costbookRouter.post("/supplier-evidence/import", asyncHandler(ctrl.importRegionalSupplierEvidence));

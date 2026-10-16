@@ -14,9 +14,12 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FeedbackState } from "@/components/ui/feedback-state";
 import { Textarea } from "@/components/ui/textarea";
 import type { Estimate } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { groupSavedDirectCosts } from "@/lib/estimate-direct-costs";
+import { canAddReviewedEstimateCatalogItem } from "@/lib/estimate-catalog-review";
 
 interface LineItem {
   id: string;
@@ -68,12 +71,12 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
   const [persistedScope, setPersistedScope] = useState(simpleScope ?? "");
 
   const saveScope = useMutation({
-    mutationFn: () =>
+    mutationFn: (scope: string) =>
       clientFetch(`/projects/${projectId}`, {
         method: "PATCH",
-        body: JSON.stringify({ simpleScope: scopeDraft.trim() }),
+        body: JSON.stringify({ simpleScope: scope }),
       }),
-    onSuccess: () => setPersistedScope(scopeDraft.trim()),
+    onSuccess: (_data, savedScope) => setPersistedScope(savedScope),
   });
 
   const { data: estimate, isLoading, isError, error } = useQuery({
@@ -162,6 +165,16 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         <SummaryValue label="Margin" value={formatPercent(runningTotals.marginPct)} tone={runningTotals.marginPct >= 0 ? "positive" : "negative"} />
       </div>
 
+      {removeLineItem.isError ? (
+        <FeedbackState
+          kind="mutation-failure"
+          title="Item removal was not confirmed"
+          description="Refresh the estimate to check whether the item was removed before trying again. Your other saved items remain available."
+          reference={removeLineItem.error instanceof Error ? removeLineItem.error.message : undefined}
+          action={<Button type="button" variant="outline" onClick={() => void invalidate()}>Refresh estimate</Button>}
+        />
+      ) : null}
+
       <MobileEstimateFlow
         projectId={projectId}
         projectName={projectName}
@@ -172,7 +185,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         }}
         onSaveScope={async () => {
           try {
-            await saveScope.mutateAsync();
+            await saveScope.mutateAsync(scopeDraft.trim());
             return true;
           } catch {
             return false;
@@ -191,12 +204,25 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         onUpdated={invalidate}
         onRemoveLineItem={(lineItemId) => removeLineItem.mutate(lineItemId)}
         removeLineItemPending={removeLineItem.isPending}
-        onFinalize={() => finalize.mutate()}
-        finalizePending={finalize.isPending}
+        onFinalize={() => { if (!saveScope.isPending && scopeDraft.trim() === persistedScope.trim()) finalize.mutate(); }}
+        finalizePending={finalize.isPending || saveScope.isPending}
+        finalizeError={finalize.isError ? (finalize.error instanceof Error ? finalize.error.message : "Unable to finalize estimate. Review the items and try again.") : null}
       />
 
       <div className="hidden gap-5 lg:grid xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.8fr)]">
         <div className="space-y-5">
+          <EstimateScopeEditor
+            value={scopeDraft}
+            onChange={(value) => { saveScope.reset(); setScopeDraft(value); }}
+            onSave={async () => {
+              try { await saveScope.mutateAsync(scopeDraft.trim()); return true; }
+              catch { return false; }
+            }}
+            isDraft={isDraft}
+            pending={saveScope.isPending}
+            saved={saveScope.isSuccess && scopeDraft.trim() === persistedScope.trim()}
+            error={saveScope.isError ? (saveScope.error instanceof Error ? saveScope.error.message : "Unable to save scope.") : null}
+          />
           <Card className="rounded-none border-x-0 border-border/70 bg-transparent shadow-none">
             <CardHeader className="space-y-2">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -232,9 +258,11 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
           </Card>
 
           {isDraft && (
-            <div className="flex justify-end">
-              <Button onClick={() => finalize.mutate()} disabled={finalize.isPending || estimate.lineItems.length === 0}>
-                {finalize.isPending ? "Finalizing…" : "Finalize estimate"}
+            <div className="flex flex-col items-end gap-2">
+              {finalize.isError ? <p role="alert" className="w-full rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Finalization failed. {finalize.error instanceof Error ? finalize.error.message : "Review the estimate and try again."} Your saved draft remains available.</p> : null}
+              {scopeDraft.trim() !== persistedScope.trim() ? <p className="text-sm text-warning" role="status">Save scope before finalizing this estimate.</p> : null}
+              <Button onClick={() => finalize.mutate()} disabled={finalize.isPending || saveScope.isPending || scopeDraft.trim() !== persistedScope.trim() || estimate.lineItems.length === 0}>
+                {finalize.isPending ? "Finalizing…" : finalize.isError ? "Retry finalization" : "Finalize estimate"}
               </Button>
             </div>
           )}
@@ -249,6 +277,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
             headingId="desktop-contextual-athena-heading"
             onAdded={invalidate}
           />
+          <EstimateDirectCostBreakdown lineItems={estimate.lineItems} />
           <PricingPanel estimateId={estimateId} estimate={estimate} hasTaxableLineItems={estimate.lineItems.some((lineItem) => lineItem.taxable)} pricingModeLabel={pricingModeLabel} isDraft={isDraft} onUpdated={invalidate} />
 
           <Card className="border-border/70">
@@ -259,13 +288,54 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
             <CardContent className="space-y-2 text-sm">
               <ShortcutRow keys="⌘ / Ctrl + K" label="Focus search" />
               <ShortcutRow keys="↑ / ↓" label="Move through search results" />
-              <ShortcutRow keys="Enter" label="Add the highlighted item" />
+              <ShortcutRow keys="Enter" label="Select item to review" />
               <ShortcutRow keys="Esc" label="Clear the current search" />
             </CardContent>
           </Card>
         </div>
       </div>
     </div>
+  );
+}
+
+/** One scope owner for desktop and mobile; both share the same parent draft/save state. */
+function EstimateScopeEditor({ value, onChange, onSave, isDraft, pending, saved, error }: {
+  value: string;
+  onChange: (value: string) => void;
+  onSave: () => Promise<boolean>;
+  isDraft: boolean;
+  pending: boolean;
+  saved: boolean;
+  error: string | null;
+}) {
+  const inputId = useId();
+  const helpId = `${inputId}-help`;
+  const errorId = `${inputId}-error`;
+  return (
+    <section className="space-y-3 border-b border-border/70 pb-4" aria-label="Estimate scope editor" aria-busy={pending}>
+      <div className="flex items-center justify-between gap-3">
+        <Label htmlFor={inputId}>Describe the work in your own words</Label>
+        {saved && !pending ? <span role="status" className="text-xs font-medium text-success">Saved</span> : null}
+      </div>
+      <p id={helpId} className="text-sm text-muted-foreground">Save the Project scope here, then review it with Athena. Suggestions are added only with your approval.</p>
+      <Textarea
+        id={inputId}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        rows={5}
+        maxLength={5000}
+        className="min-h-32 resize-none"
+        disabled={!isDraft || pending}
+        aria-label="Estimate scope"
+        aria-describedby={error ? `${helpId} ${errorId}` : helpId}
+        placeholder="Describe what you’re building or fixing…"
+      />
+      <Button type="button" variant="outline" onClick={() => void onSave()} disabled={!isDraft || pending || !value.trim()}>
+        {pending ? "Saving scope…" : "Save scope"}
+      </Button>
+      {!isDraft ? <p className="text-xs text-muted-foreground">Finalized estimates keep their pricing snapshot; duplicate the estimate to revise it.</p> : null}
+      {error ? <p id={errorId} className="text-sm text-destructive" role="alert">{error} Your scope is still in the editor. Try saving again.</p> : null}
+    </section>
   );
 }
 
@@ -292,6 +362,7 @@ function MobileEstimateFlow({
   removeLineItemPending,
   onFinalize,
   finalizePending,
+  finalizeError,
 }: {
   projectId: string;
   projectName: string;
@@ -313,6 +384,7 @@ function MobileEstimateFlow({
   removeLineItemPending: boolean;
   onFinalize: () => void;
   finalizePending: boolean;
+  finalizeError: string | null;
 }) {
   const stages: Array<{ id: MobileEstimateStage; label: string }> = [
     { id: "scope", label: "Scope" },
@@ -360,31 +432,15 @@ function MobileEstimateFlow({
 
       {mobileStage === "scope" ? (
         <div className="space-y-4">
-          <div className="space-y-3 border-b border-border/70 pb-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Plain-language scope</p>
-                <p className="mt-1 text-sm text-muted-foreground">Edit the Project scope here; Athena reviews the same saved scope.</p>
-              </div>
-              {scopeSaveSuccess && !scopeSavePending ? <span className="text-xs font-medium text-success">Saved</span> : null}
-            </div>
-            <Textarea
-              value={simpleScope}
-              onChange={(event) => onScopeChange(event.target.value)}
-              rows={5}
-              maxLength={5000}
-              disabled={!isDraft || scopeSavePending}
-              aria-label="Estimate scope"
-              placeholder="Describe what you’re building or fixing…"
-            />
-            <div className="flex items-center gap-3">
-              <Button type="button" variant="outline" onClick={() => void onSaveScope()} disabled={!isDraft || scopeSavePending || !simpleScope.trim()}>
-                {scopeSavePending ? "Saving scope…" : "Save scope"}
-              </Button>
-              {!isDraft ? <span className="text-xs text-muted-foreground">Finalized estimates keep their pricing snapshot; duplicate the estimate to revise it.</span> : null}
-            </div>
-            {scopeSaveError ? <p className="text-sm text-destructive" role="alert">{scopeSaveError}</p> : null}
-          </div>
+          <EstimateScopeEditor
+            value={simpleScope}
+            onChange={onScopeChange}
+            onSave={onSaveScope}
+            isDraft={isDraft}
+            pending={scopeSavePending}
+            saved={scopeSaveSuccess && !scopeDirty}
+            error={scopeSaveError}
+          />
           <ContextualAthenaPanel
             estimateId={estimateId}
             projectId={projectId}
@@ -426,6 +482,7 @@ function MobileEstimateFlow({
 
       {mobileStage === "price" ? (
         <div className="space-y-4">
+          <EstimateDirectCostBreakdown lineItems={estimate.lineItems} />
           <PricingPanel
             estimateId={estimateId}
             estimate={estimate}
@@ -443,7 +500,7 @@ function MobileEstimateFlow({
           <div className="border-b border-border/70 pb-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Customer-facing review</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Internal estimate review</p>
                 <h2 className="mt-2 text-xl font-semibold text-foreground">{projectName}</h2>
               </div>
               <StatusBadge status={estimate.status} />
@@ -451,6 +508,7 @@ function MobileEstimateFlow({
             <p className="mt-3 text-sm text-muted-foreground">{simpleScope?.trim() || "Estimate scope"}</p>
           </div>
           <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">Internal line costs below are not a customer proposal. The customer-facing amount is the saved sell total.</p>
             {estimate.lineItems.map((lineItem) => (
               <div key={lineItem.id} className="flex items-start justify-between gap-4 border-b border-border/60 pb-3 text-sm">
                 <span className="min-w-0">{lineItem.description} <span className="text-muted-foreground">× {lineItem.quantity}</span></span>
@@ -467,16 +525,39 @@ function MobileEstimateFlow({
           </div>
           {isDraft ? (
             <>
-              <p className="text-sm text-muted-foreground">Finalizing locks this reviewed estimate version. The next step is creating the customer proposal.</p>
-              <MobileStageAction label={finalizePending ? "Finalizing…" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
+              <p className="text-sm text-muted-foreground">Finalizing locks this reviewed estimate version. The next step is creating the customer proposal. Nothing is sent to the customer by finalizing.</p>
+              {finalizeError ? <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Finalization failed. {finalizeError} Your saved draft remains available. Retry when ready.</p> : null}
+              <MobileStageAction label={finalizePending ? "Finalizing…" : finalizeError ? "Retry finalization" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
             </>
           ) : (
             <Link href={`/projects/${estimate.projectId}/proposals/new?estimateId=${estimateId}`} className={buttonVariants({ variant: "default" }) + " flex min-h-11 w-full items-center justify-center"}>
-              Create proposal
+              Review proposal draft
             </Link>
           )}
         </div>
       ) : null}
+    </section>
+  );
+}
+
+function EstimateDirectCostBreakdown({ lineItems }: { lineItems: LineItem[] }) {
+  const amounts = groupSavedDirectCosts(lineItems);
+  return (
+    <section aria-label="Internal direct cost breakdown" className="space-y-3 rounded-lg border border-border/70 bg-muted/10 p-4">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Internal direct costs</h3>
+        <p className="mt-1 text-xs text-muted-foreground">Saved line costs by type, excluding markup, overhead and tax. Not a customer proposal.</p>
+      </div>
+      {lineItems.length === 0 ? <p className="text-sm text-muted-foreground">Add priced items in Items to see the breakdown.</p> : (
+        <dl className="space-y-2 text-sm">
+          {amounts.map((item) => (
+            <div key={item.type} className="flex items-center justify-between gap-3">
+              <dt>{item.label}</dt>
+              <dd className="font-mono tabular-nums">{item.amount === null ? "Unavailable" : formatCurrency(item.amount)}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
     </section>
   );
 }
@@ -586,10 +667,21 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
   const activeResultIndex = orderedResults.length === 0 ? 0 : Math.min(activeIndex, orderedResults.length - 1);
   const activeResult = orderedResults[activeResultIndex] ?? null;
   const selectedAssemblyId = selected?.kind === "assembly" ? selected.id : null;
+  const selectedCostItemId = selected?.kind === "costItem" ? selected.id : null;
+  const { data: costItemPreview, isLoading: costItemPreviewLoading, isFetching: costItemPreviewFetching,
+    isError: costItemPreviewFailed, error: costItemPreviewError } = useQuery({
+    queryKey: ["cost-item-preview", selectedCostItemId],
+    queryFn: () => {
+      if (!selectedCostItemId) throw new Error("Select a Costbook item first.");
+      return clientFetch<{ totalUnitCost: number }>(`/costbook/cost-items/${selectedCostItemId}/unit-cost`);
+    },
+    enabled: Boolean(selectedCostItemId), staleTime: 60_000,
+  });
 
   const {
     data: assemblyPreview,
     isLoading: assemblyPreviewLoading,
+    isFetching: assemblyPreviewFetching,
     isError: assemblyPreviewFailed,
     error: assemblyPreviewError,
   } = useQuery({
@@ -637,7 +729,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
   }, []);
 
   const commitLineItem = (item?: PickerResult | null) => {
-    const target = item ?? selected ?? activeResult;
+    const target = item ?? selected;
     if (!target) {
       setError("Pick a result from the list first.");
       return;
@@ -649,6 +741,10 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
     const qty = Number(quantity);
     if (!Number.isFinite(qty) || qty <= 0) {
       setError("Quantity must be a positive number");
+      return;
+    }
+    if (!canAddReviewedLine) {
+      setError("Review the selected item's current Costbook cost before adding.");
       return;
     }
     addLineItem.mutate({ item: target, quantity: qty, section, costType: costType || undefined, taxable, sourceKey: `builder:${crypto.randomUUID()}` });
@@ -683,6 +779,16 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       onAdded();
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to add line item"),
+  });
+
+  const previewUnitCost = selected?.kind === "costItem"
+    ? costItemPreview?.totalUnitCost
+    : selected?.kind === "assembly" ? assemblyPreview?.unitCost : undefined;
+  const previewPending = selected?.kind === "costItem"
+    ? costItemPreviewLoading || costItemPreviewFetching
+    : selected?.kind === "assembly" ? assemblyPreviewLoading || assemblyPreviewFetching : true;
+  const canAddReviewedLine = canAddReviewedEstimateCatalogItem({
+    kind: selected?.kind ?? null, quantity, unitCost: previewUnitCost, previewPending, adding: addLineItem.isPending,
   });
 
   const customAdd = useMutation({
@@ -729,7 +835,6 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
                 if (orderedResults.length === 0) return;
                 const nextIndex = Math.min(activeResultIndex + 1, orderedResults.length - 1);
                 setActiveIndex(nextIndex);
-                setSelected(orderedResults[nextIndex] ?? null);
                 return;
               }
               if (event.key === "ArrowUp") {
@@ -737,17 +842,22 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
                 if (orderedResults.length === 0) return;
                 const nextIndex = Math.max(activeResultIndex - 1, 0);
                 setActiveIndex(nextIndex);
-                setSelected(orderedResults[nextIndex] ?? null);
                 return;
               }
               if (event.key === "Enter") {
                 event.preventDefault();
-                const target = selected ?? activeResult;
-                if (!target) {
+                if (selected) {
+                  quantityInputRef.current?.focus();
+                  return;
+                }
+                if (!activeResult) {
                   setError("Pick a result from the list first.");
                   return;
                 }
-                commitLineItem(target);
+                setSelected(activeResult);
+                setQuery(activeResult.name);
+                setError(null);
+                if (activeResult.kind !== "starterAssembly") quantityInputRef.current?.focus();
                 return;
               }
               if (event.key === "Escape") {
@@ -781,17 +891,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
             aria-invalid={quantityInvalid}
             aria-describedby={quantityInvalid ? "quantity-error" : undefined}
             onChange={(e) => setQuantity(e.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                const target = selected ?? activeResult;
-                if (!target) {
-                  setError("Pick a result from the list first.");
-                  return;
-                }
-                commitLineItem(target);
-              }
-            }}
+
           />
           {quantityInvalid ? (
             <p id="quantity-error" className="text-xs text-destructive">
@@ -802,10 +902,10 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
 
         <Button
           type="button"
-          onClick={() => commitLineItem(selected ?? activeResult)}
-          disabled={addLineItem.isPending || (!selected && !activeResult) || (selected ?? activeResult)?.kind === "starterAssembly"}
+          onClick={() => commitLineItem()}
+          disabled={!canAddReviewedLine}
         >
-          {addLineItem.isPending ? "Adding…" : (selected ?? activeResult)?.kind === "starterAssembly" ? "Setup required" : "Add"}
+          {addLineItem.isPending ? "Adding…" : selected?.kind === "starterAssembly" ? "Setup required" : "Add to estimate"}
         </Button>
       </div>
 
@@ -971,6 +1071,27 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
             </Button>
           </div>
 
+
+          {selected.kind === "costItem" ? (
+            <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3" aria-live="polite">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Current Costbook cost preview</p>
+              {costItemPreviewLoading || costItemPreviewFetching ? (
+                <p className="text-sm text-muted-foreground">Resolving stored unit cost…</p>
+              ) : costItemPreviewFailed ? (
+                <p className="text-sm text-warning" role="alert">
+                  Cost preview unavailable. {costItemPreviewError instanceof Error ? costItemPreviewError.message : "Try again or choose a custom item."}
+                </p>
+              ) : costItemPreview && Number.isFinite(costItemPreview.totalUnitCost) && costItemPreview.totalUnitCost >= 0 ? (
+                <div className="text-sm">
+                  <strong className="font-medium">{formatCurrency(costItemPreview.totalUnitCost)}</strong> / {selected.unitOfMeasure} stored cost
+                  <p className="mt-1 text-muted-foreground">
+                    {formatCurrency(costItemPreview.totalUnitCost * (Number(quantity) > 0 ? Number(quantity) : 0))} estimated direct job cost for {quantity || "0"} {selected.unitOfMeasure}.
+                  </p>
+                </div>
+              ) : <p className="text-sm text-warning">Cost preview is unavailable.</p>}
+              <p className="text-xs text-muted-foreground">This is a stored Costbook cost, not a live supplier quote. Estimate Engine saves its own cost snapshot when you explicitly Add.</p>
+            </div>
+          ) : null}
           {selected.kind === "assembly" ? (
             <div className="grid gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 sm:grid-cols-[minmax(0,1fr)_auto]">
               <div className="space-y-2">
@@ -1014,7 +1135,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
                   </div>
                 ) : null}
                 <p className="text-xs text-muted-foreground">
-                  Provenance: organization Costbook assembly + live component pricing. Supplier/date citations are shown only when the underlying Costbook data provides them; none are invented here.
+                  Source: organization Costbook assembly with current resolved component costs, not a live supplier quote. Estimate Engine captures a new snapshot on Add.
                 </p>
               </div>
               <div className="text-right">
@@ -1096,6 +1217,7 @@ function StarterAssemblySetup({
       if (!mappingComplete) throw new Error("Map every recipe slot before installing the assembly.");
       if (duplicateMapping) throw new Error("Use a different Costbook item for each recipe slot.");
       if (incompatibleComponent) throw new Error(`${incompatibleComponent.label} is mapped to an incompatible Costbook item.`);
+      if (!previewReady) throw new Error("Review the mapped Costbook cost before installing.");
       return clientFetch<{ id: string; name: string; code: string; unitOfMeasure: string; description?: string | null }>(
         "/assemblies/starter-catalog/install",
         {
@@ -1117,6 +1239,8 @@ function StarterAssemblySetup({
     onError: (err) => setError(err instanceof Error ? err.message : "Starter assembly could not be installed."),
   });
 
+  const previewReady = !preview.isLoading && !preview.isFetching && !preview.isError &&
+    preview.data !== undefined && Number.isFinite(preview.data.unitCost) && preview.data.unitCost >= 0;
   const outputQuantity = Number(quantity) > 0 ? Number(quantity) : 0;
 
   return (
@@ -1181,7 +1305,7 @@ function StarterAssemblySetup({
         <Button
           type="button"
           onClick={() => install.mutate()}
-          disabled={install.isPending || !mappingComplete || duplicateMapping || Boolean(incompatibleComponent)}
+          disabled={install.isPending || !mappingComplete || duplicateMapping || Boolean(incompatibleComponent) || !previewReady}
         >
           {install.isPending ? "Installing…" : "Install assembly"}
         </Button>

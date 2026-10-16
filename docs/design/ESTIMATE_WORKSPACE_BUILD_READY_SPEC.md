@@ -157,6 +157,15 @@ Rules:
 - Proposal generation is a lifecycle handoff, not an animation-only success.
 
 ## Cross-stage behavior
+## Approved Price → Review → Copperline implementation mapping (2026-10-15)
+
+- **Design source:** canonical master Figma Price `432:26604`, blocked Price `432:26746`, mobile Price `432:27891`, mobile Review `432:27999`, and Copperline `425:45123` / `425:46807`. These are edited in place rather than duplicating screens.
+- **Current Price:** `EstimateBuilder` / `PricingPanel` read the org-scoped Estimate DTO. A saved cost-type grouping is for **internal direct costs only** and never becomes the customer sell price or a separate tax/markup calculation. The Estimate DTO `totalPrice` supplies the customer total. No source-date confidence or live supplier comparison is inferred.
+- **Current Review:** saved scope/items/totals are inspectable; `POST /estimates/:id/finalize` is the only finalization write. While pending, avoid success language. On error, retain data and offer retry; no automatic proposal write follows.
+- **Proposal handoff:** after server-acknowledged non-draft status, staff open `/projects/[id]/proposals/new?estimateId=...`, review exclusions/terms/amount, and explicitly Create using the existing proposal server action. Its returned failure is rendered by the existing form. Success requires the server response/redirect, not UI animation.
+- **Not implemented:** public customer acceptance/decline or payment through Copperline. Existing Copperline Figma proposal acceptance controls are labeled and visually disabled as **TARGET**. Displaying a beautiful prototype does not establish a signed/accepted contract.
+- **State/evidence to certify:** desktop 1440/1024 and mobile 768/390, loading/save failure, price updates reflected in backend total, finalize failure/retry, successful finalized status, proposal draft failure/creation and empty/error API states, keyboard focus, and role/tenant denial. Hosted authenticated evidence is not collected by this design pass.
+
 
 ### Save and restore
 

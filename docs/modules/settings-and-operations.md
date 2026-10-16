@@ -362,3 +362,45 @@ Material unit cost until named reviewer approval. Do not expose Vault
 credentials, administrative database URLs, or token values in logs or
 operator examples. The static September 2026 supplier observations are
 not customer-specific live ABC prices.
+
+
+## ABC Supply provider-backed catalog browse — proposed issue #735 slice (2026-10-13)
+
+The distinct ABC Supply Product API lane uses the sandbox Third-Party Aggregator
+`client_credentials` grant with `product.read`, the same existing sandbox
+app client ID/secret variables, and **never** a customer refresh token. Set
+`ABC_SUPPLY_CATALOG_BROWSE_ENABLED=true` only where authorized sandbox
+product credentials are installed. Disabled or unconfigured browsing returns
+503 and does not present test results as prices. `GET /api/v1/costbook/abc/catalog`
+requires an authenticated `costbook.read` member, is read-only, sends
+`Cache-Control: no-store`, and fetches a bounded live provider page without
+database writes. Product data is not retained in TradeOS. The frontend
+`/costbook/abc-catalog` is a distinct sandbox, unpriced browse experience.
+
+**ABC data-rights gate:** the provider's April 9, 2026 API Terms of Use
+prohibit building databases/permanent copies absent express permission and
+restrict caching to provider headers. Do not enable durable shared-catalog
+replication, ingestion checkpoints containing payloads, or image storage until
+written ABC permission and display/retention rules are established. Existing
+user-present `account.read`/`pricing.read` OAuth, review gates and historical
+estimate snapshots remain unchanged. This branch is not production access.
+Sources: https://apidocs.abcsupply.com/third-party-aggregator-integration-track/
+and https://www.abcsupply.com/legal/.
+
+
+## ABC Product API read-only live-probe operator controls (issue #735)
+
+The `abc-sandbox-catalog-evidence.yml` GitHub Actions workflow is a manual, confirmation-gated probe requiring sandbox Third-Party Aggregator `ABC_SUPPLY_SANDBOX_CLIENT_ID` and `ABC_SUPPLY_SANDBOX_CLIENT_SECRET` with `product.read` in the repository or `abc-sandbox` GitHub Environment. It does not read Vercel secrets, customer OAuth credentials, user-specific prices, or any database; it writes only sanitized counts into the job summary. A missing credential is a hard failure. The full runbook is `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md`; green mocked tests alone do not prove provider access. ABC Terms authorization for durable full-catalog data storage remains separate and unresolved.
+
+
+## ABC Catalog item detail boundary (issue #735)
+
+The new provider-backed Get Item detail screen reuses the same `ABC_SUPPLY_CATALOG_BROWSE_ENABLED` opt-in and sandbox-only TPA `product.read` credentials as catalog search. Both authenticated read routes share one global rate-limit namespace, independent of account- and branch-authorized pricing. Read-only details include provider hierarchy, units, optional variations, source warning text, and same-family items; family availability and pricing are **not verified**. No persistent source catalog copy, image cache, or automatic cost activation is introduced. See `docs/API_REFERENCE.md`, `docs/CURRENT_STATE.md` and issue #735.
+
+### Official ABC supplier product hierarchy: read-only operator boundary (#735)
+
+The supplier hierarchy view is an opt-in sandbox Product API read under `ABC_SUPPLY_CATALOG_BROWSE_ENABLED`, authorized by `costbook.read` and the server `product.read` scope. It inherits the shared global 2/s catalog rate limiter and no-store response. The supplier's actual six-level codes/labels are displayed without guessing UNSPSC/OmniClass mappings, writing Material categories, or caching product records. Account/branch availability, approved pricing, and full import remain separate rights-gated steps.
+
+### ABC provider-listed branch ordering eligibility — no inventory or quote (#735)
+
+The new read-only sandbox Product API Item Availability endpoint is accessible only through authenticated Costbook detail pages and shares the existing global `abc-catalog` rate limit. Optional exact-branch filters require a numeric branch number; supplier data is not saved. Display must distinguish provider-listed branches and lengths from **physical stock quantities**, tenant-authorized Ship-To branches, and reviewed Price Items data. It does not use customer OAuth or the pricing refresh token. Live verification and full-catalog rights are separately tracked in issue #735.

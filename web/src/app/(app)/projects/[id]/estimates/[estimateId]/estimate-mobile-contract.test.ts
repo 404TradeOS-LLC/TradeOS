@@ -35,10 +35,10 @@ test("estimate Scope persists through the existing partial Project update contra
 
   assert.match(builder, /projects\/.*projectId/);
   assert.match(builder, /method: "PATCH"/);
-  assert.match(builder, /simpleScope: scopeDraft\.trim\(\)/);
+  assert.match(builder, /simpleScope: scope/);
   assert.match(builder, /const \[persistedScope, setPersistedScope\] = useState\(simpleScope \?\? ""\)/);
-  assert.match(builder, /onSuccess: \(\) => setPersistedScope\(scopeDraft\.trim\(\)\)/);
-  assert.match(builder, /await saveScope\.mutateAsync\(\)/);
+  assert.match(builder, /onSuccess: \(_data, savedScope\) => setPersistedScope\(savedScope\)/);
+  assert.match(builder, /await saveScope\.mutateAsync\(scopeDraft\.trim\(\)\)/);
   assert.match(builder, /scopeDirty=\{scopeDraft\.trim\(\) !== persistedScope\.trim\(\)\}/);
   assert.match(builder, /mobileStage === "scope" && isDraft && scopeDirty/);
   assert.match(builder, /const saved = await onSaveScope\(\);[\s\S]*if \(!saved\) return;[\s\S]*onStageChange\(stage\)/);
@@ -74,7 +74,7 @@ test("embedded assembly picker previews installed assemblies and gates unmapped 
   assert.match(builder, /\/assemblies\/\$\{selectedAssemblyId\}\/items\?limit=6&sort=sortOrder&order=asc/);
   assert.match(builder, /Current Costbook recipe\. Estimate Engine captures the pricing snapshot and assembly source when you explicitly add it\./);
   assert.match(builder, /Estimated job cost for/);
-  assert.match(builder, /Provenance: organization Costbook assembly \+ live component pricing/);
+  assert.match(builder, /Source: organization Costbook assembly with current resolved component costs, not a live supplier quote/);
   assert.match(builder, /Setup required before this assembly can be priced or added\./);
   assert.match(builder, /Map each starter recipe slot to an active, compatible Costbook item/);
   assert.match(builder, /TradeOS will not invent those mappings or a price/);
@@ -95,11 +95,69 @@ test("starter assembly setup stays inline and requires install before estimate a
   assert.match(builder, /Use a different Costbook item for each recipe slot/);
   assert.match(builder, /Installation creates the tenant assembly only\. Review its resolved cost, then use the separate Add action to write the estimate line\./);
   assert.match(builder, /onInstalled=\{\(assembly\) => \{[\s\S]*setSelected\(\{ \.\.\.assembly, kind: "assembly" \}\)/);
-  assert.match(builder, /disabled=\{addLineItem\.isPending \|\| \(!selected && !activeResult\) \|\| \(selected \?\? activeResult\)\?\.kind === "starterAssembly"\}/);
+  assert.match(builder, /disabled=\{!canAddReviewedLine\}/);
+  assert.match(builder, /disabled=\{install\.isPending \|\| !mappingComplete \|\| duplicateMapping \|\| Boolean\(incompatibleComponent\) \|\| !previewReady\}/);
   assert.match(builder, /const resultsId = useId\(\)/);
   assert.doesNotMatch(builder, /Math\.random\(\)/);
 });
 
+test("Costbook picker selects on Enter, never inserts an unreviewed search highlight", async () => {
+  const builder = await readSource("./builder.tsx");
+  const search = builder.slice(builder.indexOf('id="item-search"'), builder.indexOf('<Label htmlFor="costbook-section">'));
+  assert.match(search, /setSelected\(activeResult\)/);
+  assert.doesNotMatch(search, /commitLineItem\(/);
+  assert.match(builder, /const target = item \?\? selected;/);
+  assert.match(builder, /disabled=\{!canAddReviewedLine\}/);
+  assert.match(builder, /onClick=\{\(\) => commitLineItem\(\)\}/);
+  assert.match(builder, /Review the selected item's current Costbook cost before adding/);
+});
+
+test("selected Costbook items resolve source cost for review before a persisted Add", async () => {
+  const builder = await readSource("./builder.tsx");
+  assert.match(builder, /\/costbook\/cost-items\/\$\{selectedCostItemId\}\/unit-cost/);
+  assert.match(builder, /costItemPreview\.totalUnitCost/);
+  assert.match(builder, /canAddReviewedEstimateCatalogItem/);
+  assert.match(builder, /stored Costbook cost, not a live supplier quote/);
+  assert.match(builder, /const previewReady = !preview\.isLoading && !preview\.isFetching && !preview\.isError/);
+  assert.match(builder, /if \(!previewReady\) throw new Error/);
+});
+
+
+test("Price groups only persisted line costs and keeps customer sell total separate", async () => {
+  const builder = await readSource("./builder.tsx");
+  assert.equal(builder.split("<EstimateDirectCostBreakdown lineItems={estimate.lineItems} />").length - 1, 2);
+  assert.match(builder, /aria-label="Internal direct cost breakdown"/);
+  assert.match(builder, /groupSavedDirectCosts\(lineItems\)/);
+  assert.match(builder, /excluding markup, overhead and tax\. Not a customer proposal/);
+  assert.match(builder, /formatCurrency\(runningTotals\.totalPrice\)/);
+  assert.match(builder, /Internal estimate review/);
+  assert.doesNotMatch(builder, /Customer-facing review/);
+});
+
+test("failed finalization preserves the saved estimate and offers a retry without inventing success", async () => {
+  const builder = await readSource("./builder.tsx");
+  assert.match(builder, /method: "POST"/);
+  assert.match(builder, /\/estimates\/\$\{estimateId\}\/finalize/);
+  assert.match(builder, /finalizeError=\{finalize\.isError/);
+  assert.match(builder, /finalizeError: string \| null/);
+  assert.match(builder, /Finalization failed\. \{finalizeError\}/);
+  assert.match(builder, /finalize\.error instanceof Error/);
+  assert.match(builder, /Retry finalization/);
+  assert.match(builder, /Your saved draft remains available/);
+  assert.match(builder, /role="alert"/);
+});
+
+test("proposal handoff follows backend-finalized state and does not send on review", async () => {
+  const builder = await readSource("./builder.tsx");
+  const proposalForm = await readSource("../../proposals/new/form.tsx");
+  assert.match(builder, /isDraft \? \(/);
+  assert.match(builder, /Finalizing locks this reviewed estimate version/);
+  assert.match(builder, /Nothing is sent to the customer by finalizing/);
+  assert.match(builder, /Review proposal draft/);
+  assert.match(builder, /proposals\/new\?estimateId=/);
+  assert.match(proposalForm, /state\?\.error/);
+  assert.match(proposalForm, /isPending \? "Creating…" : "Create proposal"/);
+});
 test("Athena stays review-first and Review preserves finalize-before-proposal lifecycle", async () => {
   const builder = await readSource("./builder.tsx");
   const assistPage = await readSource("./assist/page.tsx");
@@ -120,4 +178,17 @@ test("Athena stays review-first and Review preserves finalize-before-proposal li
   assert.ok(contextualPanelBlocks.every((block) => block.includes("isDraft={isDraft}")));
   assert.ok(contextualAthena.includes("isDraft: boolean"));
   assert.ok(contextualAthena.includes("isDraft && suggestion.resolution.target"));
+});
+
+
+test("desktop and mobile share a labeled scope editor with retained failure input", async () => {
+  const builder = await readSource("./builder.tsx");
+  assert.equal((builder.match(/<EstimateScopeEditor/g) ?? []).length, 2);
+  const desktop = builder.slice(builder.indexOf('<div className="hidden gap-5 lg:grid'));
+  assert.match(desktop, /<EstimateScopeEditor[\s\S]*value=\{scopeDraft\}/);
+  assert.match(builder, /value=\{simpleScope\}[\s\S]*onChange=\{onScopeChange\}/);
+  assert.match(builder, /htmlFor=\{inputId\}/);
+  assert.match(builder, /aria-busy=\{pending\}/);
+  assert.match(builder, /Your scope is still in the editor/);
+  assert.match(builder, /Item removal was not confirmed/);
 });
