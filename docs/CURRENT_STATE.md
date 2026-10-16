@@ -76,6 +76,12 @@ A read-only browser matrix passed at 390/768/1024/1440 with explicitly synthetic
 
 
 # TradeOS Current State
+## Estimate → Proposal authenticated evidence hardening — proposed 2026-10-16
+
+The isolated branch `test/estimate-proposal-evidence-parity-20261016` repairs the canonical Beta Evidence runner for the actual focused-stage Estimate workspace: it explicitly navigates Items / Price / Review, including returning from the s053 Athena assistant page. It refuses silently skipping a missing mobile navigator and verifies `aria-current="step"` before interacting. The browser test now checks authenticated persisted Estimate line costs and subtotal, saved ready state/total, and persisted Proposal `estimateId`/`finalPrice` equality after separate explicit Create. The existing non-production host/data-plane guards, synthetic run identities, tenant denial, four viewport screenshots, source-keyed fixed-price mathematics and credential-artifact scanning are unchanged. No production data mutation or auth mechanism changes.
+
+This work only enhances the certification *test path*. Its source tests are not real authenticated evidence. PR #751 remains review-blocked, #755 owns the responsive builder UI, and true runtime certification requires an approved full Beta Evidence run with retained sanitized artifacts and backend isolation proof. No S053 or release readiness status is upgraded on source evidence.
+
 
 ## Estimate mobile step navigation accessibility — 2026-10-16, proposed
 

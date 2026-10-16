@@ -411,6 +411,34 @@ test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit r
   assert.match(validator, /s052-admin/);
 });
 
+test("canonical evidence navigates focused estimate stages at 390/768 and checks active step", () => {
+  assert.match(capture, /async function navigateEstimateStage\(stage\)/);
+  assert.match(capture, /getByRole\("navigation", \{ name: "Estimate stages" \}\)/);
+  assert.match(capture, /viewport\.width >= 1024/);
+  assert.match(capture, /getAttribute\("aria-current"\)\) === "step"/);
+  assert.match(capture, /navigateEstimateStage\("Items"\)/);
+  assert.match(capture, /navigateEstimateStage\("Price"\)/);
+  assert.match(capture, /navigateEstimateStage\("Review"\)/);
+  assert.match(capture, /getByRole\("link", \{ name: \/\^\(Create proposal\|Review proposal draft\)\$\//);
+  assert.match(capture, /runS053Certification\(projectId, estimateId\);[\s\S]*page\.goto/);
+});
+
+test("canonical beta evidence verifies persisted Costbook-independent line costs and proposal total", () => {
+  assert.match(capture, /saved estimate retains both explicit reviewed work items/);
+  assert.match(capture, /saved direct line costs match the authoritative Estimate Engine snapshots/);
+  assert.match(capture, /savedAfterAdd\.subtotalCost/);
+  assert.match(capture, /Estimate Engine persists finalized status and customer total/);
+  assert.match(capture, /finalizedEstimate\.status === "ready"/);
+  assert.match(capture, /async function readProposalDetail\(proposalId\)/);
+  assert.match(capture, /\/api\/proxy\/proposals\//);
+  assert.match(capture, /proposal snapshots selected finalized Estimate identity and exact fixed total/);
+  assert.match(capture, /savedProposal\.estimateId === estimateId/);
+  assert.match(capture, /savedProposal\.finalPrice/);
+  // The evidence runner must continue refusing production and unproven tenants.
+  assert.match(capture, /assertApprovedRcUrl\(baseUrlInput\)/);
+  assert.match(capture, /BETA_ALLOW_MUTATIONS=true is required/);
+});
+
 test("S053 evidence is opt-in and defaults do not change the canonical beta flow", () => {
   assert.match(workflow, /scenario:\s*[\s\S]*default: canonical[\s\S]*- canonical[\s\S]*- s052[\s\S]*- s053/);
   assert.match(workflow, /BETA_SCENARIO: \$\{\{ inputs\.scenario \}\}/);
