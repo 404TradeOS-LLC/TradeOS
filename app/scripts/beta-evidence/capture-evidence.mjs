@@ -140,166 +140,17 @@ async function checkpoint(sequence, name, { optional = false } = {}) {
 
 async function navigateEstimateStage(stage) {
   const navigation = page.getByRole("navigation", { name: "Estimate stages" });
-  // Older desktop workbenches have all sections visible. Every mobile width
-  // must render the accessible stage navigation; next responsive builds do
-  // so at every width. Don't silently skip a missing mobile stage.
+  // Older desktop workbenches expose all sections; focused mobile stages do not.
   if ((await navigation.count()) === 0 || !(await navigation.isVisible())) {
-    assertBusiness(
-      "mobile estimate stage navigation exists",
-      viewport.width >= 1024,
-      `Expected stage navigation at ${viewport.name}px`,
-    );
+    assertBusiness("mobile estimate stage navigation exists", viewport.width >= 1024, `Missing at ${viewport.name}px`);
     return;
   }
-  const button = navigation.getByRole("button", { name: new RegExp(`\\b${stage}// Phase 11/12/13/16/17/18/19/23 — drive the canonical contractor workflow at a
-// single viewport, capturing a screenshot checkpoint at each meaningful product
-// state and asserting business meaning rather than DOM presence.
-//
-// One viewport per invocation so a failure names the viewport that failed and
-// so each viewport renders in a genuinely separate browser context. Desktop
-// screenshots are never resized to fake a smaller viewport.
-
-import fs from "node:fs/promises";
-import path from "node:path";
-import { chromium } from "playwright";
-import { assertApprovedRcUrl } from "./lib/rc-target.mjs";
-import {
-  VIEWPORTS,
-  assessResponsiveQuality,
-  assessScreenshotTruth,
-  screenshotFileName,
-} from "./lib/evidence-artifacts.mjs";
-
-const baseUrlInput = process.env.BETA_RC_BASE_URL_RESOLVED;
-const storageState = process.env.BETA_STORAGE_STATE_PATH;
-const viewportName = process.env.BETA_VIEWPORT;
-const runId = process.env.BETA_RUN_ID;
-const tenantLabel = process.env.BETA_SMOKE_TENANT_LABEL || "TradeOS Beta Smoke";
-const allowMutations = process.env.BETA_ALLOW_MUTATIONS === "true";
-const scenario = process.env.BETA_SCENARIO || "canonical";
-const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
-
-function startupFailure(message) {
-  console.error(`::error::[capture-evidence viewport=${viewportName ?? "unset"}] ${message}`);
-  process.exit(1);
-}
-
-if (!baseUrlInput) startupFailure("BETA_RC_BASE_URL_RESOLVED is required. Run resolve-rc-target.mjs first.");
-if (!storageState) startupFailure("BETA_STORAGE_STATE_PATH is required. Run auth-setup.mjs first.");
-if (!runId) startupFailure("BETA_RUN_ID is required so synthetic records can be correlated with this run.");
-if (!["canonical", "s052", "s053"].includes(scenario)) startupFailure(`BETA_SCENARIO must be canonical, s052, or s053; received "${scenario}".`);
-if (!allowMutations) {
-  startupFailure(
-    "BETA_ALLOW_MUTATIONS=true is required. The canonical workflow creates records and must never run unintentionally.",
-  );
-}
-
-const viewport = VIEWPORTS.find((entry) => entry.name === viewportName);
-if (!viewport) {
-  startupFailure(
-    `BETA_VIEWPORT must be one of ${VIEWPORTS.map((entry) => entry.name).join(", ")}; received "${viewportName}".`,
-  );
-}
-
-let parsedBaseUrl;
-try {
-  parsedBaseUrl = assertApprovedRcUrl(baseUrlInput);
-} catch (error) {
-  startupFailure(error.message);
-}
-const screenshotDir = path.join(outDir, viewport.name, "screenshots");
-await fs.mkdir(screenshotDir, { recursive: true });
-
-// Phase 13 — deterministic structure, run-scoped uniqueness. The viewport is
-// part of the identity so parallel viewport runs cannot collide.
-const scopeSuffix = `${runId}-${viewport.name}`;
-const customerName = `Acme Test Customer ${scopeSuffix}`;
-const projectName = `RC Evidence Remodel ${scopeSuffix}`;
-const scope =
-  "Demolition: remove carpet, glued-down linoleum, damaged bedroom ceiling, bathroom demolition, appliance removal, closet/shelving demolition, debris handling. Reconstruction / Finish: drywall repair/replacement, flooring, painting, trim, miscellaneous carpentry, cleanup.";
-
-const checkpoints = [];
-const assertions = [];
-const consoleErrors = [];
-const failedRequests = [];
-
-function assertBusiness(name, condition, detail) {
-  assertions.push({ name, passed: Boolean(condition), ...(detail ? { detail } : {}) });
-  if (!condition) throw new Error(`Business assertion failed: ${name}${detail ? ` — ${detail}` : ""}`);
-}
-
-// A missing browser is a setup problem, not a product failure; say so
-// instead of surfacing a raw stack trace.
-let browser;
-try {
-  browser = await chromium.launch({ headless: true });
-} catch (error) {
-  startupFailure(
-    `Could not launch Chromium: ${error instanceof Error ? error.message.split("\n")[0] : error}. ` +
-      "Run `npx playwright install --with-deps chromium` first.",
-  );
-}
-let failure = null;
-let context;
-let page;
-
-async function checkpoint(sequence, name, { optional = false } = {}) {
-  const file = screenshotFileName(viewport.name, sequence, name);
-  const target = path.join(screenshotDir, file);
-
-  const state = await page.evaluate(() => ({
-    pathname: location.pathname,
-    title: document.title,
-    bodyText: document.body?.innerText ?? "",
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }));
-
-  // Phase 23 — a screenshot of a login page or an error screen is not evidence.
-  const truth = assessScreenshotTruth({
-    pathname: state.pathname,
-    title: state.title,
-    bodyText: state.bodyText,
-    checkpoint: name,
-  });
-  // Phase 18/19 — responsive quality gate, applied at every viewport.
-  const quality = assessResponsiveQuality({
-    viewport: viewport.name,
-    scrollWidth: state.scrollWidth,
-    clientWidth: state.clientWidth,
-  });
-
-  // fullPage:false keeps the captured image exactly the viewport width, which
-  // is what the artifact validator asserts against.
-  await page.screenshot({ path: target, fullPage: false });
-
-  checkpoints.push({
-    sequence,
-    name,
-    file,
-    optional,
-    pathname: state.pathname,
-    scrollWidth: state.scrollWidth,
-    clientWidth: state.clientWidth,
-    truth,
-    quality,
-  });
-
-  if (!truth.ok) throw new Error(`Checkpoint ${sequence}-${name} is not valid evidence: ${truth.problems.join("; ")}`);
-  if (!quality.ok) {
-    throw new Error(`Checkpoint ${sequence}-${name} failed the ${viewport.name}px quality gate: ${quality.problems.join("; ")}`);
-  }
-}
-
-) });
+  const button = navigation.getByRole("button", { name: new RegExp(`\\b${stage}$`) });
   await button.click();
   await page.waitForFunction(
-    (label) => {
-      const controls = Array.from(document.querySelectorAll('nav[aria-label="Estimate stages"] button'));
-      return controls.some((control) =>
-        control.textContent?.trim().endsWith(label) && control.getAttribute("aria-current") === "step"
-      );
-    },
+    (label) => Array.from(document.querySelectorAll('nav[aria-label="Estimate stages"] button'))
+      .some((control) => control.textContent?.trim().endsWith(label) &&
+        control.getAttribute("aria-current") === "step"),
     stage,
     { timeout: 30_000 },
   );
@@ -311,19 +162,14 @@ async function checkpoint(sequence, name, { optional = false } = {}) {
 
 async function readProposalDetail(proposalId) {
   const result = await page.evaluate(async (id) => {
-    const response = await fetch(`/api/proxy/proposals/${id}`, {
-      headers: { Accept: "application/json" },
-    });
+    const response = await fetch(`/api/proxy/proposals/${id}`, { headers: { Accept: "application/json" } });
     const text = await response.text();
     let body = null;
     try { body = text ? JSON.parse(text) : null; } catch { body = null; }
     return { ok: response.ok, status: response.status, body };
   }, proposalId);
-  assertBusiness(
-    "proposal detail API is readable during evidence capture",
-    result.ok,
-    `GET proposal returned HTTP ${result.status}`,
-  );
+  assertBusiness("proposal detail API is readable during evidence capture", result.ok,
+    `GET proposal returned HTTP ${result.status}`);
   return result.body;
 }
 
@@ -743,11 +589,8 @@ try {
 
   if (scenario === "s053") {
     await runS053Certification(projectId, estimateId);
-    // S053 review takes place on the /assist route; return to the canonical
-    // builder before continuing the contractor pricing and proposal journey.
     await page.goto(new URL(`/projects/${projectId}/estimates/${estimateId}`, parsedBaseUrl).toString(), {
-      waitUntil: "networkidle",
-      timeout: 60_000,
+      waitUntil: "networkidle", timeout: 60_000,
     });
   }
 
@@ -774,18 +617,13 @@ try {
   const savedAfterAdd = await readEstimateDetail(estimateId);
   const laborLine = savedAfterAdd.lineItems.find((line) => line.description === "Remove glued-down linoleum");
   const materialLine = savedAfterAdd.lineItems.find((line) => line.description === "Flooring material allowance");
-  assertBusiness(
-    "saved estimate retains both explicit reviewed work items",
-    Boolean(laborLine && materialLine),
-    "expected labor and material source lines in the persisted Estimate Engine response",
-  );
-  assertBusiness(
-    "saved direct line costs match authoritative quantity and unit cost",
-    Math.abs(Number(laborLine?.lineCost) - 1062.5) < 0.005 &&
-      Math.abs(Number(materialLine?.lineCost) - 4037.5) < 0.005 &&
-      Math.abs(Number(savedAfterAdd.subtotalCost) - 5100) < 0.005,
-    "expected line costs 1062.50 / 4037.50 and saved direct subtotal 5100.00",
-  );
+  assertBusiness("saved estimate retains both explicit reviewed work items",
+    Boolean(laborLine && materialLine), "expected both labor and material lines persisted");
+  assertBusiness("saved direct line costs match the authoritative Estimate Engine snapshots",
+    Math.abs(Number(laborLine?.lineCost) - 1062.50) < 0.005 &&
+      Math.abs(Number(materialLine?.lineCost) - 4037.50) < 0.005 &&
+      Math.abs(Number(savedAfterAdd.subtotalCost) - 5100.00) < 0.005,
+    "expected labor 1062.50, material 4037.50, saved subtotal 5100.00");
   await checkpoint("03", "estimate-edit");
 
   // ---- 04 pricing --------------------------------------------------------
@@ -838,12 +676,10 @@ try {
   await page.getByRole("button", { name: "Finalize estimate" }).click();
   await page.getByText("ready", { exact: true }).waitFor({ timeout: 60_000 });
   const finalizedEstimate = await readEstimateDetail(estimateId);
-  assertBusiness(
-    "Estimate Engine persists finalized status and customer total",
+  assertBusiness("Estimate Engine persists finalized status and customer total",
     finalizedEstimate.status === "ready" &&
       Math.abs(Number(finalizedEstimate.totalPrice) - 7105.07) < 0.005,
-    `Expected status ready and saved total 7105.07, got ${finalizedEstimate.status}/${finalizedEstimate.totalPrice}`,
-  );
+    `Expected ready / 7105.07, got ${finalizedEstimate.status} / ${finalizedEstimate.totalPrice}`);
   await checkpoint("06", "estimate-finalized");
 
   // ---- 07 proposal value transfer ---------------------------------------
@@ -855,13 +691,10 @@ try {
   const proposalId = /\/proposals\/([^/?]+)$/.exec(page.url())?.[1];
   assertBusiness("proposal resolves an id", Boolean(proposalId), `url was ${page.url()}`);
   const savedProposal = await readProposalDetail(proposalId);
-  assertBusiness(
-    "proposal snapshots the selected finalized Estimate and its exact fixed total",
+  assertBusiness("proposal snapshots selected finalized Estimate identity and exact fixed total",
     savedProposal.estimateId === estimateId &&
       Math.abs(Number(savedProposal.finalPrice) - Number(finalizedEstimate.totalPrice)) < 0.005,
-    "expected proposal estimateId to match and fixed finalPrice to equal the persisted Estimate total",
-  );
-
+    "expected proposal Estimate id and fixed price to match persisted finalized Estimate");
   const proposalText = await page.locator("body").innerText();
   assertBusiness(
     "proposal carries the finalized estimate value",
