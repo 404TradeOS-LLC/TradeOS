@@ -10,6 +10,15 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Active Estimate → Proposal evidence parity — 2026-10-16
+
+- Classification: NEW_WORK_REQUIRED in canonical Beta Evidence script, no overlap with existing #755 responsive UI or #751 recovery branch. Base main `9769dacfdb8beb69f0acbd40e1e8465affdee925`, branch `test/estimate-proposal-evidence-parity-20261016`; sprint NONE, non-production certification instrumentation only.
+- Changed: stage navigation in real browser capture (Items / Price / Review, legacy desktop compatibility), s053 return to builder, persisted Estimate lineCost/subtotal and finalized total/status API assertions, persisted Proposal estimateId/finalPrice match. Original pricing/tax, preview isolation and tenant-negative probes remain.
+- Safety: `Beta Evidence` mode=full remains opt-in, refuses production target/shared production Supabase, requires synthetic owner/foreign tenant, scans artifacts for credentials. No runner invoked, secrets read, production mutations, auth bypass, database, pricing or customer lifecycle change.
+- Current blockers: PR #751 requested-changes reviewer still active though source findings corrected; review disposition requires authorized reviewer action. PR #755 owns responsive stage composition; do not duplicate UI. Authenticated Preview owner/foreign fixtures and exact deployed-SHA execution have not been proven in this session.
+- Verification: new source assertions pending hosted CI; authenticated four-width full run and artifact validation still required. Do not mark S053 complete.
+- Next five TODOs: (1) pass exact-head tests/reviews and merge this evidence repair; (2) synchronize with merged #755 and exact Preview SHA; (3) dispatch preflight to prove RC identity/data-plane safely; (4) run full synthetic authenticated beta scenario with retained sanitized artifacts and tenant denial; (5) reconcile #751 legitimate reviewer clearance, rerun recovery and inspect final proposal cost/status persistence.
+
 
 ## Current continuation: mobile Estimate step navigation — 2026-10-16
 
