@@ -20,6 +20,18 @@ related_docs:
 - Required verification: focused Web unit/lint/build, App integration, docs consistency/governance, head currency and review. Authenticated browser screenshots and persisted finalize-to-proposal lifecycle proof remain pending.
 - Next five TODOs: (1) resolve exact-head CI; (2) resolve review findings; (3) check mobile/desktop keyboard and errors on Preview; (4) test finalized Estimate to Proposal Draft and creation with role/tenant denial; (5) merge after governed gates, reconcile main and separately certify host delivery.
 
+## Active Figma-to-production continuation — 2026-10-16
+
+- Initial classification: EXISTING_WORK_FOUND. Reused remote branch `fix/estimate-price-review-copperline-handoff-20261015` at `873dc2ae`; its parent is audited main `51ecb15c` (#747). Open #731 owns onboarding, #744 instrumentation, #700 wages, #702 Field contracts; none owns this estimator runtime change. No new competing branch.
+- Reconciliation update: PR #748 merged as `be126ff9` and its remote branch was deleted during verification. Follow-up classification NEW_WORK_REQUIRED; current branch `fix/estimate-desktop-scope-recovery-20261016` starts at `be126ff9` and contains only desktop scope, delete recovery, cost-display hardening and docs/tests. No duplicate Price/Review implementation.
+- Scope: existing builder + focused cost aggregation helper/tests, Current State/estimating docs and `docs/design/FIGMA_IMPLEMENTATION_LEDGER.md`. Backend/schema/migrations, auth/RLS/RBAC, supplier integration, pricing policy and production configuration excluded.
+- Added shared desktop/mobile scope editing, saved cost-type transparency, visible failed-finalize retry and delete reconciliation, honest internal Review labeling and explicit proposal handoff.
+- Figma: inspected live Scope `432:25161` and Mobile Price `432:27891` screenshots/context, canonical component mappings and current written design contract. Full application parity not certified.
+- Next: run final Web tests/lint/typecheck/build + root docs/preflight, publish the same branch PR, reconcile exact-head hosted CI/reviews; merge only through normal gates, then verify deployment and authenticated four-width workflow.
+- Local browser blocker: pinned Chromium v1248 download returns an invalid ZIP. No provisioned authenticated non-production fixture has been used. No browser/RLS/deployment verification claimed.
+- Next five TODOs: complete this PR's exact-head checks; repair scoped review findings; exercise scope save/failure and reviewed add/finalize in Preview at 390/768/1024/1440; verify stored snapshot + proposal draft handoff; continue #731 and ledger-ready gaps after fresh reconciliation.
+
+
 ## Estimate Costbook selection and preview guard — 2026-10-15
 
 - Sprint ID: NONE; bounded founder-requested Figma-to-code fix from `main` `049ff512470e1997edf5afcdc8a9ff9cdca76a76`.

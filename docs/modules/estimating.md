@@ -142,3 +142,10 @@ The estimate builder keeps proposal creation behind finalization, surfaces an ac
 ## Contextual review freshness
 
 Contextual Athena stores the project/estimate/scope snapshot associated with its response. Suggestions are actionable only for that same non-empty normalized scope while the panel is ready and no Add is pending. Scope or record changes require refreshing review; failed/loading reviews never authorize applying previous suggestions. This is a frontend freshness guard over existing authenticated API/RLS and idempotent source keys, not a new financial or permission policy.
+
+
+### Responsive scope and Price/Review recovery (2026-10-16)
+
+The existing builder owns both responsive scope editors through one parent draft/save state and a shared editor. Desktop users can now edit the same Project `simpleScope` used by contextual Athena. Save success binds to the submitted value rather than the latest render. Failed saves retain input; finalized estimates stay read-only. No browser-local draft persistence is claimed.
+
+The Price breakdown groups saved `lineCost` snapshots by persisted cost type and does not multiply current source costs, apply markup, or alter server totals. Invalid amounts display Unavailable. Mobile Review labels direct costs and margin as internal, then links to the separate proposal form after backend finalization. Finalization failures expose retry; uncertain deletion exposes refresh before another attempt. Supplier quotes, Estimate snapshots and lifecycle permissions are unchanged.

@@ -35,10 +35,10 @@ test("estimate Scope persists through the existing partial Project update contra
 
   assert.match(builder, /projects\/.*projectId/);
   assert.match(builder, /method: "PATCH"/);
-  assert.match(builder, /simpleScope: scopeDraft\.trim\(\)/);
+  assert.match(builder, /simpleScope: scope/);
   assert.match(builder, /const \[persistedScope, setPersistedScope\] = useState\(simpleScope \?\? ""\)/);
-  assert.match(builder, /onSuccess: \(\) => setPersistedScope\(scopeDraft\.trim\(\)\)/);
-  assert.match(builder, /await saveScope\.mutateAsync\(\)/);
+  assert.match(builder, /onSuccess: \(_data, savedScope\) => setPersistedScope\(savedScope\)/);
+  assert.match(builder, /await saveScope\.mutateAsync\(scopeDraft\.trim\(\)\)/);
   assert.match(builder, /scopeDirty=\{scopeDraft\.trim\(\) !== persistedScope\.trim\(\)\}/);
   assert.match(builder, /mobileStage === "scope" && isDraft && scopeDirty/);
   assert.match(builder, /const saved = await onSaveScope\(\);[\s\S]*if \(!saved\) return;[\s\S]*onStageChange\(stage\)/);
@@ -127,7 +127,7 @@ test("Price groups only persisted line costs and keeps customer sell total separ
   const builder = await readSource("./builder.tsx");
   assert.equal(builder.split("<EstimateDirectCostBreakdown lineItems={estimate.lineItems} />").length - 1, 2);
   assert.match(builder, /aria-label="Internal direct cost breakdown"/);
-  assert.match(builder, /item\.rows\.reduce\(\(sum, row\) => sum \+ row\.lineCost, 0\)/);
+  assert.match(builder, /groupSavedDirectCosts\(lineItems\)/);
   assert.match(builder, /excluding markup, overhead and tax\. Not a customer proposal/);
   assert.match(builder, /formatCurrency\(runningTotals\.totalPrice\)/);
   assert.match(builder, /Internal estimate review/);
@@ -178,4 +178,17 @@ test("Athena stays review-first and Review preserves finalize-before-proposal li
   assert.ok(contextualPanelBlocks.every((block) => block.includes("isDraft={isDraft}")));
   assert.ok(contextualAthena.includes("isDraft: boolean"));
   assert.ok(contextualAthena.includes("isDraft && suggestion.resolution.target"));
+});
+
+
+test("desktop and mobile share a labeled scope editor with retained failure input", async () => {
+  const builder = await readSource("./builder.tsx");
+  assert.equal((builder.match(/<EstimateScopeEditor/g) ?? []).length, 2);
+  const desktop = builder.slice(builder.indexOf('<div className="hidden gap-5 lg:grid'));
+  assert.match(desktop, /<EstimateScopeEditor[\s\S]*value=\{scopeDraft\}/);
+  assert.match(builder, /value=\{simpleScope\}[\s\S]*onChange=\{onScopeChange\}/);
+  assert.match(builder, /htmlFor=\{inputId\}/);
+  assert.match(builder, /aria-busy=\{pending\}/);
+  assert.match(builder, /Your scope is still in the editor/);
+  assert.match(builder, /Item removal was not confirmed/);
 });
