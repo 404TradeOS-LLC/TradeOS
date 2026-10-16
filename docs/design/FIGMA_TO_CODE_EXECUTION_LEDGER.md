@@ -1,4 +1,6 @@
-# TradeOS Figma-to-code execution ledger
+# TradeOS historical Figma discovery checkpoint
+
+Current implementation status is maintained only in [FIGMA_IMPLEMENTATION_LEDGER.md](FIGMA_IMPLEMENTATION_LEDGER.md). This file preserves the earlier discovery and review history; its dated PR/main statuses are not current authority.
 
 Checkpoint: 2026-10-13. Repository: `404TradeOS-LLC/TradeOS`.
 Canonical Figma: https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY

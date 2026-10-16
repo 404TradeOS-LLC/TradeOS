@@ -10,6 +10,58 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+
+## Current execution checkpoint — 2026-10-16, PR #731 continuation
+
+- Main reconciled to `7a9d965ace26890a370c0bc7affd3158edb74b49`; #748 and #749 are both MERGED. #749 final head `4da9703d` had all four required checks green, 172 hosted integration tests passing, and zero unresolved review threads. Locally 500 Web, 149 PR and 40 docs tests passed, plus lint/typecheck/build/preflight/docs ownership. No exact-head Vercel deployment found; authenticated browser still unverified.
+- EXISTING_WORK_FOUND: continue #731 on `feat/p0-first-estimate-quickstart-20261013`, previous head `8cbc7527`. Current continuation merges main, preserves both documentation histories and makes `docs/design/FIGMA_IMPLEMENTATION_LEDGER.md` the sole implementation ledger. Older discovery remains a labeled historical record.
+- Allowed: existing first-estimate frontend workflow/form/route/dashboard and related tests/docs. Excluded: backend, schema/migrations, auth/RLS policy, pricing/payment authority, credentials and infrastructure. No new quick-start or numbered sprint.
+- Existing functionality: role-gated real Project + draft Estimate; retained controlled input, confirmed Project recovery, current-session reauthorization; resume never repeats either creation POST. Full onboarding wizard remains TARGET, not delivered parity.
+- Next safe action: final local/hosted tests on this reconciled branch and current review disposition. Historical CodeRabbit CHANGES_REQUESTED must be checked; resolved threads do not dismiss a submitted review. Do not bypass protections.
+- Concrete verification blockers: Chromium v1248 downloads are invalid ZIPs; no approved authenticated synthetic fixture used. No hosted workflow or customer-facing behavior is certified by source tests.
+- Next five TODOs: pass #731 final-head CI; reconcile legitimate reviewer disposition; merge only through normal protection; verify deployed SHA and four-width authenticated first-estimate recovery/estimating; continue the next source-backed demo gap from the canonical ledger.
+
+
+## Estimate Price → Review → Copperline parity — current 2026-10-15
+
+- Sprint: NONE; founder-authorized bounded Figma-to-code completion from `main` `51ecb15c7864e193656dd31bd96fb5641dd7c29c`; branch `fix/estimate-price-review-copperline-handoff-20261015`.
+- Preflight: source code and current docs inspected; recent Figma prototypes edited in place; no overlapping open estimate finalization/proposal-review PR. Last merged estimate Add safety #746 is preserved.
+- Scope: `EstimateBuilder` saved type breakdown, internal-cost labeling, explicit failure/retry for the existing finalize mutation, separate proposal-draft link, source regression tests and owned docs.
+- Excluded: Estimate Engine, Costbook price writes, RLS/tenant/auth, supplier proofs, public proposal acceptance, PDF redesign, proposal server action, payment/deposit, schema/migration, production deployment.
+- Required verification: focused Web unit/lint/build, App integration, docs consistency/governance, head currency and review. Authenticated browser screenshots and persisted finalize-to-proposal lifecycle proof remain pending.
+- Next five TODOs: (1) resolve exact-head CI; (2) resolve review findings; (3) check mobile/desktop keyboard and errors on Preview; (4) test finalized Estimate to Proposal Draft and creation with role/tenant denial; (5) merge after governed gates, reconcile main and separately certify host delivery.
+
+## Active Figma-to-production continuation — 2026-10-16
+
+- Initial classification: EXISTING_WORK_FOUND. Reused remote branch `fix/estimate-price-review-copperline-handoff-20261015` at `873dc2ae`; its parent is audited main `51ecb15c` (#747). Open #731 owns onboarding, #744 instrumentation, #700 wages, #702 Field contracts; none owns this estimator runtime change. No new competing branch.
+- Reconciliation update: PR #748 merged as `be126ff9` and its remote branch was deleted during verification. Follow-up classification NEW_WORK_REQUIRED; current branch `fix/estimate-desktop-scope-recovery-20261016` starts at `be126ff9` and contains only desktop scope, delete recovery, cost-display hardening and docs/tests. No duplicate Price/Review implementation.
+- Scope: existing builder + focused cost aggregation helper/tests, Current State/estimating docs and `docs/design/FIGMA_IMPLEMENTATION_LEDGER.md`. Backend/schema/migrations, auth/RLS/RBAC, supplier integration, pricing policy and production configuration excluded.
+- Added shared desktop/mobile scope editing, saved cost-type transparency, visible failed-finalize retry and delete reconciliation, honest internal Review labeling and explicit proposal handoff.
+- Figma: inspected live Scope `432:25161` and Mobile Price `432:27891` screenshots/context, canonical component mappings and current written design contract. Full application parity not certified.
+- Next: run final Web tests/lint/typecheck/build + root docs/preflight, publish the same branch PR, reconcile exact-head hosted CI/reviews; merge only through normal gates, then verify deployment and authenticated four-width workflow.
+- Local browser blocker: pinned Chromium v1248 download returns an invalid ZIP. No provisioned authenticated non-production fixture has been used. No browser/RLS/deployment verification claimed.
+- Next five TODOs: complete this PR's exact-head checks; repair scoped review findings; exercise scope save/failure and reviewed add/finalize in Preview at 390/768/1024/1440; verify stored snapshot + proposal draft handoff; continue #731 and ledger-ready gaps after fresh reconciliation.
+
+
+## Estimate Costbook selection and preview guard — 2026-10-15
+
+- Sprint ID: NONE; bounded founder-requested Figma-to-code fix from `main` `049ff512470e1997edf5afcdc8a9ff9cdca76a76`.
+- Autonomy preflight: NEW_WORK_REQUIRED. Open Costbook PRs #700 (wages) and #745 (ABC catalog detail) do not overlap the Estimate Items picker. Previous S064 assembly picker and starter mapping are already implemented on main.
+- Branch: `fix/estimate-picker-reviewed-add-20261015`. GitHub connector edits only; local git checkout/npm execution unavailable due blocked GitHub DNS. Do not treat remote CI as local test evidence.
+- Scope: explicit Costbook/assembly search selection, read-only unit-cost preview, quantity and error gates, mapped starter install before separate Estimate Add, focused tests and owner docs.
+- Safety: backend Estimate pricing snapshots/tenant/RLS/auth, schema/migrations, API contracts, supplier quotes, automation and proposal/invoice flows unchanged.
+- Validation: exact-head Web tests/lint/build and repository documentation CI, branch currency, review and authenticated 390/768/1024/1440 checks still need reconciliation. No hosted screenshot or tenant-negative evidence yet.
+- Next five TODOs: reconcile fresh PR checks; repair deterministic review/test failures; capture authenticated search/preview/add/cancel and failed cost cases on 390/1440; verify stored Estimate snapshot matches the backend resolved cost without historical repricing; then merge through protected PR gates and verify main.
+
+## Figma-to-code customer portal access parity — active 2026-10-14
+
+- Sprint ID: NONE; bounded founder-requested frontend design parity, not S059 release certification.
+- Autonomy preflight: NEW_WORK_REQUIRED; remote `main` at `b3eb5ce9edae61d363b763bcc9ce426005a2454a`. No open access UI overlap; open first-estimate PR #731 remains separate. An old `ui/customer-portal-action-workspace-20261003` branch edits only the portal home page and is not replaced or deleted.
+- Branch: `feat/portal-access-figma-parity-20261014`; GitHub connector-only implementation with no local checkout or worktree (local git fetch/status and npm validations unavailable).
+- Scope: public access confirmation/recovery layout, contract-preserving source regressions, current-state and portal-module documentation. Preserve explicit same-origin POST, pending HttpOnly token handling, non-enumerating denial, customer/tenant principal and all financial permissions.
+- Required checks: Web test/lint/build, docs/governance/preflight, hosted exact-head CI and review; authenticated 390/768/1024/1440 browser and negative customer-session evidence remain pending. No production access or deployments.
+- Next five TODOs: verify fresh PR checks; repair scoped failures; inspect exact-head diff and review threads; capture sanitized responsive/authentication negative evidence; obtain legitimate merge decision and reconcile main before the next UI slice.
+
 ## Autonomous Figma-to-code checkpoint — 2026-10-13
 
 Continue existing draft PR #731 on `feat/p0-first-estimate-quickstart-20261013`, from main `6096d806`. Partial-save recovery retains Project identity and typed input, reauthorizes Project reads, and never repeats either creation POST on resume. Nine behavioral tests and all 489 web tests, lint/typecheck/build and docs/preflight passed locally. Onboarding remains TARGET, unmerged and uncertified. Chromium v1248 installation returned invalid ZIP; authenticated responsive evidence is blocked. Shell push credentials are unavailable; publish through the authenticated GitHub connector. The discovery/maturity ledger and next five TODOs are in `docs/design/FIGMA_TO_CODE_EXECUTION_LEDGER.md`. No sprint/deployment/certification status is advanced.

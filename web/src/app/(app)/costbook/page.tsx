@@ -259,6 +259,10 @@ export default async function CostbookPage({ searchParams }: { searchParams: Pro
                     <Package className="size-4" aria-hidden="true" />
                     Supplier Evidence
                   </Link>
+                  <Link href="/costbook/abc-catalog" className={buttonVariants({ variant: "outline" })}>
+                    <Package className="size-4" aria-hidden="true" />
+                    ABC Supply Catalog (sandbox)
+                  </Link>
                   {workspace.permissions.canManage ? (
                     <Link href="/costbook/price-history" className={buttonVariants({ variant: "outline" })}>
                       <History className="size-4" aria-hidden="true" />

@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import type { IncrementResponse, Options, Store } from "express-rate-limit";
 import { basePrisma, getSupplierTokenRotationClient } from "../../db/client";
 
-export type SupplierCronRateLimitNamespace = "authorized" | "unauthorized" | "abc-selected-quote";
+export type SupplierCronRateLimitNamespace = "authorized" | "unauthorized" | "abc-selected-quote" | "abc-catalog";
 
 /**
  * A shared rate-limit store for horizontally scaled Vercel functions.
@@ -40,7 +40,7 @@ export class SharedSupplierCronRateLimitStore implements Store {
     // Authenticated request sessions may hold the only basePrisma connection
     // on Vercel. Use the independent bounded restricted pool for this
     // user-initiated limiter to avoid acquiring basePrisma recursively.
-    const client = this.namespace === "abc-selected-quote"
+    const client = this.namespace === "abc-selected-quote" || this.namespace === "abc-catalog"
       ? getSupplierTokenRotationClient() : basePrisma;
     const rows = await client.$queryRaw<Array<{
       total_hits: number;

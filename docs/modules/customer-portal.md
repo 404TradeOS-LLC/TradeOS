@@ -16,6 +16,12 @@ related_code:
 
 # Customer Portal
 
+## Public access views — Figma parity slice (proposed 2026-10-14)
+
+The public access confirmation and generic access-error route use the same customer-only visual shell, based on the approved responsive Figma states. The confirmation explicitly preserves `POST /customer-portal/access/redeem`; neither the pending raw secret nor an alternate redemption path enters the rendered page. Invalid/expired/replayed/revoked cases continue through one non-enumerating public error view. Recovery instructs the customer to ask the contractor for another invitation; the view has no self-service issuing or retry control.
+
+This does not authorize any new public write, change the server-owned session lifecycle, or establish successful browser certification. The intended change affects only frontend presentation and source-level regression assertions; S059 security evidence remains independently required.
+
 ## Purpose
 
 Provide staff-accessible previews and a customer-scoped public document portal for proposals, contracts, invoices, and project summaries.

@@ -397,3 +397,12 @@ The protected `.github/workflows/backfill-abc-materials.yml` operator workflow n
 ## Required integration context execution — 2026-10-13
 
 `Verify repository` runs the actual `App integration tests` job for every pull request, merge-group and main push after scope detection. The prior backend-path condition skipped this branch-protection-required context on frontend-only PRs such as #731/#732. The required integration/migration rehearsal now executes regardless of App/Web scope; other non-required backend jobs retain path scoping. No synthetic success context, branch-protection change, credential change or production database access is introduced. Existing psql provisioning and the disposable-database test runner remain unchanged. Hosted execution is required before claiming integration PASS. Rollback is restoring the job condition, which also restores the known skipped-context gap.
+
+
+**Dispatch startup repair (2026-10-15):** Run #38797027952 failed before checkout because its confirmation step inherited `working-directory: app`; the directory was absent. The confirmation step now explicitly runs in the repository workspace root (`.`), preserving confirmation before checkout and `app` working-directory for subsequent steps. This is a runner-path fix, not ABC provider authorization or live API evidence.
+
+## ABC sandbox Product API live proof — gated follow-up to #736 (2026-10-13)
+
+Issue #735 owns the full catalog requirement. PR #736 merged a sandbox-only, disabled-by-default, read-only provider-backed browse surface. The next independent proof is `app/scripts/probe-abc-sandbox-catalog.ts` plus the manual `abc-sandbox-catalog-evidence.yml` workflow. It reports the actual provider page/totalItems/totalPages contract, or a redacted failure, without persisting catalog data or requesting contractor-specific pricing. Required inputs are explicit operator confirmation and authorized sandbox-only `product.read` client credentials scoped in GitHub Actions. Vercel variables do not automatically propagate to Actions. An unrun workflow or green mock tests are *not* live-provider evidence.
+
+Do not start any durable ABC Get All Items import or seven-day delta storage until ABC explicitly authorizes the intended retention and searchable display model. Keep issue #735 open until full persistence/sync (where permitted), browser evidence, customer-authenticated pricing, Material review, and Estimate handoff are actually verified.

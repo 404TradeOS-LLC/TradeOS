@@ -63,6 +63,42 @@ related_code:
 
 # TradeOS Current State
 
+## Price → Review → Copperline handoff — frontend parity slice 2026-10-15 (PR pending)
+
+The current Estimate Workspace remains a four-stage mobile experience and a continuous desktop workbench. The bounded `fix/estimate-price-review-copperline-handoff-20261015` UI branch adds a read-only direct-cost breakdown from the persisted EstimateLineItem `lineCost` values grouped by recorded type, distinctly labeled internal and excluding overhead/markup/tax. The saved Estimate `totalPrice`, not this grouping, remains the only shown customer total. The Review stage labels individual line costs internal, explicitly states that Finalize does not send to customers, and shows inline failed-finalization detail with a retry using the existing `POST /estimates/:id/finalize` mutation; the saved draft stays available on failure. After backend status becomes non-draft, the contractor moves to the existing proposal draft form, which already surfaces creation errors and requires explicit Create.
+
+Canonical Figma frames 432:26604 (desktop Price), 432:26746 (warnings), 432:27891 (mobile Price), 432:27999 (mobile Review), and Copperline 425:45123 / 425:46807 were reconciled in place. Mockup prices/dates remain examples. Public customer proposal acceptance is still **TARGET only**, not implemented by this slice. No proposal acceptance, backend pricing/repricing, tenant/RLS, schema, tax computation, or contract/payment mutation is introduced. Browser/hosted lifecycle certification and real provider-price trust remain separate evidence gates.
+
+## Estimate scope, direct-cost transparency and recovery — implementation 2026-10-16
+
+The follow-up `fix/estimate-desktop-scope-recovery-20261016` lane, based on merged Price/Review PR #748, exposes one shared scope editor at desktop and mobile widths, using the existing Project PATCH contract. Save acknowledgment records the submitted scope snapshot; pending saves disable editing, failures retain input, and mobile stage progression still awaits successful saving. This is capability-constrained parity with Figma Scope `432:25161`, not a new estimator or full desktop stage redesign.
+
+Price now groups persisted line-cost snapshots by actual cost type, with cent-safe display aggregation and unavailable values kept distinct from zero. Review explicitly labels internal costs and margin, preserves the backend-finalize-before-proposal boundary, and offers retry after failed finalization. Delete failures expose a shared refresh/reconciliation action instead of silently disappearing. Existing Estimate Engine, authenticated proxy, tenant/RLS, pricing approval, supplier and proposal contracts remain unchanged. Local checks and hosted delivery evidence are recorded in `docs/design/FIGMA_IMPLEMENTATION_LEDGER.md`; browser parity and production behavior are not inferred from builds.
+
+
+## ABC catalog no-refetch product disclosure — 2026-10-15 pending CI
+
+Production's catalog route now returns ABC sandbox products, but its default 25-product page can spend seconds waiting for the upstream provider (one observed page took ~29 seconds), and some concurrent request-scoped auth sessions fail with Prisma connection pool timeout (connection limit 1, timeout 10s). This supersedes PR #745's product-card navigation: that previous approach made a second catalog request for its details screen. This could hit the same connection bottleneck and did not establish a reliable production click-through.
+
+This bounded frontend follow-up replaces the catalog's whole-card navigation with native `<details>/<summary>` disclosure inside the **already authenticated and loaded** provider listing. Selecting a product requires **zero additional HTTP calls**, database sessions or ABC OAuth activity. It displays only provider-listed item number, manufacturer, family, ID, unit options, color, finish, available variations and provider-supplied warnings; absent attributes are explicitly "Not supplied." The UI makes it clear these are catalog listing attributes, not deeper Get Item verification, branch stock, customer-authorized prices or approved Materials. The former standalone product-detail route remains for direct URLs but is not an advertised navigation path until item-level authorization is proven.
+
+This does **not** repair the separate Prisma pool exhaustion on page loads or grant ABC Get Item / customer-specific pricing access. Those are independently tracked follow-ups and must not be hidden by UI verification. No catalog replication/cache is introduced under ABC's terms. Required GitHub checks and real hosted signed-in browser proof are pending; keep #735 open.
+
+
+
+
+## Reviewed Costbook insertion in Estimate Items — proposed 2026-10-15
+
+The bounded branch `fix/estimate-picker-reviewed-add-20261015` changes the existing desktop/mobile Estimate Items picker, not the Estimate Engine or supplier pricing authority. Search keyboard Enter now selects a Costbook item/assembly for review instead of inserting a highlighted result. A selected tenant Cost Item uses the existing read-only `/costbook/cost-items/:id/unit-cost` endpoint for its current stored-cost preview; installed assemblies retain the existing current-unit-cost/recipe preview. Estimate Add is enabled only for an explicitly selected installed source with a finite nonnegative resolved preview, positive quantity, and no pending mutation or preview refresh. A mapped starter assembly cannot install until its read-only cost preview resolves; installation and Estimate Add remain separate explicit actions. Failed/unknown previews do not silently use zero or write Estimate lines. The backend remains the authority for cost snapshots at line creation, so after adding contractors should review the persisted line before finalizing.
+
+Only UI source and focused regression tests are modified; no new pricing data, supplier quote trust, schema/migration, RLS, authorization, tenant scope or proposal mutation is introduced. This is source-level implementation proposed for CI and review, not an authenticated browser or production certification.
+## Public portal access design parity — proposed 2026-10-14
+
+The bounded `feat/portal-access-figma-parity-20261014` frontend branch aligns the customer magic-link confirmation and generic denial presentation with canonical Figma frames 205:34, 205:35, 651:3762, and 651:3845. A reusable customer-only public shell provides consistent branding and responsive card layout. The confirm route still reads only the HttpOnly pending cookie, denies malformed tokens, and submits only an explicit POST to the existing same-origin redemption endpoint. The access-error page remains non-enumerating and exposes no unsupported invitation/retry action.
+
+This is frontend presentation and source-regression coverage only. No backend, portal session, customer identity, tenant/RLS, contract signing, proposal decision, payment, or token-handling behavior changes. Hosted CI, authenticated portal browser evidence, accessibility checks and production deployment remain unverified until collected. This branch is not an S059 certification or release-readiness claim.
+
+
 ## First-estimate quick-start recovery — PR #731, unmerged 2026-10-13
 
 The first-estimate branch adds a dedicated server action over the existing authenticated Project/Estimate APIs. A failed draft creation retains the confirmed Project and typed form inputs. Resume rechecks access with the current session, opens the draft or Project workspace and never repeats either creation POST. Saved fields are read-only; pending and recovery controls remain visible. Auth, RLS, permissions, pricing approvals and schema are unchanged.
@@ -1170,3 +1206,51 @@ activation; trigger protected cron; check for an attributed, tenant-scoped
 any Material update. Vercel environment listing returned HTTP 403 in this
 inspection, so configuration completeness was not independently verified.
 See `docs/operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md`.
+
+
+## ABC Supply Product API catalog — issue #735 proposed code, not live verified (2026-10-13)
+
+A bounded first-slice implementation is proposed on
+`feat/abc-catalog-provider-backed-browse-735`: sandbox
+`client_credentials`/`product.read` with bearer-token separation from
+existing user-present customer pricing, read-only provider-page validation,
+rate/backoff handling, and server-side paginated authenticated Costbook browse.
+The route is disabled by default and writes no SupplierProduct, Material,
+SupplierPriceObservation, CostItem, or Estimate records. All returned products
+are labeled unpriced; the browser surfaces no false current/local pricing.
+Tests are proposed but CI/runtime evidence is required before marking shipped.
+
+The requested permanent, indexed 200k+ shared catalog replication and delta
+synchronization are **not implemented**. ABC API Terms (Apr 9, 2026) prohibit
+building a database or permanent copy of content without express permission
+and restrict caching; obtain written ABC approval (storage, retention, search
+display, image use, deletion/inactive semantics) before that persistence slice.
+Existing September research-seed ABC rows must not be counted as an authenticated
+Get All Items import. No verified live item count, user-authorized positive
+customer quote, database import, deployed UI, or estimate-from-live-ABC test
+is claimed for issue #735. Provider-backed browse is not the final acceptance
+of the founder's full-catalog mission.
+
+
+## ABC Supply Product API real-sandbox verification — proposed follow-up (2026-10-13)
+
+PR #736 is merged on `main` as `e3e8a872227e7a52cad3a216e357a88f3c03f760`; its provider-backed catalog browse remains disabled until intentionally configured. The next bounded branch `feat/abc-catalog-live-sandbox-proof-735` adds a manual guarded sandbox Product API proof. It will verify `client_credentials`/`product.read` and one or two real pages, then report only provider totals and checked in-memory identity counts; it never stores catalog data, changes Materials, or requests customer-specific prices.
+
+Until a **successful manual Actions run** using authorized credentials exists, no live sandbox item totals, imported records, checked branch availability, deployed browse URL, or verified positive customer price should be claimed. The separate ABC Terms permission for permanent replicated catalog storage remains pending. Full data ingestion and incremental sync are not complete.
+
+
+## ABC Supply on-demand product detail — proposed issue #735 slice (2026-10-13)
+
+The branch `feat/abc-catalog-product-detail-735` extends the merged read-only `AbcCatalogClient` with the provider's documented sandbox `GET /api/product/v1/items/{itemNumber}` endpoint (with variation and same-family embedding). The authenticated Costbook detail surface, linked from ABC catalog search, displays exact item identity, provider product hierarchy, UOM options, nested length variations, related family records, and Prop65 warnings without inventing missing attributes. Only Active items with exact matching item numbers may be displayed. This route shares the existing ABC catalog global rate budget, respects the disabled-by-default browse gate, and does not make Material, CostItem, SupplierPriceObservation, Estimate or customer-pricing writes. Branch/customer availability is deliberately `not-verified` until user-present account and branch authorization.
+
+This is code proposed for CI/review, **not** proof of a successful Get Item sandbox call, complete catalog import, live price, or deployed browser. ABC permission for durable catalog replication/display and the manual product.read live proof remain independent gates.
+
+## ABC hierarchy browser — issue #735 follow-up
+
+Following merge of #737 and independently merged #738 (on-demand Get Item), branch `feat/abc-hierarchy-browser-735` adds the separate **Get Product Hierarchy** read path and web screen. It supplies six official ABC category code/label levels with pagination, supplier-sourced only; TradeOS Costbook will link to it from the sandbox catalog. The feature is disabled by default and uses the same sandbox TPA `product.read` read credentials, Costbook permission, rate limit, and no-persistence contract as the existing browsable product list. This does not import, index, or license the full ABC catalog, prove a live provider call, expose branch-specific availability, or complete pricing-to-estimate. CI and authorized hosted browser evidence remain pending until verified.
+
+## ABC branch ordering eligibility — issue #735 proposed continuation
+
+On branch `feat/abc-branch-order-availability-735`, TradeOS adds a sandbox-only, provider-backed Get Item Availability read and a contextual product detail link. The ABC response lists branches at which an item can be ordered and its provider-listed dimensional lengths. It does **not** represent on-hand inventory stock, specific customer's Ship-To approval, a Price Items quote, verified material price, or persistent catalog synchronization. The same catalog feature flag, `costbook.read` permission, global rate limiter, and server `product.read` token govern the read; no supplier responses are cached or written to the database.
+
+Until exact-head CI, real ABC sandbox integration and authenticated hosted UI evidence run, this is unproven against genuine provider availability. ABC data-copy rights and user-present customer-specific pricing remain external blockers. Issue #735 stays open.
