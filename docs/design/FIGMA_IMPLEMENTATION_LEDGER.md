@@ -2,7 +2,7 @@
 
 ## Authority and checkpoint
 
-This ledger extends `CORE_WORKFLOW_FIGMA_CODE_TRACEABILITY.md` and `PRODUCT_COMPLETION_EXECUTION_MAP.md`; it does not replace capability, lifecycle or sprint authority. Approved design source: [TradeOS master](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY). Reconciled main: `4f4adf7d` (PR #750), 2026-10-16. Live metadata was read for cover, Estimates, Costbook, Components and Customer Portal; high-fidelity screenshots/context were read for Scope `432:25161` Mobile Price `432:27891` and Mobile Review / Needs Attention `447:20420`.
+This ledger extends `CORE_WORKFLOW_FIGMA_CODE_TRACEABILITY.md` and `PRODUCT_COMPLETION_EXECUTION_MAP.md`; it does not replace capability, lifecycle or sprint authority. Approved design source: [TradeOS master](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY). Reconciled main: `3811e583` (PR #752), 2026-10-16. Live metadata was read for cover, Estimates, Costbook, Components and Customer Portal; high-fidelity screenshots/context were read for Scope `432:25161` Mobile Price `432:27891` and Mobile Review / Needs Attention `447:20420`.
 
 The metadata top-level listing returns only two pages. This is a known incomplete listing path; use `FIGMA_PAGE_ENUMERATION_EVIDENCE_2026-10-02.md` and explicit page IDs. Do not delete/recreate pages. Canonical visuals, target states, certification material and superseded targets are distinct. Variants belong to their workflow, not separate feature counts.
 
@@ -60,3 +60,13 @@ EXISTING_WORK_FOUND on `fix/universal-create-role-options` (`96515786`), reconci
 Local recovery validation: Web 504/504 tests, lint, TypeScript and production build pass; root preflight/docs consistency, 149 governance and 40 documentation tests pass. Four recovery browser cases executed successfully with isolated synthetic fixtures. Hosted required CI/review/merge/deployment remain pending for this branch.
 
 Review repair: the recovery notice also observes the existing Tailwind lg media query, transfers focus to the visible copy after breakpoint changes, and cleans up its listener. Five isolated browser cases pass: the four widths plus 390 → 1024 → 390, each keeping the next Tab on Retry. No API/authenticated persistence claim.
+
+## Proposal price-basis continuation — 2026-10-16
+
+The existing Review → proposal group remains PARTIALLY IMPLEMENTED. Related approved source: [canonical Estimate Review 287:240](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=287-240), Customer Portal page `4:16`, [Copperline Review Mobile 361:119](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=361-119). The latter contains scripted signature targets; this slice implements no new public action.
+
+Route `/projects/:id/proposals/new?estimateId=…`; files `web/src/app/(app)/projects/[id]/proposals/new/form.tsx`, existing `web/src/app/actions/proposals.ts` and backend `app/modules/proposals/service.ts` (read, unchanged). Dependencies: existing finalized Estimate totals, project draft preview and proposal create API. Current source discrepancy: intake range displayed despite selected fixed-price Estimate. The local focused branch `fix/proposal-selected-estimate-price-20261016` now displays the selected saved total, cents and price basis using existing summary components and controlled selection; intake-only mode remains explicitly ranged.
+
+Four executed isolated synthetic browser cases pass at 390/768/1024/1440: two totals, form identity, intake mode, no writes or overflow. Web 504 tests/lint/build/typecheck and docs/preflight pass. PR #752 MERGED as `3811e583`, with required hosted checks green. Vercel production READY at exact merge `3811e583`: `dpl_Dk3KsHe5djrEtwvuLZYUSAFpEbfn`; authenticated creation and stored proposal price remain unverified. No financial policy changes or full Copperline parity claim. Next: verify exact deployment and persisted proposal handoff on sanitized Preview.
+
+Current recovery delivery: PR #751 is open and reconciled with #752 main `3811e583`; original and review repair checks passed before base movement, so fresh exact-head hosted CI is required. All inline findings are repaired/resolved and the historical ledger finding is labeled. ADR-009 founder technical review record is in the PR; CodeRabbit re-review is externally rate-limited. No merge/deployment claim for #751.

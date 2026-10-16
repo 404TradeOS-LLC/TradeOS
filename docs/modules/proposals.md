@@ -126,3 +126,10 @@ PR #338 carries the verified estimate state through the existing proposal creati
 The pre-beta repair closes both UI orderings: draft-estimate proposal creation is rejected and hidden from the estimate picker, while estimate finalization backfills `finalPrice` only for proposals that have no explicit fixed or ranged price. Proposal document generation no longer falls back to a live estimate total when the stored proposal price is null.
 
 Accepted proposals and proposals linked to a contract are immutable through the normal update path. Amendments require the separate change-order or replacement-contract workflow; the current repair does not invent a new amendment status.
+
+
+## Proposal creation price preview (2026-10-16)
+
+The existing staff proposal-new form shows the selected finalized Estimate's saved `totalPrice` as Proposal price, with cents. Changing Estimate updates the displayed amount and form identity together; intake-only selection instead shows the saved intake range and explains that this form does not set a fixed proposal price. The price basis is associated with the selector and changes are announced politely. Draft/unknown Estimate IDs cannot appear as selected eligible options.
+
+This is presentation of the existing `createFromEstimate`/`createFromProject` rules, not a new quote, repricing calculation, price approval or send action. `tests/playwright/proposal-price-basis.spec.ts` is an opt-in read-only matrix using the existing safe non-production target, `TRADEOS_PROPOSAL_PRICE_PATH` and optional `TRADEOS_PROPOSAL_PRICE_STATE`. It requires two finalized Estimates with different totals and a saved intake range; all write requests are blocked. Local four-width evidence used explicitly synthetic fixtures, not authenticated persistence.
