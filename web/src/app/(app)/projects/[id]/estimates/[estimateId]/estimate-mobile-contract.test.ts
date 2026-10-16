@@ -30,6 +30,36 @@ test("mobile estimate keeps the canonical four-stage workflow", async () => {
   assert.match(builder, /safe-area-inset-bottom/);
 });
 
+
+test("mobile stages expose native sequential step navigation instead of an incomplete tab widget", async () => {
+  const builder = await readSource("./builder.tsx");
+  const navigation = builder.slice(
+    builder.indexOf('<nav aria-label="Estimate stages">'),
+    builder.indexOf('{mobileStage === "scope" ? (')
+  );
+  assert.ok(navigation.startsWith('<nav aria-label="Estimate stages">'), "stage navigation must be present");
+  assert.match(navigation, /<ol className="grid grid-cols-4/);
+  assert.match(navigation, /<li key=\{stage.id\} className="min-w-0">/);
+  assert.match(navigation, /type="button"/);
+  assert.match(navigation, /aria-current=\{mobileStage === stage.id \? "step" : undefined\}/);
+  assert.match(navigation, /<span className="sr-only">Step \{index \+ 1\} of \{stages.length\}: <\/span>/);
+  assert.match(navigation, /focus-visible:outline/);
+  assert.doesNotMatch(navigation, /role="tablist"|role="tab"|aria-selected=/);
+  // Native buttons support Tab focus and Enter/Space activation; unlike ARIA tabs
+  // they do not promise roving focus or ArrowLeft/ArrowRight handling.
+});
+
+test("stage navigation preserves fail-closed asynchronous scope-save transitions", async () => {
+  const builder = await readSource("./builder.tsx");
+  assert.match(builder, /if \(stage === mobileStage \|\| scopeSavePending\) return;/);
+  assert.match(builder, /if \(mobileStage === "scope" && isDraft && scopeDirty\)/);
+  assert.match(builder, /const saved = await onSaveScope\(\);\s*if \(!saved\) return;\s*\}\s*onStageChange\(stage\);/);
+  assert.match(builder, /onClick=\{\(\) => void goToStage\(stage.id\)\}/);
+  assert.match(builder, /disabled=\{scopeSavePending && mobileStage === "scope" && stage.id !== "scope"\}/);
+  assert.match(builder, /min-h-11 w-full/);
+  assert.match(builder, /<section className="space-y-4 lg:hidden" aria-label="Mobile estimate workflow">/);
+});
+
 test("estimate Scope persists through the existing partial Project update contract", async () => {
   const builder = await readSource("./builder.tsx");
 
