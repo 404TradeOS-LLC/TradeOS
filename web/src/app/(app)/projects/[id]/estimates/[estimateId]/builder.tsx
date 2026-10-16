@@ -14,9 +14,11 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FeedbackState } from "@/components/ui/feedback-state";
 import { Textarea } from "@/components/ui/textarea";
 import type { Estimate } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { groupSavedDirectCosts } from "@/lib/estimate-direct-costs";
 import { canAddReviewedEstimateCatalogItem } from "@/lib/estimate-catalog-review";
 
 interface LineItem {
@@ -69,12 +71,12 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
   const [persistedScope, setPersistedScope] = useState(simpleScope ?? "");
 
   const saveScope = useMutation({
-    mutationFn: () =>
+    mutationFn: (scope: string) =>
       clientFetch(`/projects/${projectId}`, {
         method: "PATCH",
-        body: JSON.stringify({ simpleScope: scopeDraft.trim() }),
+        body: JSON.stringify({ simpleScope: scope }),
       }),
-    onSuccess: () => setPersistedScope(scopeDraft.trim()),
+    onSuccess: (_data, savedScope) => setPersistedScope(savedScope),
   });
 
   const { data: estimate, isLoading, isError, error } = useQuery({
@@ -163,6 +165,16 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         <SummaryValue label="Margin" value={formatPercent(runningTotals.marginPct)} tone={runningTotals.marginPct >= 0 ? "positive" : "negative"} />
       </div>
 
+      {removeLineItem.isError ? (
+        <FeedbackState
+          kind="mutation-failure"
+          title="Item removal was not confirmed"
+          description="Refresh the estimate to check whether the item was removed before trying again. Your other saved items remain available."
+          reference={removeLineItem.error instanceof Error ? removeLineItem.error.message : undefined}
+          action={<Button type="button" variant="outline" onClick={() => void invalidate()}>Refresh estimate</Button>}
+        />
+      ) : null}
+
       <MobileEstimateFlow
         projectId={projectId}
         projectName={projectName}
@@ -173,7 +185,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         }}
         onSaveScope={async () => {
           try {
-            await saveScope.mutateAsync();
+            await saveScope.mutateAsync(scopeDraft.trim());
             return true;
           } catch {
             return false;
@@ -192,13 +204,25 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         onUpdated={invalidate}
         onRemoveLineItem={(lineItemId) => removeLineItem.mutate(lineItemId)}
         removeLineItemPending={removeLineItem.isPending}
-        onFinalize={() => finalize.mutate()}
-        finalizePending={finalize.isPending}
+        onFinalize={() => { if (!saveScope.isPending && scopeDraft.trim() === persistedScope.trim()) finalize.mutate(); }}
+        finalizePending={finalize.isPending || saveScope.isPending}
         finalizeError={finalize.isError ? (finalize.error instanceof Error ? finalize.error.message : "Unable to finalize estimate. Review the items and try again.") : null}
       />
 
       <div className="hidden gap-5 lg:grid xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.8fr)]">
         <div className="space-y-5">
+          <EstimateScopeEditor
+            value={scopeDraft}
+            onChange={(value) => { saveScope.reset(); setScopeDraft(value); }}
+            onSave={async () => {
+              try { await saveScope.mutateAsync(scopeDraft.trim()); return true; }
+              catch { return false; }
+            }}
+            isDraft={isDraft}
+            pending={saveScope.isPending}
+            saved={saveScope.isSuccess && scopeDraft.trim() === persistedScope.trim()}
+            error={saveScope.isError ? (saveScope.error instanceof Error ? saveScope.error.message : "Unable to save scope.") : null}
+          />
           <Card className="rounded-none border-x-0 border-border/70 bg-transparent shadow-none">
             <CardHeader className="space-y-2">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -236,7 +260,8 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
           {isDraft && (
             <div className="flex flex-col items-end gap-2">
               {finalize.isError ? <p role="alert" className="w-full rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Finalization failed. {finalize.error instanceof Error ? finalize.error.message : "Review the estimate and try again."} Your saved draft remains available.</p> : null}
-              <Button onClick={() => finalize.mutate()} disabled={finalize.isPending || estimate.lineItems.length === 0}>
+              {scopeDraft.trim() !== persistedScope.trim() ? <p className="text-sm text-warning" role="status">Save scope before finalizing this estimate.</p> : null}
+              <Button onClick={() => finalize.mutate()} disabled={finalize.isPending || saveScope.isPending || scopeDraft.trim() !== persistedScope.trim() || estimate.lineItems.length === 0}>
                 {finalize.isPending ? "Finalizing…" : finalize.isError ? "Retry finalization" : "Finalize estimate"}
               </Button>
             </div>
@@ -270,6 +295,47 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         </div>
       </div>
     </div>
+  );
+}
+
+/** One scope owner for desktop and mobile; both share the same parent draft/save state. */
+function EstimateScopeEditor({ value, onChange, onSave, isDraft, pending, saved, error }: {
+  value: string;
+  onChange: (value: string) => void;
+  onSave: () => Promise<boolean>;
+  isDraft: boolean;
+  pending: boolean;
+  saved: boolean;
+  error: string | null;
+}) {
+  const inputId = useId();
+  const helpId = `${inputId}-help`;
+  const errorId = `${inputId}-error`;
+  return (
+    <section className="space-y-3 border-b border-border/70 pb-4" aria-label="Estimate scope editor" aria-busy={pending}>
+      <div className="flex items-center justify-between gap-3">
+        <Label htmlFor={inputId}>Describe the work in your own words</Label>
+        {saved && !pending ? <span role="status" className="text-xs font-medium text-success">Saved</span> : null}
+      </div>
+      <p id={helpId} className="text-sm text-muted-foreground">Save the Project scope here, then review it with Athena. Suggestions are added only with your approval.</p>
+      <Textarea
+        id={inputId}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        rows={5}
+        maxLength={5000}
+        className="min-h-32 resize-none"
+        disabled={!isDraft || pending}
+        aria-label="Estimate scope"
+        aria-describedby={error ? `${helpId} ${errorId}` : helpId}
+        placeholder="Describe what you’re building or fixing…"
+      />
+      <Button type="button" variant="outline" onClick={() => void onSave()} disabled={!isDraft || pending || !value.trim()}>
+        {pending ? "Saving scope…" : "Save scope"}
+      </Button>
+      {!isDraft ? <p className="text-xs text-muted-foreground">Finalized estimates keep their pricing snapshot; duplicate the estimate to revise it.</p> : null}
+      {error ? <p id={errorId} className="text-sm text-destructive" role="alert">{error} Your scope is still in the editor. Try saving again.</p> : null}
+    </section>
   );
 }
 
@@ -366,31 +432,15 @@ function MobileEstimateFlow({
 
       {mobileStage === "scope" ? (
         <div className="space-y-4">
-          <div className="space-y-3 border-b border-border/70 pb-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Plain-language scope</p>
-                <p className="mt-1 text-sm text-muted-foreground">Edit the Project scope here; Athena reviews the same saved scope.</p>
-              </div>
-              {scopeSaveSuccess && !scopeSavePending ? <span className="text-xs font-medium text-success">Saved</span> : null}
-            </div>
-            <Textarea
-              value={simpleScope}
-              onChange={(event) => onScopeChange(event.target.value)}
-              rows={5}
-              maxLength={5000}
-              disabled={!isDraft || scopeSavePending}
-              aria-label="Estimate scope"
-              placeholder="Describe what you’re building or fixing…"
-            />
-            <div className="flex items-center gap-3">
-              <Button type="button" variant="outline" onClick={() => void onSaveScope()} disabled={!isDraft || scopeSavePending || !simpleScope.trim()}>
-                {scopeSavePending ? "Saving scope…" : "Save scope"}
-              </Button>
-              {!isDraft ? <span className="text-xs text-muted-foreground">Finalized estimates keep their pricing snapshot; duplicate the estimate to revise it.</span> : null}
-            </div>
-            {scopeSaveError ? <p className="text-sm text-destructive" role="alert">{scopeSaveError}</p> : null}
-          </div>
+          <EstimateScopeEditor
+            value={simpleScope}
+            onChange={onScopeChange}
+            onSave={onSaveScope}
+            isDraft={isDraft}
+            pending={scopeSavePending}
+            saved={scopeSaveSuccess && !scopeDirty}
+            error={scopeSaveError}
+          />
           <ContextualAthenaPanel
             estimateId={estimateId}
             projectId={projectId}
@@ -491,18 +541,7 @@ function MobileEstimateFlow({
 }
 
 function EstimateDirectCostBreakdown({ lineItems }: { lineItems: LineItem[] }) {
-  const categories: Array<{ type: LineItem["costType"]; label: string }> = [
-    { type: "material", label: "Materials" },
-    { type: "labor", label: "Labor" },
-    { type: "equipment", label: "Equipment" },
-    { type: "subcontractor", label: "Subcontractors" },
-    { type: "disposal", label: "Disposal" },
-    { type: "other", label: "Other" },
-  ];
-  // Show only the actual saved lineCost fields; never synthesize a new sell price.
-  const amounts = categories.map(({ type, label }) => ({
-    type, label, rows: lineItems.filter((item) => item.costType === type),
-  }));
+  const amounts = groupSavedDirectCosts(lineItems);
   return (
     <section aria-label="Internal direct cost breakdown" className="space-y-3 rounded-lg border border-border/70 bg-muted/10 p-4">
       <div>
@@ -511,10 +550,10 @@ function EstimateDirectCostBreakdown({ lineItems }: { lineItems: LineItem[] }) {
       </div>
       {lineItems.length === 0 ? <p className="text-sm text-muted-foreground">Add priced items in Items to see the breakdown.</p> : (
         <dl className="space-y-2 text-sm">
-          {amounts.filter((item) => item.rows.length > 0).map((item) => (
+          {amounts.map((item) => (
             <div key={item.type} className="flex items-center justify-between gap-3">
               <dt>{item.label}</dt>
-              <dd className="font-mono tabular-nums">{formatCurrency(item.rows.reduce((sum, row) => sum + row.lineCost, 0))}</dd>
+              <dd className="font-mono tabular-nums">{item.amount === null ? "Unavailable" : formatCurrency(item.amount)}</dd>
             </div>
           ))}
         </dl>
