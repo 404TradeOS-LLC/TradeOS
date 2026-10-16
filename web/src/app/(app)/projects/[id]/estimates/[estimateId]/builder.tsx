@@ -194,6 +194,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         removeLineItemPending={removeLineItem.isPending}
         onFinalize={() => finalize.mutate()}
         finalizePending={finalize.isPending}
+        finalizeError={finalize.isError ? (finalize.error instanceof Error ? finalize.error.message : "Unable to finalize estimate. Review the items and try again.") : null}
       />
 
       <div className="hidden gap-5 lg:grid xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.8fr)]">
@@ -233,9 +234,10 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
           </Card>
 
           {isDraft && (
-            <div className="flex justify-end">
+            <div className="flex flex-col items-end gap-2">
+              {finalize.isError ? <p role="alert" className="w-full rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Finalization failed. {finalize.error instanceof Error ? finalize.error.message : "Review the estimate and try again."} Your saved draft remains available.</p> : null}
               <Button onClick={() => finalize.mutate()} disabled={finalize.isPending || estimate.lineItems.length === 0}>
-                {finalize.isPending ? "Finalizing…" : "Finalize estimate"}
+                {finalize.isPending ? "Finalizing…" : finalize.isError ? "Retry finalization" : "Finalize estimate"}
               </Button>
             </div>
           )}
@@ -250,6 +252,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
             headingId="desktop-contextual-athena-heading"
             onAdded={invalidate}
           />
+          <EstimateDirectCostBreakdown lineItems={estimate.lineItems} />
           <PricingPanel estimateId={estimateId} estimate={estimate} hasTaxableLineItems={estimate.lineItems.some((lineItem) => lineItem.taxable)} pricingModeLabel={pricingModeLabel} isDraft={isDraft} onUpdated={invalidate} />
 
           <Card className="border-border/70">
@@ -260,7 +263,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
             <CardContent className="space-y-2 text-sm">
               <ShortcutRow keys="⌘ / Ctrl + K" label="Focus search" />
               <ShortcutRow keys="↑ / ↓" label="Move through search results" />
-              <ShortcutRow keys="Enter" label="Add the highlighted item" />
+              <ShortcutRow keys="Enter" label="Select item to review" />
               <ShortcutRow keys="Esc" label="Clear the current search" />
             </CardContent>
           </Card>
@@ -293,6 +296,7 @@ function MobileEstimateFlow({
   removeLineItemPending,
   onFinalize,
   finalizePending,
+  finalizeError,
 }: {
   projectId: string;
   projectName: string;
@@ -314,6 +318,7 @@ function MobileEstimateFlow({
   removeLineItemPending: boolean;
   onFinalize: () => void;
   finalizePending: boolean;
+  finalizeError: string | null;
 }) {
   const stages: Array<{ id: MobileEstimateStage; label: string }> = [
     { id: "scope", label: "Scope" },
@@ -427,6 +432,7 @@ function MobileEstimateFlow({
 
       {mobileStage === "price" ? (
         <div className="space-y-4">
+          <EstimateDirectCostBreakdown lineItems={estimate.lineItems} />
           <PricingPanel
             estimateId={estimateId}
             estimate={estimate}
@@ -444,7 +450,7 @@ function MobileEstimateFlow({
           <div className="border-b border-border/70 pb-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Customer-facing review</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Internal estimate review</p>
                 <h2 className="mt-2 text-xl font-semibold text-foreground">{projectName}</h2>
               </div>
               <StatusBadge status={estimate.status} />
@@ -452,6 +458,7 @@ function MobileEstimateFlow({
             <p className="mt-3 text-sm text-muted-foreground">{simpleScope?.trim() || "Estimate scope"}</p>
           </div>
           <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">Internal line costs below are not a customer proposal. The customer-facing amount is the saved sell total.</p>
             {estimate.lineItems.map((lineItem) => (
               <div key={lineItem.id} className="flex items-start justify-between gap-4 border-b border-border/60 pb-3 text-sm">
                 <span className="min-w-0">{lineItem.description} <span className="text-muted-foreground">× {lineItem.quantity}</span></span>
@@ -468,16 +475,50 @@ function MobileEstimateFlow({
           </div>
           {isDraft ? (
             <>
-              <p className="text-sm text-muted-foreground">Finalizing locks this reviewed estimate version. The next step is creating the customer proposal.</p>
-              <MobileStageAction label={finalizePending ? "Finalizing…" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
+              <p className="text-sm text-muted-foreground">Finalizing locks this reviewed estimate version. The next step is creating the customer proposal. Nothing is sent to the customer by finalizing.</p>
+              {finalizeError ? <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Finalization failed. {finalizeError} Your saved draft remains available. Retry when ready.</p> : null}
+              <MobileStageAction label={finalizePending ? "Finalizing…" : finalizeError ? "Retry finalization" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
             </>
           ) : (
             <Link href={`/projects/${estimate.projectId}/proposals/new?estimateId=${estimateId}`} className={buttonVariants({ variant: "default" }) + " flex min-h-11 w-full items-center justify-center"}>
-              Create proposal
+              Review proposal draft
             </Link>
           )}
         </div>
       ) : null}
+    </section>
+  );
+}
+
+function EstimateDirectCostBreakdown({ lineItems }: { lineItems: LineItem[] }) {
+  const categories: Array<{ type: LineItem["costType"]; label: string }> = [
+    { type: "material", label: "Materials" },
+    { type: "labor", label: "Labor" },
+    { type: "equipment", label: "Equipment" },
+    { type: "subcontractor", label: "Subcontractors" },
+    { type: "disposal", label: "Disposal" },
+    { type: "other", label: "Other" },
+  ];
+  // Show only the actual saved lineCost fields; never synthesize a new sell price.
+  const amounts = categories.map(({ type, label }) => ({
+    type, label, rows: lineItems.filter((item) => item.costType === type),
+  }));
+  return (
+    <section aria-label="Internal direct cost breakdown" className="space-y-3 rounded-lg border border-border/70 bg-muted/10 p-4">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Internal direct costs</h3>
+        <p className="mt-1 text-xs text-muted-foreground">Saved line costs by type, excluding markup, overhead and tax. Not a customer proposal.</p>
+      </div>
+      {lineItems.length === 0 ? <p className="text-sm text-muted-foreground">Add priced items in Items to see the breakdown.</p> : (
+        <dl className="space-y-2 text-sm">
+          {amounts.filter((item) => item.rows.length > 0).map((item) => (
+            <div key={item.type} className="flex items-center justify-between gap-3">
+              <dt>{item.label}</dt>
+              <dd className="font-mono tabular-nums">{formatCurrency(item.rows.reduce((sum, row) => sum + row.lineCost, 0))}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
     </section>
   );
 }

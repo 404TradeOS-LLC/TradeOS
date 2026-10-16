@@ -11,6 +11,15 @@ related_docs:
 ---
 
 
+## Estimate Price → Review → Copperline parity — current 2026-10-15
+
+- Sprint: NONE; founder-authorized bounded Figma-to-code completion from `main` `51ecb15c7864e193656dd31bd96fb5641dd7c29c`; branch `fix/estimate-price-review-copperline-handoff-20261015`.
+- Preflight: source code and current docs inspected; recent Figma prototypes edited in place; no overlapping open estimate finalization/proposal-review PR. Last merged estimate Add safety #746 is preserved.
+- Scope: `EstimateBuilder` saved type breakdown, internal-cost labeling, explicit failure/retry for the existing finalize mutation, separate proposal-draft link, source regression tests and owned docs.
+- Excluded: Estimate Engine, Costbook price writes, RLS/tenant/auth, supplier proofs, public proposal acceptance, PDF redesign, proposal server action, payment/deposit, schema/migration, production deployment.
+- Required verification: focused Web unit/lint/build, App integration, docs consistency/governance, head currency and review. Authenticated browser screenshots and persisted finalize-to-proposal lifecycle proof remain pending.
+- Next five TODOs: (1) resolve exact-head CI; (2) resolve review findings; (3) check mobile/desktop keyboard and errors on Preview; (4) test finalized Estimate to Proposal Draft and creation with role/tenant denial; (5) merge after governed gates, reconcile main and separately certify host delivery.
+
 ## Estimate Costbook selection and preview guard — 2026-10-15
 
 - Sprint ID: NONE; bounded founder-requested Figma-to-code fix from `main` `049ff512470e1997edf5afcdc8a9ff9cdca76a76`.

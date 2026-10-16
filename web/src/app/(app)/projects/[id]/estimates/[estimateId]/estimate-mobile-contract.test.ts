@@ -122,6 +122,42 @@ test("selected Costbook items resolve source cost for review before a persisted 
   assert.match(builder, /if \(!previewReady\) throw new Error/);
 });
 
+
+test("Price groups only persisted line costs and keeps customer sell total separate", async () => {
+  const builder = await readSource("./builder.tsx");
+  assert.equal(builder.split("<EstimateDirectCostBreakdown lineItems={estimate.lineItems} />").length - 1, 2);
+  assert.match(builder, /aria-label="Internal direct cost breakdown"/);
+  assert.match(builder, /item\.rows\.reduce\(\(sum, row\) => sum \+ row\.lineCost, 0\)/);
+  assert.match(builder, /excluding markup, overhead and tax\. Not a customer proposal/);
+  assert.match(builder, /formatCurrency\(runningTotals\.totalPrice\)/);
+  assert.match(builder, /Internal estimate review/);
+  assert.doesNotMatch(builder, /Customer-facing review/);
+});
+
+test("failed finalization preserves the saved estimate and offers a retry without inventing success", async () => {
+  const builder = await readSource("./builder.tsx");
+  assert.match(builder, /method: "POST"/);
+  assert.match(builder, /\/estimates\/\$\{estimateId\}\/finalize/);
+  assert.match(builder, /finalizeError=\{finalize\.isError/);
+  assert.match(builder, /finalizeError: string \| null/);
+  assert.match(builder, /Finalization failed\. \{finalizeError\}/);
+  assert.match(builder, /finalize\.error instanceof Error/);
+  assert.match(builder, /Retry finalization/);
+  assert.match(builder, /Your saved draft remains available/);
+  assert.match(builder, /role="alert"/);
+});
+
+test("proposal handoff follows backend-finalized state and does not send on review", async () => {
+  const builder = await readSource("./builder.tsx");
+  const proposalForm = await readSource("../../proposals/new/form.tsx");
+  assert.match(builder, /isDraft \? \(/);
+  assert.match(builder, /Finalizing locks this reviewed estimate version/);
+  assert.match(builder, /Nothing is sent to the customer by finalizing/);
+  assert.match(builder, /Review proposal draft/);
+  assert.match(builder, /proposals\/new\?estimateId=/);
+  assert.match(proposalForm, /state\?\.error/);
+  assert.match(proposalForm, /isPending \? "Creating…" : "Create proposal"/);
+});
 test("Athena stays review-first and Review preserves finalize-before-proposal lifecycle", async () => {
   const builder = await readSource("./builder.tsx");
   const assistPage = await readSource("./assist/page.tsx");

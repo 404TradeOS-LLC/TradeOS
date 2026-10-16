@@ -63,6 +63,12 @@ related_code:
 
 # TradeOS Current State
 
+## Price → Review → Copperline handoff — frontend parity slice 2026-10-15 (PR pending)
+
+The current Estimate Workspace remains a four-stage mobile experience and a continuous desktop workbench. The bounded `fix/estimate-price-review-copperline-handoff-20261015` UI branch adds a read-only direct-cost breakdown from the persisted EstimateLineItem `lineCost` values grouped by recorded type, distinctly labeled internal and excluding overhead/markup/tax. The saved Estimate `totalPrice`, not this grouping, remains the only shown customer total. The Review stage labels individual line costs internal, explicitly states that Finalize does not send to customers, and shows inline failed-finalization detail with a retry using the existing `POST /estimates/:id/finalize` mutation; the saved draft stays available on failure. After backend status becomes non-draft, the contractor moves to the existing proposal draft form, which already surfaces creation errors and requires explicit Create.
+
+Canonical Figma frames 432:26604 (desktop Price), 432:26746 (warnings), 432:27891 (mobile Price), 432:27999 (mobile Review), and Copperline 425:45123 / 425:46807 were reconciled in place. Mockup prices/dates remain examples. Public customer proposal acceptance is still **TARGET only**, not implemented by this slice. No proposal acceptance, backend pricing/repricing, tenant/RLS, schema, tax computation, or contract/payment mutation is introduced. Browser/hosted lifecycle certification and real provider-price trust remain separate evidence gates.
+
 ## ABC catalog no-refetch product disclosure — 2026-10-15 pending CI
 
 Production's catalog route now returns ABC sandbox products, but its default 25-product page can spend seconds waiting for the upstream provider (one observed page took ~29 seconds), and some concurrent request-scoped auth sessions fail with Prisma connection pool timeout (connection limit 1, timeout 10s). This supersedes PR #745's product-card navigation: that previous approach made a second catalog request for its details screen. This could hit the same connection bottleneck and did not establish a reliable production click-through.
