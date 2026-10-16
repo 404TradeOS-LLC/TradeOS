@@ -348,7 +348,7 @@ function EstimateStageFlow({
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)]">
         <div className="min-w-0 bg-card px-4 py-6 sm:px-6">
-          <div hidden={activeStage !== "scope"} className="space-y-4">
+          <div hidden={activeStage !== "scope"} className="space-y-4 pb-24 lg:pb-0">
             <h2 className="font-heading text-xl font-medium">Start with the work.</h2>
             <EstimateScopeEditor
               value={simpleScope}
@@ -365,7 +365,7 @@ function EstimateStageFlow({
             <EstimateStageAction label={scopeSavePending ? "Saving scope…" : "Continue to items"} onClick={advance} disabled={scopeSavePending} />
           </div>
 
-          <div hidden={activeStage !== "items"} className="space-y-4">
+          <div hidden={activeStage !== "items"} className="space-y-4 pb-24 lg:pb-0">
             <div>
               <h2 className="font-heading text-xl font-medium">Estimate items</h2>
               <p className="mt-1 text-sm text-muted-foreground">{estimate.lineItems.length} saved lines · review sources, quantities and costs before pricing.</p>
@@ -398,7 +398,7 @@ function EstimateStageFlow({
             <EstimateStageAction label="Continue to price" onClick={advance} />
           </div>
 
-          <div hidden={activeStage !== "price"} className="space-y-4">
+          <div hidden={activeStage !== "price"} className="space-y-4 pb-24 lg:pb-0">
             <h2 className="font-heading text-xl font-medium">Price the work</h2>
             <p className="text-sm text-muted-foreground">Use Apply or Save overhead / tax to save pricing changes. Review uses the saved estimate total.</p>
             <EstimateDirectCostBreakdown lineItems={estimate.lineItems} />
