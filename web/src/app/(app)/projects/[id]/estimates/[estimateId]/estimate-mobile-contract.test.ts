@@ -175,7 +175,13 @@ test("failed finalization preserves the saved estimate and offers a retry withou
   assert.match(builder, /\/estimates\/\$\{estimateId\}\/finalize/);
   assert.match(builder, /finalizeError=\{finalize\.isError/);
   assert.match(builder, /finalizeError: string \| null/);
-  assert.match(builder, /Finalization failed\. \{finalizeError\}/);
+  assert.match(builder, /EstimateFinalizationError message=\{finalizeError\}/);
+  assert.match(builder, /Finalization failed\. \{message\}/);
+  assert.match(builder, /ref=\{noticeRef\}/);
+  assert.match(builder, /notice\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(builder, /notice\.scrollIntoView\(\{ block: "center", behavior: "instant" \}\)/);
+  assert.match(builder, /getClientRects\(\)\.length === 0/);
+  assert.match(builder, /tabIndex=\{-1\}/);
   assert.match(builder, /finalize\.error instanceof Error/);
   assert.match(builder, /Retry finalization/);
   assert.match(builder, /Your saved draft remains available/);
