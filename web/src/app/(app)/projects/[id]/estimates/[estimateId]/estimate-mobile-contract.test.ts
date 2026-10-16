@@ -140,7 +140,7 @@ test("failed finalization preserves the saved estimate and offers a retry withou
   assert.match(builder, /\/estimates\/\$\{estimateId\}\/finalize/);
   assert.match(builder, /finalizeError=\{finalize\.isError/);
   assert.match(builder, /finalizeError: string \| null/);
-  assert.match(builder, /Finalization failed\. \{finalizeError\}/);
+  assert.match(builder, /Finalization failed\. \{message\}/);
   assert.match(builder, /finalize\.error instanceof Error/);
   assert.match(builder, /Retry finalization/);
   assert.match(builder, /Your saved draft remains available/);

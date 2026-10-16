@@ -10,6 +10,19 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Current estimate recovery checkpoint — 2026-10-16
+
+- Repository: `404TradeOS-LLC/TradeOS`; main `4f4adf7d27d7b4ac7e8a6ba9133ea47c1e206a71`. Sprint ID NONE. NEW_WORK_REQUIRED after current main, open/draft/recent closed PR and branch reconciliation: #749/#750 are merged; open #744/#702/#700 do not own this defect. #731 was closed without merge by BillyKShowalter; its branch is preserved, not reopened or replaced.
+- Branch: `fix/estimate-review-error-recovery-20261016`, isolated worktree. Main's unrelated modified `docs/design/admin-shell-concept.png` is untouched. Allowed: existing estimate builder/contract test, focused Playwright recovery spec and owned Current State/estimating/ledger/handoff docs. Excluded: backend, authorization/RLS, schema, financial calculations, supplier integrations and infrastructure.
+- Root cause reproduced using the real builder with explicitly synthetic local API fixtures: at 390 px the failed-finalization alert occupied y=769–855 in an 844 px viewport beneath fixed controls; no width focused the alert. Both responsive layouts remain mounted. The shared notice now focuses/centers only its visible instance, immediately without animated scrolling; the next Tab reaches retry.
+- Figma checkpoint: live context/screenshot `447:20420` (Estimates `4:10`, Mobile Review / Needs Attention), whose issue surface sits above sticky task and Control Dock. Preserve existing capability/lifecycle boundaries; this does not implement its unsupported scripted checklist.
+- Browser: focused recovery regression passed 4/4 at 390/768/1024/1440, two identical failures, pending state, visible focused alert, keyboard retry, no overflow or false proposal handoff. Isolated synthetic fixture evidence only, not authenticated API/RLS/persistence or full visual parity. Temporary fixture route/config removed. Opt-in committed test accepts `TRADEOS_ESTIMATE_RECOVERY_PATH` and optional authenticated `TRADEOS_ESTIMATE_RECOVERY_STATE` on the existing safe non-production target; finalization requests are intercepted and never sent to the backend.
+- Delivery reconciliation: #749 merge `7a9d965a`, Vercel production READY `dpl_HtrJucc4Wr9mHenH3r6YgN2xHmex`; #750 merge `4f4adf7d`, production READY `dpl_E7BFWmDbQqVh2nRBmq6arXsxjh1V`. Exact-source host evidence only, not signed-in workflow certification. Current recovery branch remains local pending checks/PR; final-head delivery belongs to its PR and next checkpoint.
+- Next five actions: finish recovery checks and publish focused PR; reconcile required CI/review and merge normally; verify exact merged deployment; run authenticated scope/save/reload and denied/failed finalize on sanitized Preview; exercise persisted finalized Estimate → separate proposal draft before choosing the next ledger gap.
+
+Earlier entries below are historical checkpoints and may describe branches that have since merged or closed.
+
+
 
 ## Active Universal Create presentation repair — 2026-10-16
 
@@ -367,3 +380,5 @@ Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit 
 Dependencies: S051 — DONE through merged PR #538.
 Overlap check: after the readiness PR merges, create exactly one isolated S073 implementation branch. Do not reopen or duplicate S052/S053/S064/S066/S067 lanes.
 Startup prompt: Execute S073 from current `main` using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`: build the release-critical S052-S060 resource/policy matrix, add missing live PostgreSQL same-org/cross-org and narrower-scope evidence, validate the matrix deterministically, and stop on any protected RLS/migration/auth/permission gap rather than widening policy inside S073.
+
+Local recovery validation: Web 504/504 tests, lint, TypeScript and production build pass; root preflight/docs consistency, 149 governance and 40 documentation tests pass. Four recovery browser cases executed successfully with isolated synthetic fixtures. Hosted required CI/review/merge/deployment remain pending for this branch.

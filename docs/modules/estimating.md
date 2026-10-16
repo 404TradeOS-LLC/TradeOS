@@ -149,3 +149,10 @@ Contextual Athena stores the project/estimate/scope snapshot associated with its
 The existing builder owns both responsive scope editors through one parent draft/save state and a shared editor. Desktop users can now edit the same Project `simpleScope` used by contextual Athena. Save success binds to the submitted value rather than the latest render. Failed saves retain input; finalized estimates stay read-only. No browser-local draft persistence is claimed.
 
 The Price breakdown groups saved `lineCost` snapshots by persisted cost type and does not multiply current source costs, apply markup, or alter server totals. Invalid amounts display Unavailable. Mobile Review labels direct costs and margin as internal, then links to the separate proposal form after backend finalization. Finalization failures expose retry; uncertain deletion exposes refresh before another attempt. Supplier quotes, Estimate snapshots and lifecycle permissions are unchanged.
+
+
+### Accessible finalization recovery (2026-10-16)
+
+A failed finalize focuses and immediately centers the visible error notice above mobile fixed task/dock controls. The hidden responsive copy cannot take focus. Tab reaches the existing retry action; a repeated identical failure restores the notice again. This leaves backend draft/finalized lifecycle, saved snapshots, authorization and proposal creation unchanged.
+
+`tests/playwright/estimate-recovery.spec.ts` is an opt-in, non-production browser regression for a saved draft with items. Set `TRADEOS_ESTIMATE_RECOVERY_PATH`, optional `TRADEOS_ESTIMATE_RECOVERY_STATE`, and the existing guarded Playwright target configuration. The test intercepts finalization with a 503 instead of mutating records, then checks focus, visibility, keyboard retry, pending state and absence of a false proposal handoff at 390/768/1024/1440. Local execution used explicitly synthetic isolated fixtures; this is not authenticated persistence or RLS evidence.

@@ -259,7 +259,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
 
           {isDraft && (
             <div className="flex flex-col items-end gap-2">
-              {finalize.isError ? <p role="alert" className="w-full rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Finalization failed. {finalize.error instanceof Error ? finalize.error.message : "Review the estimate and try again."} Your saved draft remains available.</p> : null}
+              {finalize.isError ? <EstimateFinalizationError message={finalize.error instanceof Error ? finalize.error.message : "Review the estimate and try again."} /> : null}
               {scopeDraft.trim() !== persistedScope.trim() ? <p className="text-sm text-warning" role="status">Save scope before finalizing this estimate.</p> : null}
               <Button onClick={() => finalize.mutate()} disabled={finalize.isPending || saveScope.isPending || scopeDraft.trim() !== persistedScope.trim() || estimate.lineItems.length === 0}>
                 {finalize.isPending ? "Finalizing…" : finalize.isError ? "Retry finalization" : "Finalize estimate"}
@@ -526,7 +526,7 @@ function MobileEstimateFlow({
           {isDraft ? (
             <>
               <p className="text-sm text-muted-foreground">Finalizing locks this reviewed estimate version. The next step is creating the customer proposal. Nothing is sent to the customer by finalizing.</p>
-              {finalizeError ? <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Finalization failed. {finalizeError} Your saved draft remains available. Retry when ready.</p> : null}
+              {finalizeError ? <EstimateFinalizationError message={finalizeError} /> : null}
               <MobileStageAction label={finalizePending ? "Finalizing…" : finalizeError ? "Retry finalization" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
             </>
           ) : (
@@ -559,6 +559,25 @@ function EstimateDirectCostBreakdown({ lineItems }: { lineItems: LineItem[] }) {
         </dl>
       )}
     </section>
+  );
+}
+
+function EstimateFinalizationError({ message }: { message: string }) {
+  const noticeRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    const notice = noticeRef.current;
+    // Both responsive layouts are mounted. Only the visible notice may take
+    // focus, or the hidden desktop copy would steal mobile recovery focus.
+    if (!notice || notice.getClientRects().length === 0) return;
+    notice.focus({ preventScroll: true });
+    notice.scrollIntoView({ block: "center", behavior: "instant" });
+  }, [message]);
+
+  return (
+    <p ref={noticeRef} role="alert" tabIndex={-1} className="w-full scroll-mb-44 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+      Finalization failed. {message} Your saved draft remains available. Retry when ready.
+    </p>
   );
 }
 

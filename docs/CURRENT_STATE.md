@@ -61,6 +61,15 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Estimate finalization recovery — 2026-10-16
+
+Main `4f4adf7d` includes #749 (shared desktop/mobile scope, saved direct-cost grouping and delete recovery) and #750 (role-aware Create presentation). #731 onboarding is closed without merge; do not count its preserved branch as delivered.
+
+The focused recovery continuation brings failed-finalization notices into view and keyboard focus in the existing builder. Only the visible responsive instance may focus; the next Tab reaches Retry finalization. Failure retains the saved draft and proposal creation still follows confirmed backend finalization. No financial, authorization, RLS or API policy changes.
+
+The actual builder reproduced the 390 px error beneath fixed controls before repair. A four-width isolated synthetic browser matrix passes repeated failure, pending, focused/unobscured notice, keyboard retry and no false proposal handoff. Authenticated API persistence, tenant-negative and production functionality are not certified by these tests. Exact-head CI/merge/deployment status is recorded in the focused PR and session handoff.
+
+
 # TradeOS Current State
 
 ## Universal Create access — proposed 2026-10-13
