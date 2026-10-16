@@ -149,7 +149,7 @@ test("failed finalization preserves the saved estimate and offers a retry withou
 
 test("proposal handoff follows backend-finalized state and does not send on review", async () => {
   const builder = await readSource("./builder.tsx");
-  const proposalForm = await readSource("../../../proposals/new/form.tsx");
+  const proposalForm = await readSource("../../proposals/new/form.tsx");
   assert.match(builder, /isDraft \? \(/);
   assert.match(builder, /Finalizing locks this reviewed estimate version/);
   assert.match(builder, /Nothing is sent to the customer by finalizing/);
