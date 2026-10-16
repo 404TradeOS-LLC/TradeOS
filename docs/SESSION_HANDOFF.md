@@ -11,6 +11,16 @@ related_docs:
 ---
 
 
+## Active finalization recovery focus — 2026-10-16
+
+- Founder-directed P0 continuation; base main `5469bfe276b253fd31310bfa75ba83acf618e74c` (#755 merged). Separate prior PR #751 closed **without merge** by owner; do not reopen, dismiss its review, or copy its outdated two-layout implementation.
+- Branch `fix/estimate-finalization-error-focus-20261016`. Existing shared Review stage only; repair visible error focus/scroll then keyboard Retry without touching server finalization, Costbook, money calculations, proposal, authorization, database, payments or production environment.
+- Shared Review rendering now uses one `EstimateFinalizationError` notice for an actual failed finalize; focus is prevented for hidden stage content. Existing state guards require server confirmation before proposal.
+- Verification: Web test/lint/build, App integration and governed PR CI/review pending. Authenticated non-production failed-finalize / focus / retry across 390/768/1024/1440 remains a release gate.
+- Other priority state: #756 Beta evidence runner merged, #755 responsive UI merged and Vercel source READY; staging Supabase restore is ACTIVE_HEALTHY but Vercel Preview environment metadata GET returned 403, so tenant data-plane isolation remains **UNPROVEN** and full mutating Beta Evidence must not run.
+- Next five TODOs: (1) exact-head CI/review this focus slice; (2) merge normally if allowed, verify main and deployed source; (3) obtain Vercel Preview environment attestation without revealing secrets; (4) deploy approved exact-SHA RC against verified nonproduction staging; (5) run four-width authenticated Estimate → Proposal persistence and foreign-tenant denial with sanitized artifacts.
+
+
 ## Active Estimate → Proposal evidence parity — 2026-10-16
 
 - Classification: NEW_WORK_REQUIRED in canonical Beta Evidence script, no overlap with existing #755 responsive UI or #751 recovery branch. Base main `9769dacfdb8beb69f0acbd40e1e8465affdee925`, branch `test/estimate-proposal-evidence-parity-20261016`; sprint NONE, non-production certification instrumentation only.
