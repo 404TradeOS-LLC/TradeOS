@@ -10,6 +10,14 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Evidence locator parity after responsive Estimate merge — 2026-10-16
+
+- Base main `5469bfe276b253fd31310bfa75ba83acf618e74c` (#755 merged), branch `test/beta-estimate-proposal-review-link-20261016`, sprint NONE. Existing main evidence runner #756 already verifies saved Estimate and Proposal fixed totals; this repair makes the final Review-stage proposal link unique under strict Playwright mode.
+- Allowed: evidence script, source regression and owned documentation only; no production deploy or data mutation, auth/RLS/tenant/financial code, migration or provider integration.
+- No verified full Beta Evidence run: the dedicated nonproduction TradeOS Staging Supabase project is INACTIVE, newest staging Vercel attempt CANCELED, and deployment/data-plane isolation for the latest SHA has not been proven. Do not run against production.
+- PR #751 has been closed **without merge**, so do not claim its enhanced focus-recovery logic shipped. It remains historical/unfinished work.
+- Next five TODOs: pass exact-head evidence test and governance CI; protected merge without bypass; verify main and targeted evidence script version; restore and certify isolated staging with owner authorization if any cost/credential changes are needed; then perform authenticated four-width estimate-to-proposal plus role/tenant-negative checks and retain sanitized artifacts.
+
 
 ## Active Estimate → Proposal evidence parity — 2026-10-16
 
