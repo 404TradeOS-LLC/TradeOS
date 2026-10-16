@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { createProposalAction } from "@/app/actions/proposals";
 import { PaymentScheduleFields } from "@/components/proposals/payment-schedule-fields";
 import { SummaryMetricCard } from "@/components/shared/summary-metric-card";
@@ -24,6 +24,12 @@ export function NewProposalForm({
   initialEstimateId?: string;
 }) {
   const [state, formAction, isPending] = useActionState(createProposalAction, undefined);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (!state?.error) return;
+    errorRef.current?.focus({ preventScroll: true });
+    errorRef.current?.scrollIntoView({ block: "center", behavior: "instant" });
+  }, [state]);
   const eligibleEstimates = estimates.filter((estimate) => estimate.status !== "draft");
   const hasEstimates = eligibleEstimates.length > 0;
   const [selectedEstimateId, setSelectedEstimateId] = useState(initialEstimateId ?? "");
@@ -35,7 +41,13 @@ export function NewProposalForm({
         <CardTitle>Proposal Draft</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="flex flex-col gap-5">
+        <form
+          action={formAction}
+          className="flex flex-col gap-5"
+          // Returned validation/API errors are fulfilled actions, so React
+          // resets uncontrolled fields. Keep edits; successful creation redirects.
+          onReset={(event) => event.preventDefault()}
+        >
           <input type="hidden" name="projectId" value={projectId} />
           <div className="flex flex-col gap-2">
             <Label htmlFor="estimateId">Estimate</Label>
@@ -139,7 +151,7 @@ export function NewProposalForm({
             <Label htmlFor="termsAndConditions">Terms &amp; conditions</Label>
             <Textarea id="termsAndConditions" name="termsAndConditions" rows={4} />
           </div>
-          {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+          {state?.error && <p ref={errorRef} role="alert" tabIndex={-1} className="rounded-sm text-sm text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">{state.error}</p>}
           <Button type="submit" disabled={isPending}>
             {isPending ? "Creating…" : "Create proposal"}
           </Button>

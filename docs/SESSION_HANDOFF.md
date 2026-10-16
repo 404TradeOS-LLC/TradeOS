@@ -10,6 +10,19 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Current proposal retention / blocked recovery checkpoint — 2026-10-16
+
+- Main: `3811e5832c801957604cedb7d1ff1a914d26a8c1` (#752). Vercel production source READY: `dpl_Dk3KsHe5djrEtwvuLZYUSAFpEbfn`. Authenticated proposal persistence remains unverified. #731 remains closed without merge; preserve its branch. Main's unrelated concept PNG is untouched.
+- Estimate recovery #751 final head `87038de0af9cedde1a53f59adffc5ebab9821cec` is current with main; Web/App/integration/Docs all green, all findings repaired/resolved, five isolated browser cases pass. Normal merge returned HTTP 405: one write-access reviewer requesting changes. CodeRabbit declined re-review due OSS rate limit. No dismissal/rules change/bypass. BLOCKED on legitimate formal review disposition; resume the same PR, do not recreate it.
+- NEW_WORK_REQUIRED for independently reproduced proposal input loss; no overlapping PR/branch. Active branch `fix/proposal-retain-failed-input-20261016` from current main; PR #753, runtime revision `f85bcc19afdbb7f5e9ea3b6468a4d36a8a1c1d81`. Reconcile the PR live head/checks before merging or resuming. Sprint ID NONE. Allowed: existing proposal-new form, focused Playwright retention spec, Current State/proposals/ledger/handoff docs. Backend, server action, auth/RLS, schema, financial rules, suppliers, dependencies and infrastructure excluded.
+- Root cause: returned server errors are fulfilled React actions and reset uncontrolled fields. Actual incomplete-payment validation reset company/scope to fixture defaults and erased the milestone. The bounded fix cancels the native form reset (successful create redirects) and focuses the returned error alert. No typed values are persisted to browser storage.
+- Design checkpoint: existing canonical Estimate Review `287:240`, Copperline Review Mobile `361:119` and written canonical design contract. Preserve real failure/retry semantics without activating scripted public actions or redesigning the form.
+- Verification: four executed cases at 390/768/1024/1440, two real server payment-validation failures each, all text/textarea/payment/checkbox/Estimate identity retained, error focus and Tab to submit, no overflow. Explicit synthetic local props, no backend create reached; no authenticated/API-persistence proof. Temporary route/config/cache removed. Local Web 504/504, lint/build/typecheck, governance 149/149, docs 40/40 and preflight/consistency pass. Exact-head hosted CI, formal review and final delivery are tracked by PR #753; this checkpoint does not predeclare its merge.
+- Exact next task: finish retention checks, publish and pass the focused PR; merge normally if eligible. Next five TODOs: complete retention CI/review/merge; verify its exact-source deployment; reconcile #751 formal review when available; repair mobile Scope/Items/Price/Review keyboard semantics while preserving async scope-save gates; verify sanitized authenticated Estimate → proposal persistence and fixed total.
+
+Older entries below are historical and superseded by this checkpoint.
+
+
 ## Active proposal price-basis continuation — 2026-10-16
 
 - NEW_WORK_REQUIRED from main `4f4adf7d`; no overlapping proposal-new price summary in open/recent closed PRs or remote branches. #751 independently owns estimate finalization recovery and is awaiting final-head CI/review. Branch `fix/proposal-selected-estimate-price-20261016`; Sprint ID NONE.
