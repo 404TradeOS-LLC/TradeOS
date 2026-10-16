@@ -138,6 +138,41 @@ async function checkpoint(sequence, name, { optional = false } = {}) {
   }
 }
 
+async function navigateEstimateStage(stage) {
+  const navigation = page.getByRole("navigation", { name: "Estimate stages" });
+  // Older desktop workbenches expose all sections; focused mobile stages do not.
+  if ((await navigation.count()) === 0 || !(await navigation.isVisible())) {
+    assertBusiness("mobile estimate stage navigation exists", viewport.width >= 1024, `Missing at ${viewport.name}px`);
+    return;
+  }
+  const button = navigation.getByRole("button", { name: new RegExp(`\\b${stage}$`) });
+  await button.click();
+  await page.waitForFunction(
+    (label) => Array.from(document.querySelectorAll('nav[aria-label="Estimate stages"] button'))
+      .some((control) => control.textContent?.trim().endsWith(label) &&
+        control.getAttribute("aria-current") === "step"),
+    stage,
+    { timeout: 30_000 },
+  );
+  assertBusiness(
+    `Estimate stage ${stage} becomes current after navigation`,
+    (await button.getAttribute("aria-current")) === "step",
+  );
+}
+
+async function readProposalDetail(proposalId) {
+  const result = await page.evaluate(async (id) => {
+    const response = await fetch(`/api/proxy/proposals/${id}`, { headers: { Accept: "application/json" } });
+    const text = await response.text();
+    let body = null;
+    try { body = text ? JSON.parse(text) : null; } catch { body = null; }
+    return { ok: response.ok, status: response.status, body };
+  }, proposalId);
+  assertBusiness("proposal detail API is readable during evidence capture", result.ok,
+    `GET proposal returned HTTP ${result.status}`);
+  return result.body;
+}
+
 async function readEstimateDetail(estimateId) {
   const result = await page.evaluate(async (id) => {
     const response = await fetch(`/api/proxy/estimates/${id}`, {
@@ -554,8 +589,12 @@ try {
 
   if (scenario === "s053") {
     await runS053Certification(projectId, estimateId);
+    await page.goto(new URL(`/projects/${projectId}/estimates/${estimateId}`, parsedBaseUrl).toString(), {
+      waitUntil: "networkidle", timeout: 60_000,
+    });
   }
 
+  await navigateEstimateStage("Items");
   const custom = page.getByLabel("Custom line item");
   await custom.fill("Remove glued-down linoleum");
   await page.locator("#custom-quantity").fill("850");
@@ -575,9 +614,20 @@ try {
   await page.getByLabel("Taxable", { exact: true }).check();
   await page.getByRole("button", { name: "Add custom" }).click();
   await page.getByText("Flooring material allowance", { exact: true }).waitFor({ timeout: 60_000 });
+  const savedAfterAdd = await readEstimateDetail(estimateId);
+  const laborLine = savedAfterAdd.lineItems.find((line) => line.description === "Remove glued-down linoleum");
+  const materialLine = savedAfterAdd.lineItems.find((line) => line.description === "Flooring material allowance");
+  assertBusiness("saved estimate retains both explicit reviewed work items",
+    Boolean(laborLine && materialLine), "expected both labor and material lines persisted");
+  assertBusiness("saved direct line costs match the authoritative Estimate Engine snapshots",
+    Math.abs(Number(laborLine?.lineCost) - 1062.50) < 0.005 &&
+      Math.abs(Number(materialLine?.lineCost) - 4037.50) < 0.005 &&
+      Math.abs(Number(savedAfterAdd.subtotalCost) - 5100.00) < 0.005,
+    "expected labor 1062.50, material 4037.50, saved subtotal 5100.00");
   await checkpoint("03", "estimate-edit");
 
   // ---- 04 pricing --------------------------------------------------------
+  await navigateEstimateStage("Price");
   await page.getByLabel("Overhead %").fill("10");
   await page.getByLabel("Tax %").fill("7");
   await page.getByRole("button", { name: "Save overhead / tax" }).click();
@@ -588,8 +638,10 @@ try {
 
   // ---- 05 save / reload persistence -------------------------------------
   await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
+  await navigateEstimateStage("Items");
   await page.getByText("Remove glued-down linoleum", { exact: true }).waitFor({ timeout: 60_000 });
   await page.getByText("Flooring material allowance", { exact: true }).waitFor({ timeout: 60_000 });
+  await navigateEstimateStage("Price");
 
   const overheadAfterReload = await page.getByLabel("Overhead %").inputValue();
   const taxAfterReload = await page.getByLabel("Tax %").inputValue();
@@ -620,20 +672,29 @@ try {
     "expected the rendered pre-tax $6,732.00 and total $7,105.07 after markup",
   );
 
+  await navigateEstimateStage("Review");
   await page.getByRole("button", { name: "Finalize estimate" }).click();
   await page.getByText("ready", { exact: true }).waitFor({ timeout: 60_000 });
-  assertions.push({ name: "estimate reaches the finalized state", passed: true });
+  const finalizedEstimate = await readEstimateDetail(estimateId);
+  assertBusiness("Estimate Engine persists finalized status and customer total",
+    finalizedEstimate.status === "ready" &&
+      Math.abs(Number(finalizedEstimate.totalPrice) - 7105.07) < 0.005,
+    `Expected ready / 7105.07, got ${finalizedEstimate.status} / ${finalizedEstimate.totalPrice}`);
   await checkpoint("06", "estimate-finalized");
 
   // ---- 07 proposal value transfer ---------------------------------------
-  await page.getByRole("link", { name: "Create proposal" }).click();
+  await page.getByRole("link", { name: /^(Create proposal|Review proposal draft)$/ }).click();
   await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/new`), { timeout: 60_000 });
   await page.locator("select[name=estimateId]").selectOption(estimateId);
   await page.getByRole("button", { name: "Create proposal" }).click();
   await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/(?!new(?:$|[/?]))[^/?]+$`), { timeout: 60_000 });
   const proposalId = /\/proposals\/([^/?]+)$/.exec(page.url())?.[1];
   assertBusiness("proposal resolves an id", Boolean(proposalId), `url was ${page.url()}`);
-
+  const savedProposal = await readProposalDetail(proposalId);
+  assertBusiness("proposal snapshots selected finalized Estimate identity and exact fixed total",
+    savedProposal.estimateId === estimateId &&
+      Math.abs(Number(savedProposal.finalPrice) - Number(finalizedEstimate.totalPrice)) < 0.005,
+    "expected proposal Estimate id and fixed price to match persisted finalized Estimate");
   const proposalText = await page.locator("body").innerText();
   assertBusiness(
     "proposal carries the finalized estimate value",
