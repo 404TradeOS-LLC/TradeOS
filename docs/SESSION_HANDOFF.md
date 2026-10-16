@@ -22,6 +22,8 @@ related_docs:
 
 Local recovery validation: Web 504/504 tests, lint, TypeScript and production build pass; root preflight/docs consistency, 149 governance and 40 documentation tests pass. Four recovery browser cases executed successfully with isolated synthetic fixtures. Hosted required CI/review/merge/deployment remain pending for this branch.
 
+Review repair: the recovery notice also observes the existing Tailwind lg media query, transfers focus to the visible copy after breakpoint changes, and cleans up its listener. Five isolated browser cases pass: the four widths plus 390 → 1024 → 390, each keeping the next Tab on Retry. No API/authenticated persistence claim.
+
 Earlier entries below are historical checkpoints and may describe branches that have since merged or closed.
 
 

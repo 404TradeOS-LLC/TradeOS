@@ -566,12 +566,18 @@ function EstimateFinalizationError({ message }: { message: string }) {
   const noticeRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
-    const notice = noticeRef.current;
-    // Both responsive layouts are mounted. Only the visible notice may take
-    // focus, or the hidden desktop copy would steal mobile recovery focus.
-    if (!notice || notice.getClientRects().length === 0) return;
-    notice.focus({ preventScroll: true });
-    notice.scrollIntoView({ block: "center", behavior: "instant" });
+    const focusVisibleNotice = () => {
+      const notice = noticeRef.current;
+      // Both responsive layouts are mounted. Only the visible notice may take
+      // focus, including when a breakpoint change hides the focused copy.
+      if (!notice || notice.getClientRects().length === 0) return;
+      notice.focus({ preventScroll: true });
+      notice.scrollIntoView({ block: "center", behavior: "instant" });
+    };
+    const desktop = window.matchMedia("(min-width: 64rem)"); // Tailwind lg
+    focusVisibleNotice();
+    desktop.addEventListener("change", focusVisibleNotice);
+    return () => desktop.removeEventListener("change", focusVisibleNotice);
   }, [message]);
 
   return (

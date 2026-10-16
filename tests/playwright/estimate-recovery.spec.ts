@@ -55,4 +55,24 @@ test.describe('Estimate finalization recovery', () => {
       await expect(page.getByRole('link', { name: 'Review proposal draft', exact: true })).toHaveCount(0);
     });
   }
+
+  test('keeps the recovery notice focused when crossing the desktop breakpoint', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.route('**/api/proxy/estimates/*/finalize', (route) => route.fulfill({
+      status: 503, json: { error: 'Recovery test: service unavailable.' },
+    }));
+    await page.goto(path!);
+    await page.getByRole('tab', { name: /Review/ }).click();
+    await page.getByRole('button', { name: 'Finalize estimate', exact: true }).click();
+    for (const width of [390, 1024, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      const alert = page.getByRole('alert').filter({ hasText: 'Finalization failed.' });
+      await expect(alert).toBeFocused();
+      const box = await alert.boundingBox();
+      expect(box!.y).toBeGreaterThanOrEqual(0);
+      expect(box!.y + box!.height).toBeLessThan(700);
+      await page.keyboard.press('Tab');
+      await expect(page.getByRole('button', { name: 'Retry finalization', exact: true })).toBeFocused();
+    }
+  });
 });

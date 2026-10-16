@@ -56,3 +56,5 @@ EXISTING_WORK_FOUND on `fix/universal-create-role-options` (`96515786`), reconci
 - Audited group totals remain 5 PARTIALLY IMPLEMENTED and 1 IMPLEMENTED + UNVERIFIED; other statuses 0 within this six-group table. The Create continuation is part of shared components. These are not a whole-file census or product completion percentage. Next: authenticated save/reload, failure/denial and finalization → separate proposal draft evidence before promoting workflow statuses.
 
 Local recovery validation: Web 504/504 tests, lint, TypeScript and production build pass; root preflight/docs consistency, 149 governance and 40 documentation tests pass. Four recovery browser cases executed successfully with isolated synthetic fixtures. Hosted required CI/review/merge/deployment remain pending for this branch.
+
+Review repair: the recovery notice also observes the existing Tailwind lg media query, transfers focus to the visible copy after breakpoint changes, and cleans up its listener. Five isolated browser cases pass: the four widths plus 390 → 1024 → 390, each keeping the next Tab on Retry. No API/authenticated persistence claim.
