@@ -74,6 +74,11 @@ Focused regression coverage lives in `app/tests/estimate-costbook-snapshot.test.
 
 ## Frontend surfaces
 
+### Failed finalization focus recovery (responsive Review)
+
+In the shared Scope / Items / Price / Review frontend, a failed finalize request retains the saved estimate and renders a focused `role="alert"` above the Retry finalization action. The focus handler only acts on a visible error notice and scrolls it toward the center so the fixed mobile action and Control Dock do not cover it. It uses the existing server-finalize mutation and does not imply proposal creation or saved pricing changes on failure. The previous standalone recovery PR #751 was closed unmerged; this is a reduced, current-main implementation for the single responsive Review surface. Source assertions are not hosted authenticated evidence.
+
+
 ### Responsive four-stage workflow (2026-10-16 implementation)
 
 Canonical Figma Desktop Scope/Items/Price/Review `378:440–443` and mobile tracker `381:801` define the same sequence at all widths. Following merged mobile semantics PR #754, the responsive stage branch reuses one existing scope editor, Items picker/edit/delete list, Price panel and internal Review surface. Desktop pairs the active workspace with contextual Athena; mobile keeps the contextual rail in Scope and retains actions above the dock. Desktop stage actions are inline. The existing ordered native buttons expose aria-current="step", Tab/Enter/Space and visible focus at every width.
