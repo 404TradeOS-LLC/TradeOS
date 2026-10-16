@@ -20,6 +20,8 @@ related_docs:
 - Delivery reconciliation: #749 merge `7a9d965a`, Vercel production READY `dpl_HtrJucc4Wr9mHenH3r6YgN2xHmex`; #750 merge `4f4adf7d`, production READY `dpl_E7BFWmDbQqVh2nRBmq6arXsxjh1V`. Exact-source host evidence only, not signed-in workflow certification. Current recovery branch remains local pending checks/PR; final-head delivery belongs to its PR and next checkpoint.
 - Next five actions: finish recovery checks and publish focused PR; reconcile required CI/review and merge normally; verify exact merged deployment; run authenticated scope/save/reload and denied/failed finalize on sanitized Preview; exercise persisted finalized Estimate → separate proposal draft before choosing the next ledger gap.
 
+Local recovery validation: Web 504/504 tests, lint, TypeScript and production build pass; root preflight/docs consistency, 149 governance and 40 documentation tests pass. Four recovery browser cases executed successfully with isolated synthetic fixtures. Hosted required CI/review/merge/deployment remain pending for this branch.
+
 Earlier entries below are historical checkpoints and may describe branches that have since merged or closed.
 
 
@@ -380,5 +382,3 @@ Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit 
 Dependencies: S051 — DONE through merged PR #538.
 Overlap check: after the readiness PR merges, create exactly one isolated S073 implementation branch. Do not reopen or duplicate S052/S053/S064/S066/S067 lanes.
 Startup prompt: Execute S073 from current `main` using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`: build the release-critical S052-S060 resource/policy matrix, add missing live PostgreSQL same-org/cross-org and narrower-scope evidence, validate the matrix deterministically, and stop on any protected RLS/migration/auth/permission gap rather than widening policy inside S073.
-
-Local recovery validation: Web 504/504 tests, lint, TypeScript and production build pass; root preflight/docs consistency, 149 governance and 40 documentation tests pass. Four recovery browser cases executed successfully with isolated synthetic fixtures. Hosted required CI/review/merge/deployment remain pending for this branch.
