@@ -34,6 +34,11 @@ test.describe('Estimate stage navigation', () => {
           await test.info().attach(`${width}-${stage}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
         }
       };
+      const expectStageHeadingFocused = async () => {
+        await expect(page.locator('h2[tabindex="-1"]:visible')).toBeFocused();
+      };
+      await expect(page.locator('h2[tabindex="-1"]:visible')).not.toBeFocused();
+
       const expectNoHorizontalOverflow = async () => {
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       };
@@ -66,6 +71,7 @@ test.describe('Estimate stage navigation', () => {
         }
       }
       await expect(items).toHaveAttribute('aria-current', 'step');
+      await expectStageHeadingFocused();
       await expect(page.getByRole('heading', { name: 'Estimate items', exact: true })).toBeVisible();
       await expect(page.getByRole('textbox', { name: 'Estimate scope', exact: true })).toBeHidden();
       await expectNoHorizontalOverflow();
@@ -77,6 +83,7 @@ test.describe('Estimate stage navigation', () => {
       await expect(price).toBeFocused();
       await page.keyboard.press('Space');
       await expect(price).toHaveAttribute('aria-current', 'step');
+      await expectStageHeadingFocused();
       await expect(page.getByRole('heading', { name: 'Price the work' })).toBeVisible();
       await expectNoHorizontalOverflow();
       await capture('price');
@@ -86,12 +93,14 @@ test.describe('Estimate stage navigation', () => {
       await expect(review).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(review).toHaveAttribute('aria-current', 'step');
+      await expectStageHeadingFocused();
       await expect(page.getByRole('button', { name: 'Finalize estimate', exact: true })).toBeVisible();
       await expectNoHorizontalOverflow();
       await capture('review');
       await page.keyboard.press('Shift+Tab');
       await expect(price).toBeFocused();
       await page.keyboard.press('Enter');
+      await expectStageHeadingFocused();
       await expect(page.getByRole('spinbutton', { name: 'Percentage', exact: true })).toHaveValue('31');
       await page.setViewportSize({ width: width < 1024 ? 1440 : 390, height: 844 });
       await expect(price).toHaveAttribute('aria-current', 'step');
@@ -100,6 +109,7 @@ test.describe('Estimate stage navigation', () => {
       await scope.focus();
       await page.keyboard.press('Enter');
       await expect(scope).toHaveAttribute('aria-current', 'step');
+      await expectStageHeadingFocused();
       await expect(page.getByRole('textbox', { name: 'Estimate scope', exact: true })).toHaveValue(draft);
       await items.click();
       await expect(page.getByRole('textbox', { name: 'Description', exact: true })).toHaveValue('Unsaved isolated line edit');
