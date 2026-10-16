@@ -372,3 +372,8 @@ Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit 
 Dependencies: S051 — DONE through merged PR #538.
 Overlap check: after the readiness PR merges, create exactly one isolated S073 implementation branch. Do not reopen or duplicate S052/S053/S064/S066/S067 lanes.
 Startup prompt: Execute S073 from current `main` using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`: build the release-critical S052-S060 resource/policy matrix, add missing live PostgreSQL same-org/cross-org and narrower-scope evidence, validate the matrix deterministically, and stop on any protected RLS/migration/auth/permission gap rather than widening policy inside S073.
+
+
+## #731 fresh-review repair — 2026-10-16
+
+CodeRabbit's fresh review identified an actionable overly broad Project-failure lock. Repair allows retry only for known typed application 400/401/403/404/409/422/429 rejections, while preserving the lock for network/server/timeout and malformed success. Project/Estimate acknowledgment IDs are validated. Three behavioral regressions failed on previous head `e5de4dab` before repair. Continue final tests, publish to the same PR with an expected-head lease, resolve only the verified thread and request final-head re-review. #750 independently owns Create presentation; it must not be stacked with this onboarding branch.

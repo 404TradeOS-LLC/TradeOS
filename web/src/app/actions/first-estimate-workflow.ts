@@ -5,6 +5,7 @@ type FirstEstimateResult = NonNullable<FirstEstimateState> & { destination?: str
 type ProjectInput = { name: string; simpleScope: string; customerId?: string };
 
 export type FirstEstimateDependencies = {
+  isDefinitiveRejection?: (error: unknown) => boolean;
   getSessionToken: () => Promise<string | null>;
   canCreate: (token: string) => Promise<boolean>;
   createProject: (token: string, input: ProjectInput) => Promise<{ id: string }>;
@@ -52,14 +53,19 @@ export async function runFirstEstimateWorkflow(
     if (simpleScope.length < 12 || simpleScope.length > 10000) return { error: "Describe the work in 12–10,000 characters." };
     try {
       const project = await dependencies.createProject(token, { name, simpleScope, customerId: customerId || undefined });
+      if (typeof project?.id !== "string" || !isSafeProjectId(project.id)) throw new Error("Invalid Project acknowledgment");
       projectId = project.id;
-    } catch {
+    } catch (error) {
+      if (dependencies.isDefinitiveRejection?.(error)) {
+        return { error: "Your project was not saved. Check the job details, customer selection and sign-in, then retry." };
+      }
       return { locked: true, error: "Could not confirm that your project was saved. Check Projects before starting another estimate." };
     }
   }
 
   try {
     const estimate = await dependencies.createEstimate(token, projectId);
+    if (typeof estimate?.id !== "string" || !isSafeProjectId(estimate.id)) throw new Error("Invalid Estimate acknowledgment");
     return { projectId, destination: `/projects/${projectId}/estimates/${estimate.id}` };
   } catch {
     return { projectId, error: "Your project is saved, but the draft estimate could not be confirmed. Retry to reopen the saved project, or continue from its workspace." };

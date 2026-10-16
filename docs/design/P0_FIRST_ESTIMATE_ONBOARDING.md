@@ -50,3 +50,6 @@ Lost initial Project responses without an ID, reload recovery and cross-tab subm
 Review repair: Today CTA, onboarding form and action consult the backend-reported role against canonical `crm.write`. Unknown/failed role reads fail closed; technicians/viewers see restricted feedback. This changes presentation, not backend role policy.
 
 Recovery review hardening: malformed saved references and ambiguous first Project responses carry a non-identifying lock flag. The form disables further submit and preserves inputs, directing the contractor to Projects. Locked-state replay makes no service calls. Reload/cross-tab recovery and real backend idempotency remain unproven.
+
+
+Review recovery refinement (2026-10-16): known application validation/auth/conflict/rate-limit rejections allow an editable retry with controlled input retained. Network errors, server failures, timeouts and malformed successful Project acknowledgments remain locked/ambiguous; they do not trigger another Project POST. The action injects rejection classification into the workflow using the existing typed API error. Successful Project/Estimate IDs are validated before recovery/navigation; malformed Estimate acknowledgments retain the confirmed Project path. Three behavioral regressions fail before this repair and pass after it. No backend idempotency or transaction change is claimed.

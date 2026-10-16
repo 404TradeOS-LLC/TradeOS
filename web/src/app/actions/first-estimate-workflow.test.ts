@@ -113,3 +113,41 @@ test("completed project opens its workspace instead of creating a new revision",
   assert.equal(result.destination, `/projects/${projectId}`);
   assert.deepEqual(calls, []);
 });
+
+test("definitive project rejection retains an editable retry instead of locking", async () => {
+  const { calls, form, dependencies } = fixture();
+  const rejected = new Error("definitive validation rejection");
+  dependencies.isDefinitiveRejection = (error) => error === rejected;
+  dependencies.createProject = async () => { calls.push("rejected-project"); throw rejected; };
+  const result = await runFirstEstimateWorkflow(undefined, form, dependencies);
+  assert.equal(result.locked, undefined);
+  assert.equal(result.projectId, undefined);
+  assert.ok(result.error);
+  dependencies.createProject = async () => { calls.push("project"); return { id: projectId }; };
+  const retry = await runFirstEstimateWorkflow(result, form, dependencies);
+  assert.equal(retry.destination, `/projects/${projectId}/estimates/${estimateId}`);
+  assert.deepEqual(calls, ["rejected-project", "project", "estimate"]);
+});
+
+test("malformed successful Project response locks replay without an Estimate POST", async () => {
+  for (const id of [undefined, "", "../invalid"]) {
+    const { calls, form, dependencies } = fixture();
+    dependencies.createProject = async () => { calls.push("malformed-project"); return { id: id as string }; };
+    const result = await runFirstEstimateWorkflow(undefined, form, dependencies);
+    assert.equal(result.locked, true);
+    assert.equal(result.projectId, undefined);
+    assert.equal(result.destination, undefined);
+    await runFirstEstimateWorkflow(result, form, dependencies);
+    assert.deepEqual(calls, ["malformed-project"]);
+  }
+});
+
+test("malformed Estimate acknowledgment keeps the saved Project recovery", async () => {
+  const { calls, form, dependencies } = fixture();
+  dependencies.createEstimate = async () => { calls.push("malformed-estimate"); return { id: "../invalid" }; };
+  const result = await runFirstEstimateWorkflow(undefined, form, dependencies);
+  assert.equal(result.destination, undefined);
+  assert.equal(result.projectId, projectId);
+  assert.ok(result.error);
+  assert.deepEqual(calls, ["project", "malformed-estimate"]);
+});

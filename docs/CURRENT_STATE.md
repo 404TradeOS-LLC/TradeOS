@@ -63,6 +63,11 @@ related_code:
 
 # TradeOS Current State
 
+## First-estimate definitive rejection recovery — proposed 2026-10-16
+
+PR #731 now distinguishes known application validation/auth/conflict/rate-limit rejections from uncertain save outcomes. Definitive rejection leaves controlled input editable for retry; network/server/timeout failures and malformed Project acknowledgments retain the existing safety lock. A malformed Estimate response retains confirmed Project recovery instead of navigating with an invalid ID. Classification uses the existing typed API error through an injected predicate; no backend, permission, RLS, pricing, migration or idempotency policy changes. Final-head browser/hosted evidence remains separate.
+
+
 ## Price → Review → Copperline handoff — frontend parity slice 2026-10-15 (PR pending)
 
 The current Estimate Workspace remains a four-stage mobile experience and a continuous desktop workbench. The bounded `fix/estimate-price-review-copperline-handoff-20261015` UI branch adds a read-only direct-cost breakdown from the persisted EstimateLineItem `lineCost` values grouped by recorded type, distinctly labeled internal and excluding overhead/markup/tax. The saved Estimate `totalPrice`, not this grouping, remains the only shown customer total. The Review stage labels individual line costs internal, explicitly states that Finalize does not send to customers, and shows inline failed-finalization detail with a retry using the existing `POST /estimates/:id/finalize` mutation; the saved draft stays available on failure. After backend status becomes non-draft, the contractor moves to the existing proposal draft form, which already surfaces creation errors and requires explicit Create.
