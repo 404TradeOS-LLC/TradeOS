@@ -683,7 +683,7 @@ try {
   await checkpoint("06", "estimate-finalized");
 
   // ---- 07 proposal value transfer ---------------------------------------
-  await page.getByRole("link", { name: /^(Create proposal|Review proposal draft)$/ }).click();
+  await page.getByRole("link", { name: "Review proposal draft", exact: true }).click();
   await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/new`), { timeout: 60_000 });
   await page.locator("select[name=estimateId]").selectOption(estimateId);
   await page.getByRole("button", { name: "Create proposal" }).click();
