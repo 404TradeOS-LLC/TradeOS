@@ -73,6 +73,13 @@ Estimate line items preserve the Costbook source and price that existed when the
 Focused regression coverage lives in `app/tests/estimate-costbook-snapshot.test.ts`.
 
 ## Frontend surfaces
+
+### Mobile four-stage step navigation (proposed 2026-10-16)
+
+The mobile Scope / Items / Price / Review tracker is step navigation, not an ARIA tab interface. It uses an ordered list of ordinary buttons, marks the active one aria-current="step", and relies on native Tab, Enter and Space semantics rather than promising roving Arrow focus or tabpanel relationships. Existing minimum 44px tap targets and visible focus are preserved. The existing async scope-save guard keeps failed dirty-scope saves on Scope with draft content intact and blocks other stages while saving. At lg and wider the canonical desktop editing workspace remains visible instead.
+
+No backend lifecycle state, persistent Estimate calculation, permissions or token mechanism changes. Real authenticated keyboard/browser evidence remains a release certification requirement.
+
 ### Explicit Costbook review before Estimate Add (2026-10-15 implementation slice)
 
 The existing Items picker now separates keyboard search selection from a persisted line write. Search Enter selects the active result for review; only the visible Add control performs an Estimate Engine line-item POST. Selected organization Cost Items and installed Assemblies require a resolved, finite, nonnegative read-only current-unit-cost preview before Add is enabled. Failed/loading previews keep Add disabled and show an actionable state instead of inventing a cost. Quantities must be positive; starter recipes still require complete compatible mappings, resolved cost preview, explicit tenant-scoped installation, and a separate explicit Estimate Add. Costbook previews are advisory and may change; persisted Estimate snapshots remain owned by the Estimate Engine. Custom lines still follow the existing explicit input and save path.
