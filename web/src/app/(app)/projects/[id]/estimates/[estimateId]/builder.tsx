@@ -66,7 +66,7 @@ interface AssemblyPreviewData {
 export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null }) {
   const queryClient = useQueryClient();
   const estimateKey = ["estimate", estimateId];
-  const [mobileStage, setMobileStage] = useState<MobileEstimateStage>("scope");
+  const [activeStage, setActiveStage] = useState<EstimateStage>("scope");
   const [scopeDraft, setScopeDraft] = useState(simpleScope ?? "");
   const [persistedScope, setPersistedScope] = useState(simpleScope ?? "");
 
@@ -125,7 +125,6 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
   if (!estimate || !runningTotals) return <p className="text-sm text-muted-foreground">Estimate not found.</p>;
 
   const isDraft = estimate.status === "draft";
-  const pricingModeLabel = estimate.targetMarginPct != null ? "Target margin" : "Markup";
 
   return (
     <div className="flex flex-col gap-4">
@@ -175,7 +174,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         />
       ) : null}
 
-      <MobileEstimateFlow
+      <EstimateStageFlow
         projectId={projectId}
         projectName={projectName}
         simpleScope={scopeDraft}
@@ -199,8 +198,8 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         runningTotals={runningTotals}
         estimateId={estimateId}
         isDraft={isDraft}
-        mobileStage={mobileStage}
-        onStageChange={setMobileStage}
+        activeStage={activeStage}
+        onStageChange={setActiveStage}
         onUpdated={invalidate}
         onRemoveLineItem={(lineItemId) => removeLineItem.mutate(lineItemId)}
         removeLineItemPending={removeLineItem.isPending}
@@ -208,92 +207,6 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         finalizePending={finalize.isPending || saveScope.isPending}
         finalizeError={finalize.isError ? (finalize.error instanceof Error ? finalize.error.message : "Unable to finalize estimate. Review the items and try again.") : null}
       />
-
-      <div className="hidden gap-5 lg:grid xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.8fr)]">
-        <div className="space-y-5">
-          <EstimateScopeEditor
-            value={scopeDraft}
-            onChange={(value) => { saveScope.reset(); setScopeDraft(value); }}
-            onSave={async () => {
-              try { await saveScope.mutateAsync(scopeDraft.trim()); return true; }
-              catch { return false; }
-            }}
-            isDraft={isDraft}
-            pending={saveScope.isPending}
-            saved={saveScope.isSuccess && scopeDraft.trim() === persistedScope.trim()}
-            error={saveScope.isError ? (saveScope.error instanceof Error ? saveScope.error.message : "Unable to save scope.") : null}
-          />
-          <Card className="rounded-none border-x-0 border-border/70 bg-transparent shadow-none">
-            <CardHeader className="space-y-2">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <CardTitle>Line items</CardTitle>
-                  <CardDescription>Use Costbook items where useful, or add a custom labor/material/disposal line for one-off scope.</CardDescription>
-                </div>
-                {isDraft && <Badge variant="outline">{estimate.lineItems.length} saved</Badge>}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4 px-0 sm:px-0">
-              {isDraft && <LineItemPicker estimateId={estimateId} onAdded={invalidate} />}
-
-              {estimate.lineItems.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-8 text-sm text-muted-foreground">
-                  No line items yet. Add an assembly or cost item to start the estimate.
-                </div>
-              ) : (
-                <ul className="divide-y divide-border/70">
-                  {groupLineItems(estimate.lineItems).map(([section, sectionItems]) => (
-                    <li key={section} className="space-y-2">
-                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{section}</div>
-                      <ul className="space-y-0">
-                        {sectionItems.map((li) => (
-                          <EditableLineItem key={li.id} estimateId={estimateId} lineItem={li} isDraft={isDraft} onUpdated={invalidate} onRemove={() => removeLineItem.mutate(li.id)} removing={removeLineItem.isPending} />
-                        ))}
-                      </ul>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-
-          {isDraft && (
-            <div className="flex flex-col items-end gap-2">
-              {finalize.isError ? <p role="alert" className="w-full rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Finalization failed. {finalize.error instanceof Error ? finalize.error.message : "Review the estimate and try again."} Your saved draft remains available.</p> : null}
-              {scopeDraft.trim() !== persistedScope.trim() ? <p className="text-sm text-warning" role="status">Save scope before finalizing this estimate.</p> : null}
-              <Button onClick={() => finalize.mutate()} disabled={finalize.isPending || saveScope.isPending || scopeDraft.trim() !== persistedScope.trim() || estimate.lineItems.length === 0}>
-                {finalize.isPending ? "Finalizing…" : finalize.isError ? "Retry finalization" : "Finalize estimate"}
-              </Button>
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-4 xl:sticky xl:top-20 xl:self-start">
-          <ContextualAthenaPanel
-            estimateId={estimateId}
-            projectId={projectId}
-            scopeOfWork={scopeDraft}
-            isDraft={isDraft}
-            headingId="desktop-contextual-athena-heading"
-            onAdded={invalidate}
-          />
-          <EstimateDirectCostBreakdown lineItems={estimate.lineItems} />
-          <PricingPanel estimateId={estimateId} estimate={estimate} hasTaxableLineItems={estimate.lineItems.some((lineItem) => lineItem.taxable)} pricingModeLabel={pricingModeLabel} isDraft={isDraft} onUpdated={invalidate} />
-
-          <Card className="border-border/70">
-            <CardHeader>
-              <CardTitle>Keyboard shortcuts</CardTitle>
-              <CardDescription>Keep your hands on the keyboard when building the estimate.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <ShortcutRow keys="⌘ / Ctrl + K" label="Focus search" />
-              <ShortcutRow keys="↑ / ↓" label="Move through search results" />
-              <ShortcutRow keys="Enter" label="Select item to review" />
-              <ShortcutRow keys="Esc" label="Clear the current search" />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
     </div>
   );
 }
@@ -339,9 +252,9 @@ function EstimateScopeEditor({ value, onChange, onSave, isDraft, pending, saved,
   );
 }
 
-type MobileEstimateStage = "scope" | "items" | "price" | "review";
+type EstimateStage = "scope" | "items" | "price" | "review";
 
-function MobileEstimateFlow({
+function EstimateStageFlow({
   projectId,
   projectName,
   simpleScope,
@@ -355,7 +268,7 @@ function MobileEstimateFlow({
   runningTotals,
   estimateId,
   isDraft,
-  mobileStage,
+  activeStage,
   onStageChange,
   onUpdated,
   onRemoveLineItem,
@@ -377,8 +290,8 @@ function MobileEstimateFlow({
   runningTotals: { totalPrice: number; marginPct: number; lineItemCount: number };
   estimateId: string;
   isDraft: boolean;
-  mobileStage: MobileEstimateStage;
-  onStageChange: (stage: MobileEstimateStage) => void;
+  activeStage: EstimateStage;
+  onStageChange: (stage: EstimateStage) => void;
   onUpdated: () => void;
   onRemoveLineItem: (lineItemId: string) => void;
   removeLineItemPending: boolean;
@@ -386,20 +299,29 @@ function MobileEstimateFlow({
   finalizePending: boolean;
   finalizeError: string | null;
 }) {
-  const stages: Array<{ id: MobileEstimateStage; label: string }> = [
+  const stages: Array<{ id: EstimateStage; label: string }> = [
     { id: "scope", label: "Scope" },
     { id: "items", label: "Items" },
     { id: "price", label: "Price" },
     { id: "review", label: "Review" },
   ];
-  const stageIndex = stages.findIndex((stage) => stage.id === mobileStage);
+  const stageIndex = stages.findIndex((stage) => stage.id === activeStage);
+  const stageHeadingRefs = useRef<Partial<Record<EstimateStage, HTMLHeadingElement | null>>>({});
+  const focusOnStageChange = useRef(false);
 
-  const goToStage = async (stage: MobileEstimateStage) => {
-    if (stage === mobileStage || scopeSavePending) return;
-    if (mobileStage === "scope" && isDraft && scopeDirty) {
+  useEffect(() => {
+    if (!focusOnStageChange.current) return;
+    focusOnStageChange.current = false;
+    stageHeadingRefs.current[activeStage]?.focus();
+  }, [activeStage]);
+
+  const goToStage = async (stage: EstimateStage) => {
+    if (stage === activeStage || scopeSavePending) return;
+    if (activeStage === "scope" && isDraft && scopeDirty) {
       const saved = await onSaveScope();
       if (!saved) return;
     }
+    focusOnStageChange.current = true;
     onStageChange(stage);
   };
 
@@ -409,19 +331,19 @@ function MobileEstimateFlow({
   };
 
   return (
-    <section className="space-y-4 lg:hidden" aria-label="Mobile estimate workflow">
+    <section className="space-y-4" aria-label="Estimate workflow">
       <nav aria-label="Estimate stages">
-        <ol className="grid grid-cols-4 border-b border-border/70">
+        <ol className="grid grid-cols-4 border-b border-border/70 lg:max-w-2xl lg:gap-5">
           {stages.map((stage, index) => (
             <li key={stage.id} className="min-w-0">
               <button
                 type="button"
-                aria-current={mobileStage === stage.id ? "step" : undefined}
+                aria-current={activeStage === stage.id ? "step" : undefined}
                 onClick={() => void goToStage(stage.id)}
-                disabled={scopeSavePending && mobileStage === "scope" && stage.id !== "scope"}
+                disabled={scopeSavePending && activeStage === "scope" && stage.id !== "scope"}
                 className={cn(
-                  "min-h-11 w-full border-b-2 px-1 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                  mobileStage === stage.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"
+                  "min-h-11 w-full border-b-2 px-1 text-xs font-semibold transition-colors lg:text-left lg:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  activeStage === stage.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"
                 )}
               >
                 <span className="mr-1 text-[10px] tabular-nums" aria-hidden="true">{index + 1}</span>
@@ -433,112 +355,133 @@ function MobileEstimateFlow({
         </ol>
       </nav>
 
-      {mobileStage === "scope" ? (
-        <div className="space-y-4">
-          <EstimateScopeEditor
-            value={simpleScope}
-            onChange={onScopeChange}
-            onSave={onSaveScope}
-            isDraft={isDraft}
-            pending={scopeSavePending}
-            saved={scopeSaveSuccess && !scopeDirty}
-            error={scopeSaveError}
-          />
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)]">
+        <div className="min-w-0 bg-card px-4 py-6 sm:px-6">
+          <div hidden={activeStage !== "scope"} className="space-y-4 pb-24 lg:pb-0">
+            <h2 ref={(node) => { stageHeadingRefs.current.scope = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Start with the work.</h2>
+            <EstimateScopeEditor
+              value={simpleScope}
+              onChange={onScopeChange}
+              onSave={onSaveScope}
+              isDraft={isDraft}
+              pending={scopeSavePending}
+              saved={scopeSaveSuccess && !scopeDirty}
+              error={scopeSaveError}
+            />
+            <div className="text-sm text-muted-foreground">
+              Athena suggestions are review-first. Nothing is added automatically; open Athena review for deeper scope analysis.
+            </div>
+            <EstimateStageAction label={scopeSavePending ? "Saving scope…" : "Continue to items"} onClick={advance} disabled={scopeSavePending} />
+          </div>
+
+          <div hidden={activeStage !== "items"} className="space-y-4 pb-24 lg:pb-0">
+            <div>
+              <h2 ref={(node) => { stageHeadingRefs.current.items = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Estimate items</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{estimate.lineItems.length} saved lines · review sources, quantities and costs before pricing.</p>
+            </div>
+            {isDraft ? <LineItemPicker estimateId={estimateId} onAdded={onUpdated} active={activeStage === "items"} /> : null}
+            {estimate.lineItems.length === 0 ? (
+              <p className="border-b border-border/70 py-4 text-sm text-muted-foreground">No line items yet.</p>
+            ) : (
+              <ul className="space-y-4">
+                {groupLineItems(estimate.lineItems).map(([section, sectionItems]) => (
+                  <li key={section} className="space-y-2">
+                    <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{section}</h3>
+                    <ul className="divide-y divide-border/70">
+                      {sectionItems.map((lineItem) => (
+                        <EditableLineItem
+                          key={lineItem.id}
+                          estimateId={estimateId}
+                          lineItem={lineItem}
+                          isDraft={isDraft}
+                          onUpdated={onUpdated}
+                          onRemove={() => onRemoveLineItem(lineItem.id)}
+                          removing={removeLineItemPending}
+                        />
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <EstimateStageAction label="Continue to price" onClick={advance} />
+          </div>
+
+          <div hidden={activeStage !== "price"} className="space-y-4 pb-24 lg:pb-0">
+            <h2 ref={(node) => { stageHeadingRefs.current.price = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Price the work</h2>
+            <p className="text-sm text-muted-foreground">Use Apply or Save overhead / tax to save pricing changes. Review uses the saved estimate total.</p>
+            <EstimateDirectCostBreakdown lineItems={estimate.lineItems} />
+            <PricingPanel
+              estimateId={estimateId}
+              estimate={estimate}
+              hasTaxableLineItems={estimate.lineItems.some((lineItem) => lineItem.taxable)}
+              pricingModeLabel={estimate.targetMarginPct != null ? "Target margin" : "Markup"}
+              isDraft={isDraft}
+              onUpdated={onUpdated}
+            />
+            <EstimateStageAction label="Continue to review" onClick={advance} />
+          </div>
+
+          <div hidden={activeStage !== "review"} className="space-y-5 pb-24 lg:pb-0">
+            <div className="border-b border-border/70 pb-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Internal estimate review</p>
+                  <h2 ref={(node) => { stageHeadingRefs.current.review = node; }} tabIndex={-1} className="mt-2 text-xl font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">{projectName}</h2>
+                </div>
+                <StatusBadge status={estimate.status} />
+              </div>
+              <p className="mt-3 text-sm text-muted-foreground">{simpleScope?.trim() || "Estimate scope"}</p>
+            </div>
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">Internal line costs below are not a customer proposal. The customer-facing amount is the saved sell total.</p>
+              {estimate.lineItems.map((lineItem) => (
+                <div key={lineItem.id} className="flex items-start justify-between gap-4 border-b border-border/60 pb-3 text-sm">
+                  <span className="min-w-0">{lineItem.description} <span className="text-muted-foreground">× {lineItem.quantity}</span></span>
+                  <span className="shrink-0 font-mono font-semibold">{formatCurrency(lineItem.lineCost)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-border py-4">
+              <div className="flex items-center justify-between gap-4">
+                <span className="font-medium">Estimate total</span>
+                <span className="text-2xl font-semibold tabular-nums text-primary">{formatCurrency(runningTotals.totalPrice)}</span>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">{formatPercent(runningTotals.marginPct)} gross margin · {runningTotals.lineItemCount} line items</p>
+            </div>
+            {isDraft ? (
+              <>
+                <p className="text-sm text-muted-foreground">Finalizing locks this reviewed estimate version. The next step is creating the customer proposal. Nothing is sent to the customer by finalizing.</p>
+                {finalizeError ? <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Finalization failed. {finalizeError} Your saved draft remains available. Retry when ready.</p> : null}
+                <EstimateStageAction label={finalizePending ? "Finalizing…" : finalizeError ? "Retry finalization" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
+              </>
+            ) : (
+              <Link href={`/projects/${estimate.projectId}/proposals/new?estimateId=${estimateId}`} className={buttonVariants({ variant: "default" }) + " flex min-h-11 w-full items-center justify-center"}>
+                Review proposal draft
+              </Link>
+            )}
+          </div>
+        </div>
+        <aside
+          aria-label="Estimate decision support"
+          className={cn("dark min-w-0 space-y-5 bg-background p-6 text-foreground lg:sticky lg:top-20", activeStage !== "scope" && "hidden lg:block")}
+        >
+          <div className="space-y-3 border-b border-primary/40 pb-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Athena / Estimate context</p>
+            <p className="text-sm text-muted-foreground">Saved estimate total</p>
+            <p className="font-mono text-3xl tabular-nums">{formatCurrency(runningTotals.totalPrice)}</p>
+            <p className="text-xs text-muted-foreground">Saved pricing snapshot. Suggestions stay separate until you review and add them.</p>
+          </div>
           <ContextualAthenaPanel
             estimateId={estimateId}
             projectId={projectId}
             scopeOfWork={simpleScope}
             isDraft={isDraft}
-            headingId="mobile-contextual-athena-heading"
+            headingId="estimate-contextual-athena-heading"
             onAdded={onUpdated}
           />
-          <div className="text-sm text-muted-foreground">
-            Athena suggestions are review-first. Nothing is added automatically; open Athena review for deeper scope analysis.
-          </div>
-          <MobileStageAction label={scopeSavePending ? "Saving scope…" : "Continue to items"} onClick={advance} disabled={scopeSavePending} />
-        </div>
-      ) : null}
-
-      {mobileStage === "items" ? (
-        <div className="space-y-4">
-          {isDraft ? <LineItemPicker estimateId={estimateId} onAdded={onUpdated} /> : null}
-          {estimate.lineItems.length === 0 ? (
-            <p className="border-b border-border/70 py-4 text-sm text-muted-foreground">No line items yet.</p>
-          ) : (
-            <ul className="divide-y divide-border/70">
-              {estimate.lineItems.map((lineItem) => (
-                <EditableLineItem
-                  key={lineItem.id}
-                  estimateId={estimateId}
-                  lineItem={lineItem}
-                  isDraft={isDraft}
-                  onUpdated={onUpdated}
-                  onRemove={() => onRemoveLineItem(lineItem.id)}
-                  removing={removeLineItemPending}
-                />
-              ))}
-            </ul>
-          )}
-          <MobileStageAction label="Continue to price" onClick={advance} />
-        </div>
-      ) : null}
-
-      {mobileStage === "price" ? (
-        <div className="space-y-4">
-          <EstimateDirectCostBreakdown lineItems={estimate.lineItems} />
-          <PricingPanel
-            estimateId={estimateId}
-            estimate={estimate}
-            hasTaxableLineItems={estimate.lineItems.some((lineItem) => lineItem.taxable)}
-            pricingModeLabel={estimate.targetMarginPct != null ? "Target margin" : "Markup"}
-            isDraft={isDraft}
-            onUpdated={onUpdated}
-          />
-          <MobileStageAction label="Continue to review" onClick={advance} />
-        </div>
-      ) : null}
-
-      {mobileStage === "review" ? (
-        <div className="space-y-5 pb-24">
-          <div className="border-b border-border/70 pb-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Internal estimate review</p>
-                <h2 className="mt-2 text-xl font-semibold text-foreground">{projectName}</h2>
-              </div>
-              <StatusBadge status={estimate.status} />
-            </div>
-            <p className="mt-3 text-sm text-muted-foreground">{simpleScope?.trim() || "Estimate scope"}</p>
-          </div>
-          <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">Internal line costs below are not a customer proposal. The customer-facing amount is the saved sell total.</p>
-            {estimate.lineItems.map((lineItem) => (
-              <div key={lineItem.id} className="flex items-start justify-between gap-4 border-b border-border/60 pb-3 text-sm">
-                <span className="min-w-0">{lineItem.description} <span className="text-muted-foreground">× {lineItem.quantity}</span></span>
-                <span className="shrink-0 font-mono font-semibold">{formatCurrency(lineItem.lineCost)}</span>
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-border py-4">
-            <div className="flex items-center justify-between gap-4">
-              <span className="font-medium">Estimate total</span>
-              <span className="text-2xl font-semibold tabular-nums text-primary">{formatCurrency(runningTotals.totalPrice)}</span>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">{formatPercent(runningTotals.marginPct)} gross margin · {runningTotals.lineItemCount} line items</p>
-          </div>
-          {isDraft ? (
-            <>
-              <p className="text-sm text-muted-foreground">Finalizing locks this reviewed estimate version. The next step is creating the customer proposal. Nothing is sent to the customer by finalizing.</p>
-              {finalizeError ? <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Finalization failed. {finalizeError} Your saved draft remains available. Retry when ready.</p> : null}
-              <MobileStageAction label={finalizePending ? "Finalizing…" : finalizeError ? "Retry finalization" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
-            </>
-          ) : (
-            <Link href={`/projects/${estimate.projectId}/proposals/new?estimateId=${estimateId}`} className={buttonVariants({ variant: "default" }) + " flex min-h-11 w-full items-center justify-center"}>
-              Review proposal draft
-            </Link>
-          )}
-        </div>
-      ) : null}
+        </aside>
+      </div>
     </section>
   );
 }
@@ -565,10 +508,10 @@ function EstimateDirectCostBreakdown({ lineItems }: { lineItems: LineItem[] }) {
   );
 }
 
-function MobileStageAction({ label, onClick, disabled = false }: { label: string; onClick: () => void; disabled?: boolean }) {
+function EstimateStageAction({ label, onClick, disabled = false }: { label: string; onClick: () => void; disabled?: boolean }) {
   return (
-    <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 border-t border-border/70 bg-background/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
-      <Button type="button" className="min-h-11 w-full" onClick={onClick} disabled={disabled}>
+    <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 border-t border-border/70 bg-background/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+      <Button type="button" className="min-h-11 w-full lg:w-auto" onClick={onClick} disabled={disabled}>
         {label}
       </Button>
     </div>
@@ -576,7 +519,7 @@ function MobileStageAction({ label, onClick, disabled = false }: { label: string
 }
 
 
-function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: () => void }) {
+function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; onAdded: () => void; active: boolean }) {
   const queryClient = useQueryClient();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
@@ -718,6 +661,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
   const customUnitCostInvalid = custom.unitCost !== "" && (!Number.isFinite(Number(custom.unitCost)) || Number(custom.unitCost) < 0);
 
   useEffect(() => {
+    if (!active) return;
     const onKeyDown = (event: KeyboardEvent) => {
       const isSearchShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
       if (isSearchShortcut) {
@@ -729,7 +673,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [active]);
 
   const commitLineItem = (item?: PickerResult | null) => {
     const target = item ?? selected;
@@ -1631,14 +1575,6 @@ function SummaryValue({ label, value, tone }: { label: string; value: string; to
   );
 }
 
-function ShortcutRow({ keys, label }: { keys: string; label: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-background/80 px-3 py-2">
-      <span className="font-medium">{label}</span>
-      <span className="text-xs text-muted-foreground">{keys}</span>
-    </div>
-  );
-}
 
 function ResultGroup({
   title,

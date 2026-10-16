@@ -10,6 +10,7 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+
 ## Active Estimate → Proposal evidence parity — 2026-10-16
 
 - Classification: NEW_WORK_REQUIRED in canonical Beta Evidence script, no overlap with existing #755 responsive UI or #751 recovery branch. Base main `9769dacfdb8beb69f0acbd40e1e8465affdee925`, branch `test/estimate-proposal-evidence-parity-20261016`; sprint NONE, non-production certification instrumentation only.
@@ -19,14 +20,18 @@ related_docs:
 - Verification: new source assertions pending hosted CI; authenticated four-width full run and artifact validation still required. Do not mark S053 complete.
 - Next five TODOs: (1) pass exact-head tests/reviews and merge this evidence repair; (2) synchronize with merged #755 and exact Preview SHA; (3) dispatch preflight to prove RC identity/data-plane safely; (4) run full synthetic authenticated beta scenario with retained sanitized artifacts and tenant denial; (5) reconcile #751 legitimate reviewer clearance, rerun recovery and inspect final proposal cost/status persistence.
 
+## Responsive Estimate stages — active 2026-10-16
 
-## Current continuation: mobile Estimate step navigation — 2026-10-16
+- Classification NEW_WORK_REQUIRED after existing mobile navigation PR #754 merged as `9769dacfdb8beb69f0acbd40e1e8465affdee925`. Live searches found no open desktop-stage implementation; #751 separately owns finalization recovery. This branch extends the landed flow, not a replacement for #754. Sprint ID NONE.
+- Branch `feat/estimate-responsive-stages-20261016`, worktree `/workspace/scratch/1f8f19f950ac/tradeos-stage-nav`, base `9769dacf`. Allowed: existing Estimate Builder, stage contract/browser tests, Current State/estimating/ledger/handoff. Excluded: backend, schema/migrations, auth/RBAC/RLS, supplier/pricing policy, financial calculations, proposal lifecycle and infrastructure. Root checkout's unrelated modified concept PNG is preserved.
+- Canonical Figma Estimates `4:10`: high-fidelity contexts/screenshots inspected for Desktop Scope `378:440`, Items `378:441`, Price `378:442`, Review `378:443`, plus mobile step tracker `381:801`. Implement shared four-stage composition and desktop Athena rail using existing components/tokens and real mutations. Persisted one-question clarification and universal pricing-reconciliation gates remain separate capability gaps; no scripted values or fake approvals.
+- One responsive flow replaces duplicate desktop/mobile controls. Inactive forms remain mounted/hidden to retain unfinished edits; Items search shortcut only handles keys while Items is active. Dirty-scope progression awaits PATCH acknowledgment and stays on Scope on failure. Desktop actions are inline; mobile actions remain above the Control Dock.
+- Main #754 source is deployed READY as `dpl_CEbaBSEUmbp45yjcwbLCRA8sZdKZ` (production, exact `9769dacf`). This is source delivery, not signed-in workflow proof. Four isolated browser cases on this responsive implementation pass at 390/768/1024/1440: native keyboard, pending save, failure/retry, scope retention, unsaved line/pricing edits, breakpoint continuity and overflow. Sixteen stage screenshots were captured and selected Scope/Items/Price/Review renders inspected. Explicit local synthetic fixtures and intercepted responses; no authenticated persistence or RLS proof. Temporary routes/config/cache removed. Web 506/506, lint, governance 149/149, docs 40/40, ownership/preflight and Playwright discovery pass; production build passes.
+- #751 head `5d886423` remains open with green required checks at its older base and a formal CodeRabbit CHANGES_REQUESTED review on historical `dea278a7`. Legitimate re-review again returned rate-limited. Do not dismiss/bypass; reconcile its tests to stage buttons and current main before advancing the same PR. #731 remains owner-closed without merge; preserve its branch.
+- Exact next task: reconcile refreshed hosted CI and CodeRabbit findings, verify source-level 390/768/1024/1440 regression assertions, then complete governed review and merge if eligible. The four-width synthetic browser matrix and local Web/root tests were already run as described above; do not rerun solely to satisfy this historical checklist. No merge/deployment is claimed yet.
+- Next five TODOs: reconcile exact-head CI after three CodeRabbit fixes; obtain legitimate review disposition and governed merge; verify landed source and deployment; reconcile #751 separately without bypassing its reviewer gate; capture authenticated persisted Costbook Add → Price → finalize → Proposal total and tenant-denial evidence on sanitized Preview.
 
-- Founder-directed NEW_WORK_REQUIRED. Main verified at 73d8f5f4f914584d0a6fb1c8bbca1889341c3b64; existing PR #751 owns finalization-error recovery and remains formally blocked by a stale CodeRabbit requested-changes review, not to be dismissed or bypassed under this task.
-- Branch fix/estimate-mobile-stage-navigation-20261016. Preserves canonical four-stage Figma layout and design-system patterns. Allowed: Estimate Builder stage navigation semantics, focused tests, owner docs. Forbidden: backend, Costbook, payments, tenant/RLS/auth, financial computation, deployment settings, proposal acceptance.
-- Replaces incomplete tablist with semantic ordered step buttons and active aria-current="step", preserving keyboard activation and the awaited dirty-scope-save transition gate.
-- Required: Web tests/lint/build, App integration, docs/preflight, head currency/review, authenticated 390/768 keyboard and 1024/1440 desktop proof. Source-only checks are not hosted workflow certification.
-- Next five TODOs: reconcile CI; repair review findings and merge if governed; confirm main and exact-source Vercel deployment; run signed-in four-width stage/save/keyboard checks; resume #751 after legitimate review disposition and certify persisted Estimate-to-Proposal amount.
+Older entries below are historical and superseded by this checkpoint.
 
 ## Current proposal retention / blocked recovery checkpoint — 2026-10-16
 

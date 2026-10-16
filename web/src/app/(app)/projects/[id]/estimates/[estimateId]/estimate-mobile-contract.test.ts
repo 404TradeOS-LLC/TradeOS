@@ -6,20 +6,22 @@ async function readSource(path: string): Promise<string> {
   return readFile(new URL(path, import.meta.url), "utf8");
 }
 
-test("estimate editing stays visible when the mobile workflow hides at lg", async () => {
+test("estimate uses one responsive workflow without a duplicate desktop editor", async () => {
   const builder = await readSource("./builder.tsx");
-  const desktopClass = builder.match(/<div className="([^"]+)"[^>]*>\s*<div className="space-y-5">/)?.[1];
-
-  assert.ok(desktopClass, "desktop editing workspace must exist");
-  assert.match(builder, /<section className="space-y-4 lg:hidden" aria-label="Mobile estimate workflow"/);
-  assert.ok(desktopClass.split(/\s+/).includes("lg:grid"), "desktop editing must become visible at the same lg breakpoint");
-  assert.ok(!desktopClass.split(/\s+/).includes("grid"), "desktop editing must remain hidden below lg");
+  assert.match(builder, /<section className="space-y-4" aria-label="Estimate workflow"/);
+  assert.match(builder, /lg:grid-cols-\[minmax\(0,1fr\)_minmax\(280px,0.42fr\)\]/);
+  assert.equal((builder.match(/<EstimateScopeEditor/g) ?? []).length, 1);
+  assert.equal((builder.match(/<LineItemPicker/g) ?? []).length, 1);
+  for (const stage of ["scope", "items", "price", "review"]) {
+    assert.ok(builder.includes(`hidden={activeStage !== "${stage}"}`), "inactive forms retain unsaved state without exposing controls");
+  }
+  assert.match(builder, /if \(!active\) return;/);
 });
 
 test("mobile estimate keeps the canonical four-stage workflow", async () => {
   const builder = await readSource("./builder.tsx");
 
-  assert.match(builder, /type MobileEstimateStage = "scope" \| "items" \| "price" \| "review"/);
+  assert.match(builder, /type EstimateStage = "scope" \| "items" \| "price" \| "review"/);
   assert.match(builder, /label: "Scope"/);
   assert.match(builder, /label: "Items"/);
   assert.match(builder, /label: "Price"/);
@@ -35,13 +37,13 @@ test("mobile stages expose native sequential step navigation instead of an incom
   const builder = await readSource("./builder.tsx");
   const navigation = builder.slice(
     builder.indexOf('<nav aria-label="Estimate stages">'),
-    builder.indexOf('{mobileStage === "scope" ? (')
+    builder.indexOf('<div hidden={activeStage !== "scope"}')
   );
   assert.ok(navigation.startsWith('<nav aria-label="Estimate stages">'), "stage navigation must be present");
   assert.match(navigation, /<ol className="grid grid-cols-4/);
   assert.match(navigation, /<li key=\{stage.id\} className="min-w-0">/);
   assert.match(navigation, /type="button"/);
-  assert.match(navigation, /aria-current=\{mobileStage === stage.id \? "step" : undefined\}/);
+  assert.match(navigation, /aria-current=\{activeStage === stage.id \? "step" : undefined\}/);
   assert.match(navigation, /<span className="sr-only">Step \{index \+ 1\} of \{stages.length\}: <\/span>/);
   assert.match(navigation, /focus-visible:outline/);
   assert.doesNotMatch(navigation, /role="tablist"|role="tab"|aria-selected=/);
@@ -51,13 +53,16 @@ test("mobile stages expose native sequential step navigation instead of an incom
 
 test("stage navigation preserves fail-closed asynchronous scope-save transitions", async () => {
   const builder = await readSource("./builder.tsx");
-  assert.match(builder, /if \(stage === mobileStage \|\| scopeSavePending\) return;/);
-  assert.match(builder, /if \(mobileStage === "scope" && isDraft && scopeDirty\)/);
-  assert.match(builder, /const saved = await onSaveScope\(\);\s*if \(!saved\) return;\s*\}\s*onStageChange\(stage\);/);
+  assert.match(builder, /if \(stage === activeStage \|\| scopeSavePending\) return;/);
+  assert.match(builder, /if \(activeStage === "scope" && isDraft && scopeDirty\)/);
+  assert.match(builder, /const saved = await onSaveScope\(\);\s*if \(!saved\) return;\s*\}\s*focusOnStageChange\.current = true;\s*onStageChange\(stage\);/);
+  assert.match(builder, /if \(!focusOnStageChange\.current\) return;/);
+  assert.match(builder, /stageHeadingRefs\.current\[activeStage\]\?\.focus\(\)/);
+  assert.match(builder, /tabIndex=\{-1\}/);
   assert.match(builder, /onClick=\{\(\) => void goToStage\(stage.id\)\}/);
-  assert.match(builder, /disabled=\{scopeSavePending && mobileStage === "scope" && stage.id !== "scope"\}/);
+  assert.match(builder, /disabled=\{scopeSavePending && activeStage === "scope" && stage.id !== "scope"\}/);
   assert.match(builder, /min-h-11 w-full/);
-  assert.match(builder, /<section className="space-y-4 lg:hidden" aria-label="Mobile estimate workflow">/);
+  assert.match(builder, /<section className="space-y-4" aria-label="Estimate workflow">/);
 });
 
 test("estimate Scope persists through the existing partial Project update contract", async () => {
@@ -70,7 +75,7 @@ test("estimate Scope persists through the existing partial Project update contra
   assert.match(builder, /onSuccess: \(_data, savedScope\) => setPersistedScope\(savedScope\)/);
   assert.match(builder, /await saveScope\.mutateAsync\(scopeDraft\.trim\(\)\)/);
   assert.match(builder, /scopeDirty=\{scopeDraft\.trim\(\) !== persistedScope\.trim\(\)\}/);
-  assert.match(builder, /mobileStage === "scope" && isDraft && scopeDirty/);
+  assert.match(builder, /activeStage === "scope" && isDraft && scopeDirty/);
   assert.match(builder, /const saved = await onSaveScope\(\);[\s\S]*if \(!saved\) return;[\s\S]*onStageChange\(stage\)/);
   assert.match(builder, /aria-label="Estimate scope"/);
   assert.match(builder, /Save scope/);
@@ -84,7 +89,7 @@ test("mobile Items reuse the authoritative edit and delete path while exposing o
 
   assert.match(builder, /costItemId: string \| null/);
   assert.match(builder, /assemblyId: string \| null/);
-  assert.match(builder, /mobileStage === "items"/);
+  assert.match(builder, /activeStage !== "items"/);
   assert.match(builder, /<EditableLineItem/);
   assert.match(builder, /onRemove=\{\(\) => onRemoveLineItem\(lineItem\.id\)\}/);
   assert.match(builder, /line-items\/\$\{lineItem\.id\}/);
@@ -155,7 +160,7 @@ test("selected Costbook items resolve source cost for review before a persisted 
 
 test("Price groups only persisted line costs and keeps customer sell total separate", async () => {
   const builder = await readSource("./builder.tsx");
-  assert.equal(builder.split("<EstimateDirectCostBreakdown lineItems={estimate.lineItems} />").length - 1, 2);
+  assert.equal(builder.split("<EstimateDirectCostBreakdown lineItems={estimate.lineItems} />").length - 1, 1);
   assert.match(builder, /aria-label="Internal direct cost breakdown"/);
   assert.match(builder, /groupSavedDirectCosts\(lineItems\)/);
   assert.match(builder, /excluding markup, overhead and tax\. Not a customer proposal/);
@@ -204,7 +209,7 @@ test("Athena stays review-first and Review preserves finalize-before-proposal li
   assert.match(builder, /Create proposal/);
   assert.doesNotMatch(builder, />Send proposal</);
   const contextualPanelBlocks = builder.split("<ContextualAthenaPanel").slice(1).map((block) => block.slice(0, 420));
-  assert.equal(contextualPanelBlocks.length, 2);
+  assert.equal(contextualPanelBlocks.length, 1);
   assert.ok(contextualPanelBlocks.every((block) => block.includes("isDraft={isDraft}")));
   assert.ok(contextualAthena.includes("isDraft: boolean"));
   assert.ok(contextualAthena.includes("isDraft && suggestion.resolution.target"));
@@ -213,9 +218,7 @@ test("Athena stays review-first and Review preserves finalize-before-proposal li
 
 test("desktop and mobile share a labeled scope editor with retained failure input", async () => {
   const builder = await readSource("./builder.tsx");
-  assert.equal((builder.match(/<EstimateScopeEditor/g) ?? []).length, 2);
-  const desktop = builder.slice(builder.indexOf('<div className="hidden gap-5 lg:grid'));
-  assert.match(desktop, /<EstimateScopeEditor[\s\S]*value=\{scopeDraft\}/);
+  assert.equal((builder.match(/<EstimateScopeEditor/g) ?? []).length, 1);
   assert.match(builder, /value=\{simpleScope\}[\s\S]*onChange=\{onScopeChange\}/);
   assert.match(builder, /htmlFor=\{inputId\}/);
   assert.match(builder, /aria-busy=\{pending\}/);
