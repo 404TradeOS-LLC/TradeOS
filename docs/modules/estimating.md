@@ -74,11 +74,13 @@ Focused regression coverage lives in `app/tests/estimate-costbook-snapshot.test.
 
 ## Frontend surfaces
 
-### Mobile four-stage step navigation (proposed 2026-10-16)
+### Responsive four-stage workflow (2026-10-16 implementation)
 
-The mobile Scope / Items / Price / Review tracker is step navigation, not an ARIA tab interface. It uses an ordered list of ordinary buttons, marks the active one aria-current="step", and relies on native Tab, Enter and Space semantics rather than promising roving Arrow focus or tabpanel relationships. Existing minimum 44px tap targets and visible focus are preserved. The existing async scope-save guard keeps failed dirty-scope saves on Scope with draft content intact and blocks other stages while saving. At lg and wider the canonical desktop editing workspace remains visible instead.
+Canonical Figma Desktop Scope/Items/Price/Review `378:440–443` and mobile tracker `381:801` define the same sequence at all widths. Following merged mobile semantics PR #754, the responsive stage branch reuses one existing scope editor, Items picker/edit/delete list, Price panel and internal Review surface. Desktop pairs the active workspace with contextual Athena; mobile keeps the contextual rail in Scope and retains actions above the dock. Desktop stage actions are inline. The existing ordered native buttons expose aria-current="step", Tab/Enter/Space and visible focus at every width.
 
-No backend lifecycle state, persistent Estimate calculation, permissions or token mechanism changes. Real authenticated keyboard/browser evidence remains a release certification requirement.
+Inactive stage forms remain mounted/hidden to preserve unfinished item edits, selections and pricing fields during navigation and viewport changes. The Items search shortcut is inactive outside Items. Dirty scope saves still await acknowledgment before leaving Scope, and failure preserves text. All saved prices, provenance, explicit reviewed Add, draft-only mutations and finalize-before-proposal contracts remain unchanged. The contextual rail displays the real saved total; it never adds scripted reconciliation amounts or verification claims.
+
+The opt-in `tests/playwright/estimate-stage-navigation.spec.ts` uses `TRADEOS_ESTIMATE_STAGE_PATH` (relative sanitized draft route) and optional `TRADEOS_ESTIMATE_STAGE_STATE`, under the existing non-production target guard. Project PATCH responses are intercepted for failure/retry, so the test does not persist scope. Its four-width matrix checks keyboard progression, pending/failure/retry, retained pricing inputs, breakpoint continuity and overflow. Synthetic local fixture execution proves frontend behavior only; signed-in persistence, tenant denial and complete design parity require separate governed evidence.
 
 ### Explicit Costbook review before Estimate Add (2026-10-15 implementation slice)
 
@@ -87,9 +89,7 @@ The existing Items picker now separates keyboard search selection from a persist
 These are frontend safety/interaction gates, not a new server-side pricing rule. No source price is silently refreshed on existing Estimate lines and no unsupported live supplier or provenance guarantee is implied. Authenticated responsive browser and persisted snapshot evidence remain release-certification requirements.
 
 
-The staged mobile estimate workflow is visible below `lg`; the existing desktop
-line-item, Athena, pricing, and finalize controls become visible at `lg`.
-These complementary display rules must leave no viewport without editing controls.
+The same staged estimate flow remains available across mobile and desktop; only its supporting rail and action positioning change at `lg`.
 
 - `/projects/[id]/estimates/[estimateId]`
 - `/projects/[id]/estimates/compare`

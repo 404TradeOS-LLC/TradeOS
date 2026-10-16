@@ -1,5 +1,13 @@
 # TradeOS Figma implementation ledger
 
+## Current responsive-stage checkpoint — 2026-10-16
+
+Reconciled main `9769dacf` (#754), exact-source web production READY `dpl_CEbaBSEUmbp45yjcwbLCRA8sZdKZ`. Active branch `feat/estimate-responsive-stages-20261016` extends the landed mobile native step navigation to desktop. High-fidelity canonical contexts and screenshots inspected: Estimates `4:10`, [Desktop Scope 378:440](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=378-440), [Items 378:441](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=378-441), [Price 378:442](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=378-442), [Review 378:443](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=378-443), mobile tracker `381:801`.
+
+Scope/Items/Price/Review share one responsive builder and existing APIs; desktop stage composition, retained inactive form state, dark Athena support rail and inline desktop actions are implemented locally. Current branch is **unmerged and undeployed**. Four executed synthetic-fixture browser cases pass at 390/768/1024/1440, covering keyboard, pending/failed scope save and retry, retained line/pricing edits across stages, resize continuity and overflow; sixteen stage screenshots retained locally. Web 506/506, lint, governance 149/149, docs 40/40 and preflight/ownership pass; production build passes. These fixtures prove frontend behavior, not authenticated persistence or tenant isolation. The route/files/dependencies in the audited table remain applicable. Persisted one-question clarification, unsupported pricing reconciliation gates, full visual parity and authenticated end-to-end evidence remain missing; each affected group stays PARTIALLY IMPLEMENTED. #751 remains separately review-blocked; #731 is closed without merge and must not be reopened automatically.
+
+Scoped totals remain **5 PARTIALLY IMPLEMENTED; 1 IMPLEMENTED + UNVERIFIED; 0 IMPLEMENTED + VERIFIED**, across six audited groups. This is not a whole-file census or completion percentage. Current handoff owns the exact next five actions. Historical checkpoints below must not override this delivery state.
+
 ## Authority and checkpoint
 
 This ledger extends `CORE_WORKFLOW_FIGMA_CODE_TRACEABILITY.md` and `PRODUCT_COMPLETION_EXECUTION_MAP.md`; it does not replace capability, lifecycle or sprint authority. Approved design source: [TradeOS master](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY). Reconciled main: `be126ff9` (PR #748), 2026-10-16. Live metadata was read for cover, Estimates, Costbook, Components and Customer Portal; high-fidelity screenshots/context were read for Scope `432:25161` and Mobile Price `432:27891`.

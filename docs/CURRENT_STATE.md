@@ -77,11 +77,11 @@ A read-only browser matrix passed at 390/768/1024/1440 with explicitly synthetic
 
 # TradeOS Current State
 
-## Estimate mobile step navigation accessibility — 2026-10-16, proposed
+## Responsive Estimate stages — 2026-10-16 implementation
 
-The bounded branch fix/estimate-mobile-stage-navigation-20261016 converts the existing Scope → Items → Price → Review tracker from incomplete ARIA tablist semantics into semantic navigation containing an ordered list of native buttons. The active step announces aria-current="step". Native buttons receive Tab focus and Enter/Space activation; visible focus and 44px touch targets remain. The current goToStage helper still awaits successful Project scope persistence before leaving an edited draft scope and disables stage changes while the save is pending. A failed scope save leaves the contractor in Scope with unsaved text intact.
+Mobile navigation #754 merged as `9769dacf`; exact-source production deployment `dpl_CEbaBSEUmbp45yjcwbLCRA8sZdKZ` is READY. The active `feat/estimate-responsive-stages-20261016` branch closes the demonstrated desktop composition gap against canonical Figma `378:440–443`: one Scope → Items → Price → Review flow at every width, workspace beside a dark contextual Athena rail at lg and above, inline desktop progression/finalization, and existing mobile actions above the dock. Existing Project scope, Costbook selection, line edit/delete, pricing and finalize APIs remain authoritative. The old duplicate desktop controls are removed.
 
-This changes no Estimate Engine, tenant/RLS/auth, Costbook pricing, supplier, proposal, backend or financial behavior. Source tests cover the navigation contract and asynchronous save gating. Authenticated 390/768 keyboard and save-failure browser evidence and 1024/1440 desktop coexistence are not yet collected; implementation and production certification must remain separate.
+Inactive forms stay mounted and hidden so unfinished item/pricing inputs survive stage changes and resizing. Only active Items owns its search shortcut. Failed dirty-scope saves retain text and block progression; saved totals stay distinct from unsaved pricing input and Athena suggestions. No persisted clarification, price-verification gate, public send action, or financial rule is invented. Full visual parity and authenticated persistence/tenant proof remain incomplete. Exact checks and current PR delivery are recorded in the session handoff and implementation ledger.
 
 
 ## Universal Create access — proposed 2026-10-13
