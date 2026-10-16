@@ -11,6 +11,16 @@ related_docs:
 ---
 
 
+## Active Universal Create presentation repair — 2026-10-16
+
+- EXISTING_WORK_FOUND: continued unpublished `fix/universal-create-role-options` at `96515786` and merged current main `7a9d965a`. No overlapping open PR; #731 onboarding is separately waiting on CodeRabbit's historical changes-requested disposition despite green current required CI at `e5de4dab`.
+- Scope: AppNav Create entries, authenticated shell role read, optional AbortSignal on existing settings read, pure role predicate/tests and owned docs. Backend/RBAC/RLS/auth policy, financial rules, suppliers, schema/migrations, dependencies and infrastructure excluded.
+- The defect is established in source: Create filters only Athena capability, exposing Project/Customer/Job/Billing workflows to roles whose existing endpoints deny those writes. Continue existing role-aware presentation, not a new permission model.
+- Main #749 is MERGED and Vercel production deployment `dpl_HtrJucc4Wr9mHenH3r6YgN2xHmex` is READY at `7a9d965a`. This is deployed source evidence, not authenticated browser proof.
+- Next: role predicate/source checks, full Web tests/lint/typecheck/build and root docs/preflight; publish this same branch once reviewed. Keep all current owner documentation and exact-head branch protection. No browser/parity/RLS certification without runtime evidence.
+- Next five TODOs: complete Create CI/review; merge when permitted; capture signed-in owner/technician/viewer Create behavior at four widths; resolve #731 legitimate reviewer disposition and verify its delivery; continue canonical workflow gaps from the ledger.
+
+
 ## Estimate Price → Review → Copperline parity — current 2026-10-15
 
 - Sprint: NONE; founder-authorized bounded Figma-to-code completion from `main` `51ecb15c7864e193656dd31bd96fb5641dd7c29c`; branch `fix/estimate-price-review-copperline-handoff-20261015`.

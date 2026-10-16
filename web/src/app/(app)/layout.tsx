@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/shared/app-nav";
-import { getAthenaCapabilities } from "@/lib/api";
+import { getAthenaCapabilities, getOrganizationSettings } from "@/lib/api";
 import { getSession, getSessionToken } from "@/lib/session";
 import { isTeamTimeEnabled } from "@/lib/team-time-config";
 
@@ -30,12 +30,28 @@ async function resolveAthenaEnabled(token: string | null): Promise<AthenaCapabil
   }
 }
 
+async function resolveCurrentRole(token: string | null): Promise<string | null> {
+  if (!token) return null;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), ATHENA_CAPABILITY_TIMEOUT_MS);
+  try {
+    return (await getOrganizationSettings(token, controller.signal)).currentRole;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect("/login");
 
   const token = await getSessionToken();
-  const athenaCapability = await resolveAthenaEnabled(token);
+  const [athenaCapability, currentRole] = await Promise.all([
+    resolveAthenaEnabled(token),
+    resolveCurrentRole(token),
+  ]);
   const athenaCapabilityRetryKey = athenaCapability.retryOnClient ? randomUUID() : null;
 
   return (
@@ -48,6 +64,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </a>
       <AppNav
         email={session.email}
+        currentRole={currentRole}
         athenaEnabled={athenaCapability.enabled}
         athenaCapabilityRetryKey={athenaCapabilityRetryKey}
         teamTimeEnabled={isTeamTimeEnabled()}

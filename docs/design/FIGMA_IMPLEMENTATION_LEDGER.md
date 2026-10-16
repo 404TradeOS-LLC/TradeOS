@@ -40,3 +40,8 @@ Scoped counts: 5 PARTIALLY IMPLEMENTED; 1 IMPLEMENTED + UNVERIFIED; 0 IMPLEMENTE
 3. Continue existing onboarding PR #731 after reconciling its current head and review; do not create a duplicate quick-start.
 4. Reconcile Today, CRM/Customer/Lead, Schedule and Field canonical frames against existing routes and real mutation contracts, then implement the smallest demonstrated gap.
 5. Reconcile Copperline, portal, settings, shared components and signature motion; keep unsupported target actions inactive until their persistence/authorization contracts exist.
+
+
+## Universal Create continuation — 2026-10-16
+
+EXISTING_WORK_FOUND on `fix/universal-create-role-options` (`96515786`), reconciled to main `7a9d965a`. Existing shell/ControlDock mapping `635:2376` and `.stitch/DESIGN.md` remain the visual authority. This is a presentation repair preserving dock geometry and sheet behavior: creation links reflect the authenticated backend role and canonical permissions; missing role confirmation fails closed. The existing backend still authorizes every write. No new design variant, permission or unsupported feature is introduced. Current State and session handoff contain the exact allowed paths and next steps; PR records final-head tests and delivery. The shared-component group remains PARTIALLY IMPLEMENTED until rendered role/viewport evidence exists.
