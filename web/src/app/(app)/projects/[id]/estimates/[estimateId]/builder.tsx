@@ -452,7 +452,7 @@ function EstimateStageFlow({
             {isDraft ? (
               <>
                 <p className="text-sm text-muted-foreground">Finalizing locks this reviewed estimate version. The next step is creating the customer proposal. Nothing is sent to the customer by finalizing.</p>
-                {finalizeError ? <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Finalization failed. {finalizeError} Your saved draft remains available. Retry when ready.</p> : null}
+                {finalizeError ? <EstimateFinalizationError message={finalizeError} /> : null}
                 <EstimateStageAction label={finalizePending ? "Finalizing…" : finalizeError ? "Retry finalization" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
               </>
             ) : (
@@ -483,6 +483,30 @@ function EstimateStageFlow({
         </aside>
       </div>
     </section>
+  );
+}
+
+/** Focus the visible recovery message only after an actual failed finalize write. */
+function EstimateFinalizationError({ message }: { message: string }) {
+  const noticeRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    const notice = noticeRef.current;
+    // Keep focus out of hidden stages and never imply the failed write succeeded.
+    if (!notice || notice.getClientRects().length === 0) return;
+    notice.focus({ preventScroll: true });
+    notice.scrollIntoView({ block: "center", behavior: "instant" });
+  }, [message]);
+
+  return (
+    <p
+      ref={noticeRef}
+      role="alert"
+      tabIndex={-1}
+      className="w-full scroll-mb-44 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+    >
+      Finalization failed. {message} Your saved draft remains available. Retry when ready.
+    </p>
   );
 }
 
