@@ -11,6 +11,15 @@ related_docs:
 ---
 
 
+## Final current checkpoint — 2026-10-16, first-estimate delivery
+
+- Main: `4f4adf7d27d7b4ac7e8a6ba9133ea47c1e206a71` (#750 Create role presentation); #749 scope/recovery is merged at `7a9d965a` and confirmed READY on Vercel Production. Both merged PRs passed all four required checks and had zero unresolved review threads. No production data/schema/secrets changed.
+- Active: #731, `feat/p0-first-estimate-quickstart-20261013`; includes current main plus the reviewed rejection-recovery repair, validated Project/Estimate acknowledgments and thirteen behavioral workflow tests. The repaired thread is resolved; the submitted CHANGES_REQUESTED review still requires legitimate reviewer disposition after latest-head CI. Do not dismiss/bypass it.
+- Isolated browser evidence: alternative Chromium 153 ran synthetic component fixtures at 390/768/1024/1440. Scope save failure retains input, retry saves, finalize failure exposes retry, owner Create opens/Escape restores focus, no horizontal overflow; technician/viewer/unknown fixtures hide write links and retain advisory Athena. Harness/config/generated files removed. These are component checks, not authenticated API/RLS or complete visual parity.
+- Required next action: publish this reconciled same-PR head, rerun hosted gates, request final-head CodeRabbit review, repair any verified scoped finding, merge only when protection permits, then verify resulting main and deployment. No further independent main merges during that review.
+- Next five TODOs: reconcile #731 final checks/review; verify merged/deployed SHA; run authenticated first-estimate and delayed-commit recovery on sanitized fixtures; capture real full estimating/proposal flow at four widths; continue next actual canonical gap from `FIGMA_IMPLEMENTATION_LEDGER.md` without repeating discovery.
+
+
 ## Current execution checkpoint — 2026-10-16, PR #731 continuation
 
 - Main reconciled to `7a9d965ace26890a370c0bc7affd3158edb74b49`; #748 and #749 are both MERGED. #749 final head `4da9703d` had all four required checks green, 172 hosted integration tests passing, and zero unresolved review threads. Locally 500 Web, 149 PR and 40 docs tests passed, plus lint/typecheck/build/preflight/docs ownership. No exact-head Vercel deployment found; authenticated browser still unverified.
@@ -20,6 +29,15 @@ related_docs:
 - Next safe action: final local/hosted tests on this reconciled branch and current review disposition. Historical CodeRabbit CHANGES_REQUESTED must be checked; resolved threads do not dismiss a submitted review. Do not bypass protections.
 - Concrete verification blockers: Chromium v1248 downloads are invalid ZIPs; no approved authenticated synthetic fixture used. No hosted workflow or customer-facing behavior is certified by source tests.
 - Next five TODOs: pass #731 final-head CI; reconcile legitimate reviewer disposition; merge only through normal protection; verify deployed SHA and four-width authenticated first-estimate recovery/estimating; continue the next source-backed demo gap from the canonical ledger.
+
+## Active Universal Create presentation repair — 2026-10-16
+
+- EXISTING_WORK_FOUND: continued unpublished `fix/universal-create-role-options` at `96515786` and merged current main `7a9d965a`. No overlapping open PR; #731 onboarding is separately waiting on CodeRabbit's historical changes-requested disposition despite green current required CI at `e5de4dab`.
+- Scope: AppNav Create entries, authenticated shell role read, optional AbortSignal on existing settings read, pure role predicate/tests and owned docs. Backend/RBAC/RLS/auth policy, financial rules, suppliers, schema/migrations, dependencies and infrastructure excluded.
+- The defect is established in source: Create filters only Athena capability, exposing Project/Customer/Job/Billing workflows to roles whose existing endpoints deny those writes. Continue existing role-aware presentation, not a new permission model.
+- Main #749 is MERGED and Vercel production deployment `dpl_HtrJucc4Wr9mHenH3r6YgN2xHmex` is READY at `7a9d965a`. This is deployed source evidence, not authenticated browser proof.
+- Next: role predicate/source checks, full Web tests/lint/typecheck/build and root docs/preflight; publish this same branch once reviewed. Keep all current owner documentation and exact-head branch protection. No browser/parity/RLS certification without runtime evidence.
+- Next five TODOs: complete Create CI/review; merge when permitted; capture signed-in owner/technician/viewer Create behavior at four widths; resolve #731 legitimate reviewer disposition and verify its delivery; continue canonical workflow gaps from the ledger.
 
 
 ## Estimate Price → Review → Copperline parity — current 2026-10-15

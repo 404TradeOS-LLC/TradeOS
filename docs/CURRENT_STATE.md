@@ -67,6 +67,11 @@ related_code:
 
 PR #731 now distinguishes known application validation/auth/conflict/rate-limit rejections from uncertain save outcomes. Definitive rejection leaves controlled input editable for retry; network/server/timeout failures and malformed Project acknowledgments retain the existing safety lock. A malformed Estimate response retains confirmed Project recovery instead of navigating with an invalid ID. Classification uses the existing typed API error through an injected predicate; no backend, permission, RLS, pricing, migration or idempotency policy changes. Final-head browser/hosted evidence remains separate.
 
+## Universal Create access — proposed 2026-10-13
+
+The mobile Create sheet now derives its write entry points from the backend-authenticated current role. CRM and billing entries reuse the shared permission contract; Job/Schedule use the normalized manager roles accepted by JobsService. Technician/viewer and unknown roles do not receive write entry links. Advisory Ask Athena retains its independent existing capability gate. The shell reads role and Athena capability concurrently with bounded requests, and missing role confirmation leaves write entries unavailable with retry guidance. Dock geometry, sheet focus/scroll/close behavior, destinations and backend authorization remain unchanged. Role predicate tests are evidence for presentation gating; rendered role/viewport and live tenant/API verification remain open.
+
+
 
 ## Price → Review → Copperline handoff — frontend parity slice 2026-10-15 (PR pending)
 

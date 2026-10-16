@@ -42,3 +42,15 @@ Scoped counts: 6 PARTIALLY IMPLEMENTED; 1 IMPLEMENTED + UNVERIFIED; 0 IMPLEMENTE
 3. Continue existing onboarding PR #731 after reconciling its current head and review; do not create a duplicate quick-start.
 4. Reconcile Today, CRM/Customer/Lead, Schedule and Field canonical frames against existing routes and real mutation contracts, then implement the smallest demonstrated gap.
 5. Reconcile Copperline, portal, settings, shared components and signature motion; keep unsupported target actions inactive until their persistence/authorization contracts exist.
+
+
+## Universal Create continuation — 2026-10-16
+
+EXISTING_WORK_FOUND on `fix/universal-create-role-options` (`96515786`), reconciled to main `7a9d965a`. Existing shell/ControlDock mapping `635:2376` and `.stitch/DESIGN.md` remain the visual authority. This is a presentation repair preserving dock geometry and sheet behavior: creation links reflect the authenticated backend role and canonical permissions; missing role confirmation fails closed. The existing backend still authorizes every write. No new design variant, permission or unsupported feature is introduced. Current State and session handoff contain the exact allowed paths and next steps; PR records final-head tests and delivery. The shared-component group remains PARTIALLY IMPLEMENTED until rendered role/viewport evidence exists.
+
+
+## Runtime evidence and delivery continuation — 2026-10-16
+
+- #750 is MERGED at `4f4adf7d`; all four required checks passed. #749 Production source is READY at `7a9d965a`.
+- Alternate Chromium 153 provided isolated synthetic component checks at 390/768/1024/1440: scope failure retention/successful retry, failed-finalize retry, owner Create/Escape/focus restoration, no horizontal overflow, and technician/viewer/unknown-role menu filtering. No real signed-in API, tenant/RLS or whole-screen parity claim. Temporary test harness was removed.
+- #731 now includes #750 and the verified definitive-rejection/malformed-acknowledgment repair. Final-head CI and legitimate disposition of CodeRabbit's changes-requested review remain required. Three focused regressions failed before the repair and pass afterward. See its PR for the final published head and test counts.
