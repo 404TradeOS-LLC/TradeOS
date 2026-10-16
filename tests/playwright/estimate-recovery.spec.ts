@@ -40,6 +40,7 @@ test.describe('Estimate finalization recovery', () => {
         await expect(retry).toBeEnabled();
         if (width < 1024) {
           const actionBox = await retry.boundingBox();
+          expect(actionBox).not.toBeNull();
           expect(box!.y + box!.height).toBeLessThan(actionBox!.y);
         }
         expect(attempts).toBe(attempt);
@@ -69,6 +70,7 @@ test.describe('Estimate finalization recovery', () => {
       const alert = page.getByRole('alert').filter({ hasText: 'Finalization failed.' });
       await expect(alert).toBeFocused();
       const box = await alert.boundingBox();
+      expect(box).not.toBeNull();
       expect(box!.y).toBeGreaterThanOrEqual(0);
       expect(box!.y + box!.height).toBeLessThan(700);
       await page.keyboard.press('Tab');
