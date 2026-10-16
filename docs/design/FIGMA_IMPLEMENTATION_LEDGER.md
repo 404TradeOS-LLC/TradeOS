@@ -35,6 +35,11 @@ Scoped counts: 5 PARTIALLY IMPLEMENTED; 1 IMPLEMENTED + UNVERIFIED; 0 IMPLEMENTE
 
 ## Next five implementation actions
 
+### Mobile Estimate stage navigation semantics — proposed 2026-10-16
+
+The canonical four-stage Figma tracker is unchanged visually. An implementation gap existed: role="tablist" plus role="tab" implied complete ARIA tabs arrow-key/panel interactions that the application did not implement. The focused repair instead uses nav / ordered steps / native buttons, aria-current="step", a visible focus indicator and unchanged 44px targets. It retains the existing asynchronous scope-save gate and prevents failure from moving ahead. Source contract tests cover the semantics. The estimator workflow remains PARTIALLY IMPLEMENTED pending authenticated 390/768 keyboard and scope-save proof and 1024/1440 desktop verification.
+
+
 1. Finish exact-head Web/root checks, PR review and governed merge of the existing estimator lane; verify the resulting main commit.
 2. Retain authenticated scope save/failure, Costbook select/Add, Price and failed-finalize/proposal handoff evidence at 390/768/1024/1440 on an approved non-production tenant.
 3. Continue existing onboarding PR #731 after reconciling its current head and review; do not create a duplicate quick-start.
