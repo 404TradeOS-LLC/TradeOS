@@ -10,6 +10,18 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Items cost columns checkpoint — 2026-10-17 UTC
+
+Reconciled main `41a62cea99c7bc91eda45d805e4b0363b8906132`: #760 progressive entry is merged as `17c339cf`, production READY `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL`; #761 explicit line-edit cost is merged as `41a62cea`, production READY `dpl_12gVocD7WKCA9vwgSp89YKc4apwi`. These are exact-source deployments, not authenticated workflow certification. Older pending/blocked statements below are historical.
+
+Branch `feat/estimate-items-cost-columns-20261017` reconciles canonical Desktop Items `378:441` (Estimates page `4:10`, high-fidelity context/screenshot inspected). Existing saved items lacked quantity/unit-cost/line-cost columns and visible editor labels. Shared desktop column tracks now align actual saved values; mobile keeps the compact quantity × unit-cost summary and 44px edit actions. Six editor fields have visible, associated labels. Internal costs are explicitly distinguished from customer pricing; saved lineCost is rendered directly, never recomputed. Existing PATCH, draft/permission gates, validation, pricing and snapshots are unchanged.
+
+The missing-header regression failed on the base; all 16 isolated layout/edit/entry/stage browser cases now pass across 390/768/1024/1440. Headers align with cells, cost text matches the response, labels/keyboard Cancel work, mobile targets fit and no horizontal overflow occurs. Every mutation is intercepted; synthetic reads are clearly labeled. Desktop 1440/1024 and mobile 390 renders inspected. Local Web 506/506, lint/build, governance 151/151, docs 40/40, ownership/preflight and Playwright discovery pass. Current branch is unmerged/undeployed pending exact-head hosted checks/review. Authenticated nonproduction persistence and tenant denial remain unverified.
+
+- Classification NEW_WORK_REQUIRED, Sprint NONE: #760/#761 own entry/validation and are merged; current saved-row presentation still lacked the canonical columns. Live overlap reconciliation found only unrelated open Davis-Bacon #700 and Field contracts #702. No equivalent active Estimate implementation.
+- Worktree `/workspace/scratch/1f8f19f950ac/tradeos-stage-nav`; allowed builder presentation, focused browser tests and owned docs. Excluded backend/API behavior, financial calculations, auth/RBAC/RLS, schema, suppliers, proposal lifecycle, infrastructure and unrelated main-checkout PNG/GIF edits. #751/#731 remain owner-closed without merge; preserve their branches.
+- Next five TODOs: (1) pass local Web/governance/docs and exact-head hosted gates for columns; (2) reconcile automated review findings and complete normal protected merge; (3) verify landed main and exact-source deployment; (4) reconcile laptop Athena rail usability against approved responsive behavior; (5) certify sanitized authenticated Costbook → Price → Proposal persistence and foreign-tenant denial once Preview/data-plane isolation is proven.
+
 ## Estimate line-edit explicit cost — active 2026-10-17 UTC
 
 - Main reconciled at `17c339cf28ce36056f1f2d97989e5521f74e1611` (#760 merged normally). Exact tree matches tested source; web production `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL` is READY at that SHA. This is deployed-source evidence, not authenticated functionality. #751/#731 remain closed without merge; #755/#758 and evidence #756/#757 are merged. Preserve root's unrelated concept PNG and knowledge-engine demo GIF modifications.
