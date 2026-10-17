@@ -568,20 +568,20 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
     return () => clearTimeout(timeout);
   }, [query]);
 
-  const { data: searchData, isError: searchFailed, error: searchError } = useQuery({
-    queryKey: ["item-search", debouncedQuery],
+  const { data: searchData, isFetching: searchPending, isError: searchFailed, error: searchError } = useQuery({
+    queryKey: ["item-search", catalogKind, debouncedQuery],
     queryFn: async (): Promise<{ items: PickerResult[]; failedSources: string[] }> => {
       if (!debouncedQuery) return { items: [], failedSources: [] };
       const [costItemsResult, assembliesResult, starterCatalogResult] = await Promise.allSettled([
-        clientFetch<{ id: string; name: string; code: string; unitOfMeasure: string }[]>(
+        catalogKind === "costItems" ? clientFetch<{ id: string; name: string; code: string; unitOfMeasure: string }[]>(
           `/cost-database/cost-items/search?q=${encodeURIComponent(debouncedQuery)}`
-        ),
-        clientFetch<Array<{ id: string; name: string; code: string; unitOfMeasure: string; description?: string | null }>>(
+        ) : Promise.resolve([]),
+        catalogKind === "assemblies" ? clientFetch<Array<{ id: string; name: string; code: string; unitOfMeasure: string; description?: string | null }>>(
           `/assemblies/search?q=${encodeURIComponent(debouncedQuery)}`
-        ),
-        clientFetch<{
+        ) : Promise.resolve([]),
+        catalogKind === "assemblies" ? clientFetch<{
           items: StarterCatalogTemplate[];
-        }>("/assemblies/starter-catalog"),
+        }>("/assemblies/starter-catalog") : Promise.resolve({ items: [] }),
       ]);
       const costItems = costItemsResult.status === "fulfilled" ? costItemsResult.value : [];
       const assemblies = assembliesResult.status === "fulfilled" ? assembliesResult.value : [];
@@ -611,9 +611,8 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
       ];
       if (
         items.length === 0 &&
-        costItemsResult.status === "rejected" &&
-        assembliesResult.status === "rejected" &&
-        starterCatalogResult.status === "rejected"
+        (catalogKind === "costItems" ? costItemsResult.status === "rejected" :
+          assembliesResult.status === "rejected" && starterCatalogResult.status === "rejected")
       ) {
         throw new Error("Costbook search is unavailable. You can still add a custom line item.");
       }
@@ -970,7 +969,9 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
           </div>
         )}
 
-        {!selected && debouncedQuery && orderedResults.length === 0 && !addLineItem.isPending && (
+        {!selected && searchPending ? <p role="status" className="text-sm text-muted-foreground">Searching {catalogKind === "assemblies" ? "assemblies" : "Costbook"}…</p> : null}
+
+        {!selected && debouncedQuery && !searchPending && orderedResults.length === 0 && !addLineItem.isPending && (
           <div className="rounded-lg border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
             <p>{searchFailed ? searchError instanceof Error ? searchError.message : "Costbook search is unavailable." : "No matches yet. Try a broader assembly name or a cost item code."}</p>
             <p className="mt-2">Choose Custom item to add a line, or <Link href="/costbook/cost-items" className="font-medium text-foreground underline">add a Costbook item</Link> for reuse.</p>

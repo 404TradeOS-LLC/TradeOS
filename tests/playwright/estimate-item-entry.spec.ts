@@ -16,6 +16,9 @@ test.describe('Estimate item entry', () => {
       const submitted: unknown[] = [];
       const unexpectedWrites: string[] = [];
       let release: (() => void) | undefined;
+      let releaseCatalog: (() => void) | undefined;
+      let assemblyReads = 0;
+      let starterReads = 0;
       await page.route('**/api/proxy/**', async (route) => {
         const request = route.request();
         const url = new URL(request.url());
@@ -28,9 +31,12 @@ test.describe('Estimate item entry', () => {
           unexpectedWrites.push(url.pathname);
           return route.fulfill({ status: 403, json: { error: 'Isolated test refuses writes' } });
         }
-        if (url.pathname.endsWith('/cost-database/cost-items/search')) return route.fulfill({ json: [{ id: 'qa-cost', name: 'QA cost item', code: 'QA-C', unitOfMeasure: 'EA' }] });
-        if (url.pathname.endsWith('/assemblies/search')) return route.fulfill({ json: [{ id: 'qa-assembly', name: 'QA assembly', code: 'QA-A', unitOfMeasure: 'EA' }] });
-        if (url.pathname.endsWith('/assemblies/starter-catalog')) return route.fulfill({ json: { items: [] } });
+        if (url.pathname.endsWith('/cost-database/cost-items/search')) {
+          if (url.searchParams.get('q') === 'QA') await new Promise<void>((resolve) => { releaseCatalog = resolve; });
+          return route.fulfill({ json: [{ id: 'qa-cost', name: 'QA cost item', code: 'QA-C', unitOfMeasure: 'EA' }] });
+        }
+        if (url.pathname.endsWith('/assemblies/search')) { assemblyReads++; return route.fulfill({ json: [{ id: 'qa-assembly', name: 'QA assembly', code: 'QA-A', unitOfMeasure: 'EA' }] }); }
+        if (url.pathname.endsWith('/assemblies/starter-catalog')) { starterReads++; return route.fulfill({ json: { items: [] } }); }
         if (url.pathname.endsWith('/costbook/cost-items/qa-cost/unit-cost')) return route.fulfill({ json: { totalUnitCost: 19.25 } });
         return route.fallback();
       });
@@ -64,6 +70,12 @@ test.describe('Estimate item entry', () => {
       const search = page.getByRole('combobox', { name: 'Search Costbook items' });
       await expect(search).toBeFocused();
       await search.fill('QA');
+      await expect(page.getByRole('status').filter({ hasText: 'Searching Costbook' })).toBeVisible();
+      await expect(page.getByText('No matches yet.', { exact: false })).toBeHidden();
+      await expect.poll(() => Boolean(releaseCatalog)).toBe(true);
+      expect(assemblyReads).toBe(0);
+      expect(starterReads).toBe(0);
+      releaseCatalog!();
       await expect(page.getByRole('option', { name: /QA cost item/ })).toBeVisible();
       await expect(page.getByRole('option', { name: /QA assembly/ })).toBeHidden();
       await page.keyboard.press('Enter');
@@ -78,6 +90,8 @@ test.describe('Estimate item entry', () => {
       await expect(assemblySearch).toBeFocused();
       await assemblySearch.fill('QA');
       await expect(page.getByRole('option', { name: /QA assembly/ })).toBeVisible();
+      expect(assemblyReads).toBeGreaterThan(0);
+      expect(starterReads).toBeGreaterThan(0);
       await expect(page.getByRole('option', { name: /QA cost item/ })).toBeHidden();
       expect(submitted).toHaveLength(0);
 
