@@ -97,6 +97,9 @@ test.describe('Estimate stage navigation', () => {
       await expect(page.getByRole('button', { name: 'Finalize estimate', exact: true })).toBeVisible();
       await expectNoHorizontalOverflow();
       await capture('review');
+      // Stage activation focuses its heading. Step back through Review before Price.
+      await page.keyboard.press('Shift+Tab');
+      await expect(review).toBeFocused();
       await page.keyboard.press('Shift+Tab');
       await expect(price).toBeFocused();
       await page.keyboard.press('Enter');

@@ -61,6 +61,13 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Estimate Items progressive entry — 2026-10-17 UTC
+
+Main `f9a93dc4` includes responsive stages (#755), single-stage finalization recovery focus (#758) and updated persisted-price evidence instrumentation (#756/#757); #751 is closed without merge. The bounded Items branch `fix/estimate-items-progressive-entry-20261017` reconciles canonical Desktop Items `378:441`: saved lines remain central while Add assembly, Costbook and Custom item open the existing entry controls inline. Catalog entry filters source kinds; starter mapping, resolved unit-cost review and explicit Add remain authoritative. Draft fields and same-source selection survive closing/reopening; changing catalog kind clears its prior selection. Only active Items owns the search shortcut; opening a form focuses its first field.
+
+No new Estimate write, pricing calculation, source trust or backend permission contract. New isolated browser coverage intercepts all mutations and uses explicit synthetic catalog reads, proving frontend interaction rather than backend persistence. Current branch delivery and verification are tracked by the handoff/PR; previous merged source delivery must not imply this branch is deployed. Authenticated nonproduction workflow and data-plane isolation remain unverified.
+
+
 ## Proposal failure input retention — 2026-10-16
 
 The existing proposal creation form lost uncontrolled edits when its server action returned validation/API errors: React treated the returned error state as a fulfilled action and reset the fields. A real incomplete-payment-row reproduction restored the initial company/scope and erased the entered milestone. The form now cancels that native reset; successful creation still follows the existing redirect. Failed attempts retain all fields/checkboxes and focus an alert followed by the retry submit in keyboard order. No server action, validation, financial or authorization behavior changes.

@@ -545,6 +545,11 @@ function EstimateStageAction({ label, onClick, disabled = false }: { label: stri
 
 function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; onAdded: () => void; active: boolean }) {
   const queryClient = useQueryClient();
+  const catalogPanelId = useId();
+  const customPanelId = useId();
+  const customInputRef = useRef<HTMLInputElement>(null);
+  const [entryMode, setEntryMode] = useState<"catalog" | "custom" | null>(null);
+  const [catalogKind, setCatalogKind] = useState<"assemblies" | "costItems">("assemblies");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -621,18 +626,18 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
         ].filter(Boolean),
       };
     },
-    enabled: debouncedQuery.length > 0,
+    enabled: entryMode === "catalog" && debouncedQuery.length > 0,
     staleTime: 5 * 60_000,
   });
 
   const orderedResults = useMemo(() => {
-    const items = searchData?.items ?? [];
+    const items = (searchData?.items ?? []).filter((item) => catalogKind === "costItems" ? item.kind === "costItem" : item.kind !== "costItem");
     return [
       ...items.filter((result) => result.kind === "assembly"),
       ...items.filter((result) => result.kind === "starterAssembly"),
       ...items.filter((result) => result.kind === "costItem"),
     ];
-  }, [searchData]);
+  }, [searchData, catalogKind]);
 
   const activeResultIndex = orderedResults.length === 0 ? 0 : Math.min(activeIndex, orderedResults.length - 1);
   const activeResult = orderedResults[activeResultIndex] ?? null;
@@ -685,11 +690,17 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
   const customUnitCostInvalid = custom.unitCost !== "" && (!Number.isFinite(Number(custom.unitCost)) || Number(custom.unitCost) < 0);
 
   useEffect(() => {
+    if (entryMode === "catalog") searchInputRef.current?.focus();
+    if (entryMode === "custom") customInputRef.current?.focus();
+  }, [entryMode, catalogKind]);
+
+  useEffect(() => {
     if (!active) return;
     const onKeyDown = (event: KeyboardEvent) => {
       const isSearchShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
       if (isSearchShortcut) {
         event.preventDefault();
+        setEntryMode("catalog");
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
       }
@@ -772,367 +783,385 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to add custom line item"),
   });
 
+  const openCatalog = (kind: typeof catalogKind) => {
+    if (kind === catalogKind && entryMode === "catalog") {
+      setEntryMode(null);
+      return;
+    }
+    if (kind !== catalogKind) {
+      setSelected(null);
+      setQuery("");
+      setDebouncedQuery("");
+      setActiveIndex(0);
+    }
+    setCatalogKind(kind);
+    setEntryMode("catalog");
+  };
+
   return (
-    <div className="space-y-3 rounded-xl border border-border/70 bg-muted/10 p-3 sm:p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Label htmlFor="item-search" className="text-sm font-medium">
-          Add line item
-        </Label>
-        <div className="text-xs text-muted-foreground">Search assemblies first, then cost items</div>
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2" aria-label="Add estimate items">
+        <Button type="button" variant="outline" className="min-h-11" aria-expanded={entryMode === "catalog" && catalogKind === "assemblies"} aria-controls={catalogPanelId} onClick={() => openCatalog("assemblies")}>Add assembly</Button>
+        <Button type="button" variant="outline" className="min-h-11" aria-expanded={entryMode === "catalog" && catalogKind === "costItems"} aria-controls={catalogPanelId} onClick={() => openCatalog("costItems")}>Costbook</Button>
+        <Button type="button" variant="outline" className="min-h-11" aria-expanded={entryMode === "custom"} aria-controls={customPanelId} onClick={() => setEntryMode(entryMode === "custom" ? null : "custom")}>Custom item</Button>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px_180px_auto] md:items-end">
-        <div className="space-y-2">
-          <Input
-            ref={searchInputRef}
-            id="item-search"
-            role="combobox"
-            aria-autocomplete="list"
-            aria-expanded={!selected && orderedResults.length > 0}
-            aria-controls={!selected ? "item-search-results" : undefined}
-            aria-activedescendant={!selected && activeResult ? `item-search-option-${activeResult.kind}-${activeResult.id}` : undefined}
-            autoFocus
-            placeholder="Search assemblies or cost items…"
-            value={selected ? selected.name : query}
-            onChange={(e) => {
-              setSelected(null);
-              setQuery(e.target.value);
-              setError(null);
-              setActiveIndex(0);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowDown") {
-                event.preventDefault();
-                if (orderedResults.length === 0) return;
-                const nextIndex = Math.min(activeResultIndex + 1, orderedResults.length - 1);
-                setActiveIndex(nextIndex);
-                return;
-              }
-              if (event.key === "ArrowUp") {
-                event.preventDefault();
-                if (orderedResults.length === 0) return;
-                const nextIndex = Math.max(activeResultIndex - 1, 0);
-                setActiveIndex(nextIndex);
-                return;
-              }
-              if (event.key === "Enter") {
-                event.preventDefault();
-                if (selected) {
-                  quantityInputRef.current?.focus();
-                  return;
-                }
-                if (!activeResult) {
-                  setError("Pick a result from the list first.");
-                  return;
-                }
-                setSelected(activeResult);
-                setQuery(activeResult.name);
-                setError(null);
-                if (activeResult.kind !== "starterAssembly") quantityInputRef.current?.focus();
-                return;
-              }
-              if (event.key === "Escape") {
-                event.preventDefault();
+      <div id={catalogPanelId} hidden={entryMode !== "catalog"} className="space-y-3 rounded-lg border border-border/70 bg-muted/10 p-3 sm:p-4">
+        <Label htmlFor="item-search" className="text-sm font-medium">{catalogKind === "assemblies" ? "Search assemblies" : "Search Costbook items"}</Label>
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px_180px_auto] md:items-end">
+          <div className="space-y-2">
+            <Input
+              ref={searchInputRef}
+              id="item-search"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={!selected && orderedResults.length > 0}
+              aria-controls={!selected ? "item-search-results" : undefined}
+              aria-activedescendant={!selected && activeResult ? `item-search-option-${activeResult.kind}-${activeResult.id}` : undefined}
+              placeholder="Search assemblies or cost items…"
+              value={selected ? selected.name : query}
+              onChange={(e) => {
                 setSelected(null);
-                setQuery("");
+                setQuery(e.target.value);
                 setError(null);
                 setActiveIndex(0);
-              }
-            }}
-          />
-          <p className="text-xs text-muted-foreground">Tip: press ⌘/Ctrl+K anywhere on the page to jump back here.</p>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="costbook-section">Section</Label>
-          <Input id="costbook-section" value={section} onChange={(e) => setSection(e.target.value)} />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="quantity" className="text-sm font-medium">
-            Quantity{selected ? ` (${selected.unitOfMeasure})` : ""}
-          </Label>
-          <Input
-            ref={quantityInputRef}
-            id="quantity"
-            type="number"
-            min="0"
-            step="any"
-            value={quantity}
-            aria-invalid={quantityInvalid}
-            aria-describedby={quantityInvalid ? "quantity-error" : undefined}
-            onChange={(e) => setQuantity(e.target.value)}
-
-          />
-          {quantityInvalid ? (
-            <p id="quantity-error" className="text-xs text-destructive">
-              Quantity must be a positive number.
-            </p>
-          ) : null}
-        </div>
-
-        <Button
-          type="button"
-          onClick={() => commitLineItem()}
-          disabled={!canAddReviewedLine}
-        >
-          {addLineItem.isPending ? "Adding…" : selected?.kind === "starterAssembly" ? "Setup required" : "Add to estimate"}
-        </Button>
-      </div>
-
-      <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
-        <div className="sm:col-span-2 lg:col-span-2">
-          <Label htmlFor="custom-description">Custom line item</Label>
-          <Input id="custom-description" placeholder="e.g. debris handling" value={custom.description} onChange={(e) => setCustom({ ...custom, description: e.target.value })} />
-        </div>
-        <div>
-          <Label htmlFor="custom-quantity">Qty</Label>
-          <Input
-            id="custom-quantity"
-            type="number"
-            min="0"
-            step="any"
-            value={custom.quantity}
-            aria-invalid={customQuantityInvalid}
-            aria-describedby={customQuantityInvalid ? "custom-quantity-error" : undefined}
-            onChange={(e) => setCustom({ ...custom, quantity: e.target.value })}
-          />
-          {customQuantityInvalid ? (
-            <p id="custom-quantity-error" className="mt-1 text-xs text-destructive">
-              Must be positive.
-            </p>
-          ) : null}
-        </div>
-        <div>
-          <Label htmlFor="custom-unit-cost">Unit cost</Label>
-          <Input
-            id="custom-unit-cost"
-            type="number"
-            min="0"
-            step="0.01"
-            value={custom.unitCost}
-            aria-invalid={customUnitCostInvalid}
-            aria-describedby={customUnitCostInvalid ? "custom-unit-cost-error" : undefined}
-            onChange={(e) => setCustom({ ...custom, unitCost: e.target.value })}
-          />
-          {customUnitCostInvalid ? (
-            <p id="custom-unit-cost-error" className="mt-1 text-xs text-destructive">
-              Can&apos;t be negative.
-            </p>
-          ) : null}
-        </div>
-        <Button type="button" variant="secondary" onClick={() => addCustomLineItem()} disabled={customAdd.isPending || customQuantityInvalid || customUnitCostInvalid}>
-          {customAdd.isPending ? "Adding…" : "Add custom"}
-        </Button>
-        <div>
-          <Label htmlFor="custom-unit">Unit</Label>
-          <Input id="custom-unit" value={custom.unitOfMeasure} onChange={(e) => setCustom({ ...custom, unitOfMeasure: e.target.value })} />
-        </div>
-        <div>
-          <Label htmlFor="custom-section">Section</Label>
-          <Input id="custom-section" value={custom.section} onChange={(e) => setCustom({ ...custom, section: e.target.value })} />
-        </div>
-        <div>
-          <Label htmlFor="custom-cost-type">Cost type</Label>
-          <select id="custom-cost-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={custom.costType} onChange={(e) => setCustom({ ...custom, costType: e.target.value as LineItem["costType"] })}>
-            {costTypes.map((type) => <option key={type} value={type}>{type}</option>)}
-          </select>
-        </div>
-        <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={custom.taxable} onChange={(e) => setCustom({ ...custom, taxable: e.target.checked })} /> Taxable</label>
-      </div>
-
-      <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
-        <div>
-          <Label htmlFor="costbook-cost-type">Costbook cost type</Label>
-          <select id="costbook-cost-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={costType} onChange={(e) => setCostType(e.target.value as LineItem["costType"] | "")}>
-            <option value="">Auto-detect</option>
-            {costTypes.map((type) => <option key={type} value={type}>{type}</option>)}
-          </select>
-        </div>
-        <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} /> Costbook item is taxable</label>
-        <p className="text-xs text-muted-foreground">These settings apply to the selected Costbook item.</p>
-      </div>
-
-      {!selected && orderedResults.length > 0 && (
-        <div className="space-y-4">
-          <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Search results</div>
-          <div id="item-search-results" role="listbox" aria-label="Costbook search results" className="max-h-72 space-y-4 overflow-auto pr-1">
-            <ResultGroup
-              title="Assemblies"
-              description="Reusable packages and templates"
-              results={orderedResults.filter((result) => result.kind === "assembly")}
-              baseIndex={0}
-              activeIndex={activeResultIndex}
-              onSelect={(result, index) => {
-                setSelected(result);
-                setActiveIndex(index);
-                setQuery(result.name);
-                setError(null);
-                quantityInputRef.current?.focus();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowDown") {
+                  event.preventDefault();
+                  if (orderedResults.length === 0) return;
+                  const nextIndex = Math.min(activeResultIndex + 1, orderedResults.length - 1);
+                  setActiveIndex(nextIndex);
+                  return;
+                }
+                if (event.key === "ArrowUp") {
+                  event.preventDefault();
+                  if (orderedResults.length === 0) return;
+                  const nextIndex = Math.max(activeResultIndex - 1, 0);
+                  setActiveIndex(nextIndex);
+                  return;
+                }
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  if (selected) {
+                    quantityInputRef.current?.focus();
+                    return;
+                  }
+                  if (!activeResult) {
+                    setError("Pick a result from the list first.");
+                    return;
+                  }
+                  setSelected(activeResult);
+                  setQuery(activeResult.name);
+                  setError(null);
+                  if (activeResult.kind !== "starterAssembly") quantityInputRef.current?.focus();
+                  return;
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setSelected(null);
+                  setQuery("");
+                  setError(null);
+                  setActiveIndex(0);
+                }
               }}
             />
-            <ResultGroup
-              title="Starter assemblies"
-              description="TradeOS starter recipes · setup required before estimating"
-              results={orderedResults.filter((result) => result.kind === "starterAssembly")}
-              baseIndex={orderedResults.filter((result) => result.kind === "assembly").length}
-              activeIndex={activeResultIndex}
-              onSelect={(result, index) => {
-                setSelected(result);
-                setActiveIndex(index);
-                setQuery(result.name);
-                setError(null);
-              }}
-            />
-            <ResultGroup
-              title="Cost items"
-              description="Individual labor or material items"
-              results={orderedResults.filter((result) => result.kind === "costItem")}
-              baseIndex={
-                orderedResults.filter((result) => result.kind === "assembly").length +
-                orderedResults.filter((result) => result.kind === "starterAssembly").length
-              }
-              activeIndex={activeResultIndex}
-              onSelect={(result, index) => {
-                setSelected(result);
-                setActiveIndex(index);
-                setQuery(result.name);
-                setError(null);
-                quantityInputRef.current?.focus();
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {!selected && debouncedQuery && orderedResults.length === 0 && !addLineItem.isPending && (
-        <div className="rounded-lg border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
-          <p>{searchFailed ? searchError instanceof Error ? searchError.message : "Costbook search is unavailable." : "No matches yet. Try a broader assembly name or a cost item code."}</p>
-          <p className="mt-2">You can add a custom line item below, or <Link href="/costbook/cost-items" className="font-medium text-foreground underline">add a Costbook item</Link> for reuse.</p>
-        </div>
-      )}
-
-      {!selected && searchData?.failedSources?.length ? (
-        <p className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning" role="alert">
-          Search unavailable for {searchData.failedSources.join(" and ")}. Add a custom line item or try again.
-        </p>
-      ) : null}
-
-      {selected && (
-        <div className="space-y-3 rounded-lg border border-border/70 bg-background px-3 py-3 text-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={selected.kind === "assembly" ? "default" : selected.kind === "starterAssembly" ? "outline" : "secondary"}>
-              {selected.kind === "assembly" ? "Installed assembly" : selected.kind === "starterAssembly" ? "Starter assembly" : "Cost item"}
-            </Badge>
-            <span className="font-medium">{selected.name}</span>
-            <span className="text-muted-foreground">
-              {selected.code} · {selected.unitOfMeasure}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSelected(null);
-                setQuery("");
-                setError(null);
-                searchInputRef.current?.focus();
-              }}
-            >
-              Clear
-            </Button>
+            <p className="text-xs text-muted-foreground">Tip: press ⌘/Ctrl+K anywhere on the page to jump back here.</p>
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="costbook-section">Section</Label>
+            <Input id="costbook-section" value={section} onChange={(e) => setSection(e.target.value)} />
+          </div>
 
-          {selected.kind === "costItem" ? (
-            <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3" aria-live="polite">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Current Costbook cost preview</p>
-              {costItemPreviewLoading || costItemPreviewFetching ? (
-                <p className="text-sm text-muted-foreground">Resolving stored unit cost…</p>
-              ) : costItemPreviewFailed ? (
-                <p className="text-sm text-warning" role="alert">
-                  Cost preview unavailable. {costItemPreviewError instanceof Error ? costItemPreviewError.message : "Try again or choose a custom item."}
-                </p>
-              ) : costItemPreview && Number.isFinite(costItemPreview.totalUnitCost) && costItemPreview.totalUnitCost >= 0 ? (
-                <div className="text-sm">
-                  <strong className="font-medium">{formatCurrency(costItemPreview.totalUnitCost)}</strong> / {selected.unitOfMeasure} stored cost
-                  <p className="mt-1 text-muted-foreground">
-                    {formatCurrency(costItemPreview.totalUnitCost * (Number(quantity) > 0 ? Number(quantity) : 0))} estimated direct job cost for {quantity || "0"} {selected.unitOfMeasure}.
-                  </p>
-                </div>
-              ) : <p className="text-sm text-warning">Cost preview is unavailable.</p>}
-              <p className="text-xs text-muted-foreground">This is a stored Costbook cost, not a live supplier quote. Estimate Engine saves its own cost snapshot when you explicitly Add.</p>
+          <div className="space-y-2">
+            <Label htmlFor="quantity" className="text-sm font-medium">
+              Quantity{selected ? ` (${selected.unitOfMeasure})` : ""}
+            </Label>
+            <Input
+              ref={quantityInputRef}
+              id="quantity"
+              type="number"
+              min="0"
+              step="any"
+              value={quantity}
+              aria-invalid={quantityInvalid}
+              aria-describedby={quantityInvalid ? "quantity-error" : undefined}
+              onChange={(e) => setQuantity(e.target.value)}
+
+            />
+            {quantityInvalid ? (
+              <p id="quantity-error" className="text-xs text-destructive">
+                Quantity must be a positive number.
+              </p>
+            ) : null}
+          </div>
+
+          <Button
+            type="button"
+            onClick={() => commitLineItem()}
+            disabled={!canAddReviewedLine}
+          >
+            {addLineItem.isPending ? "Adding…" : selected?.kind === "starterAssembly" ? "Setup required" : "Add to estimate"}
+          </Button>
+        </div>
+
+        <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+          <div>
+            <Label htmlFor="costbook-cost-type">Costbook cost type</Label>
+            <select id="costbook-cost-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={costType} onChange={(e) => setCostType(e.target.value as LineItem["costType"] | "")}>
+              <option value="">Auto-detect</option>
+              {costTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} /> Costbook item is taxable</label>
+          <p className="text-xs text-muted-foreground">These settings apply to the selected Costbook item.</p>
+        </div>
+
+        {!selected && orderedResults.length > 0 && (
+          <div className="space-y-4">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Search results</div>
+            <div id="item-search-results" role="listbox" aria-label="Costbook search results" className="max-h-72 space-y-4 overflow-auto pr-1">
+              <ResultGroup
+                title="Assemblies"
+                description="Reusable packages and templates"
+                results={orderedResults.filter((result) => result.kind === "assembly")}
+                baseIndex={0}
+                activeIndex={activeResultIndex}
+                onSelect={(result, index) => {
+                  setSelected(result);
+                  setActiveIndex(index);
+                  setQuery(result.name);
+                  setError(null);
+                  quantityInputRef.current?.focus();
+                }}
+              />
+              <ResultGroup
+                title="Starter assemblies"
+                description="TradeOS starter recipes · setup required before estimating"
+                results={orderedResults.filter((result) => result.kind === "starterAssembly")}
+                baseIndex={orderedResults.filter((result) => result.kind === "assembly").length}
+                activeIndex={activeResultIndex}
+                onSelect={(result, index) => {
+                  setSelected(result);
+                  setActiveIndex(index);
+                  setQuery(result.name);
+                  setError(null);
+                }}
+              />
+              <ResultGroup
+                title="Cost items"
+                description="Individual labor or material items"
+                results={orderedResults.filter((result) => result.kind === "costItem")}
+                baseIndex={
+                  orderedResults.filter((result) => result.kind === "assembly").length +
+                  orderedResults.filter((result) => result.kind === "starterAssembly").length
+                }
+                activeIndex={activeResultIndex}
+                onSelect={(result, index) => {
+                  setSelected(result);
+                  setActiveIndex(index);
+                  setQuery(result.name);
+                  setError(null);
+                  quantityInputRef.current?.focus();
+                }}
+              />
             </div>
-          ) : null}
-          {selected.kind === "assembly" ? (
-            <div className="grid gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-              <div className="space-y-2">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Assembly preview</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Current Costbook recipe. Estimate Engine captures the pricing snapshot and assembly source when you explicitly add it.
-                  </p>
-                </div>
-                {assemblyPreviewLoading ? <p className="text-sm text-muted-foreground">Resolving current assembly cost…</p> : null}
-                {assemblyPreviewFailed ? (
+          </div>
+        )}
+
+        {!selected && debouncedQuery && orderedResults.length === 0 && !addLineItem.isPending && (
+          <div className="rounded-lg border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
+            <p>{searchFailed ? searchError instanceof Error ? searchError.message : "Costbook search is unavailable." : "No matches yet. Try a broader assembly name or a cost item code."}</p>
+            <p className="mt-2">Choose Custom item to add a line, or <Link href="/costbook/cost-items" className="font-medium text-foreground underline">add a Costbook item</Link> for reuse.</p>
+          </div>
+        )}
+
+        {!selected && searchData?.failedSources?.length ? (
+          <p className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning" role="alert">
+            Search unavailable for {searchData.failedSources.join(" and ")}. Add a custom line item or try again.
+          </p>
+        ) : null}
+
+        {selected && (
+          <div className="space-y-3 rounded-lg border border-border/70 bg-background px-3 py-3 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={selected.kind === "assembly" ? "default" : selected.kind === "starterAssembly" ? "outline" : "secondary"}>
+                {selected.kind === "assembly" ? "Installed assembly" : selected.kind === "starterAssembly" ? "Starter assembly" : "Cost item"}
+              </Badge>
+              <span className="font-medium">{selected.name}</span>
+              <span className="text-muted-foreground">
+                {selected.code} · {selected.unitOfMeasure}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelected(null);
+                  setQuery("");
+                  setError(null);
+                  searchInputRef.current?.focus();
+                }}
+              >
+                Clear
+              </Button>
+            </div>
+
+
+            {selected.kind === "costItem" ? (
+              <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3" aria-live="polite">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Current Costbook cost preview</p>
+                {costItemPreviewLoading || costItemPreviewFetching ? (
+                  <p className="text-sm text-muted-foreground">Resolving stored unit cost…</p>
+                ) : costItemPreviewFailed ? (
                   <p className="text-sm text-warning" role="alert">
-                    Current cost preview is unavailable. {assemblyPreviewError instanceof Error ? assemblyPreviewError.message : "Try again before relying on this price."}
+                    Cost preview unavailable. {costItemPreviewError instanceof Error ? costItemPreviewError.message : "Try again or choose a custom item."}
                   </p>
-                ) : null}
-                {assemblyPreview ? (
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                      <span><strong className="font-medium">{formatCurrency(assemblyPreview.unitCost)}</strong> / {selected.unitOfMeasure} current cost</span>
-                      <span className="text-muted-foreground">{assemblyPreview.componentCount} resolved component{assemblyPreview.componentCount === 1 ? "" : "s"}</span>
-                    </div>
-                    <div className="text-sm">
-                      Estimated job cost for {Number(quantity) > 0 ? Number(quantity) : 0} {selected.unitOfMeasure}:{" "}
-                      <strong className="font-medium">
-                        {formatCurrency(assemblyPreview.unitCost * (Number(quantity) > 0 ? Number(quantity) : 0))}
-                      </strong>
-                    </div>
-                    {assemblyPreview.items.length > 0 ? (
-                      <div className="grid gap-1 text-xs text-muted-foreground">
-                        {assemblyPreview.items.map((item) => (
-                          <div key={item.id} className="flex items-start justify-between gap-3">
-                            <span>{item.componentName} · {item.componentCode}</span>
-                            <span className="shrink-0 font-mono">{item.quantityPerUnit} {item.componentUnitOfMeasure}</span>
-                          </div>
-                        ))}
-                        {assemblyPreview.total > assemblyPreview.items.length ? (
-                          <div>{assemblyPreview.total - assemblyPreview.items.length} more component{assemblyPreview.total - assemblyPreview.items.length === 1 ? "" : "s"} in the recipe</div>
-                        ) : null}
-                      </div>
-                    ) : null}
+                ) : costItemPreview && Number.isFinite(costItemPreview.totalUnitCost) && costItemPreview.totalUnitCost >= 0 ? (
+                  <div className="text-sm">
+                    <strong className="font-medium">{formatCurrency(costItemPreview.totalUnitCost)}</strong> / {selected.unitOfMeasure} stored cost
+                    <p className="mt-1 text-muted-foreground">
+                      {formatCurrency(costItemPreview.totalUnitCost * (Number(quantity) > 0 ? Number(quantity) : 0))} estimated direct job cost for {quantity || "0"} {selected.unitOfMeasure}.
+                    </p>
                   </div>
-                ) : null}
-                <p className="text-xs text-muted-foreground">
-                  Source: organization Costbook assembly with current resolved component costs, not a live supplier quote. Estimate Engine captures a new snapshot on Add.
-                </p>
+                ) : <p className="text-sm text-warning">Cost preview is unavailable.</p>}
+                <p className="text-xs text-muted-foreground">This is a stored Costbook cost, not a live supplier quote. Estimate Engine saves its own cost snapshot when you explicitly Add.</p>
               </div>
-              <div className="text-right">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Quantity</p>
-                <p className="mt-1 font-mono text-lg font-semibold tabular-nums">{quantity || "0"} {selected.unitOfMeasure}</p>
+            ) : null}
+            {selected.kind === "assembly" ? (
+              <div className="grid gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Assembly preview</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Current Costbook recipe. Estimate Engine captures the pricing snapshot and assembly source when you explicitly add it.
+                    </p>
+                  </div>
+                  {assemblyPreviewLoading ? <p className="text-sm text-muted-foreground">Resolving current assembly cost…</p> : null}
+                  {assemblyPreviewFailed ? (
+                    <p className="text-sm text-warning" role="alert">
+                      Current cost preview is unavailable. {assemblyPreviewError instanceof Error ? assemblyPreviewError.message : "Try again before relying on this price."}
+                    </p>
+                  ) : null}
+                  {assemblyPreview ? (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                        <span><strong className="font-medium">{formatCurrency(assemblyPreview.unitCost)}</strong> / {selected.unitOfMeasure} current cost</span>
+                        <span className="text-muted-foreground">{assemblyPreview.componentCount} resolved component{assemblyPreview.componentCount === 1 ? "" : "s"}</span>
+                      </div>
+                      <div className="text-sm">
+                        Estimated job cost for {Number(quantity) > 0 ? Number(quantity) : 0} {selected.unitOfMeasure}:{" "}
+                        <strong className="font-medium">
+                          {formatCurrency(assemblyPreview.unitCost * (Number(quantity) > 0 ? Number(quantity) : 0))}
+                        </strong>
+                      </div>
+                      {assemblyPreview.items.length > 0 ? (
+                        <div className="grid gap-1 text-xs text-muted-foreground">
+                          {assemblyPreview.items.map((item) => (
+                            <div key={item.id} className="flex items-start justify-between gap-3">
+                              <span>{item.componentName} · {item.componentCode}</span>
+                              <span className="shrink-0 font-mono">{item.quantityPerUnit} {item.componentUnitOfMeasure}</span>
+                            </div>
+                          ))}
+                          {assemblyPreview.total > assemblyPreview.items.length ? (
+                            <div>{assemblyPreview.total - assemblyPreview.items.length} more component{assemblyPreview.total - assemblyPreview.items.length === 1 ? "" : "s"} in the recipe</div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <p className="text-xs text-muted-foreground">
+                    Source: organization Costbook assembly with current resolved component costs, not a live supplier quote. Estimate Engine captures a new snapshot on Add.
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Quantity</p>
+                  <p className="mt-1 font-mono text-lg font-semibold tabular-nums">{quantity || "0"} {selected.unitOfMeasure}</p>
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          {selected.kind === "starterAssembly" && selected.starterTemplate ? (
-            <StarterAssemblySetup
-              key={selected.id}
-              template={selected.starterTemplate}
-              quantity={quantity}
-              onInstalled={(assembly) => {
-                setSelected({ ...assembly, kind: "assembly" });
-                setQuery(assembly.name);
-                setError(null);
-                void queryClient.invalidateQueries({ queryKey: ["item-search"] });
-              }}
+            {selected.kind === "starterAssembly" && selected.starterTemplate ? (
+              <StarterAssemblySetup
+                key={selected.id}
+                template={selected.starterTemplate}
+                quantity={quantity}
+                onInstalled={(assembly) => {
+                  setSelected({ ...assembly, kind: "assembly" });
+                  setQuery(assembly.name);
+                  setError(null);
+                  void queryClient.invalidateQueries({ queryKey: ["item-search"] });
+                }}
+              />
+            ) : null}
+          </div>
+        )}
+      </div>
+
+      <div id={customPanelId} hidden={entryMode !== "custom"}>
+        <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
+          <div className="sm:col-span-2 lg:col-span-2">
+            <Label htmlFor="custom-description">Custom line item</Label>
+            <Input ref={customInputRef} id="custom-description" placeholder="e.g. debris handling" value={custom.description} onChange={(e) => setCustom({ ...custom, description: e.target.value })} />
+          </div>
+          <div>
+            <Label htmlFor="custom-quantity">Qty</Label>
+            <Input
+              id="custom-quantity"
+              type="number"
+              min="0"
+              step="any"
+              value={custom.quantity}
+              aria-invalid={customQuantityInvalid}
+              aria-describedby={customQuantityInvalid ? "custom-quantity-error" : undefined}
+              onChange={(e) => setCustom({ ...custom, quantity: e.target.value })}
             />
-          ) : null}
+            {customQuantityInvalid ? (
+              <p id="custom-quantity-error" className="mt-1 text-xs text-destructive">
+                Must be positive.
+              </p>
+            ) : null}
+          </div>
+          <div>
+            <Label htmlFor="custom-unit-cost">Unit cost</Label>
+            <Input
+              id="custom-unit-cost"
+              type="number"
+              min="0"
+              step="0.01"
+              value={custom.unitCost}
+              aria-invalid={customUnitCostInvalid}
+              aria-describedby={customUnitCostInvalid ? "custom-unit-cost-error" : undefined}
+              onChange={(e) => setCustom({ ...custom, unitCost: e.target.value })}
+            />
+            {customUnitCostInvalid ? (
+              <p id="custom-unit-cost-error" className="mt-1 text-xs text-destructive">
+                Can&apos;t be negative.
+              </p>
+            ) : null}
+          </div>
+          <Button type="button" variant="secondary" onClick={() => addCustomLineItem()} disabled={customAdd.isPending || customQuantityInvalid || customUnitCostInvalid}>
+            {customAdd.isPending ? "Adding…" : "Add custom"}
+          </Button>
+          <div>
+            <Label htmlFor="custom-unit">Unit</Label>
+            <Input id="custom-unit" value={custom.unitOfMeasure} onChange={(e) => setCustom({ ...custom, unitOfMeasure: e.target.value })} />
+          </div>
+          <div>
+            <Label htmlFor="custom-section">Section</Label>
+            <Input id="custom-section" value={custom.section} onChange={(e) => setCustom({ ...custom, section: e.target.value })} />
+          </div>
+          <div>
+            <Label htmlFor="custom-cost-type">Cost type</Label>
+            <select id="custom-cost-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={custom.costType} onChange={(e) => setCustom({ ...custom, costType: e.target.value as LineItem["costType"] })}>
+              {costTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={custom.taxable} onChange={(e) => setCustom({ ...custom, taxable: e.target.checked })} /> Taxable</label>
         </div>
-      )}
+      </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </div>
   );
 
