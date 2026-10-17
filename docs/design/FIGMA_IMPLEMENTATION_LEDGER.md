@@ -1,5 +1,14 @@
 # TradeOS Figma implementation ledger
 
+## Current Items entry checkpoint — 2026-10-17 UTC
+
+Reconciled main `f9a93dc4` includes merged responsive stages #755 (`5469bfe2`), finalization focus #758 (`47eac405`), and evidence #756/#757. Earlier #751 was closed without merge and is historical. PR #760, branch `fix/estimate-items-progressive-entry-20261017`, is **unmerged / undeployed / locally verified**. Exact canonical [Desktop Items 378:441](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=378-441), Estimates page `4:10`, high-fidelity context and screenshot inspected again.
+
+Explicit reviewed item selection group: same `/projects/:id/estimates/:estimateId`, builder `LineItemPicker`, existing Costbook/Assembly search and unit-cost preview, starter install and explicit Estimate Engine Add. Current branch makes saved rows accessible before opening entry forms, reuses the three approved add actions, filters catalog source kind and retains unfinished fields when closing. No backend/financial/auth/RLS or supplier change. Existing reviewed source-price gates remain. Eight executed isolated browser cases pass across 390/768/1024/1440 (entry and stage/save matrices); Web 506/506, lint/build, governance 151/151, docs 40/40 and preflight pass. Items screenshots inspected at 390/1440. All writes intercepted, catalog reads explicit synthetic fixtures. Review repair isolates selected-source requests/cache and verifies loading without a false empty state or unrelated assembly calls; authenticated persisted snapshot and full visual parity remain unverified. The same form now rejects missing custom cost instead of turning it into zero; explicit zero remains permitted by the existing contract. This group remains PARTIALLY IMPLEMENTED.
+
+Scoped totals remain **5 PARTIALLY IMPLEMENTED; 1 IMPLEMENTED + UNVERIFIED; 0 IMPLEMENTED + VERIFIED** across six audited groups, not a complete Figma census. Historical checkpoints below do not override current merge/closed states. Next actions are in the current session handoff.
+
+
 ## Current responsive-stage checkpoint — 2026-10-16
 
 Reconciled main `9769dacf` (#754), exact-source web production READY `dpl_CEbaBSEUmbp45yjcwbLCRA8sZdKZ`. Active branch `feat/estimate-responsive-stages-20261016` extends the landed mobile native step navigation to desktop. High-fidelity canonical contexts and screenshots inspected: Estimates `4:10`, [Desktop Scope 378:440](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=378-440), [Items 378:441](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=378-441), [Price 378:442](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=378-442), [Review 378:443](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=378-443), mobile tracker `381:801`.

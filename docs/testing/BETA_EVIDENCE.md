@@ -31,6 +31,11 @@ tenant-scoped product workflow, meaningful assertions, four viewports, retained
 artifacts, and security validation — all passing in one run.
 
 ## Architecture
+
+### Progressive Items entry compatibility (2026-10-17 UTC)
+
+After selecting Items, the canonical runner opens the Custom item disclosure before filling its existing synthetic lines. The shared `openEstimateCustomEntry` interaction is also exercised by the four-width isolated Items browser regression, retains an already-open panel, and supports older workbenches whose editor is directly visible. This only reconciles UI navigation; record writes, expected saved amounts, auth/data-plane guards and mutation opt-in remain unchanged. The isolated test is not a successful full authenticated Beta Evidence run.
+
 ### Proposal handoff locator parity (2026-10-16)
 
 The current finalized Estimate workspace may show two legitimate proposal links: a header Create proposal navigation and the focused Review-stage Review proposal draft action. The canonical Beta Evidence run intentionally clicks the *exact* Review proposal draft link, not a union locator that matches both and fails strict Playwright resolution. This preserves the explicit finalize → draft review → Create boundary without introducing a new write or changing the page UI. Source-level regression tests protect uniqueness. Full authenticated run still requires an isolated non-production tenant and current deployed SHA; this source fix does not certify it.

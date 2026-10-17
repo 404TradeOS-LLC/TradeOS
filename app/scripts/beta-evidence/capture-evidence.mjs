@@ -6,6 +6,7 @@
 // so each viewport renders in a genuinely separate browser context. Desktop
 // screenshots are never resized to fake a smaller viewport.
 
+import { openEstimateCustomEntry } from "./lib/estimate-entry.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright";
@@ -595,7 +596,7 @@ try {
   }
 
   await navigateEstimateStage("Items");
-  const custom = page.getByLabel("Custom line item");
+  const custom = await openEstimateCustomEntry(page);
   await custom.fill("Remove glued-down linoleum");
   await page.locator("#custom-quantity").fill("850");
   await page.locator("#custom-unit-cost").fill("1.25");
