@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openEstimateCustomEntry } from '../../app/scripts/beta-evidence/lib/estimate-entry.mjs';
 
 // Opt-in sanitized draft. Catalog responses are explicit synthetic fixtures;
 // every non-GET proxy request is intercepted, so this suite never writes records.
@@ -95,8 +96,8 @@ test.describe('Estimate item entry', () => {
       await expect(page.getByRole('option', { name: /QA cost item/ })).toBeHidden();
       expect(submitted).toHaveLength(0);
 
-      await custom.click();
-      await expect(description).toHaveValue('QA custom line');
+      const reopened = await openEstimateCustomEntry(page);
+      await expect(reopened).toHaveValue('QA custom line');
       await expect(page.getByLabel('Qty', { exact: true })).toHaveValue('2');
       await expect(page.getByLabel('Unit cost', { exact: true })).toHaveValue('19.25');
       for (const attempt of [1, 2]) {
