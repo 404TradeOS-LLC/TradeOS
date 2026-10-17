@@ -1446,6 +1446,7 @@ function groupLineItems(items: LineItem[]) {
 }
 
 function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, removing }: { estimateId: string; lineItem: LineItem; isDraft: boolean; onUpdated: () => void; onRemove: () => void; removing: boolean }) {
+  const costHelpId = useId();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ description: lineItem.description, quantity: String(lineItem.quantity), unitCost: String(lineItem.unitCost), unitOfMeasure: lineItem.unitOfMeasure, section: lineItem.section, costType: lineItem.costType, taxable: lineItem.taxable });
   const [error, setError] = useState<string | null>(null);
@@ -1453,8 +1454,8 @@ function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, 
     mutationFn: () => {
       const quantity = Number(form.quantity);
       const unitCost = Number(form.unitCost);
-      if (!form.description.trim() || !form.unitOfMeasure.trim() || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitCost) || unitCost < 0) {
-        throw new Error("Description and unit are required; quantity must be positive and unit cost cannot be negative.");
+      if (!form.description.trim() || !form.unitOfMeasure.trim() || !form.unitCost.trim() || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitCost) || unitCost < 0) {
+        throw new Error("Description and unit are required; quantity must be positive and unit cost is required and cannot be negative.");
       }
       return clientFetch(`/estimates/${estimateId}/line-items/${lineItem.id}`, { method: "PATCH", body: JSON.stringify({ ...form, quantity, unitCost }) });
     },
@@ -1466,12 +1467,13 @@ function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, 
       <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} aria-label="Description" />
       <Input value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} aria-label="Section" />
       <Input type="number" min="0" step="any" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} aria-label="Quantity" />
-      <Input type="number" min="0" step="0.01" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: e.target.value })} aria-label="Unit cost" />
+      <Input type="number" min="0" step="0.01" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: e.target.value })} aria-label="Unit cost" required aria-describedby={costHelpId} />
       <Input value={form.unitOfMeasure} onChange={(e) => setForm({ ...form, unitOfMeasure: e.target.value })} aria-label="Unit" />
       <select className="flex h-10 rounded-md border border-input bg-background px-3 text-sm" value={form.costType} onChange={(e) => setForm({ ...form, costType: e.target.value as LineItem["costType"] })}>{costTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.taxable} onChange={(e) => setForm({ ...form, taxable: e.target.checked })} /> Taxable</label>
-      <div className="flex gap-2"><Button size="sm" onClick={() => update.mutate()} disabled={update.isPending}>{update.isPending ? "Saving…" : "Save"}</Button><Button size="sm" variant="ghost" onClick={() => { setError(null); setEditing(false); }}>Cancel</Button></div>
-      {error && <p className="sm:col-span-2 lg:col-span-4 text-sm text-destructive">{error}</p>}
+      <div className="flex gap-2"><Button size="sm" onClick={() => update.mutate()} disabled={update.isPending || !form.unitCost.trim()}>{update.isPending ? "Saving…" : "Save"}</Button><Button size="sm" variant="ghost" onClick={() => { setError(null); setEditing(false); }}>Cancel</Button></div>
+      <p id={costHelpId} className="sm:col-span-2 lg:col-span-4 text-xs text-muted-foreground">Enter a unit cost. Use 0 only when this item intentionally has no cost.</p>
+      {error && <p role="alert" className="sm:col-span-2 lg:col-span-4 text-sm text-destructive">{error}</p>}
     </div> : <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="space-y-1"><div className="font-medium">{lineItem.description}</div><div className="flex flex-wrap gap-2 text-sm text-muted-foreground"><span>{lineItem.quantity} {lineItem.unitOfMeasure} × {formatCurrency(lineItem.unitCost)}</span><Badge variant="outline">{lineItem.costType}</Badge><Badge variant="outline">{lineItem.assemblyId ? "Assembly source" : lineItem.costItemId ? "Costbook source" : "Custom item"}</Badge>{lineItem.taxable && <Badge variant="secondary">taxable</Badge>}</div></div>
       <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end"><span className="text-base font-semibold">{formatCurrency(lineItem.lineCost)}</span>{isDraft && <div className="flex gap-1"><Button variant="ghost" size="sm" onClick={() => setEditing(true)}>Edit</Button><Button variant="ghost" size="sm" onClick={onRemove} disabled={removing}>Remove</Button></div>}</div>

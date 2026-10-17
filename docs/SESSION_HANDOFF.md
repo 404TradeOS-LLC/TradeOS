@@ -10,6 +10,15 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Estimate line-edit explicit cost — active 2026-10-17 UTC
+
+- Main reconciled at `17c339cf28ce36056f1f2d97989e5521f74e1611` (#760 merged normally). Exact tree matches tested source; web production `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL` is READY at that SHA. This is deployed-source evidence, not authenticated functionality. #751/#731 remain closed without merge; #755/#758 and evidence #756/#757 are merged. Preserve root's unrelated concept PNG and knowledge-engine demo GIF modifications.
+- Classification NEW_WORK_REQUIRED: #760 fixed custom Add only; current `EditableLineItem` still converted blank Unit cost to numeric 0. No open line-edit equivalent found. Branch `fix/estimate-edit-explicit-cost-20261017`, base `17c339cf`, same isolated worktree; Sprint NONE. Allowed: existing line-editor required-cost gate/help/error semantics, focused browser regression and four owner docs. Excluded: backend/API/schema/auth/RBAC/RLS, financial computations or explicit-zero policy, supplier integrations, proposal lifecycle, infrastructure and production data.
+- Canonical Items `378:441` and written unknown-cost/mutation-recovery contract remain authoritative; no new estimator or visual system. A new 390px browser regression first failed because blank cost left Save enabled. Repair requires input presence in the existing handler and Save control, marks the input required, describes intentional zero and announces actual failed saves as alerts. Explicit zero remains valid; existing price calculations and draft-only server writes remain unchanged.
+- Verification: 12/12 isolated browser cases at 390/768/1024/1440 (edit/entry/stage matrices) pass. Edit cases intercept every mutation, prove no blank write, verify only explicit 0/original-cost PATCH payloads, pending/repeated rejection, retained input, Cancel and overflow. Synthetic reads, no backend mutation or authenticated persistence proof. Web 506/506, lint/build, root governance 151/151, docs 40/40, ownership/preflight and Playwright discovery pass; 390/1440 edit/error renders inspected. Temporary fixture/config/cache removed. Exact-head hosted CI/review are next; this branch is unmerged and undeployed.
+- Next five TODOs: publish the focused edit-cost PR; resolve exact-head hosted checks; reconcile review and merge normally; verify landed source and exact deployment; finish approved desktop Items quantity/unit-cost/amount composition while preserving internal-cost meaning.
+
+
 ## Estimate Items progressive entry — active 2026-10-17 UTC
 
 - Base main `f9a93dc4aebaeeaa428c781de606999f460b4f81`. #755 responsive stages, #758 failed-finalization focus and #756/#757 persisted-price evidence instrumentation are merged. #751 is owner-closed without merge; do not reopen or reuse its obsolete two-layout implementation. #731 remains closed without merge. Historical entries below do not override these facts.
