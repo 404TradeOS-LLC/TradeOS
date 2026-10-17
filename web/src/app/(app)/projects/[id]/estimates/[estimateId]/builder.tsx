@@ -686,6 +686,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
   // surfacing on submit.
   const quantityInvalid = quantity !== "" && (!Number.isFinite(Number(quantity)) || Number(quantity) <= 0);
   const customQuantityInvalid = custom.quantity !== "" && (!Number.isFinite(Number(custom.quantity)) || Number(custom.quantity) <= 0);
+  const customUnitCostMissing = !custom.unitCost.trim();
   const customUnitCostInvalid = custom.unitCost !== "" && (!Number.isFinite(Number(custom.unitCost)) || Number(custom.unitCost) < 0);
 
   useEffect(() => {
@@ -1132,16 +1133,18 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
               step="0.01"
               value={custom.unitCost}
               aria-invalid={customUnitCostInvalid}
-              aria-describedby={customUnitCostInvalid ? "custom-unit-cost-error" : undefined}
+              required
+              aria-describedby={customUnitCostInvalid ? "custom-unit-cost-error" : "custom-unit-cost-help"}
               onChange={(e) => setCustom({ ...custom, unitCost: e.target.value })}
             />
+            <p id="custom-unit-cost-help" className="mt-1 text-xs text-muted-foreground">Enter a unit cost. Use 0 only when this item intentionally has no cost.</p>
             {customUnitCostInvalid ? (
               <p id="custom-unit-cost-error" className="mt-1 text-xs text-destructive">
                 Can&apos;t be negative.
               </p>
             ) : null}
           </div>
-          <Button type="button" variant="secondary" onClick={() => addCustomLineItem()} disabled={customAdd.isPending || customQuantityInvalid || customUnitCostInvalid}>
+          <Button type="button" variant="secondary" onClick={() => addCustomLineItem()} disabled={customAdd.isPending || customUnitCostMissing || customQuantityInvalid || customUnitCostInvalid}>
             {customAdd.isPending ? "Adding…" : "Add custom"}
           </Button>
           <div>
@@ -1169,7 +1172,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
   function addCustomLineItem() {
     const qty = Number(custom.quantity);
     const unitCost = Number(custom.unitCost);
-    if (!custom.description.trim() || !custom.unitOfMeasure.trim() || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(unitCost) || unitCost < 0) {
+    if (!custom.description.trim() || !custom.unitOfMeasure.trim() || !custom.unitCost.trim() || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(unitCost) || unitCost < 0) {
       setError("Custom lines need a description, unit, positive quantity, and non-negative unit cost.");
       return;
     }

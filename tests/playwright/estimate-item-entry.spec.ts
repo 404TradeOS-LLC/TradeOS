@@ -59,6 +59,14 @@ test.describe('Estimate item entry', () => {
       const description = page.getByLabel('Custom line item', { exact: true });
       await expect(description).toBeFocused();
       await description.fill('QA custom line');
+      const unitCost = page.getByLabel('Unit cost', { exact: true });
+      const customAdd = page.getByRole('button', { name: 'Add custom', exact: true });
+      await expect(customAdd).toBeDisabled();
+      await unitCost.fill('0');
+      await expect(customAdd).toBeEnabled();
+      await unitCost.fill('');
+      await expect(customAdd).toBeDisabled();
+      expect(submitted).toHaveLength(0);
       await page.getByLabel('Qty', { exact: true }).fill('0');
       const add = page.getByRole('button', { name: 'Add custom', exact: true });
       await expect(add).toBeDisabled();
