@@ -1,5 +1,14 @@
 # TradeOS Figma implementation ledger
 
+## Current line-edit checkpoint — 2026-10-17 UTC
+
+Reconciled main `17c339cf` (#760), exact-source web production READY `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL`. Progressive item entry, independent catalog reads and custom Add presence validation are merged/deployed. New branch `fix/estimate-edit-explicit-cost-20261017` is **unmerged / undeployed / browser-verified locally** and restores explicit Unit cost in the existing line-edit UI. Canonical [Desktop Items 378:441](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=378-441), page `4:10`, plus the written unknown-cost and failure-recovery contract govern this bounded state repair.
+
+Same route/builder and existing draft-only PATCH dependency. A blank field may not become zero; explicit 0 remains permitted. Twelve isolated browser cases pass at the four target widths, covering edit presence/payload/failure/Cancel plus entry and stage behavior. Every mutation is intercepted and reads are synthetic; no authenticated persistence claim. Local Web 506/506, lint/build, governance 151/151, docs 40/40 and preflight pass; 390/1440 edit/error renders inspected. Exact-head hosted checks, PR/merge and deployment remain pending for this branch. The item-selection group remains PARTIALLY IMPLEMENTED pending full visual and authenticated snapshot evidence.
+
+Scoped totals remain **5 PARTIALLY IMPLEMENTED; 1 IMPLEMENTED + UNVERIFIED; 0 IMPLEMENTED + VERIFIED** across six audited groups. This is not a complete Figma census. Older branch/blocker statements below are historical and superseded by this checkpoint.
+
+
 ## Current Items entry checkpoint — 2026-10-17 UTC
 
 Reconciled main `f9a93dc4` includes merged responsive stages #755 (`5469bfe2`), finalization focus #758 (`47eac405`), and evidence #756/#757. Earlier #751 was closed without merge and is historical. PR #760, branch `fix/estimate-items-progressive-entry-20261017`, is **unmerged / undeployed / locally verified**. Exact canonical [Desktop Items 378:441](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=378-441), Estimates page `4:10`, high-fidelity context and screenshot inspected again.

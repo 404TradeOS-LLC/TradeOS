@@ -61,6 +61,13 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Estimate line-edit cost presence — 2026-10-17 UTC
+
+Items entry #760 is merged as `17c339cf`, web production source READY at `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL`. The next bounded edit-cost branch repairs the same unknown-to-zero defect in `EditableLineItem`: clearing Unit cost kept Save enabled and the handler coerced the empty string to zero. Save and the handler now require explicit input, the required field explains intentional zero, and rejected edits announce an alert while retaining entered values. Numeric zero remains allowed by the existing backend contract. No backend financial, authorization or snapshot rule changes.
+
+A 390px regression failed before the repair; all 12 isolated edit/entry/stage browser cases then passed across 390/768/1024/1440. All mutation requests were intercepted, so this proves frontend validation/recovery only. The new branch's checks/merge/deployment remain separate from #760's delivered source and from authenticated nonproduction certification.
+
+
 ## Estimate Items progressive entry — 2026-10-17 UTC
 
 Main `f9a93dc4` includes responsive stages (#755), single-stage finalization recovery focus (#758) and updated persisted-price evidence instrumentation (#756/#757); #751 is closed without merge. The bounded Items branch `fix/estimate-items-progressive-entry-20261017` reconciles canonical Desktop Items `378:441`: saved lines remain central while Add assembly, Costbook and Custom item open the existing entry controls inline. Catalog entry filters source kinds and fetches only the selected source with a distinct cache key and explicit loading state; starter mapping, resolved unit-cost review and explicit Add remain authoritative. Draft fields and same-source selection survive closing/reopening; changing catalog kind clears its prior selection. Only active Items owns the search shortcut; opening a form focuses its first field.
