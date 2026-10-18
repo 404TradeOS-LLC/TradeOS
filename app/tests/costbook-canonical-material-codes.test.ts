@@ -79,6 +79,23 @@ describe("Canonical material classification codes", () => {
     }
   });
 
+  it("maps Tapcon keys to 31162104 Screw anchors (M10#39)", () => {
+    for (const key of [
+      "ANCHOR-CONCRETE-SCREW-HEX-1_4X2_3_4-75PK",
+      "ANCHOR-CONCRETE-SCREW-HEX-1_4X3_1_4-75PK",
+      "ANCHOR-CONCRETE-SCREW-HEX-3_16X2_1_4-75PK",
+      "ANCHOR-TAPCON-1_4X2_3_4-75PK",
+      "FAST-SCREW-CONC-TAPCON-1_4X2_1-4-75PK",
+      "FAST-SCREW-CONC-TAPCON-3_16X1_3-4-75PK",
+    ]) {
+      expect(codesForCanonicalKey(key)).toMatchObject({
+        unspsc: "31162104",
+        unspscTitle: "Screw anchors",
+        status: "mapped",
+      });
+    }
+  });
+
   it("tracks coverage against the full corpus key list", () => {
     const coverage = canonicalMaterialCodeCoverage(corpusKeys);
     expect(coverage.total).toBe(corpusKeys.length);
@@ -88,8 +105,9 @@ describe("Canonical material classification codes", () => {
     expect(Object.keys(CANONICAL_MATERIAL_CODES).length).toBeGreaterThanOrEqual(425);
     expect(coverage.mapped).toBeGreaterThanOrEqual(267);
     // 267 mapped in-corpus = 20 from the PR #694 seed batch + 247 from the backfill.
-    expect(coverage.ambiguous).toBeGreaterThanOrEqual(83);
-    // 83 ambiguous in-corpus = 7 from the seed batch + 76 from the backfill (recorded, never merged).
+    expect(coverage.ambiguous).toBeGreaterThanOrEqual(77);
+    // 77 ambiguous in-corpus = 7 from the seed batch + 70 from the backfill (recorded, never merged).
+    // (Was 83 before the 2026-10-18 Tapcon correction moved 6 keys to mapped.)
     // First batch is roofing/exterior only — the vast majority stays unmapped.
     // The five-family backfill (397 keys) dropped unmapped coverage below 95%;
     // the bulk of the corpus is still unclassified and awaits the next family wave.

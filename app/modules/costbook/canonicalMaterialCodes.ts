@@ -1179,24 +1179,24 @@ export const CANONICAL_MATERIAL_CODES: Readonly<Record<string, CanonicalMaterial
     note: "Common/sinker/collated framing nails are wire nails; collation is packaging, not a separate commodity. Fasteners; commodity verified in UNSPSC Codeset v8.1201.",
   },
   "ANCHOR-CONCRETE-SCREW-HEX-1_4X2_3_4-75PK": {
-    status: "ambiguous",
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Masonry/concrete screws (Tapcon): 31161502 'Anchor screws' vs 31162101 'Concrete anchors'. Function is screw-anchor; human review.",
+    note: "HUMAN-CALLS M10#39: 31162104 'Screw anchors' verified in UNSPSC Codeset v8.1201 \u2014 the functionally precise commodity for Tapcon-style masonry screws, over 31161502 'Anchor screws' and 31162101 'Concrete anchors'.",
   },
   "ANCHOR-CONCRETE-SCREW-HEX-1_4X3_1_4-75PK": {
-    status: "ambiguous",
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Masonry/concrete screws (Tapcon): 31161502 'Anchor screws' vs 31162101 'Concrete anchors'. Function is screw-anchor; human review.",
+    note: "HUMAN-CALLS M10#39: 31162104 'Screw anchors' verified in UNSPSC Codeset v8.1201 \u2014 the functionally precise commodity for Tapcon-style masonry screws, over 31161502 'Anchor screws' and 31162101 'Concrete anchors'.",
   },
   "ANCHOR-CONCRETE-SCREW-HEX-3_16X2_1_4-75PK": {
-    status: "ambiguous",
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Masonry/concrete screws (Tapcon): 31161502 'Anchor screws' vs 31162101 'Concrete anchors'. Function is screw-anchor; human review.",
+    note: "HUMAN-CALLS M10#39: 31162104 'Screw anchors' verified in UNSPSC Codeset v8.1201 \u2014 the functionally precise commodity for Tapcon-style masonry screws, over 31161502 'Anchor screws' and 31162101 'Concrete anchors'.",
   },
   "ANCHOR-TAPCON-1_4X2_3_4-75PK": {
-    status: "ambiguous",
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Masonry/concrete screws (Tapcon): 31161502 'Anchor screws' vs 31162101 'Concrete anchors'. Function is screw-anchor; human review.",
+    note: "HUMAN-CALLS M10#39: 31162104 'Screw anchors' verified in UNSPSC Codeset v8.1201 \u2014 the functionally precise commodity for Tapcon-style masonry screws, over 31161502 'Anchor screws' and 31162101 'Concrete anchors'.",
   },
   "CONNECTOR-HURRICANE-H2_5A": {
     status: "ambiguous",
@@ -1204,14 +1204,14 @@ export const CANONICAL_MATERIAL_CODES: Readonly<Record<string, CanonicalMaterial
     note: "Hurricane ties: 31162306 'Mounting hangers' vs 31162310 'Mounting straps' vs 31162502 'Angle brackets'. Tie form is strap-like; human review.",
   },
   "FAST-SCREW-CONC-TAPCON-1_4X2_1-4-75PK": {
-    status: "ambiguous",
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Masonry/concrete screws (Tapcon): 31161502 'Anchor screws' vs 31162101 'Concrete anchors'. Function is screw-anchor; human review.",
+    note: "HUMAN-CALLS M10#39: 31162104 'Screw anchors' verified in UNSPSC Codeset v8.1201 \u2014 the functionally precise commodity for Tapcon-style masonry screws, over 31161502 'Anchor screws' and 31162101 'Concrete anchors'.",
   },
   "FAST-SCREW-CONC-TAPCON-3_16X1_3-4-75PK": {
-    status: "ambiguous",
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Masonry/concrete screws (Tapcon): 31161502 'Anchor screws' vs 31162101 'Concrete anchors'. Function is screw-anchor; human review.",
+    note: "HUMAN-CALLS M10#39: 31162104 'Screw anchors' verified in UNSPSC Codeset v8.1201 \u2014 the functionally precise commodity for Tapcon-style masonry screws, over 31161502 'Anchor screws' and 31162101 'Concrete anchors'.",
   },
   "FAST-SCREW-STRUCT-HEADLOK-2_8IN-50PK": {
     status: "ambiguous",
