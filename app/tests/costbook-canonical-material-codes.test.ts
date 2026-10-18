@@ -79,6 +79,26 @@ describe("Canonical material classification codes", () => {
     }
   });
 
+  it("maps Tapcon keys to 31162104 Screw anchors (M10#39)", () => {
+    for (const key of [
+      "ANCHOR-CONCRETE-SCREW-HEX-1_4X2_3_4-75PK",
+      "ANCHOR-CONCRETE-SCREW-HEX-1_4X3_1_4-75PK",
+      "ANCHOR-CONCRETE-SCREW-HEX-3_16X2_1_4-75PK",
+      "ANCHOR-TAPCON-1_4X2_3_4-75PK",
+      "FAST-SCREW-CONC-TAPCON-1_4X2_1-4-75PK",
+      "FAST-SCREW-CONC-TAPCON-3_16X1_3-4-75PK",
+      "SCREW-CONCRETE-TAPCON-1_4X1_75-100PK",
+      "SCREW-CONCRETE-TAPCON-1_4X2_25-100PK",
+      "SCREW-CONCRETE-TAPCON-3_16X1_75-100PK",
+    ]) {
+      expect(codesForCanonicalKey(key)).toMatchObject({
+        unspsc: "31162104",
+        unspscTitle: "Screw anchors",
+        status: "mapped",
+      });
+    }
+  });
+
   it("maps grout keys to 30111606 after the M7#26 correction", () => {
     for (const key of [
       "GROUT-NONSANDED-POLYBLEND-WHITE-10LB",
@@ -108,9 +128,10 @@ describe("Canonical material classification codes", () => {
     expect(Object.keys(CANONICAL_MATERIAL_CODES).length).toBeGreaterThanOrEqual(425);
     expect(coverage.mapped).toBeGreaterThanOrEqual(267);
     // 267 mapped in-corpus = 20 from the PR #694 seed batch + 247 from the backfill.
-    expect(coverage.ambiguous).toBeGreaterThanOrEqual(74);
-    // 74 ambiguous in-corpus = 7 from the seed batch + 67 from the backfill (recorded, never merged).
-    // (Was 83 before the 2026-10-18 grout correction moved 9 GROUT-* keys to mapped.)
+    expect(coverage.ambiguous).toBeGreaterThanOrEqual(68);
+    // 68 ambiguous in-corpus = 7 from the seed batch + 61 from the backfill (recorded, never merged).
+    // (Was 83 before the 2026-10-18 grout correction moved 9 GROUT-* keys and the
+    // Tapcon correction moved 6 keys to mapped.)
     // First batch is roofing/exterior only — the vast majority stays unmapped.
     // The five-family backfill (397 keys) dropped unmapped coverage below 95%;
     // the bulk of the corpus is still unclassified and awaits the next family wave.
