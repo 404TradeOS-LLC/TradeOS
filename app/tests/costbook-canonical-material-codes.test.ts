@@ -79,6 +79,26 @@ describe("Canonical material classification codes", () => {
     }
   });
 
+  it("maps grout keys to 30111606 after the M7#26 correction", () => {
+    for (const key of [
+      "GROUT-NONSANDED-POLYBLEND-WHITE-10LB",
+      "GROUT-NONSHRINK-1107-50LB",
+      "GROUT-NONSHRINK-FASTSET-50LB",
+      "GROUT-POLYBLEND-SANDED-25LB",
+      "GROUT-POLYBLEND-UNSANDED-10LB",
+      "GROUT-PRECISION-FASTSET-QUIKRETE-50LB",
+      "GROUT-PRISM-GRAY-10LB",
+      "GROUT-SANDED-KERACOLOR-25LB",
+      "GROUT-SANDED-POLYBLEND-WHITE-25LB",
+    ]) {
+      expect(codesForCanonicalKey(key)).toMatchObject({
+        unspsc: "30111606",
+        unspscTitle: "Grout",
+        status: "mapped",
+      });
+    }
+  });
+
   it("tracks coverage against the full corpus key list", () => {
     const coverage = canonicalMaterialCodeCoverage(corpusKeys);
     expect(coverage.total).toBe(corpusKeys.length);
@@ -88,8 +108,9 @@ describe("Canonical material classification codes", () => {
     expect(Object.keys(CANONICAL_MATERIAL_CODES).length).toBeGreaterThanOrEqual(425);
     expect(coverage.mapped).toBeGreaterThanOrEqual(267);
     // 267 mapped in-corpus = 20 from the PR #694 seed batch + 247 from the backfill.
-    expect(coverage.ambiguous).toBeGreaterThanOrEqual(83);
-    // 83 ambiguous in-corpus = 7 from the seed batch + 76 from the backfill (recorded, never merged).
+    expect(coverage.ambiguous).toBeGreaterThanOrEqual(74);
+    // 74 ambiguous in-corpus = 7 from the seed batch + 67 from the backfill (recorded, never merged).
+    // (Was 83 before the 2026-10-18 grout correction moved 9 GROUT-* keys to mapped.)
     // First batch is roofing/exterior only — the vast majority stays unmapped.
     // The five-family backfill (397 keys) dropped unmapped coverage below 95%;
     // the bulk of the corpus is still unclassified and awaits the next family wave.
