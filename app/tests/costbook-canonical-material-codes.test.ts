@@ -79,6 +79,21 @@ describe("Canonical material classification codes", () => {
     }
   });
 
+  it("assigns class-level 31371100 to firebrick keys, keeping ambiguous status (M7#27)", () => {
+    for (const key of [
+      "BRICK-FIRE-LARGE-STANDARD",
+      "BRICK-FIRE-SMALL-SPLIT",
+      "BRICK-FIREBRICK-ARCH-WEDGE",
+      "BRICK-FIREBRICK-SPLIT-1-1-4IN",
+    ]) {
+      expect(codesForCanonicalKey(key)).toMatchObject({
+        unspsc: "31371100",
+        unspscTitle: "Refractory bricks",
+        status: "ambiguous",
+      });
+    }
+  });
+
   it("tracks coverage against the full corpus key list", () => {
     const coverage = canonicalMaterialCodeCoverage(corpusKeys);
     expect(coverage.total).toBe(corpusKeys.length);

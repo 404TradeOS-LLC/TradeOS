@@ -1415,24 +1415,24 @@ export const CANONICAL_MATERIAL_CODES: Readonly<Record<string, CanonicalMaterial
     note: "Masonry, thinset, and veneer mortars are mortars. Commodity verified in UNSPSC Codeset v8.1201.",
   },
   "BRICK-FIRE-LARGE-STANDARD": {
-    status: "ambiguous",
+    unspsc: "31371100", unspscTitle: "Refractory bricks", status: "ambiguous",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Refractory firebrick: ceramic is the closest verified fit but refractory is a specialty use; human review.",
+    note: "HUMAN-CALLS M7#27: class-level 31371100 'Refractory bricks' assigned over the package's 30131602 'Ceramic bricks' \u2014 keeps ambiguous status because no fireclay commodity exists in v8.1201. Billy's call to confirm.",
   },
   "BRICK-FIRE-SMALL-SPLIT": {
-    status: "ambiguous",
+    unspsc: "31371100", unspscTitle: "Refractory bricks", status: "ambiguous",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Refractory firebrick: ceramic is the closest verified fit but refractory is a specialty use; human review.",
+    note: "HUMAN-CALLS M7#27: class-level 31371100 'Refractory bricks' assigned over the package's 30131602 'Ceramic bricks' \u2014 keeps ambiguous status because no fireclay commodity exists in v8.1201. Billy's call to confirm.",
   },
   "BRICK-FIREBRICK-ARCH-WEDGE": {
-    status: "ambiguous",
+    unspsc: "31371100", unspscTitle: "Refractory bricks", status: "ambiguous",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Refractory firebrick: ceramic is the closest verified fit but refractory is a specialty use; human review.",
+    note: "HUMAN-CALLS M7#27: class-level 31371100 'Refractory bricks' assigned over the package's 30131602 'Ceramic bricks' \u2014 keeps ambiguous status because no fireclay commodity exists in v8.1201. Billy's call to confirm.",
   },
   "BRICK-FIREBRICK-SPLIT-1-1-4IN": {
-    status: "ambiguous",
+    unspsc: "31371100", unspscTitle: "Refractory bricks", status: "ambiguous",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Refractory firebrick: ceramic is the closest verified fit but refractory is a specialty use; human review.",
+    note: "HUMAN-CALLS M7#27: class-level 31371100 'Refractory bricks' assigned over the package's 30131602 'Ceramic bricks' \u2014 keeps ambiguous status because no fireclay commodity exists in v8.1201. Billy's call to confirm.",
   },
   "CONCRETE-MIX-4000PSI-60LB": {
     status: "ambiguous",
