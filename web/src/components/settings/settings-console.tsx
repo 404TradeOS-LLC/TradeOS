@@ -24,7 +24,7 @@ import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
 import { removeSettingsAssetAction, uploadSettingsAssetAction } from "@/app/actions/settings";
-import { clientFetch } from "@/lib/clientApi";
+import { clientFetch, ClientApiError } from "@/lib/clientApi";
 import { validateSettingsAssetUpload } from "@/lib/settingsAssetUpload";
 import { cn } from "@/lib/utils";
 import { type OrganizationSettingsResponse, type SettingsRoleProfile, type SettingsTeamMember, type TradeOsSettingsDraft } from "@/lib/settings";
@@ -68,6 +68,13 @@ interface SettingsSearchResult {
   description: string;
   anchorId: string;
   keywords: string[];
+}
+
+interface AbcShipToAccountOption {
+  number: string;
+  name: string;
+  status: string;
+  branches: Array<{ number: string; name: string; status: string; homeBranch: boolean }>;
 }
 
 interface ToastMessage {
@@ -133,6 +140,28 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
     | { state: "idle" | "starting" }
     | { state: "error"; message: string }
   >({ state: "idle" });
+  // ABC account numbers remain in component memory only. This is a read-only
+  // selection preview; pricing still uses its separate server-governed probe.
+  const [abcAccountDiscovery, setAbcAccountDiscovery] = useState<
+    | { state: "idle" | "loading" | "needs-authorization" }
+    | { state: "ready"; accounts: AbcShipToAccountOption[] }
+    | { state: "error" }
+  >({ state: "idle" });
+  const [selectedAbcShipTo, setSelectedAbcShipTo] = useState("");
+  const [selectedAbcBranch, setSelectedAbcBranch] = useState("");
+  const [selectedAbcSku, setSelectedAbcSku] = useState<"654210" | "02GASTZ3WW">("02GASTZ3WW");
+  const [abcSelectedQuote, setAbcSelectedQuote] = useState<
+    | { state: "idle" | "loading" }
+    | { state: "ready"; sku: string; priced: boolean; price: number | null; stockingUnit: string | null; providerStatus: string; providerStatusMessage: string | null }
+    | { state: "needs-authorization" | "error" }
+  >({ state: "idle" });
+  const abcQuoteVersion = useRef(0);
+  const abcQuoteAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => { abcQuoteAbortRef.current?.abort(); }, []);
+  const selectedAbcAccount = abcAccountDiscovery.state === "ready"
+    ? abcAccountDiscovery.accounts.find((account) => account.number === selectedAbcShipTo)
+    : undefined;
+
   // Consume the OAuth result flag from the URL after mount so a reload or
   // bookmark never shows a stale message. The flag value itself comes from
   // the server-rendered prop, so server and client agree (no hydration
@@ -305,6 +334,74 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
   const advancedSections = sections.filter((section) => !contractorSectionIds.includes(section.id as (typeof contractorSectionIds)[number]));
 
   const selectedSection = sections.find((section) => section.id === selectedSectionId) ?? sections[0];
+
+  function resetAbcSelectedQuote() {
+    abcQuoteVersion.current += 1;
+    abcQuoteAbortRef.current?.abort();
+    abcQuoteAbortRef.current = null;
+    setAbcSelectedQuote({ state: "idle" });
+  }
+
+  async function discoverAbcShipToAccounts() {
+    if (abcAccountDiscovery.state === "loading") return;
+    setAbcAccountDiscovery({ state: "loading" });
+    setSelectedAbcShipTo("");
+    setSelectedAbcBranch("");
+    resetAbcSelectedQuote();
+    try {
+      const result = await clientFetch<{ accounts: AbcShipToAccountOption[] }>(
+        "/api/v1/supplier-integrations/abc/accounts",
+      );
+      if (!Array.isArray(result.accounts)) throw new Error("Invalid ABC account response");
+      setAbcAccountDiscovery({ state: "ready", accounts: result.accounts });
+    } catch (error) {
+      // The backend maps a missing/insufficient account.read grant to HTTP 409.
+      // All other failures remain generic to avoid echoing provider data.
+      setAbcAccountDiscovery(error instanceof ClientApiError && error.status === 409
+        ? { state: "needs-authorization" }
+        : { state: "error" });
+    }
+  }
+
+  async function testSelectedAbcSandboxPrice() {
+    if (!selectedAbcAccount || !selectedAbcBranch || abcSelectedQuote.state === "loading") return;
+    const version = ++abcQuoteVersion.current;
+    const controller = new AbortController();
+    abcQuoteAbortRef.current = controller;
+    setAbcSelectedQuote({ state: "loading" });
+    try {
+      const result = await clientFetch<{
+        sku: string; priced: boolean; price: number | null; stockingUnit: string | null;
+        providerStatus: string; providerStatusMessage: string | null;
+        materialCreated: boolean; priceApplied: boolean;
+        accountPreferenceSaved: boolean; unitMappingVerified: boolean;
+      }>("/api/v1/supplier-integrations/abc/selected-price-probe", {
+        method: "POST",
+        body: JSON.stringify({
+          shipToNumber: selectedAbcAccount.number,
+          branchNumber: selectedAbcBranch,
+          sku: selectedAbcSku,
+        }),
+        signal: controller.signal,
+      });
+      if (version !== abcQuoteVersion.current) return;
+      if (result.materialCreated || result.priceApplied || result.accountPreferenceSaved || result.unitMappingVerified) {
+        throw new Error("ABC sandbox quote unexpectedly claimed a stored or trusted price");
+      }
+      setAbcSelectedQuote({
+        state: "ready", sku: result.sku, priced: result.priced,
+        price: result.price, stockingUnit: result.stockingUnit,
+        providerStatus: result.providerStatus,
+        providerStatusMessage: result.providerStatusMessage,
+      });
+    } catch (error) {
+      if (version !== abcQuoteVersion.current) return;
+      setAbcSelectedQuote(error instanceof ClientApiError && error.status === 409
+        ? { state: "needs-authorization" } : { state: "error" });
+    } finally {
+      if (abcQuoteAbortRef.current === controller) abcQuoteAbortRef.current = null;
+    }
+  }
 
   async function testAbcConnection() {
     if (abcProbe.state === "testing") return;
@@ -842,6 +939,131 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
                 ) : null}
                 {abcOAuth.state === "error" ? (
                   <p role="alert" className="text-sm text-destructive">{abcOAuth.message}</p>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {selectedSection.id === "costbook" && supplierWorkflowIdentity && ["owner", "admin"].includes(initialWorkspaceData.currentRole) ? (
+            <Card className="rounded-[24px] border-border/70">
+              <CardHeader>
+                <CardTitle>ABC Supply accounts and branches</CardTitle>
+                <CardDescription>
+                  Discover Ship-To accounts authorized through your ABC sandbox connection.
+                  Choose an account and branch to inspect the available options.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={abcAccountDiscovery.state === "loading"}
+                  onClick={() => void discoverAbcShipToAccounts()}
+                >
+                  {abcAccountDiscovery.state === "loading" ? <LoaderCircle className="mr-2 size-4 animate-spin" aria-hidden="true" /> : null}
+                  {abcAccountDiscovery.state === "loading" ? "Finding ABC accounts..." : "Find ABC accounts"}
+                </Button>
+                {abcAccountDiscovery.state === "needs-authorization" ? (
+                  <p role="alert" className="text-sm text-destructive">
+                    ABC account access needs a fresh authorization with account.read. Use Connect / Reauthorize ABC above, then try again.
+                  </p>
+                ) : null}
+                {abcAccountDiscovery.state === "error" ? (
+                  <p role="alert" className="text-sm text-destructive">
+                    Account discovery did not complete. Check the sandbox connection and try again.
+                  </p>
+                ) : null}
+                {abcAccountDiscovery.state === "ready" && abcAccountDiscovery.accounts.length === 0 ? (
+                  <p role="status" className="text-sm text-muted-foreground">
+                    ABC returned no eligible Ship-To accounts with branches for this sandbox authorization.
+                  </p>
+                ) : null}
+                {abcAccountDiscovery.state === "ready" && abcAccountDiscovery.accounts.length > 0 ? (
+                  <div className="space-y-4">
+                    <SelectField
+                      id="abc-shipto-account"
+                      label="ABC Ship-To account"
+                      value={selectedAbcShipTo}
+                      onChange={(event) => {
+                        setSelectedAbcShipTo(event.target.value);
+                        setSelectedAbcBranch("");
+                        resetAbcSelectedQuote();
+                      }}
+                      hint="Showing only accounts returned for your authorized sandbox connection."
+                      className="h-11 rounded-xl"
+                    >
+                      <option value="">Select an account</option>
+                      {abcAccountDiscovery.accounts.map((account) => (
+                        <option key={account.number} value={account.number}>
+                          {account.name} · {account.number} ({account.status})
+                        </option>
+                      ))}
+                    </SelectField>
+                    <SelectField
+                      id="abc-branch"
+                      label="ABC branch"
+                      value={selectedAbcBranch}
+                      onChange={(event) => {
+                        setSelectedAbcBranch(event.target.value);
+                        resetAbcSelectedQuote();
+                      }}
+                      disabled={!selectedAbcAccount}
+                      hint="Branches are limited to those associated with the selected Ship-To account."
+                      className="h-11 rounded-xl"
+                    >
+                      <option value="">Select a branch</option>
+                      {selectedAbcAccount?.branches.map((branch) => (
+                        <option key={branch.number} value={branch.number}>
+                          {branch.name} · {branch.number} ({branch.status}){branch.homeBranch ? " · Home branch" : ""}
+                        </option>
+                      ))}
+                    </SelectField>
+                    {selectedAbcAccount && selectedAbcBranch ? (
+                      <p role="status" className="text-sm text-foreground">
+                        Selected {selectedAbcAccount.name} and branch {selectedAbcBranch} for this view.
+                      </p>
+                    ) : null}
+                    {selectedAbcAccount && selectedAbcBranch ? (
+                      <div className="space-y-3 rounded-lg border border-border p-3">
+                        <SelectField
+                          id="abc-selected-quote-sku"
+                          label="Read-only sandbox test item"
+                          value={selectedAbcSku}
+                          onChange={(event) => {
+                            setSelectedAbcSku(event.target.value as "654210" | "02GASTZ3WW");
+                            resetAbcSelectedQuote();
+                          }}
+                        >
+                          <option value="02GASTZ3WW">02GASTZ3WW · ABC documentation sample</option>
+                          <option value="654210">654210 · TradeOS pilot SKU</option>
+                        </SelectField>
+                        <Button type="button" variant="outline"
+                          disabled={abcSelectedQuote.state === "loading"}
+                          onClick={() => void testSelectedAbcSandboxPrice()}>
+                          {abcSelectedQuote.state === "loading" ? "Checking sandbox price..." : "Test selected ABC price"}
+                        </Button>
+                        {abcSelectedQuote.state === "needs-authorization" ? (
+                          <p role="alert" className="text-sm text-destructive">Reconnect ABC to authorize account and pricing access, then retry.</p>
+                        ) : null}
+                        {abcSelectedQuote.state === "error" ? (
+                          <p role="alert" className="text-sm text-destructive">Selected-account sandbox pricing did not complete. Check ABC access and try again.</p>
+                        ) : null}
+                        {abcSelectedQuote.state === "ready" ? (
+                          <p role="status" className="text-sm text-foreground">
+                            {abcSelectedQuote.priced && abcSelectedQuote.price !== null
+                              ? `ABC sandbox returned ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(abcSelectedQuote.price)} per ${abcSelectedQuote.stockingUnit ?? "unknown unit"} for ${abcSelectedQuote.sku}.`
+                              : `ABC did not return an eligible price for ${abcSelectedQuote.sku} (status: ${abcSelectedQuote.providerStatus}).`}
+                            {!abcSelectedQuote.priced && abcSelectedQuote.providerStatusMessage
+                              ? ` ABC says: ${abcSelectedQuote.providerStatusMessage}${/[.!?]$/.test(abcSelectedQuote.providerStatusMessage) ? "" : "."}` : ""}
+                            {" "}No price or account preference was saved; Material unit mapping was not verified.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <p className="text-sm text-muted-foreground">
+                      Selection is temporary and read-only; the ABC price test still uses its separately configured sandbox account. The selected-account price check revalidates your selection on the server and cannot apply a Material cost.
+                    </p>
+                  </div>
                 ) : null}
               </CardContent>
             </Card>

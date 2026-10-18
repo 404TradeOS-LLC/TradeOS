@@ -1,7 +1,11 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { SupplierIntegrationService } from "../../modules/supplier-integration/service";
-import { probeAbcSandboxPricing } from "../../modules/supplier-integration/abcPricingProbe";
+import { probeAbcSandboxPricing, safeAbcProviderStatusMessage } from "../../modules/supplier-integration/abcPricingProbe";
+import { AbcSupplyAccountClient } from "../../modules/supplier-integration/abcAccount";
+import { AbcAccountAuthorizationError } from "../../modules/supplier-integration/abcAccountAuthorizationError";
+import { AbcSupplyPricingClient, loadAbcSupplyAuthConfig } from "../../modules/supplier-integration/abcSupply";
+import { createDurableAbcAuth } from "../../modules/supplier-integration/feed";
 import {
   ABC_OAUTH_BROWSER_COOKIE_NAME,
   ABC_OAUTH_CALLBACK_URL,
@@ -41,6 +45,16 @@ const enqueueSchema = z.object({
 
 const abcProbeSchema = z.object({
   productKey: z.literal("ABC-654210"),
+}).strict();
+
+// No caller-supplied tenant, supplier, Ship-To, branch or provider URL.
+// All values come from the authenticated session and server configuration.
+const abcAccountsQuerySchema = z.object({}).strict();
+const ABC_ACCOUNTS_TIMEOUT_MS = 15_000;
+const selectedQuoteSchema = z.object({
+  shipToNumber: z.string().trim().min(1).max(40).regex(/^[A-Za-z0-9-]+$/),
+  branchNumber: z.string().trim().min(1).max(24).regex(/^[A-Za-z0-9-]+$/),
+  sku: z.enum(["654210", "02GASTZ3WW"]),
 }).strict();
 
 const abcOAuthCallbackQuerySchema = z.object({
@@ -178,6 +192,103 @@ export const supplierIntegrationController = {
         step,
       });
       return finish("error", step);
+    }
+  },
+
+  /**
+   * Read-only ABC sandbox Ship-To discovery for the active authenticated
+   * tenant. Requires a user-present account.read grant in Supabase Vault.
+   * Never accepts account IDs or supplier URLs from request parameters.
+   */
+  async listAbcSandboxAccounts(req: Request, res: Response) {
+    const actor = requirePermissions(req, ["costbook.manage"]);
+    if (!["owner", "admin"].includes(actor.role)) {
+      throw new ApiError(403, "Only a workspace owner/admin can view ABC sandbox accounts");
+    }
+    abcAccountsQuerySchema.parse(req.query);
+    const orgId = requireOrgId(req);
+    const supplierId = await resolveAbcSupplier(orgId);
+    const config = loadAbcSupplyAuthConfig();
+    if (!config) throw new ApiError(503, "ABC sandbox OAuth client credentials are not configured on the API");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ABC_ACCOUNTS_TIMEOUT_MS);
+    try {
+      const { auth } = await createDurableAbcAuth(config, orgId, supplierId);
+      const accounts = await new AbcSupplyAccountClient(auth).searchShipToAccounts(controller.signal);
+      return res.json({ accounts });
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new ApiError(504, "ABC sandbox account discovery timed out");
+      }
+      // Older grants have pricing.read but not account.read. Do not echo
+      // provider response bodies, access/refresh tokens or account numbers.
+      if (error instanceof AbcAccountAuthorizationError) {
+        throw new ApiError(409, "ABC account access needs a fresh authorization with account.read");
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  },
+
+  /** Explicit user-initiated diagnostic; revalidate account and branch server-side. */
+  async probeSelectedAbcSandbox(req: Request, res: Response) {
+    const actor = requirePermissions(req, ["costbook.manage"]);
+    if (!["owner", "admin"].includes(actor.role)) {
+      throw new ApiError(403, "Only a workspace owner/admin can test selected ABC pricing");
+    }
+    z.object({}).strict().parse(req.query);
+    const { shipToNumber, branchNumber, sku } = selectedQuoteSchema.parse(req.body);
+    const orgId = requireOrgId(req);
+    const supplierId = await resolveAbcSupplier(orgId);
+    const config = loadAbcSupplyAuthConfig();
+    if (!config) throw new ApiError(503, "ABC sandbox OAuth credentials are not configured");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ABC_ACCOUNTS_TIMEOUT_MS);
+    try {
+      const { auth } = await createDurableAbcAuth(config, orgId, supplierId);
+      const accounts = await new AbcSupplyAccountClient(auth).searchShipToAccounts(controller.signal);
+      const account = accounts.find((entry) => entry.number === shipToNumber && entry.status.toLowerCase() === "active");
+      const branch = account?.branches.find((entry) =>
+        entry.number === branchNumber && entry.status.toLowerCase() === "active");
+      if (!branch) throw new ApiError(403, "This ABC Ship-To and branch pair is not authorized");
+      const lines = await new AbcSupplyPricingClient(auth).priceItems(
+        [{ id: "selected-review-0", itemNumber: sku, quantity: 1 }],
+        { shipToNumber, branchNumber }, controller.signal,
+      );
+      const matched = lines.filter((entry) => entry.id === "selected-review-0" && entry.itemNumber === sku);
+      if (matched.length > 1) throw new ApiError(502, "ABC returned ambiguous pricing evidence");
+      const line = matched[0];
+      const eligible = Boolean(line?.statusCode === "OK" && line.currencyCode === "USD" &&
+        line.uom && /^[A-Za-z0-9-]{1,16}$/.test(line.uom) &&
+        Number.isFinite(line.unitPrice) && line.unitPrice > 0 &&
+        line.unitPrice <= 99_999_999.9999 &&
+        Math.abs(line.unitPrice * 10_000 - Math.round(line.unitPrice * 10_000)) <= 1e-6);
+      return res.json({
+        sku, quantity: 1, priced: eligible,
+        price: eligible ? line!.unitPrice : null,
+        currency: eligible ? "USD" : null,
+        stockingUnit: eligible ? line!.uom : null,
+        providerStatus: line?.statusCode?.slice(0, 48) ?? "no_matching_line",
+        // Share only the same short, privacy-screened failed-line reason as
+        // the existing pilot. Never echo raw provider bodies or credentials.
+        providerStatusMessage: !eligible && line?.statusCode !== "OK"
+          ? safeAbcProviderStatusMessage(line?.statusMessage) : null,
+        materialCreated: false, priceApplied: false, accountPreferenceSaved: false,
+        unitMappingVerified: false,
+      });
+    } catch (error) {
+      if (controller.signal.aborted) throw new ApiError(504, "ABC selected pricing timed out");
+      if (error instanceof ApiError) throw error;
+      if (error instanceof AbcAccountAuthorizationError) {
+        throw new ApiError(409, "ABC account or pricing access needs fresh authorization");
+      }
+      if (error instanceof Error && error.message === "ABC Supply Price Items request failed: HTTP 401") {
+        throw new ApiError(403, "ABC did not authorize this Ship-To for pricing");
+      }
+      throw new ApiError(502, "ABC selected sandbox pricing was unavailable");
+    } finally {
+      clearTimeout(timeout);
     }
   },
 

@@ -128,8 +128,8 @@ export function getFinancialSummary(token: string) {
   return apiFetch<FinancialSummary>("/api/v1/intelligence/financial-summary", { token });
 }
 
-export function getOrganizationSettings(token: string) {
-  return apiFetch<OrganizationSettingsResponse>("/api/v1/settings", { token });
+export function getOrganizationSettings(token: string, signal?: AbortSignal) {
+  return apiFetch<OrganizationSettingsResponse>("/api/v1/settings", { token, signal });
 }
 
 export interface AthenaCapabilities {

@@ -103,10 +103,10 @@ Expected verification jobs are:
 
 - `Docs consistency` (validates required PR-description structure first, then runs PR-preflight tests, autonomy-reconciliation regressions, and documentation ownership validation);
 - `App lint, unit tests, and build` (for pull requests that change `app/**` or `packages/knowledge-engine/**`, runs Prisma schema validation, a high-severity production-dependency audit, TypeScript typechecking, backend unit tests, the `athena:contracts` and `athena:smoke` named gates, the backend build, the root-level `costbook:audit-provenance` Costbook Knowledge Engine provenance/data-quality audit (blocking on structural defects — duplicate IDs, missing identity fields, non-numeric costs, dangling assembly references — never on missing-provenance/source/confidence warnings), and a tracked-source cleanliness check; for unrelated pull-request diffs the same required job reports success without expensive setup);
-- `App integration tests` (for pull requests that change `app/**` or `packages/knowledge-engine/**`, rehearses the production migration-deployment path against an isolated PostgreSQL instance before the live integration/RLS tests; for unrelated pull-request diffs the same required job reports success without expensive setup and no longer waits for the ordinary app lane before starting);
+- `App integration tests` (for every pull request, merge group and main push, executes the production migration-deployment rehearsal against isolated PostgreSQL followed by the live integration/RLS suite; it is not path-scoped and does not wait for the ordinary app lane);
 - `Web lint and build` (for pull requests that change `web/**`, runs a high-severity production-dependency audit, frontend unit tests, lint, build, and a tracked-source cleanliness check; for unrelated pull-request diffs the same required job reports success without expensive setup).
 
-Pushes to `main` run every app, integration, and web lane in full. Pull-request path scoping is an execution optimization, not a branch-protection bypass: the required check names remain unchanged, each required job still reports, and the changed product lane receives its full verification surface.
+Pushes to `main` run every app, integration, and web lane in full. App/Web child-lane path scoping is an execution optimization; the required integration job always executes: the required check names remain unchanged, each required job still reports, and the changed product lane receives its full verification surface.
 
 Within `Verify repository`, App typecheck, unit tests, Athena contracts/smoke, and build/dependency-audit work may run as independent child jobs; Web tests, lint, and build/dependency-audit work may do the same. The existing required summary-job names above remain the stable branch-protection contract, and each summary fails if any required child lane for its changed surface fails. Parallelization changes wall-clock execution, not verification scope.
 
@@ -395,6 +395,8 @@ Required policy:
 
 ## Documentation ownership
 
+For GitHub Actions Node-bootstrap maintenance, upgrading `actions/setup-node` to v7.1.0 must preserve each workflow's existing pinning style: use immutable commit `949feb2413d6458794dcd2491c4babbbce0c15c1` where the action was already SHA-pinned and the `v7.1.0` tag only where the original invocation used a version tag. Keep the explicit job Node versions (20/24), existing workflow triggers, permissions, and protected status-check names unchanged. An automated action bump that touches `.github/workflows/**` must also update the required owning documentation rather than weakening `docs:check` or branch protections.
+
 `docs/DOC_OWNERSHIP.yml` is enforced repository policy.
 
 When a changed file triggers an ownership requirement, the owning document must be included and updated meaningfully in the same PR. Do not add an empty or cosmetic edit merely to satisfy the checker.
@@ -600,5 +602,41 @@ authenticated evidence path.
 
 `.github/workflows/seed-costbook-supplier-prices-47802.yml` is a manual-only production operator lane for the fixed `supplierPrices47802.ts` corpus. It requires the exact `IMPORT_47802_SUPPLIER_EVIDENCE` confirmation plus explicit organization and active owner/admin user UUIDs, uses the existing `production` GitHub Environment, and serializes runs so two imports cannot race. The job verifies the fixed corpus tests immediately before mutation and then executes only the tenant-scoped background-session seed runner.
 
+
 The seed is additive and replay-idempotent through the existing Regional Supplier Evidence service. It may create missing supplier records represented by the checked-in corpus, upsert supplier products, and append/replay immutable price observations. It must not mutate `Material.unitCost`, approve `SupplierPriceUpdate` rows, reprice Estimate snapshots, change schema/RLS/auth, scrape live retail sites, or promote the corpus's source canonical-key vocabulary into authoritative TradeOS identity. Any changed evidence under an existing observation key remains a hard conflict rather than an overwrite.
 
+
+## Assembly Catalog read-only authenticated evidence control
+
+The manual `.github/workflows/assembly-catalog-browser-evidence.yml` workflow
+reuses the attested S027 Preview deployment-identity check, both before and
+after capture, and requires two distinct real smoke identities in the same
+sanitized, non-production organization. The opt-in read-only auth bootstrap
+validates the authenticated org ID and Costbook role permissions via
+`GET /api/v1/costbook/workspace`; it never calls the Settings GET route,
+which may create legacy brand defaults. Four Playwright viewport/role cases
+exercise catalog browsing only at 1440px and 390px and prohibit Assembly API
+writes. Session paths are initialized from `$RUNNER_TEMP` in a step with the
+runner context and deleted before the artifact credential scan. Only a
+successful manually triggered run with inspected output supplies browser
+evidence; no PR merge automatically certifies or deploys the feature.
+
+
+The Playwright target resolver accepts the current `tradeos-costbook-<id>.vercel.app` domain pattern only for the dedicated Assembly workflow and only after the independent Vercel/Supabase identity step has succeeded. That domain pattern is **not** itself proof of Preview because Production uses it too; the old general `-web-` guard remains unchanged for other agent runs.
+### ABC Supply link-only Material backfill
+
+The protected `.github/workflows/backfill-abc-materials.yml` operator workflow now supports a confirmation-gated, production-environment, restricted-role **link-only** backfill with dry-run enabled by default. The runner processes at most 25 supplier products per tenant-scoped database session, advances by product ID, and links only a unique eligible ABC supplier SKU to an existing active Material with the same supplier, SKU, and purchase unit. It creates no Materials and changes no Material prices; new Materials still require separately reviewed, owner-approved single-product activation. This workflow has not been production-executed or proven by live ABC sandbox pricing.
+
+
+## Required integration context execution — 2026-10-13
+
+`Verify repository` runs the actual `App integration tests` job for every pull request, merge-group and main push after scope detection. The prior backend-path condition skipped this branch-protection-required context on frontend-only PRs such as #731/#732. The required integration/migration rehearsal now executes regardless of App/Web scope; other non-required backend jobs retain path scoping. No synthetic success context, branch-protection change, credential change or production database access is introduced. Existing psql provisioning and the disposable-database test runner remain unchanged. Hosted execution is required before claiming integration PASS. Rollback is restoring the job condition, which also restores the known skipped-context gap.
+
+
+**Runner-path invariant (2026-10-15):** The exact operator confirmation must execute before checkout from the existing workspace root (`working-directory: .`), not the job's default `app` directory (which is unavailable before checkout). This is required by failed run #38797027952. Subsequent checked-out Node setup, contract tests and sandbox probe retain the `app` default; the environment, permissions, provider call and no-write policy are unchanged.
+
+## ABC Supply sandbox Product API live-evidence lane — 2026-10-13
+
+The manual-only `.github/workflows/abc-sandbox-catalog-evidence.yml` job runs only from `main` after the operator types `VERIFY_ABC_SANDBOX_PRODUCT_READ`. It checks a real ABC sandbox `client_credentials` + `product.read` token and at most two bounded Product API pages, using protected sandbox-only credentials from repository secrets or the `abc-sandbox` Environment. It has read-only GitHub permissions, no database connection, no customer OAuth refresh token, no production ABC API host, no product payload artifact, and no Material/Estimate writes. Its evidence output contains only counts and boolean statuses. Missing credentials fail closed; no success may be claimed until the real workflow passes with genuine credentials.
+
+ABC's API Terms do not authorize permanent catalog/database copying by default. This evidence workflow must not be repurposed into a product dump, unattended API scraper, production product sync, or price automation. Persistent catalog storage, indexed replication, and daily delta require express ABC permission and a new approved tenant/RLS and licensing design. See `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md` and issue #735.

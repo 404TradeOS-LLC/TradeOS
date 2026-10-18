@@ -32,6 +32,23 @@ artifacts, and security validation — all passing in one run.
 
 ## Architecture
 
+### Progressive Items entry compatibility (2026-10-17 UTC)
+
+After selecting Items, the canonical runner opens the Custom item disclosure before filling its existing synthetic lines. The shared `openEstimateCustomEntry` interaction is also exercised by the four-width isolated Items browser regression, retains an already-open panel, and supports older workbenches whose editor is directly visible. This only reconciles UI navigation; record writes, expected saved amounts, auth/data-plane guards and mutation opt-in remain unchanged. The isolated test is not a successful full authenticated Beta Evidence run.
+
+### Proposal handoff locator parity (2026-10-16)
+
+The current finalized Estimate workspace may show two legitimate proposal links: a header Create proposal navigation and the focused Review-stage Review proposal draft action. The canonical Beta Evidence run intentionally clicks the *exact* Review proposal draft link, not a union locator that matches both and fails strict Playwright resolution. This preserves the explicit finalize → draft review → Create boundary without introducing a new write or changing the page UI. Source-level regression tests protect uniqueness. Full authenticated run still requires an isolated non-production tenant and current deployed SHA; this source fix does not certify it.
+
+### Focused Estimate → Proposal browser evidence parity (2026-10-16)
+
+The canonical/s052/s053 runner now detects the existing responsive Estimate stage navigation and selects **Items → Price → Review** explicitly on focused-stage workspaces. Legacy desktop workbenches without a navigator remain supported above 1024px, but missing mobile stage navigation fails; current-stage verification reads the actual `aria-current="step"` button after navigation. The s053 Athena review returns to the builder before resuming the canonical line-item flow.
+
+After adding synthetic lines via the product UI, the runner reads the authenticated Estimate Engine detail and checks the **persisted** labor/material line costs and direct subtotal. After finalization it verifies backend status `ready` and saved total before moving to the *separate* proposal draft. After explicit creation it reads the authenticated Proposal detail and requires the selected finalized Estimate ID and persisted fixed `finalPrice` to agree with that Estimate. It retains existing screen-text, screenshots, tax math, invoice-sell-price, tenant isolation, credential scan, and four-viewport assertions; these checks do not grant real supplier pricing or certify Costbook mapping/ABC observations.
+
+These are **implemented evidence assertions, not a passed full evidence run**. The workflow still requires an approved non-production Preview/staging target, proven non-production data plane, synthetic authenticated owner, SHA correlation, distinct foreign tenant, and mode=full execution. The current connector session has not dispatched or executed it; do not interpret source checks, CI or production READY as browser certification.
+
+
 The release-critical action inventory lives in
 [`FRONTEND_BACKEND_CONNECTION_MATRIX.json`](FRONTEND_BACKEND_CONNECTION_MATRIX.json).
 It maps audited frontend reads/mutations to their mounted backend route,
