@@ -87,6 +87,9 @@ describe("Canonical material classification codes", () => {
       "ANCHOR-TAPCON-1_4X2_3_4-75PK",
       "FAST-SCREW-CONC-TAPCON-1_4X2_1-4-75PK",
       "FAST-SCREW-CONC-TAPCON-3_16X1_3-4-75PK",
+      "SCREW-CONCRETE-TAPCON-1_4X1_75-100PK",
+      "SCREW-CONCRETE-TAPCON-1_4X2_25-100PK",
+      "SCREW-CONCRETE-TAPCON-3_16X1_75-100PK",
     ]) {
       expect(codesForCanonicalKey(key)).toMatchObject({
         unspsc: "31162104",

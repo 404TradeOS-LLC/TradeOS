@@ -1213,6 +1213,21 @@ export const CANONICAL_MATERIAL_CODES: Readonly<Record<string, CanonicalMaterial
     provenance: UNSPSC_V8_PROVENANCE,
     note: "HUMAN-CALLS M10#39: 31162104 'Screw anchors' verified in UNSPSC Codeset v8.1201 \u2014 the functionally precise commodity for Tapcon-style masonry screws, over 31161502 'Anchor screws' and 31162101 'Concrete anchors'.",
   },
+  "SCREW-CONCRETE-TAPCON-1_4X1_75-100PK": {
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "M10#39 follow-up (Codex review): same Tapcon-style masonry screw as the six mapped keys, alternate SCREW-CONCRETE-* key spelling / 100PK pack. 31162104 'Screw anchors' per v8.1201.",
+  },
+  "SCREW-CONCRETE-TAPCON-1_4X2_25-100PK": {
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "M10#39 follow-up (Codex review): same Tapcon-style masonry screw as the six mapped keys, alternate SCREW-CONCRETE-* key spelling / 100PK pack. 31162104 'Screw anchors' per v8.1201.",
+  },
+  "SCREW-CONCRETE-TAPCON-3_16X1_75-100PK": {
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "M10#39 follow-up (Codex review): same Tapcon-style masonry screw as the six mapped keys, alternate SCREW-CONCRETE-* key spelling / 100PK pack. 31162104 'Screw anchors' per v8.1201.",
+  },
   "FAST-SCREW-STRUCT-HEADLOK-2_8IN-50PK": {
     status: "ambiguous",
     provenance: UNSPSC_V8_PROVENANCE,
