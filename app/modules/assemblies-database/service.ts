@@ -124,7 +124,7 @@ export class AssembliesDatabaseService {
           code: template.code,
           name: template.name,
           unitOfMeasure: template.unitOfMeasure,
-          description: `${template.description} Catalog ${ASSEMBLY_CATALOG_VERSION}; recipe v${template.version}; CSI ${template.csiDivision} ${template.csiTitle}; NAHB ${template.nahbGroup}. ${template.wasteGuidance}`,
+          description: `${template.description} Catalog ${ASSEMBLY_CATALOG_VERSION}; recipe v${template.version}; CSI ${template.csiDivision} ${template.csiTitle}; NAHB ${template.nahbGroup}. ${template.wasteGuidance}${"evidenceRefs" in template ? ` Research evidence: ${template.evidenceRefs.join(", ")}.` : ""}`,
           isTemplate: true,
         },
       });
