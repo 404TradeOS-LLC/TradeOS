@@ -94,6 +94,22 @@ describe("Canonical material classification codes", () => {
     }
   });
 
+  it("maps the plastic-cap key to 31162002 after the M10#42 correction", () => {
+    expect(codesForCanonicalKey("FAST-NAIL-PLASTIC-CAP-1_1-4-3M")).toMatchObject({
+      unspsc: "31162002",
+      unspscTitle: "Cap nails",
+      status: "mapped",
+    });
+  });
+
+  it("keeps aluminum siding nails at 31162006 Wire nails (not cap nails)", () => {
+    expect(codesForCanonicalKey("FAST-NAIL-SIDING-ALUM-1_1-4-1LB")).toMatchObject({
+      unspsc: "31162006",
+      unspscTitle: "Wire nails",
+      status: "mapped",
+    });
+  });
+
   it("maps Tapcon keys to 31162104 Screw anchors (M10#39)", () => {
     for (const key of [
       "ANCHOR-CONCRETE-SCREW-HEX-1_4X2_3_4-75PK",
