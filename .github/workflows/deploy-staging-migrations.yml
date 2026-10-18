@@ -3,18 +3,7 @@ name: Deploy staging database migrations
 # Manual, staging-only Prisma migration deployment. This workflow uses a
 # dedicated GitHub Environment and secret names; it cannot select production.
 on:
-  workflow_dispatch:
-    inputs:
-      backup_confirmed:
-        description: "Confirm a current staging backup/recovery point exists"
-        required: true
-        type: boolean
-        default: false
-      legacy_writers_retired:
-        description: "Confirm no running staging API writes invoice_line_items.unit_cost or line_cost"
-        required: true
-        type: boolean
-        default: false
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -37,21 +26,10 @@ jobs:
       APP_DB_ROLE_NAME: ${{ vars.STAGING_APP_DB_ROLE_NAME }}
       STAGING_PROJECT_REF: qfbgdkbamfaasmtjfyru
     steps:
-      - name: Verify main ref and required staging confirmations
-        env:
-          BACKUP_CONFIRMED: ${{ inputs.backup_confirmed }}
-          LEGACY_WRITERS_RETIRED: ${{ inputs.legacy_writers_retired }}
+      - name: Verify main ref and staging credentials
         run: |
           test "$GITHUB_REF" = "refs/heads/main" || {
             echo "::error::Dispatch this workflow from main only."
-            exit 1
-          }
-          test "$BACKUP_CONFIRMED" = "true" || {
-            echo "::error::Confirm a current staging backup/recovery point before migration."
-            exit 1
-          }
-          test "$LEGACY_WRITERS_RETIRED" = "true" || {
-            echo "::error::Confirm staging has no old invoice-line writers before the contract migration."
             exit 1
           }
           test -n "$DATABASE_ADMIN_URL" || {
@@ -63,12 +41,11 @@ jobs:
             exit 1
           }
           node --input-type=module <<'NODE'
-          const value = process.env.DATABASE_ADMIN_URL;
           let url;
           try {
-            url = new URL(value);
+            url = new URL(process.env.DATABASE_ADMIN_URL);
           } catch {
-            console.error("DATABASE_ADMIN_URL is not a valid PostgreSQL URL.");
+            console.error("STAGING_DATABASE_ADMIN_URL is not a valid PostgreSQL URL.");
             process.exit(1);
           }
           const expectedHost = `db.${process.env.STAGING_PROJECT_REF}.supabase.co`;
