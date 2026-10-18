@@ -884,9 +884,9 @@ export const CANONICAL_MATERIAL_CODES: Readonly<Record<string, CanonicalMaterial
     note: "UNSPSC 31162005 'Roofing nails'. Fasteners; commodity verified in UNSPSC Codeset v8.1201.",
   },
   "FAST-NAIL-SIDING-ALUM-1_1-4-1LB": {
-    unspsc: "31162002", unspscTitle: "Cap nails", status: "mapped",
+    unspsc: "31162006", unspscTitle: "Wire nails", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "CORRECTION (2026-10-18, HUMAN-CALLS M10#42): 31162002 'Cap nails' verified in UNSPSC Codeset v8.1201 \u2014 the earlier 'no dedicated cap-nail commodity' claim was false. Fasteners; commodity verified.",
+    note: "CORRECTION (2026-10-18, Codex review): ordinary aluminum siding nails, not cap nails; 31162006 'Wire nails' is the verified fit. Only FAST-NAIL-PLASTIC-CAP-1_1-4-3M takes 31162002.",
   },
   "FAST-SCREW-CABINET-WASHER-2_1-2-100PK": {
     unspsc: "31161508", unspscTitle: "Wood screws", status: "mapped",

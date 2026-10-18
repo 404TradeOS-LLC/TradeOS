@@ -79,17 +79,20 @@ describe("Canonical material classification codes", () => {
     }
   });
 
-  it("maps cap-nail keys to 31162002 after the M10#42 correction", () => {
-    for (const key of [
-      "FAST-NAIL-PLASTIC-CAP-1_1-4-3M",
-      "FAST-NAIL-SIDING-ALUM-1_1-4-1LB",
-    ]) {
-      expect(codesForCanonicalKey(key)).toMatchObject({
-        unspsc: "31162002",
-        unspscTitle: "Cap nails",
-        status: "mapped",
-      });
-    }
+  it("maps the plastic-cap key to 31162002 after the M10#42 correction", () => {
+    expect(codesForCanonicalKey("FAST-NAIL-PLASTIC-CAP-1_1-4-3M")).toMatchObject({
+      unspsc: "31162002",
+      unspscTitle: "Cap nails",
+      status: "mapped",
+    });
+  });
+
+  it("keeps aluminum siding nails at 31162006 Wire nails (not cap nails)", () => {
+    expect(codesForCanonicalKey("FAST-NAIL-SIDING-ALUM-1_1-4-1LB")).toMatchObject({
+      unspsc: "31162006",
+      unspscTitle: "Wire nails",
+      status: "mapped",
+    });
   });
 
   it("maps grout keys to 30111606 after the M7#26 correction", () => {
