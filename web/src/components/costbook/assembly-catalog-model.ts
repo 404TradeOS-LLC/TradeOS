@@ -23,6 +23,7 @@ export type StarterCatalogTemplate = {
   nahbGroup: string;
   nahbPhase?: string;
   blockingReasons?: string[];
+  evidenceRefs?: string[];
   trade: string;
   measurementBasis: string;
   wasteGuidance: string;
