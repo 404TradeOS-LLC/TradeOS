@@ -61,6 +61,25 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Costbook researched assembly activation — PR #771 (proposed, 2026-10-18)
+
+Draft PR #771 on branch `feat/costbook-88-assembly-activation-20261018`
+expands the existing 14 reviewed installable starter recipes with all 88
+static `TradeosAssembly` recipes in the same Costbook and Estimate setup
+path (102 browseable templates total). The researched set is explicitly
+marked research, includes preserved component quantities and research
+source IDs, and is NOT preinstalled or pre-priced. 11 recipes reference
+absent source registry entries (SRC-0041–SRC-0050); API/UI block their
+installation until those sources are verifiably repaired. NAHB phase
+filtering and strict first-unit component mapping are added. Existing
+tenant ownership, `costbook.write`, transaction-scoped assembly installs,
+Cost Item lookup, and Estimate Engine snapshots remain unchanged.
+
+Status: SOURCE BRANCH / DRAFT PR ONLY. No local TypeScript/build checks or
+authenticated staging/production execution are claimed. GitHub CI and
+review remain gates; do not describe the 77 source-complete research
+templates as price-ready without local mapping and estimator review.
+
 ## Estimate line-edit cost presence — 2026-10-17 UTC
 
 Items entry #760 is merged as `17c339cf`, web production source READY at `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL`. The next bounded edit-cost branch repairs the same unknown-to-zero defect in `EditableLineItem`: clearing Unit cost kept Save enabled and the handler coerced the empty string to zero. Save and the handler now require explicit input, the required field explains intentional zero, and rejected edits announce an alert while retaining entered values. Numeric zero remains allowed by the existing backend contract. No backend financial, authorization or snapshot rule changes.
