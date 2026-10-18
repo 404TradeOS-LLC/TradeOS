@@ -20,6 +20,7 @@ export interface ResearchAssemblyCatalogTemplate extends Omit<AssemblyCatalogTem
   nahbGroup: string;
   nahbPhase: string;
   blockingReasons: string[];
+  evidenceRefs: string[];
   review: {
     status: "research";
     source: string;
@@ -61,6 +62,7 @@ export const TRADEOS_RESEARCH_CATALOG: readonly ResearchAssemblyCatalogTemplate[
       reviewedOn: "",
       regionalBasis: "Research recipe only. Estimator must verify scope, quantities, units, local labor and materials before install.",
     },
+    evidenceRefs,
     blockingReasons: [
       ...(missingSources.length ? [`Missing research source references: ${missingSources.join(", ")}`] : []),
       ...(invalidUnits.length ? [`Unrecognized component units: ${invalidUnits.join(", ")}`] : []),
