@@ -38,7 +38,8 @@ Concrete pavers: 30131502 vs 30131700. Clay pavers: 30131602 vs 30131700.
 Code fields left empty; human review.
 
 **A4 — Firebrick/refractory: specialty uses.**
-Firebrick → 30131602 (ambiguous); refractory mortar → 30111504 (ambiguous).
+Firebrick → 31371100 (ambiguous); refractory mortar → 30111504 (ambiguous).
+CORRECTION (2026-10-18, HUMAN-CALLS M7#27): the package's 30131602 'Ceramic bricks' was superseded — 31371100 'Refractory bricks' is the class-level verified fit in UNSPSC Codeset v8.1201. Keeps ambiguous status because no fireclay commodity exists; Billy's call to confirm.
 Specialty use, review required.
 
 ## 3. OmniClass Table 23 — NULL with cause
