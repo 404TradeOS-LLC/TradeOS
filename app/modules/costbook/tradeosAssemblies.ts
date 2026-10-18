@@ -39,10 +39,18 @@ export function isNahbPhase(value: string): value is NahbPhase {
   return (Object.keys(NAHB_PHASE_TITLES) as readonly string[]).includes(value);
 }
 
+/**
+ * Cabinet price tier (HUMAN-CALLS M9#38). Stock vs quick-ship is a ~4.4x
+ * price cliff, so cabinet assemblies must carry a tier before any cost
+ * rollup mixes tiers. Only set on cabinet assemblies; absent elsewhere.
+ */
+export type CabinetTier = "stock" | "quick-ship" | "semi-custom";
+
 export interface TradeosAssembly {
   id: string; code: string; name: string; description: string;
   unitOfMeasure: string; csiDivision: string; csiTitle: string; trade: string;
   nahbPhase: NahbPhase;
+  cabinetTier?: CabinetTier;
   measurementBasis: string; searchTerms: readonly string[];
   scopeExclusions: readonly string[];
   components: readonly TradeosAssemblyComponent[];
@@ -1664,6 +1672,7 @@ export const TRADEOS_ASSEMBLIES: readonly TradeosAssembly[] = [
     unitOfMeasure: "EA",
     csiDivision: "12", csiTitle: "Furnishings", trade: "Finish Carpentry",
     nahbPhase: "5000",
+    cabinetTier: "stock",
     measurementBasis: "Count of discrete base cabinet box units set and leveled.",
     searchTerms: ["install base cabinets", "kitchen cabinet install", "base cabinet installation", "mount kitchen cabinets", "prefabricated cabinets"],
     scopeExclusions: ["countertop installation", "sink/plumbing hookup", "decorative door pull hardware boring", "toe kick veneer skin strip"],
