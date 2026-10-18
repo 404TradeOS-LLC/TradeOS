@@ -131,7 +131,7 @@ test("starter assembly setup stays inline and requires install before estimate a
   assert.match(builder, /Installation creates the tenant assembly only\. Review its resolved cost, then use the separate Add action to write the estimate line\./);
   assert.match(builder, /onInstalled=\{\(assembly\) => \{[\s\S]*setSelected\(\{ \.\.\.assembly, kind: "assembly" \}\)/);
   assert.match(builder, /disabled=\{!canAddReviewedLine\}/);
-  assert.match(builder, /disabled=\{install\.isPending \|\| !mappingComplete \|\| duplicateMapping \|\| Boolean\(incompatibleComponent\) \|\| !previewReady\}/);
+  assert.match(builder, /disabled=\{install\.isPending \|\| evidenceBlocked \|\| !mappingComplete \|\| duplicateMapping \|\| Boolean\(incompatibleComponent\) \|\| !previewReady\}/);
   assert.match(builder, /const resultsId = useId\(\)/);
   assert.doesNotMatch(builder, /Math\.random\(\)/);
 });
