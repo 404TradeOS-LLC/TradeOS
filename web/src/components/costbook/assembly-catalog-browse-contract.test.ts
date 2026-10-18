@@ -48,8 +48,8 @@ test("installed status comes from all active tenant assemblies, not the current 
 
 test("browse facets preserve existing write permissions and priced preview gates", async () => {
   const ui = await source("./assembly-catalog.tsx");
-  assert.match(ui, /selected\\.blockingReasons\\?\\.length/);
-  assert.match(ui, /!mappingComplete \\|\\| !previewReady/);
+  assert.match(ui, /Boolean\(selected\.blockingReasons\?\.length\)/);
+  assert.match(ui, /!mappingComplete \|\| !previewReady/);
   assert.match(ui, /if \(componentMappings\.some\(\(mapping\) => !mapping\.costItemId\)\)/);
   assert.match(ui, /if \(new Set\(componentMappings\.map\(\(mapping\) => mapping\.costItemId\)\)\.size !== componentMappings\.length\)/);
   assert.match(ui, /Pre-install cost preview/);
