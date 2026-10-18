@@ -79,6 +79,19 @@ describe("Canonical material classification codes", () => {
     }
   });
 
+  it("maps cap-nail keys to 31162002 after the M10#42 correction", () => {
+    for (const key of [
+      "FAST-NAIL-PLASTIC-CAP-1_1-4-3M",
+      "FAST-NAIL-SIDING-ALUM-1_1-4-1LB",
+    ]) {
+      expect(codesForCanonicalKey(key)).toMatchObject({
+        unspsc: "31162002",
+        unspscTitle: "Cap nails",
+        status: "mapped",
+      });
+    }
+  });
+
   it("tracks coverage against the full corpus key list", () => {
     const coverage = canonicalMaterialCodeCoverage(corpusKeys);
     expect(coverage.total).toBe(corpusKeys.length);
