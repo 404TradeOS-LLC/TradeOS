@@ -63,6 +63,23 @@ related_code:
 
 # TradeOS Current State
 
+## Costbook PR frontend Preview allowlist — proposed 2026-10-18
+
+Vercel's deployed source configs `web/vercel.json` and `app/vercel.json`
+contain `git.deploymentEnabled["**"]=false`, with only `main` and
+`staging` explicitly allowed. Read-only Vercel queries confirmed no
+deployment for branch heads of draft Costbook PRs #771/#773/#774 in
+either project. This explains why green GitHub CI cannot be treated as a
+working staging preview.
+
+An isolated infrastructure branch `feat/costbook-preview-policy-20261018`
+proposes narrowly enabling `feat/costbook-*` **frontend** preview
+deployments only. The backend deployment restriction and staging-only
+secret inheritance remain unchanged. No production deployment or
+configuration is changed until review/merge; preview READY, identity,
+authenticated backend behavior, and staging RLS remain unverified.
+
+
 ## Items cost columns checkpoint — 2026-10-17 UTC
 
 Reconciled main `41a62cea99c7bc91eda45d805e4b0363b8906132`: #760 progressive entry is merged as `17c339cf`, production READY `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL`; #761 explicit line-edit cost is merged as `41a62cea`, production READY `dpl_12gVocD7WKCA9vwgSp89YKc4apwi`. These are exact-source deployments, not authenticated workflow certification. Older pending/blocked statements below are historical.
