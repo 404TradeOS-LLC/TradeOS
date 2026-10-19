@@ -1,6 +1,7 @@
 import {
   EXPANDED_ASSEMBLY_CATALOG,
   TRADEOS_RESEARCH_CATALOG,
+  VERIFIED_KITCHEN_GAP_CATALOG,
   getExpandedCatalogTemplate,
 } from "../modules/assemblies-database/tradeosCatalogAdapter";
 import { TRADEOS_ASSEMBLIES } from "../modules/costbook/tradeosAssemblies";
@@ -94,10 +95,10 @@ describe("assembly starter catalog", () => {
 describe("expanded research assembly catalog", () => {
   it("exposes 88 source recipes alongside 14 unchanged starters without duplicate identifiers", () => {
     expect(TRADEOS_RESEARCH_CATALOG).toHaveLength(88);
-    expect(EXPANDED_ASSEMBLY_CATALOG).toHaveLength(102);
+    expect(EXPANDED_ASSEMBLY_CATALOG).toHaveLength(104);
     expect(EXPANDED_ASSEMBLY_CATALOG.slice(0, 14)).toEqual(ASSEMBLY_CATALOG);
-    expect(new Set(EXPANDED_ASSEMBLY_CATALOG.map((item) => item.id)).size).toBe(102);
-    expect(new Set(EXPANDED_ASSEMBLY_CATALOG.map((item) => item.code)).size).toBe(102);
+    expect(new Set(EXPANDED_ASSEMBLY_CATALOG.map((item) => item.id)).size).toBe(104);
+    expect(new Set(EXPANDED_ASSEMBLY_CATALOG.map((item) => item.code)).size).toBe(104);
   });
 
   it("preserves every research quantity and labels source-blocked recipes", () => {
@@ -131,5 +132,61 @@ describe("expanded research assembly catalog", () => {
       unitOfMeasure: "EA", materialId: "material-1", laborRateId: null,
       equipmentId: null, subcontractorId: null,
     }).compatible).toBe(false);
+  });
+});
+
+describe("price-neutral kitchen gap recipes", () => {
+  it("exposes wall cabinets and prefabricated straight-run laminate without inventing prices", () => {
+    expect(VERIFIED_KITCHEN_GAP_CATALOG).toHaveLength(2);
+    expect(VERIFIED_KITCHEN_GAP_CATALOG.map((recipe) => recipe.id)).toEqual([
+      "kitchen:wall-cabinet-prefab",
+      "kitchen:laminate-countertop-straight",
+    ]);
+    expect(VERIFIED_KITCHEN_GAP_CATALOG.map((recipe) => recipe.code)).toEqual([
+      "12 35 30-TOS-001",
+      "12 36 23-TOS-001",
+    ]);
+    expect(VERIFIED_KITCHEN_GAP_CATALOG.every((recipe) =>
+      recipe.nahbPhase === "5000" && recipe.csiDivision === "12" &&
+      recipe.review.status === "research" && recipe.blockingReasons.length === 0
+    )).toBe(true);
+    expect(VERIFIED_KITCHEN_GAP_CATALOG.flatMap((recipe) => recipe.components)
+      .every((component) => component.quantityPerUnit === 1)).toBe(true);
+    expect(JSON.stringify(VERIFIED_KITCHEN_GAP_CATALOG)).not.toMatch(/\\$\\d+\\.\\d{2}/);
+  });
+
+  it("uses native EA for each wall cabinet and LF for the straight-run countertop", () => {
+    const wall = getExpandedCatalogTemplate("kitchen:wall-cabinet-prefab")!;
+    const top = getExpandedCatalogTemplate("kitchen:laminate-countertop-straight")!;
+    expect(wall.unitOfMeasure).toBe("EA");
+    expect(top.unitOfMeasure).toBe("LF");
+    expect(wall.components.map((component) => component.compatibleUnits)).toEqual([
+      ["EA"], ["EA"], ["EA"],
+    ]);
+    expect(top.components.map((component) => component.compatibleUnits)).toEqual([
+      ["LF"], ["LF"],
+    ]);
+    expect(top.wasteGuidance).toContain("never equate an EA 8-ft slab to 1 LF");
+    const surface = top.components[0];
+    expect(assessCatalogComponentMapping(surface, {
+      unitOfMeasure: "EA", materialId: "item", laborRateId: null,
+      equipmentId: null, subcontractorId: null,
+    }).compatible).toBe(false);
+    expect(assessCatalogComponentMapping(surface, {
+      unitOfMeasure: "LF", materialId: "item", laborRateId: null,
+      equipmentId: null, subcontractorId: null,
+    }).compatible).toBe(true);
+  });
+
+  it("records source IDs and enforces unique component keys for every new kitchen recipe", () => {
+    expect(VERIFIED_KITCHEN_GAP_CATALOG.map((recipe) => recipe.evidenceRefs)).toEqual([
+      ["SRC-0069"], ["SRC-0070"],
+    ]);
+    for (const recipe of VERIFIED_KITCHEN_GAP_CATALOG) {
+      expect(new Set(recipe.components.map((component) => component.key)).size)
+        .toBe(recipe.components.length);
+      expect(recipe.measurementBasis.length).toBeGreaterThan(25);
+      expect(recipe.wasteGuidance).toMatch(/Excludes/);
+    }
   });
 });
