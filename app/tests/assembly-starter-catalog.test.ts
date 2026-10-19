@@ -215,7 +215,7 @@ describe("new-construction openings and appliance estimating gaps", () => {
   });
 
   it("separates new-construction vinyl flanged windows from retrofit insert windows", () => {
-    const win = getExpandedCatalogTemplate(ids[0])!;
+    const win = VERIFIED_OPENINGS_APPLIANCE_GAP_CATALOG.find((item) => item.id === ids[0])!;
     expect(win.unitOfMeasure).toBe("EA");
     expect(win.nahbPhase).toBe("4000");
     expect(win.csiDivision).toBe("08");
@@ -227,8 +227,8 @@ describe("new-construction openings and appliance estimating gaps", () => {
   });
 
   it("keeps qualified high-tension garage-door work and dishwasher utility upgrades explicit", () => {
-    const door = getExpandedCatalogTemplate(ids[1])!;
-    const dishwasher = getExpandedCatalogTemplate(ids[2])!;
+    const door = VERIFIED_OPENINGS_APPLIANCE_GAP_CATALOG.find((item) => item.id === ids[1])!;
+    const dishwasher = VERIFIED_OPENINGS_APPLIANCE_GAP_CATALOG.find((item) => item.id === ids[2])!;
     expect(door.wasteGuidance).toMatch(/high-tension spring/);
     expect(door.wasteGuidance).toMatch(/Excludes opening reframing/);
     expect(dishwasher.csiDivision).toBe("11");
