@@ -176,6 +176,14 @@ export const TRADEOS_ASSEMBLY_SOURCES: readonly TradeosAssemblySource[] = [
   { sourceId: "SRC-0068", sourceName: "2021 IRC Section R406 & Tremco Residential Foundation Coatings Specification",
     sourceOrganization: "International Code Council / Tremco Commercial Sealants & Waterproofing",
     sourceDocumentTitle: "2021 IRC Section R406 Foundation Waterproofing and Dampproofing & Tremco Barrier Solutions Specification", sourceUrl: "https://codes.iccsafe.org/content/IRC2021P1/chapter-4-foundations" },
+  { sourceId: "SRC-0069", sourceName: "How to Install Wall Cabinets",
+    sourceOrganization: "The Home Depot",
+    sourceDocumentTitle: "How to Install Wall Cabinets — installation sequence, stud locations, cabinet fasteners, ledger and shimming",
+    sourceUrl: "https://www.homedepot.com/c/ah/how-to-install-wall-cabinets/9ba683603be9fa5395fab903783e4db" },
+  { sourceId: "SRC-0070", sourceName: "How to Cut a Sink Hole in a Formica Laminate Countertop",
+    sourceOrganization: "Formica Group",
+    sourceDocumentTitle: "How to Cut a Sink Hole in a Formica Laminate Countertop — measuring, supporting and sealing cutouts",
+    sourceUrl: "https://formica.com/en-ca/articles/home-design/2023/how-to-cut-a-sink-hole-in-a-formica-laminate-countertop" },
 ];
 
 /** Assembly source record by exact source ID, or undefined when the ID is not in the registry. */
