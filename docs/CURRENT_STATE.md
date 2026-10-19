@@ -61,6 +61,21 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Kitchen assembly gaps — proposed stacked follow-on (2026-10-18)
+
+A dependent branch `feat/costbook-kitchen-assembly-gaps-20261018` extends
+draft PR #771's research catalog with two additional scoped, unpriced kitchen
+recipes: wall cabinet installation by EA, and straight-run prefabricated
+laminate countertop by LF. Both are NAHB finishing phase 5000 and CSI division
+12; source refs `SRC-0069` and `SRC-0070` are registered. The combined
+catalog has 104 candidate templates. The work preserves per-tenant installation
+and Estimate Engine snapshots, and expressly blocks EA-to-LF piece conversion.
+
+No new wall-cabinet or laminate unit price was inferred. Stone/quartz slab
+fabrication, sink/cooktop cutouts, kitchen fillers, backsplash and separate
+mechanical/electrical scope are not silently included. Branch remains unmerged
+and not staging-certified until CI and authenticated preview evidence complete.
+
 ## Costbook researched assembly activation — PR #771 (proposed, 2026-10-18)
 
 Draft PR #771 on branch `feat/costbook-88-assembly-activation-20261018`
