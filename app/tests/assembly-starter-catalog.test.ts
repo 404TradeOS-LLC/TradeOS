@@ -2,6 +2,7 @@ import {
   EXPANDED_ASSEMBLY_CATALOG,
   TRADEOS_RESEARCH_CATALOG,
   VERIFIED_KITCHEN_GAP_CATALOG,
+  VERIFIED_OPENINGS_APPLIANCE_GAP_CATALOG,
   getExpandedCatalogTemplate,
 } from "../modules/assemblies-database/tradeosCatalogAdapter";
 import { TRADEOS_ASSEMBLIES } from "../modules/costbook/tradeosAssemblies";
@@ -95,10 +96,10 @@ describe("assembly starter catalog", () => {
 describe("expanded research assembly catalog", () => {
   it("exposes 88 source recipes alongside 14 unchanged starters without duplicate identifiers", () => {
     expect(TRADEOS_RESEARCH_CATALOG).toHaveLength(88);
-    expect(EXPANDED_ASSEMBLY_CATALOG).toHaveLength(104);
+    expect(EXPANDED_ASSEMBLY_CATALOG).toHaveLength(107);
     expect(EXPANDED_ASSEMBLY_CATALOG.slice(0, 14)).toEqual(ASSEMBLY_CATALOG);
-    expect(new Set(EXPANDED_ASSEMBLY_CATALOG.map((item) => item.id)).size).toBe(104);
-    expect(new Set(EXPANDED_ASSEMBLY_CATALOG.map((item) => item.code)).size).toBe(104);
+    expect(new Set(EXPANDED_ASSEMBLY_CATALOG.map((item) => item.id)).size).toBe(107);
+    expect(new Set(EXPANDED_ASSEMBLY_CATALOG.map((item) => item.code)).size).toBe(107);
   });
 
   it("preserves every research quantity and labels source-blocked recipes", () => {
@@ -187,6 +188,68 @@ describe("price-neutral kitchen gap recipes", () => {
         .toBe(recipe.components.length);
       expect(recipe.measurementBasis.length).toBeGreaterThan(25);
       expect(recipe.wasteGuidance).toMatch(/Excludes/);
+    }
+  });
+});
+
+describe("new-construction openings and appliance estimating gaps", () => {
+  const ids = [
+    "openings:window-vinyl-new-construction-flanged",
+    "openings:garage-door-section-steel",
+    "appliances:dishwasher-built-in-existing-ready",
+  ];
+  it("adds three distinct source-backed research recipes without changing the 14+88+2 originals", () => {
+    expect(VERIFIED_OPENINGS_APPLIANCE_GAP_CATALOG.map((item) => item.id)).toEqual(ids);
+    expect(VERIFIED_OPENINGS_APPLIANCE_GAP_CATALOG.map((item) => item.evidenceRefs)).toEqual([
+      ["SRC-0071"], ["SRC-0072"], ["SRC-0073"],
+    ]);
+    expect(VERIFIED_OPENINGS_APPLIANCE_GAP_CATALOG.every((item) =>
+      item.blockingReasons.length === 0 && item.review.status === "research" &&
+      item.components.length >= 2 && item.components.every((component) =>
+        component.quantityPerUnit === 1 && component.compatibleUnits.length === 1 &&
+        component.compatibleUnits[0] === "EA")
+    )).toBe(true);
+    expect(EXPANDED_ASSEMBLY_CATALOG).toHaveLength(107);
+    expect(new Set(EXPANDED_ASSEMBLY_CATALOG.map((item) => item.code)).size).toBe(107);
+    expect(JSON.stringify(VERIFIED_OPENINGS_APPLIANCE_GAP_CATALOG)).not.toMatch(/\$\d+\.\d{2}/);
+  });
+
+  it("separates new-construction vinyl flanged windows from retrofit insert windows", () => {
+    const win = getExpandedCatalogTemplate(ids[0])!;
+    expect(win.unitOfMeasure).toBe("EA");
+    expect(win.nahbPhase).toBe("4000");
+    expect(win.csiDivision).toBe("08");
+    expect(win.measurementBasis).toMatch(/model, size/i);
+    expect(win.wasteGuidance).toMatch(/flashing transitions/);
+    expect(win.components.map((c) => c.key)).toEqual([
+      "window-unit", "window-flashing-kit", "window-install-labor",
+    ]);
+  });
+
+  it("keeps qualified high-tension garage-door work and dishwasher utility upgrades explicit", () => {
+    const door = getExpandedCatalogTemplate(ids[1])!;
+    const dishwasher = getExpandedCatalogTemplate(ids[2])!;
+    expect(door.wasteGuidance).toMatch(/high-tension spring/);
+    expect(door.wasteGuidance).toMatch(/Excludes opening reframing/);
+    expect(dishwasher.csiDivision).toBe("11");
+    expect(dishwasher.nahbPhase).toBe("5000");
+    expect(dishwasher.wasteGuidance).toMatch(/Licensed trades/);
+    expect(dishwasher.wasteGuidance).toMatch(/Excludes new plumbing/);
+    for(const recipe of [door,dishwasher]) {
+      expect(recipe.components.every(c=>c.quantityPerUnit===1)).toBe(true);
+      expect(recipe.review.status).toBe("research");
+    }
+  });
+
+  it("rejects square-foot windows and linear-foot garage components as unsafely converted units", () => {
+    for (const id of ids) {
+      const item = getExpandedCatalogTemplate(id)!;
+      expect(item.components.every(component =>
+        component.compatibleUnits[0] === "EA")).toBe(true);
+      expect(assessCatalogComponentMapping(item.components[0], {
+        unitOfMeasure: "SF", laborRateId: null, materialId: "material-1",
+        equipmentId: null, subcontractorId: null,
+      }).compatible).toBe(false);
     }
   });
 });
