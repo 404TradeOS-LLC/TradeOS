@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-08
+last_verified: 2026-10-18
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -9,6 +9,20 @@ related_docs:
   - docs/ENGINEERING_COMMAND_CENTER.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
+
+# TradeOS Session Handoff
+
+## Items cost columns checkpoint — 2026-10-17 UTC
+
+Reconciled main `41a62cea99c7bc91eda45d805e4b0363b8906132`: #760 progressive entry is merged as `17c339cf`, production READY `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL`; #761 explicit line-edit cost is merged as `41a62cea`, production READY `dpl_12gVocD7WKCA9vwgSp89YKc4apwi`. These are exact-source deployments, not authenticated workflow certification. Older pending/blocked statements below are historical.
+
+Branch `feat/estimate-items-cost-columns-20261017` reconciles canonical Desktop Items `378:441` (Estimates page `4:10`, high-fidelity context/screenshot inspected). Existing saved items lacked quantity/unit-cost/line-cost columns and visible editor labels. Shared desktop column tracks now align actual saved values; mobile keeps the compact quantity × unit-cost summary and 44px edit actions. Six editor fields have visible, associated labels. Internal costs are explicitly distinguished from customer pricing; saved lineCost is rendered directly, never recomputed. Existing PATCH, draft/permission gates, validation, pricing and snapshots are unchanged.
+
+The missing-header regression failed on the base; all 16 isolated layout/edit/entry/stage browser cases now pass across 390/768/1024/1440. Headers align with cells, cost text matches the response, labels/keyboard Cancel work, mobile targets fit and no horizontal overflow occurs. Every mutation is intercepted; synthetic reads are clearly labeled. Desktop 1440/1024 and mobile 390 renders inspected. Local Web 506/506, lint/build, governance 151/151, docs 40/40, ownership/preflight and Playwright discovery pass. Current branch is unmerged/undeployed pending exact-head hosted checks/review. Authenticated nonproduction persistence and tenant denial remain unverified.
+
+- Classification NEW_WORK_REQUIRED, Sprint NONE: #760/#761 own entry/validation and are merged; current saved-row presentation still lacked the canonical columns. Live overlap reconciliation found only unrelated open Davis-Bacon #700 and Field contracts #702. No equivalent active Estimate implementation.
+- Worktree `/workspace/scratch/1f8f19f950ac/tradeos-stage-nav`; allowed builder presentation, focused browser tests and owned docs. Excluded backend/API behavior, financial calculations, auth/RBAC/RLS, schema, suppliers, proposal lifecycle, infrastructure and unrelated main-checkout PNG/GIF edits. #751/#731 remain owner-closed without merge; preserve their branches.
+- Next five TODOs: (1) pass local Web/governance/docs and exact-head hosted gates for columns; (2) reconcile automated review findings and complete normal protected merge; (3) verify landed main and exact-source deployment; (4) reconcile laptop Athena rail usability against approved responsive behavior; (5) certify sanitized authenticated Costbook → Price → Proposal persistence and foreign-tenant denial once Preview/data-plane isolation is proven.
 
 ## Estimate line-edit explicit cost — active 2026-10-17 UTC
 
@@ -445,6 +459,12 @@ active resume contract is the S066 / PR #634 block at the end of this handoff.
 - Guardrails: exact Preview deployment SHA, non-production Supabase project, canonical sanitized tenant ID, real distinct owner and read-only auth, desktop 1440 and mobile 390, no Assembly writes, cleanup and credential scanning.
 - Pending external gate: ensure isolated Preview is deployed to selected SHA, owner + read-only smoke accounts exist in one smoke org and required secrets are installed. Dispatch manual workflow and review reports/screenshots; do not mark issue #518 browser evidence complete before that.
 - If assertions fail, repair only reproducible role, responsive, or selector errors on this bounded path; do not disable a test or relax auth/RLS/deployment checks.
+
+## Staging Prisma migration runner setup — 2026-10-18
+
+- Added a manual-only, staging-targeted GitHub Actions workflow on branch `ops/staging-prisma-migrations-20261018`; PR is pending review. It guards exact project ref `qfbgdkbamfaasmtjfyru`, runs the repository's `app/scripts/deploy-migrations.sh`, checks invoice backfill preconditions, provisions the staging app role, and verifies the full Prisma ledger.
+- Required GitHub Environment `staging` secrets: `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD`. These must point to the confirmed TradeOS Staging project; production secrets are not used.
+- Database remains at 46/60 Prisma migrations. The read-only invoice check passed (42 rows, no null legacy costs). Workflow setup itself did not mutate the database.
 
 ## Next Eligible Sprint
 

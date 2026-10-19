@@ -59,7 +59,7 @@ test.describe('Estimate item entry', () => {
       const description = page.getByLabel('Custom line item', { exact: true });
       await expect(description).toBeFocused();
       await description.fill('QA custom line');
-      const unitCost = page.getByLabel('Unit cost', { exact: true });
+      const unitCost = page.getByRole('spinbutton', { name: 'Unit cost', exact: true });
       const customAdd = page.getByRole('button', { name: 'Add custom', exact: true });
       await expect(customAdd).toBeDisabled();
       await unitCost.fill('0');
@@ -71,7 +71,7 @@ test.describe('Estimate item entry', () => {
       const add = page.getByRole('button', { name: 'Add custom', exact: true });
       await expect(add).toBeDisabled();
       await page.getByLabel('Qty', { exact: true }).fill('2');
-      await page.getByLabel('Unit cost', { exact: true }).fill('19.25');
+      await page.getByRole('spinbutton', { name: 'Unit cost', exact: true }).fill('19.25');
       await custom.click();
       await expect(description).toBeHidden();
 
@@ -107,7 +107,7 @@ test.describe('Estimate item entry', () => {
       const reopened = await openEstimateCustomEntry(page);
       await expect(reopened).toHaveValue('QA custom line');
       await expect(page.getByLabel('Qty', { exact: true })).toHaveValue('2');
-      await expect(page.getByLabel('Unit cost', { exact: true })).toHaveValue('19.25');
+      await expect(page.getByRole('spinbutton', { name: 'Unit cost', exact: true })).toHaveValue('19.25');
       for (const attempt of [1, 2]) {
         await add.click();
         await expect.poll(() => submitted.length).toBe(attempt);
