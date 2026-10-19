@@ -1,4 +1,4 @@
-/** TradeOS Assembly Library — source registry (58 sources). */
+/** TradeOS Assembly Library — sourced technical references (includes kitchen scope guidance). */
 export interface TradeosAssemblySource { sourceId: string; sourceName: string; sourceOrganization: string; sourceDocumentTitle: string; sourceUrl: string; }
 
 export const TRADEOS_ASSEMBLY_SOURCES: readonly TradeosAssemblySource[] = [
