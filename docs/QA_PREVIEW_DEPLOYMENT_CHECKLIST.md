@@ -16,6 +16,23 @@ related_code:
 
 # Web Preview Deployment QA Checklist
 
+## Proposed Costbook-only preview branch allowlist (2026-10-18)
+
+Costbook feature PRs under `feat/costbook-*` are proposed for frontend
+auto-preview via `web/vercel.json`, with other unspecified branches
+disabled by `"**": false`. Before the allowlist change lands, those
+branches will not have automatically created preview deployments. Even
+after it lands, inspect the exact deployment metadata instead of inferring
+success from a PR or frontend build.
+
+The backend Vercel project intentionally retains `main` and `staging`
+only. A frontend preview is **not** an end-to-end backend feature preview
+until the backend code under test is separately reviewed/deployed to the
+staging backend, using only its branch-scoped nonproduction secrets.
+Never use Production API or Production Supabase as a shortcut.
+
+# Web Preview Deployment QA Checklist
+
 Use this checklist for pull-request deployments of the `web/` frontend. The
 frontend already exists as the separate Vercel project
 `tradeos-costbook-web`; do not create or reconnect a project as part of this
