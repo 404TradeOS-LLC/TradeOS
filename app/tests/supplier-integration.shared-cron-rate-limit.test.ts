@@ -38,6 +38,27 @@ describe("Vercel-shared supplier Cron budgets", () => {
     expect([...hits.keys()].every((key) => !key.includes("203.0.113.8"))).toBe(true);
   });
 
+  it("enforces an independent global ABC catalog budget through the separate restricted pool", async () => {
+    const seen: unknown[] = [];
+    mockQueryRaw.mockImplementation(async (sql: { values: unknown[] }) => {
+      seen.push(sql.values[0]);
+      expect(sql.values[1]).toBe(1000);
+      return [{ total_hits: seen.length, window_resets_at: new Date("2026-10-13T20:00:01Z") }];
+    });
+    const first = new SharedSupplierCronRateLimitStore("abc-catalog");
+    const second = new SharedSupplierCronRateLimitStore("abc-catalog");
+    const selectedPrice = new SharedSupplierCronRateLimitStore("abc-selected-quote");
+    for (const store of [first, second, selectedPrice]) {
+      store.init({ windowMs: 1000 } as never);
+    }
+    await first.increment("abc-sandbox-product-read");
+    await second.increment("abc-sandbox-product-read");
+    await selectedPrice.increment("abc-sandbox-product-read");
+    expect(seen[0]).toBe(seen[1]); // Every instance shares exactly one catalog budget.
+    expect(seen[2]).not.toBe(seen[0]); // Pricing has a separate limit/authorization boundary.
+    expect(getSupplierTokenRotationClient).toHaveBeenCalledTimes(3);
+  });
+
   it("fails closed if the shared limiter is unavailable or returns no budget", async () => {
     const store = new SharedSupplierCronRateLimitStore("authorized");
     store.init({ windowMs: 60_000 } as never);

@@ -904,3 +904,57 @@ runbook, explicit apply command and live-verification gates.
 ## Davis-Bacon prevailing-wage reads (PR #700, pending staging validation)
 
 Authenticated, tenant-scoped Costbook routes (require `costbook.read`): `GET /api/v1/costbook/davis-bacon/determinations` (optional normalized state, county and active-only filters); `GET /api/v1/costbook/davis-bacon/rates?wdNumber=IN20260050`; `GET /api/v1/costbook/davis-bacon/county-rates?state=IN&county=Vigo`. Rate values are government-contract floors, not customer or supplier prices. The `GET /api/cron/davis-bacon-sync` route requires a `CRON_SECRET` bearer; jobs are configured through `DAVIS_BACON_SYNC_JOBS`, and no scheduled invocation is enabled by this PR.
+
+
+## ABC Supply provider-backed catalog API — issue #735 proposed slice (2026-10-13)
+
+`GET /api/v1/costbook/abc/catalog` (authenticated JWT plus `costbook.read`,
+behind `ABC_SUPPLY_CATALOG_BROWSE_ENABLED=true` and configured sandbox
+`ABC_SUPPLY_SANDBOX_CLIENT_ID`/`ABC_SUPPLY_SANDBOX_CLIENT_SECRET`).
+Query: `page` 1–100000, `limit` 1–100 (default 25), optional
+`q` up to 120 characters, `searchBy` one of
+`itemDescription`/`itemNumber`, `familyId` up to 120 characters.
+Without q or family, proxy `GET /api/product/v1/items` with provider
+pagination and `familyItems=false`; with q/family, call ABC
+`POST /api/product/v1/search/items` with the documented two-filter maximum.
+The backend mints a separate **client_credentials / product.read** token, not
+a user refresh token. Returns provider-derived
+`{items,pagination,source:"ABC Supply",environment:"sandbox",
+pricing:"not-requested",persisted:false}`, where every visible product
+reports `priceStatus:"unpriced"`. Inactive products are omitted from the
+page's visible items; pagination totals remain the provider's counts.
+
+Missing credentials/disabled flag: 503. Invalid query: existing Zod error
+handler. Product API upstream errors: fail closed, no customer-price fallback.
+Server and frontend are `no-store`; no database or Material/Estimate writes.
+Neither provider-level availability nor customer-specific pricing is claimed.
+
+**Not a full catalog import endpoint.** Persistent replication, delta
+checkpoints, and local indexes require express ABC storage permission, a new
+governed schema/RLS design, and live provider/CI verification. The existing
+customer OAuth and price-review endpoints remain separate.
+Docs: https://apidocs.abcsupply.com/get-all-items/,
+https://apidocs.abcsupply.com/search-items/,
+https://www.abcsupply.com/legal/.
+
+
+## ABC sandbox Product API read-only runtime evidence (issue #735, proposed)
+
+The manual `app/scripts/probe-abc-sandbox-catalog.ts` task is **not** an HTTP endpoint, import worker, or price API. It reads at most two 25-item sandbox pages through the existing `AbcCatalogClient` with an independent server `product.read` token. It validates the server-only response contract, pagination consistency, active product identities, and explicit `pricing:"not-requested"`/`persisted:false` boundary. Its sanitized metadata output contains provider-reported totals and active item counts only; no API body/SKU or credentials are printed or persisted. To run, use the reviewed manual GitHub Actions workflow and `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md`. Existing authenticated Costbook catalog HTTP routes and pricing authorization are unchanged.
+
+
+## ABC Get Item provider-backed read (issue #735 proposed)
+
+`GET /api/v1/costbook/abc/catalog/items/:itemNumber` requires an authenticated `costbook.read` member and the disabled-by-default `ABC_SUPPLY_CATALOG_BROWSE_ENABLED=true` configuration. The item number is an opaque ASCII letter/digit/`_`/`-` string, 1–80 characters; invalid path data is rejected before any upstream call. It shares the existing global ABC Product API sandbox limiter and calls `GET https://partners-sb.abcsupply.com/api/product/v1/items/{itemNumber}?embed=variations&familyItems=true` using only a server `product.read` client-credentials token. The response must match the exact requested item number and be Active; inactive, mismatched, malformed, or denied products fail closed.
+
+The JSON response is normalized to an unpriced product with `marketingDescription`, `hierarchyLabels`, `familyItems`, and dimensional variations derived from `dimensions.variations` (ABC's documented nesting). It explicitly sets `branchAvailability:"not-verified"`, `pricing:"not-requested"`, `persisted:false`. This route is no-store and never quotes prices or maps supplier items to tenant Materials. No images are cached or redistributed.
+
+## ABC Supply official Product Hierarchy (issue #735)
+
+`GET /api/v1/costbook/abc/hierarchy?page=1&limit=25` is an authenticated `costbook.read` GET through the existing sandbox-only `product.read` server token. It requires the existing `ABC_SUPPLY_CATALOG_BROWSE_ENABLED` feature flag and supplier client credentials. The route shares the existing global cross-instance `abc-catalog` rate limiter and sends `Cache-Control:no-store`. It reads ABC's documented `GET /api/product/v1/hierarchy`, validates provider-reported pagination and returns actual supplier **code/label** paths for six product levels. Requests are limited to 50 hierarchy paths per page. No branch stock, customer pricing, TradeOS Material, or provider hierarchy database is written; `pricing:"not-requested"`, `persisted:false`, and `environment:"sandbox"` are explicit. This complements the existing `/abc/catalog` and `/abc/catalog/items/:itemNumber` reads merged via #738.
+
+## ABC Item Availability: branch ordering eligibility only (#735)
+
+`GET /api/v1/costbook/abc/catalog/items/:itemNumber/availability` accepts an optional `branchNumber` (1–6 decimal digits), requires authenticated `costbook.read` access, the existing disabled-by-default `ABC_SUPPLY_CATALOG_BROWSE_ENABLED` flag and ABC's separate sandbox TPA `product.read` credentials. It uses the official Get Item Availability `GET /api/product/v1/availability/items/{itemNumber}/branches` endpoint, shares the global Product API catalog limiter, and sets `Cache-Control:no-store`.
+
+The normalized response provides at most 50 ABC-listed branches, the full provider branch count, optional exact-branch listed/not-listed check, and provider-sourced dimensional length text. **Meaning:** `availabilityMeaning:"listed_for_ordering_not_stock_quantity"`. No inventory quantity, allocation, authorization of customer Ship-To, stock guarantee, customer-specific price, or persisted supplier copy can be inferred. No database write, Material, or estimate changes occur, and `pricing:"not-requested"` / `persisted:false` are explicit. The existing Get Item and Hierarchy routes remain unchanged.

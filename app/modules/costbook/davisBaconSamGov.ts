@@ -297,8 +297,20 @@ export async function searchDeterminations(
     page += 1;
   }
 
-  return records
-    .filter((record) => record.isActive === true)
+  // An incomplete active record must not trigger retirement of previously
+  // valid county coverage when other records in the response are well formed.
+  const activeRecords = records.filter((record) => record.isActive === true);
+  if (activeRecords.some((record) =>
+    typeof record.revisionNumber !== "number" ||
+    !Number.isInteger(record.revisionNumber) ||
+    record.revisionNumber < 0
+  )) {
+    throw new DavisBaconApiError(
+      502,
+      "SAM.gov WD search returned an active determination without a valid revision",
+    );
+  }
+  return activeRecords
     .map(parseDeterminationRecord)
     .filter((determination): determination is DavisBaconDetermination => determination !== null);
 }

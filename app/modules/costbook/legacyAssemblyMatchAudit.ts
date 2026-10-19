@@ -6,7 +6,8 @@ import {
 export type LegacyAssemblyMatchConflict =
   | "NOMINAL_DIMENSION"
   | "PRODUCT_TYPE"
-  | "MATERIAL_SPEC";
+  | "MATERIAL_SPEC"
+  | "PRICE_UNIT";
 
 export interface LegacyAssemblyMatchRejection {
   assemblyId: string;
@@ -24,7 +25,9 @@ export interface LegacyAssemblyMatchAuditFinding extends LegacyAssemblyMatchReje
  * High-confidence false positives in the historical generated assembly-price
  * snapshot. This list is intentionally conservative: a row belongs here only
  * when the checked-in component requirement and supplier product contradict on
- * an identity-defining dimension, product type, or material/use specification.
+ * an identity-defining dimension, product type, material/use specification, or
+ * price unit (PRICE_UNIT: unit-dimension corruptions such as per-EA vs per-case
+ * pricing that silently scale totals by 10-160x).
  *
  * This registry is an audit boundary, not a substitute matcher. It never
  * invents a replacement product or price.

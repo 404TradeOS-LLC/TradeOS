@@ -3,6 +3,8 @@ import {
   HIGH_CONFIDENCE_LEGACY_ASSEMBLY_MATCH_REJECTIONS,
   AUDIT_FILTERED_LEGACY_PRICED_ASSEMBLY_COMPONENTS,
   auditLegacyAssemblyPriceMatches,
+  type LegacyAssemblyMatchConflict,
+  type LegacyAssemblyMatchRejection,
 } from "../modules/costbook/legacyAssemblyMatchAudit";
 import { TRADEOS_ASSEMBLIES } from "../modules/costbook/tradeosAssemblies";
 
@@ -131,5 +133,25 @@ describe("Costbook legacy assembly price-match audit", () => {
     expect(findings.some((finding) => finding.conflict === "NOMINAL_DIMENSION")).toBe(true);
     expect(findings.some((finding) => finding.conflict === "PRODUCT_TYPE")).toBe(true);
     expect(findings.some((finding) => finding.conflict === "MATERIAL_SPEC")).toBe(true);
+  });
+
+  it("recognizes PRICE_UNIT as a distinct conflict class (M3#10)", () => {
+    // Type-level: a PRICE_UNIT rejection must be assignable to the taxonomy.
+    const rejection: LegacyAssemblyMatchRejection = {
+      assemblyId: "example-assembly",
+      componentKey: "mat_masking_tape",
+      productNameIncludes: "masking tape",
+      conflict: "PRICE_UNIT",
+      reason: "Per-case price applied as per-EA silently scales the total.",
+    };
+    expect(rejection.conflict).toBe("PRICE_UNIT");
+    // The taxonomy now covers four defect classes.
+    const all: LegacyAssemblyMatchConflict[] = [
+      "NOMINAL_DIMENSION",
+      "PRODUCT_TYPE",
+      "MATERIAL_SPEC",
+      "PRICE_UNIT",
+    ];
+    expect(all).toHaveLength(4);
   });
 });

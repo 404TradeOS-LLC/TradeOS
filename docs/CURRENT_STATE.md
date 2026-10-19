@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-08
+last_verified: 2026-10-18
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -62,6 +62,120 @@ related_code:
 ---
 
 # TradeOS Current State
+
+## Items cost columns checkpoint — 2026-10-17 UTC
+
+Reconciled main `41a62cea99c7bc91eda45d805e4b0363b8906132`: #760 progressive entry is merged as `17c339cf`, production READY `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL`; #761 explicit line-edit cost is merged as `41a62cea`, production READY `dpl_12gVocD7WKCA9vwgSp89YKc4apwi`. These are exact-source deployments, not authenticated workflow certification. Older pending/blocked statements below are historical.
+
+Branch `feat/estimate-items-cost-columns-20261017` reconciles canonical Desktop Items `378:441` (Estimates page `4:10`, high-fidelity context/screenshot inspected). Existing saved items lacked quantity/unit-cost/line-cost columns and visible editor labels. Shared desktop column tracks now align actual saved values; mobile keeps the compact quantity × unit-cost summary and 44px edit actions. Six editor fields have visible, associated labels. Internal costs are explicitly distinguished from customer pricing; saved lineCost is rendered directly, never recomputed. Existing PATCH, draft/permission gates, validation, pricing and snapshots are unchanged.
+
+The missing-header regression failed on the base; all 16 isolated layout/edit/entry/stage browser cases now pass across 390/768/1024/1440. Headers align with cells, cost text matches the response, labels/keyboard Cancel work, mobile targets fit and no horizontal overflow occurs. Every mutation is intercepted; synthetic reads are clearly labeled. Desktop 1440/1024 and mobile 390 renders inspected. Local Web 506/506, lint/build, governance 151/151, docs 40/40, ownership/preflight and Playwright discovery pass. Current branch is unmerged/undeployed pending exact-head hosted checks/review. Authenticated nonproduction persistence and tenant denial remain unverified.
+
+## Estimate line-edit cost presence — 2026-10-17 UTC
+
+Items entry #760 is merged as `17c339cf`, web production source READY at `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL`. The next bounded edit-cost branch repairs the same unknown-to-zero defect in `EditableLineItem`: clearing Unit cost kept Save enabled and the handler coerced the empty string to zero. Save and the handler now require explicit input, the required field explains intentional zero, and rejected edits announce an alert while retaining entered values. Numeric zero remains allowed by the existing backend contract. No backend financial, authorization or snapshot rule changes.
+
+A 390px regression failed before the repair; all 12 isolated edit/entry/stage browser cases then passed across 390/768/1024/1440. All mutation requests were intercepted, so this proves frontend validation/recovery only. The new branch's checks/merge/deployment remain separate from #760's delivered source and from authenticated nonproduction certification.
+
+
+## Estimate Items progressive entry — 2026-10-17 UTC
+
+Main `f9a93dc4` includes responsive stages (#755), single-stage finalization recovery focus (#758) and updated persisted-price evidence instrumentation (#756/#757); #751 is closed without merge. The bounded Items branch `fix/estimate-items-progressive-entry-20261017` reconciles canonical Desktop Items `378:441`: saved lines remain central while Add assembly, Costbook and Custom item open the existing entry controls inline. Catalog entry filters source kinds and fetches only the selected source with a distinct cache key and explicit loading state; starter mapping, resolved unit-cost review and explicit Add remain authoritative. Draft fields and same-source selection survive closing/reopening; changing catalog kind clears its prior selection. Only active Items owns the search shortcut; opening a form focuses its first field.
+
+A browser reproduction also confirmed an existing blank custom Unit cost became a numeric zero request. The form now requires an explicit cost before Add and guards the same input in its handler; intentionally entered 0 remains valid. No new Estimate write, pricing calculation, source trust or backend permission contract. New isolated browser coverage intercepts all mutations and uses explicit synthetic catalog reads, proving frontend interaction rather than backend persistence. Current branch delivery and verification are tracked by the handoff/PR; previous merged source delivery must not imply this branch is deployed. Authenticated nonproduction workflow and data-plane isolation remain unverified.
+
+
+## Proposal failure input retention — 2026-10-16
+
+The existing proposal creation form lost uncontrolled edits when its server action returned validation/API errors: React treated the returned error state as a fulfilled action and reset the fields. A real incomplete-payment-row reproduction restored the initial company/scope and erased the entered milestone. The form now cancels that native reset; successful creation still follows the existing redirect. Failed attempts retain all fields/checkboxes and focus an alert followed by the retry submit in keyboard order. No server action, validation, financial or authorization behavior changes.
+
+Four executed local browser cases at 390/768/1024/1440 submit the real server action's payment validation twice and verify all edits survive. Explicit synthetic form props only; no backend creation call or authenticated persistence claim. Selected-price #752 is merged at `3811e583`, production source READY. Separate estimate recovery #751 has green technical gates but its normal merge was rejected by GitHub because CodeRabbit's stale CHANGES_REQUESTED review remains; re-review is externally rate-limited.
+
+
+## Selected Estimate price in proposal review — 2026-10-16
+
+The existing proposal-new form previously displayed the project's intake price range even when a finalized Estimate was selected. The backend instead snapshots that Estimate's saved total as the new proposal's fixed price. The focused frontend continuation now displays the selected Estimate total, preserves cents, announces changes and identifies the pricing basis; intake-only selection is labeled Intake range and does not imply a fixed price. The existing server action and backend financial/lifecycle/authorization rules are unchanged.
+
+A read-only browser matrix passed at 390/768/1024/1440 with explicitly synthetic local props, two different saved totals, selection changes, submitted form identity and no write requests. The temporary route/config is removed. Authenticated proposal creation, persistence and production functionality remain unverified; CI/merge/deployment belong to the focused PR.
+
+
+## Focused Estimate proposal handoff evidence selector — 2026-10-16
+
+After responsive stage PR #755 merged, the finalized Estimate page has both header Create proposal navigation and Review-stage Review proposal draft; the existing Beta Evidence union locator can match both. The bounded branch `test/beta-estimate-proposal-review-link-20261016` selects the existing exact Review-stage handoff instead. Only the non-production evidence runner, its source-contract test, and owner docs change. This does not create a Proposal, alter backend totals, bypass financial authorization, or constitute a passing authenticated certification run.
+
+
+## Estimate finalization recovery focus — bounded frontend slice (2026-10-16)
+
+The responsive Estimate Workspace merged in #755, with one Review stage at all breakpoints and a distinct finalized-to-proposal handoff. The earlier independent PR #751 was closed without merge; its focusable recovery UI is **not** in main. The branch `fix/estimate-finalization-error-focus-20261016` ports only the still-needed accessibility behavior onto that current shared Review stage: on actual finalize mutation failure, the visible error notice gains focus and scrolls above fixed mobile controls; keyboard focus then proceeds to Retry. Failed writes keep the saved draft; a successful finalize remains server-acknowledged before the Proposal link appears.
+
+No API mutation, customer delivery, financial computation, Costbook source, role/tenant/RLS, database, or production config changes. Source assertions are distinct from authenticated failed-server browser verification. PR CI/review and deployment remain separate.
+
+
+## Estimate → Proposal authenticated evidence hardening — proposed 2026-10-16
+
+The isolated branch `test/estimate-proposal-evidence-parity-20261016` repairs the canonical Beta Evidence runner for the actual focused-stage Estimate workspace: it explicitly navigates Items / Price / Review, including returning from the s053 Athena assistant page. It refuses silently skipping a missing mobile navigator and verifies `aria-current="step"` before interacting. The browser test now checks authenticated persisted Estimate line costs and subtotal, saved ready state/total, and persisted Proposal `estimateId`/`finalPrice` equality after separate explicit Create. The existing non-production host/data-plane guards, synthetic run identities, tenant denial, four viewport screenshots, source-keyed fixed-price mathematics and credential-artifact scanning are unchanged. No production data mutation or auth mechanism changes.
+
+This work only enhances the certification *test path*. Its source tests are not real authenticated evidence. PR #751 remains review-blocked, #755 owns the responsive builder UI, and true runtime certification requires an approved full Beta Evidence run with retained sanitized artifacts and backend isolation proof. No S053 or release readiness status is upgraded on source evidence.
+
+
+## Responsive Estimate stages — 2026-10-16 implementation
+
+Mobile navigation #754 merged as `9769dacf`; exact-source production deployment `dpl_CEbaBSEUmbp45yjcwbLCRA8sZdKZ` is READY. The active `feat/estimate-responsive-stages-20261016` branch closes the demonstrated desktop composition gap against canonical Figma `378:440–443`: one Scope → Items → Price → Review flow at every width, workspace beside a dark contextual Athena rail at lg and above, inline desktop progression/finalization, and existing mobile actions above the dock. Existing Project scope, Costbook selection, line edit/delete, pricing and finalize APIs remain authoritative. The old duplicate desktop controls are removed.
+
+Inactive forms stay mounted and hidden so unfinished item/pricing inputs survive stage changes and resizing. Only active Items owns its search shortcut. Failed dirty-scope saves retain text and block progression; saved totals stay distinct from unsaved pricing input and Athena suggestions. No persisted clarification, price-verification gate, public send action, or financial rule is invented. Full visual parity and authenticated persistence/tenant proof remain incomplete. Exact checks and current PR delivery are recorded in the session handoff and implementation ledger.
+
+
+## Universal Create access — proposed 2026-10-13
+
+The mobile Create sheet now derives its write entry points from the backend-authenticated current role. CRM and billing entries reuse the shared permission contract; Job/Schedule use the normalized manager roles accepted by JobsService. Technician/viewer and unknown roles do not receive write entry links. Advisory Ask Athena retains its independent existing capability gate. The shell reads role and Athena capability concurrently with bounded requests, and missing role confirmation leaves write entries unavailable with retry guidance. Dock geometry, sheet focus/scroll/close behavior, destinations and backend authorization remain unchanged. Role predicate tests are evidence for presentation gating; rendered role/viewport and live tenant/API verification remain open.
+
+
+
+## Price → Review → Copperline handoff — frontend parity slice 2026-10-15 (PR pending)
+
+The current Estimate Workspace remains a four-stage mobile experience and a continuous desktop workbench. The bounded `fix/estimate-price-review-copperline-handoff-20261015` UI branch adds a read-only direct-cost breakdown from the persisted EstimateLineItem `lineCost` values grouped by recorded type, distinctly labeled internal and excluding overhead/markup/tax. The saved Estimate `totalPrice`, not this grouping, remains the only shown customer total. The Review stage labels individual line costs internal, explicitly states that Finalize does not send to customers, and shows inline failed-finalization detail with a retry using the existing `POST /estimates/:id/finalize` mutation; the saved draft stays available on failure. After backend status becomes non-draft, the contractor moves to the existing proposal draft form, which already surfaces creation errors and requires explicit Create.
+
+Canonical Figma frames 432:26604 (desktop Price), 432:26746 (warnings), 432:27891 (mobile Price), 432:27999 (mobile Review), and Copperline 425:45123 / 425:46807 were reconciled in place. Mockup prices/dates remain examples. Public customer proposal acceptance is still **TARGET only**, not implemented by this slice. No proposal acceptance, backend pricing/repricing, tenant/RLS, schema, tax computation, or contract/payment mutation is introduced. Browser/hosted lifecycle certification and real provider-price trust remain separate evidence gates.
+
+## Estimate scope, direct-cost transparency and recovery — implementation 2026-10-16
+
+The follow-up `fix/estimate-desktop-scope-recovery-20261016` lane, based on merged Price/Review PR #748, exposes one shared scope editor at desktop and mobile widths, using the existing Project PATCH contract. Save acknowledgment records the submitted scope snapshot; pending saves disable editing, failures retain input, and mobile stage progression still awaits successful saving. This is capability-constrained parity with Figma Scope `432:25161`, not a new estimator or full desktop stage redesign.
+
+Price now groups persisted line-cost snapshots by actual cost type, with cent-safe display aggregation and unavailable values kept distinct from zero. Review explicitly labels internal costs and margin, preserves the backend-finalize-before-proposal boundary, and offers retry after failed finalization. Delete failures expose a shared refresh/reconciliation action instead of silently disappearing. Existing Estimate Engine, authenticated proxy, tenant/RLS, pricing approval, supplier and proposal contracts remain unchanged. Local checks and hosted delivery evidence are recorded in `docs/design/FIGMA_IMPLEMENTATION_LEDGER.md`; browser parity and production behavior are not inferred from builds.
+
+
+## ABC catalog no-refetch product disclosure — 2026-10-15 pending CI
+
+Production's catalog route now returns ABC sandbox products, but its default 25-product page can spend seconds waiting for the upstream provider (one observed page took ~29 seconds), and some concurrent request-scoped auth sessions fail with Prisma connection pool timeout (connection limit 1, timeout 10s). This supersedes PR #745's product-card navigation: that previous approach made a second catalog request for its details screen. This could hit the same connection bottleneck and did not establish a reliable production click-through.
+
+This bounded frontend follow-up replaces the catalog's whole-card navigation with native `<details>/<summary>` disclosure inside the **already authenticated and loaded** provider listing. Selecting a product requires **zero additional HTTP calls**, database sessions or ABC OAuth activity. It displays only provider-listed item number, manufacturer, family, ID, unit options, color, finish, available variations and provider-supplied warnings; absent attributes are explicitly "Not supplied." The UI makes it clear these are catalog listing attributes, not deeper Get Item verification, branch stock, customer-authorized prices or approved Materials. The former standalone product-detail route remains for direct URLs but is not an advertised navigation path until item-level authorization is proven.
+
+This does **not** repair the separate Prisma pool exhaustion on page loads or grant ABC Get Item / customer-specific pricing access. Those are independently tracked follow-ups and must not be hidden by UI verification. No catalog replication/cache is introduced under ABC's terms. Required GitHub checks and real hosted signed-in browser proof are pending; keep #735 open.
+
+
+
+
+## Reviewed Costbook insertion in Estimate Items — proposed 2026-10-15
+
+The bounded branch `fix/estimate-picker-reviewed-add-20261015` changes the existing desktop/mobile Estimate Items picker, not the Estimate Engine or supplier pricing authority. Search keyboard Enter now selects a Costbook item/assembly for review instead of inserting a highlighted result. A selected tenant Cost Item uses the existing read-only `/costbook/cost-items/:id/unit-cost` endpoint for its current stored-cost preview; installed assemblies retain the existing current-unit-cost/recipe preview. Estimate Add is enabled only for an explicitly selected installed source with a finite nonnegative resolved preview, positive quantity, and no pending mutation or preview refresh. A mapped starter assembly cannot install until its read-only cost preview resolves; installation and Estimate Add remain separate explicit actions. Failed/unknown previews do not silently use zero or write Estimate lines. The backend remains the authority for cost snapshots at line creation, so after adding contractors should review the persisted line before finalizing.
+
+Only UI source and focused regression tests are modified; no new pricing data, supplier quote trust, schema/migration, RLS, authorization, tenant scope or proposal mutation is introduced. This is source-level implementation proposed for CI and review, not an authenticated browser or production certification.
+## Public portal access design parity — proposed 2026-10-14
+
+The bounded `feat/portal-access-figma-parity-20261014` frontend branch aligns the customer magic-link confirmation and generic denial presentation with canonical Figma frames 205:34, 205:35, 651:3762, and 651:3845. A reusable customer-only public shell provides consistent branding and responsive card layout. The confirm route still reads only the HttpOnly pending cookie, denies malformed tokens, and submits only an explicit POST to the existing same-origin redemption endpoint. The access-error page remains non-enumerating and exposes no unsupported invitation/retry action.
+
+This is frontend presentation and source-regression coverage only. No backend, portal session, customer identity, tenant/RLS, contract signing, proposal decision, payment, or token-handling behavior changes. Hosted CI, authenticated portal browser evidence, accessibility checks and production deployment remain unverified until collected. This branch is not an S059 certification or release-readiness claim.
+
+## Entry control geometry — proposed 2026-10-13
+
+The same Entry parity lane now restores the existing official wordmark to the canonical mobile brand slot, aligns mobile tagline/drawing placement with default frame `547:2218`, and removes an unreferenced underline. Existing static assets are reused without editing bytes. This is code-backed parity work; screenshot/asset comparison remains unverified. BrowserAct CLI's daemon failed to initialize, and the available cloud browser cannot reach this workspace's localhost server.
+
+The canonical mobile Entry response frame `548:2780` specifies 48px credential inputs/sign-in action and a 44px recovery target. The login page now overrides shared Input/Button default heights at its own callsites and announces pending submission through `aria-busy`. Password reveal inherits the larger field's geometry. Existing auth action, navigation, assets and shared default sizes remain intact. Rendered viewport/keyboard evidence is still required; local Chromium downloads return invalid archives. This is control-geometry parity only, not full Entry/boot certification.
+
+## Contextual Athena scope freshness — proposed 2026-10-13
+
+The estimate context panel now binds advisory suggestions to the project, estimate and normalized scope actually sent for review. Editing the scope or changing record context marks the result stale, announces the required refresh and disables Add. A late response cannot make suggestions current for a later edit. Loading/error states disable applying previous results, and suggestion writes/reviews are serialized in the UI. The existing authenticated line-item API, source keys, reviewed quantities, pricing resolution and explicit Add contract remain unchanged. Predicate tests verify scope/record freshness; runtime browser and real API evidence remain separate. No one-question clarification capability or full Figma parity is claimed.
+
 
 ## ABC live sandbox evidence and safe failed-line diagnostics — 2026-10-13
 
@@ -1134,3 +1248,51 @@ See `docs/operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md`.
 ## Davis-Bacon SAM.gov wage-feed integration (PR #700, pending)
 
 Implements key-free determination discovery and per-revision document parsing with org-scoped `davis_bacon_determinations` and `davis_bacon_rates`. A composite `(determination_id, org_id)` FK prevents a rate from pointing across tenants; active county coverage is reconciled on complete discovery. SAM.gov downloads execute outside the short RLS-backed persistence transactions. The protected cron reports per-document failures as failures. This feed is **not production verified** until migration and live two-tenant RLS tests pass on seeded staging; it does not approve prices or alter material costs.
+
+
+## ABC Supply Product API catalog — issue #735 proposed code, not live verified (2026-10-13)
+
+A bounded first-slice implementation is proposed on
+`feat/abc-catalog-provider-backed-browse-735`: sandbox
+`client_credentials`/`product.read` with bearer-token separation from
+existing user-present customer pricing, read-only provider-page validation,
+rate/backoff handling, and server-side paginated authenticated Costbook browse.
+The route is disabled by default and writes no SupplierProduct, Material,
+SupplierPriceObservation, CostItem, or Estimate records. All returned products
+are labeled unpriced; the browser surfaces no false current/local pricing.
+Tests are proposed but CI/runtime evidence is required before marking shipped.
+
+The requested permanent, indexed 200k+ shared catalog replication and delta
+synchronization are **not implemented**. ABC API Terms (Apr 9, 2026) prohibit
+building a database or permanent copy of content without express permission
+and restrict caching; obtain written ABC approval (storage, retention, search
+display, image use, deletion/inactive semantics) before that persistence slice.
+Existing September research-seed ABC rows must not be counted as an authenticated
+Get All Items import. No verified live item count, user-authorized positive
+customer quote, database import, deployed UI, or estimate-from-live-ABC test
+is claimed for issue #735. Provider-backed browse is not the final acceptance
+of the founder's full-catalog mission.
+
+
+## ABC Supply Product API real-sandbox verification — proposed follow-up (2026-10-13)
+
+PR #736 is merged on `main` as `e3e8a872227e7a52cad3a216e357a88f3c03f760`; its provider-backed catalog browse remains disabled until intentionally configured. The next bounded branch `feat/abc-catalog-live-sandbox-proof-735` adds a manual guarded sandbox Product API proof. It will verify `client_credentials`/`product.read` and one or two real pages, then report only provider totals and checked in-memory identity counts; it never stores catalog data, changes Materials, or requests customer-specific prices.
+
+Until a **successful manual Actions run** using authorized credentials exists, no live sandbox item totals, imported records, checked branch availability, deployed browse URL, or verified positive customer price should be claimed. The separate ABC Terms permission for permanent replicated catalog storage remains pending. Full data ingestion and incremental sync are not complete.
+
+
+## ABC Supply on-demand product detail — proposed issue #735 slice (2026-10-13)
+
+The branch `feat/abc-catalog-product-detail-735` extends the merged read-only `AbcCatalogClient` with the provider's documented sandbox `GET /api/product/v1/items/{itemNumber}` endpoint (with variation and same-family embedding). The authenticated Costbook detail surface, linked from ABC catalog search, displays exact item identity, provider product hierarchy, UOM options, nested length variations, related family records, and Prop65 warnings without inventing missing attributes. Only Active items with exact matching item numbers may be displayed. This route shares the existing ABC catalog global rate budget, respects the disabled-by-default browse gate, and does not make Material, CostItem, SupplierPriceObservation, Estimate or customer-pricing writes. Branch/customer availability is deliberately `not-verified` until user-present account and branch authorization.
+
+This is code proposed for CI/review, **not** proof of a successful Get Item sandbox call, complete catalog import, live price, or deployed browser. ABC permission for durable catalog replication/display and the manual product.read live proof remain independent gates.
+
+## ABC hierarchy browser — issue #735 follow-up
+
+Following merge of #737 and independently merged #738 (on-demand Get Item), branch `feat/abc-hierarchy-browser-735` adds the separate **Get Product Hierarchy** read path and web screen. It supplies six official ABC category code/label levels with pagination, supplier-sourced only; TradeOS Costbook will link to it from the sandbox catalog. The feature is disabled by default and uses the same sandbox TPA `product.read` read credentials, Costbook permission, rate limit, and no-persistence contract as the existing browsable product list. This does not import, index, or license the full ABC catalog, prove a live provider call, expose branch-specific availability, or complete pricing-to-estimate. CI and authorized hosted browser evidence remain pending until verified.
+
+## ABC branch ordering eligibility — issue #735 proposed continuation
+
+On branch `feat/abc-branch-order-availability-735`, TradeOS adds a sandbox-only, provider-backed Get Item Availability read and a contextual product detail link. The ABC response lists branches at which an item can be ordered and its provider-listed dimensional lengths. It does **not** represent on-hand inventory stock, specific customer's Ship-To approval, a Price Items quote, verified material price, or persistent catalog synchronization. The same catalog feature flag, `costbook.read` permission, global rate limiter, and server `product.read` token govern the read; no supplier responses are cached or written to the database.
+
+Until exact-head CI, real ABC sandbox integration and authenticated hosted UI evidence run, this is unproven against genuine provider availability. ABC data-copy rights and user-present customer-specific pricing remain external blockers. Issue #735 stays open.

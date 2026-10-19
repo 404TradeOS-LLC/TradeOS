@@ -357,6 +357,32 @@ describe("Davis-Bacon SAM.gov search client", () => {
     });
   });
 
+  it("rejects the entire active discovery response when a revision is malformed", async () => {
+    const valid = searchBody._embedded.results[0];
+    for (const invalidRevision of [undefined, -1, 1.5, "2"]) {
+      global.fetch = jest.fn().mockResolvedValue(okResponse({
+        _embedded: {
+          results: [
+            valid,
+            { ...valid, fullReferenceNumber: "IN20260051", revisionNumber: invalidRevision },
+          ],
+        },
+      })) as unknown as typeof fetch;
+      await expect(searchDeterminations({ state: "IN", county: "Vigo" }))
+        .rejects.toMatchObject({ status: 502 });
+    }
+  });
+
+  it("retains active determinations at revision zero", async () => {
+    const valid = { ...searchBody._embedded.results[0], revisionNumber: 0 };
+    global.fetch = jest.fn().mockResolvedValue(okResponse({
+      _embedded: { results: [valid] },
+    })) as unknown as typeof fetch;
+    const records = await searchDeterminations({ state: "IN", county: "Vigo" });
+    expect(records).toHaveLength(1);
+    expect(records[0].revisionNumber).toBe(0);
+  });
+
   it("builds the key-free document download URL", async () => {
     const { determinationDownloadUrl } = await import("../modules/costbook/davisBaconSamGov");
     expect(determinationDownloadUrl("IN20260050", 1)).toContain("/wd/IN20260050/1/download");
