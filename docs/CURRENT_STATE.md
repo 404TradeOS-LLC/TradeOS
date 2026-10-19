@@ -63,6 +63,24 @@ related_code:
 
 # TradeOS Current State
 
+## Costbook researched assembly activation — PR #771 (proposed, 2026-10-18)
+
+PR #771 on branch `feat/costbook-88-assembly-activation-20261018`
+expands the existing 14 reviewed installable starter recipes with all 88
+static `TradeosAssembly` recipes in the same Costbook and Estimate setup
+path (102 browseable templates total). The researched set is explicitly
+marked research, includes preserved component quantities and research
+source IDs, and is NOT preinstalled or pre-priced. 11 recipes reference
+absent source registry entries (SRC-0041–SRC-0050); API/UI block their
+installation until those sources are verifiably repaired. NAHB phase
+filtering and strict first-unit component mapping are added. Existing
+tenant ownership, `costbook.write`, transaction-scoped assembly installs,
+Cost Item lookup, and Estimate Engine snapshots remain unchanged.
+
+Status: SOURCE IMPLEMENTATION UNDER REVIEW. Hosted checks are required;
+authenticated staging/production execution is not certified. do not describe the 77 source-complete research
+templates as price-ready without local mapping and estimator review.
+
 ## Items cost columns checkpoint — 2026-10-17 UTC
 
 Reconciled main `41a62cea99c7bc91eda45d805e4b0363b8906132`: #760 progressive entry is merged as `17c339cf`, production READY `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL`; #761 explicit line-edit cost is merged as `41a62cea`, production READY `dpl_12gVocD7WKCA9vwgSp89YKc4apwi`. These are exact-source deployments, not authenticated workflow certification. Older pending/blocked statements below are historical.

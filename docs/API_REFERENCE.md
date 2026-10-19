@@ -14,6 +14,33 @@ related_code:
 
 # API Reference
 
+## Expanded assembly catalog contract (PR #771 — proposed, 2026-10-18)
+
+`GET /api/v1/costbook/assemblies/starter-catalog` and the compatible
+`GET /api/v1/assemblies/starter-catalog` continue requiring `costbook.read`.
+The response remains `{ catalogVersion, coverage, items }`, now containing
+14 existing reviewed starter templates and 88 separately marked `research`
+recipes. Research entries have `id: "tradeos:<source-id>"`, `nahbPhase`,
+`evidenceRefs`, `blockingReasons` and all standard mapping-component
+fields. The implementation does not supply prices or create tenant records on
+GET. The coverage array includes the original work groups and populated
+NAHB 1000–5000 phase groups.
+
+`POST /api/v1/costbook/assemblies/starter-catalog/install` and its
+`/api/v1/assemblies/starter-catalog/install` compatibility route retain
+`costbook.write` and the existing `{ templateId, componentMappings }`
+body. `tradeos:<source-id>` selections use the same atomic tenant-scoped
+install flow, active Cost Item checks, exact component-key coverage, unique
+Cost Item IDs, and kind/unit compatibility rules. Unresolved source IDs in
+`blockingReasons` return HTTP 422 before DB mutation. Each component's
+first declared compatible unit is its fixed quantity basis; alternatives
+such as BOX/EA are not accepted without explicit conversion. Installed
+assemblies retain source IDs in their description for later review and
+remain price-neutral until resolved by the canonical Costbook cost service.
+
+No change to Estimate Engine snapshot semantics, material-price history,
+auth/RLS, supplier feeds or migrations. Hosted verification remains pending.
+
 ## ABC Supply sandbox OAuth reauthorization (2026-10-11)
 
 ABC requires user-authorized access for third-party customer-specific
