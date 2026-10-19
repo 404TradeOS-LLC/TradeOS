@@ -203,10 +203,14 @@ describe("AssembliesDatabaseService", () => {
   describe("starter catalog", () => {
     it("publishes researched assemblies through the existing authenticated catalog API", () => {
       const result = new AssembliesDatabaseService().listStarterCatalog();
-      expect(result.items).toHaveLength(104);
+      expect(result.items).toHaveLength(107);
       expect(result.items.find((item) => item.id === "tradeos:roofing-shingles-arch-asphalt"))
         .toMatchObject({ nahbPhase: "4000", blockingReasons: [] });
       expect(result.coverage.some((group) => group.nahbGroup === "Full Enclosure (Dry-in)")).toBe(true);
+      expect(result.items.find((item) => item.id === "openings:garage-door-section-steel"))
+        .toMatchObject({ nahbPhase: "4000", blockingReasons: [] });
+      expect(result.items.find((item) => item.id === "appliances:dishwasher-built-in-existing-ready"))
+        .toMatchObject({ csiDivision: "11", blockingReasons: [] });
     });
 
     it("rejects unresolved research source evidence before accessing tenant data", async () => {
