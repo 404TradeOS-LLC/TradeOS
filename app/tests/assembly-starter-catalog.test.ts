@@ -152,7 +152,7 @@ describe("price-neutral kitchen gap recipes", () => {
     )).toBe(true);
     expect(VERIFIED_KITCHEN_GAP_CATALOG.flatMap((recipe) => recipe.components)
       .every((component) => component.quantityPerUnit === 1)).toBe(true);
-    expect(JSON.stringify(VERIFIED_KITCHEN_GAP_CATALOG)).not.toMatch(/\\$\\d+\\.\\d{2}/);
+    expect(JSON.stringify(VERIFIED_KITCHEN_GAP_CATALOG)).not.toMatch(/\$\d+\.\d{2}/);
   });
 
   it("uses native EA for each wall cabinet and LF for the straight-run countertop", () => {
