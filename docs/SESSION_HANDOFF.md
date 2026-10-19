@@ -460,18 +460,16 @@ active resume contract is the S066 / PR #634 block at the end of this handoff.
 - Pending external gate: ensure isolated Preview is deployed to selected SHA, owner + read-only smoke accounts exist in one smoke org and required secrets are installed. Dispatch manual workflow and review reports/screenshots; do not mark issue #518 browser evidence complete before that.
 - If assertions fail, repair only reproducible role, responsive, or selector errors on this bounded path; do not disable a test or relax auth/RLS/deployment checks.
 
-## Current resume contract — Estimate Items Figma implementation
+## Staging Prisma migration runner setup — 2026-10-18
 
-- Classification: `EXISTING_WORK_FOUND`; continue open PR #762, branch `feat/estimate-items-cost-columns-20261017`, from main `41a62cea99c7bc91eda45d805e4b0363b8906132`. Do not create a competing Estimate Items branch.
-- Canonical target: TradeOS master Figma, Estimates page `4:10`, Desktop Items `378:441`. The bounded change aligns saved item quantity, unit cost, and persisted line cost; labels edit fields and preserves compact mobile rows.
-- Allowed paths: existing Estimate builder presentation, focused Playwright tests, and owned Estimate/current-state/handoff documentation. Backend, estimate calculations, auth/RLS, tenant policies, migrations, suppliers, production configuration, and customer-facing proposal behavior are excluded.
-- Current gate: verified review comments are corrected; local Web, docs, governance, lint/build, and preflight checks pass. Push to the existing PR branch and require fresh hosted checks and review-thread resolution before normal merge. Isolated UI tests do not certify deployment or authenticated persistence.
-- Next five actions: (1) push these fixes and verify required CI on the new exact head; (2) reconcile automated review findings and resolved conversations; (3) merge only when repository rules permit; (4) reconcile landed main and exact-source deployment; (5) continue the next canonical Figma gap while preserving authenticated persistence and tenant-isolation evidence as separate release gates.
+- Added a manual-only, staging-targeted GitHub Actions workflow on branch `ops/staging-prisma-migrations-20261018`; PR is pending review. It guards exact project ref `qfbgdkbamfaasmtjfyru`, runs the repository's `app/scripts/deploy-migrations.sh`, checks invoice backfill preconditions, provisions the staging app role, and verifies the full Prisma ledger.
+- Required GitHub Environment `staging` secrets: `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD`. These must point to the confirmed TradeOS Staging project; production secrets are not used.
+- Database remains at 46/60 Prisma migrations. The read-only invoice check passed (42 rows, no null legacy costs). Workflow setup itself did not mutate the database.
 
 ## Next Eligible Sprint
 
 Sprint ID: S073
-Eligibility: S073 is `READY`; dependency S051 is `DONE`; founder authorization is explicit; no overlapping S073 PR or branch was found in the current reconciliation.
+Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit and no overlapping S073 implementation lane exists.
 Dependencies: S051 — DONE through merged PR #538.
-Overlap check: Open Estimate Items PR #762 is separate; do not duplicate it. Do not reopen or duplicate S052/S053/S064/S066/S067 lanes.
-Startup prompt: After completing the active Figma-to-code PR #762, execute S073 from current `main` using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`; build the release-critical S052-S060 resource/policy matrix, add missing disposable-PostgreSQL same-org/cross-org evidence, and stop on any protected RLS/migration/auth/permission gap rather than widening policy inside S073.
+Overlap check: after the readiness PR merges, create exactly one isolated S073 implementation branch. Do not reopen or duplicate S052/S053/S064/S066/S067 lanes.
+Startup prompt: Execute S073 from current `main` using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`: build the release-critical S052-S060 resource/policy matrix, add missing live PostgreSQL same-org/cross-org and narrower-scope evidence, validate the matrix deterministically, and stop on any protected RLS/migration/auth/permission gap rather than widening policy inside S073.
