@@ -1,0 +1,141 @@
+/**
+ * Price-neutral scope recipes for three high-frequency estimating gaps.
+ * Each recipe is measured by installed unit (EA). Product and connections
+ * must be selected and reviewed by the tenant; these are NOT model-specific
+ * instructions, supplier prices, engineered designs or production rates.
+ */
+import type { ResearchAssemblyCatalogTemplate } from "./tradeosCatalogAdapter";
+
+const research = {
+  status: "research" as const,
+  source: "TradeOS-authored scope recipe based on manufacturer installation guidance",
+  reviewedOn: "",
+  regionalBasis: "No local material price, labor production time, permit determination, engineering signoff or manufacturer-specific installation approval; review chosen model and site.",
+};
+
+export const OPENINGS_APPLIANCE_GAP_CATALOG: readonly ResearchAssemblyCatalogTemplate[] = [
+  {
+    id: "openings:window-vinyl-new-construction-flanged",
+    code: "08 53 13-TOS-002",
+    name: "New-Construction Flanged Vinyl Window",
+    description: "Install one selected flanged vinyl window in a properly prepared new-construction rough opening. Distinct from insert/retrofit window replacement. Flashing and water-management detail must follow the chosen product, WRB system and wall assembly.",
+    unitOfMeasure: "EA",
+    csiDivision: "08",
+    csiTitle: "Openings",
+    nahbGroup: "Full Enclosure (Dry-in)",
+    nahbPhase: "4000",
+    trade: "Window Installation",
+    measurementBasis: "Each installed new-construction flanged vinyl window; select the exact model, size, glazing, performance rating and flange design.",
+    wasteGuidance: "No flat percentage waste. Verify opening geometry, shimming, sill pan, flashing transitions, sealant compatibility and fastener schedule against manufacturer instructions. Excludes rough-opening framing/repair, structural engineering, exterior trim, interior casing, painting, temporary access equipment and window disposal. All must be priced separately when needed.",
+    version: 1,
+    review: research,
+    evidenceRefs: ["SRC-0071"],
+    blockingReasons: [],
+    components: [
+      {
+        key: "window-unit",
+        label: "Specified flanged new-construction vinyl window",
+        quantityPerUnit: 1,
+        help: "1 exact window EA Cost Item with model, dimensions, glass and performance rating reviewed. This is not a generic per-SF window price.",
+        compatibleUnits: ["EA"],
+        allowedCostItemKinds: ["material", "composite"],
+      },
+      {
+        key: "window-flashing-kit",
+        label: "Approved flashing, sealant and shims per opening",
+        quantityPerUnit: 1,
+        help: "1 EA allowance assembled for the chosen window/wall details. Check sill, head/jamb flashing and WRB continuity. If included in another mapped priced item, use an explicit reviewed zero-cost EA Cost Item rather than double count.",
+        compatibleUnits: ["EA"],
+        allowedCostItemKinds: ["material", "composite"],
+      },
+      {
+        key: "window-install-labor",
+        label: "Window set, fasten, flash and inspect labor",
+        quantityPerUnit: 1,
+        help: "1 EA labor Cost Item for qualified window installation under selected manufacturer's instructions; confirm crew needs, access and inspection separately.",
+        compatibleUnits: ["EA"],
+        allowedCostItemKinds: ["labor", "subcontractor", "composite"],
+      },
+    ],
+  },
+  {
+    id: "openings:garage-door-section-steel",
+    code: "08 36 13-TOS-001",
+    name: "Residential Sectional Steel Garage Door — Qualified Install",
+    description: "Supply and install a selected residential sectional steel overhead garage door, sized and rated for the opening. Door sections, tracks, spring system and hardware must be a matched manufacturer-approved package.",
+    unitOfMeasure: "EA",
+    csiDivision: "08",
+    csiTitle: "Openings",
+    nahbGroup: "Full Enclosure (Dry-in)",
+    nahbPhase: "4000",
+    trade: "Garage Door Installation",
+    measurementBasis: "Each completed sectional garage door opening with selected width, height, wind rating, insulation level and track/lift configuration.",
+    wasteGuidance: "No preset waste. Qualified garage-door professionals must assess high-tension spring and cable work. Do not treat spring parts as optional generic hardware or provide improvised spring adjustment instructions. Verify structural backing, headroom, wind load and manufacturer instructions. Excludes opening reframing, trim, existing door removal/disposal, motorized opener, power/circuit work and smart controls unless separately quoted.",
+    version: 1,
+    review: research,
+    evidenceRefs: ["SRC-0072"],
+    blockingReasons: [],
+    components: [
+      {
+        key: "sectional-door-system",
+        label: "Matched sectional door, track and spring system",
+        quantityPerUnit: 1,
+        help: "1 EA complete manufacturer-compatible garage door system of specified opening size and wind/thermal rating. Includes the specified spring, cable, roller and track package; not a generic single panel.",
+        compatibleUnits: ["EA"],
+        allowedCostItemKinds: ["material", "composite"],
+      },
+      {
+        key: "qualified-door-install",
+        label: "Qualified garage door installation and balance check",
+        quantityPerUnit: 1,
+        help: "1 EA labor/subcontractor Cost Item for a qualified garage door installer to erect, secure, balance, test and inspect the matched system; spring and cable service is not a DIY pricing assumption.",
+        compatibleUnits: ["EA"],
+        allowedCostItemKinds: ["labor", "subcontractor", "composite"],
+      },
+    ],
+  },
+  {
+    id: "appliances:dishwasher-built-in-existing-ready",
+    code: "11 31 00-TOS-001",
+    name: "Built-In Dishwasher — Ready-Connection Installation",
+    description: "Install one specified residential built-in dishwasher into an existing, verified code-compliant cabinet opening with ready-to-use water, drain and electrical connections. New circuits, piping, outlets and cabinet rebuilding are outside this baseline.",
+    unitOfMeasure: "EA",
+    csiDivision: "11",
+    csiTitle: "Equipment",
+    nahbGroup: "Finishing Trades",
+    nahbPhase: "5000",
+    trade: "Appliance Installation",
+    measurementBasis: "Each newly installed built-in dishwasher in a prepared opening with existing approved connections and adequate clearances.",
+    wasteGuidance: "No default material waste. Confirm manufacturer model, supply voltage, dedicated branch-circuit/cord or hardwire requirements, local code, shutoff, drainage/high-loop or air gap instructions, cabinet clearance and leak/operation test. Licensed trades may be required. Excludes new plumbing, circuit or receptacle, countertop modification, old-appliance haul-away, cabinet replacement and leak remediation. Treat uncertain utility scope as separate trade estimate.",
+    version: 1,
+    review: research,
+    evidenceRefs: ["SRC-0073"],
+    blockingReasons: [],
+    components: [
+      {
+        key: "dishwasher-appliance",
+        label: "Specified built-in dishwasher",
+        quantityPerUnit: 1,
+        help: "1 EA selected appliance SKU, measured as a complete dishwasher and not generic allowance for an unspecified model. Energy/finish/dimensions must match client selection.",
+        compatibleUnits: ["EA"],
+        allowedCostItemKinds: ["material", "composite"],
+      },
+      {
+        key: "dishwasher-connection-kit",
+        label: "Manufacturer-approved connection materials",
+        quantityPerUnit: 1,
+        help: "1 EA reviewed installation-material allowance (approved water supply/drain/electrical connection components as applicable). Confirm code and model compatibility; use explicit zero-cost mapped item if already included and do not double count.",
+        compatibleUnits: ["EA"],
+        allowedCostItemKinds: ["material", "composite"],
+      },
+      {
+        key: "dishwasher-installer",
+        label: "Qualified ready-connection installation and test",
+        quantityPerUnit: 1,
+        help: "1 EA labor/subcontractor Cost Item for fit, level, anchor, connect existing approved utilities and test for leaks and proper operation. Does not create or alter circuits or plumbing systems.",
+        compatibleUnits: ["EA"],
+        allowedCostItemKinds: ["labor", "subcontractor", "composite"],
+      },
+    ],
+  },
+];
