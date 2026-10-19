@@ -1,5 +1,15 @@
 # TradeOS Figma implementation ledger
 
+## Items cost columns checkpoint — 2026-10-17 UTC
+
+Reconciled main `41a62cea99c7bc91eda45d805e4b0363b8906132`: #760 progressive entry is merged as `17c339cf`, production READY `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL`; #761 explicit line-edit cost is merged as `41a62cea`, production READY `dpl_12gVocD7WKCA9vwgSp89YKc4apwi`. These are exact-source deployments, not authenticated workflow certification. Older pending/blocked statements below are historical.
+
+Branch `feat/estimate-items-cost-columns-20261017` reconciles canonical Desktop Items `378:441` (Estimates page `4:10`, high-fidelity context/screenshot inspected). Existing saved items lacked quantity/unit-cost/line-cost columns and visible editor labels. Shared desktop column tracks now align actual saved values; mobile keeps the compact quantity × unit-cost summary and 44px edit actions. Six editor fields have visible, associated labels. Internal costs are explicitly distinguished from customer pricing; saved lineCost is rendered directly, never recomputed. Existing PATCH, draft/permission gates, validation, pricing and snapshots are unchanged.
+
+The missing-header regression failed on the base; all 16 isolated layout/edit/entry/stage browser cases now pass across 390/768/1024/1440. Headers align with cells, cost text matches the response, labels/keyboard Cancel work, mobile targets fit and no horizontal overflow occurs. Every mutation is intercepted; synthetic reads are clearly labeled. Desktop 1440/1024 and mobile 390 renders inspected. Local Web 506/506, lint/build, governance 151/151, docs 40/40, ownership/preflight and Playwright discovery pass. Current branch is unmerged/undeployed pending exact-head hosted checks/review. Authenticated nonproduction persistence and tenant denial remain unverified.
+
+Canonical [Desktop Items 378:441](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=378-441), route `/projects/:id/estimates/:estimateId`, implementation `builder.tsx` / `EditableLineItem`, existing Estimate detail/PATCH dependencies. Item-selection status remains **PARTIALLY IMPLEMENTED**, locally browser-verified, unmerged/undeployed for this slice; PR pending. Scoped totals remain **5 PARTIALLY IMPLEMENTED; 1 IMPLEMENTED + UNVERIFIED; 0 IMPLEMENTED + VERIFIED** across six audited groups, not a complete Figma census. Next action: exact-head CI/review and governed merge, then exact-source deployment verification.
+
 ## Current line-edit checkpoint — 2026-10-17 UTC
 
 Reconciled main `17c339cf` (#760), exact-source web production READY `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL`. Progressive item entry, independent catalog reads and custom Add presence validation are merged/deployed. New branch `fix/estimate-edit-explicit-cost-20261017` is **unmerged / undeployed / browser-verified locally** and restores explicit Unit cost in the existing line-edit UI. Canonical [Desktop Items 378:441](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=378-441), page `4:10`, plus the written unknown-cost and failure-recovery contract govern this bounded state repair.
