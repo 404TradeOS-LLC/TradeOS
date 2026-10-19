@@ -25,8 +25,10 @@ jobs:
       APP_DB_ROLE_PASSWORD: ${{ secrets.STAGING_APP_DB_ROLE_PASSWORD }}
       APP_DB_ROLE_NAME: ${{ vars.STAGING_APP_DB_ROLE_NAME }}
       STAGING_PROJECT_REF: qfbgdkbamfaasmtjfyru
+      PGSSLMODE: require
     steps:
       - name: Verify main ref and staging credentials
+        working-directory: . # repository is not checked out yet
         run: |
           test "$GITHUB_REF" = "refs/heads/main" || {
             echo "::error::Dispatch this workflow from main only."
@@ -74,7 +76,10 @@ jobs:
 
       - name: Check invoice migration preconditions
         run: |
-          legacy_columns="$(psql "$DATABASE_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+          # Prisma allows ?schema=public; libpq rejects this query parameter.
+          # Keep the full URL for Prisma; use the libpq-safe URL only for psql.
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          legacy_columns="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
             SELECT count(*)
             FROM information_schema.columns
             WHERE table_schema = 'public'
@@ -82,7 +87,7 @@ jobs:
               AND column_name IN ('unit_cost', 'line_cost')
           ")"
           if [ "$legacy_columns" = "2" ]; then
-            null_legacy_costs="$(psql "$DATABASE_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            null_legacy_costs="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
               SELECT count(*)
               FROM public.invoice_line_items
               WHERE unit_cost IS NULL OR line_cost IS NULL
@@ -104,21 +109,27 @@ jobs:
 
       - name: Verify Prisma migration ledger
         run: |
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
           expected="$(find prisma/migrations -mindepth 2 -maxdepth 2 -type f -name migration.sql | wc -l | tr -d ' ')"
-          applied="$(psql "$DATABASE_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+          applied="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
             SELECT count(*)
             FROM public._prisma_migrations
             WHERE finished_at IS NOT NULL
               AND rolled_back_at IS NULL
           ")"
-          unfinished="$(psql "$DATABASE_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+          unfinished="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
             SELECT count(*)
             FROM public._prisma_migrations
             WHERE finished_at IS NULL
               AND rolled_back_at IS NULL
           ")"
-          if [ "$applied" != "$expected" ] || [ "$unfinished" != "0" ]; then
-            echo "::error::Prisma ledger verification failed: expected=$expected applied=$applied unfinished=$unfinished."
+          rolled_back="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT count(*)
+            FROM public._prisma_migrations
+            WHERE rolled_back_at IS NOT NULL
+          ")"
+          if [ "$applied" != "$expected" ] || [ "$unfinished" != "0" ] || [ "$rolled_back" != "0" ]; then
+            echo "::error::Prisma ledger verification failed: expected=$expected applied=$applied unfinished=$unfinished rolled_back=$rolled_back."
             exit 1
           fi
-          echo "Verified $applied applied migrations; no unfinished migrations."
+          echo "Verified $applied applied migrations; no unfinished or rolled-back migrations."
