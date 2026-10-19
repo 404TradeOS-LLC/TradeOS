@@ -10,6 +10,14 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Costbook kitchen recipe follow-on — 2026-10-18
+
+- Parent: PR #771 on branch `feat/costbook-88-assembly-activation-20261018` passed its exact-head CI and remains draft/unmerged.
+- Dependent implementation: `feat/costbook-kitchen-assembly-gaps-20261018` branched from PR #771, changes only source registry, two price-neutral kitchen scope templates, catalog adapter/version, tests and owned documentation. Base is PR #771, not main, to preserve tested parent.
+- Original 14 reviewed starters and 88 research recipes stay unchanged; combined candidate catalog now 104 recipes. New scopes: prefabricated wall cabinet (EA, CSI 12 35 30) and straight-run laminate countertop (LF, CSI 12 36 23), NAHB 5000. The Home Depot/ Formica scope guidance registered as SRC-0069 and SRC-0070. These are NOT verified price data or production benchmarks.
+- Safety: each new component maps only to active same-tenant Cost Item of matching kind and native unit; no inferred package conversion or material/wage price. Missing registered sources block installation. No migration or auth/RLS/Estimate Engine change.
+- Next five TODOs: (1) open stacked PR against parent branch, (2) satisfy GitHub PR/body/docs/build tests, (3) verify authenticated catalog-to-estimate mapping on staging, (4) merge parent PR #771 only on founder approval then rebase/retarget the kitchen PR, (5) research separate stone countertops, garage doors, new-construction windows, appliances and MEP depth without invented prices.
+
 ## Estimate line-edit explicit cost — active 2026-10-17 UTC
 
 - Main reconciled at `17c339cf28ce36056f1f2d97989e5521f74e1611` (#760 merged normally). Exact tree matches tested source; web production `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL` is READY at that SHA. This is deployed-source evidence, not authenticated functionality. #751/#731 remain closed without merge; #755/#758 and evidence #756/#757 are merged. Preserve root's unrelated concept PNG and knowledge-engine demo GIF modifications.
