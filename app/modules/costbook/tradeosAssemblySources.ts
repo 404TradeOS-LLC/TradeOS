@@ -184,6 +184,18 @@ export const TRADEOS_ASSEMBLY_SOURCES: readonly TradeosAssemblySource[] = [
     sourceOrganization: "Formica Group",
     sourceDocumentTitle: "How to Cut a Sink Hole in a Formica Laminate Countertop — measuring, supporting and sealing cutouts",
     sourceUrl: "https://formica.com/en-ca/articles/home-design/2023/how-to-cut-a-sink-hole-in-a-formica-laminate-countertop" },
+  { sourceId: "SRC-0071", sourceName: "Andersen Installation Guide Configurator",
+    sourceOrganization: "Andersen Corporation",
+    sourceDocumentTitle: "Installation Guide Configurator: New Construction, selected product; opening, flashing, fastening, sealing and water management",
+    sourceUrl: "https://www.andersenwindows.com/support/window-door-installation/installation-guide-configurator" },
+  { sourceId: "SRC-0072", sourceName: "Clopay Residential Sectional Garage Door Installation Resources",
+    sourceOrganization: "Clopay Corporation",
+    sourceDocumentTitle: "Residential Garage Door Service & Support: sectional steel door, track, spring and opener manuals by door system",
+    sourceUrl: "https://www.clopaydoor.com/residential/support" },
+  { sourceId: "SRC-0073", sourceName: "GE Appliances Dishwasher Installation Instructions",
+    sourceOrganization: "GE Appliances",
+    sourceDocumentTitle: "Model GDP670SGVWW Installation & Setup: manufacturer-specific built-in dishwasher installation instructions",
+    sourceUrl: "https://products.geappliances.com/appliance/gea-specs/GDP670SGVWW/install" },
 ];
 
 /** Assembly source record by exact source ID, or undefined when the ID is not in the registry. */
