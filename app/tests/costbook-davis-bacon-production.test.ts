@@ -547,6 +547,21 @@ describe("syncCountyWageDeterminations", () => {
     expect(report.added).toBe(1);
   });
 
+  it("aborts reconciliation when a database write fails", async () => {
+    const store = fakeStore([
+      { id: "id-old", wdNumber: "IN20250004", revisionNumber: 1,
+        modifiedDate: null, counties: ["Vigo"], isActive: true },
+    ]);
+    store.replaceRates = async () => { throw new Error("database write failed"); };
+    await expect(syncCountyWageDeterminations(spec, {
+      store,
+      discover: async () => [determination()],
+      fetchText: async () => fixtureText,
+      parseDocument: parseOk,
+    })).rejects.toThrow("database write failed");
+    expect(store.retired).toEqual([]);
+  });
+
   it("refuses to retire the entire county after an unexpected empty search", async () => {
     const store = fakeStore([
       { id: "id-prev", wdNumber: "IN20260050", revisionNumber: 1,

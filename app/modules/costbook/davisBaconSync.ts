@@ -150,33 +150,36 @@ export async function syncCountyWageDeterminations(
       report.unchanged += 1;
       continue;
     }
+    let document: DavisBaconDocument;
     try {
       const text = await fetchText(determination.wdNumber, determination.revisionNumber);
-      const document = parseDocument(text, determination.revisionNumber);
-      // Network download and parsing happened outside the transaction.
-      // Upsert + rate replacement must commit or roll back together.
-      const { created } = await inStoreSession(async () => {
-        const { id, created } = await deps.store.upsertDetermination({
-          orgId: spec.orgId,
-          determination,
-        });
-        await deps.store.replaceRates({
-          determinationId: id,
-          orgId: spec.orgId,
-          wdNumber: determination.wdNumber,
-          revisionNumber: determination.revisionNumber,
-          rates: document.rates,
-        });
-        return { created };
-      });
-      if (created) report.added += 1;
-      else report.updated += 1;
+      document = parseDocument(text, determination.revisionNumber);
     } catch (error) {
+      // A bad upstream document is recoverable for this determination.
       report.failed.push({
         wdNumber: determination.wdNumber,
         error: error instanceof Error ? error.message : String(error),
       });
+      continue;
     }
+    // Database failures are *not* recoverable document errors. Let the
+    // transaction reject and abort this job instead of retiring other WDs.
+    const { created } = await inStoreSession(async () => {
+      const { id, created } = await deps.store.upsertDetermination({
+        orgId: spec.orgId,
+        determination,
+      });
+      await deps.store.replaceRates({
+        determinationId: id,
+        orgId: spec.orgId,
+        wdNumber: determination.wdNumber,
+        revisionNumber: determination.revisionNumber,
+        rates: document.rates,
+      });
+      return { created };
+    });
+    if (created) report.added += 1;
+    else report.updated += 1;
   }
 
   // Only reconcile after complete successful discovery. A withdrawn WD must
