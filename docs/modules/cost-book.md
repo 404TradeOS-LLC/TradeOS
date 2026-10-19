@@ -69,7 +69,7 @@ quotes or production-rate benchmarks:
 
 Both carry `review.status="research"`, explicit source IDs, measured units,
 zero default material waste, no embedded dollar amounts, and must pass the
-same `costbook.write` / tenant-scoped exact component mapping and price preview
+same `costbook.write` / tenant-scoped exact component mapping
 gates as the rest of the starter workflow. Registered-source absence blocks
 installation. These are limited scope recipes and are not a complete stone,
 fabrication, cabinetry or electrical/plumbing estimate.
