@@ -5,6 +5,7 @@
  */
 import { NAHB_PHASE_TITLES, TRADEOS_ASSEMBLIES } from "../costbook/tradeosAssemblies";
 import { TRADEOS_ASSEMBLY_SOURCES } from "../costbook/tradeosAssemblySources";
+import { KITCHEN_GAP_CATALOG } from "./kitchenGapCatalog";
 import {
   ASSEMBLY_CATALOG,
   NAHB_GROUPS,
@@ -88,8 +89,8 @@ export const TRADEOS_RESEARCH_CATALOG: readonly ResearchAssemblyCatalogTemplate[
   };
 });
 
-/** Keep the 14 reviewed starters unchanged, and expose research recipes separately. */
-export const EXPANDED_ASSEMBLY_CATALOG = [...ASSEMBLY_CATALOG, ...TRADEOS_RESEARCH_CATALOG];
+/** Preserve existing starter and research recipes, adding separate price-neutral kitchen scopes. */
+export const EXPANDED_ASSEMBLY_CATALOG = [...ASSEMBLY_CATALOG, ...TRADEOS_RESEARCH_CATALOG, ...KITCHEN_GAP_CATALOG];
 
 export function getExpandedCatalogTemplate(id: string) {
   return EXPANDED_ASSEMBLY_CATALOG.find((template) => template.id === id);
