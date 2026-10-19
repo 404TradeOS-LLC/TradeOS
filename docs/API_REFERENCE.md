@@ -14,6 +14,25 @@ related_code:
 
 # API Reference
 
+## Openings/appliance assembly API addendum (dependent branch, 2026-10-18)
+
+The unchanged `GET /api/v1/{costbook/}assemblies/starter-catalog`
+publishes three additional `research` templates in the dependent
+openings/appliance branch: `openings:window-vinyl-new-construction-flanged`,
+`openings:garage-door-section-steel` and
+`appliances:dishwasher-built-in-existing-ready`.
+When all three feature PRs land, the combined catalog contains **107** items
+with version `2026.09.1+research88+kitchen2+openings3`.
+
+Existing `POST .../starter-catalog/install` schema, authorization and
+same-tenant Cost Item resolution remain unchanged. Each new recipe's
+components are denominated EA and reject SF, LF or alternate package
+units as unreviewed conversions. Source-ID registry validation is
+fail-closed before a mutation and the installer does not generate a
+material price, create new circuits/piping or certify a selected model.
+Installed assembly descriptions retain registered provenance IDs
+SRC-0071–SRC-0073. See `docs/modules/cost-book.md` for exclusions.
+
 ## Kitchen addendum to assembly catalog (stacked follow-on, 2026-10-18)
 
 The same authenticated `GET /api/v1/{costbook/}assemblies/starter-catalog`
