@@ -446,6 +446,12 @@ active resume contract is the S066 / PR #634 block at the end of this handoff.
 - Pending external gate: ensure isolated Preview is deployed to selected SHA, owner + read-only smoke accounts exist in one smoke org and required secrets are installed. Dispatch manual workflow and review reports/screenshots; do not mark issue #518 browser evidence complete before that.
 - If assertions fail, repair only reproducible role, responsive, or selector errors on this bounded path; do not disable a test or relax auth/RLS/deployment checks.
 
+## Staging Prisma migration runner setup — 2026-10-18
+
+- Added a manual-only, staging-targeted GitHub Actions workflow on branch `ops/staging-prisma-migrations-20261018`; PR is pending review. It guards exact project ref `qfbgdkbamfaasmtjfyru`, runs the repository's `app/scripts/deploy-migrations.sh`, checks invoice backfill preconditions, provisions the staging app role, and verifies the full Prisma ledger.
+- Required GitHub Environment `staging` secrets: `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD`. These must point to the confirmed TradeOS Staging project; production secrets are not used.
+- Database remains at 46/60 Prisma migrations. The read-only invoice check passed (42 rows, no null legacy costs). Workflow setup itself did not mutate the database.
+
 ## Next Eligible Sprint
 
 Sprint ID: S073
