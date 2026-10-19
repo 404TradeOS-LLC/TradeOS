@@ -1245,6 +1245,10 @@ any Material update. Vercel environment listing returned HTTP 403 in this
 inspection, so configuration completeness was not independently verified.
 See `docs/operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md`.
 
+## Davis-Bacon SAM.gov wage-feed integration (PR #700, pending)
+
+Implements key-free determination discovery and per-revision document parsing with org-scoped `davis_bacon_determinations` and `davis_bacon_rates`. A composite `(determination_id, org_id)` FK prevents a rate from pointing across tenants; active county coverage is reconciled on complete discovery. SAM.gov downloads execute outside the short RLS-backed persistence transactions. The protected cron reports per-document failures as failures. This feed is **not production verified** until migration and live two-tenant RLS tests pass on seeded staging; it does not approve prices or alter material costs.
+
 
 ## ABC Supply Product API catalog — issue #735 proposed code, not live verified (2026-10-13)
 
