@@ -61,6 +61,22 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Openings and dishwasher catalog gap — source branch, 2026-10-18
+
+Dependent branch `feat/costbook-openings-appliance-gaps-20261018`
+builds on draft PR #773, itself stacked on #771. Adds three distinct
+unpriced EA source recipes: flanged vinyl window for **new construction**
+(CSI 08 53 13, NAHB 4000), sectional steel garage door for qualified
+installation (CSI 08 36 13, NAHB 4000), and ready-connection built-in
+dishwasher (CSI 11 31 00, NAHB 5000). Manufacturer reference IDs
+SRC-0071–SRC-0073 resolve to Andersen, Clopay and GE installation pages.
+
+All price, labor, product choice, construction, utility, and permitting
+conditions still require estimator validation. A combined 107 templates
+are proposed, not merged/installed/deployed or authenticated verified
+by this status entry. New research templates reuse costbook.write,
+tenant mapping, review and installed Estimate snapshot behavior.
+
 ## Kitchen assembly gaps — proposed stacked follow-on (2026-10-18)
 
 A dependent branch `feat/costbook-kitchen-assembly-gaps-20261018` extends
