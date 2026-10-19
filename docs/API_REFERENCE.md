@@ -28,7 +28,7 @@ all-component tenant-owned `componentMappings` and `costbook.write`.
 The wall cabinet requires EA Cost Items; the straight-run countertop requires
 LF Cost Items. No automatic piece-to-foot conversion is done. Missing source
 registry entries block installation via HTTP 422; supplier quote, scope and
-local productivity review remain human responsibilities. Source URLs
+local productivity review remain human responsibilities. Source IDs
 `SRC-0069` and `SRC-0070` are in the research registry.
 
 ## Expanded assembly catalog contract (PR #771 — proposed, 2026-10-18)
