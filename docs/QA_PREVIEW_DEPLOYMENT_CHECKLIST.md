@@ -31,8 +31,6 @@ until the backend code under test is separately reviewed/deployed to the
 staging backend, using only its branch-scoped nonproduction secrets.
 Never use Production API or Production Supabase as a shortcut.
 
-# Web Preview Deployment QA Checklist
-
 Use this checklist for pull-request deployments of the `web/` frontend. The
 frontend already exists as the separate Vercel project
 `tradeos-costbook-web`; do not create or reconnect a project as part of this
