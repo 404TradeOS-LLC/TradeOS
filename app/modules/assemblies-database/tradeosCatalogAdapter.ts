@@ -89,8 +89,17 @@ export const TRADEOS_RESEARCH_CATALOG: readonly ResearchAssemblyCatalogTemplate[
   };
 });
 
+/** Fail closed on registry drift for the two new manufacturer-guided scope recipes. */
+export const VERIFIED_KITCHEN_GAP_CATALOG = KITCHEN_GAP_CATALOG.map((recipe) => {
+  const missing = recipe.evidenceRefs.filter((ref) => !registeredSources.has(ref));
+  return {
+    ...recipe,
+    blockingReasons: [...recipe.blockingReasons, ...(missing.length ? [`Missing kitchen source references: ${missing.join(", ")}`] : [])],
+  };
+});
+
 /** Preserve existing starter and research recipes, adding separate price-neutral kitchen scopes. */
-export const EXPANDED_ASSEMBLY_CATALOG = [...ASSEMBLY_CATALOG, ...TRADEOS_RESEARCH_CATALOG, ...KITCHEN_GAP_CATALOG];
+export const EXPANDED_ASSEMBLY_CATALOG = [...ASSEMBLY_CATALOG, ...TRADEOS_RESEARCH_CATALOG, ...VERIFIED_KITCHEN_GAP_CATALOG];
 
 export function getExpandedCatalogTemplate(id: string) {
   return EXPANDED_ASSEMBLY_CATALOG.find((template) => template.id === id);
