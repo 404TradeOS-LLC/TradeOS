@@ -12,6 +12,28 @@ related_docs:
 
 # TradeOS Session Handoff
 
+## Costbook frontend preview isolation — proposed 2026-10-18
+
+- Vercel configuration currently disables PR branch Git deployments for
+  both backend and web by `"**": false`; Vercel read-only lists found
+  no generated deploy for PR #771/#773/#774 feature branches.
+- Branch `feat/costbook-preview-policy-20261018` from main limits new
+  `git.deploymentEnabled` allowlist to web `feat/costbook-*` only.
+  Backend `main`/`staging` gate and branch-scoped secrets are untouched.
+- Source guidance: Vercel's Git configuration specifies that any matching
+  true rule wins over false; verify observed preview behavior at PR SHA
+  after review/merge rather than assuming the source change deployed.
+- No authenticated Costbook→Estimate feature proof is claimed. A frontend
+  Preview still points to the dedicated staging backend, which will
+  not have feature-branch API code until it is approved and deployed there.
+- Next five TODOs: (1) open scoped preview-policy PR, (2) pass tests,
+  docs, CodeRabbit review and founder approval, (3) observe exact-head
+  web preview READY in the Vercel project, (4) stage the API feature
+  code using only reviewed `staging` operations and nonproduction
+  secrets, (5) exercise real tenant-scoped assembly install/estimate
+  persistence, with a separate tenant negative test.
+
+
 ## Items cost columns checkpoint — 2026-10-17 UTC
 
 Reconciled main `41a62cea99c7bc91eda45d805e4b0363b8906132`: #760 progressive entry is merged as `17c339cf`, production READY `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL`; #761 explicit line-edit cost is merged as `41a62cea`, production READY `dpl_12gVocD7WKCA9vwgSp89YKc4apwi`. These are exact-source deployments, not authenticated workflow certification. Older pending/blocked statements below are historical.
