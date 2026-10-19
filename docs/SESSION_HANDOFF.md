@@ -10,6 +10,29 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Costbook openings/appliance follow-on — 2026-10-18
+
+- Parent #771 is green draft; dependent kitchen #773 was green, then its
+  three valid CodeRabbit documentation/test findings were fixed on the same
+  branch. No merge/deployment or tenant-certified staging evidence claimed.
+- New branch: `feat/costbook-openings-appliance-gaps-20261018`,
+  base `feat/costbook-kitchen-assembly-gaps-20261018`, source-only
+  third-stack scope for new-construction flanged window, residential
+  sectional garage door and ready-connection dishwasher.
+- Manufacturer installation guidance registered SRC-0071 (Andersen),
+  SRC-0072 (Clopay), SRC-0073 (GE Appliances). Research recipes are
+  price-neutral, EA unit exact, preserve tenant mapping and fail-closed
+  source registry checks. No assumption that garage spring service is
+  safe DIY or that dishwasher electrical/plumbing upgrades are in scope.
+- Combined catalog after all proposed PRs: 107 templates (14+88+2+3).
+  No schema/RLS/financial rules touched.
+- Next five TODOs: (1) publish third stacked draft PR with required
+  sections, (2) repair exact-head CI/review findings, (3) obtain authenticated
+  staging evidence mapping each source to active tenant Cost Items and
+  adding saved estimate lines, (4) merge in parent-first order only on
+  founder authorization and reconcile origin/main, (5) expand MEP rough/finish
+  coverage as separate, locally calibrated recipe/permit review work.
+
 ## Costbook kitchen recipe follow-on — 2026-10-18
 
 - Parent: PR #771 on branch `feat/costbook-88-assembly-activation-20261018` passed its exact-head CI and remains draft/unmerged.
