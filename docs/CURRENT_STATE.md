@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-18
+last_verified: 2026-10-20
 source_of_truth: true
 related_code:
   - app/modules/auth
