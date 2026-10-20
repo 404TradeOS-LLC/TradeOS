@@ -133,6 +133,8 @@ test("starter assembly setup stays inline and requires install before estimate a
   assert.match(builder, /disabled=\{!canAddReviewedLine\}/);
   assert.match(builder, /disabled=\{install\.isPending \|\| evidenceBlocked \|\| !mappingComplete \|\| duplicateMapping \|\| Boolean\(incompatibleComponent\) \|\| !previewReady\}/);
   assert.match(builder, /const resultsId = useId\(\)/);
+  assert.match(builder, /Cost preview unavailable\.[\s\S]*aria-label="Retry Costbook cost preview"[\s\S]*preview\.refetch\(\)/);
+  assert.match(builder, /preview\.isFetching \? "Retrying…" : "Retry preview"/);
   assert.doesNotMatch(builder, /Math\.random\(\)/);
 });
 
