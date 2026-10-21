@@ -874,9 +874,9 @@ export const CANONICAL_MATERIAL_CODES: Readonly<Record<string, CanonicalMaterial
     note: "Common/sinker/collated framing nails are wire nails; collation is packaging, not a separate commodity. Fasteners; commodity verified in UNSPSC Codeset v8.1201.",
   },
   "FAST-NAIL-PLASTIC-CAP-1_1-4-3M": {
-    unspsc: "31162006", unspscTitle: "Wire nails", status: "mapped",
+    unspsc: "31162002", unspscTitle: "Cap nails", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "No dedicated siding/cap-nail commodity; wire nails is the verified fit. Fasteners; commodity verified in UNSPSC Codeset v8.1201.",
+    note: "CORRECTION (2026-10-18, HUMAN-CALLS M10#42): 31162002 'Cap nails' verified in UNSPSC Codeset v8.1201 \u2014 the earlier 'no dedicated cap-nail commodity' claim was false. Fasteners; commodity verified.",
   },
   "FAST-NAIL-ROOFING-COIL-1_1-4-7_2M": {
     unspsc: "31162005", unspscTitle: "Roofing nails", status: "mapped",
@@ -886,7 +886,7 @@ export const CANONICAL_MATERIAL_CODES: Readonly<Record<string, CanonicalMaterial
   "FAST-NAIL-SIDING-ALUM-1_1-4-1LB": {
     unspsc: "31162006", unspscTitle: "Wire nails", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "No dedicated siding/cap-nail commodity; wire nails is the verified fit. Fasteners; commodity verified in UNSPSC Codeset v8.1201.",
+    note: "CORRECTION (2026-10-18, Codex review): ordinary aluminum siding nails, not cap nails; 31162006 'Wire nails' is the verified fit. Only FAST-NAIL-PLASTIC-CAP-1_1-4-3M takes 31162002.",
   },
   "FAST-SCREW-CABINET-WASHER-2_1-2-100PK": {
     unspsc: "31161508", unspscTitle: "Wood screws", status: "mapped",
@@ -1179,24 +1179,24 @@ export const CANONICAL_MATERIAL_CODES: Readonly<Record<string, CanonicalMaterial
     note: "Common/sinker/collated framing nails are wire nails; collation is packaging, not a separate commodity. Fasteners; commodity verified in UNSPSC Codeset v8.1201.",
   },
   "ANCHOR-CONCRETE-SCREW-HEX-1_4X2_3_4-75PK": {
-    status: "ambiguous",
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Masonry/concrete screws (Tapcon): 31161502 'Anchor screws' vs 31162101 'Concrete anchors'. Function is screw-anchor; human review.",
+    note: "HUMAN-CALLS M10#39: 31162104 'Screw anchors' verified in UNSPSC Codeset v8.1201 \u2014 the functionally precise commodity for Tapcon-style masonry screws, over 31161502 'Anchor screws' and 31162101 'Concrete anchors'.",
   },
   "ANCHOR-CONCRETE-SCREW-HEX-1_4X3_1_4-75PK": {
-    status: "ambiguous",
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Masonry/concrete screws (Tapcon): 31161502 'Anchor screws' vs 31162101 'Concrete anchors'. Function is screw-anchor; human review.",
+    note: "HUMAN-CALLS M10#39: 31162104 'Screw anchors' verified in UNSPSC Codeset v8.1201 \u2014 the functionally precise commodity for Tapcon-style masonry screws, over 31161502 'Anchor screws' and 31162101 'Concrete anchors'.",
   },
   "ANCHOR-CONCRETE-SCREW-HEX-3_16X2_1_4-75PK": {
-    status: "ambiguous",
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Masonry/concrete screws (Tapcon): 31161502 'Anchor screws' vs 31162101 'Concrete anchors'. Function is screw-anchor; human review.",
+    note: "HUMAN-CALLS M10#39: 31162104 'Screw anchors' verified in UNSPSC Codeset v8.1201 \u2014 the functionally precise commodity for Tapcon-style masonry screws, over 31161502 'Anchor screws' and 31162101 'Concrete anchors'.",
   },
   "ANCHOR-TAPCON-1_4X2_3_4-75PK": {
-    status: "ambiguous",
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Masonry/concrete screws (Tapcon): 31161502 'Anchor screws' vs 31162101 'Concrete anchors'. Function is screw-anchor; human review.",
+    note: "HUMAN-CALLS M10#39: 31162104 'Screw anchors' verified in UNSPSC Codeset v8.1201 \u2014 the functionally precise commodity for Tapcon-style masonry screws, over 31161502 'Anchor screws' and 31162101 'Concrete anchors'.",
   },
   "CONNECTOR-HURRICANE-H2_5A": {
     status: "ambiguous",
@@ -1204,14 +1204,29 @@ export const CANONICAL_MATERIAL_CODES: Readonly<Record<string, CanonicalMaterial
     note: "Hurricane ties: 31162306 'Mounting hangers' vs 31162310 'Mounting straps' vs 31162502 'Angle brackets'. Tie form is strap-like; human review.",
   },
   "FAST-SCREW-CONC-TAPCON-1_4X2_1-4-75PK": {
-    status: "ambiguous",
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Masonry/concrete screws (Tapcon): 31161502 'Anchor screws' vs 31162101 'Concrete anchors'. Function is screw-anchor; human review.",
+    note: "HUMAN-CALLS M10#39: 31162104 'Screw anchors' verified in UNSPSC Codeset v8.1201 \u2014 the functionally precise commodity for Tapcon-style masonry screws, over 31161502 'Anchor screws' and 31162101 'Concrete anchors'.",
   },
   "FAST-SCREW-CONC-TAPCON-3_16X1_3-4-75PK": {
-    status: "ambiguous",
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Masonry/concrete screws (Tapcon): 31161502 'Anchor screws' vs 31162101 'Concrete anchors'. Function is screw-anchor; human review.",
+    note: "HUMAN-CALLS M10#39: 31162104 'Screw anchors' verified in UNSPSC Codeset v8.1201 \u2014 the functionally precise commodity for Tapcon-style masonry screws, over 31161502 'Anchor screws' and 31162101 'Concrete anchors'.",
+  },
+  "SCREW-CONCRETE-TAPCON-1_4X1_75-100PK": {
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "M10#39 follow-up (Codex review): same Tapcon-style masonry screw as the six mapped keys, alternate SCREW-CONCRETE-* key spelling / 100PK pack. 31162104 'Screw anchors' per v8.1201.",
+  },
+  "SCREW-CONCRETE-TAPCON-1_4X2_25-100PK": {
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "M10#39 follow-up (Codex review): same Tapcon-style masonry screw as the six mapped keys, alternate SCREW-CONCRETE-* key spelling / 100PK pack. 31162104 'Screw anchors' per v8.1201.",
+  },
+  "SCREW-CONCRETE-TAPCON-3_16X1_75-100PK": {
+    unspsc: "31162104", unspscTitle: "Screw anchors", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "M10#39 follow-up (Codex review): same Tapcon-style masonry screw as the six mapped keys, alternate SCREW-CONCRETE-* key spelling / 100PK pack. 31162104 'Screw anchors' per v8.1201.",
   },
   "FAST-SCREW-STRUCT-HEADLOK-2_8IN-50PK": {
     status: "ambiguous",
@@ -1415,24 +1430,24 @@ export const CANONICAL_MATERIAL_CODES: Readonly<Record<string, CanonicalMaterial
     note: "Masonry, thinset, and veneer mortars are mortars. Commodity verified in UNSPSC Codeset v8.1201.",
   },
   "BRICK-FIRE-LARGE-STANDARD": {
-    status: "ambiguous",
+    unspsc: "31371100", unspscTitle: "Refractory bricks", status: "ambiguous",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Refractory firebrick: ceramic is the closest verified fit but refractory is a specialty use; human review.",
+    note: "HUMAN-CALLS M7#27: class-level 31371100 'Refractory bricks' assigned over the package's 30131602 'Ceramic bricks' \u2014 keeps ambiguous status because no fireclay commodity exists in v8.1201. Billy's call to confirm.",
   },
   "BRICK-FIRE-SMALL-SPLIT": {
-    status: "ambiguous",
+    unspsc: "31371100", unspscTitle: "Refractory bricks", status: "ambiguous",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Refractory firebrick: ceramic is the closest verified fit but refractory is a specialty use; human review.",
+    note: "HUMAN-CALLS M7#27: class-level 31371100 'Refractory bricks' assigned over the package's 30131602 'Ceramic bricks' \u2014 keeps ambiguous status because no fireclay commodity exists in v8.1201. Billy's call to confirm.",
   },
   "BRICK-FIREBRICK-ARCH-WEDGE": {
-    status: "ambiguous",
+    unspsc: "31371100", unspscTitle: "Refractory bricks", status: "ambiguous",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Refractory firebrick: ceramic is the closest verified fit but refractory is a specialty use; human review.",
+    note: "HUMAN-CALLS M7#27: class-level 31371100 'Refractory bricks' assigned over the package's 30131602 'Ceramic bricks' \u2014 keeps ambiguous status because no fireclay commodity exists in v8.1201. Billy's call to confirm.",
   },
   "BRICK-FIREBRICK-SPLIT-1-1-4IN": {
-    status: "ambiguous",
+    unspsc: "31371100", unspscTitle: "Refractory bricks", status: "ambiguous",
     provenance: UNSPSC_V8_PROVENANCE,
-    note: "Refractory firebrick: ceramic is the closest verified fit but refractory is a specialty use; human review.",
+    note: "HUMAN-CALLS M7#27: class-level 31371100 'Refractory bricks' assigned over the package's 30131602 'Ceramic bricks' \u2014 keeps ambiguous status because no fireclay commodity exists in v8.1201. Billy's call to confirm.",
   },
   "CONCRETE-MIX-4000PSI-60LB": {
     status: "ambiguous",

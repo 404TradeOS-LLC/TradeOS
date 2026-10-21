@@ -47,11 +47,11 @@ related_code:
 
 # Cost Book
 
-## Kitchen assembly scope follow-on (2026-10-18; stacked PR)
+## Kitchen assembly scope follow-on (PR #773)
 
 The source-backed expansion adds **two more price-neutral kitchen research
 templates** beyond the original 14 reviewed starters and 88 sourced recipes
-(104 templates total if both PRs land together). The recipes are not supplier
+(104 templates total after PR #773 lands). The recipes are not supplier
 quotes or production-rate benchmarks:
 
 - `kitchen:wall-cabinet-prefab` (CSI 12 35 30, NAHB 5000, EA):
