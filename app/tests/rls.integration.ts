@@ -1248,6 +1248,39 @@ describe("live organization row-level security", () => {
     expect(hiddenUnassignedJob).toBeNull();
   });
 
+  it("denies an unassigned same-organization technician job reads and completion at the database boundary", async () => {
+    const unassignedJob = randomUUID();
+    await adminClient.job.create({ data: {
+      id: unassignedJob, orgId: orgA, projectId: projectA,
+      customerId: customerA, serviceAddressId: serviceAddressA,
+      jobNumber: `UNASSIGNED-${unassignedJob}`, title: "Unassigned denial fixture",
+      jobType: "HVAC Service", status: "on_site", priority: "medium", createdById: adminUser,
+    } });
+    try {
+      const hidden = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().job.findUnique({ where: { id: unassignedJob } })
+      );
+      expect(hidden).toBeNull();
+      const update = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().job.updateMany({ where: { id: unassignedJob }, data: { status: "completed" } })
+      );
+      expect(update.count).toBe(0);
+      await expect(inSession(technicianUser, orgA, "technician", async () =>
+        new JobsService().getById(orgA, unassignedJob, { userId: technicianUser, role: "technician" })
+      )).rejects.toMatchObject({ statusCode: 404 });
+      await expect(inSession(technicianUser, orgA, "technician", async () =>
+        new JobsService().complete(unassignedJob, {
+          orgId: orgA, actor: { userId: technicianUser, orgId: orgA, role: "technician" },
+        })
+      )).rejects.toMatchObject({ statusCode: 404 });
+      expect((await adminClient.job.findUnique({ where: { id: unassignedJob } }))?.status).toBe("on_site");
+      expect(await adminClient.activityEvent.count({ where: { orgId: orgA, entityType: "job", entityId: unassignedJob } })).toBe(0);
+    } finally {
+      await adminClient.activityEvent.deleteMany({ where: { orgId: orgA, entityType: "job", entityId: unassignedJob } });
+      await adminClient.job.delete({ where: { id: unassignedJob } });
+    }
+  });
+
   it("denies a cross-organization Job transition before any status or activity write", async () => {
     await expect(
       inSession(otherUser, orgB, "owner", async () =>

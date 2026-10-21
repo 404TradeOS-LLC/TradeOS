@@ -63,6 +63,17 @@ related_code:
 
 # TradeOS Current State
 
+## Field authorization evidence — PR #702
+
+The Field page now has executable denied-role tests, alongside its static
+UI/action contract checks. Missing authentication and non-technician roles
+return before job requests, including direct job links. JobsService tests
+assert unassigned technician reads/transitions fail without status or activity
+writes. A disposable-PostgreSQL test covers a same-org unassigned technician
+against raw reads, updates and service calls; required hosted integration CI
+must prove it because local Docker is unavailable. No RLS, authorization policy,
+storage implementation or field capture capability is changed or certified.
+
 ## Costbook researched assembly activation — PR #771 (proposed, 2026-10-18)
 
 PR #771 on branch `feat/costbook-88-assembly-activation-20261018`
