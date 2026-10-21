@@ -6,10 +6,11 @@ async function source(path: string) {
   return readFile(new URL(path, import.meta.url), "utf8");
 }
 
-test("Assembly Catalog wires all five tenant-safe browse facets into one filter", async () => {
+test("Assembly Catalog wires the tenant-safe browse facets into one filter", async () => {
   const ui = await source("./assembly-catalog.tsx");
   const expected = [
     ['NAHB', /aria-label="Filter by NAHB group"/],
+    ['phase', /aria-label="Filter by NAHB build phase"/],
     ['CSI', /aria-label="Filter by CSI division"/],
     ['trade', /aria-label="Filter by trade"/],
     ['unit', /aria-label="Filter by assembly unit"/],
@@ -47,7 +48,8 @@ test("installed status comes from all active tenant assemblies, not the current 
 
 test("browse facets preserve existing write permissions and priced preview gates", async () => {
   const ui = await source("./assembly-catalog.tsx");
-  assert.match(ui, /disabled=\{!canWrite \|\| saving \|\| isStarterCatalogInstalled\(selected, installedCodes\)\}/);
+  assert.match(ui, /Boolean\(selected\.blockingReasons\?\.length\)/);
+  assert.match(ui, /!mappingComplete \|\| !previewReady/);
   assert.match(ui, /if \(componentMappings\.some\(\(mapping\) => !mapping\.costItemId\)\)/);
   assert.match(ui, /if \(new Set\(componentMappings\.map\(\(mapping\) => mapping\.costItemId\)\)\.size !== componentMappings\.length\)/);
   assert.match(ui, /Pre-install cost preview/);

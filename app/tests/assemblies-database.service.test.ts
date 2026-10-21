@@ -201,6 +201,24 @@ describe("AssembliesDatabaseService", () => {
   });
 
   describe("starter catalog", () => {
+    it("publishes researched assemblies through the existing authenticated catalog API", () => {
+      const result = new AssembliesDatabaseService().listStarterCatalog();
+      expect(result.items).toHaveLength(102);
+      expect(result.items.find((item) => item.id === "tradeos:roofing-shingles-arch-asphalt"))
+        .toMatchObject({ nahbPhase: "4000", blockingReasons: [] });
+      expect(result.coverage.some((group) => group.nahbGroup === "Full Enclosure (Dry-in)")).toBe(true);
+    });
+
+    it("rejects unresolved research source evidence before accessing tenant data", async () => {
+      await expect(new AssembliesDatabaseService().installStarterCatalogAssembly({
+        orgId: "org-1",
+        templateId: "tradeos:demo-cabinet-kitchen-base-wall",
+        componentMappings: [{ componentKey: "unused", costItemId: "11111111-1111-4111-8111-111111111111" }],
+      })).rejects.toThrow(/Research assembly cannot be installed.*SRC-0050/);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.assembly.create).not.toHaveBeenCalled();
+    });
+
     it("installs a fully mapped starter as a tenant-scoped reusable assembly", async () => {
       mockPrisma.assembly.findFirst.mockResolvedValue(null);
       mockPrisma.costItem.findMany.mockResolvedValue([

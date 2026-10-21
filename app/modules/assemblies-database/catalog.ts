@@ -27,7 +27,7 @@ export const NAHB_GROUPS = [
 ] as const;
 
 export type NahbGroup = (typeof NAHB_GROUPS)[number];
-export type AssemblyCatalogUnit = "CY" | "EA" | "GAL" | "HR" | "LF" | "LS" | "SF" | "SQ" | "TON";
+export type AssemblyCatalogUnit = "CY" | "EA" | "GAL" | "HR" | "LF" | "LS" | "SF" | "SQ" | "TON" | "BAG" | "BF" | "BD" | "BOX" | "BTL" | "CAN" | "DAY" | "KIT" | "LB" | "PAIR" | "ROLL" | "SET" | "SHT" | "SY" | "TUB" | "TUBE";
 export type AssemblyCatalogCostItemKind = "allowance" | "composite" | "equipment" | "labor" | "material" | "subcontractor";
 
 export const ASSEMBLY_CATALOG_VERSION = "2026.09.1";
@@ -270,6 +270,13 @@ export function normalizeAssemblyCatalogUnit(value: string): AssemblyCatalogUnit
     SF: "SF", SQFT: "SF", "SQ FT": "SF", "SQUARE FOOT": "SF", "SQUARE FEET": "SF", FT2: "SF",
     SQ: "SQ", SQUARE: "SQ", SQUARES: "SQ", "ROOFING SQUARE": "SQ", "ROOFING SQUARES": "SQ",
     TON: "TON", TONS: "TON",
+    BAG: "BAG", BAGS: "BAG", BF: "BF", "BOARD FOOT": "BF", "BOARD FEET": "BF",
+    BD: "BD", BOARD: "BD", BOARDS: "BD", BOX: "BOX", BOXES: "BOX", BTL: "BTL", BOTTLE: "BTL", BOTTLES: "BTL",
+    CAN: "CAN", CANS: "CAN", DAY: "DAY", DAYS: "DAY", KIT: "KIT", KITS: "KIT",
+    LB: "LB", LBS: "LB", POUND: "LB", POUNDS: "LB", PAIR: "PAIR", PAIRS: "PAIR",
+    ROLL: "ROLL", ROLLS: "ROLL", SET: "SET", SETS: "SET", SHT: "SHT", SHEET: "SHT", SHEETS: "SHT",
+    SY: "SY", "SQUARE YARD": "SY", "SQUARE YARDS": "SY", TUB: "TUB", TUBS: "TUB",
+    TUBE: "TUBE", TUBES: "TUBE",
   };
   return aliases[normalized] ?? null;
 }

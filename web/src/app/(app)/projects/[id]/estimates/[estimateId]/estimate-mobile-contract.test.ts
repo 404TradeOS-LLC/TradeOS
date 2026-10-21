@@ -131,8 +131,23 @@ test("starter assembly setup stays inline and requires install before estimate a
   assert.match(builder, /Installation creates the tenant assembly only\. Review its resolved cost, then use the separate Add action to write the estimate line\./);
   assert.match(builder, /onInstalled=\{\(assembly\) => \{[\s\S]*setSelected\(\{ \.\.\.assembly, kind: "assembly" \}\)/);
   assert.match(builder, /disabled=\{!canAddReviewedLine\}/);
-  assert.match(builder, /disabled=\{install\.isPending \|\| !mappingComplete \|\| duplicateMapping \|\| Boolean\(incompatibleComponent\) \|\| !previewReady\}/);
+  assert.match(builder, /disabled=\{install\.isPending \|\| evidenceBlocked \|\| !mappingComplete \|\| duplicateMapping \|\| Boolean\(incompatibleComponent\) \|\| !previewReady\}/);
   assert.match(builder, /const resultsId = useId\(\)/);
+  const starterSetupStart = builder.indexOf("function StarterAssemblySetup");
+  const previewErrorStart = builder.indexOf("Cost preview unavailable.", starterSetupStart);
+  const retryButtonStart = builder.indexOf("<Button", previewErrorStart);
+  const retryButtonEnd = builder.indexOf("</Button>", retryButtonStart);
+  assert.notEqual(starterSetupStart, -1);
+  assert.notEqual(previewErrorStart, -1);
+  assert.notEqual(retryButtonStart, -1);
+  assert.notEqual(retryButtonEnd, -1);
+  const retryButton = builder.slice(retryButtonStart, retryButtonEnd);
+  assert.match(retryButton, /className="min-h-11 sm:min-h-7"/);
+  assert.match(retryButton, /aria-label=\{preview\.isFetching \? "Retrying Costbook cost preview" : "Retry Costbook cost preview"\}/);
+  assert.match(retryButton, /disabled=\{preview\.isFetching \|\| install\.isPending\}/);
+  assert.match(retryButton, /onClick=\{\(\) => void preview\.refetch\(\)\}/);
+  assert.match(retryButton, /preview\.isFetching \? "Retrying…" : "Retry preview"/);
+  assert.match(builder, /<p className="sr-only" role="status" aria-live="polite" aria-atomic="true">\s*\{preview\.isFetching \? "Refreshing Costbook cost preview…" : ""\}\s*<\/p>/);
   assert.doesNotMatch(builder, /Math\.random\(\)/);
 });
 

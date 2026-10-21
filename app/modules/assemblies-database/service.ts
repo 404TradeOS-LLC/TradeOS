@@ -14,12 +14,14 @@ import {
   UpdateAssemblyInput,
 } from "./types";
 import {
-  ASSEMBLY_CATALOG,
-  ASSEMBLY_CATALOG_COVERAGE,
   ASSEMBLY_CATALOG_VERSION,
   assessCatalogComponentMapping,
-  getAssemblyCatalogTemplate,
 } from "./catalog";
+import {
+  EXPANDED_ASSEMBLY_CATALOG,
+  EXPANDED_ASSEMBLY_CATALOG_COVERAGE,
+  getExpandedCatalogTemplate,
+} from "./tradeosCatalogAdapter";
 
 // Assemblies Database module: composes multiple cost items (and, recursively,
 // other assemblies) into a single sellable unit. Pricing is never duplicated;
@@ -66,12 +68,15 @@ export class AssembliesDatabaseService {
   }
 
   listStarterCatalog() {
-    return { catalogVersion: ASSEMBLY_CATALOG_VERSION, coverage: ASSEMBLY_CATALOG_COVERAGE, items: ASSEMBLY_CATALOG };
+    return { catalogVersion: `${ASSEMBLY_CATALOG_VERSION}+research88`, coverage: EXPANDED_ASSEMBLY_CATALOG_COVERAGE, items: EXPANDED_ASSEMBLY_CATALOG };
   }
 
   async installStarterCatalogAssembly(input: InstallCatalogAssemblyInput): Promise<AssemblyDTO> {
-    const template = getAssemblyCatalogTemplate(input.templateId);
+    const template = getExpandedCatalogTemplate(input.templateId);
     if (!template) throw new ApiError(404, `Assembly catalog template ${input.templateId} not found`);
+    if ("blockingReasons" in template && template.blockingReasons.length) {
+      throw new ApiError(422, `Research assembly cannot be installed: ${template.blockingReasons.join("; ")}`);
+    }
 
     const mappingByKey = new Map(input.componentMappings.map((mapping) => [mapping.componentKey, mapping.costItemId]));
     if (mappingByKey.size !== input.componentMappings.length) {
@@ -119,7 +124,7 @@ export class AssembliesDatabaseService {
           code: template.code,
           name: template.name,
           unitOfMeasure: template.unitOfMeasure,
-          description: `${template.description} Catalog ${ASSEMBLY_CATALOG_VERSION}; recipe v${template.version}; CSI ${template.csiDivision} ${template.csiTitle}; NAHB ${template.nahbGroup}. ${template.wasteGuidance}`,
+          description: `${template.description} Catalog ${ASSEMBLY_CATALOG_VERSION}; recipe v${template.version}; CSI ${template.csiDivision} ${template.csiTitle}; NAHB ${template.nahbGroup}. ${template.wasteGuidance}${"evidenceRefs" in template ? ` Research evidence: ${template.evidenceRefs.join(", ")}.` : ""}`,
           isTemplate: true,
         },
       });

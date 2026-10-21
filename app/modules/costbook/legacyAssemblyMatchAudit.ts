@@ -314,22 +314,6 @@ export const HIGH_CONFIDENCE_LEGACY_ASSEMBLY_MATCH_REJECTIONS:
     conflict: "MATERIAL_SPEC",
     reason: "4-ply / 5-ply structural plywood requirement was matched to 3-ply plywood.",
   },
-  // Pass-2 (2026-10-18): documented 1 in. -> 1-1/4 in. variances; no 1 in.
-  // plastic-cap option exists in the verified corpus.
-  {
-    assemblyId: "roofing-underlayment-synthetic",
-    componentKey: "fast_plastic_cap_nails_1in",
-    productNameIncludes: "Plastic Cap Roofing & Underlayment Nails 1-1/4 in.",
-    conflict: "NOMINAL_DIMENSION",
-    reason: "1 in. plastic-cap nail requirement was matched to 1-1/4 in. nails.",
-  },
-  {
-    assemblyId: "moisture-barrier-wrb-housewrap",
-    componentKey: "fast_cap_staples_stinger",
-    productNameIncludes: "Plastic Cap Roofing & Underlayment Nails 1-1/4 in.",
-    conflict: "NOMINAL_DIMENSION",
-    reason: "1 in. cap-fastener requirement was matched to 1-1/4 in. cap nails.",
-  },
 ] as const;
 
 function rejectionFor(

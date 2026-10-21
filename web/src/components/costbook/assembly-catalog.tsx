@@ -382,6 +382,10 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
 
   async function install() {
     if (!selected) return;
+    if (selected.blockingReasons?.length) {
+      onError(`Research evidence must be repaired before installation: ${selected.blockingReasons.join("; ")}`);
+      return;
+    }
     const componentMappings = selected.components.map((component) => ({
       componentKey: component.key,
       costItemId: mappings[component.key],
@@ -423,7 +427,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
         <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><BookOpen className="size-5" aria-hidden="true" /></div>
         <div><h2 className="text-lg font-semibold text-foreground">Residential Assembly Catalog</h2><p className="mt-1 max-w-3xl text-sm text-muted-foreground">Browse by familiar NAHB work group with CSI MasterFormat classification underneath. Map every recipe slot to your own Costbook before installation, so pricing stays organization-specific and reviewable.</p></div>
       </div>
-      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground"><span className="rounded-full border border-border bg-background px-2.5 py-1">{templates.length} starters</span><span className="rounded-full border border-border bg-background px-2.5 py-1">{coverage.length} NAHB groups</span>{catalogVersion ? <span className="rounded-full border border-border bg-background px-2.5 py-1">Catalog {catalogVersion}</span> : null}<span className="rounded-full border border-border bg-background px-2.5 py-1">No embedded prices</span></div>
+      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground"><span className="rounded-full border border-border bg-background px-2.5 py-1">{templates.length} recipes</span><span className="rounded-full border border-border bg-background px-2.5 py-1">{coverage.length} work categories</span>{catalogVersion ? <span className="rounded-full border border-border bg-background px-2.5 py-1">Catalog {catalogVersion}</span> : null}<span className="rounded-full border border-border bg-background px-2.5 py-1">No embedded prices</span></div>
     </div>
     {loading ? <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden="true" />Loading starter catalog…</div> : <div className="grid lg:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.6fr)]">
       <div className="border-b border-border/70 lg:border-b-0 lg:border-r">
@@ -432,6 +436,10 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
           <select aria-label="Filter by NAHB group" className="h-9 min-w-0 rounded-md border border-input bg-background px-3 text-sm" value={filters.nahbGroup} onChange={(event) => updateFilter("nahbGroup", event.target.value)}>
             <option value="all">All residential groups</option>
             {facets.nahbGroups.map((group) => <option key={group} value={group}>{group}</option>)}
+          </select>
+          <select aria-label="Filter by NAHB build phase" className="h-9 min-w-0 rounded-md border border-input bg-background px-3 text-sm" value={filters.nahbPhase} onChange={(event) => updateFilter("nahbPhase", event.target.value)}>
+            <option value="all">All build phases</option>
+            {facets.nahbPhases.map((phase) => <option key={phase} value={phase}>NAHB {phase}</option>)}
           </select>
           <select aria-label="Filter by CSI division" className="h-9 min-w-0 rounded-md border border-input bg-background px-3 text-sm" value={filters.csiDivision} onChange={(event) => updateFilter("csiDivision", event.target.value)}>
             <option value="all">All CSI divisions</option>
@@ -459,15 +467,16 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
           const installed = isStarterCatalogInstalled(template, installedCodes);
           return <button key={template.id} type="button" aria-label={`Review assembly ${template.name}`} onClick={() => { setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); setCostPreview({}); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
             <span className="flex items-start justify-between gap-3"><span className="font-medium text-foreground">{template.name}</span>{installed ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-label="Installed" /> : null}</span>
-            <span className="mt-1 block text-xs text-muted-foreground">{template.nahbGroup} · CSI {template.csiDivision} · {template.unitOfMeasure}</span>
+            <span className="mt-1 block text-xs text-muted-foreground">{template.nahbPhase ? `NAHB ${template.nahbPhase} · ` : ""}{template.nahbGroup} · CSI {template.csiDivision} · {template.unitOfMeasure}{template.blockingReasons?.length ? " · Evidence pending" : ""}</span>
           </button>;
         })}{filtered.length === 0 ? <div className="grid gap-2 p-4"><p className="text-sm text-muted-foreground">No starter assemblies match those filters.</p><Button type="button" variant="outline" size="sm" onClick={resetFilters}>Clear filters</Button></div> : null}</div>
       </div>
       {!selected ? <EmptyState title="Choose a starter assembly" description="Select a recipe to review its measurement basis and component mapping." /> : <div className="grid content-start gap-5 p-4 sm:p-5">
         <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
           <div><p className="font-mono text-xs text-primary">{selected.code} · CSI {selected.csiDivision} {selected.csiTitle}</p><h3 className="mt-1 text-xl font-semibold text-foreground">{selected.name}</h3><p className="mt-2 text-sm text-muted-foreground">Measured by {selected.measurementBasis.toLowerCase()}. {selected.wasteGuidance}</p></div>
-          <span className="w-fit rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">NAHB · {selected.nahbGroup}</span>
+          <div className="grid justify-items-end gap-1"><span className="w-fit rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">NAHB {selected.nahbPhase ?? ""} · {selected.nahbGroup}</span>{selected.evidenceRefs?.length ? <span className="text-xs text-muted-foreground">{selected.evidenceRefs.length} referenced sources · research review required</span> : null}</div>
         </div>
+        {selected.blockingReasons?.length ? <p role="alert" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-foreground">Research evidence pending: {selected.blockingReasons.join("; ")}. This recipe can be inspected but not installed until its source references are repaired.</p> : null}
         <div className="grid gap-3"><div><h4 className="font-medium text-foreground">Map the recipe</h4><p className="text-sm text-muted-foreground">Each slot must point to an active Cost Item. Quantities are per 1 {selected.unitOfMeasure} of assembly output.</p></div>
           {selected.components.map((component) => {
             const unavailableIds = new Set(Object.entries(mappings).filter(([key]) => key !== component.key).map(([, id]) => id));
@@ -479,7 +488,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
           <label className="grid gap-1 text-sm font-medium"><span>Output quantity</span><Input type="number" min="0.0001" step="0.0001" value={previewQuantity} onChange={(event) => setPreviewQuantity(event.target.value)} disabled={!mappingComplete || saving} /></label>
           <div className="min-w-36 text-right"><p className="text-xs text-muted-foreground">{previewLoading ? "Loading cost" : previewUnitCost === null ? "Unit cost" : `Per 1 ${selected.unitOfMeasure}`}</p><p className="text-lg font-semibold text-foreground">{previewLoading ? "…" : previewUnitCost === null ? "—" : money(previewUnitCost)}</p><p className="text-xs text-muted-foreground">{previewError ? "Cost unavailable" : previewJobCost === null ? "Complete mapping first" : `Job cost · ${money(previewJobCost)}`}</p></div>
         </div>
-        <div className="flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">Review production rates, waste, code, permits, and local conditions before using the installed assembly in an estimate.</p><Button type="button" onClick={install} disabled={!canWrite || saving || isStarterCatalogInstalled(selected, installedCodes)}>{isStarterCatalogInstalled(selected, installedCodes) ? "Installed" : saving ? "Installing" : "Install assembly"}</Button></div>
+        <div className="flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">Review production rates, waste, code, permits, and local conditions before using the installed assembly in an estimate.</p><Button type="button" onClick={install} disabled={!canWrite || saving || Boolean(selected.blockingReasons?.length) || !mappingComplete || !previewReady || isStarterCatalogInstalled(selected, installedCodes)}>{isStarterCatalogInstalled(selected, installedCodes) ? "Installed" : saving ? "Installing" : "Install assembly"}</Button></div>
       </div>}
     </div>}
   </section>;

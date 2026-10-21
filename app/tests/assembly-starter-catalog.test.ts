@@ -1,4 +1,10 @@
 import {
+  EXPANDED_ASSEMBLY_CATALOG,
+  TRADEOS_RESEARCH_CATALOG,
+  getExpandedCatalogTemplate,
+} from "../modules/assemblies-database/tradeosCatalogAdapter";
+import { TRADEOS_ASSEMBLIES } from "../modules/costbook/tradeosAssemblies";
+import {
   ASSEMBLY_CATALOG,
   ASSEMBLY_CATALOG_COVERAGE,
   ASSEMBLY_CATALOG_VERSION,
@@ -82,5 +88,48 @@ describe("assembly starter catalog", () => {
       compatible: false,
       reasons: expect.arrayContaining([expect.stringMatching(/expects CY/), expect.stringMatching(/expects material or composite/)]),
     }));
+  });
+});
+
+describe("expanded research assembly catalog", () => {
+  it("exposes 88 source recipes alongside 14 unchanged starters without duplicate identifiers", () => {
+    expect(TRADEOS_RESEARCH_CATALOG).toHaveLength(88);
+    expect(EXPANDED_ASSEMBLY_CATALOG).toHaveLength(102);
+    expect(EXPANDED_ASSEMBLY_CATALOG.slice(0, 14)).toEqual(ASSEMBLY_CATALOG);
+    expect(new Set(EXPANDED_ASSEMBLY_CATALOG.map((item) => item.id)).size).toBe(102);
+    expect(new Set(EXPANDED_ASSEMBLY_CATALOG.map((item) => item.code)).size).toBe(102);
+  });
+
+  it("preserves every research quantity and labels source-blocked recipes", () => {
+    for (const assembly of TRADEOS_ASSEMBLIES) {
+      const recipe = getExpandedCatalogTemplate(`tradeos:${assembly.id}`)!;
+      expect(recipe.name).toBe(assembly.name);
+      expect(recipe.components).toHaveLength(assembly.components.length);
+      expect(recipe.components.map((component) => component.quantityPerUnit))
+        .toEqual(assembly.components.map((component) => component.quantityPerUnit));
+      expect(recipe.components.every((component) => component.compatibleUnits.length === 1)).toBe(true);
+      expect(recipe.components.every((component) => component.quantityPerUnit > 0)).toBe(true);
+    }
+    const pending = TRADEOS_RESEARCH_CATALOG.filter((item) => item.blockingReasons.length);
+    expect(pending).toHaveLength(11);
+    expect(getExpandedCatalogTemplate("tradeos:demo-cabinet-kitchen-base-wall"))
+      .toMatchObject({ blockingReasons: [expect.stringContaining("SRC-0050")] });
+    expect(getExpandedCatalogTemplate("tradeos:roofing-shingles-arch-asphalt"))
+      .toMatchObject({ blockingReasons: [] });
+  });
+
+  it("normalizes recipe purchase units without accepting another package size at 1:1", () => {
+    const shingle = getExpandedCatalogTemplate("tradeos:roofing-shingles-arch-asphalt")!;
+    for (const component of shingle.components) {
+      const nativeUnit = component.compatibleUnits[0];
+      expect(nativeUnit).toMatch(/^[A-Z]+$/);
+    }
+    expect(assessCatalogComponentMapping({
+      key: "package", label: "Box of fasteners", help: "Quantity per box",
+      quantityPerUnit: 0.5, compatibleUnits: ["BOX"], allowedCostItemKinds: ["material"],
+    }, {
+      unitOfMeasure: "EA", materialId: "material-1", laborRateId: null,
+      equipmentId: null, subcontractorId: null,
+    }).compatible).toBe(false);
   });
 });
