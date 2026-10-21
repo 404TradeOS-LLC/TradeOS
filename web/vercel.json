@@ -4,6 +4,7 @@
   "git": {
     "deploymentEnabled": {
       "**": false,
+      "feat/costbook-*": true,
       "main": true,
       "staging": true
     }
