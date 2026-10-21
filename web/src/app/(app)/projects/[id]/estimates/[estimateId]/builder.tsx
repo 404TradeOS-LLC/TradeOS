@@ -1303,9 +1303,22 @@ function StarterAssemblySetup({
           ) : preview.isLoading ? (
             <p className="mt-1 text-sm text-muted-foreground">Resolving mapped Costbook costs…</p>
           ) : preview.isError ? (
-            <p className="mt-1 text-sm text-warning" role="alert">
-              Cost preview unavailable. {preview.error instanceof Error ? preview.error.message : "Try again."}
-            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-sm text-warning" role="alert">
+                Cost preview unavailable. {preview.error instanceof Error ? preview.error.message : "Try again."}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-11 sm:min-h-7"
+                aria-label={preview.isFetching ? "Retrying Costbook cost preview" : "Retry Costbook cost preview"}
+                disabled={preview.isFetching || install.isPending}
+                onClick={() => void preview.refetch()}
+              >
+                {preview.isFetching ? "Retrying…" : "Retry preview"}
+              </Button>
+            </div>
           ) : preview.data ? (
             <div className="mt-2 grid gap-1 text-sm">
               <span><strong className="font-medium">{formatCurrency(preview.data.unitCost)}</strong> / {template.unitOfMeasure}</span>
@@ -1324,6 +1337,9 @@ function StarterAssemblySetup({
         </Button>
       </div>
 
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {preview.isFetching ? "Refreshing Costbook cost preview…" : ""}
+      </p>
       <div className="text-xs text-muted-foreground">
         <p>Measured by {template.measurementBasis.toLowerCase()}. {template.wasteGuidance}</p>
         <p className="mt-1">
