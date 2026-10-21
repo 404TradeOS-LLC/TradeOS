@@ -133,8 +133,19 @@ test("starter assembly setup stays inline and requires install before estimate a
   assert.match(builder, /disabled=\{!canAddReviewedLine\}/);
   assert.match(builder, /disabled=\{install\.isPending \|\| evidenceBlocked \|\| !mappingComplete \|\| duplicateMapping \|\| Boolean\(incompatibleComponent\) \|\| !previewReady\}/);
   assert.match(builder, /const resultsId = useId\(\)/);
-  assert.match(builder, /Cost preview unavailable\.[\s\S]*aria-label="Retry Costbook cost preview"[\s\S]*preview\.refetch\(\)/);
-  assert.match(builder, /preview\.isFetching \? "Retrying…" : "Retry preview"/);
+  const starterSetupStart = builder.indexOf("function StarterAssemblySetup");
+  const previewErrorStart = builder.indexOf("Cost preview unavailable.", starterSetupStart);
+  const retryButtonStart = builder.indexOf("<Button", previewErrorStart);
+  const retryButtonEnd = builder.indexOf("</Button>", retryButtonStart);
+  assert.notEqual(starterSetupStart, -1);
+  assert.notEqual(previewErrorStart, -1);
+  assert.notEqual(retryButtonStart, -1);
+  assert.notEqual(retryButtonEnd, -1);
+  const retryButton = builder.slice(retryButtonStart, retryButtonEnd);
+  assert.match(retryButton, /aria-label="Retry Costbook cost preview"/);
+  assert.match(retryButton, /disabled=\{preview\.isFetching \|\| install\.isPending\}/);
+  assert.match(retryButton, /onClick=\{\(\) => void preview\.refetch\(\)\}/);
+  assert.match(retryButton, /preview\.isFetching \? "Retrying…" : "Retry preview"/);
   assert.doesNotMatch(builder, /Math\.random\(\)/);
 });
 

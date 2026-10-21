@@ -1116,7 +1116,7 @@ Contextual Athena now labels legacy Costbook matches as “Unverified pricing”
 
 ## Assembly pre-install cost preview
 
-The starter assembly mapper now provides a read-only pre-install cost preview after every required slot is mapped. It resolves each selected same-organization Cost Item through the existing unit-cost endpoint, shows cost per assembly unit, accepts an output quantity for a job-cost estimate, and exposes loading/unavailable states. Preview failures now include an explicit retry action with an in-progress label; install remains gated until the retried read resolves. The preview does not create, mutate, or apply pricing; installation remains an explicit review-first action.
+The starter assembly mapper now provides a read-only pre-install cost preview after every required slot is mapped. It resolves each selected same-organization Cost Item through the existing unit-cost endpoint, shows cost per assembly unit, accepts an output quantity for a job-cost estimate, and exposes loading/unavailable states. Preview failures now include an explicit retry action with an in-progress label; install remains gated until a finite, nonnegative preview resolves, including after a retry. The preview does not create, mutate, or apply pricing; installation remains an explicit review-first action.
 
 
 ## S064 embedded Assembly Picker — active implementation
