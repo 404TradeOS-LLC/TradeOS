@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-18
+last_verified: 2026-10-20
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -12,27 +12,25 @@ related_docs:
 
 # TradeOS Session Handoff
 
-## Costbook frontend preview isolation — proposed 2026-10-18
+## Costbook preview policy — PR #775 blocked on isolation verification
 
-- Vercel configuration currently disables PR branch Git deployments for
-  both backend and web by `"**": false`; Vercel read-only lists found
-  no generated deploy for PR #771/#773/#774 feature branches.
-- Branch `feat/costbook-preview-policy-20261018` from main limits new
-  `git.deploymentEnabled` allowlist to web `feat/costbook-*` only.
-  Backend `main`/`staging` gate and branch-scoped secrets are untouched.
-- Source guidance: Vercel's Git configuration specifies that any matching
-  true rule wins over false; verify observed preview behavior at PR SHA
-  after review/merge rather than assuming the source change deployed.
-- No authenticated Costbook→Estimate feature proof is claimed. A frontend
-  Preview still points to the dedicated staging backend, which will
-  not have feature-branch API code until it is approved and deployed there.
-- Next five TODOs: (1) open scoped preview-policy PR, (2) pass tests,
-  docs, CodeRabbit review and founder approval, (3) observe exact-head
-  web preview READY in the Vercel project, (4) stage the API feature
-  code using only reviewed `staging` operations and nonproduction
-  secrets, (5) exercise real tenant-scoped assembly install/estimate
-  persistence, with a separate tenant negative test.
+The proposed web-only `feat/costbook-*` deployment allowlist is prepared for review; backend branches stay restricted. Do not merge or enable it until effective Preview Supabase and backend bindings are independently verified as staging-only. The connected Vercel account can read the project but its environment-metadata request returned HTTP 403; the CLI has no existing credentials. Historical staging claims are not current binding evidence. No deployment or environment value was changed.
 
+## Costbook Add states and accessibility review continuation
+
+- `EXISTING_WORK_FOUND`: continued PR #781 on `feat/figma-to-code-completion`, published parent `89619293`, current main `15d7e0c7`. No new implementation branch or numbered sprint was created.
+- Added 768/1024 mapping sets, four reviewer-only navigators, and install-pending/current-cost outcomes in the existing Figma Estimates page. The newest twelve Add pending/failed/confirmed specimens cover 390/768/1024/1440. Add failure retains selection and quantity; confirmed success clears the picker, restores search focus, resets quantity/section/cost type/taxability using the existing handler, and refreshes the estimate. Amounts are explicitly illustrative fixtures and must use persisted response values in production. Full runtime certification remains outstanding.
+- PR #781 is approved and non-draft. A normal merge attempt was blocked by two new review conversations: mobile retry target size and screen-reader progress. Both were validated and repaired locally: 44px mobile minimum, compact desktop sizing, dynamic accessible name, and persistent polite status. Fresh Web 507/507, full lint, production build including TypeScript, docs check/tests 40/40, PR preflight, and diff whitespace checks pass. Publication and hosted verification of this repair follow. Do not claim merge or deployment.
+- Next five: (1) publish and verify the accessibility repair; (2) resolve its reviewed conversations and complete the protected merge when permitted; (3) visually verify all 60 state/viewport combinations and touch/focus specifications; (4) capture sanitized authenticated Add persistence/recovery and snapshot evidence; (5) reassess Ready for Dev and continue the next approved Estimate workflow. Figma remains Design Complete partial, Ready for Dev NO.
+
+## Costbook mapping retry handoff — 2026-10-21
+
+- `NEW_WORK_REQUIRED` for the explicit Costbook preview-retry control: current main `15d7e0c736bf069bc8a34ce9a3e32ddb5651505a` had a read-only preview error message but no retry action; live open/recent PR search found no UI overlap. PR #773 is a separate research recipe catalog extension. Branch `feat/figma-to-code-completion` is based on that main SHA; draft PR [#781](https://github.com/404TradeOS-LLC/TradeOS/pull/781) is open, not merged.
+- Implemented locally in the existing Estimate builder: failed mapped-cost previews expose an accessible `Retry preview` button that refetches the same tenant-scoped read, communicates retry progress, and leaves Install disabled until a finite, nonnegative preview resolves. No install, Estimate Add, pricing, API, auth, tenant, RLS, or financial behavior changed. Added a regression contract assertion.
+- Updated the canonical Estimates mapping workflow in Figma: removed the extra Current Unit Price panel, aligned the single aggregate preview, and added retry controls to the 1440/390 preview-error states. Added and visually inspected 1440/390 Cost Item search loading, no-results, lookup-error, and install-success-return states. Prototype links now cover search entry/recovery, preview retry, resolved install, and install retry; the success state returns to the existing selected-assembly/current-cost boundary and does not imply Estimate Add.
+- PR #781 review reconciliation: CodeRabbit's two scoped findings were validated and repaired. Current-state and handoff copy now name the finite, nonnegative preview gate; the contract test isolates the exact retry button and verifies its label, refetch handler, pending disablement, and dynamic text together. The PR body still needs the repository template update on the published head, and fresh hosted checks/re-review remain pending.
+- Verification: `cd web && npm test -- --test-name-pattern "starter assembly setup"` ran the full 507-test suite and passed 507/507; focused ESLint, `npx tsc --noEmit`, a clean-cache production build, `npm run docs:check`, `npm run docs:test` (40/40), `npm run autonomy:test` (10/10), `npm run pr:preflight -- --base origin/main`, and `git diff --check` pass. Authenticated browser evidence, 1024/768 mapping targets, fresh hosted exact-head CI/re-review, thread resolution, merge, and deployment remain unverified. Figma remains Design Complete (partial), Ready for Dev NO.
+- Next five TODOs: (1) add 1024/768 responsive mapping targets and connect the existing gate entry points; (2) complete remaining prototype outcome paths and inspect the end-to-end 1440/390 flow; (3) publish this review repair, update the PR body to the repository template, and obtain fresh exact-head CI/re-review; (4) capture authenticated 390/768/1024/1440 runtime evidence without production mutation; (5) reassess Ready for Dev only after those gates pass, then continue the highest-priority unfinished approved Estimate workflow.
 
 ## Items cost columns checkpoint — 2026-10-17 UTC
 

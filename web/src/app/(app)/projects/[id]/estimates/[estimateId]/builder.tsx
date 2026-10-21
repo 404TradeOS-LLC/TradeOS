@@ -1201,6 +1201,7 @@ function StarterAssemblySetup({
   const mappedIds = template.components.map((component) => mappings[component.key]?.id ?? "");
   const mappingComplete = mappedIds.every(Boolean);
   const duplicateMapping = mappingComplete && new Set(mappedIds).size !== mappedIds.length;
+  const evidenceBlocked = Boolean(template.blockingReasons?.length);
   const incompatibleComponent = template.components.find((component) => {
     const item = mappings[component.key];
     return item && !assessCostItemMapping(component, item).compatible;
@@ -1218,12 +1219,13 @@ function StarterAssemblySetup({
       const unitCost = resolved.reduce((total, row) => total + row.unitCost * row.component.quantityPerUnit, 0);
       return { unitCost, resolved };
     },
-    enabled: mappingComplete && !duplicateMapping && !incompatibleComponent,
+    enabled: !evidenceBlocked && mappingComplete && !duplicateMapping && !incompatibleComponent,
     staleTime: 60_000,
   });
 
   const install = useMutation({
     mutationFn: async () => {
+      if (evidenceBlocked) throw new Error(`Research evidence must be repaired: ${template.blockingReasons?.join("; ")}`);
       if (!mappingComplete) throw new Error("Map every recipe slot before installing the assembly.");
       if (duplicateMapping) throw new Error("Use a different Costbook item for each recipe slot.");
       if (incompatibleComponent) throw new Error(`${incompatibleComponent.label} is mapped to an incompatible Costbook item.`);
@@ -1256,7 +1258,8 @@ function StarterAssemblySetup({
   return (
     <div className="space-y-4 rounded-lg border border-warning/40 bg-warning/10 p-3">
       <div>
-        <p className="font-medium text-foreground">Setup required before this assembly can be priced or added.</p>
+        <p className="font-medium text-foreground">{evidenceBlocked ? "Research evidence pending — installation blocked." : "Setup required before this assembly can be priced or added."}</p>
+        {evidenceBlocked ? <p role="alert" className="mt-1 text-sm text-warning">{template.blockingReasons?.join("; ")}</p> : null}
         <p className="mt-1 text-sm text-muted-foreground">
           Map each starter recipe slot to an active, compatible Costbook item. TradeOS will not invent those mappings or a price.
         </p>
@@ -1300,9 +1303,22 @@ function StarterAssemblySetup({
           ) : preview.isLoading ? (
             <p className="mt-1 text-sm text-muted-foreground">Resolving mapped Costbook costs…</p>
           ) : preview.isError ? (
-            <p className="mt-1 text-sm text-warning" role="alert">
-              Cost preview unavailable. {preview.error instanceof Error ? preview.error.message : "Try again."}
-            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-sm text-warning" role="alert">
+                Cost preview unavailable. {preview.error instanceof Error ? preview.error.message : "Try again."}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-11 sm:min-h-7"
+                aria-label={preview.isFetching ? "Retrying Costbook cost preview" : "Retry Costbook cost preview"}
+                disabled={preview.isFetching || install.isPending}
+                onClick={() => void preview.refetch()}
+              >
+                {preview.isFetching ? "Retrying…" : "Retry preview"}
+              </Button>
+            </div>
           ) : preview.data ? (
             <div className="mt-2 grid gap-1 text-sm">
               <span><strong className="font-medium">{formatCurrency(preview.data.unitCost)}</strong> / {template.unitOfMeasure}</span>
@@ -1315,16 +1331,19 @@ function StarterAssemblySetup({
         <Button
           type="button"
           onClick={() => install.mutate()}
-          disabled={install.isPending || !mappingComplete || duplicateMapping || Boolean(incompatibleComponent) || !previewReady}
+          disabled={install.isPending || evidenceBlocked || !mappingComplete || duplicateMapping || Boolean(incompatibleComponent) || !previewReady}
         >
           {install.isPending ? "Installing…" : "Install assembly"}
         </Button>
       </div>
 
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {preview.isFetching ? "Refreshing Costbook cost preview…" : ""}
+      </p>
       <div className="text-xs text-muted-foreground">
         <p>Measured by {template.measurementBasis.toLowerCase()}. {template.wasteGuidance}</p>
         <p className="mt-1">
-          Provenance: {template.review.source}, reviewed {template.review.reviewedOn}. {template.review.regionalBasis}
+          Provenance: {template.review.source}{template.review.status === "reviewed" && template.review.reviewedOn ? `, reviewed ${template.review.reviewedOn}` : " · research recipe requiring estimator review"}. {template.review.regionalBasis}
         </p>
         <p className="mt-1">Installation creates the tenant assembly only. Review its resolved cost, then use the separate Add action to write the estimate line.</p>
       </div>

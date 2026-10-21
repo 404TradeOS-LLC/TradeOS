@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-18
+last_verified: 2026-10-20
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -63,22 +63,27 @@ related_code:
 
 # TradeOS Current State
 
-## Costbook PR frontend Preview allowlist — proposed 2026-10-18
+## Costbook preview policy — PR #775 blocked on isolation verification
 
-Vercel's deployed source configs `web/vercel.json` and `app/vercel.json`
-contain `git.deploymentEnabled["**"]=false`, with only `main` and
-`staging` explicitly allowed. Read-only Vercel queries confirmed no
-deployment for branch heads of draft Costbook PRs #771/#773/#774 in
-either project. This explains why green GitHub CI cannot be treated as a
-working staging preview.
+The proposed web-only `feat/costbook-*` deployment allowlist is prepared for review; backend branches stay restricted. Do not merge or enable it until effective Preview Supabase and backend bindings are independently verified as staging-only. The connected Vercel account can read the project but its environment-metadata request returned HTTP 403; the CLI has no existing credentials. Historical staging claims are not current binding evidence. No deployment or environment value was changed.
 
-An isolated infrastructure branch `feat/costbook-preview-policy-20261018`
-proposes narrowly enabling `feat/costbook-*` **frontend** preview
-deployments only. The backend deployment restriction and staging-only
-secret inheritance remain unchanged. No production deployment or
-configuration is changed until review/merge; preview READY, identity,
-authenticated backend behavior, and staging RLS remain unverified.
+## Costbook researched assembly activation — PR #771 (proposed, 2026-10-18)
 
+PR #771 on branch `feat/costbook-88-assembly-activation-20261018`
+expands the existing 14 reviewed installable starter recipes with all 88
+static `TradeosAssembly` recipes in the same Costbook and Estimate setup
+path (102 browseable templates total). The researched set is explicitly
+marked research, includes preserved component quantities and research
+source IDs, and is NOT preinstalled or pre-priced. 11 recipes reference
+absent source registry entries (SRC-0041–SRC-0050); API/UI block their
+installation until those sources are verifiably repaired. NAHB phase
+filtering and strict first-unit component mapping are added. Existing
+tenant ownership, `costbook.write`, transaction-scoped assembly installs,
+Cost Item lookup, and Estimate Engine snapshots remain unchanged.
+
+Status: SOURCE IMPLEMENTATION UNDER REVIEW. Hosted checks are required;
+authenticated staging/production execution is not certified. do not describe the 77 source-complete research
+templates as price-ready without local mapping and estimator review.
 
 ## Items cost columns checkpoint — 2026-10-17 UTC
 
@@ -1115,7 +1120,7 @@ Contextual Athena now labels legacy Costbook matches as “Unverified pricing”
 
 ## Assembly pre-install cost preview
 
-The starter assembly mapper now provides a read-only pre-install cost preview after every required slot is mapped. It resolves each selected same-organization Cost Item through the existing unit-cost endpoint, shows cost per assembly unit, accepts an output quantity for a job-cost estimate, and exposes loading/unavailable states. The preview does not create, mutate, or apply pricing; installation remains an explicit review-first action.
+The starter assembly mapper now provides a read-only pre-install cost preview after every required slot is mapped. It resolves each selected same-organization Cost Item through the existing unit-cost endpoint, shows cost per assembly unit, accepts an output quantity for a job-cost estimate, and exposes loading/unavailable states. Preview failures now include an explicit retry action with an in-progress label; install remains gated until a finite, nonnegative preview resolves, including after a retry. The retry target is at least 44px high on mobile, retains the compact desktop size, and exposes progress through a dynamic accessible name and persistent polite status region. The preview does not create, mutate, or apply pricing; installation remains an explicit review-first action.
 
 
 ## S064 embedded Assembly Picker — active implementation
@@ -1261,6 +1266,10 @@ activation; trigger protected cron; check for an attributed, tenant-scoped
 any Material update. Vercel environment listing returned HTTP 403 in this
 inspection, so configuration completeness was not independently verified.
 See `docs/operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md`.
+
+## Davis-Bacon SAM.gov wage-feed integration (PR #700, pending)
+
+Implements key-free determination discovery and per-revision document parsing with org-scoped `davis_bacon_determinations` and `davis_bacon_rates`. A composite `(determination_id, org_id)` FK prevents a rate from pointing across tenants; active county coverage is reconciled on complete discovery. SAM.gov downloads execute outside the short RLS-backed persistence transactions. The protected cron reports per-document failures as failures. This feed is **not production verified** until migration and live two-tenant RLS tests pass on seeded staging; it does not approve prices or alter material costs.
 
 
 ## ABC Supply Product API catalog — issue #735 proposed code, not live verified (2026-10-13)
