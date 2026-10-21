@@ -418,3 +418,7 @@ S030 uses the existing Job and JobAssignment entities as the dispatcher work que
 The data-foundation slice does not add replacement catalog models. `SupplierProduct.canonicalMaterialKey` remains the supplier-listing → canonical-material bridge. A governed 12-item Terre Haute pilot registry and deterministic matcher can auto-link only unambiguous identities; unresolved products remain unlinked until a `costbook.manage` reviewer explicitly selects a governed pilot key through the supplier-evidence canonical-match route.
 
 `SupplierPriceObservation` remains tenant-scoped under forced RLS. `PriceResolver` is a read model over eligible evidence, not a table: it rejects cross-tenant, incompatible-unit and expired candidates, ranks trust before price, and returns provenance/confidence/freshness with the selected value. Existing `EstimateLineItem.unitCost`/`lineCost` values remain the historical consumption snapshot; the resolver does not rewrite them.
+
+## Davis-Bacon reference rates (PR #700, pending)
+
+`DavisBaconDetermination` stores tenant-scoped SAM.gov WD metadata and county coverage. `DavisBaconRate` stores versioned, provenance-labeled prevailing-wage floor rows and references its parent by both determination ID and organization ID, enforced by a composite foreign key. Forced row-level security protects reads and writes. These government-contract floors are not commercial estimating prices, and syncing does not reprice existing estimates.

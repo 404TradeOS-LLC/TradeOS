@@ -82,12 +82,13 @@ function browse(overrides: Partial<StarterCatalogFilters> = {}, codes = installe
 test("derives NAHB, CSI, trade and output-unit facets from actual recipes without duplicates", () => {
   assert.deepEqual(buildStarterCatalogFacets(starterFixtures), {
     nahbGroups: ["Exterior shell", "Interior finishes", "Outdoor living"],
+    nahbPhases: [],
     csiDivisions: ["06", "07", "09"],
     trades: ["Carpentry", "Painting", "Roofing"],
     units: ["SF", "SQ"],
   });
   assert.deepEqual(buildStarterCatalogFacets([]), {
-    nahbGroups: [], csiDivisions: [], trades: [], units: [],
+    nahbGroups: [], nahbPhases: [], csiDivisions: [], trades: [], units: [],
   });
 });
 
@@ -117,4 +118,20 @@ test("filters are read-only and do not mutate shared catalog recipes or tenant i
   assert.deepEqual(filtered.map((row) => row.id), ["paint"]);
   assert.deepEqual(starterFixtures, before);
   assert.deepEqual(codes, installed);
+});
+
+test("filters source recipes by NAHB phase while preserving legacy unphased starters", () => {
+  const mixed = [...starterFixtures, starter({
+    id: "research-roof", code: "07 31 13-TOS-R999",
+    nahbPhase: "4000", nahbGroup: "Full Enclosure (Dry-in)",
+    review: { status: "research", source: "TradeOS research", reviewedOn: "", regionalBasis: "Local review required" },
+    blockingReasons: ["Missing source reference"],
+  })];
+  assert.deepEqual(buildStarterCatalogFacets(mixed).nahbPhases, ["4000"]);
+  const filtered = filterStarterCatalogTemplates(mixed, {
+    ...DEFAULT_STARTER_CATALOG_FILTERS, nahbPhase: "4000",
+  }, new Set());
+  assert.deepEqual(filtered.map((item) => item.id), ["research-roof"]);
+  assert.equal(normalizeUnit("sheets"), "SHT");
+  assert.equal(normalizeUnit("lbs"), "LB");
 });

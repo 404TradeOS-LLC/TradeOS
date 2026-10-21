@@ -63,4 +63,27 @@ describe('TradeOS assembly library', () => {
     // Dollar amounts like $12.99 would indicate embedded pricing
     expect(text).not.toMatch(/\$\d+\.\d{2}/);
   });
+
+  it('requires a cabinet tier on every cabinet assembly (M9#38)', () => {
+    const tiers = ['stock', 'quick-ship', 'semi-custom'] as const;
+    const cabinetAssemblies = TRADEOS_ASSEMBLIES.filter((a) =>
+      a.id.startsWith('cabinet-')
+    );
+    expect(cabinetAssemblies.length).toBeGreaterThan(0);
+    for (const a of cabinetAssemblies) {
+      expect(tiers).toContain(a.cabinetTier);
+    }
+    // Non-cabinet assemblies must not carry a tier.
+    for (const a of TRADEOS_ASSEMBLIES.filter(
+      (a) => !a.id.startsWith('cabinet-')
+    )) {
+      expect(a.cabinetTier).toBeUndefined();
+    }
+  });
+
+  it('tiers the prehab base-cabinet assembly as stock (recommended default)', () => {
+    expect(getTradeosAssembly('cabinet-base-kitchen-prehab')?.cabinetTier).toBe(
+      'stock'
+    );
+  });
 });

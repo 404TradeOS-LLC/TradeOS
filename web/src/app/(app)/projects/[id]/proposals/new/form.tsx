@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { createProposalAction } from "@/app/actions/proposals";
 import { PaymentScheduleFields } from "@/components/proposals/payment-schedule-fields";
 import { SummaryMetricCard } from "@/components/shared/summary-metric-card";
@@ -24,8 +24,16 @@ export function NewProposalForm({
   initialEstimateId?: string;
 }) {
   const [state, formAction, isPending] = useActionState(createProposalAction, undefined);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (!state?.error) return;
+    errorRef.current?.focus({ preventScroll: true });
+    errorRef.current?.scrollIntoView({ block: "center", behavior: "instant" });
+  }, [state]);
   const eligibleEstimates = estimates.filter((estimate) => estimate.status !== "draft");
   const hasEstimates = eligibleEstimates.length > 0;
+  const [selectedEstimateId, setSelectedEstimateId] = useState(initialEstimateId ?? "");
+  const selectedEstimate = eligibleEstimates.find((estimate) => estimate.id === selectedEstimateId);
 
   return (
     <Card className="border-border/70 bg-muted/10">
@@ -33,14 +41,22 @@ export function NewProposalForm({
         <CardTitle>Proposal Draft</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="flex flex-col gap-5">
+        <form
+          action={formAction}
+          className="flex flex-col gap-5"
+          // Returned validation/API errors are fulfilled actions, so React
+          // resets uncontrolled fields. Keep edits; successful creation redirects.
+          onReset={(event) => event.preventDefault()}
+        >
           <input type="hidden" name="projectId" value={projectId} />
           <div className="flex flex-col gap-2">
             <Label htmlFor="estimateId">Estimate</Label>
             <select
               id="estimateId"
               name="estimateId"
-              defaultValue={initialEstimateId ?? ""}
+              value={selectedEstimate?.id ?? ""}
+              onChange={(event) => setSelectedEstimateId(event.target.value)}
+              aria-describedby="proposal-price-basis"
               className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <option value="">{hasEstimates ? "Use project intake only" : "No finalized estimates yet. Use project intake only."}</option>
@@ -68,8 +84,18 @@ export function NewProposalForm({
           <div className="grid gap-5 md:grid-cols-3">
             <SummaryMetricCard label="Job type" value={draft.normalizedJobType ?? "Needs confirmation"} />
             <SummaryMetricCard label="AI confidence" value={draft.confidenceScore !== null ? `${draft.confidenceScore}%` : "Not scored"} />
-            <SummaryMetricCard label="Range" value={`${formatCurrency(draft.priceLow)} - ${formatCurrency(draft.priceHigh)}`} />
+            <div role="status" aria-live="polite" aria-atomic="true">
+              <SummaryMetricCard
+                label={selectedEstimate ? "Proposal price" : "Intake range"}
+                value={selectedEstimate ? formatCurrency(selectedEstimate.totalPrice) : `${formatCurrency(draft.priceLow)} - ${formatCurrency(draft.priceHigh)}`}
+              />
+            </div>
           </div>
+          <p id="proposal-price-basis" className="text-sm text-muted-foreground">
+            {selectedEstimate
+              ? `Uses finalized estimate v${selectedEstimate.version}'s saved total. The proposal draft is created at this fixed price; nothing is sent to the customer.`
+              : "Uses the saved project intake range. This form does not set a fixed proposal price; review pricing in the created draft before sending."}
+          </p>
           {(draft.missingInfo.length > 0 || draft.aiQuestions.length > 0) && (
             <div className="grid gap-5 md:grid-cols-2">
               <EmptyState
@@ -125,7 +151,7 @@ export function NewProposalForm({
             <Label htmlFor="termsAndConditions">Terms &amp; conditions</Label>
             <Textarea id="termsAndConditions" name="termsAndConditions" rows={4} />
           </div>
-          {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+          {state?.error && <p ref={errorRef} role="alert" tabIndex={-1} className="rounded-sm text-sm text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">{state.error}</p>}
           <Button type="submit" disabled={isPending}>
             {isPending ? "Creating…" : "Create proposal"}
           </Button>
@@ -137,5 +163,6 @@ export function NewProposalForm({
 
 function formatCurrency(value: number | null) {
   if (value === null) return "Not set";
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+  if (!Number.isFinite(value)) return "Unavailable";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 }

@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PackageSearch, ShieldCheck, ArrowLeft, ArrowRight } from "lucide-react";
+import { ShieldCheck, ArrowLeft, ArrowRight } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getSessionToken } from "@/lib/session";
 import { listAbcSupplyCatalog, type AbcCatalogResult } from "@/lib/costbook-api";
+import { AbcCatalogProductPreview } from "@/components/costbook/abc-catalog-product-preview";
 
 export const metadata: Metadata = {
   title: "ABC Supply Catalog | TradeOS",
@@ -113,32 +114,7 @@ export default async function AbcCatalogPage({ searchParams }: { searchParams: P
           ) : (
             <div className="grid gap-3 md:grid-cols-2" aria-label="ABC Supply product results">
               {catalog.items.map((product) => (
-                <article key={product.itemNumber} className="rounded-xl border border-border/70 bg-card p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <PackageSearch className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
-                    <span className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">Unpriced</span>
-                  </div>
-                  <h2 className="mt-3 text-base font-semibold leading-6 text-foreground">
-                    {product.name || "ABC item — description not supplied"}
-                  </h2>
-                  <p className="mt-1 break-all font-mono text-xs text-muted-foreground">ABC #{product.itemNumber}</p>
-                  <dl className="mt-3 grid gap-1 text-sm text-muted-foreground">
-                    <div><dt className="inline font-medium">Manufacturer: </dt><dd className="inline">{product.manufacturer || "Not supplied"}</dd></div>
-                    <div><dt className="inline font-medium">Family: </dt><dd className="inline">{product.familyName || product.familyId || "Not supplied"}</dd></div>
-                    <div><dt className="inline font-medium">Units: </dt><dd className="inline">{product.uoms.length ? "Provider unit options available for verification" : "Not supplied"}</dd></div>
-                    {product.isDimensional ? <div>Dimensional item — verify exact variation and length before pricing</div> : null}
-                    {product.prop65Warnings.length ? <div>Product carries manufacturer/Prop 65 warning information</div> : null}
-                  </dl>
-                  <Link
-                    href={"/costbook/abc-catalog/" + encodeURIComponent(product.itemNumber)}
-                    className="mt-3 inline-flex rounded-md border border-primary/40 px-3 py-2 text-sm font-medium text-foreground outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    View product details
-                  </Link>
-                  <p className="mt-3 border-t border-border/70 pt-3 text-xs text-muted-foreground">
-                    Requires account-scoped pricing and reviewed Material activation before estimating.
-                  </p>
-                </article>
+                <AbcCatalogProductPreview key={product.itemNumber} product={product} />
               ))}
             </div>
           )}
