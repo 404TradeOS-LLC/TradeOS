@@ -1,6 +1,6 @@
 import type { CostItemCatalogRecord } from "@/components/costbook/cost-item-catalog-actions";
 
-export type AssemblyCatalogUnit = "CY" | "EA" | "GAL" | "HR" | "LF" | "LS" | "SF" | "SQ" | "TON";
+export type AssemblyCatalogUnit = "CY" | "EA" | "GAL" | "HR" | "LF" | "LS" | "SF" | "SQ" | "TON" | "BAG" | "BF" | "BD" | "BOX" | "BTL" | "CAN" | "DAY" | "KIT" | "LB" | "PAIR" | "ROLL" | "SET" | "SHT" | "SY" | "TUB" | "TUBE";
 export type AssemblyCatalogCostItemKind = "allowance" | "composite" | "equipment" | "labor" | "material" | "subcontractor";
 
 export type StarterCatalogComponent = {
@@ -21,13 +21,16 @@ export type StarterCatalogTemplate = {
   csiDivision: string;
   csiTitle: string;
   nahbGroup: string;
+  nahbPhase?: string;
+  blockingReasons?: string[];
+  evidenceRefs?: string[];
   trade: string;
   measurementBasis: string;
   wasteGuidance: string;
   version: number;
   review: {
-    status: "reviewed";
-    source: "TradeOS-authored";
+    status: "reviewed" | "research";
+    source: string;
     reviewedOn: string;
     regionalBasis: string;
   };
@@ -70,6 +73,13 @@ export function normalizeUnit(value: string): AssemblyCatalogUnit | null {
     SF: "SF", SQFT: "SF", "SQ FT": "SF", "SQUARE FOOT": "SF", "SQUARE FEET": "SF", FT2: "SF",
     SQ: "SQ", SQUARE: "SQ", SQUARES: "SQ", "ROOFING SQUARE": "SQ", "ROOFING SQUARES": "SQ",
     TON: "TON", TONS: "TON",
+    BAG: "BAG", BAGS: "BAG", BF: "BF", "BOARD FOOT": "BF", "BOARD FEET": "BF",
+    BD: "BD", BOARD: "BD", BOARDS: "BD", BOX: "BOX", BOXES: "BOX", BTL: "BTL", BOTTLE: "BTL", BOTTLES: "BTL",
+    CAN: "CAN", CANS: "CAN", DAY: "DAY", DAYS: "DAY", KIT: "KIT", KITS: "KIT",
+    LB: "LB", LBS: "LB", POUND: "LB", POUNDS: "LB", PAIR: "PAIR", PAIRS: "PAIR",
+    ROLL: "ROLL", ROLLS: "ROLL", SET: "SET", SETS: "SET", SHT: "SHT", SHEET: "SHT", SHEETS: "SHT",
+    SY: "SY", "SQUARE YARD": "SY", "SQUARE YARDS": "SY", TUB: "TUB", TUBS: "TUB",
+    TUBE: "TUBE", TUBES: "TUBE",
   };
   return aliases[normalized] ?? null;
 }
@@ -88,4 +98,73 @@ function formatList(values: readonly string[]) {
   if (values.length === 1) return values[0];
   if (values.length === 2) return `${values[0]} or ${values[1]}`;
   return `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`;
+}
+
+
+/**
+ * Read-only browse facets over server-returned, price-neutral starter recipes.
+ * Installation is derived from the tenant's active Assembly codes, not
+ * template metadata. These helpers never grant write access or change recipes.
+ */
+export type StarterCatalogInstallation = "all" | "installed" | "available";
+
+export type StarterCatalogFilters = {
+  query: string;
+  nahbGroup: string;
+  nahbPhase: string;
+  csiDivision: string;
+  trade: string;
+  unit: string;
+  installation: StarterCatalogInstallation;
+};
+
+export const DEFAULT_STARTER_CATALOG_FILTERS: StarterCatalogFilters = {
+  query: "",
+  nahbGroup: "all",
+  nahbPhase: "all",
+  csiDivision: "all",
+  trade: "all",
+  unit: "all",
+  installation: "all",
+};
+
+export function buildStarterCatalogFacets(templates: readonly StarterCatalogTemplate[]) {
+  const unique = (values: string[]) =>
+    [...new Set(values.filter((value) => value.trim()))]
+      .sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
+  return {
+    nahbGroups: unique(templates.map((template) => template.nahbGroup)),
+    nahbPhases: unique(templates.map((template) => template.nahbPhase ?? "")),
+    csiDivisions: unique(templates.map((template) => template.csiDivision)),
+    trades: unique(templates.map((template) => template.trade)),
+    units: unique(templates.map((template) => template.unitOfMeasure)),
+  };
+}
+
+export function isStarterCatalogInstalled(template: Pick<StarterCatalogTemplate, "code">, installedCodes: ReadonlySet<string>) {
+  return installedCodes.has(template.code.trim().toUpperCase());
+}
+
+export function filterStarterCatalogTemplates(
+  templates: readonly StarterCatalogTemplate[],
+  filters: StarterCatalogFilters,
+  installedCodes: ReadonlySet<string>,
+): StarterCatalogTemplate[] {
+  const text = filters.query.trim().toLocaleLowerCase();
+  return templates.filter((template) => {
+    if (filters.nahbGroup !== "all" && template.nahbGroup !== filters.nahbGroup) return false;
+    if (filters.nahbPhase !== "all" && template.nahbPhase !== filters.nahbPhase) return false;
+    if (filters.csiDivision !== "all" && template.csiDivision !== filters.csiDivision) return false;
+    if (filters.trade !== "all" && template.trade !== filters.trade) return false;
+    if (filters.unit !== "all" && template.unitOfMeasure !== filters.unit) return false;
+    const installed = isStarterCatalogInstalled(template, installedCodes);
+    if (filters.installation === "installed" && !installed) return false;
+    if (filters.installation === "available" && installed) return false;
+    if (!text) return true;
+    return [
+      template.name, template.code, template.description, template.trade,
+      template.csiTitle, template.csiDivision, template.nahbGroup, template.nahbPhase ?? "",
+      template.measurementBasis, template.unitOfMeasure,
+    ].some((value) => value.toLocaleLowerCase().includes(text));
+  });
 }

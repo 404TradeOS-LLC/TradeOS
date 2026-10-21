@@ -1,0 +1,75 @@
+name: Backfill ABC supplier materials (link only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type LINK_EXISTING_ABC_MATERIALS to authorize link-only production operation
+        type: string
+        required: true
+      org_id:
+        description: Target TradeOS organization UUID
+        type: string
+        required: true
+      user_id:
+        description: Active owner/admin AppUser UUID
+        type: string
+        required: true
+      dry_run:
+        description: Preview links only; no writes
+        type: boolean
+        required: true
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: abc-material-link-production
+  cancel-in-progress: false
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Verify operator authorization inputs
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          ORG_ID: ${{ inputs.org_id }}
+          USER_ID: ${{ inputs.user_id }}
+        run: |
+          set -euo pipefail
+          [[ "$CONFIRMATION" == "LINK_EXISTING_ABC_MATERIALS" ]] || { echo "Confirmation required" >&2; exit 1; }
+          uuid_re='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+          [[ "$ORG_ID" =~ $uuid_re && "$USER_ID" =~ $uuid_re ]] || { echo "Valid UUIDs required" >&2; exit 1; }
+      - name: Install and verify backfill contract
+        run: |
+          npm ci
+          npx jest --runInBand --runTestsByPath tests/backfill-abc-materials.test.ts tests/costbook-47802-seed-workflow.test.ts
+      - name: Resolve restricted application database role
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_ADMIN_URL: ${{ secrets.DATABASE_ADMIN_URL }}
+          APP_DB_ROLE_PASSWORD: ${{ secrets.APP_DB_ROLE_PASSWORD }}
+          APP_DB_ROLE_NAME: ${{ secrets.APP_DB_ROLE_NAME }}
+        run: node scripts/derive-restricted-database-url.cjs
+      - name: Link approved materials only
+        env:
+          ORG_ID: ${{ inputs.org_id }}
+          USER_ID: ${{ inputs.user_id }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          NODE_ENV: production
+        run: |
+          set -euo pipefail
+          args=(--org-id "$ORG_ID" --user-id "$USER_ID")
+          if [[ "$DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
+          npx ts-node scripts/backfill-abc-materials.ts "${args[@]}"

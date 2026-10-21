@@ -1,4 +1,7 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
+import { SharedSupplierCronRateLimitStore } from "./supplierCronRateLimitStore";
+import { isCatalogEnabled } from "../../modules/supplier-integration/abcCatalog";
 import { costbookController as ctrl } from "../controllers/costbook.controller";
 import { costbookPricingController as pricingCtrl } from "../controllers/costbookPricing.controller";
 import { costDatabaseController as costItemCtrl } from "../controllers/costDatabase.controller";
@@ -6,10 +9,25 @@ import { assembliesDatabaseController as assemblyCtrl } from "../controllers/ass
 import { costbookCandidatesController as candidateCtrl } from "../controllers/costbookCandidates.controller";
 import { costbookCompositeBenchmarksController as compositeBenchmarkCtrl } from "../controllers/costbookCompositeBenchmarks.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
+import { davisBaconController as davisBaconCtrl } from "../controllers/davisBacon.controller";
 
 export const costbookRouter = Router();
 
 costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
+// Product API browsing and details use one shared global rate-limit budget.
+const abcCatalogLimiter = rateLimit({
+  store: new SharedSupplierCronRateLimitStore("abc-catalog"),
+  windowMs: 1000,
+  limit: 2,
+  keyGenerator: () => "abc-sandbox-product-read",
+  skip: () => !isCatalogEnabled(),
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+costbookRouter.get("/abc/catalog", abcCatalogLimiter, asyncHandler(ctrl.abcCatalog));
+costbookRouter.get("/abc/catalog/items/:itemNumber", abcCatalogLimiter, asyncHandler(ctrl.abcCatalogItem));
+costbookRouter.get("/abc/catalog/items/:itemNumber/availability", abcCatalogLimiter, asyncHandler(ctrl.abcCatalogAvailability));
+costbookRouter.get("/abc/hierarchy", abcCatalogLimiter, asyncHandler(ctrl.abcCatalogHierarchy));
 costbookRouter.get("/supplier-evidence/summary", asyncHandler(ctrl.regionalSupplierEvidenceSummary));
 costbookRouter.get("/supplier-evidence", asyncHandler(ctrl.listRegionalSupplierEvidence));
 costbookRouter.post("/supplier-evidence/import", asyncHandler(ctrl.importRegionalSupplierEvidence));
@@ -18,6 +36,9 @@ costbookRouter.post("/supplier-evidence/products/:id/canonical-match", asyncHand
 costbookRouter.post("/pricing/preview", asyncHandler(pricingCtrl.preview));
 costbookRouter.get("/pricing/resolve", asyncHandler(pricingCtrl.resolve));
 costbookRouter.get("/price-history", asyncHandler(pricingCtrl.history));
+costbookRouter.get("/davis-bacon/determinations", asyncHandler(davisBaconCtrl.listDeterminations));
+costbookRouter.get("/davis-bacon/rates", asyncHandler(davisBaconCtrl.listRates));
+costbookRouter.get("/davis-bacon/county-rates", asyncHandler(davisBaconCtrl.countyRates));
 
 costbookRouter.get("/cost-items", asyncHandler(costItemCtrl.list));
 costbookRouter.get("/cost-items/search", asyncHandler(costItemCtrl.search));

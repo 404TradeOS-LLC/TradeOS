@@ -2,8 +2,10 @@ import { z } from "zod";
 import { prisma } from "../../db/client";
 import type { SupplierFeedFetcher } from "./types";
 import { logInfo } from "../../backend/logging";
-import { AbcSupplyAuth, AbcSupplyPricingClient, createAbcSupplyFeedFetcher, loadAbcSupplyConfig } from "./abcSupply";
+import { AbcSupplyAuth, AbcSupplyPricingClient, loadAbcSupplyConfig } from "./abcSupply";
+import type { AbcSupplyAuthConfig } from "./abcSupply";
 import { abcSupplyRefreshTokenStore } from "./credentialStore";
+import { AbcAccountAuthorizationError } from "./abcAccountAuthorizationError";
 
 const endpointMapSchema = z.record(z.string().uuid(), z.string().url());
 const feedSchema = z.object({
@@ -56,8 +58,8 @@ async function readBodyWithinLimit(response: Response): Promise<string> {
  * `npm run db:import-suppliers` (app/scripts/import-suppliers-from-dataset.ts),
  * which derives Supplier rows from the static costbook dataset and prints the
  * supplierCode -> UUID table — do not hand-make the row. When it matches the
- * sync target, the ABC sandbox pricing feed runs (a no-op [] when the
- * ABC_SUPPLY_SANDBOX_* credentials are absent). All other supplier IDs fall
+ * sync target, unattended ABC customer pricing is blocked (even when the
+ * ABC_SUPPLY_SANDBOX_* credentials are present). All other supplier IDs fall
  * through to fetchConfiguredSupplierFeed, preserving existing behavior exactly.
  */
 export interface DefaultSupplierFeedDeps {
@@ -68,46 +70,69 @@ export interface DefaultSupplierFeedDeps {
 /** Deadline applied to the ABC Supply sandbox route, matching the generic endpoint fetcher. */
 const ABC_FEED_TIMEOUT_MS = 15_000;
 
-function buildAbcFetcher(): SupplierFeedFetcher {
-  return async (supplierId, orgId) => {
-    const config = loadAbcSupplyConfig();
-    if (!config) return [];
+/** Read-only single-SKU sandbox quote. Uses the SAME durable Vault rotation path as cron. */
+export async function priceOneAbcSandboxSku(
+  orgId: string,
+  supplierId: string,
+  sku: string,
+): Promise<import("./abcSupply").AbcPricedLine[]> {
+  const config = loadAbcSupplyConfig();
+  if (!config) throw new Error("ABC sandbox credentials are not configured");
+  if (process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID?.trim() !== supplierId) {
+    throw new Error("ABC sandbox supplier does not match configured tenant supplier");
+  }
+  const { authConfig, auth } = await createDurableAbcAuth(config, orgId, supplierId);
+  const pricing = new AbcSupplyPricingClient(auth, fetch);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ABC_FEED_TIMEOUT_MS);
+  try {
+    return await pricing.priceItems(
+      [{ id: "review-0", itemNumber: sku, quantity: 1 }],
+      { branchNumber: authConfig.branchNumber, shipToNumber: authConfig.shipToNumber },
+      controller.signal,
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
-    // The environment token is bootstrap/recovery configuration only. Once
-    // ABC rotates it, the durable Vault value wins on every invocation so a
-    // Vercel cold start cannot resurrect an invalidated token.
-    const durableRefreshToken = await abcSupplyRefreshTokenStore.load(orgId, supplierId);
-    const authConfig = {
-      ...config,
-      refreshToken: durableRefreshToken ?? config.refreshToken,
-    };
-    const auth = new AbcSupplyAuth(authConfig, fetch, Date.now, {
-      onRefreshTokenRotated: async (next) => {
-        // Persist before pricing continues. If durability fails, fail the sync
-        // rather than consume a one-time rotation and lose the replacement.
-        await abcSupplyRefreshTokenStore.persist(orgId, supplierId, next);
-        logInfo("supplier_integration.abc_refresh_token_rotated", {
-          orgId,
-          supplierId,
-          persisted: true,
-        });
-      },
-    });
-    const pricing = new AbcSupplyPricingClient(auth, fetch);
+/** Resolves the durable Vault refresh token, falling back to the env bootstrap token. Exported as a test seam. */
+export async function createDurableAbcAuth<T extends AbcSupplyAuthConfig>(
+  config: T,
+  orgId: string,
+  supplierId: string,
+) {
+  const durableRefreshToken = await abcSupplyRefreshTokenStore.load(orgId, supplierId);
+  // The durable Vault credential is authoritative. The env token is only a
+  // bootstrap/recovery fallback. When neither exists, fail closed instead of
+  // calling ABC with an empty credential.
+  const refreshToken = durableRefreshToken ?? config.refreshToken;
+  if (!refreshToken) {
+    throw new AbcAccountAuthorizationError("ABC sandbox refresh token is not configured");
+  }
+  const authConfig = { ...config, refreshToken };
+  const auth = new AbcSupplyAuth(authConfig, fetch, Date.now, {
+    onRefreshTokenRotated: async (next) => {
+      await abcSupplyRefreshTokenStore.persist(orgId, supplierId, next);
+      logInfo("supplier_integration.abc_refresh_token_rotated", { orgId, supplierId, persisted: true });
+    },
+  });
+  return { authConfig, auth };
+}
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), ABC_FEED_TIMEOUT_MS);
-    try {
-      return await createAbcSupplyFeedFetcher({
-        config: authConfig,
-        auth,
-        pricing,
-        signal: controller.signal,
-      })(supplierId, orgId);
-    } finally {
-      clearTimeout(timeout);
-    }
-  };
+/**
+ * Third-Party Aggregator pricing requires an active, connected user at
+ * request time. Background cron cannot impersonate that user. No env flag,
+ * scheduler identity or Vault refresh token grants an exception.
+ */
+export class AbcUnattendedPricingError extends Error {
+  readonly code = "abc_user_present_required" as const;
+  readonly retryable = false as const;
+
+  constructor() {
+    super("ABC unattended customer pricing is disabled: a user-present request is required");
+    this.name = "AbcUnattendedPricingError";
+  }
 }
 
 export function createDefaultSupplierFeedFetcher(
@@ -116,7 +141,12 @@ export function createDefaultSupplierFeedFetcher(
   return async (supplierId, orgId) => {
     const abcSupplierId = process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID?.trim();
     if (abcSupplierId && abcSupplierId === supplierId) {
-      return (deps.abcFetcher ?? buildAbcFetcher())(supplierId, orgId);
+      // The explicit override is a test seam only; a production cron may
+      // never use injected credentials or an alternate provider transport.
+      if (process.env.NODE_ENV !== "test" || !deps.abcFetcher) {
+        throw new AbcUnattendedPricingError();
+      }
+      return deps.abcFetcher(supplierId, orgId);
     }
     return fetchConfiguredSupplierFeed(supplierId, orgId);
   };
@@ -155,6 +185,11 @@ export const fetchConfiguredSupplierFeed: SupplierFeedFetcher = async (supplierI
     select: { id: true, apiIntegrationKey: true },
   });
   if (!supplier) throw new Error(`Supplier ${supplierId} is not visible in organization ${orgId}`);
+  // Defense-in-depth: if the operator's ABC supplier UUID config drifts,
+  // never route an ABC-tagged supplier through the generic endpoint.
+  if (supplier.apiIntegrationKey === "ABC_SUPPLY") {
+    throw new AbcUnattendedPricingError();
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);

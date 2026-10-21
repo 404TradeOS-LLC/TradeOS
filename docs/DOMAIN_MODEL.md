@@ -293,6 +293,9 @@ Supplier OAuth credentials are operational secrets, not Costbook catalog entitie
 - `tradeos_app` receives execute access to the private helpers but no direct read/write privileges on Vault secrets or decrypted-secret views
 - the environment refresh token remains a bootstrap/recovery value; provider rotations replace the durable Vault value before the pricing request continues
 - this credential boundary does not change Material costs, supplier price approval, Estimate pricing, or catalog identity semantics
+- migration `20261011123000_add_abc_oauth_states` creates `abc_oauth_authorization_states` for the user-present reauthorization handshake (issue #711): 10-minute TTL, atomic single-use consume, and only HMAC-SHA256 hashes (keyed with the server-side `ABC_OAUTH_STATE_HMAC_SECRET`) of the state and browser-binding tokens stored at rest
+- the OAuth wrappers are SECURITY DEFINER with no app-role table access; `tradeos_app` receives explicit execute grants via `app/scripts/sql/provision-app-role.sql`
+- the callback is bound to the initiating browser via a short-lived httpOnly/Secure/SameSite=Lax cookie (RFC 6749 section 10.12); the raw binding secret never leaves the browser cookie or server memory, and a mismatched or missing cookie rejects the callback without consuming the state
 
 ## Costbook labor-rates foundation
 
@@ -415,3 +418,7 @@ S030 uses the existing Job and JobAssignment entities as the dispatcher work que
 The data-foundation slice does not add replacement catalog models. `SupplierProduct.canonicalMaterialKey` remains the supplier-listing → canonical-material bridge. A governed 12-item Terre Haute pilot registry and deterministic matcher can auto-link only unambiguous identities; unresolved products remain unlinked until a `costbook.manage` reviewer explicitly selects a governed pilot key through the supplier-evidence canonical-match route.
 
 `SupplierPriceObservation` remains tenant-scoped under forced RLS. `PriceResolver` is a read model over eligible evidence, not a table: it rejects cross-tenant, incompatible-unit and expired candidates, ranks trust before price, and returns provenance/confidence/freshness with the selected value. Existing `EstimateLineItem.unitCost`/`lineCost` values remain the historical consumption snapshot; the resolver does not rewrite them.
+
+## Davis-Bacon reference rates (PR #700, pending)
+
+`DavisBaconDetermination` stores tenant-scoped SAM.gov WD metadata and county coverage. `DavisBaconRate` stores versioned, provenance-labeled prevailing-wage floor rows and references its parent by both determination ID and organization ID, enforced by a composite foreign key. Forced row-level security protects reads and writes. These government-contract floors are not commercial estimating prices, and syncing does not reprice existing estimates.

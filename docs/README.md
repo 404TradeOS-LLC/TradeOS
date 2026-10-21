@@ -167,7 +167,10 @@ Decision records under `docs/decisions/` explain durable architectural choices.
 completion flows. Other files under `docs/agent-prompts/` are compatibility
 links or lane-specific additions and do not define parallel general contracts.
 
-## Documentation enforcement
+## Documentation
+
+**ABC Supply operator preview (2026-10-09):** The [read-only ABC Material preview workflow](../.github/workflows/preview-abc-supply-material.yml) accepts one verified tenant, owner/admin and supplier product key, uses the protected production Environment and restricted role, and prints a guarded preview only. It does **not** activate Materials or approve prices; see [ABC Supply live pricing pilot](operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md).
+ enforcement
 
 Documentation changes are enforced in the same branch and pull request as relevant code changes.
 
@@ -324,6 +327,8 @@ The repository's CodeQL and frontend code-quality autofix workflows are governed
 
 ### GitHub Actions runtime maintenance
 
+The 2026-10-13 `actions/setup-node` v7.1.0 refresh updates the Node-bootstrap action across 18 existing workflow files. Workflows that already used immutable action SHAs now reference `949feb2413d6458794dcd2491c4babbbce0c15c1`; three existing version-tagged invocations use `v7.1.0`. Node workload versions remain set independently by each job (`20` or `24`). This is an action maintenance change, not a change to CI authority, runtime deployment, environment approval, or secret handling.
+
 `.github/workflows/codeql-autofix.yml` pins `actions/github-script` v9.0.0 by immutable commit SHA. Its script uses only the injected `github`, `context`, and `core` objects; it does not use CommonJS `require('@actions/github')` or redeclare the v9-injected `getOctokit` parameter. This is CI-runtime maintenance only and does not change TradeOS workload runtimes, workflow permissions, product behavior, auth/RLS, schema, or billing semantics.
 
 ### Sprint governance base scope
@@ -355,3 +360,29 @@ The seed runtime uses only a restricted application-role database connection. It
 
 The manual `Seed 47802 Costbook supplier evidence` workflow (`.github/workflows/seed-costbook-supplier-prices-47802.yml`) is the governed operator path for importing the checked-in 3,188-row Terre Haute supplier corpus into the existing tenant-scoped `Supplier`, `SupplierProduct`, and `SupplierPriceObservation` boundaries. It is production-environment gated, confirmation-gated, serialized, and replay-idempotent. The workflow does not promote observations into `Material.unitCost`, reprice Estimates, or treat source workbook canonical keys as authoritative TradeOS identity.
 
+
+### Assembly Catalog exact-SHA two-role browser evidence
+
+The manual `.github/workflows/assembly-catalog-browser-evidence.yml` lane
+checks the released Assembly Catalog facets at 1440px and 390px with distinct,
+real owner/admin and read-only smoke users in one sanitized Preview tenant.
+It requires exact deployed Vercel SHA and branch-scoped non-production Supabase
+attestation, verifies Costbook membership through a read-only workspace GET,
+removes both runner-temp sessions, and credential-scans screenshots and reports
+before artifact publication. No live browser capture or release certification
+is implied by adding the workflow; see `docs/testing/PLAYWRIGHT_AGENTS.md`.
+### ABC Supply link-only Material backfill
+
+The protected `.github/workflows/backfill-abc-materials.yml` operator workflow now supports a confirmation-gated, production-environment, restricted-role **link-only** backfill with dry-run enabled by default. The runner processes at most 25 supplier products per tenant-scoped database session, advances by product ID, and links only a unique eligible ABC supplier SKU to an existing active Material with the same supplier, SKU, and purchase unit. It creates no Materials and changes no Material prices; new Materials still require separately reviewed, owner-approved single-product activation. This workflow has not been production-executed or proven by live ABC sandbox pricing.
+
+
+## Required integration context execution — 2026-10-13
+
+`Verify repository` runs the actual `App integration tests` job for every pull request, merge-group and main push after scope detection. The prior backend-path condition skipped this branch-protection-required context on frontend-only PRs such as #731/#732. The required integration/migration rehearsal now executes regardless of App/Web scope; other non-required backend jobs retain path scoping. No synthetic success context, branch-protection change, credential change or production database access is introduced. Existing psql provisioning and the disposable-database test runner remain unchanged. Hosted execution is required before claiming integration PASS. Rollback is restoring the job condition, which also restores the known skipped-context gap.
+
+
+**ABC sandbox workflow startup (2026-10-15):** The pre-checkout confirmation step must use workspace-root `working-directory: .`, while post-checkout tests and the read-only Product API probe use `app`. GitHub run #38797027952 failed on a missing pre-checkout directory before reaching ABC; a green PR validation does not replace an owner-triggered real sandbox verification.
+
+**ABC Supply Product API live proof (issue #735):** The manual [ABC sandbox catalog evidence runbook](operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md) explains how to obtain real `product.read` catalog-pagination evidence without storing supplier content, retrieving customer-specific prices, or claiming full import. The associated workflow is disabled until deliberately dispatched from `main` with authorized sandbox credentials.
+
+The staging database uses its own manually dispatched Prisma migration workflow at `.github/workflows/deploy-staging-migrations.yml`. It runs only from `main`, targets the verified TradeOS Staging project ref, and calls the repository's `app/scripts/deploy-migrations.sh` so Prisma history and restricted-role grants stay aligned. Configure `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` as secrets in the GitHub `staging` Environment; never reuse Production secrets. The workflow verifies the database host, invoice backfill precondition, and final Prisma ledger.

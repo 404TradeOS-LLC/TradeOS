@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Prisma, PrismaClient } from "@prisma/client";
 import {
   getRequestDatabaseClient,
@@ -11,6 +12,10 @@ import { OrganizationProvisioningService } from "../modules/organization-provisi
 import { MaterialDatabaseService } from "../modules/material-database/service";
 import { SupplierIntegrationService } from "../modules/supplier-integration/service";
 import { runSupplierPriceSyncJob } from "../modules/supplier-integration/worker";
+import {
+  consumeAuthorizationState,
+  createAuthorizationState,
+} from "../modules/supplier-integration/abcOAuth";
 import { AssembliesDatabaseService } from "../modules/assemblies-database/service";
 import { ProposalsService } from "../modules/proposals/service";
 import { EstimateEngineService } from "../modules/estimate-engine/service";
@@ -101,6 +106,11 @@ const generationReviewViewer = "10000000-0000-0000-0000-000000000127";
 const generationTechnician = "10000000-0000-0000-0000-000000000128";
 const generationReviewTechnician = "10000000-0000-0000-0000-000000000129";
 const portalContractA = "10000000-0000-0000-0000-000000000206";
+
+const davisBaconDeterminationA = "rls-davis-bacon-determination-a";
+const davisBaconDeterminationB = "rls-davis-bacon-determination-b";
+const davisBaconRateA = "rls-davis-bacon-rate-a";
+const davisBaconRateB = "rls-davis-bacon-rate-b";
 
 describe("live organization row-level security", () => {
   beforeAll(async () => {
@@ -646,6 +656,52 @@ describe("live organization row-level security", () => {
         },
       ],
     });
+    await adminClient.davisBaconDetermination.createMany({
+      data: [
+        {
+          id: davisBaconDeterminationA,
+          orgId: orgA,
+          wdNumber: "IN20260050",
+          revisionNumber: 1,
+          state: "IN",
+          counties: ["Vigo"],
+          constructionTypes: ["Residential"],
+        },
+        {
+          id: davisBaconDeterminationB,
+          orgId: orgB,
+          wdNumber: "IN20260003",
+          revisionNumber: 2,
+          state: "IN",
+          counties: ["Vigo"],
+          constructionTypes: ["Building"],
+        },
+      ],
+    });
+    await adminClient.davisBaconRate.createMany({
+      data: [
+        {
+          id: davisBaconRateA,
+          orgId: orgA,
+          determinationId: davisBaconDeterminationA,
+          wdNumber: "IN20260050",
+          revisionNumber: 1,
+          rateIdentifier: "TEST-A",
+          occupation: "CARPENTER",
+          baseRate: 25,
+        },
+        {
+          id: davisBaconRateB,
+          orgId: orgB,
+          determinationId: davisBaconDeterminationB,
+          wdNumber: "IN20260003",
+          revisionNumber: 2,
+          rateIdentifier: "TEST-B",
+          occupation: "ELECTRICIAN",
+          baseRate: 30,
+        },
+      ],
+    });
   });
 
   afterAll(async () => {
@@ -666,6 +722,70 @@ describe("live organization row-level security", () => {
     });
 
     expect(row).toBeNull();
+  });
+
+  it("enforces Davis-Bacon determination and rate tenant boundaries", async () => {
+    const visibleDeterminations = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().davisBaconDetermination.findMany({ orderBy: { id: "asc" } })
+    );
+    expect(visibleDeterminations.map((row) => row.id)).toEqual([davisBaconDeterminationA]);
+
+    const visibleRates = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().davisBaconRate.findMany({ orderBy: { id: "asc" } })
+    );
+    expect(visibleRates.map((row) => row.id)).toEqual([davisBaconRateA]);
+
+    await expect(
+      inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().davisBaconDetermination.create({
+          data: {
+            id: "rls-davis-bacon-cross-org",
+            orgId: orgB,
+            wdNumber: "IN20990001",
+            revisionNumber: 1,
+            state: "IN",
+            counties: ["Vigo"],
+            constructionTypes: ["Building"],
+          },
+        })
+      )
+    ).rejects.toThrow();
+
+    // A writable tenant may not reference a different tenant's WD. PostgreSQL
+    // FK checks bypass RLS, so this must be enforced by the composite FK.
+    await expect(
+      inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().davisBaconRate.create({
+          data: {
+            id: "rls-davis-bacon-cross-parent",
+            orgId: orgA,
+            determinationId: davisBaconDeterminationB,
+            wdNumber: "IN20260003",
+            revisionNumber: 2,
+            rateIdentifier: "TEST-CROSS-ORG",
+            occupation: "LABORER",
+            baseRate: 20,
+          },
+        })
+      )
+    ).rejects.toThrow();
+
+    await expect(
+      inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().davisBaconRate.create({
+          data: {
+            id: "rls-davis-bacon-viewer-write",
+            orgId: orgA,
+            determinationId: davisBaconDeterminationA,
+            wdNumber: "IN20260050",
+            revisionNumber: 1,
+            rateIdentifier: "TEST-VIEWER",
+            occupation: "LABORER",
+            baseRate: 20,
+          },
+        })
+      )
+    ).rejects.toThrow();
   });
 
   it("enforces regional supplier evidence tenant and manager boundaries", async () => {
@@ -1128,6 +1248,39 @@ describe("live organization row-level security", () => {
     expect(hiddenUnassignedJob).toBeNull();
   });
 
+  it("denies an unassigned same-organization technician job reads and completion at the database boundary", async () => {
+    const unassignedJob = randomUUID();
+    await adminClient.job.create({ data: {
+      id: unassignedJob, orgId: orgA, projectId: projectA,
+      customerId: customerA, serviceAddressId: serviceAddressA,
+      jobNumber: `UNASSIGNED-${unassignedJob}`, title: "Unassigned denial fixture",
+      jobType: "HVAC Service", status: "on_site", priority: "medium", createdById: adminUser,
+    } });
+    try {
+      const hidden = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().job.findUnique({ where: { id: unassignedJob } })
+      );
+      expect(hidden).toBeNull();
+      const update = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().job.updateMany({ where: { id: unassignedJob }, data: { status: "completed" } })
+      );
+      expect(update.count).toBe(0);
+      await expect(inSession(technicianUser, orgA, "technician", async () =>
+        new JobsService().getById(orgA, unassignedJob, { userId: technicianUser, role: "technician" })
+      )).rejects.toMatchObject({ statusCode: 404 });
+      await expect(inSession(technicianUser, orgA, "technician", async () =>
+        new JobsService().complete(unassignedJob, {
+          orgId: orgA, actor: { userId: technicianUser, orgId: orgA, role: "technician" },
+        })
+      )).rejects.toMatchObject({ statusCode: 404 });
+      expect((await adminClient.job.findUnique({ where: { id: unassignedJob } }))?.status).toBe("on_site");
+      expect(await adminClient.activityEvent.count({ where: { orgId: orgA, entityType: "job", entityId: unassignedJob } })).toBe(0);
+    } finally {
+      await adminClient.activityEvent.deleteMany({ where: { orgId: orgA, entityType: "job", entityId: unassignedJob } });
+      await adminClient.job.delete({ where: { id: unassignedJob } });
+    }
+  });
+
   it("denies a cross-organization Job transition before any status or activity write", async () => {
     await expect(
       inSession(otherUser, orgB, "owner", async () =>
@@ -1531,6 +1684,81 @@ describe("live organization row-level security", () => {
     );
     expect(audits).toHaveLength(1);
     expect(audits[0]).toMatchObject({ oldUnitCost: expect.anything(), actorRole: "admin" });
+  });
+
+  it("grants the restricted role execute on the ABC OAuth state wrappers with tenant binding", async () => {
+    const stateHash = `it-state-${randomUUID()}`;
+    const bindingHash = `it-binding-${randomUUID()}`;
+    const callbackUri = "https://api.404tradeos.com/api/v1/supplier-integrations/abc/oauth/callback";
+
+    // Without the provision-app-role.sql grants, every call below fails with
+    // "permission denied for function" under the restricted connection.
+    await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().$executeRaw(Prisma.sql`
+        select tradeos_private.create_abc_oauth_state(
+          ${orgA}::uuid, ${adminUser}::uuid, ${supplierA}::uuid,
+          ${stateHash}, ${"it-verifier"}, ${callbackUri}, ${bindingHash}, 600
+        )`),
+    );
+
+    // A wrong browser binding does not consume the state (RFC 6749 section 10.12).
+    const mismatched = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().$queryRaw<Array<{ org_id: string }>>(Prisma.sql`
+        select org_id from tradeos_private.consume_abc_oauth_state(${stateHash}, ${"wrong-binding"})`),
+    );
+    expect(mismatched).toHaveLength(0);
+
+    // The correct binding consumes exactly once and returns the tenant context.
+    const consumed = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().$queryRaw<Array<{ org_id: string; user_id: string; supplier_id: string }>>(Prisma.sql`
+        select org_id, user_id, supplier_id
+        from tradeos_private.consume_abc_oauth_state(${stateHash}, ${bindingHash})`),
+    );
+    expect(consumed).toHaveLength(1);
+    expect(consumed[0]).toMatchObject({ org_id: orgA, user_id: adminUser, supplier_id: supplierA });
+
+    // Replay returns nothing.
+    const replay = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().$queryRaw<Array<{ org_id: string }>>(Prisma.sql`
+        select org_id from tradeos_private.consume_abc_oauth_state(${stateHash}, ${bindingHash})`),
+    );
+    expect(replay).toHaveLength(0);
+
+    // Creation rejects a tenant session that does not match the parameters.
+    await expect(
+      inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().$executeRaw(Prisma.sql`
+          select tradeos_private.create_abc_oauth_state(
+            ${orgB}::uuid, ${adminUser}::uuid, ${supplierA}::uuid,
+            ${`it-other-${randomUUID()}`}, ${"v"}, ${callbackUri}, ${"b"}, 600
+          )`),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("creates ABC OAuth states through the module path only inside a tenant session", async () => {
+    process.env.ABC_OAUTH_STATE_HMAC_SECRET = "integration-test-hmac-secret-not-a-real-secret";
+    const request = { orgId: orgA, userId: adminUser, supplierId: supplierA };
+
+    // Regression: the authorize endpoint 500'd in production because the TTL
+    // reached Postgres as bigint while the wrapper takes integer (42883). The
+    // module path must also fail closed without a tenant session, per the
+    // wrapper's contract.
+    await expect(createAuthorizationState(request)).rejects.toThrow();
+
+    // Inside the request's tenant session (as the endpoint now does), the module
+    // path creates the state and the callback path consumes it exactly once.
+    const created = await inSession(adminUser, orgA, "admin", () => createAuthorizationState(request));
+    expect(created.state).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(created.codeChallenge).toBeTruthy();
+    expect(created.browserBinding).toBeTruthy();
+
+    const consumed = await consumeAuthorizationState(created.state, created.browserBinding);
+    expect(consumed).toMatchObject({ orgId: orgA, userId: adminUser, supplierId: supplierA });
+    expect(consumed?.codeVerifier).toBeTruthy();
+
+    // Single-use: a second consume returns nothing.
+    await expect(consumeAuthorizationState(created.state, created.browserBinding)).resolves.toBeNull();
   });
 
   it("enforces supplier write permissions and protects suppliers with price update history from deletion", async () => {

@@ -78,3 +78,56 @@ test("developer metadata does not claim live health or hidden inventory", async 
   assert.doesNotMatch(page, /healthStatus: "Nominal"/);
   assert.doesNotMatch(page, /project-workspace, ai-estimate-assist, estimate-compare/);
 });
+
+test("ABC error explanations are server-filtered, nullable and do not update prices", async () => {
+  const source = await readSource("./settings-console.tsx");
+  assert.match(source, /providerStatusMessage: result\.providerStatusMessage \?\? null/);
+  assert.match(source, /ABC response: \$\{abcProbe\.providerStatusMessage\}/);
+  assert.match(source, /ABC did not provide a safe item-level explanation/);
+  assert.match(source, /No price was saved or approved/);
+});
+
+test("ABC account selection stays read-only and only uses the authenticated same-origin API", async () => {
+  const source = await readSource("./settings-console.tsx");
+  assert.match(source, /clientFetch<\{ accounts: AbcShipToAccountOption\[\] \}>/);
+  assert.match(source, /"\/api\/v1\/supplier-integrations\/abc\/accounts"/);
+  assert.match(source, /ABC Supply accounts and branches/);
+  assert.match(source, /Find ABC accounts/);
+  assert.match(source, /id="abc-shipto-account"/);
+  assert.match(source, /id="abc-branch"/);
+  assert.match(source, /setSelectedAbcBranch\(""\)/);
+  assert.match(source, /Selection is temporary and read-only/);
+  assert.match(source, /the ABC price test still uses its separately configured sandbox account/);
+  assert.match(source, /abcAccountDiscovery\.state === "needs-authorization"/);
+  assert.doesNotMatch(source, /localStorage\.setItem\("abc/);
+});
+
+test("selected ABC quote is explicit, account/branch bound, and no-write", async () => {
+  const source = await readSource("./settings-console.tsx");
+  assert.match(source, /"\/api\/v1\/supplier-integrations\/abc\/selected-price-probe"/);
+  assert.match(source, /shipToNumber: selectedAbcAccount\.number/);
+  assert.match(source, /branchNumber: selectedAbcBranch/);
+  assert.match(source, /Test selected ABC price/);
+  assert.match(source, /02GASTZ3WW/);
+  assert.match(source, /result\.materialCreated \|\| result\.priceApplied \|\| result\.accountPreferenceSaved/);
+  assert.match(source, /Material unit mapping was not verified/);
+  assert.match(source, /setAbcSelectedQuote\(\{ state: "idle" \}\)/);
+  assert.doesNotMatch(source, /localStorage\.setItem\("abc/);
+});
+
+test("ABC selected quote aborts stale requests when account, branch, or SKU changes", async () => {
+  const source = await readSource("./settings-console.tsx");
+  assert.match(source, /const abcQuoteVersion = useRef\(0\)/);
+  assert.match(source, /abcQuoteAbortRef\.current\?\.abort\(\)/);
+  assert.match(source, /if \(version !== abcQuoteVersion\.current\) return/);
+  assert.match(source, /signal: controller\.signal/);
+  assert.match(source, /resetAbcSelectedQuote\(\)/);
+});
+
+test("selected sandbox diagnostics show only server-screened failed-line explanations", async () => {
+  const source = await readSource("./settings-console.tsx");
+  assert.match(source, /providerStatusMessage: string \| null/);
+  assert.match(source, /providerStatusMessage: result\.providerStatusMessage/);
+  assert.match(source, /ABC says:/);
+  assert.match(source, /No price or account preference was saved/);
+});

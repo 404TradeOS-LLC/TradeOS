@@ -1,6 +1,29 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { SupplierIntegrationService } from "../../modules/supplier-integration/service";
+import { probeAbcSandboxPricing, safeAbcProviderStatusMessage } from "../../modules/supplier-integration/abcPricingProbe";
+import { AbcSupplyAccountClient } from "../../modules/supplier-integration/abcAccount";
+import { AbcAccountAuthorizationError } from "../../modules/supplier-integration/abcAccountAuthorizationError";
+import { AbcSupplyPricingClient, loadAbcSupplyAuthConfig } from "../../modules/supplier-integration/abcSupply";
+import { createDurableAbcAuth } from "../../modules/supplier-integration/feed";
+import {
+  ABC_OAUTH_BROWSER_COOKIE_NAME,
+  ABC_OAUTH_CALLBACK_URL,
+  ABC_OAUTH_SETTINGS_RETURN_URL,
+  buildAuthorizeUrl,
+  buildBrowserBindingCookie,
+  buildClearBrowserBindingCookie,
+  consumeAuthorizationState,
+  createAuthorizationState,
+  exchangeAuthorizationCode,
+  isOAuthStateHmacConfigured,
+  readCookieValue,
+} from "../../modules/supplier-integration/abcOAuth";
+import { abcSupplyRefreshTokenStore } from "../../modules/supplier-integration/credentialStore";
+import { basePrisma, prisma } from "../../db/client";
+import { runWithBackgroundDatabaseSession } from "../../db/requestSession";
+import { ApiError } from "../middleware/errorHandler";
+import { logError, logInfo } from "../logging";
 import { requireOrgId, requirePermissions } from "../requestContext";
 import { catalogQuerySchema, parseCatalogQuery } from "../../modules/shared/catalog-query";
 
@@ -20,7 +43,263 @@ const enqueueSchema = z.object({
   source: z.string().trim().min(1).max(64).optional(),
 }).strict();
 
+const abcProbeSchema = z.object({
+  productKey: z.literal("ABC-654210"),
+}).strict();
+
+// No caller-supplied tenant, supplier, Ship-To, branch or provider URL.
+// All values come from the authenticated session and server configuration.
+const abcAccountsQuerySchema = z.object({}).strict();
+const ABC_ACCOUNTS_TIMEOUT_MS = 15_000;
+const selectedQuoteSchema = z.object({
+  shipToNumber: z.string().trim().min(1).max(40).regex(/^[A-Za-z0-9-]+$/),
+  branchNumber: z.string().trim().min(1).max(24).regex(/^[A-Za-z0-9-]+$/),
+  sku: z.enum(["654210", "02GASTZ3WW"]),
+}).strict();
+
+const abcOAuthCallbackQuerySchema = z.object({
+  code: z.string().min(1).max(2048),
+  state: z.string().min(1).max(512),
+});
+
+/**
+ * Diagnostic step identifying where the ABC OAuth callback failed. Carries
+ * no secrets, codes, or tokens — only the stage name, so a failed
+ * reauthorization can be triaged from the redirect URL alone.
+ */
+export type AbcOAuthCallbackStep = "request" | "state" | "exchange" | "persist";
+
+function abcOAuthReturnUrl(flag: "success" | "error", step?: AbcOAuthCallbackStep): string {
+  const url = new URL(ABC_OAUTH_SETTINGS_RETURN_URL);
+  url.searchParams.set("abc_oauth", flag);
+  if (flag === "error" && step) url.searchParams.set("abc_oauth_step", step);
+  return url.toString();
+}
+
+async function resolveAbcSupplier(orgId: string): Promise<string> {
+  const supplierId = process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID?.trim();
+  if (!supplierId) throw new ApiError(503, "ABC supplier routing is not configured");
+  const supplier = await prisma.supplier.findFirst({
+    where: { id: supplierId, orgId, apiIntegrationKey: "ABC_SUPPLY" },
+    select: { id: true },
+  });
+  if (!supplier) throw new ApiError(404, "Configured ABC supplier is not available to this workspace");
+  return supplier.id;
+}
+
 export const supplierIntegrationController = {
+  /**
+   * Starts the user-present ABC OAuth reauthorization flow. Returns the ABC
+   * sandbox authorize URL; the founder's browser completes authorization at
+   * ABC and returns via the allowlisted callback. Also sets the short-lived
+   * httpOnly browser-binding cookie (RFC 6749 section 10.12) that the
+   * callback requires before consuming the state.
+   */
+  async initiateAbcOAuth(req: Request, res: Response) {
+    const actor = requirePermissions(req, ["costbook.manage"]);
+    if (!["owner", "admin"].includes(actor.role)) {
+      throw new ApiError(403, "Only a workspace owner/admin can connect ABC pricing");
+    }
+    const orgId = requireOrgId(req);
+    const supplierId = await resolveAbcSupplier(orgId);
+    const clientId = process.env.ABC_SUPPLY_SANDBOX_CLIENT_ID?.trim();
+    if (!clientId) throw new ApiError(503, "ABC sandbox credentials are not configured on the API");
+    if (!isOAuthStateHmacConfigured()) {
+      throw new ApiError(503, "ABC OAuth reauthorization is not configured on the API");
+    }
+
+    const { state, codeChallenge, browserBinding } = await createAuthorizationState({
+      orgId,
+      userId: actor.userId,
+      supplierId,
+    });
+    res.setHeader("Set-Cookie", buildBrowserBindingCookie(browserBinding, req.hostname));
+    res.json({
+      authorizeUrl: buildAuthorizeUrl({
+        clientId,
+        redirectUri: ABC_OAUTH_CALLBACK_URL,
+        state,
+        codeChallenge,
+      }),
+    });
+  },
+
+  /**
+   * ABC OAuth callback. Unauthenticated by design: the single-use state
+   * token is the credential, and ABC's browser redirect carries no JWT.
+   * The callback is bound to the initiating browser via the httpOnly
+   * binding cookie: without a matching cookie the state is not consumed,
+   * which defeats the token-substitution attack where an attacker tricks
+   * someone else into completing their authorize URL. Consumes the state
+   * exactly once, exchanges the code server-side, and persists the refresh
+   * token through the owner/admin Vault path. Every outcome redirects to
+   * Settings with a sanitized success/error flag; no codes, tokens, or
+   * provider bodies are logged or surfaced.
+   */
+  async handleAbcOAuthCallback(req: Request, res: Response) {
+    // The binding secret is single-use: expire the cookie on every callback
+    // outcome so it never lingers in the browser past the flow.
+    const finish = (flag: "success" | "error", step?: AbcOAuthCallbackStep) => {
+      res.setHeader("Set-Cookie", buildClearBrowserBindingCookie(req.hostname));
+      return res.redirect(302, abcOAuthReturnUrl(flag, step));
+    };
+    // Tracks the callback stage for the diagnostic step flag. A failed
+    // state validation is otherwise silent server-side (consume returns
+    // null rather than throwing), so the step is the only signal.
+    let step: AbcOAuthCallbackStep = "request";
+    try {
+      const parsed = abcOAuthCallbackQuerySchema.parse(req.query);
+      const browserBinding = readCookieValue(req.headers.cookie, ABC_OAUTH_BROWSER_COOKIE_NAME);
+      step = "state";
+      const consumed = await consumeAuthorizationState(parsed.state, browserBinding);
+      if (!consumed || consumed.redirectUri !== ABC_OAUTH_CALLBACK_URL) {
+        logError("supplier_integration.abc_oauth_callback_failed", {
+          reason: "authorization_state_invalid",
+          step,
+        });
+        return finish("error", step);
+      }
+      step = "exchange";
+      const clientId = process.env.ABC_SUPPLY_SANDBOX_CLIENT_ID?.trim();
+      const clientSecret = process.env.ABC_SUPPLY_SANDBOX_CLIENT_SECRET?.trim();
+      if (!clientId || !clientSecret) {
+        logError("supplier_integration.abc_oauth_callback_failed", { reason: "credentials_not_configured", step });
+        return finish("error", step);
+      }
+      const { refreshToken } = await exchangeAuthorizationCode({
+        code: parsed.code,
+        codeVerifier: consumed.codeVerifier,
+        redirectUri: consumed.redirectUri,
+        clientId,
+        clientSecret,
+      });
+      step = "persist";
+      await runWithBackgroundDatabaseSession(
+        basePrisma,
+        { jobName: "abc-oauth-callback", orgId: consumed.orgId, userId: consumed.userId },
+        async () => {
+          await abcSupplyRefreshTokenStore.persistInCurrentSession(consumed.orgId, consumed.supplierId, refreshToken);
+        },
+      );
+      logInfo("supplier_integration.abc_oauth_reauthorized", {
+        orgId: consumed.orgId,
+        supplierId: consumed.supplierId,
+      });
+      return finish("success");
+    } catch (error) {
+      logError("supplier_integration.abc_oauth_callback_failed", {
+        error: error instanceof Error ? error.message : String(error),
+        step,
+      });
+      return finish("error", step);
+    }
+  },
+
+  /**
+   * Read-only ABC sandbox Ship-To discovery for the active authenticated
+   * tenant. Requires a user-present account.read grant in Supabase Vault.
+   * Never accepts account IDs or supplier URLs from request parameters.
+   */
+  async listAbcSandboxAccounts(req: Request, res: Response) {
+    const actor = requirePermissions(req, ["costbook.manage"]);
+    if (!["owner", "admin"].includes(actor.role)) {
+      throw new ApiError(403, "Only a workspace owner/admin can view ABC sandbox accounts");
+    }
+    abcAccountsQuerySchema.parse(req.query);
+    const orgId = requireOrgId(req);
+    const supplierId = await resolveAbcSupplier(orgId);
+    const config = loadAbcSupplyAuthConfig();
+    if (!config) throw new ApiError(503, "ABC sandbox OAuth client credentials are not configured on the API");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ABC_ACCOUNTS_TIMEOUT_MS);
+    try {
+      const { auth } = await createDurableAbcAuth(config, orgId, supplierId);
+      const accounts = await new AbcSupplyAccountClient(auth).searchShipToAccounts(controller.signal);
+      return res.json({ accounts });
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new ApiError(504, "ABC sandbox account discovery timed out");
+      }
+      // Older grants have pricing.read but not account.read. Do not echo
+      // provider response bodies, access/refresh tokens or account numbers.
+      if (error instanceof AbcAccountAuthorizationError) {
+        throw new ApiError(409, "ABC account access needs a fresh authorization with account.read");
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  },
+
+  /** Explicit user-initiated diagnostic; revalidate account and branch server-side. */
+  async probeSelectedAbcSandbox(req: Request, res: Response) {
+    const actor = requirePermissions(req, ["costbook.manage"]);
+    if (!["owner", "admin"].includes(actor.role)) {
+      throw new ApiError(403, "Only a workspace owner/admin can test selected ABC pricing");
+    }
+    z.object({}).strict().parse(req.query);
+    const { shipToNumber, branchNumber, sku } = selectedQuoteSchema.parse(req.body);
+    const orgId = requireOrgId(req);
+    const supplierId = await resolveAbcSupplier(orgId);
+    const config = loadAbcSupplyAuthConfig();
+    if (!config) throw new ApiError(503, "ABC sandbox OAuth credentials are not configured");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ABC_ACCOUNTS_TIMEOUT_MS);
+    try {
+      const { auth } = await createDurableAbcAuth(config, orgId, supplierId);
+      const accounts = await new AbcSupplyAccountClient(auth).searchShipToAccounts(controller.signal);
+      const account = accounts.find((entry) => entry.number === shipToNumber && entry.status.toLowerCase() === "active");
+      const branch = account?.branches.find((entry) =>
+        entry.number === branchNumber && entry.status.toLowerCase() === "active");
+      if (!branch) throw new ApiError(403, "This ABC Ship-To and branch pair is not authorized");
+      const lines = await new AbcSupplyPricingClient(auth).priceItems(
+        [{ id: "selected-review-0", itemNumber: sku, quantity: 1 }],
+        { shipToNumber, branchNumber }, controller.signal,
+      );
+      const matched = lines.filter((entry) => entry.id === "selected-review-0" && entry.itemNumber === sku);
+      if (matched.length > 1) throw new ApiError(502, "ABC returned ambiguous pricing evidence");
+      const line = matched[0];
+      const eligible = Boolean(line?.statusCode === "OK" && line.currencyCode === "USD" &&
+        line.uom && /^[A-Za-z0-9-]{1,16}$/.test(line.uom) &&
+        Number.isFinite(line.unitPrice) && line.unitPrice > 0 &&
+        line.unitPrice <= 99_999_999.9999 &&
+        Math.abs(line.unitPrice * 10_000 - Math.round(line.unitPrice * 10_000)) <= 1e-6);
+      return res.json({
+        sku, quantity: 1, priced: eligible,
+        price: eligible ? line!.unitPrice : null,
+        currency: eligible ? "USD" : null,
+        stockingUnit: eligible ? line!.uom : null,
+        providerStatus: line?.statusCode?.slice(0, 48) ?? "no_matching_line",
+        // Share only the same short, privacy-screened failed-line reason as
+        // the existing pilot. Never echo raw provider bodies or credentials.
+        providerStatusMessage: !eligible && line?.statusCode !== "OK"
+          ? safeAbcProviderStatusMessage(line?.statusMessage) : null,
+        materialCreated: false, priceApplied: false, accountPreferenceSaved: false,
+        unitMappingVerified: false,
+      });
+    } catch (error) {
+      if (controller.signal.aborted) throw new ApiError(504, "ABC selected pricing timed out");
+      if (error instanceof ApiError) throw error;
+      if (error instanceof AbcAccountAuthorizationError) {
+        throw new ApiError(409, "ABC account or pricing access needs fresh authorization");
+      }
+      if (error instanceof Error && error.message === "ABC Supply Price Items request failed: HTTP 401") {
+        throw new ApiError(403, "ABC did not authorize this Ship-To for pricing");
+      }
+      throw new ApiError(502, "ABC selected sandbox pricing was unavailable");
+    } finally {
+      clearTimeout(timeout);
+    }
+  },
+
+  async probeAbcSandbox(req: Request, res: Response) {
+    const actor = requirePermissions(req, ["costbook.manage"]);
+    if (!["owner", "admin"].includes(actor.role)) {
+      throw new ApiError(403, "Only a workspace owner/admin can test ABC sandbox pricing");
+    }
+    const { productKey } = abcProbeSchema.parse(req.body);
+    res.json(await probeAbcSandboxPricing(requireOrgId(req), productKey));
+  },
   async listQueue(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
     const parsed = listQuerySchema.parse(req.query);

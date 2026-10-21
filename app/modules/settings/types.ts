@@ -68,6 +68,8 @@ export interface OrganizationSettingsSnapshot {
 
 export interface OrganizationSettingsDTO {
   orgId: string;
+  /** Verified application actor for this authenticated Settings response. */
+  currentUserId: string;
   settings: Partial<OrganizationSettingsSnapshot>;
   updatedAt: Date | null;
   currentRole: string;

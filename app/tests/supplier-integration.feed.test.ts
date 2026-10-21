@@ -5,7 +5,12 @@ const mockPrisma = {
   $executeRaw: jest.fn(async (..._args: unknown[]) => 1),
 };
 
-jest.mock("../db/client", () => ({ prisma: mockPrisma, basePrisma: mockPrisma }));
+const mockRotationClient = { $transaction: jest.fn() };
+jest.mock("../db/client", () => ({
+  prisma: mockPrisma,
+  basePrisma: mockPrisma,
+  getSupplierTokenRotationClient: jest.fn(() => mockRotationClient),
+}));
 const mockRunWithDatabaseSession = jest.fn(async (
   _client: unknown, _actor: unknown, action: () => Promise<unknown>
 ) => action());
@@ -20,6 +25,7 @@ jest.mock("../db/requestSession", () => ({
 
 import { fetchConfiguredSupplierFeed, createDefaultSupplierFeedFetcher } from "../modules/supplier-integration/feed";
 import type { SupplierFeedFetcher } from "../modules/supplier-integration/types";
+import { executeBackgroundAttempt } from "../modules/background/retry";
 
 const supplierId = "11111111-1111-4111-8111-111111111111";
 const materialId = "22222222-2222-4222-8222-222222222222";
@@ -65,6 +71,22 @@ describe("configured supplier price feed", () => {
       select: { id: true, apiIntegrationKey: true },
     });
     expect(global.fetch).toBe(originalFetch);
+  });
+
+  it("blocks generic supplier URL transport for ABC-tagged rows when ABC UUID configuration is absent", async () => {
+    delete process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID;
+    process.env.SUPPLIER_PRICE_FEED_ENDPOINTS = JSON.stringify({ [supplierId]: "https://supplier.example/prices" });
+    mockPrisma.supplier.findFirst.mockResolvedValue({ id: supplierId, apiIntegrationKey: "ABC_SUPPLY" });
+    global.fetch = jest.fn() as unknown as typeof fetch;
+    const outcome = await executeBackgroundAttempt({
+      orgId, workerId: "44444444-4444-4444-8444-444444444444",
+      jobName: "supplier-price-sync",
+    }, () => createDefaultSupplierFeedFetcher()(supplierId, orgId));
+    expect(outcome).toMatchObject({
+      status: "terminal_failure",
+      failure: { code: "abc_user_present_required", retryable: false, nextAttemptAt: null },
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it("fetches a strict quote payload with the supplier bearer key", async () => {
@@ -202,119 +224,63 @@ describe("default supplier price feed (ABC routing)", () => {
     expect(abcFetcher).not.toHaveBeenCalled();
   });
 
-  it("loads the durable ABC refresh token and persists a rotation before pricing", async () => {
+  it("never runs unattended ABC customer pricing even with valid Vault and provider configuration", async () => {
     process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID = abcSupplierId;
     process.env.ABC_SUPPLY_SANDBOX_CLIENT_ID = "cid";
-    process.env.ABC_SUPPLY_SANDBOX_CLIENT_SECRET = "csecret";
-    process.env.ABC_SUPPLY_SANDBOX_REFRESH_TOKEN = "env-bootstrap-token";
+    process.env.ABC_SUPPLY_SANDBOX_CLIENT_SECRET = "private";
+    process.env.ABC_SUPPLY_SANDBOX_REFRESH_TOKEN = "bootstrap-test-token";
     process.env.ABC_SUPPLY_BRANCH_NUMBER = "340";
     process.env.ABC_SUPPLY_SHIP_TO_NUMBER = "2010466-2";
     delete process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
-
-    mockPrisma.$queryRaw.mockResolvedValueOnce([{ refresh_token: "vault-refresh-token" }]);
-    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1" }]);
-
-    const calls: string[] = [];
-    global.fetch = jest.fn(async (url: string | URL, init?: RequestInit) => {
-      const target = String(url);
-      calls.push(target);
-      if (target.includes("/v1/token")) {
-        expect(String(init?.body)).toContain("refresh_token=vault-refresh-token");
-        return response({
-          access_token: "abc-access-token",
-          expires_in: 1800,
-          refresh_token: "rotated-refresh-token",
-        });
-      }
-      expect((init?.headers as Record<string, string>).authorization).toBe("Bearer abc-access-token");
-      return response({
-        requestId: "price-1",
-        lines: [{
-          id: "line-0",
-          itemNumber: "SKU-1",
-          unitPrice: 42.5,
-          currency: { code: "USD", symbol: "$" },
-          status: { code: "OK", message: "Priced Successfully" },
-        }],
-      });
-    }) as typeof fetch;
+    global.fetch = jest.fn() as unknown as typeof fetch;
 
     const fetcher = createDefaultSupplierFeedFetcher();
-    await expect(fetcher(abcSupplierId, orgId)).resolves.toEqual([
+    await expect(fetcher(abcSupplierId, orgId)).rejects.toThrow(
+      "ABC unattended customer pricing is disabled",
+    );
+    expect(global.fetch).not.toHaveBeenCalled();
+    const outcome = await executeBackgroundAttempt({
+      orgId, workerId: "44444444-4444-4444-8444-444444444444",
+      jobName: "supplier-price-sync",
+    }, () => fetcher(abcSupplierId, orgId));
+    expect(outcome).toMatchObject({
+      status: "terminal_failure",
+      failure: {
+        code: "abc_user_present_required",
+        retryable: false,
+        nextAttemptAt: null,
+      },
+    });
+    expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
+    expect(mockPrisma.$executeRaw).not.toHaveBeenCalled();
+    expect(mockPrisma.material.findMany).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back to generic URL feeds for the ABC supplier", async () => {
+    process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID = abcSupplierId;
+    process.env.SUPPLIER_PRICE_FEED_ENDPOINTS = JSON.stringify({
+      [abcSupplierId]: "https://supplier.example/prices",
+    });
+    global.fetch = jest.fn() as unknown as typeof fetch;
+    await expect(createDefaultSupplierFeedFetcher()(abcSupplierId, orgId))
+      .rejects.toThrow("ABC unattended customer pricing is disabled");
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("test seam does not allow injected unattended ABC fetches outside tests", async () => {
+    process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID = abcSupplierId;
+    const oldNodeEnv = process.env.NODE_ENV;
+    const injected: SupplierFeedFetcher = jest.fn(async () => [
       { materialId, proposedUnitCost: 42.5 },
     ]);
-    expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
-    expect(mockRunWithDatabaseSession).toHaveBeenCalledWith(
-      mockPrisma,
-      expect.objectContaining({ orgId, role: "owner" }),
-      expect.any(Function),
-      "supplier_refresh_token_rotation",
-    );
-    const persistSql = mockPrisma.$executeRaw.mock.calls[0][0] as { values: unknown[] };
-    expect(persistSql.values).toEqual(expect.arrayContaining([orgId, abcSupplierId, "rotated-refresh-token"]));
-    expect(calls).toHaveLength(2);
-  });
-
-  it("fails before pricing when a rotated ABC refresh token cannot be persisted", async () => {
-    process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID = abcSupplierId;
-    process.env.ABC_SUPPLY_SANDBOX_CLIENT_ID = "cid";
-    process.env.ABC_SUPPLY_SANDBOX_CLIENT_SECRET = "csecret";
-    process.env.ABC_SUPPLY_SANDBOX_REFRESH_TOKEN = "env-bootstrap-token";
-    process.env.ABC_SUPPLY_BRANCH_NUMBER = "340";
-    process.env.ABC_SUPPLY_SHIP_TO_NUMBER = "2010466-2";
-    delete process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
-
-    mockPrisma.$queryRaw.mockResolvedValueOnce([{ refresh_token: "vault-refresh-token" }]);
-    mockPrisma.$executeRaw.mockRejectedValueOnce(new Error("vault persistence unavailable"));
-    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1" }]);
-
-    global.fetch = jest.fn(async (url: string | URL) => {
-      if (String(url).includes("/v1/token")) {
-        return response({
-          access_token: "abc-access-token",
-          expires_in: 1800,
-          refresh_token: "rotated-refresh-token",
-        });
-      }
-      throw new Error("pricing request must not run when token persistence fails");
-    }) as typeof fetch;
-
-    const fetcher = createDefaultSupplierFeedFetcher();
-    await expect(fetcher(abcSupplierId, orgId)).rejects.toThrow("vault persistence unavailable");
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-  });
-
-  it("aborts a stalled ABC sandbox request at the feed deadline", async () => {
-    process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID = abcSupplierId;
-    process.env.ABC_SUPPLY_SANDBOX_CLIENT_ID = "cid";
-    process.env.ABC_SUPPLY_SANDBOX_CLIENT_SECRET = "csecret";
-    process.env.ABC_SUPPLY_SANDBOX_REFRESH_TOKEN = "rt";
-    process.env.ABC_SUPPLY_BRANCH_NUMBER = "340";
-    process.env.ABC_SUPPLY_SHIP_TO_NUMBER = "2010466-2";
-    delete process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
-    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1" }]);
-    // fetch hangs until the abort signal fires, like a stalled provider
-    global.fetch = jest.fn(
-      (_url: string, init?: RequestInit) =>
-        new Promise((_resolve, reject) => {
-          init?.signal?.addEventListener("abort", () =>
-            reject(new DOMException("The operation was aborted.", "AbortError")),
-          );
-        }),
-    ) as unknown as typeof fetch;
-
-    jest.useFakeTimers();
     try {
-      const fetcher = createDefaultSupplierFeedFetcher();
-      const pending = fetcher(abcSupplierId, orgId);
-      // Attach the assertion before the deadline fires so the abort
-      // rejection is observed rather than unhandled.
-      const assertion = expect(pending).rejects.toThrow(/abort/i);
-      await jest.advanceTimersByTimeAsync(15_000);
-      await assertion;
+      process.env.NODE_ENV = "production";
+      await expect(createDefaultSupplierFeedFetcher({ abcFetcher: injected })(abcSupplierId, orgId))
+        .rejects.toThrow("ABC unattended customer pricing is disabled");
+      expect(injected).not.toHaveBeenCalled();
     } finally {
-      jest.useRealTimers();
+      process.env.NODE_ENV = oldNodeEnv;
     }
   });
+
 });

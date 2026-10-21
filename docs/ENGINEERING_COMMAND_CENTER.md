@@ -43,6 +43,11 @@ related_code:
 
 # TradeOS Engineering Command Center
 
+## ABC Supply material activation pilot — 2026-10-09
+
+Production SQL read verification after the 47802 evidence seed reports 3,188 SupplierProducts, 3,188 source price observations, six Suppliers, and **zero active Materials / zero SupplierPriceUpdates**; observations are assigned to one tenant and historical rather than authenticated live ABC quotes. The new protected GitHub Actions workflow `preview-abc-supply-material.yml` makes the existing exact-product activation operator's **read-only** mode available to an owner/admin on mobile using the application user/organization IDs exposed by Settings → Costbook. Actual activation still needs independent SKU/UOM and baseline-cost authorization and explicit `--apply` outside this workflow. Live ABC sandbox quote and durable token rotation remain unproven until a reviewed Material becomes eligible.
+
+
 ## S073 release-critical RLS coverage — READY 2026-10-05
 
 Founder authorization starts S073 from current `main` `37deee0bad44d8c3ca4ad65f7e89d15190d7cae3`. Dependency S051 is DONE and no live S073 implementation lane exists. The implementation target is evidence, not policy redesign: derive every S052-S060 persisted resource from the S051 matrix/current route-service code, map it to current forced-RLS migration/policy evidence, and require disposable-PostgreSQL same-org/cross-org proof. Existing `rls.integration.ts` covers many core records, but direct live coverage is absent for at least customer-portal token/session rows, estimate line items, and invoice line items. If testing exposes a policy defect, record a blocking owner and stop before schema/migration/RLS/auth changes.
@@ -218,14 +223,16 @@ The manual `Repair RC beta Vercel wiring` workflow is the guarded operational pa
 
 ## Required verification
 
+The October 2026 CI action-refresh lane updates `actions/setup-node` from 7.0.0 to 7.1.0 across the existing GitHub Actions workflows without changing workflow triggers, permissions, target Node workload versions, or the set of protected required checks. SHA-pinned uses advance to `949feb2413d6458794dcd2491c4babbbce0c15c1`; existing version-tagged uses advance to `v7.1.0`. The workflow-security policy and Actions lint checks remain expected supplemental evidence. Documentation ownership checks still require this Command Center, the docs entrypoint, and Repository Governance for workflow edits.
+
 Expected required CI jobs include:
 
 - `Docs consistency` — validates PR-description structure first, then PR-preflight tests, autonomy-reconciliation regressions, and documentation ownership validation;
 - `App lint, unit tests, and build` — Prisma schema validation, high-severity production dependency audit, TypeScript typecheck, backend unit tests, Athena contracts/smoke, build, the `Costbook provenance audit` child job (`npm run costbook:audit-provenance`, blocking only on structural corpus defects, never on missing-provenance warnings, added 2026-09-10), and tracked-source cleanliness when the pull request changes `app/**` or `packages/knowledge-engine/**`; the required job still reports success without expensive setup for unrelated pull-request diffs;
-- `App integration tests` — production migration-path rehearsal against disposable PostgreSQL plus live integration/RLS verification when the pull request changes `app/**` or `packages/knowledge-engine/**`; the required job still reports success without expensive setup for unrelated pull-request diffs;
+- `App integration tests` — actual production migration-path rehearsal against disposable PostgreSQL plus live integration/RLS verification for every pull request, merge group and main push; this required job is never skipped based on changed paths;
 - `Web lint and build` — production dependency audit, frontend unit tests, lint, build, and tracked-source cleanliness when the pull request changes `web/**`; the required job still reports success without expensive setup for unrelated pull-request diffs.
 
-Pushes to `main` run all app, integration, and web verification lanes. Pull-request path scoping reduces unrelated CI work without changing required check names, branch-protection requirements, or the meaning of a green check for the code actually changed. The required App and Web summary jobs aggregate parallel child jobs so the branch-protection interface remains stable while wall-clock verification is reduced.
+Pushes to `main` run all app, integration, and web verification lanes. App/Web child-lane path scoping reduces unrelated CI work; the required integration suite always executes, and required check names and branch protection remain unchanged. The required App and Web summary jobs aggregate parallel child jobs so the branch-protection interface remains stable while wall-clock verification is reduced.
 
 Repository workflows use supported action-runtime majors (`actions/checkout@v7` and `actions/setup-node@v7`) independently of the explicit Node versions exercised by the jobs. The 2026-08-18 checkout patch refresh to v7.0.1 is CI-runtime maintenance only; application runtime versions are unchanged. The dedicated dependency-review gate now uses `actions/dependency-review-action@v5`; that action's internal runtime is Node 24 and does not change the Node versions used to build or test TradeOS.
 
@@ -365,3 +372,39 @@ authoritative for that proof.
 
 Founder-authorized operational work adds a bounded import path for the 3,188 verified Terre Haute supplier observations merged in PR #682. The implementation reuses the existing Regional Supplier Evidence service and background database session, creates only supplier records represented by the checked-in corpus, imports in bounded batches, and verifies exactly six suppliers plus 3,188 source products/observations. Source workbook canonical keys are deliberately not trusted during seed; existing governed matcher/review boundaries remain authoritative. The production workflow is manual, confirmation-gated, serialized, and scoped to one explicit organization/user context. No `Material.unitCost`, Estimate pricing, schema, RLS, auth, or numbered-sprint state changes are included.
 
+
+## Assembly Catalog browser-evidence follow-up (issue #518)
+
+PR #709 merged the NAHB/CSI/trade/unit/installation browse facets. The next
+bounded validation lane is the manually triggered
+`.github/workflows/assembly-catalog-browser-evidence.yml`: exact-SHA
+non-production Vercel/Supabase attestation, two real independently logged-in
+members of one sanitized tenant (owner/admin and Costbook read-only), desktop
+1440px and mobile 390px interaction/screenshot evidence. The login helper
+verifies effective Costbook permissions via the non-mutating workspace GET,
+not the Settings path. This is test infrastructure, not evidence of a passing
+hosted run or authorization for production deployment; an operator must supply
+the isolated deployment and two valid role fixtures first.
+
+## ABC Supply Material backfill review (PR #705)
+
+**Current status (PR #705):** The guarded link-only production workflow exists, with bounded per-session pagination, duplicate-SKU and conflicting-link checks, and no promotion of supplier observations into Material costs. No live import or link operation has been authorized. The ABC sandbox pricing result remains unverified; newly created Materials still require the separately reviewed single-product activation path.
+
+## PR #705 bounded linking operator implementation
+
+The protected `.github/workflows/backfill-abc-materials.yml` operator workflow now supports a confirmation-gated, production-environment, restricted-role **link-only** backfill with dry-run enabled by default. The runner processes at most 25 supplier products per tenant-scoped database session, advances by product ID, and links only a unique eligible ABC supplier SKU to an existing active Material with the same supplier, SKU, and purchase unit. It creates no Materials and changes no Material prices; new Materials still require separately reviewed, owner-approved single-product activation. This workflow has not been production-executed or proven by live ABC sandbox pricing.
+
+## Required integration context execution — 2026-10-13
+
+`Verify repository` runs the actual `App integration tests` job for every pull request, merge-group and main push after scope detection. The prior backend-path condition skipped this branch-protection-required context on frontend-only PRs such as #731/#732. The required integration/migration rehearsal now executes regardless of App/Web scope; other non-required backend jobs retain path scoping. No synthetic success context, branch-protection change, credential change or production database access is introduced. Existing psql provisioning and the disposable-database test runner remain unchanged. Hosted execution is required before claiming integration PASS. Rollback is restoring the job condition, which also restores the known skipped-context gap.
+
+
+**Dispatch startup repair (2026-10-15):** Run #38797027952 failed before checkout because its confirmation step inherited `working-directory: app`; the directory was absent. The confirmation step now explicitly runs in the repository workspace root (`.`), preserving confirmation before checkout and `app` working-directory for subsequent steps. This is a runner-path fix, not ABC provider authorization or live API evidence.
+
+## ABC sandbox Product API live proof — gated follow-up to #736 (2026-10-13)
+
+Issue #735 owns the full catalog requirement. PR #736 merged a sandbox-only, disabled-by-default, read-only provider-backed browse surface. The next independent proof is `app/scripts/probe-abc-sandbox-catalog.ts` plus the manual `abc-sandbox-catalog-evidence.yml` workflow. It reports the actual provider page/totalItems/totalPages contract, or a redacted failure, without persisting catalog data or requesting contractor-specific pricing. Required inputs are explicit operator confirmation and authorized sandbox-only `product.read` client credentials scoped in GitHub Actions. Vercel variables do not automatically propagate to Actions. An unrun workflow or green mock tests are *not* live-provider evidence.
+
+Do not start any durable ABC Get All Items import or seven-day delta storage until ABC explicitly authorizes the intended retention and searchable display model. Keep issue #735 open until full persistence/sync (where permitted), browser evidence, customer-authenticated pricing, Material review, and Estimate handoff are actually verified.
+
+Staging Prisma migration execution is wired through `.github/workflows/deploy-staging-migrations.yml` on branch `ops/staging-prisma-migrations-20261018` (PR pending). It is manual-only, checks the exact TradeOS Staging Supabase host and invoice migration precondition, uses the existing Prisma deployment script, and verifies the resulting ledger. Before dispatch, configure the dedicated `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` secrets in GitHub Environment `staging`. No database migration has been run by this workflow setup.

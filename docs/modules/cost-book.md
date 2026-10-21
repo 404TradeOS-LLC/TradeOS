@@ -47,11 +47,52 @@ related_code:
 
 # Cost Book
 
+## Research assembly activation (October 18, 2026; proposed PR)
+
+The installed tenant-scoped Assembly model and Estimate Engine pricing remain the only
+write/pricing path. In addition to the 14 reviewed TradeOS starter recipes, the
+starter-catalog API now exposes all 88 sourced static `TRADEOS_ASSEMBLIES`
+recipes as **research** templates. The 88 retain their original source IDs,
+NAHB build phase, CSI division, material/labor/equipment component quantities,
+measurement basis, assumptions, and scope exclusions. The API returns 102
+browseable templates (14 reviewed starters + 88 research recipes), rather than
+pre-installing, assigning costs, or creating another catalog database.
+
+Each research component must be mapped to a distinct active, compatible Cost Item
+within the requesting tenant before installation. The first declared source
+unit is the recipe's quantity basis; alternate purchase units (e.g. EA vs BOX,
+SF vs ROLL) are not treated as 1:1 conversions. All installed assemblies still
+resolve pricing only through the canonical Costbook service and are added to
+estimates only by the existing explicit Estimate line-item action.
+
+11 researched recipes currently reference at least one missing source record
+(SRC-0041 through SRC-0050); their `blockingReasons` are visible in the
+catalog/Estimate setup UI, and the install API rejects them before any database
+write. Those recipes remain available for read-only inspection and source
+repair. Remaining research recipes still require local scope, labor, material,
+and production review before real quoting. The new browser includes NAHB
+1000–5000 phase facets alongside legacy residential work groups and CSI.
+
+This change does **not** verify hosted staging, apply any database migrations,
+populate missing source records, or constitute production pricing evidence.
+
 ## Estimate Items assembly picker
 
 S064 extends the existing Estimate Items picker without creating a parallel estimator. Installed tenant assemblies are searched through the existing assembly search contract, previewed with the existing current-unit-cost and recipe-item endpoints, and added only through the canonical Estimate Engine line-item mutation. The preview is advisory: it shows current cost/component evidence and selected-quantity job cost, while the Estimate Engine owns the persisted pricing snapshot/source identity.
 
 The picker also searches the reviewed TradeOS starter catalog. A starter recipe that is not installed is shown as **Setup required** with its mapping slots and catalog review metadata; it is not assigned an invented price and cannot be added as an Estimate line. The contractor can map every recipe slot inline to an active compatible Costbook item, with duplicate and incompatible mappings rejected before install. Once mapping is complete, the picker resolves the same read-only Cost Item unit-cost preview used by the Costbook catalog, installs through the existing tenant-scoped starter-catalog contract, converts the selection to the installed organization assembly, and still requires a separate explicit Estimate **Add**.
+
+## Assembly starter browse facets (October 2026)
+
+The residential starter browser filters the full, static, reviewed recipe
+payload by NAHB work group, CSI division, trade, output unit, installation
+status, and free-text search at once. Distinct dropdown choices come from the
+returned recipes, and installed status is based on the tenant's **complete
+active Assembly-code list** rather than just the current Assembly page.
+Changing any filter clears prior recipe Cost Item mappings and preview to avoid
+accidental cross-recipe reuse; the UI shows explicit empty and reset states.
+All filters are read-only; server-side tenant, compatibility, complete-mapping,
+price, and install permission checks are unchanged.
 
 ## Purpose
 

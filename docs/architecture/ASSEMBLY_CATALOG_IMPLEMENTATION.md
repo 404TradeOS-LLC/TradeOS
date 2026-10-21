@@ -75,14 +75,68 @@ finish carpentry, electrical, plumbing, HVAC, and decks.
   session with live RLS integration tests.
 - [x] Replace bounded dropdown-only mapping with server-backed Cost Item search
   and prevent duplicate or incompatible selections in the UI.
+- [x] Add price-neutral browse facets for NAHB group, CSI division, trade,
+  assembly output unit, and installed status with combined text search.
+  Installation status is derived from all paginated active assemblies in the
+  authenticated tenant, not guessed from the current page or source recipe.
+  Filtering clears stale recipe mapping/preview state and disables installation
+  for read-only actors or already-installed recipe codes.
 - [ ] Add authenticated rendered browser evidence for owner/admin and read-only
-  roles against a disposable tenant.
+  roles against a disposable tenant. A manual SHA-attested, two-identity,
+  1440/390px Playwright evidence workflow has been added but **has not yet
+  produced authenticated runtime screenshots**; keep this item open until a
+  sanitized, non-production, exact-deployment run has passed and artifacts
+  have been reviewed.
 - [ ] Expand the reviewed recipe library trade by trade after qualified-estimator
   review; do not silently promote Knowledge Engine legacy assemblies.
 - [ ] Add a mapping-quality review queue and version history before supporting
   organization-wide recipe upgrades.
 - [ ] Connect future plan takeoff quantities only after the installed assembly
   workflow has production evidence.
+
+## Browse-facet contract (October 2026)
+
+The starter catalog endpoint is unchanged: it returns one bounded,
+price-neutral reviewed catalog containing NAHB and CSI classification. The
+web UI derives four classification/unit dropdowns from returned recipes and
+adds an **Installed / Not installed** facet using the complete active
+Assembly-code list loaded in the authenticated workspace. Combined searches
+are case-insensitive; empty sets, clear filters, and matching-result counts are
+explicit. Changing any facet deselects the prior recipe and clears Cost Item
+mappings and unit-cost preview so no hidden recipe inherits stale mappings.
+Selecting a new template restores the existing review and mapping workflow.
+These are **client-side starter-template facets**, not a server query over a
+bounded tenant catalog or a second pricing system. The existing Assembly list
+above/below the starter browser remains keyset-paginated and tenant-scoped.
+No backend write path, schema migration, source recipe, cost or Estimate
+snapshot was altered. Authenticated owner/admin and read-only browser captures
+at desktop and 390px remain required before release certification.
+
+## Authenticated Assembly Catalog evidence lane (October 2026)
+
+`.github/workflows/assembly-catalog-browser-evidence.yml` is a manual-only
+Preview evidence runner for the implementation merged in PR #709. It requires
+an immutable Vercel Preview URL, exact deployed commit SHA, expected isolated
+Supabase project ref, and canonical sanitized smoke tenant ID. It authenticates
+**distinct owner/admin and read-only identities** through the real login form,
+using separate short-lived runner-temp storage states, then exercises the
+reviewed Assembly Catalog browse facets at 1440px and 390px using read-only
+navigation and filter interactions. The test requires installation enabled for
+owner/admin when an uninstalled recipe is selected and disabled for read-only
+staff. It verifies no Assembly API writes and checks for responsive overflow,
+empty-filter recovery, mapping reset, and available-recipe visibility.
+
+Both credential sets are required; absent identities, wrong tenant, stale
+Vercel SHA, wrong/production Supabase project, absent Vercel metadata, role
+mismatch, horizontal overflow, failed UI assertions, or a changed deployment
+fail the run. Authenticated Playwright traces and videos are disabled; only
+sanitized screenshots, diagnostic HTML, test outputs and attestation summaries
+are eligible for upload after runtime session deletion and credential scanning.
+The Assembly evidence login now uses an opt-in **GET /api/proxy/costbook/workspace** identity check so the Settings route cannot seed legacy branding records. It compares the authenticated organization UUID with the expected smoke tenant and explicitly confirms Costbook read/write/manage permissions for each role; existing Beta auth behavior is unchanged in other modes. The workflow does **not** perform mutations, certify production, or satisfy
+issue #518 until an actual passing host run and its screenshots are reviewed.
+Two additional CI secrets must be provisioned for the reader identity:
+`BETA_RC_READONLY_SMOKE_EMAIL` and `BETA_RC_READONLY_SMOKE_PASSWORD`. The
+existing owner smoke identity and Vercel/RC Supabase secrets are reused.
 
 ## Current catalog coverage
 
@@ -113,3 +167,6 @@ these recipes are an official NAHB publication. CSI labels organize the catalog
 by MasterFormat division/section. TradeOS-authored recipe codes carry the
 `-TOS-###` suffix so they cannot be mistaken for a licensed cost database or an
 official pricing source.
+
+
+Because Vercel's current web project emits `tradeos-costbook-<deployment>-<scope>.vercel.app` for both preview and production, the workflow only sets `TRADEOS_AGENT_DEPLOYMENT_ATTESTED=true` after the independent S027 inspection has verified Preview target, exact SHA, branch-scoped non-production Supabase identity, and runner authorization. Bare production/main aliases remain refused.
