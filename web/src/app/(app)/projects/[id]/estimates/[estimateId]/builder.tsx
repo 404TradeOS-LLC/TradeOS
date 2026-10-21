@@ -1311,7 +1311,8 @@ function StarterAssemblySetup({
                 type="button"
                 variant="outline"
                 size="sm"
-                aria-label="Retry Costbook cost preview"
+                className="min-h-11 sm:min-h-7"
+                aria-label={preview.isFetching ? "Retrying Costbook cost preview" : "Retry Costbook cost preview"}
                 disabled={preview.isFetching || install.isPending}
                 onClick={() => void preview.refetch()}
               >
@@ -1336,6 +1337,9 @@ function StarterAssemblySetup({
         </Button>
       </div>
 
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {preview.isFetching ? "Refreshing Costbook cost preview…" : ""}
+      </p>
       <div className="text-xs text-muted-foreground">
         <p>Measured by {template.measurementBasis.toLowerCase()}. {template.wasteGuidance}</p>
         <p className="mt-1">

@@ -12,6 +12,13 @@ related_docs:
 
 # TradeOS Session Handoff
 
+## Costbook Add states and accessibility review continuation
+
+- `EXISTING_WORK_FOUND`: continued PR #781 on `feat/figma-to-code-completion`, published parent `89619293`, current main `15d7e0c7`. No new implementation branch or numbered sprint was created.
+- Added 768/1024 mapping sets, four reviewer-only navigators, and install-pending/current-cost outcomes in the existing Figma Estimates page. The newest twelve Add pending/failed/confirmed specimens cover 390/768/1024/1440. Add failure retains selection and quantity; confirmed success clears the picker, restores search focus, resets quantity/section/cost type/taxability using the existing handler, and refreshes the estimate. Amounts are explicitly illustrative fixtures and must use persisted response values in production. Full runtime certification remains outstanding.
+- PR #781 is approved and non-draft. A normal merge attempt was blocked by two new review conversations: mobile retry target size and screen-reader progress. Both were validated and repaired locally: 44px mobile minimum, compact desktop sizing, dynamic accessible name, and persistent polite status. Fresh Web 507/507, full lint, production build including TypeScript, docs check/tests 40/40, PR preflight, and diff whitespace checks pass. Publication and hosted verification of this repair follow. Do not claim merge or deployment.
+- Next five: (1) publish and verify the accessibility repair; (2) resolve its reviewed conversations and complete the protected merge when permitted; (3) visually verify all 60 state/viewport combinations and touch/focus specifications; (4) capture sanitized authenticated Add persistence/recovery and snapshot evidence; (5) reassess Ready for Dev and continue the next approved Estimate workflow. Figma remains Design Complete partial, Ready for Dev NO.
+
 ## Costbook mapping retry handoff — 2026-10-21
 
 - `NEW_WORK_REQUIRED` for the explicit Costbook preview-retry control: current main `15d7e0c736bf069bc8a34ce9a3e32ddb5651505a` had a read-only preview error message but no retry action; live open/recent PR search found no UI overlap. PR #773 is a separate research recipe catalog extension. Branch `feat/figma-to-code-completion` is based on that main SHA; draft PR [#781](https://github.com/404TradeOS-LLC/TradeOS/pull/781) is open, not merged.

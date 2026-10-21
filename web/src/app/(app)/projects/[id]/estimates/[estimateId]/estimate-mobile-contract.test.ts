@@ -142,10 +142,12 @@ test("starter assembly setup stays inline and requires install before estimate a
   assert.notEqual(retryButtonStart, -1);
   assert.notEqual(retryButtonEnd, -1);
   const retryButton = builder.slice(retryButtonStart, retryButtonEnd);
-  assert.match(retryButton, /aria-label="Retry Costbook cost preview"/);
+  assert.match(retryButton, /className="min-h-11 sm:min-h-7"/);
+  assert.match(retryButton, /aria-label=\{preview\.isFetching \? "Retrying Costbook cost preview" : "Retry Costbook cost preview"\}/);
   assert.match(retryButton, /disabled=\{preview\.isFetching \|\| install\.isPending\}/);
   assert.match(retryButton, /onClick=\{\(\) => void preview\.refetch\(\)\}/);
   assert.match(retryButton, /preview\.isFetching \? "Retrying…" : "Retry preview"/);
+  assert.match(builder, /<p className="sr-only" role="status" aria-live="polite" aria-atomic="true">\s*\{preview\.isFetching \? "Refreshing Costbook cost preview…" : ""\}\s*<\/p>/);
   assert.doesNotMatch(builder, /Math\.random\(\)/);
 });
 
