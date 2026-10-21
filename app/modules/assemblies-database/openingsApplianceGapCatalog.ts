@@ -26,7 +26,7 @@ export const OPENINGS_APPLIANCE_GAP_CATALOG: readonly ResearchAssemblyCatalogTem
     nahbPhase: "4000",
     trade: "Window Installation",
     measurementBasis: "Each installed new-construction flanged vinyl window; select the exact model, size, glazing, performance rating and flange design.",
-    wasteGuidance: "No flat percentage waste. Verify opening geometry, shimming, sill pan, flashing transitions, sealant compatibility and fastener schedule against manufacturer instructions. Excludes rough-opening framing/repair, structural engineering, exterior trim, interior casing, painting, temporary access equipment and window disposal. All must be priced separately when needed.",
+    wasteGuidance: "No flat percentage waste. Verify opening geometry, shimming, sill pan, flashing transitions, sealant compatibility and fastener schedule against manufacturer instructions. SRC-0071 covers JELD-WEN vinyl windows with an integral nailing fin; other brands, flange designs and wall conditions require their own applicable instructions. Excludes rough-opening framing/repair, structural engineering, exterior trim, interior casing, painting, temporary access equipment and window disposal. All must be priced separately when needed.",
     version: 1,
     review: research,
     evidenceRefs: ["SRC-0071"],

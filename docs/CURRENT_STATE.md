@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-08
+last_verified: 2026-10-20
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -61,15 +61,17 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+# TradeOS Current State
+
 ## Openings and dishwasher catalog gap — source branch, 2026-10-18
 
 Dependent branch `feat/costbook-openings-appliance-gaps-20261018`
-builds on draft PR #773, itself stacked on #771. Adds three distinct
+builds on repaired parent PR #773 after merged #771. Adds three distinct
 unpriced EA source recipes: flanged vinyl window for **new construction**
 (CSI 08 53 13, NAHB 4000), sectional steel garage door for qualified
 installation (CSI 08 36 13, NAHB 4000), and ready-connection built-in
 dishwasher (CSI 11 31 00, NAHB 5000). Manufacturer reference IDs
-SRC-0071–SRC-0073 resolve to Andersen, Clopay and GE installation pages.
+SRC-0071–SRC-0073 resolve to JELD-WEN, Clopay and GE installation pages.
 
 All price, labor, product choice, construction, utility, and permitting
 conditions still require estimator validation. A combined 107 templates
@@ -77,10 +79,10 @@ are proposed, not merged/installed/deployed or authenticated verified
 by this status entry. New research templates reuse costbook.write,
 tenant mapping, review and installed Estimate snapshot behavior.
 
-## Kitchen assembly gaps — proposed stacked follow-on (2026-10-18)
+## Kitchen assembly gaps — proposed follow-on (2026-10-18)
 
 A dependent branch `feat/costbook-kitchen-assembly-gaps-20261018` extends
-draft PR #771's research catalog with two additional scoped, unpriced kitchen
+merged PR #771's research catalog with two additional scoped, unpriced kitchen
 recipes: wall cabinet installation by EA, and straight-run prefabricated
 laminate countertop by LF. Both are NAHB finishing phase 5000 and CSI division
 12; source refs `SRC-0069` and `SRC-0070` are registered. The combined
@@ -94,7 +96,7 @@ and not staging-certified until CI and authenticated preview evidence complete.
 
 ## Costbook researched assembly activation — PR #771 (proposed, 2026-10-18)
 
-Draft PR #771 on branch `feat/costbook-88-assembly-activation-20261018`
+PR #771 on branch `feat/costbook-88-assembly-activation-20261018`
 expands the existing 14 reviewed installable starter recipes with all 88
 static `TradeosAssembly` recipes in the same Costbook and Estimate setup
 path (102 browseable templates total). The researched set is explicitly
@@ -106,10 +108,17 @@ filtering and strict first-unit component mapping are added. Existing
 tenant ownership, `costbook.write`, transaction-scoped assembly installs,
 Cost Item lookup, and Estimate Engine snapshots remain unchanged.
 
-Status: SOURCE BRANCH / DRAFT PR ONLY. No local TypeScript/build checks or
-authenticated staging/production execution are claimed. GitHub CI and
-review remain gates; do not describe the 77 source-complete research
+Status: SOURCE IMPLEMENTATION UNDER REVIEW. Hosted checks are required;
+authenticated staging/production execution is not certified. do not describe the 77 source-complete research
 templates as price-ready without local mapping and estimator review.
+
+## Items cost columns checkpoint — 2026-10-17 UTC
+
+Reconciled main `41a62cea99c7bc91eda45d805e4b0363b8906132`: #760 progressive entry is merged as `17c339cf`, production READY `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL`; #761 explicit line-edit cost is merged as `41a62cea`, production READY `dpl_12gVocD7WKCA9vwgSp89YKc4apwi`. These are exact-source deployments, not authenticated workflow certification. Older pending/blocked statements below are historical.
+
+Branch `feat/estimate-items-cost-columns-20261017` reconciles canonical Desktop Items `378:441` (Estimates page `4:10`, high-fidelity context/screenshot inspected). Existing saved items lacked quantity/unit-cost/line-cost columns and visible editor labels. Shared desktop column tracks now align actual saved values; mobile keeps the compact quantity × unit-cost summary and 44px edit actions. Six editor fields have visible, associated labels. Internal costs are explicitly distinguished from customer pricing; saved lineCost is rendered directly, never recomputed. Existing PATCH, draft/permission gates, validation, pricing and snapshots are unchanged.
+
+The missing-header regression failed on the base; all 16 isolated layout/edit/entry/stage browser cases now pass across 390/768/1024/1440. Headers align with cells, cost text matches the response, labels/keyboard Cancel work, mobile targets fit and no horizontal overflow occurs. Every mutation is intercepted; synthetic reads are clearly labeled. Desktop 1440/1024 and mobile 390 renders inspected. Local Web 506/506, lint/build, governance 151/151, docs 40/40, ownership/preflight and Playwright discovery pass. Current branch is unmerged/undeployed pending exact-head hosted checks/review. Authenticated nonproduction persistence and tenant denial remain unverified.
 
 ## Estimate line-edit cost presence — 2026-10-17 UTC
 
@@ -139,7 +148,6 @@ The existing proposal-new form previously displayed the project's intake price r
 A read-only browser matrix passed at 390/768/1024/1440 with explicitly synthetic local props, two different saved totals, selection changes, submitted form identity and no write requests. The temporary route/config is removed. Authenticated proposal creation, persistence and production functionality remain unverified; CI/merge/deployment belong to the focused PR.
 
 
-# TradeOS Current State
 ## Focused Estimate proposal handoff evidence selector — 2026-10-16
 
 After responsive stage PR #755 merged, the finalized Estimate page has both header Create proposal navigation and Review-stage Review proposal draft; the existing Beta Evidence union locator can match both. The bounded branch `test/beta-estimate-proposal-review-link-20261016` selects the existing exact Review-stage handoff instead. Only the non-production evidence runner, its source-contract test, and owner docs change. This does not create a Proposal, alter backend totals, bypass financial authorization, or constitute a passing authenticated certification run.
@@ -1139,7 +1147,7 @@ Contextual Athena now labels legacy Costbook matches as “Unverified pricing”
 
 ## Assembly pre-install cost preview
 
-The starter assembly mapper now provides a read-only pre-install cost preview after every required slot is mapped. It resolves each selected same-organization Cost Item through the existing unit-cost endpoint, shows cost per assembly unit, accepts an output quantity for a job-cost estimate, and exposes loading/unavailable states. The preview does not create, mutate, or apply pricing; installation remains an explicit review-first action.
+The starter assembly mapper now provides a read-only pre-install cost preview after every required slot is mapped. It resolves each selected same-organization Cost Item through the existing unit-cost endpoint, shows cost per assembly unit, accepts an output quantity for a job-cost estimate, and exposes loading/unavailable states. Preview failures now include an explicit retry action with an in-progress label; install remains gated until a finite, nonnegative preview resolves, including after a retry. The retry target is at least 44px high on mobile, retains the compact desktop size, and exposes progress through a dynamic accessible name and persistent polite status region. The preview does not create, mutate, or apply pricing; installation remains an explicit review-first action.
 
 
 ## S064 embedded Assembly Picker — active implementation
@@ -1285,6 +1293,10 @@ activation; trigger protected cron; check for an attributed, tenant-scoped
 any Material update. Vercel environment listing returned HTTP 403 in this
 inspection, so configuration completeness was not independently verified.
 See `docs/operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md`.
+
+## Davis-Bacon SAM.gov wage-feed integration (PR #700, pending)
+
+Implements key-free determination discovery and per-revision document parsing with org-scoped `davis_bacon_determinations` and `davis_bacon_rates`. A composite `(determination_id, org_id)` FK prevents a rate from pointing across tenants; active county coverage is reconciled on complete discovery. SAM.gov downloads execute outside the short RLS-backed persistence transactions. The protected cron reports per-document failures as failures. This feed is **not production verified** until migration and live two-tenant RLS tests pass on seeded staging; it does not approve prices or alter material costs.
 
 
 ## ABC Supply Product API catalog — issue #735 proposed code, not live verified (2026-10-13)

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-08
+last_verified: 2026-10-20
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -10,36 +10,47 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
-## Costbook openings/appliance follow-on — 2026-10-18
+# TradeOS Session Handoff
 
-- Parent #771 is green draft; dependent kitchen #773 was green, then its
-  three valid CodeRabbit documentation/test findings were fixed on the same
-  branch. No merge/deployment or tenant-certified staging evidence claimed.
-- New branch: `feat/costbook-openings-appliance-gaps-20261018`,
-  base `feat/costbook-kitchen-assembly-gaps-20261018`, source-only
-  third-stack scope for new-construction flanged window, residential
-  sectional garage door and ready-connection dishwasher.
-- Manufacturer installation guidance registered SRC-0071 (Andersen),
-  SRC-0072 (Clopay), SRC-0073 (GE Appliances). Research recipes are
-  price-neutral, EA unit exact, preserve tenant mapping and fail-closed
-  source registry checks. No assumption that garage spring service is
-  safe DIY or that dishwasher electrical/plumbing upgrades are in scope.
-- Combined catalog after all proposed PRs: 107 templates (14+88+2+3).
-  No schema/RLS/financial rules touched.
-- Next five TODOs: (1) publish third stacked draft PR with required
-  sections, (2) repair exact-head CI/review findings, (3) obtain authenticated
-  staging evidence mapping each source to active tenant Cost Items and
-  adding saved estimate lines, (4) merge in parent-first order only on
-  founder authorization and reconcile origin/main, (5) expand MEP rough/finish
-  coverage as separate, locally calibrated recipe/permit review work.
+## Openings/appliance source reconciliation — PR #774
 
-## Costbook kitchen recipe follow-on — 2026-10-18
+- Existing stacked branch follows repaired #773; #771 is merged. Three price-neutral EA scopes remain research: new-construction flanged vinyl window, qualified sectional garage-door installation and dishwasher with existing ready connections.
+- SRC-0071 now cites JELD-WEN vinyl integral-nailing-fin instructions instead of an inapplicable Andersen configurator. Selected product/wall details remain authoritative. No source installation is claimed as certified.
+- Next five: validate source regression; run API/type/build/docs; reconcile reviews; wait for parent #773 merge then retarget main; verify protected merge and landed content.
 
-- Parent: PR #771 on branch `feat/costbook-88-assembly-activation-20261018` passed its exact-head CI and remains draft/unmerged.
-- Dependent implementation: `feat/costbook-kitchen-assembly-gaps-20261018` branched from PR #771, changes only source registry, two price-neutral kitchen scope templates, catalog adapter/version, tests and owned documentation. Base is PR #771, not main, to preserve tested parent.
-- Original 14 reviewed starters and 88 research recipes stay unchanged; combined candidate catalog now 104 recipes. New scopes: prefabricated wall cabinet (EA, CSI 12 35 30) and straight-run laminate countertop (LF, CSI 12 36 23), NAHB 5000. The Home Depot/ Formica scope guidance registered as SRC-0069 and SRC-0070. These are NOT verified price data or production benchmarks.
-- Safety: each new component maps only to active same-tenant Cost Item of matching kind and native unit; no inferred package conversion or material/wage price. Missing registered sources block installation. No migration or auth/RLS/Estimate Engine change.
-- Next five TODOs: (1) open stacked PR against parent branch, (2) satisfy GitHub PR/body/docs/build tests, (3) verify authenticated catalog-to-estimate mapping on staging, (4) merge parent PR #771 only on founder approval then rebase/retarget the kitchen PR, (5) research separate stone countertops, garage doors, new-construction windows, appliances and MEP depth without invented prices.
+## Costbook kitchen recipe reconciliation — PR #773
+
+- Parent #771 is merged; existing branch is reconciled onto main. Retains two price-neutral recipes, native EA/LF mappings and registered scope references. Catalog total 104.
+- No schema, authorization, pricing or Estimate snapshot change. Hosted final-head checks and authenticated mapping/install evidence remain separate gates; no staging certification is claimed.
+- Next five: validate API/tests; reconcile review; verify required CI; merge through protection; retain authenticated catalog/install evidence when an isolated staging path is available.
+
+## Costbook Add states and accessibility review continuation
+
+- `EXISTING_WORK_FOUND`: continued PR #781 on `feat/figma-to-code-completion`, published parent `89619293`, current main `15d7e0c7`. No new implementation branch or numbered sprint was created.
+- Added 768/1024 mapping sets, four reviewer-only navigators, and install-pending/current-cost outcomes in the existing Figma Estimates page. The newest twelve Add pending/failed/confirmed specimens cover 390/768/1024/1440. Add failure retains selection and quantity; confirmed success clears the picker, restores search focus, resets quantity/section/cost type/taxability using the existing handler, and refreshes the estimate. Amounts are explicitly illustrative fixtures and must use persisted response values in production. Full runtime certification remains outstanding.
+- PR #781 is approved and non-draft. A normal merge attempt was blocked by two new review conversations: mobile retry target size and screen-reader progress. Both were validated and repaired locally: 44px mobile minimum, compact desktop sizing, dynamic accessible name, and persistent polite status. Fresh Web 507/507, full lint, production build including TypeScript, docs check/tests 40/40, PR preflight, and diff whitespace checks pass. Publication and hosted verification of this repair follow. Do not claim merge or deployment.
+- Next five: (1) publish and verify the accessibility repair; (2) resolve its reviewed conversations and complete the protected merge when permitted; (3) visually verify all 60 state/viewport combinations and touch/focus specifications; (4) capture sanitized authenticated Add persistence/recovery and snapshot evidence; (5) reassess Ready for Dev and continue the next approved Estimate workflow. Figma remains Design Complete partial, Ready for Dev NO.
+
+## Costbook mapping retry handoff — 2026-10-21
+
+- `NEW_WORK_REQUIRED` for the explicit Costbook preview-retry control: current main `15d7e0c736bf069bc8a34ce9a3e32ddb5651505a` had a read-only preview error message but no retry action; live open/recent PR search found no UI overlap. PR #773 is a separate research recipe catalog extension. Branch `feat/figma-to-code-completion` is based on that main SHA; draft PR [#781](https://github.com/404TradeOS-LLC/TradeOS/pull/781) is open, not merged.
+- Implemented locally in the existing Estimate builder: failed mapped-cost previews expose an accessible `Retry preview` button that refetches the same tenant-scoped read, communicates retry progress, and leaves Install disabled until a finite, nonnegative preview resolves. No install, Estimate Add, pricing, API, auth, tenant, RLS, or financial behavior changed. Added a regression contract assertion.
+- Updated the canonical Estimates mapping workflow in Figma: removed the extra Current Unit Price panel, aligned the single aggregate preview, and added retry controls to the 1440/390 preview-error states. Added and visually inspected 1440/390 Cost Item search loading, no-results, lookup-error, and install-success-return states. Prototype links now cover search entry/recovery, preview retry, resolved install, and install retry; the success state returns to the existing selected-assembly/current-cost boundary and does not imply Estimate Add.
+- PR #781 review reconciliation: CodeRabbit's two scoped findings were validated and repaired. Current-state and handoff copy now name the finite, nonnegative preview gate; the contract test isolates the exact retry button and verifies its label, refetch handler, pending disablement, and dynamic text together. The PR body still needs the repository template update on the published head, and fresh hosted checks/re-review remain pending.
+- Verification: `cd web && npm test -- --test-name-pattern "starter assembly setup"` ran the full 507-test suite and passed 507/507; focused ESLint, `npx tsc --noEmit`, a clean-cache production build, `npm run docs:check`, `npm run docs:test` (40/40), `npm run autonomy:test` (10/10), `npm run pr:preflight -- --base origin/main`, and `git diff --check` pass. Authenticated browser evidence, 1024/768 mapping targets, fresh hosted exact-head CI/re-review, thread resolution, merge, and deployment remain unverified. Figma remains Design Complete (partial), Ready for Dev NO.
+- Next five TODOs: (1) add 1024/768 responsive mapping targets and connect the existing gate entry points; (2) complete remaining prototype outcome paths and inspect the end-to-end 1440/390 flow; (3) publish this review repair, update the PR body to the repository template, and obtain fresh exact-head CI/re-review; (4) capture authenticated 390/768/1024/1440 runtime evidence without production mutation; (5) reassess Ready for Dev only after those gates pass, then continue the highest-priority unfinished approved Estimate workflow.
+
+## Items cost columns checkpoint — 2026-10-17 UTC
+
+Reconciled main `41a62cea99c7bc91eda45d805e4b0363b8906132`: #760 progressive entry is merged as `17c339cf`, production READY `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL`; #761 explicit line-edit cost is merged as `41a62cea`, production READY `dpl_12gVocD7WKCA9vwgSp89YKc4apwi`. These are exact-source deployments, not authenticated workflow certification. Older pending/blocked statements below are historical.
+
+Branch `feat/estimate-items-cost-columns-20261017` reconciles canonical Desktop Items `378:441` (Estimates page `4:10`, high-fidelity context/screenshot inspected). Existing saved items lacked quantity/unit-cost/line-cost columns and visible editor labels. Shared desktop column tracks now align actual saved values; mobile keeps the compact quantity × unit-cost summary and 44px edit actions. Six editor fields have visible, associated labels. Internal costs are explicitly distinguished from customer pricing; saved lineCost is rendered directly, never recomputed. Existing PATCH, draft/permission gates, validation, pricing and snapshots are unchanged.
+
+The missing-header regression failed on the base; all 16 isolated layout/edit/entry/stage browser cases now pass across 390/768/1024/1440. Headers align with cells, cost text matches the response, labels/keyboard Cancel work, mobile targets fit and no horizontal overflow occurs. Every mutation is intercepted; synthetic reads are clearly labeled. Desktop 1440/1024 and mobile 390 renders inspected. Local Web 506/506, lint/build, governance 151/151, docs 40/40, ownership/preflight and Playwright discovery pass. Current branch is unmerged/undeployed pending exact-head hosted checks/review. Authenticated nonproduction persistence and tenant denial remain unverified.
+
+- Classification NEW_WORK_REQUIRED, Sprint NONE: #760/#761 own entry/validation and are merged; current saved-row presentation still lacked the canonical columns. Live overlap reconciliation found only unrelated open Davis-Bacon #700 and Field contracts #702. No equivalent active Estimate implementation.
+- Worktree `/workspace/scratch/1f8f19f950ac/tradeos-stage-nav`; allowed builder presentation, focused browser tests and owned docs. Excluded backend/API behavior, financial calculations, auth/RBAC/RLS, schema, suppliers, proposal lifecycle, infrastructure and unrelated main-checkout PNG/GIF edits. #751/#731 remain owner-closed without merge; preserve their branches.
+- Next five TODOs: (1) pass local Web/governance/docs and exact-head hosted gates for columns; (2) reconcile automated review findings and complete normal protected merge; (3) verify landed main and exact-source deployment; (4) reconcile laptop Athena rail usability against approved responsive behavior; (5) certify sanitized authenticated Costbook → Price → Proposal persistence and foreign-tenant denial once Preview/data-plane isolation is proven.
 
 ## Estimate line-edit explicit cost — active 2026-10-17 UTC
 
@@ -476,6 +487,12 @@ active resume contract is the S066 / PR #634 block at the end of this handoff.
 - Guardrails: exact Preview deployment SHA, non-production Supabase project, canonical sanitized tenant ID, real distinct owner and read-only auth, desktop 1440 and mobile 390, no Assembly writes, cleanup and credential scanning.
 - Pending external gate: ensure isolated Preview is deployed to selected SHA, owner + read-only smoke accounts exist in one smoke org and required secrets are installed. Dispatch manual workflow and review reports/screenshots; do not mark issue #518 browser evidence complete before that.
 - If assertions fail, repair only reproducible role, responsive, or selector errors on this bounded path; do not disable a test or relax auth/RLS/deployment checks.
+
+## Staging Prisma migration runner setup — 2026-10-18
+
+- Added a manual-only, staging-targeted GitHub Actions workflow on branch `ops/staging-prisma-migrations-20261018`; PR is pending review. It guards exact project ref `qfbgdkbamfaasmtjfyru`, runs the repository's `app/scripts/deploy-migrations.sh`, checks invoice backfill preconditions, provisions the staging app role, and verifies the full Prisma ledger.
+- Required GitHub Environment `staging` secrets: `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD`. These must point to the confirmed TradeOS Staging project; production secrets are not used.
+- Database remains at 46/60 Prisma migrations. The read-only invoice check passed (42 rows, no null legacy costs). Workflow setup itself did not mutate the database.
 
 ## Next Eligible Sprint
 

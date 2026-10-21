@@ -33,11 +33,10 @@ material price, create new circuits/piping or certify a selected model.
 Installed assembly descriptions retain registered provenance IDs
 SRC-0071–SRC-0073. See `docs/modules/cost-book.md` for exclusions.
 
-## Kitchen addendum to assembly catalog (stacked follow-on, 2026-10-18)
+## Kitchen addendum to assembly catalog (PR #773)
 
 The same authenticated `GET /api/v1/{costbook/}assemblies/starter-catalog`
-response contains two additional `research` templates when the stacked
-kitchen PR is integrated with PR #771: `kitchen:wall-cabinet-prefab` and
+response contains two additional `research` templates when PR #773 lands after merged parent PR #771: `kitchen:wall-cabinet-prefab` and
 `kitchen:laminate-countertop-straight`. The resulting catalog contains 104
 templates (14 original, 88 researched, 2 kitchen); `catalogVersion` is
 `2026.09.1+research88+kitchen2`.
@@ -963,6 +962,10 @@ Estimate snapshots are unchanged.
 
 See `docs/operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md` for the complete
 runbook, explicit apply command and live-verification gates.
+
+## Davis-Bacon prevailing-wage reads (PR #700, pending staging validation)
+
+Authenticated, tenant-scoped Costbook routes (require `costbook.read`): `GET /api/v1/costbook/davis-bacon/determinations` (optional normalized state, county and active-only filters); `GET /api/v1/costbook/davis-bacon/rates?wdNumber=IN20260050`; `GET /api/v1/costbook/davis-bacon/county-rates?state=IN&county=Vigo`. Rate values are government-contract floors, not customer or supplier prices. The `GET /api/cron/davis-bacon-sync` route requires a `CRON_SECRET` bearer; jobs are configured through `DAVIS_BACON_SYNC_JOBS`, and no scheduled invocation is enabled by this PR.
 
 
 ## ABC Supply provider-backed catalog API — issue #735 proposed slice (2026-10-13)

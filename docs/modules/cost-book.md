@@ -59,7 +59,7 @@ market prices nor unreviewed supplier substitutions:
   NAHB 4000): one specified new-construction flanged vinyl window EA, one
   separately reviewed EA flashing/sealant kit, and an EA labor line. Does
   not substitute for retrofit insert-window work. Manufacturer context:
-  Andersen installation guide configurator SRC-0071; the actual selected
+  JELD-WEN vinyl integral-nailing-fin installation instructions (JII001) SRC-0071; the actual selected
   product/wall system must determine flashing and fastening instructions.
 - `openings:garage-door-section-steel` (CSI 08 36 13, NAHB 4000):
   one specified complete sectional steel garage door system, with qualified
@@ -82,11 +82,11 @@ Neither supplier quotes nor labor productivity figures are inferred.
 No schema, access policy, supplier integration, pricing snapshot or migration
 is modified in this branch; authenticated staging/browser proof is pending.
 
-## Kitchen assembly scope follow-on (2026-10-18; stacked PR)
+## Kitchen assembly scope follow-on (PR #773)
 
 The source-backed expansion adds **two more price-neutral kitchen research
 templates** beyond the original 14 reviewed starters and 88 sourced recipes
-(104 templates total if both PRs land together). The recipes are not supplier
+(104 templates total after PR #773 lands). The recipes are not supplier
 quotes or production-rate benchmarks:
 
 - `kitchen:wall-cabinet-prefab` (CSI 12 35 30, NAHB 5000, EA):
