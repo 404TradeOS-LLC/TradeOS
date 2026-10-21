@@ -63,6 +63,13 @@ related_code:
 
 # TradeOS Current State
 
+## Web performance telemetry — PR #744
+
+The Next.js root layout includes Vercel Speed Insights for browser performance
+measurements. The dependency is scoped to `web/`; the JSON-only Express API
+does not load a browser telemetry SDK. This does not certify production metrics
+collection or enable the optional service in the Vercel project dashboard.
+
 ## Costbook researched assembly activation — PR #771 (proposed, 2026-10-18)
 
 PR #771 on branch `feat/costbook-88-assembly-activation-20261018`
