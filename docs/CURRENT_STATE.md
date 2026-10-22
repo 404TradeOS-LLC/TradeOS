@@ -63,6 +63,20 @@ related_code:
 
 # TradeOS Current State
 
+## Historical assembly rematch repair — PR #772
+
+The second pass retains 20 additional historical supplier matches, yielding
+155 raw component rows and 75 assemblies with partial material rollups.
+Recipe quantities are preserved; ten-square synthetic rolls, 900-SF housewrap
+rolls and a derived ten-LF sill allocation use explicit price conversions.
+The exact 2-inch R-10 tongue-and-groove XPS observation replaces an ambiguous
+edge match. Incompatible collated/bulk nails, cap-fastener lengths, unproven
+foam adhesive/sealant/felt specifications and mechanically attached NailBase
+remain unmatched. NailBase attachment is documented by CertainTeed at
+https://www.certainteed.com/products/commercial-roofing-products/flintlastic-sa-nailbase.
+These are dated research observations, not live quotes or bid-ready prices;
+the existing audit boundary still excludes known first-pass false positives.
+
 ## Costbook researched assembly activation — PR #771 (proposed, 2026-10-18)
 
 PR #771 on branch `feat/costbook-88-assembly-activation-20261018`
