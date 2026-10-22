@@ -62,10 +62,16 @@ for (const role of ["owner", "admin", "manager", "dispatcher"]) {
   });
 }
 
-test("legacy viewer membership reaches the Field page as a canonical technician", async () => {
-  // Match OrganizationSettingsService.getSettings -> normalizeRole("viewer").
-  // The Field page is permitted to load technician jobs; the API independently
-  // enforces active assignment and RLS on the selected job.
-  const role = "technician";
-  assert.equal(role, "technician");
+test("legacy viewer is canonicalized to technician before the Field page receives settings", async () => {
+  const contracts = await readFile(new URL("../../../../../app/domain/contracts.ts", import.meta.url), "utf8");
+  const normalized = ts.transpileModule(contracts, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const exported: Record<string, unknown> = {};
+  vm.runInNewContext(normalized, { exports: exported });
+  const normalizeRole = exported.normalizeRole as (role: string) => string;
+  assert.equal(normalizeRole("viewer"), "technician");
+  assert.equal(normalizeRole("estimator"), "dispatcher");
+  // The page receives settings.currentRole, not the raw persisted membership.
+  // Backend assignment and forced-RLS tests independently cover job authorization.
 });
