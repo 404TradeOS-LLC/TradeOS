@@ -1370,6 +1370,7 @@ function StarterComponentMappingPicker({
   const [editing, setEditing] = useState(false);
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const resultsId = useId();
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedQuery(query.trim()), 200);
@@ -1385,6 +1386,22 @@ function StarterComponentMappingPicker({
 
   const displayValue = editing ? query : value ? `${value.code} · ${value.name}` : "";
   const assessment = value ? assessCostItemMapping(component, value) : null;
+  const results = search.isError || search.isFetching || query.trim() !== debouncedQuery ? [] : search.data ?? [];
+  const selectableResults = results.filter((item) => !unavailableIds.has(item.id) && assessCostItemMapping(component, item).compatible);
+  const activeItem = selectableResults.find((item) => item.id === activeId);
+  const optionId = (id: string) => `${resultsId}-option-${id}`;
+
+  const selectItem = (item: CostItemCatalogRecord) => {
+    onSelect(item);
+    setEditing(false);
+    setQuery("");
+    setOpen(false);
+    setActiveId(null);
+  };
+
+  useEffect(() => {
+    if (open && activeId) document.getElementById(`${resultsId}-option-${activeId}`)?.scrollIntoView({ block: "nearest" });
+  }, [activeId, open, resultsId]);
 
   return (
     <div className="grid gap-2 rounded-lg border border-border/70 bg-background/75 p-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] sm:items-start">
@@ -1399,15 +1416,37 @@ function StarterComponentMappingPicker({
         <Input
           role="combobox"
           aria-label={`Map ${component.label}`}
-          aria-expanded={open}
-          aria-controls={resultsId}
+          aria-expanded={open && !disabled}
+          aria-controls={open && !disabled ? resultsId : undefined}
+          aria-autocomplete="list"
+          aria-activedescendant={open && !disabled && activeItem ? optionId(activeItem.id) : undefined}
           autoComplete="off"
           placeholder="Search active Costbook items…"
           value={displayValue}
           disabled={disabled}
-          onFocus={() => setOpen(true)}
-          onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+          onFocus={() => { setOpen(true); setActiveId(null); }}
+          onBlur={() => { setOpen(false); setActiveId(null); }}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setOpen(false);
+              setActiveId(null);
+            } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault();
+              setOpen(true);
+              const index = open ? selectableResults.findIndex((item) => item.id === activeId) : -1;
+              const next = index < 0
+                ? event.key === "ArrowDown" ? 0 : selectableResults.length - 1
+                : Math.max(0, Math.min(selectableResults.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)));
+              setActiveId(selectableResults[next]?.id ?? null);
+            } else if (event.key === "Enter" && open) {
+              event.preventDefault();
+              if (activeItem) selectItem(activeItem);
+            }
+          }}
           onChange={(event) => {
+            setActiveId(null);
             setEditing(true);
             setQuery(event.target.value);
             if (value) onSelect(null);
@@ -1415,15 +1454,15 @@ function StarterComponentMappingPicker({
           }}
         />
         {open && !disabled ? (
-          <div id={resultsId} role="listbox" className="absolute z-30 mt-1 max-h-64 w-full min-w-[280px] overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg">
-            {search.isLoading ? (
-              <p className="px-3 py-2 text-xs text-muted-foreground">Searching Costbook…</p>
+          <div id={resultsId} role="listbox" aria-label={`Costbook items for ${component.label}`} className="absolute z-30 mt-1 max-h-64 w-full min-w-[280px] overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg">
+            {search.isLoading || search.isFetching || query.trim() !== debouncedQuery ? (
+              <p className="px-3 py-2 text-xs text-muted-foreground" role="status">Searching Costbook…</p>
             ) : search.isError ? (
               <p className="px-3 py-2 text-xs text-destructive" role="alert">Cost Items could not be loaded.</p>
-            ) : (search.data ?? []).length === 0 ? (
+            ) : results.length === 0 ? (
               <p className="px-3 py-2 text-xs text-muted-foreground">No active Cost Items found.</p>
             ) : (
-              (search.data ?? []).map((item) => {
+              results.map((item) => {
                 const itemAssessment = assessCostItemMapping(component, item);
                 const unavailable = unavailableIds.has(item.id);
                 const selectable = !unavailable && itemAssessment.compatible;
@@ -1435,18 +1474,15 @@ function StarterComponentMappingPicker({
                 return (
                   <button
                     key={item.id}
+                    id={optionId(item.id)}
                     type="button"
                     role="option"
+                    tabIndex={-1}
                     aria-selected={value?.id === item.id}
                     disabled={!selectable}
-                    className="grid w-full gap-0.5 rounded-sm px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                    className={cn("grid w-full gap-0.5 rounded-sm px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50", activeItem?.id === item.id && "bg-muted ring-2 ring-inset ring-ring")}
                     onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
-                      onSelect(item);
-                      setEditing(false);
-                      setQuery("");
-                      setOpen(false);
-                    }}
+                    onClick={() => selectItem(item)}
                   >
                     <span className="font-medium text-foreground">{item.code} · {item.name}</span>
                     <span className="text-xs text-muted-foreground">{detail}</span>
