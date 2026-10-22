@@ -386,3 +386,15 @@ The protected `.github/workflows/backfill-abc-materials.yml` operator workflow n
 **ABC Supply Product API live proof (issue #735):** The manual [ABC sandbox catalog evidence runbook](operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md) explains how to obtain real `product.read` catalog-pagination evidence without storing supplier content, retrieving customer-specific prices, or claiming full import. The associated workflow is disabled until deliberately dispatched from `main` with authorized sandbox credentials.
 
 The staging database uses its own manually dispatched Prisma migration workflow at `.github/workflows/deploy-staging-migrations.yml`. It runs only from `main`, targets the verified TradeOS Staging project ref, and calls the repository's `app/scripts/deploy-migrations.sh` so Prisma history and restricted-role grants stay aligned. Configure `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` as secrets in the GitHub `staging` Environment; never reuse Production secrets. The workflow verifies the database host, invoice backfill precondition, and final Prisma ledger.
+
+
+## Isolated frontend component browser verification
+
+The existing Verify repository Web unit-test job also installs the pinned
+root Playwright runner and Chromium, then runs `playwright.components.config.ts`.
+This suite uses synthetic transport and no credentials, backend, or database.
+It checks mapping keyboard behavior and Custom Item responsive controls,
+keyboard order and recovery through production components. Synthetic failure
+screenshots/test diagnostics are retained for seven days. Browser failures
+fail the existing Web test gate; no new permission or protected-check bypass
+is introduced. These results do not certify authenticated application workflows.

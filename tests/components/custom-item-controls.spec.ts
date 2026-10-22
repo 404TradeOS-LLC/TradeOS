@@ -63,26 +63,29 @@ for (const width of [390,768,1024,1440]) {
     await page.addStyleTag({content:css});
     await page.addScriptTag({content:bundle});
     await page.getByRole('button',{name:'Custom item',exact:true}).click();
-    const description=page.getByLabel('Custom line item',{exact:true});
-    const qty=page.getByLabel('Qty',{exact:true});
-    const cost=page.getByLabel('Unit cost',{exact:true});
+    const custom=page.locator('[id='+JSON.stringify(await page.getByRole('button',{name:'Custom item',exact:true}).getAttribute('aria-controls'))+']');
+    const description=custom.getByLabel('Custom line item',{exact:true});
+    const qty=custom.getByLabel('Qty',{exact:true});
+    const cost=custom.getByLabel('Unit cost',{exact:true});
     const add=page.getByRole('button',{name:'Add custom',exact:true});
     await expect(description).toBeFocused();
     await expect(add).toBeDisabled();
-    for(const control of [description,qty,cost,page.getByLabel('Unit',{exact:true}),page.getByLabel('Section',{exact:true})]){
+    for(const control of [description,qty,cost,custom.getByLabel('Unit',{exact:true}),custom.getByLabel('Section',{exact:true})]){
       expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(width<1024?44:32);
     }
     expect((await add.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    expect((await page.getByLabel('Cost type').boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    expect(await page.getByText('Taxable',{exact:true}).evaluate(n=>n.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+    expect((await custom.getByLabel('Cost type').boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect(await custom.getByText('Taxable',{exact:true}).evaluate(n=>n.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
     await description.fill('Debris handling');
     await page.keyboard.press('Tab'); await expect(qty).toBeFocused();
     await page.keyboard.press('Tab'); await expect(cost).toBeFocused();
     await cost.fill('0');
     await page.keyboard.press('Tab'); await expect(add).toBeFocused();
     for(const name of ['Unit','Section','Cost type','Taxable']){
-      await page.keyboard.press('Tab');await expect(page.getByLabel(name,{exact:true})).toBeFocused();
+      await page.keyboard.press('Tab');await expect(custom.getByLabel(name,{exact:true})).toBeFocused();
     }
+    await custom.getByLabel('Cost type',{exact:true}).selectOption('material');
+    await custom.getByLabel('Taxable',{exact:true}).check();
     if(width>=1024){
       const y=await description.evaluate(n=>n.getBoundingClientRect().y);
       expect(Math.abs((await cost.boundingBox())!.y-y)).toBeLessThanOrEqual(1);
@@ -95,10 +98,13 @@ for (const width of [390,768,1024,1440]) {
     await page.evaluate(()=> (window as unknown as {fail():void}).fail());
     await expect(page.getByRole('alert')).toHaveText('Synthetic request failure');
     await expect(description).toHaveValue('Debris handling');await expect(cost).toHaveValue('0');
+    await page.screenshot({path:test.info().outputPath('custom-item-failure-'+width+'.png'),fullPage:true});
     await add.click();
-    expect(await page.evaluate(()=> (window as unknown as {request:unknown}).request)).toEqual({url:'/estimates/synthetic-estimate/line-items',payload:{description:'Debris handling',unitOfMeasure:'EA',quantity:1,unitCost:0,section:'Reconstruction / Finish',costType:'labor',taxable:false}});
+    expect(await page.evaluate(()=> (window as unknown as {request:unknown}).request)).toEqual({url:'/estimates/synthetic-estimate/line-items',payload:{description:'Debris handling',unitOfMeasure:'EA',quantity:1,unitCost:0,section:'Reconstruction / Finish',costType:'material',taxable:true}});
     await page.evaluate(()=> (window as unknown as {finish():void}).finish());
     await expect(page.locator('output')).toHaveText('1');await expect(description).toHaveValue('');await expect(cost).toHaveValue('');await expect(add).toBeDisabled();
+    await expect(custom.getByLabel('Cost type',{exact:true})).toHaveValue('labor');
+    await expect(custom.getByLabel('Taxable',{exact:true})).not.toBeChecked();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   });
 }

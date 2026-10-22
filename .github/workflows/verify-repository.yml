@@ -245,6 +245,24 @@ jobs:
       - run: npm ci
       - run: npm test
 
+      - name: Install isolated browser test runner
+        working-directory: .
+        run: npm ci --ignore-scripts
+      - name: Install component Chromium
+        working-directory: .
+        run: npx playwright install --with-deps chromium
+      - name: Verify isolated component behavior
+        working-directory: .
+        run: npx playwright test --config playwright.components.config.ts
+      - name: Retain synthetic component evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: component-browser-evidence-${{ github.run_id }}
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
   web-lint:
     name: Web lint
     needs: changes

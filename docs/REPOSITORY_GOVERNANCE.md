@@ -642,3 +642,15 @@ The manual-only `.github/workflows/abc-sandbox-catalog-evidence.yml` job runs on
 ABC's API Terms do not authorize permanent catalog/database copying by default. This evidence workflow must not be repurposed into a product dump, unattended API scraper, production product sync, or price automation. Persistent catalog storage, indexed replication, and daily delta require express ABC permission and a new approved tenant/RLS and licensing design. See `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md` and issue #735.
 
 A separate `.github/workflows/deploy-staging-migrations.yml` workflow provides a manual staging-only migration path. It runs from `main` against the `staging` GitHub Environment, verifies the exact Supabase project ref, checks invoice backfill prerequisites, runs `app/scripts/deploy-migrations.sh`, and verifies the Prisma ledger. Configure the dedicated `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` environment secrets; Production credentials must not be reused. This workflow does not run automatically on pushes and does not replace the protected Production migration workflow.
+
+
+## Isolated frontend component browser verification
+
+The existing Verify repository Web unit-test job also installs the pinned
+root Playwright runner and Chromium, then runs `playwright.components.config.ts`.
+This suite uses synthetic transport and no credentials, backend, or database.
+It checks mapping keyboard behavior and Custom Item responsive controls,
+keyboard order and recovery through production components. Synthetic failure
+screenshots/test diagnostics are retained for seven days. Browser failures
+fail the existing Web test gate; no new permission or protected-check bypass
+is introduced. These results do not certify authenticated application workflows.
