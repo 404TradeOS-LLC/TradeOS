@@ -4,13 +4,13 @@ import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 
 const webRequire = createRequire(resolve('web/package.json'));
-const ts = webRequire('typescript');
 const builderPath = 'web/src/app/(app)/projects/[id]/estimates/[estimateId]/builder.tsx';
 
 // Hermetic component evidence: real React, DOM events, mapping assessment and
 // production picker. Only query transport and the Input primitive are fixtures.
 // No app session, network request, Install or Estimate write is possible.
 function fixtureBundle() {
+  const ts = webRequire('typescript');
   const source = readFileSync(process.env.TRADEOS_MAPPING_TEST_SOURCE ?? builderPath, 'utf8');
   const ast = ts.createSourceFile('builder.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const picker = ast.statements.find((node: { name?: { text: string } }) => node.name?.text === 'StarterComponentMappingPicker');

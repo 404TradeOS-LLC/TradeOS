@@ -33,6 +33,13 @@ related_docs:
   covering keyboard, mouse/touch, stale-search/error recovery, skip rules, focus
   and overflow. The 390px base case failed at ArrowDown as expected. Web tests
   507/507, lint, TypeScript, build, docs check/tests 40/40 and whitespace passed.
+  Review caught Web-only fixture dependencies in the root evidence suite.
+  Moved the hermetic test to tests/components with its own
+  playwright.components.config.ts; the explicit command installs root and Web
+  dependencies, preserving existing root evidence workflow discovery/execution.
+  With web/node_modules temporarily unavailable, both root (37 tests/9 files)
+  and component (4 tests/1 file) discovery passed. Relocated component suite
+  reran successfully, 4/4. No evidence-workflow dependency change was needed.
   Browser download failed as truncated; a temporary packaged Chromium fallback
   supplied executable browser evidence. No browser package/config change enters
   the repository. Exact-head hosted checks and publication remain pending.

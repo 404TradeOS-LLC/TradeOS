@@ -90,9 +90,17 @@ in-flight or failed searches suppress stale options and active descendants;
 loading is announced as status and failure remains an alert. Keyboard selection
 stages a mapping only: current-cost preview, Install, then reviewed Estimate Add
 retain their existing gates. Tests in
-`tests/playwright/starter-mapping-keyboard.spec.ts` mount the real production
+`tests/components/starter-mapping-keyboard.spec.ts` mount the real production
 picker/assessment with synthetic transport and a native Input fixture. This
 component evidence is separate from full-app authenticated certification.
+
+Install both root and Web dependencies (`npm ci` and `npm --prefix web ci`) and
+Chromium (`npx playwright install chromium`), then run
+`npx playwright test --config playwright.components.config.ts`. This hermetic
+suite is separate from `tests/playwright` and its authenticated evidence
+workflow, which installs root dependencies only. TypeScript/React fixture
+dependencies load inside test execution, so listing either suite does not
+require Web dependencies.
 
 ### Failed finalization focus recovery (responsive Review)
 
