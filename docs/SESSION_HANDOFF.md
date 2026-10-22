@@ -12,6 +12,44 @@ related_docs:
 
 # TradeOS Session Handoff
 
+## Active mapping keyboard handoff — 2026-10-21
+
+- Sprint NONE; `NEW_WORK_REQUIRED` for the missing keyboard interaction, not a
+  duplicate of merged retry PR #781. Current main/base `f5743412`; clean original
+  checkout preserved. One linked worktree at
+  `/workspace/scratch/584d0c942af4/tradeos-mapping-keyboard`, branch
+  `fix/estimate-mapping-keyboard`. Live open PRs #775/#774/#773/#772/#702 and
+  mapping-branch/recent-keyboard PR searches found no active implementation
+  overlap. The prior named feature branch remains preserved after #781 merged.
+- Allowed: existing mapping picker, focused browser regression, estimating and
+  current-state/handoff docs, matching Figma handoff. Forbidden: backend/API,
+  schema, auth/RLS, pricing/snapshots, secrets, deployment policy and other
+  product workflows. Stop on conflicting branch movement, protected-boundary
+  findings or failing product checks. No sprint status changes.
+- Repair: Arrow navigation skips incompatible/already-mapped rows, active
+  descendants track eligible results, Enter stages selection, Escape/Tab close,
+  focus stays in search and stale pending/error data cannot be selected.
+  Installation and Add stay explicit. Isolated Chromium 153 cases passed 4/4,
+  covering keyboard, mouse/touch, stale-search/error recovery, skip rules, focus
+  and overflow. The 390px base case failed at ArrowDown as expected. Web tests
+  507/507, lint, TypeScript, build, docs check/tests 40/40 and whitespace passed.
+  Browser download failed as truncated; a temporary packaged Chromium fallback
+  supplied executable browser evidence. No browser package/config change enters
+  the repository. Exact-head hosted checks and publication remain pending.
+- Figma remains Design Complete partial / Ready for Dev NO. Eight enabled Add
+  buttons use the existing dark copper treatment at measured 6.75:1. Tablet and
+  laptop preview status/Retry overlaps were fixed and rendered. Sixty specimens
+  are task-state evidence, not full canonical-shell certification. Corrected
+  eight resolved/retry Install buttons that were visually disabled despite
+  active links; they now share dark copper. Replaced unsupported live-value
+  claims with explicit $24.60 / quantity 1 illustrative cost fixtures and
+  inspected the corrected mobile render.
+- Next five: (1) publish one reviewed PR; (2) verify exact-head hosted checks;
+  (3) reconcile review and merge through normal protections when eligible;
+  (4) finish canonical-shell focus/contrast comparison; (5) capture authenticated
+  mapping → Install → Add → reload/recovery once an isolated current target is
+  verified. Prior staging and production-source evidence does not certify this.
+
 ## Costbook Add states and accessibility review continuation
 
 - `EXISTING_WORK_FOUND`: continued PR #781 on `feat/figma-to-code-completion`, published parent `89619293`, current main `15d7e0c7`. No new implementation branch or numbered sprint was created.

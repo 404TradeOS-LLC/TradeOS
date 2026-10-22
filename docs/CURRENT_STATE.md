@@ -63,6 +63,27 @@ related_code:
 
 # TradeOS Current State
 
+## Estimate mapping keyboard repair — in progress, 2026-10-21
+
+Branch `fix/estimate-mapping-keyboard` continues the Figma mapping handoff from
+main `f5743412fa721279f6f00c9d41aa12ea72cbfb2a`. PR #781 is merged as
+`979198fc86edbababf57029e8d73b7ea08a26191`; its retry behavior is already on main.
+The existing starter-component picker still lacked combobox Arrow/Enter/Escape
+navigation. This bounded frontend repair keeps focus in the input, skips
+incompatible/already-mapped options, exposes the active descendant, scrolls the
+active result into view, and closes on Escape/Tab. Enter selects only an active,
+currently available result; pending/debouncing/failed searches cannot select stale
+rows. Pointer selection and explicit Install then Estimate Add remain separate.
+No backend, auth/RLS, pricing, snapshot or mutation contract changes.
+
+The isolated Playwright component suite passed all four cases using Chromium
+153, production React and mapping logic with synthetic query/Input fixtures at
+390/768/1024/1440. The same 390px case failed against the base implementation
+at its first ArrowDown active-descendant assertion. Its evidence does not
+certify the authenticated full application, persistence or tenant isolation.
+Branch implementation is not yet merged or deployed; Ready for Dev remains
+pending full canonical-screen and authenticated workflow evidence.
+
 ## Costbook researched assembly activation — PR #771 (proposed, 2026-10-18)
 
 PR #771 on branch `feat/costbook-88-assembly-activation-20261018`

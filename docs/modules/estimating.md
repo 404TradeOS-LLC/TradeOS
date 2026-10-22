@@ -74,6 +74,26 @@ Focused regression coverage lives in `app/tests/estimate-costbook-snapshot.test.
 
 ## Frontend surfaces
 
+### Starter-component mapping keyboard contract
+
+The existing mapping combobox keeps DOM focus in its search input. ArrowDown
+opens the results and starts at the first compatible, unused Cost Item;
+ArrowUp starts at the last. Further arrows move through eligible options and
+stop at either end. `aria-activedescendant` references the highlighted option;
+active options scroll into view. Enter selects only that available option.
+Escape dismisses the list without changing an existing mapping; Tab dismisses
+and continues to the next form control. Options remain pointer selectable but
+are not separate Tab stops. IME composition retains its normal keyboard input.
+
+Changing text clears the old mapping under the existing contract. Debouncing,
+in-flight or failed searches suppress stale options and active descendants;
+loading is announced as status and failure remains an alert. Keyboard selection
+stages a mapping only: current-cost preview, Install, then reviewed Estimate Add
+retain their existing gates. Tests in
+`tests/playwright/starter-mapping-keyboard.spec.ts` mount the real production
+picker/assessment with synthetic transport and a native Input fixture. This
+component evidence is separate from full-app authenticated certification.
+
 ### Failed finalization focus recovery (responsive Review)
 
 In the shared Scope / Items / Price / Review frontend, a failed finalize request retains the saved estimate and renders a focused `role="alert"` above the Retry finalization action. The focus handler only acts on a visible error notice and scrolls it toward the center so the fixed mobile action and Control Dock do not cover it. It uses the existing server-finalize mutation and does not imply proposal creation or saved pricing changes on failure. The previous standalone recovery PR #751 was closed unmerged; this is a reduced, current-main implementation for the single responsive Review surface. Source assertions are not hosted authenticated evidence.
