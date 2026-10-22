@@ -72,6 +72,38 @@ test("legacy viewer is canonicalized to technician before the Field page receive
   const normalizeRole = exported.normalizeRole as (role: string) => string;
   assert.equal(normalizeRole("viewer"), "technician");
   assert.equal(normalizeRole("estimator"), "dispatcher");
+  // Execute the actual settings producer with a legacy membership and isolated reads.
+  const settingsSource = await readFile(new URL("../../../../../app/modules/settings/service.ts", import.meta.url), "utf8");
+  const settingsCompiled = ts.transpileModule(settingsSource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const settingsExports: Record<string, unknown> = {};
+  const db = {
+    organization: { findUnique: async () => ({ id: "org-1", name: "", phone: null, address: null, logoUrl: null }) },
+    organizationSettings: { findUnique: async () => null },
+    brandProfile: { findUnique: async () => null },
+  };
+  vm.runInNewContext(settingsCompiled, {
+    exports: settingsExports,
+    require(specifier: string) {
+      if (specifier === "../admin-dashboard/service") return { AdminDashboardService: class {} };
+      if (specifier === "../../db/client") return { prisma: db };
+      if (specifier === "../../db/requestSession") return { runInDatabaseTransaction: async () => { throw new Error("Unexpected write"); } };
+      if (specifier === "../../backend/middleware/errorHandler") return { ApiError: class extends Error {} };
+      if (specifier === "../../domain") return {
+        canonicalRoles: ["owner", "admin", "dispatcher", "technician"],
+        isLegacyRole: (value: string) => value === "viewer" || value === "estimator",
+        normalizeRole,
+      };
+      if (specifier === "@prisma/client") return { Prisma: {} };
+      throw new Error(`Unexpected settings import: ${specifier}`);
+    },
+  });
+  const SettingsService = settingsExports.OrganizationSettingsService as new () => {
+    getSettings(orgId: string, auth: { userId: string; role: string }): Promise<{ currentRole: string }>;
+  };
+  const settings = await new SettingsService().getSettings("org-1", { userId: "legacy-tech", role: "viewer" });
+  assert.equal(settings.currentRole, "technician");
   // The page receives settings.currentRole, not the raw persisted membership.
   // Backend assignment and forced-RLS tests independently cover job authorization.
 });
