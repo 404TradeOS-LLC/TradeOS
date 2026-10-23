@@ -1107,14 +1107,15 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
       </div>
 
       <div id={customPanelId} hidden={entryMode !== "custom"}>
-        <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
-          <div className="sm:col-span-2 lg:col-span-2">
-            <Label htmlFor="custom-description">Custom line item</Label>
-            <Input ref={customInputRef} id="custom-description" placeholder="e.g. debris handling" value={custom.description} onChange={(e) => setCustom({ ...custom, description: e.target.value })} />
+        <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-start">
+          <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
+            <Label className="leading-5" htmlFor="custom-description">Custom line item</Label>
+            <Input className="h-11 lg:h-8" ref={customInputRef} id="custom-description" placeholder="e.g. debris handling" value={custom.description} onChange={(e) => setCustom({ ...custom, description: e.target.value })} />
           </div>
-          <div>
-            <Label htmlFor="custom-quantity">Qty</Label>
+          <div className="space-y-1.5">
+            <Label className="leading-5" htmlFor="custom-quantity">Qty</Label>
             <Input
+              className="h-11 lg:h-8"
               id="custom-quantity"
               type="number"
               min="0"
@@ -1130,9 +1131,10 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
               </p>
             ) : null}
           </div>
-          <div>
-            <Label htmlFor="custom-unit-cost">Unit cost</Label>
+          <div className="space-y-1.5">
+            <Label className="leading-5" htmlFor="custom-unit-cost">Unit cost</Label>
             <Input
+              className="h-11 lg:h-8"
               id="custom-unit-cost"
               type="number"
               min="0"
@@ -1150,24 +1152,24 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
               </p>
             ) : null}
           </div>
-          <Button type="button" variant="secondary" onClick={() => addCustomLineItem()} disabled={customAdd.isPending || customUnitCostMissing || customQuantityInvalid || customUnitCostInvalid}>
+          <Button className="h-11 lg:mt-[26px]" type="button" variant="secondary" onClick={() => addCustomLineItem()} disabled={customAdd.isPending || customUnitCostMissing || customQuantityInvalid || customUnitCostInvalid}>
             {customAdd.isPending ? "Adding…" : "Add custom"}
           </Button>
-          <div>
-            <Label htmlFor="custom-unit">Unit</Label>
-            <Input id="custom-unit" value={custom.unitOfMeasure} onChange={(e) => setCustom({ ...custom, unitOfMeasure: e.target.value })} />
+          <div className="space-y-1.5">
+            <Label className="leading-5" htmlFor="custom-unit">Unit</Label>
+            <Input className="h-11 lg:h-8" id="custom-unit" value={custom.unitOfMeasure} onChange={(e) => setCustom({ ...custom, unitOfMeasure: e.target.value })} />
           </div>
-          <div>
-            <Label htmlFor="custom-section">Section</Label>
-            <Input id="custom-section" value={custom.section} onChange={(e) => setCustom({ ...custom, section: e.target.value })} />
+          <div className="space-y-1.5">
+            <Label className="leading-5" htmlFor="custom-section">Section</Label>
+            <Input className="h-11 lg:h-8" id="custom-section" value={custom.section} onChange={(e) => setCustom({ ...custom, section: e.target.value })} />
           </div>
-          <div>
-            <Label htmlFor="custom-cost-type">Cost type</Label>
-            <select id="custom-cost-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={custom.costType} onChange={(e) => setCustom({ ...custom, costType: e.target.value as LineItem["costType"] })}>
+          <div className="space-y-1.5">
+            <Label className="leading-5" htmlFor="custom-cost-type">Cost type</Label>
+            <select id="custom-cost-type" className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm" value={custom.costType} onChange={(e) => setCustom({ ...custom, costType: e.target.value as LineItem["costType"] })}>
               {costTypes.map((type) => <option key={type} value={type}>{type}</option>)}
             </select>
           </div>
-          <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={custom.taxable} onChange={(e) => setCustom({ ...custom, taxable: e.target.checked })} /> Taxable</label>
+          <label className="flex min-h-11 items-center gap-2 text-sm lg:mt-[26px]"><input type="checkbox" checked={custom.taxable} onChange={(e) => setCustom({ ...custom, taxable: e.target.checked })} /> Taxable</label>
         </div>
       </div>
 

@@ -63,6 +63,24 @@ related_code:
 
 # TradeOS Current State
 
+## Custom Item control ergonomics — implementation pending review
+
+The Estimate Builder's existing Custom Item form now scopes 44px text inputs
+to phone/tablet widths, keeps compact 32px text inputs at desktop widths, and
+uses 44px Add/select controls and a 44px Taxable label target. Field labels
+align at the top; the desktop Add action aligns with the text-input control
+row rather than the bottom of wrapping cost help. Shared primitives and
+other Estimate entry modes are unchanged.
+
+This implements the bounded control ergonomics from the canonical Figma
+Custom Item handoff (793:11017), not the entire illustrated shell. Request
+payloads, explicit blank-cost gating, validation, pending/failure retention,
+and success reset/refresh remain the existing contracts. Component-browser
+evidence uses production React Query, Input/Button/Label and generated
+Tailwind with controlled transport; it does not certify authentication,
+tenant isolation, server persistence, or deployed runtime behavior.
+
+
 ## Estimate mapping keyboard repair — in progress, 2026-10-21
 
 Branch `fix/estimate-mapping-keyboard` continues the Figma mapping handoff from
