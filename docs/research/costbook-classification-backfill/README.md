@@ -34,6 +34,20 @@ screws, hurricane ties, 2x8+ generic-vs-joist, LSL rim board, LVL/glulam/PSL
 substitution, custom trusses) are recorded in the map notes and the reports —
 never silently merged.
 
+## Follow-up package: sheathing (2026-10-18)
+
+- `sheathing-classifications.csv` + `sheathing-verification-report.md` — 63 rows
+  researched 2026-10-18 and ingested into `CANONICAL_MATERIAL_CODES` as a
+  follow-up to the five-family backfill: 62 mapped to UNSPSC 30103604
+  "Wood sheathing or sheets" (OSB, softwood plywood, ZIP and radiant-barrier
+  panels, subfloor and underlayment panels), 1 ambiguous
+  (`SHEATHING-DENSGLASS-1_2-4X8` — glass-mat gypsum sheathing, not a wood
+  product; no verified gypsum-panel commodity in this pass, left code-empty).
+  Commodity 30103604 rests on the 2026-10-08 full class-30103600 codeset read
+  documented in `framing-lumber-verification-report.md` §2. Same provenance
+  and regeneration rules as above; OmniClass 23 stays NULL. The map now
+  holds 491 entries (347 mapped / 69 ambiguous against the static corpus).
+
 ## Full packages
 
 The complete research packages (normalization rules JSON, supplier price
