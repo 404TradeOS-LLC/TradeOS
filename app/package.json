@@ -29,7 +29,8 @@
     "athena:smoke": "jest --runInBand --testPathPatterns \"athena-kernel\\.smoke\\.test\\.ts$\"",
     "lint": "tsc --noEmit",
     "beta:evidence": "node scripts/beta-evidence/run.mjs",
-    "costbook:activate-abc-material": "ts-node scripts/activate-abc-supply-material.ts"
+    "costbook:activate-abc-material": "ts-node scripts/activate-abc-supply-material.ts",
+    "costbook:generate-abc-activation-batch": "ts-node scripts/generate-abc-activation-batch.ts"
   },
   "prisma": {
     "seed": "ts-node db/seed/seed.ts"
