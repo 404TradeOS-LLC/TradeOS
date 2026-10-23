@@ -35,13 +35,15 @@ Only three environments are real, workflow-managed configuration:
   credential check. It was created deliberately, with protections, during
   this audit (see §7).
 
-The audit found **no P0 findings**. The most serious issue is on the Vercel
-side, not in GitHub: a `SUPABASE_SERVICE_ROLE_KEY` is scoped into the
-frontend project where it has no legitimate use (§6, P1-a), and the frontend
-production deployment is one merge behind the API because the two newest
-web production deployments were canceled (§6, P1-b). ABC Supply sandbox
-credentials are isolated by construction — there is no production ABC
-credential path in the codebase at all (§4.3).
+The audit found **no P0 findings**. The initial P1-a and P1-b
+classifications were later corrected: the frontend has verified server-only
+uses for its service-role key, and the web deployment sequence is
+informational given the recorded API-only changes (§6). The remaining
+security and operations questions are narrower: whether Preview should use
+a staging-scoped service-role key, and the unresolved staging credentials
+and owner checks recorded in §§9–10. ABC Supply sandbox credentials are
+isolated by construction — there is no production ABC credential path in
+the codebase at all (§4.3).
 
 **CORRECTION (2026-10-23):** The two original P1 claims no longer stand as
 written: P1-a was disproven (the service-role key has verified, test-pinned
