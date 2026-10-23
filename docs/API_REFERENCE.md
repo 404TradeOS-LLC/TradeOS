@@ -14,6 +14,22 @@ related_code:
 
 # API Reference
 
+## Kitchen addendum to assembly catalog (PR #773)
+
+The same authenticated `GET /api/v1/{costbook/}assemblies/starter-catalog`
+response contains two additional `research` templates when PR #773 lands after merged parent PR #771: `kitchen:wall-cabinet-prefab` and
+`kitchen:laminate-countertop-straight`. The resulting catalog contains 104
+templates (14 original, 88 researched, 2 kitchen); `catalogVersion` is
+`2026.09.1+research88+kitchen2`.
+
+The unchanged `POST .../starter-catalog/install` accepts those IDs with
+all-component tenant-owned `componentMappings` and `costbook.write`.
+The wall cabinet requires EA Cost Items; the straight-run countertop requires
+LF Cost Items. No automatic piece-to-foot conversion is done. Missing source
+registry entries block installation via HTTP 422; supplier quote, scope and
+local productivity review remain human responsibilities. Source IDs
+`SRC-0069` and `SRC-0070` are in the research registry.
+
 ## Expanded assembly catalog contract (PR #771 — proposed, 2026-10-18)
 
 `GET /api/v1/costbook/assemblies/starter-catalog` and the compatible

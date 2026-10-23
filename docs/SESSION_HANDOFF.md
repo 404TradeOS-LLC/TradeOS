@@ -14,6 +14,31 @@ related_docs:
 
 # Session Handoff
 
+## Costbook kitchen recipe reconciliation — PR #773 (2026-10-23)
+
+- `EXISTING_WORK_FOUND`, Sprint ID: NONE. Continue
+  `feat/costbook-kitchen-assembly-gaps-20261018`; original head `955492cb`.
+  Reconcile with main `762bb992`, retaining its Estimate Builder implementation
+  and the Figma handoff below. No new feature branch or numbered sprint.
+- Preserve two price-neutral research scopes (wall cabinet EA, straight-run
+  laminate LF), registered sources and tenant-owned exact-unit mapping.
+  Catalog total: 104. No schema, authorization, RLS, financial policy or
+  Estimate snapshot change; rollback is revert of the additive PR.
+- The original head passed all four required checks, including live PostgreSQL
+  integration/migration rehearsal. All three earlier inline findings are fixed
+  and resolved. The reconciled head still requires fresh required CI and
+  reviewed-head evidence before merge; authenticated mapping/install remains
+  a separate nonproduction certification gate.
+- Next five: validate the reconciled tree; publish on the existing branch;
+  reconcile the stale review; verify exact-head checks and protected merge;
+  verify landed main before retargeting and revalidating stacked PR #774.
+
+## Retained Figma handoff checkpoint
+
+The following checkpoint is preserved from main. PR #785 subsequently merged
+as `762bb992`; its earlier pending-review text is historical. Its runtime and
+certification limitations remain in force.
+
 ## Active bounded mission — Custom Item control ergonomics
 
 Sprint ID: NONE. Founder-authorized Figma-to-code continuation, not a new

@@ -47,6 +47,36 @@ related_code:
 
 # Cost Book
 
+## Kitchen assembly scope follow-on (PR #773)
+
+The source-backed expansion adds **two more price-neutral kitchen research
+templates** beyond the original 14 reviewed starters and 88 sourced recipes
+(104 templates total after PR #773 lands). The recipes are not supplier
+quotes or production-rate benchmarks:
+
+- `kitchen:wall-cabinet-prefab` (CSI 12 35 30, NAHB 5000, EA):
+  each specified wall cabinet, one separate per-cabinet fastening/shim allowance,
+  and one reviewed per-cabinet labor Cost Item. Actual size, stud support,
+  fastener instructions, fillers and additional framing remain project-specific.
+  Installation scope reference: SRC-0069 (Home Depot wall cabinets).
+- `kitchen:laminate-countertop-straight` (CSI 12 36 23, NAHB 5000, LF):
+  one linear foot of an exact specified straight-run prefabricated laminate
+  countertop and one separate LF-install labor Cost Item. It deliberately
+  excludes sink/cooktop cutouts, mitered seams, backsplash, end caps and other
+  complications. Reference SRC-0070 (Formica guidance on laminate cutouts and
+  sealing). A priced 8-foot piece in EA is **not** compatible with the LF
+  material slot until explicitly converted and priced in the tenant Costbook.
+
+Both carry `review.status="research"`, explicit source IDs, measured units,
+zero default material waste, no embedded dollar amounts, and must pass the
+same `costbook.write` / tenant-scoped exact component mapping
+gates as the rest of the starter workflow. Registered-source absence blocks
+installation. These are limited scope recipes and are not a complete stone,
+fabrication, cabinetry or electrical/plumbing estimate.
+
+Status: branch-only; not merged or authenticated-deployed. No schema, RLS,
+supplier pricing, Estimate Engine or production migration change.
+
 ## Research assembly activation (October 18, 2026; proposed PR)
 
 The installed tenant-scoped Assembly model and Estimate Engine pricing remain the only

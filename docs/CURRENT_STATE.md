@@ -63,6 +63,22 @@ related_code:
 
 # TradeOS Current State
 
+## Kitchen assembly gaps — proposed follow-on (2026-10-18)
+
+PR #773 on branch `feat/costbook-kitchen-assembly-gaps-20261018` extends
+merged PR #771's research catalog with two additional scoped, unpriced kitchen
+recipes: wall cabinet installation by EA, and straight-run prefabricated
+laminate countertop by LF. Both are NAHB finishing phase 5000 and CSI division
+12; source refs `SRC-0069` and `SRC-0070` are registered. The combined
+catalog has 104 candidate templates. The work preserves per-tenant installation
+and Estimate Engine snapshots, and expressly blocks EA-to-LF piece conversion.
+
+No new wall-cabinet or laminate unit price was inferred. Stone/quartz slab
+fabrication, sink/cooktop cutouts, kitchen fillers, backsplash and separate
+mechanical/electrical scope are not silently included. PR #773 remains unmerged pending fresh checks and final-head review after
+reconciliation with main `762bb992`. Authenticated staging mapping/install
+evidence remains a separate certification gate; no deployment is certified.
+
 ## Custom Item control ergonomics — implementation pending review
 
 The Estimate Builder's existing Custom Item form now scopes 44px text inputs
