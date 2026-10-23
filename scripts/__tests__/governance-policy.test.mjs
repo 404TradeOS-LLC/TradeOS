@@ -34,3 +34,46 @@ test("founder exception preserves non-waivable technical gates", () => {
   assert.match(governance, /conversation resolution/i);
   assert.match(template, /self-review is not described as independent approval/i);
 });
+
+test("component-only and runner changes execute the Web browser gate", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const { tmpdir } = await import("node:os");
+  const { default: yaml } = await import("js-yaml");
+  const workflow = yaml.load(read(".github/workflows/verify-repository.yml"));
+  const script = workflow.jobs.changes.steps.find((step) => step.id === "scope").run;
+  const directory = fs.mkdtempSync(path.join(tmpdir(), "tradeos-scope-"));
+  const cwd = path.join(directory, "repo");
+  fs.mkdirSync(cwd);
+  const git = (...args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  try {
+    git("init", "-q");
+    fs.writeFileSync(path.join(cwd, "seed.txt"), "base\n");
+    git("add", ".");
+    git("-c", "user.name=Scope Test", "-c", "user.email=scope@example.invalid", "commit", "-qm", "base");
+    const base = git("rev-parse", "HEAD");
+    git("update-ref", "refs/remotes/origin/scope-base", base);
+    for (const [file, expected] of [
+      ["tests/components/example.spec.ts", true],
+      ["playwright.components.config.ts", true],
+      ["package.json", true],
+      ["package-lock.json", true],
+      [".github/workflows/verify-repository.yml", true],
+      ["web/src/example.ts", true],
+      ["docs/example.md", false],
+      ["app/example.ts", false],
+    ]) {
+      git("reset", "--hard", base);
+      const target = path.join(cwd, file);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, "changed\n");
+      git("add", ".");
+      git("-c", "user.name=Scope Test", "-c", "user.email=scope@example.invalid", "commit", "-qm", file);
+      const output = path.join(directory, "output");
+      fs.writeFileSync(output, "");
+      execFileSync("bash", ["-c", script], { cwd, env: { ...process.env, EVENT_NAME: "pull_request", BASE_REF: "scope-base", GITHUB_OUTPUT: output } });
+      assert.match(fs.readFileSync(output, "utf8"), new RegExp(`web=${expected}\\n`), file);
+    }
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});

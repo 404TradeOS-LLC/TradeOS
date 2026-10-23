@@ -1,497 +1,105 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-20
-source_of_truth: false
+last_verified: 2026-10-21
+source_of_truth: true
 related_docs:
-  - docs/SPRINT_BACKLOG.md
-  - docs/CURRENT_STATE.md
+  - docs/TRADEOS_BIBLE.md
   - docs/ENGINEERING_COMMAND_CENTER.md
+  - docs/CURRENT_STATE.md
+  - docs/SPRINT_BACKLOG.md
+  - docs/REPOSITORY_GOVERNANCE.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
-# TradeOS Session Handoff
-
-## Costbook kitchen recipe reconciliation — PR #773
-
-- Parent #771 is merged; existing branch is reconciled onto main. Retains two price-neutral recipes, native EA/LF mappings and registered scope references. Catalog total 104.
-- No schema, authorization, pricing or Estimate snapshot change. Hosted final-head checks and authenticated mapping/install evidence remain separate gates; no staging certification is claimed.
-- Next five: validate API/tests; reconcile review; verify required CI; merge through protection; retain authenticated catalog/install evidence when an isolated staging path is available.
-
-## Costbook Add states and accessibility review continuation
-
-- `EXISTING_WORK_FOUND`: continued PR #781 on `feat/figma-to-code-completion`, published parent `89619293`, current main `15d7e0c7`. No new implementation branch or numbered sprint was created.
-- Added 768/1024 mapping sets, four reviewer-only navigators, and install-pending/current-cost outcomes in the existing Figma Estimates page. The newest twelve Add pending/failed/confirmed specimens cover 390/768/1024/1440. Add failure retains selection and quantity; confirmed success clears the picker, restores search focus, resets quantity/section/cost type/taxability using the existing handler, and refreshes the estimate. Amounts are explicitly illustrative fixtures and must use persisted response values in production. Full runtime certification remains outstanding.
-- PR #781 is approved and non-draft. A normal merge attempt was blocked by two new review conversations: mobile retry target size and screen-reader progress. Both were validated and repaired locally: 44px mobile minimum, compact desktop sizing, dynamic accessible name, and persistent polite status. Fresh Web 507/507, full lint, production build including TypeScript, docs check/tests 40/40, PR preflight, and diff whitespace checks pass. Publication and hosted verification of this repair follow. Do not claim merge or deployment.
-- Next five: (1) publish and verify the accessibility repair; (2) resolve its reviewed conversations and complete the protected merge when permitted; (3) visually verify all 60 state/viewport combinations and touch/focus specifications; (4) capture sanitized authenticated Add persistence/recovery and snapshot evidence; (5) reassess Ready for Dev and continue the next approved Estimate workflow. Figma remains Design Complete partial, Ready for Dev NO.
-
-## Costbook mapping retry handoff — 2026-10-21
-
-- `NEW_WORK_REQUIRED` for the explicit Costbook preview-retry control: current main `15d7e0c736bf069bc8a34ce9a3e32ddb5651505a` had a read-only preview error message but no retry action; live open/recent PR search found no UI overlap. PR #773 is a separate research recipe catalog extension. Branch `feat/figma-to-code-completion` is based on that main SHA; draft PR [#781](https://github.com/404TradeOS-LLC/TradeOS/pull/781) is open, not merged.
-- Implemented locally in the existing Estimate builder: failed mapped-cost previews expose an accessible `Retry preview` button that refetches the same tenant-scoped read, communicates retry progress, and leaves Install disabled until a finite, nonnegative preview resolves. No install, Estimate Add, pricing, API, auth, tenant, RLS, or financial behavior changed. Added a regression contract assertion.
-- Updated the canonical Estimates mapping workflow in Figma: removed the extra Current Unit Price panel, aligned the single aggregate preview, and added retry controls to the 1440/390 preview-error states. Added and visually inspected 1440/390 Cost Item search loading, no-results, lookup-error, and install-success-return states. Prototype links now cover search entry/recovery, preview retry, resolved install, and install retry; the success state returns to the existing selected-assembly/current-cost boundary and does not imply Estimate Add.
-- PR #781 review reconciliation: CodeRabbit's two scoped findings were validated and repaired. Current-state and handoff copy now name the finite, nonnegative preview gate; the contract test isolates the exact retry button and verifies its label, refetch handler, pending disablement, and dynamic text together. The PR body still needs the repository template update on the published head, and fresh hosted checks/re-review remain pending.
-- Verification: `cd web && npm test -- --test-name-pattern "starter assembly setup"` ran the full 507-test suite and passed 507/507; focused ESLint, `npx tsc --noEmit`, a clean-cache production build, `npm run docs:check`, `npm run docs:test` (40/40), `npm run autonomy:test` (10/10), `npm run pr:preflight -- --base origin/main`, and `git diff --check` pass. Authenticated browser evidence, 1024/768 mapping targets, fresh hosted exact-head CI/re-review, thread resolution, merge, and deployment remain unverified. Figma remains Design Complete (partial), Ready for Dev NO.
-- Next five TODOs: (1) add 1024/768 responsive mapping targets and connect the existing gate entry points; (2) complete remaining prototype outcome paths and inspect the end-to-end 1440/390 flow; (3) publish this review repair, update the PR body to the repository template, and obtain fresh exact-head CI/re-review; (4) capture authenticated 390/768/1024/1440 runtime evidence without production mutation; (5) reassess Ready for Dev only after those gates pass, then continue the highest-priority unfinished approved Estimate workflow.
-
-## Items cost columns checkpoint — 2026-10-17 UTC
-
-Reconciled main `41a62cea99c7bc91eda45d805e4b0363b8906132`: #760 progressive entry is merged as `17c339cf`, production READY `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL`; #761 explicit line-edit cost is merged as `41a62cea`, production READY `dpl_12gVocD7WKCA9vwgSp89YKc4apwi`. These are exact-source deployments, not authenticated workflow certification. Older pending/blocked statements below are historical.
-
-Branch `feat/estimate-items-cost-columns-20261017` reconciles canonical Desktop Items `378:441` (Estimates page `4:10`, high-fidelity context/screenshot inspected). Existing saved items lacked quantity/unit-cost/line-cost columns and visible editor labels. Shared desktop column tracks now align actual saved values; mobile keeps the compact quantity × unit-cost summary and 44px edit actions. Six editor fields have visible, associated labels. Internal costs are explicitly distinguished from customer pricing; saved lineCost is rendered directly, never recomputed. Existing PATCH, draft/permission gates, validation, pricing and snapshots are unchanged.
-
-The missing-header regression failed on the base; all 16 isolated layout/edit/entry/stage browser cases now pass across 390/768/1024/1440. Headers align with cells, cost text matches the response, labels/keyboard Cancel work, mobile targets fit and no horizontal overflow occurs. Every mutation is intercepted; synthetic reads are clearly labeled. Desktop 1440/1024 and mobile 390 renders inspected. Local Web 506/506, lint/build, governance 151/151, docs 40/40, ownership/preflight and Playwright discovery pass. Current branch is unmerged/undeployed pending exact-head hosted checks/review. Authenticated nonproduction persistence and tenant denial remain unverified.
-
-- Classification NEW_WORK_REQUIRED, Sprint NONE: #760/#761 own entry/validation and are merged; current saved-row presentation still lacked the canonical columns. Live overlap reconciliation found only unrelated open Davis-Bacon #700 and Field contracts #702. No equivalent active Estimate implementation.
-- Worktree `/workspace/scratch/1f8f19f950ac/tradeos-stage-nav`; allowed builder presentation, focused browser tests and owned docs. Excluded backend/API behavior, financial calculations, auth/RBAC/RLS, schema, suppliers, proposal lifecycle, infrastructure and unrelated main-checkout PNG/GIF edits. #751/#731 remain owner-closed without merge; preserve their branches.
-- Next five TODOs: (1) pass local Web/governance/docs and exact-head hosted gates for columns; (2) reconcile automated review findings and complete normal protected merge; (3) verify landed main and exact-source deployment; (4) reconcile laptop Athena rail usability against approved responsive behavior; (5) certify sanitized authenticated Costbook → Price → Proposal persistence and foreign-tenant denial once Preview/data-plane isolation is proven.
-
-## Estimate line-edit explicit cost — active 2026-10-17 UTC
-
-- Main reconciled at `17c339cf28ce36056f1f2d97989e5521f74e1611` (#760 merged normally). Exact tree matches tested source; web production `dpl_3FnbfxKB3J1NhRS62ixSme7CLBNL` is READY at that SHA. This is deployed-source evidence, not authenticated functionality. #751/#731 remain closed without merge; #755/#758 and evidence #756/#757 are merged. Preserve root's unrelated concept PNG and knowledge-engine demo GIF modifications.
-- Classification NEW_WORK_REQUIRED: #760 fixed custom Add only; current `EditableLineItem` still converted blank Unit cost to numeric 0. No open line-edit equivalent found. Branch `fix/estimate-edit-explicit-cost-20261017`, base `17c339cf`, same isolated worktree; Sprint NONE. Allowed: existing line-editor required-cost gate/help/error semantics, focused browser regression and four owner docs. Excluded: backend/API/schema/auth/RBAC/RLS, financial computations or explicit-zero policy, supplier integrations, proposal lifecycle, infrastructure and production data.
-- Canonical Items `378:441` and written unknown-cost/mutation-recovery contract remain authoritative; no new estimator or visual system. A new 390px browser regression first failed because blank cost left Save enabled. Repair requires input presence in the existing handler and Save control, marks the input required, describes intentional zero and announces actual failed saves as alerts. Explicit zero remains valid; existing price calculations and draft-only server writes remain unchanged.
-- Verification: 12/12 isolated browser cases at 390/768/1024/1440 (edit/entry/stage matrices) pass. Edit cases intercept every mutation, prove no blank write, verify only explicit 0/original-cost PATCH payloads, pending/repeated rejection, retained input, Cancel and overflow. Synthetic reads, no backend mutation or authenticated persistence proof. Web 506/506, lint/build, root governance 151/151, docs 40/40, ownership/preflight and Playwright discovery pass; 390/1440 edit/error renders inspected. Temporary fixture/config/cache removed. Exact-head hosted CI/review are next; this branch is unmerged and undeployed.
-- Next five TODOs: publish the focused edit-cost PR; resolve exact-head hosted checks; reconcile review and merge normally; verify landed source and exact deployment; finish approved desktop Items quantity/unit-cost/amount composition while preserving internal-cost meaning.
-
-
-## Estimate Items progressive entry — active 2026-10-17 UTC
-
-- Base main `f9a93dc4aebaeeaa428c781de606999f460b4f81`. #755 responsive stages, #758 failed-finalization focus and #756/#757 persisted-price evidence instrumentation are merged. #751 is owner-closed without merge; do not reopen or reuse its obsolete two-layout implementation. #731 remains closed without merge. Historical entries below do not override these facts.
-- Classification NEW_WORK_REQUIRED: no open/draft or recent closed Items disclosure implementation; existing #746 reviewed Add and #624 assembly mapping remain authoritative. Branch `fix/estimate-items-progressive-entry-20261017`, worktree `/workspace/scratch/1f8f19f950ac/tradeos-stage-nav`, Sprint NONE. Allowed: existing picker presentation/filter/focus and explicit missing-cost validation, isolated behavioral test, canonical evidence UI entry helper and its documentation, Current State/estimating/ledger/handoff. Excluded: backend/API contracts, schema, auth/RBAC/RLS, financial calculations/policy, supplier integration, public proposal actions, infrastructure and production data.
-- Exact canonical Figma Desktop Items `378:441` screenshot/context re-read: saved item rows follow compact Add assembly / Costbook / Custom item actions. Existing always-expanded forms put saved rows below hundreds of pixels of unused entry fields. Reuse those same forms and APIs behind explicit native disclosure buttons; custom inputs and same-source selection survive closing; switching catalog type deliberately clears the prior type's selection. Search filters existing resolved source kinds; starter install/review/Add gates remain unchanged.
-- Verification passed: four-width isolated browser matrix for saved-line Edit access, keyboard/focus, disclosure/draft retention, source filtering, select-without-write, resolved preview gate and repeated rejected custom Add; existing stage/save matrix also passed (8/8 total). The first run exposed a stale Shift+Tab expectation after main began focusing stage headings; the regression now asserts Review then Price, preserving the heading-focus contract. Explicit synthetic catalog fixtures; every non-GET proxy request intercepted, no records written. Web 506/506, lint/build, governance 151/151, docs 40/40, preflight/ownership and eight-case Playwright discovery pass; Items screenshots inspected at 390/1440. Temporary fixture/config/cache removed. Exact-head hosted CI/review still pending. This branch is unmerged and undeployed.
-- PR #760 initially published at `42a655fb`. Codex review found unrelated-source blocking: query now keys by selected catalog kind and requests only that source (assemblies plus starter recipes, or Cost Items). A held Costbook response proves loading is announced, no false empty state appears, and assembly endpoints are not called. All eight browser cases pass again after the fix. Fresh exact-head hosted checks/review must be reconciled. The canonical Beta runner now uses the same tested Custom item opening interaction before its existing writes, preserving legacy visible editors and all data-plane/auth/amount guards; no full evidence run claimed.
-- Additional reproduced defect: the existing custom form submitted blank Unit cost as numeric 0. UI now requires an explicit cost, preserves intentional 0, and guards both Add and handler; four-width cases verify blank disabled, explicit 0 enabled and no implicit write. This changes input presence validation, not backend financial calculations/policy.
-- Next five TODOs: finish #760 fresh checks/review after source-isolation and evidence-entry compatibility repairs; resolve fresh exact-head hosted CI/review and conversations; merge through normal protected gates; verify landed source and exact deployment; continue the next demonstrated gap while authenticated sanitized Preview/data-plane certification remains separately gated.
-
-
-## Evidence locator parity after responsive Estimate merge — 2026-10-16
-
-- Base main `5469bfe276b253fd31310bfa75ba83acf618e74c` (#755 merged), branch `test/beta-estimate-proposal-review-link-20261016`, sprint NONE. Existing main evidence runner #756 already verifies saved Estimate and Proposal fixed totals; this repair makes the final Review-stage proposal link unique under strict Playwright mode.
-- Allowed: evidence script, source regression and owned documentation only; no production deploy or data mutation, auth/RLS/tenant/financial code, migration or provider integration.
-- No verified full Beta Evidence run: the dedicated nonproduction TradeOS Staging Supabase project has been restored ACTIVE_HEALTHY, but exact Preview identity and tenant data-plane isolation remain unverified, and deployment/data-plane isolation for the latest SHA has not been proven. Do not run against production.
-- PR #751 has been closed **without merge**, so do not claim its enhanced focus-recovery logic shipped. It remains historical/unfinished work.
-- Next five TODOs: pass exact-head evidence test and governance CI; protected merge without bypass; verify main and targeted evidence script version; restore and certify isolated staging with owner authorization if any cost/credential changes are needed; then perform authenticated four-width estimate-to-proposal plus role/tenant-negative checks and retain sanitized artifacts.
-
-
-## Active finalization recovery focus — 2026-10-16
-
-- Founder-directed P0 continuation; base main `5469bfe276b253fd31310bfa75ba83acf618e74c` (#755 merged). Separate prior PR #751 closed **without merge** by owner; do not reopen, dismiss its review, or copy its outdated two-layout implementation.
-- Branch `fix/estimate-finalization-error-focus-20261016`. Existing shared Review stage only; repair visible error focus/scroll then keyboard Retry without touching server finalization, Costbook, money calculations, proposal, authorization, database, payments or production environment.
-- Shared Review rendering now uses one `EstimateFinalizationError` notice for an actual failed finalize; focus is prevented for hidden stage content. Existing state guards require server confirmation before proposal.
-- Verification: Web test/lint/build, App integration and governed PR CI/review pending. Authenticated non-production failed-finalize / focus / retry across 390/768/1024/1440 remains a release gate.
-- Other priority state: #756 Beta evidence runner merged, #755 responsive UI merged and Vercel source READY; staging Supabase restore is ACTIVE_HEALTHY but Vercel Preview environment metadata GET returned 403, so tenant data-plane isolation remains **UNPROVEN** and full mutating Beta Evidence must not run.
-- Next five TODOs: (1) exact-head CI/review this focus slice; (2) merge normally if allowed, verify main and deployed source; (3) obtain Vercel Preview environment attestation without revealing secrets; (4) deploy approved exact-SHA RC against verified nonproduction staging; (5) run four-width authenticated Estimate → Proposal persistence and foreign-tenant denial with sanitized artifacts.
-
-
-## Active Estimate → Proposal evidence parity — 2026-10-16
-
-- Classification: NEW_WORK_REQUIRED in canonical Beta Evidence script, no overlap with existing #755 responsive UI or #751 recovery branch. Base main `9769dacfdb8beb69f0acbd40e1e8465affdee925`, branch `test/estimate-proposal-evidence-parity-20261016`; sprint NONE, non-production certification instrumentation only.
-- Changed: stage navigation in real browser capture (Items / Price / Review, legacy desktop compatibility), s053 return to builder, persisted Estimate lineCost/subtotal and finalized total/status API assertions, persisted Proposal estimateId/finalPrice match. Original pricing/tax, preview isolation and tenant-negative probes remain.
-- Safety: `Beta Evidence` mode=full remains opt-in, refuses production target/shared production Supabase, requires synthetic owner/foreign tenant, scans artifacts for credentials. No runner invoked, secrets read, production mutations, auth bypass, database, pricing or customer lifecycle change.
-- Current blockers: PR #751 requested-changes reviewer still active though source findings corrected; review disposition requires authorized reviewer action. PR #755 owns responsive stage composition; do not duplicate UI. Authenticated Preview owner/foreign fixtures and exact deployed-SHA execution have not been proven in this session.
-- Verification: new source assertions pending hosted CI; authenticated four-width full run and artifact validation still required. Do not mark S053 complete.
-- Next five TODOs: (1) pass exact-head tests/reviews and merge this evidence repair; (2) synchronize with merged #755 and exact Preview SHA; (3) dispatch preflight to prove RC identity/data-plane safely; (4) run full synthetic authenticated beta scenario with retained sanitized artifacts and tenant denial; (5) reconcile #751 legitimate reviewer clearance, rerun recovery and inspect final proposal cost/status persistence.
-
-## Responsive Estimate stages — active 2026-10-16
-
-- Classification NEW_WORK_REQUIRED after existing mobile navigation PR #754 merged as `9769dacfdb8beb69f0acbd40e1e8465affdee925`. Live searches found no open desktop-stage implementation; #751 separately owns finalization recovery. This branch extends the landed flow, not a replacement for #754. Sprint ID NONE.
-- Branch `feat/estimate-responsive-stages-20261016`, worktree `/workspace/scratch/1f8f19f950ac/tradeos-stage-nav`, base `9769dacf`. Allowed: existing Estimate Builder, stage contract/browser tests, Current State/estimating/ledger/handoff. Excluded: backend, schema/migrations, auth/RBAC/RLS, supplier/pricing policy, financial calculations, proposal lifecycle and infrastructure. Root checkout's unrelated modified concept PNG is preserved.
-- Canonical Figma Estimates `4:10`: high-fidelity contexts/screenshots inspected for Desktop Scope `378:440`, Items `378:441`, Price `378:442`, Review `378:443`, plus mobile step tracker `381:801`. Implement shared four-stage composition and desktop Athena rail using existing components/tokens and real mutations. Persisted one-question clarification and universal pricing-reconciliation gates remain separate capability gaps; no scripted values or fake approvals.
-- One responsive flow replaces duplicate desktop/mobile controls. Inactive forms remain mounted/hidden to retain unfinished edits; Items search shortcut only handles keys while Items is active. Dirty-scope progression awaits PATCH acknowledgment and stays on Scope on failure. Desktop actions are inline; mobile actions remain above the Control Dock.
-- Main #754 source is deployed READY as `dpl_CEbaBSEUmbp45yjcwbLCRA8sZdKZ` (production, exact `9769dacf`). This is source delivery, not signed-in workflow proof. Four isolated browser cases on this responsive implementation pass at 390/768/1024/1440: native keyboard, pending save, failure/retry, scope retention, unsaved line/pricing edits, breakpoint continuity and overflow. Sixteen stage screenshots were captured and selected Scope/Items/Price/Review renders inspected. Explicit local synthetic fixtures and intercepted responses; no authenticated persistence or RLS proof. Temporary routes/config/cache removed. Web 506/506, lint, governance 149/149, docs 40/40, ownership/preflight and Playwright discovery pass; production build passes.
-- #751 head `5d886423` remains open with green required checks at its older base and a formal CodeRabbit CHANGES_REQUESTED review on historical `dea278a7`. Legitimate re-review again returned rate-limited. Do not dismiss/bypass; reconcile its tests to stage buttons and current main before advancing the same PR. #731 remains owner-closed without merge; preserve its branch.
-- Exact next task: reconcile refreshed hosted CI and CodeRabbit findings, verify source-level 390/768/1024/1440 regression assertions, then complete governed review and merge if eligible. The four-width synthetic browser matrix and local Web/root tests were already run as described above; do not rerun solely to satisfy this historical checklist. No merge/deployment is claimed yet.
-- Next five TODOs: reconcile exact-head CI after three CodeRabbit fixes; obtain legitimate review disposition and governed merge; verify landed source and deployment; reconcile #751 separately without bypassing its reviewer gate; capture authenticated persisted Costbook Add → Price → finalize → Proposal total and tenant-denial evidence on sanitized Preview.
-
-Older entries below are historical and superseded by this checkpoint.
-
-## Current proposal retention / blocked recovery checkpoint — 2026-10-16
-
-- Main: `3811e5832c801957604cedb7d1ff1a914d26a8c1` (#752). Vercel production source READY: `dpl_Dk3KsHe5djrEtwvuLZYUSAFpEbfn`. Authenticated proposal persistence remains unverified. #731 remains closed without merge; preserve its branch. Main's unrelated concept PNG is untouched.
-- Estimate recovery #751 final head `87038de0af9cedde1a53f59adffc5ebab9821cec` is current with main; Web/App/integration/Docs all green, all findings repaired/resolved, five isolated browser cases pass. Normal merge returned HTTP 405: one write-access reviewer requesting changes. CodeRabbit declined re-review due OSS rate limit. No dismissal/rules change/bypass. BLOCKED on legitimate formal review disposition; resume the same PR, do not recreate it.
-- NEW_WORK_REQUIRED for independently reproduced proposal input loss; no overlapping PR/branch. Active branch `fix/proposal-retain-failed-input-20261016` from current main; PR #753, runtime revision `f85bcc19afdbb7f5e9ea3b6468a4d36a8a1c1d81`. Reconcile the PR live head/checks before merging or resuming. Sprint ID NONE. Allowed: existing proposal-new form, focused Playwright retention spec, Current State/proposals/ledger/handoff docs. Backend, server action, auth/RLS, schema, financial rules, suppliers, dependencies and infrastructure excluded.
-- Root cause: returned server errors are fulfilled React actions and reset uncontrolled fields. Actual incomplete-payment validation reset company/scope to fixture defaults and erased the milestone. The bounded fix cancels the native form reset (successful create redirects) and focuses the returned error alert. No typed values are persisted to browser storage.
-- Design checkpoint: existing canonical Estimate Review `287:240`, Copperline Review Mobile `361:119` and written canonical design contract. Preserve real failure/retry semantics without activating scripted public actions or redesigning the form.
-- Verification: four executed cases at 390/768/1024/1440, two real server payment-validation failures each, all text/textarea/payment/checkbox/Estimate identity retained, error focus and Tab to submit, no overflow. Explicit synthetic local props, no backend create reached; no authenticated/API-persistence proof. Temporary route/config/cache removed. Local Web 504/504, lint/build/typecheck, governance 149/149, docs 40/40 and preflight/consistency pass. Exact-head hosted CI, formal review and final delivery are tracked by PR #753; this checkpoint does not predeclare its merge.
-- Exact next task: finish retention checks, publish and pass the focused PR; merge normally if eligible. Next five TODOs: complete retention CI/review/merge; verify its exact-source deployment; reconcile #751 formal review when available; repair mobile Scope/Items/Price/Review keyboard semantics while preserving async scope-save gates; verify sanitized authenticated Estimate → proposal persistence and fixed total.
-
-Older entries below are historical and superseded by this checkpoint.
-
-
-## Active proposal price-basis continuation — 2026-10-16
-
-- NEW_WORK_REQUIRED from main `4f4adf7d`; no overlapping proposal-new price summary in open/recent closed PRs or remote branches. #751 independently owns estimate finalization recovery and is awaiting final-head CI/review. Branch `fix/proposal-selected-estimate-price-20261016`; Sprint ID NONE.
-- Allowed: existing proposal-new form, focused read-only Playwright regression and Current State/proposals/ledger/handoff docs. Backend/server action, financial calculations/approval rules, auth/RLS, schema, suppliers and infrastructure excluded. Main's unrelated modified concept image is preserved.
-- Root cause reproduced on the real form with explicit synthetic local props: selected saved Estimate total $121.37, displayed intake range $100–$200, no selected-price summary. Backend `createFromEstimate` already snapshots the selected total; frontend now shows that existing price basis, preserves cents and announces selection changes. Unknown/draft selection cannot become an eligible option.
-- Figma checkpoint: Estimates canonical Review `287:240` requires pricing review before proposal; Copperline Review Mobile `361:119` presents proposed total and scope. Only the staff handoff price discrepancy is repaired; no customer signature/payment capability or full Copperline visual parity is claimed.
-- Verification: four read-only browser cases pass at 390/768/1024/1440 with two different saved totals, submitted Estimate identity, return to intake range and no writes/overflow. Isolated synthetic props, not authenticated creation/persistence. Temporary fixture route/config removed; Web 504 tests, lint/build/typecheck and root docs/preflight pass. Hosted final-head CI/merge/deployment pending.
-- Next five actions: finish #751 governed merge; reconcile this branch onto the landed main without dropping its docs/code; publish price-basis PR and pass exact-head CI/review; merge and verify exact-source deployment; verify authenticated finalized Estimate → proposal creation and stored fixed total on sanitized Preview.
-
-Earlier handoff entries are historical.
-
-
-
-## Active Universal Create presentation repair — 2026-10-16
-
-- EXISTING_WORK_FOUND: continued unpublished `fix/universal-create-role-options` at `96515786` and merged current main `7a9d965a`. No overlapping open PR; #731 onboarding is separately waiting on CodeRabbit's historical changes-requested disposition despite green current required CI at `e5de4dab`.
-- Scope: AppNav Create entries, authenticated shell role read, optional AbortSignal on existing settings read, pure role predicate/tests and owned docs. Backend/RBAC/RLS/auth policy, financial rules, suppliers, schema/migrations, dependencies and infrastructure excluded.
-- The defect is established in source: Create filters only Athena capability, exposing Project/Customer/Job/Billing workflows to roles whose existing endpoints deny those writes. Continue existing role-aware presentation, not a new permission model.
-- Main #749 is MERGED and Vercel production deployment `dpl_HtrJucc4Wr9mHenH3r6YgN2xHmex` is READY at `7a9d965a`. This is deployed source evidence, not authenticated browser proof.
-- Next: role predicate/source checks, full Web tests/lint/typecheck/build and root docs/preflight; publish this same branch once reviewed. Keep all current owner documentation and exact-head branch protection. No browser/parity/RLS certification without runtime evidence.
-- Next five TODOs: complete Create CI/review; merge when permitted; capture signed-in owner/technician/viewer Create behavior at four widths; resolve #731 legitimate reviewer disposition and verify its delivery; continue canonical workflow gaps from the ledger.
-
-
-## Estimate Price → Review → Copperline parity — current 2026-10-15
-
-- Sprint: NONE; founder-authorized bounded Figma-to-code completion from `main` `51ecb15c7864e193656dd31bd96fb5641dd7c29c`; branch `fix/estimate-price-review-copperline-handoff-20261015`.
-- Preflight: source code and current docs inspected; recent Figma prototypes edited in place; no overlapping open estimate finalization/proposal-review PR. Last merged estimate Add safety #746 is preserved.
-- Scope: `EstimateBuilder` saved type breakdown, internal-cost labeling, explicit failure/retry for the existing finalize mutation, separate proposal-draft link, source regression tests and owned docs.
-- Excluded: Estimate Engine, Costbook price writes, RLS/tenant/auth, supplier proofs, public proposal acceptance, PDF redesign, proposal server action, payment/deposit, schema/migration, production deployment.
-- Required verification: focused Web unit/lint/build, App integration, docs consistency/governance, head currency and review. Authenticated browser screenshots and persisted finalize-to-proposal lifecycle proof remain pending.
-- Next five TODOs: (1) resolve exact-head CI; (2) resolve review findings; (3) check mobile/desktop keyboard and errors on Preview; (4) test finalized Estimate to Proposal Draft and creation with role/tenant denial; (5) merge after governed gates, reconcile main and separately certify host delivery.
-
-## Active Figma-to-production continuation — 2026-10-16
-
-- Initial classification: EXISTING_WORK_FOUND. Reused remote branch `fix/estimate-price-review-copperline-handoff-20261015` at `873dc2ae`; its parent is audited main `51ecb15c` (#747). Open #731 owns onboarding, #744 instrumentation, #700 wages, #702 Field contracts; none owns this estimator runtime change. No new competing branch.
-- Reconciliation update: PR #748 merged as `be126ff9` and its remote branch was deleted during verification. Follow-up classification NEW_WORK_REQUIRED; current branch `fix/estimate-desktop-scope-recovery-20261016` starts at `be126ff9` and contains only desktop scope, delete recovery, cost-display hardening and docs/tests. No duplicate Price/Review implementation.
-- Scope: existing builder + focused cost aggregation helper/tests, Current State/estimating docs and `docs/design/FIGMA_IMPLEMENTATION_LEDGER.md`. Backend/schema/migrations, auth/RLS/RBAC, supplier integration, pricing policy and production configuration excluded.
-- Added shared desktop/mobile scope editing, saved cost-type transparency, visible failed-finalize retry and delete reconciliation, honest internal Review labeling and explicit proposal handoff.
-- Figma: inspected live Scope `432:25161` and Mobile Price `432:27891` screenshots/context, canonical component mappings and current written design contract. Full application parity not certified.
-- Next: run final Web tests/lint/typecheck/build + root docs/preflight, publish the same branch PR, reconcile exact-head hosted CI/reviews; merge only through normal gates, then verify deployment and authenticated four-width workflow.
-- Local browser blocker: pinned Chromium v1248 download returns an invalid ZIP. No provisioned authenticated non-production fixture has been used. No browser/RLS/deployment verification claimed.
-- Next five TODOs: complete this PR's exact-head checks; repair scoped review findings; exercise scope save/failure and reviewed add/finalize in Preview at 390/768/1024/1440; verify stored snapshot + proposal draft handoff; continue #731 and ledger-ready gaps after fresh reconciliation.
-
-
-## Estimate Costbook selection and preview guard — 2026-10-15
-
-- Sprint ID: NONE; bounded founder-requested Figma-to-code fix from `main` `049ff512470e1997edf5afcdc8a9ff9cdca76a76`.
-- Autonomy preflight: NEW_WORK_REQUIRED. Open Costbook PRs #700 (wages) and #745 (ABC catalog detail) do not overlap the Estimate Items picker. Previous S064 assembly picker and starter mapping are already implemented on main.
-- Branch: `fix/estimate-picker-reviewed-add-20261015`. GitHub connector edits only; local git checkout/npm execution unavailable due blocked GitHub DNS. Do not treat remote CI as local test evidence.
-- Scope: explicit Costbook/assembly search selection, read-only unit-cost preview, quantity and error gates, mapped starter install before separate Estimate Add, focused tests and owner docs.
-- Safety: backend Estimate pricing snapshots/tenant/RLS/auth, schema/migrations, API contracts, supplier quotes, automation and proposal/invoice flows unchanged.
-- Validation: exact-head Web tests/lint/build and repository documentation CI, branch currency, review and authenticated 390/768/1024/1440 checks still need reconciliation. No hosted screenshot or tenant-negative evidence yet.
-- Next five TODOs: reconcile fresh PR checks; repair deterministic review/test failures; capture authenticated search/preview/add/cancel and failed cost cases on 390/1440; verify stored Estimate snapshot matches the backend resolved cost without historical repricing; then merge through protected PR gates and verify main.
-
-## Figma-to-code customer portal access parity — active 2026-10-14
-
-- Sprint ID: NONE; bounded founder-requested frontend design parity, not S059 release certification.
-- Autonomy preflight: NEW_WORK_REQUIRED; remote `main` at `b3eb5ce9edae61d363b763bcc9ce426005a2454a`. No open access UI overlap; open first-estimate PR #731 remains separate. An old `ui/customer-portal-action-workspace-20261003` branch edits only the portal home page and is not replaced or deleted.
-- Branch: `feat/portal-access-figma-parity-20261014`; GitHub connector-only implementation with no local checkout or worktree (local git fetch/status and npm validations unavailable).
-- Scope: public access confirmation/recovery layout, contract-preserving source regressions, current-state and portal-module documentation. Preserve explicit same-origin POST, pending HttpOnly token handling, non-enumerating denial, customer/tenant principal and all financial permissions.
-- Required checks: Web test/lint/build, docs/governance/preflight, hosted exact-head CI and review; authenticated 390/768/1024/1440 browser and negative customer-session evidence remain pending. No production access or deployments.
-- Next five TODOs: verify fresh PR checks; repair scoped failures; inspect exact-head diff and review threads; capture sanitized responsive/authentication negative evidence; obtain legitimate merge decision and reconcile main before the next UI slice.
-
-## Founder-authorized Costbook legacy assembly audit — active 2026-10-08
-
-- Classification: `NEW_WORK_REQUIRED`; branch `fix/costbook-legacy-assembly-match-audit` from current `main` `bd28d751f1a63fde36dce880cc1ea6fe2f735ac7`. No overlapping open Costbook/assembly canonicalization PR was found; open PRs #690/#691/#692 are separate prevailing-wage/supplier-sync lanes.
-- Scope: audit the historical generated `pricedAssemblies.ts` snapshot for deterministic false positives without broadening the canonical matcher or inventing replacement prices.
-- Implemented first pass: a conservative registry of high-confidence nominal-dimension, product-type, and material-spec conflicts plus `AUDIT_FILTERED_LEGACY_PRICED_ASSEMBLY_COMPONENTS`, a non-mutating filtered view for review/analysis. Raw rows stay intact for provenance.
-- Safety: no schema/migration, RLS/auth/permission change, supplier observation mutation, Material price update, Assembly recipe mutation, Estimate repricing, or production-data write. Precomputed legacy assembly rollups remain historical and are not certified as current pricing.
-- Verification required: exact-head App unit/typecheck/build, Costbook provenance audit, docs/governance, review reconciliation, and branch currency.
-- Next five tasks: run exact-head CI; repair deterministic failures; review the remaining unmatched legacy rows for additional high-confidence conflicts; decide whether to retire or regenerate the historical rollups from governed identities; then expand canonical families only from reviewed supplier evidence.
-
-
-## Founder-authorized Costbook cross-supplier canonicalization — merge-ready 2026-10-08
-
-- Initial classification was `NEW_WORK_REQUIRED`; continuation now classifies `EXISTING_WORK_FOUND` because PR #686 on branch `feat/costbook-cross-supplier-canonicalization` is the authoritative implementation lane. Base remains `main` `adfce90b3e81a29e280d8c18e07441542f1aa70e`; PR #685 is separate ABC Supply feed wiring.
-- Scope: establish TradeOS-owned SPF precut-stud canonical identities, crosswalk reviewed Lowe's/Menards/Home Depot/Niehaus source-key variants, hard-reject dimension/spec conflicts, and prevent raw workbook keys from becoming cross-supplier joins.
-- Compatibility/safety: governed aliases may compare across suppliers; ungoverned exact keys remain readable only when eligible evidence belongs to one supplier. SPF-stud-shaped keys outside the governed registry, mixed-unit governed groups, and conflicting product dimensions fail closed.
-- Import invariant: canonical mapping is create-only during supplier-evidence import. Re-import never mutates an existing `SupplierProduct.canonicalMaterialKey`; manager canonical review remains the explicit update path and therefore cannot be erased by a conflicting workbook replay.
-- Regression repair: the generated 92-5/8 in. wall-stud component → 104-5/8 in. Niehaus match is removed. No LF↔EA conversion is invented. Remaining generated assembly prices are still legacy name/unit matches, not a completed canonical-identity audit.
-- Safety boundary: no schema/migration, RLS, auth, permission, Material price mutation, Estimate repricing, or production-data write.
-- Verification: rebased onto current `main` `8e3b171d9ee66bdfd6b114098afc8c65aa530617`; exact-head `ef7e7f5345051720e975e9e974d422e6a5c00dde` passed Verify repository, App unit/typecheck/build/integration, Athena smoke, Costbook provenance audit, supplier-evidence seed dry run, docs consistency, sprint governance, dependency review, live-doc reconciliation, CodeQL, and branch currency. CodeRabbit is green and no review threads remain unresolved. Sprint ID: NONE.
-- Next five tasks: merge PR #686 at exact head `ef7e7f5345051720e975e9e974d422e6a5c00dde`; verify the resulting `main` SHA and required post-merge checks; preserve the now-landed canonicalization boundary in Costbook docs; audit the next highest-risk legacy assembly identity mismatches as a separate bounded slice; expand governed identity families only from reviewed supplier corpus evidence.
-
-
-## S073 release-critical RLS coverage — readiness active 2026-10-05
-
-- Sprint: `S073 — Release-critical RLS coverage matrix`.
-- Founder explicitly authorized starting S073.
-- Readiness base: `main` `37deee0bad44d8c3ca4ad65f7e89d15190d7cae3`; S051 is DONE; no S073 PR/branch overlap found.
-- Readiness branch: `docs/s073-rls-coverage-readiness`.
-- Scope: current S052-S060 persisted-resource inventory, exact forced-RLS policy/migration mapping, deterministic matrix validation, and additive live same-org/cross-org PostgreSQL evidence.
-- Known evidence gaps at readiness: no direct `app/tests/rls.integration.ts` coverage for at least `customer_portal_access_tokens`, `customer_portal_sessions`, `estimate_line_items`, and `invoice_line_items`.
-- Safety: no schema/migration or RLS-policy redesign, no role/permission/auth/portal-principal change, no production DB access. A discovered policy defect becomes a blocking `GAP`; it is not silently repaired inside S073.
-- Next five tasks: merge readiness; create the isolated S073 implementation branch; build the release-critical resource/policy matrix; add missing live PostgreSQL evidence and validator coverage; run exact-head App integration/repository checks and stop on any protected security-policy gap.
-
-## Founder-authorized Costbook supplier-evidence review — merged 2026-10-05
-
-- Classification: `NO_ACTION_REQUIRED` for the implementation lane after verified merge of PR #670 as `ab6e541c925e0077aae9e14d2907c7968daa0a9e`.
-- Landed scope: tenant-scoped supplier-evidence review at `/costbook/supplier-evidence`, exact-observation selection, server-backed cursor pagination, stored-currency display, typed evidence/review APIs, and manager-gated confirmation of the governed matcher suggestion.
-- Review hardening: the mutation reruns the fresh canonical matcher against current supplier-product identity, rejects unsuggested keys and cross-key relinks, and fails closed on concurrent matcher-input changes.
-- Verification: exact-head repository verification, App/Web checks, docs consistency, dependency review, sprint governance, branch currency, and live documentation reconciliation passed before merge; all review threads were resolved.
-- Safety boundary remains unchanged: canonical review can update only `SupplierProduct.canonicalMaterialKey`; it does not promote evidence into `Material.unitCost`, reprice Estimates, import new supplier data, or change schema/migrations, RLS, auth, or permissions.
-- Sprint ID: NONE. S082 remains BLOCKED on S073; PR #670 does not complete S082.
-- Next safe action: finish the existing bounded Costbook mission here. A separate founder request such as `Run the next TradeOS sprint` is required before starting S073 or another numbered sprint under `NEXT_SPRINT_PROTOCOL.md`.
-
-## Founder-authorized Codex Playwright setup — 2026-10-05
-
-- Classification: `NEW_WORK_REQUIRED`; base `cd419b6dd00686cd36a649e3675fe5a31abf7e58`.
-- Branch: `chore/playwright-codex-agents`; Sprint ID: NONE.
-- Adds reviewed planner/generator/healer definitions, pinned root test runner,
-  non-production target guards and a meaningful logged-out login-shell seed.
-- The healer preserves genuine failures. Only the three agent TOMLs are
-  allowlisted; local Codex state and authentication material remain ignored.
-- Existing S053 PR #654 owns hosted certification; this setup does not replace
-  it, provision credentials, certify a lifecycle or change sprint status.
-- Next five tasks: verify hosted PR checks; land the bounded setup; start an
-  approved local/Preview target; run the login seed; plan authenticated flows
-  only after the existing Beta Evidence fixture/data-plane prerequisites pass.
-
-## Founder-authorized Today exception lane — 2026-10-04
-
-- Branch `feat/today-real-exception-queue`; PR #643 is ready for review directly on current `main` after Customer→Project #645 and S067 #644 merged. It is no longer stacked on the closed Customer→Project branch.
-- Scope: add only persisted blocked Project Tasks and existing organization-week schedule conflicts to canonical **Needs You**.
-- Reuses `GET /api/v1/projects/tasks` and `GET /api/v1/schedule/conflicts`; no backend route/schema/RBAC/RLS change.
-- A 50-row incomplete-Task cap is treated as unavailable rather than silently undercounting blocked work. Failure of any required exception source makes the aggregate Needs You count unavailable instead of synthetic zero.
-- Pricing-verification and material-unavailable entries are deliberately not fabricated because current persisted Estimate/Project state does not expose a truthful company-wide exception source for them.
-- S061/S060 release certification status is unchanged; this is a bounded runtime continuity improvement, not a sprint-DONE claim.
-
-## S067 active implementation — 2026-10-04
-
-- Readiness PR #642 merged as `3333414e6c5d7939b0a7446c261cc619ae2bbb3c`; draft PR #644 on `feature/s067-schedule-visit-continuity` is the sole S067 implementation lane.
-- The first slice reuses the canonical Job schedule/conflict/assignment contract and existing optional `SiteVisit.jobId`: scheduled Job context can open Site Visit capture from Dispatch/Project, invalid or archived/wrong-Project Job context falls back to Project-only capture, and saved linked visits preserve that Job context.
-- Owner/admin/dispatcher receive the new capture affordance; technician CRM write behavior is unchanged. The backend same-org/same-Project/unarchived-Job controller check remains authoritative.
-- No new scheduler, persistence model, lifecycle state, schema/migration, auth/RBAC/RLS policy, GPS/route tracking, notifications, or external-calendar integration is included.
-- Continue #644 through hosted Web/docs/governance checks and review. Retained responsive, permission/tenant-negative, refresh evidence and S056 remain completion/release gates.
-
-## Founder-authorized Customer → Project parity lane — 2026-10-04
-
-- Classification: `NEW_WORK_REQUIRED`; runtime Customer→Project parity does not overlap the already-merged S052 certification harness or current evidence/staging lanes.
-- Branch: `feat/customer-project-canonical-continuity`; draft PR #645.
-- Customer-context Project creation now keeps the existing CRM Customer selected, reuses active ServiceAddress rows by copying the selected formatted address into `Project.siteAddress`, and explicitly preserves the boundary that no Project→ServiceAddress relationship exists.
-- **Create project** now opens the created Project workspace immediately; **Create & start estimate** reuses the existing Estimate intent/create path. Context-free Project creation and the existing Job intent remain supported.
-- No backend route, schema/migration, auth/RBAC/RLS, Customer merge, Lead persistence, or ServiceAddress ownership change is included.
-- S052 release certification remains separate and must not be marked DONE from this runtime/UI PR.
-
 # Session Handoff
 
-# Session Handoff
+## Costbook kitchen recipe reconciliation — PR #773 (2026-10-23)
 
-# Session Handoff
+- `EXISTING_WORK_FOUND`, Sprint ID: NONE. Continue
+  `feat/costbook-kitchen-assembly-gaps-20261018`; original head `955492cb`.
+  Reconcile with main `762bb992`, retaining its Estimate Builder implementation
+  and the Figma handoff below. No new feature branch or numbered sprint.
+- Preserve two price-neutral research scopes (wall cabinet EA, straight-run
+  laminate LF), registered sources and tenant-owned exact-unit mapping.
+  Catalog total: 104. No schema, authorization, RLS, financial policy or
+  Estimate snapshot change; rollback is revert of the additive PR.
+- The original head passed all four required checks, including live PostgreSQL
+  integration/migration rehearsal. All three earlier inline findings are fixed
+  and resolved. The reconciled head still requires fresh required CI and
+  reviewed-head evidence before merge; authenticated mapping/install remains
+  a separate nonproduction certification gate.
+- Next five: validate the reconciled tree; publish on the existing branch;
+  reconcile the stale review; verify exact-head checks and protected merge;
+  verify landed main before retargeting and revalidating stacked PR #774.
 
-## Founder-authorized Entry parity lane — 2026-10-04
+## Retained Figma handoff checkpoint
 
-- Classification: `NEW_WORK_REQUIRED`; current `main` was reconciled at `de2376c727054e08e4702355e67a0cb836c4e33e` and no open PR/branch overlapped login/entry presentation.
-- Branch: `feat/entry-copper-identity-parity`; draft implementation PR #640.
-- Scope is presentation-only: canonical responsive graphite/copper Entry composition, exported official TradeOS identity artwork, accessible password reveal, focused Web source-contract coverage, and `CURRENT_STATE` reconciliation.
-- Existing `loginAction`, Supabase/session behavior, recovery/account routes, auth/RBAC/RLS, onboarding, and post-login routing are unchanged.
-- Local shell validation is unavailable in this connector path; exact-head hosted Web/docs/governance checks are the validation authority before merge.
-- This direct founder task does not change numbered-sprint status or authorize reopening S052/S053/S059 certification lanes.
+The following checkpoint is preserved from main. PR #785 subsequently merged
+as `762bb992`; its earlier pending-review text is historical. Its runtime and
+certification limitations remain in force.
 
-## Costbook Data Foundation — merged 2026-10-04
+## Active bounded mission — Custom Item control ergonomics
 
-- Founder-authorized non-numbered implementation PR #628 merged to `main` as `8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf`.
-- The landed slice reuses existing Costbook supplier-product/price-observation, research-candidate, RLS, Assembly, and EstimateLineItem snapshot boundaries; it adds the 12-item canonical pilot matcher/review flow, BLS OEWS fallback + transparent ECEC inference, append-oriented supplier evidence, and PriceResolver/trust API contract.
-- Exact-head PR verification and post-merge main verification passed; the merge did not alter the numbered-sprint queue or the `Next Eligible Sprint` computation.
-- QBO, ABC, 1build, retail scraping, schema duplication, and live repricing of sent estimates remain outside the landed foundation.
+Sprint ID: NONE. Founder-authorized Figma-to-code continuation, not a new
+numbered sprint or release-certification claim.
 
-## Active S053 browser certification tooling — 2026-10-02
+- Classification: `NEW_WORK_REQUIRED` for scoped sizing/alignment only.
+  Main `218639bc8d2ff2aa95d586e7dc072355bdf8e69e` includes prior progressive
+  entry, explicit cost, preview retry and mapping keyboard repairs. Open PRs
+  #782/#778/#775/#774/#773/#772/#744/#702 do not implement this repair.
+- Branch: `fix/estimate-custom-controls`, isolated worktree from current main.
+  The old `feat/figma-to-code-completion` lane is retained with its separate
+  history; PR #781 already merged its preview-retry implementation.
+- Changes: only Custom Item phone/tablet text-input sizing, Add/select and
+  Taxable label targets, label spacing and desktop control alignment. Shared
+  primitives, DOM order, mutation payloads, validation, defaults, and
+  pending/failure/success behavior are preserved.
+- Figma: authoritative handoff `793:11017` in master
+  `xImUa9CYUjx3Cb3zTrkfnY`; sixteen initial/pending/failure/invalid specimens
+  at 390/768/1024/1440 exist. These are design targets, not full-app runtime
+  certification. The entire illustrated shell is outside this code slice.
+- Verification: Web 507/507, lint, TypeScript and production build passed;
+  documentation ownership and 40/40 documentation tests passed. Hosted run
+  39713763198 at head 0da62c1 passed all eight Chromium component cases
+  (Custom Item and mapping at all four widths). All four synthetic failure
+  screenshots were downloaded and inspected. Artifact 12398047963 has SHA-256
+  c7331692622edd8d51b573231b67662b679bdc67149e9503c0246a51909efdcf.
+  This verifies isolated components with controlled transport, not authenticated
+  persistence, tenant boundaries, the full shell, or deployed runtime.
+- Current-head review identified a Web scope-filter gap. The repair includes
+  component tests/config, root runner manifests and the workflow in Web scope.
+  A real temporary-Git regression fails before the repair and passes after it.
+  Current-head CI/review for this follow-up remains pending; do not merge
+  based only on the prior green head. PR #785 is ready for review, not merged.
+- The local autonomy helper could not query PRs because `gh` is absent;
+  authenticated GitHub connector reads supplied current open/recently-closed
+  PR reconciliation instead. No repository guard was weakened.
 
-- Classification: `NEW_WORK_REQUIRED`; no open S053 PR/branch overlapped this certification-tooling gap when current main `8d6c8a838e8fcafe0de7049aaaed75b655d1e25f` was reconciled.
-- Branch: `test/s053-browser-certification`.
-- The existing Beta Evidence workflow gains an opt-in `s053` scenario. It keeps the canonical full workflow and adds Athena review checkpoints asserting visible confidence/provenance, no estimate-line write before explicit Apply, reviewed Estimate Engine persistence, pricing refresh, and reload persistence.
-- The scenario uses only the approved non-production synthetic tenant and existing Beta smoke authentication/data-plane guards. It does not weaken auth/RLS, introduce product writes outside the existing Estimate Engine path, or claim the one-question clarification target exists.
-- S053 remains incomplete until a full authenticated `s053` evidence run passes at the required viewports with retained artifacts. Its status is now `IN_REVIEW`; this evidence requirement remains a release gate, not a mutex on unrelated implementation.
+## Next five bounded TODOs
 
+1. Complete exact-head CI and review for the scope-filter repair; retain the
+   passing component evidence and inspect any new findings.
+2. Merge this repair only
+   when every applicable gate passes, then verify landed main content.
+3. Reconcile Costbook search/result/cost-review Figma states and canonical entry.
+4. Reconcile Add assembly picker entry and canonical pricing labels/totals.
+5. Verify an isolated nonproduction target and sanitized fixtures for the
+   authenticated Install → Add → reload/failure-recovery evidence lane.
 
-## Design/backlog reconciliation — 2026-10-02
+## Standing boundaries
 
-- Canonical Figma page enumeration is verified: all 21 documented pages exist in file `xImUa9CYUjx3Cb3zTrkfnY`; the earlier two-page metadata result was an incomplete listing path, not a file-structure defect.
-- PR #520 is merged and PR #560's estimate-assist contract is landed. S064 is now `IN_REVIEW` in draft PR #624; S053 remains a separate release-certification prerequisite and does not block continued S064 implementation.
-- S053 certification must follow its canonical backlog acceptance criteria. The one-question clarification interaction remains separate TARGET work because production lacks the persisted answer/regenerate contract needed to certify it.
-
-
-## Nightly release repair — desktop estimate visibility, 2026-10-02
-
-- Classification: `NEW_WORK_REQUIRED`; base main
-  `9e53cde9c35396bf5d5b2bd22b154c9b37e3d9de`, Sprint ID: NONE.
-- Production Dashboard and draft estimate access were verified read-only in an
-  existing signed-in browser session. Desktop estimate editing was absent after
-  reload: the mobile section hides at `lg`, and the desktop section never shows.
-- Branch `fix/desktop-estimate-visibility` restores the existing desktop display
-  at `lg` and adds a failing-before/passing-after visibility regression. No auth,
-  data, pricing, lifecycle, schema, or design-system change is included.
-- Production API is READY at current main; frontend is READY at parent `1c107830`.
-  Their intervening commit changes CI/docs only. `/health` and `/ready` pass,
-  including database/schema readiness. No runtime error clusters were returned.
-- Exact-main repository verification passed, but authenticated full-flow evidence
-  remains outstanding. Historical Sign out failure was repaired by merged #561;
-  no new current-head smoke run was available. Do not reassert database-auth
-  failure from old PR descriptions.
-- This gate must not merge the repair. Next: independent exact-head CI/review,
-  merge through PR Autopilot, verify desktop estimate controls after deployment,
-  run sanitized Preview estimating/portal/payment certification, retain mobile
-  viewport evidence.
-
-## Active maintenance: native merge queue — 2026-10-01
-
-- Classification: `NEW_WORK_REQUIRED`; current main verified as
-  `89a79d29d399c922b023ae4392514cd09708aa0f`. No viable existing native queue
-  implementation or competing open queue PR/branch was found. Work is on
-  `ci/native-merge-queue`, Sprint ID: NONE.
-- Adds guarded one-shot label consent, dry-run/apply, exact-head native enqueue,
-  and disabled-by-default automatic wakeups. Required CI now supports
-  `merge_group`, running all product lanes and checking docs against the event
-  base SHA. Existing required check names and protections are preserved.
-- Ruleset `18958081` has no queue rule in the observed snapshot. Import the
-  additive template after CI support lands, configure the dedicated token, and
-  record a live group-CI trial before enabling automatic entry. The connected
-  GitHub app cannot administer rulesets/secrets; no live activation or enqueue
-  is claimed. See `docs/testing/MERGE_QUEUE.md`.
-- Thirty-five focused boundary/contract tests pass. Full local root regression
-  and final-head hosted CI evidence are recorded in the PR; live enqueue and
-  synthetic group execution remain unverified until activation.
-- PR #604 separately containerizes browser evidence. Shared package/docs metadata
-  must retain both changes when rebasing either PR; this queue lane changes no
-  browser runners, application code, auth, RLS, schema, or sprint completion.
-- Next five tasks: review/land CI support; activate the additive queue rule;
-  provision the repository token/label; record one dry-run/apply/group-CI trial;
-  enable automatic entry after success and monitor failure/ejection summaries.
-
-## Staging fixture and evidence repair — 2026-10-01
-
-- Existing PR #561 reconciled with main `6a2d921`; preserved canonical design
-  authority, current tokens, dependency lockfiles and Customer-to-Project work.
-- Production and immutable staging API readiness now pass. The latest RC smoke
-  passed login/refresh but timed out on Sign out at the default 1280px viewport.
-  The account control is under More below 1536px; the runner now opens that menu
-  and clicks the visible Sign out button. Logout and protected-route denial
-  assertions remain required; no authentication control was weakened.
-- The credential-free fixture stays off by default; no Preview or Production
-  bypass was enabled. Fresh CI and live browser certification remain required.
-
-## Active S059 release repair — 2026-10-01
-
-- Continue existing PR #564 on `feature/s059-customer-portal-session-certification`;
-  reconciliation classification: `EXISTING_WORK_FOUND`. Main is `6a2d921`.
-- Reproduced TS5097 with web TypeScript checking. Restored current-main compiler
-  configuration and Customer-to-Project UI/test/docs rather than changing imports
-  incompatibly with the Node test runner. Auth policy and RLS remain unchanged.
-- Production web/API both identify `6a2d921`, and production plus immutable staging
-  backend readiness returned HTTP 200 with database/schema `ok`. The old project
-  named `tradeos` caused a false deployment-drift report.
-- Local web build/lint passed and all 411 web tests passed after repair.
-- Authenticated portal certification and fresh exact-head CI remain required.
-  S059 stays incomplete.
-
-## Current truth
-
-- PR #597 merged as `3288f3c7a967b75b507b7544328c817a513fb835`.
-  Production frontend `dpl_GmtT3say5KK8qY57PHU7QT1cWw2R` and backend
-  `dpl_CRLBHggXh7zuJkUTBQioGVQH8HuZ` both identify that main commit.
-- The production Supabase project was paused. It was restored on 2026-09-30;
-  `/ready` returned HTTP 200 with database and schema checks `ok` at 23:52 UTC.
-- Staging commit `9ca5876eef05daaa5e59ed6c39b2b52bbe6ce74e` retains both
-  histories and uses the exact main tree `63d8faaa417f8dafebcc1e8aa68930fd1605c56b`.
-  Repair run `36792529613` passed immutable backend identity/readiness and
-  invalid-token auth initialization against `dpl_FX2x1wPMHzXYsfDcCRNB7WcipL7V`.
-- RC smoke run `36793045095` first failed after successful Supabase login:
-  frontend organization bootstrap called an obsolete API deployment (HTTP 410).
-  A staging-only `BACKEND_API_URL` override now pins the verified backend
-  `https://tradeos-costbook-6tij63lsx-billykshowalters.vercel.app`.
-  Replacement frontend `dpl_46S63m9K9pebE3t1VV2niF3CP3Lb` is READY at the
-  staging SHA. Attempt 2 reached dashboard and authenticated API HTTP 200, but the runner
-  rejected a page-wide alert during navigation. Its credential-error locator is
-  now scoped to the login form; a passing lifecycle/browser run is still required.
-- S027 run `36792720050` failed before authentication because its Vercel
-  branch-only environment query could not attest the effective Preview URL.
-  `fix/preview-shared-env-attestation` now reads the complete inventory and
-  requires the exact deployment branch override, preserving configuration
-  timestamps and failing closed if that override disappears.
-- This is operational maintenance, Sprint ID: NONE. No auth bypass, RLS,
-  migration, credential, or product behavior change is included. Passing
-  readiness alone does not certify authenticated workflows or the whole release.
-
-## Verification
-
-The new behavioral regression fails against original main and passes after
-requiring the exact deployment branch override. Six focused evidence-contract tests pass.
-Required repository checks and authenticated live results remain to be recorded
-for the final head; no pending check is represented as passing.
-
-## Active follow-on: Team & Time staging interface
-
-- PR #562 adds the feature-flagged responsive `/team-time` workspace, assigned-job punches, breaks, supervisor review/corrections, employee/subcontractor classification, and approved-hours CSV handoff.
-- The work requires the server-only project ref pinned to TradeOS Staging and matching the project reference in the configured URL hostname, and is explicitly disabled on Vercel Production. It does not submit payroll, verify jobsite location, or replace the existing login.
-- The real phone-to-office test still requires dedicated staging worker/supervisor accounts, an assigned staging job, a protected feature-enabled Preview deployment, and a matching staging API/database path. Do not touch shared beta fixtures, enable Production, or claim live clock verification until that isolated path exists.
-- The deployed Edge Function and migration source remain outside this repository; version them before claiming complete live Team & Time certification.
-
-## Historical RC smoke follow-up
-
-Earlier release-certification work called for verifying RC smoke attempt 2 and
-rerunning S027 against an immutable replacement frontend with the expected
-staging SHA and canonical sanitized Beta Smoke organization. That remains
-historical release-evidence context, not the active session instruction. The
-active resume contract is the S066 / PR #634 block at the end of this handoff.
-
-## S061 Today implementation reconciliation — 2026-10-02
-
-- Classification: `EXISTING_WORK_FOUND`; merged PR #585 already satisfies the S061 structural acceptance contract on current main.
-- Current implementation remains the single Today landing surface: `OwnerDashboardHeader` + `TodayCommandBoard`, with Now / Needs you / Coming up / Money and no lower duplicate dashboard modules.
-- S061 advances to `IN_REVIEW`, not release-certified; S060 remains its separate certification prerequisite.
-- Do not create another S061 implementation branch unless S060 evidence reproduces a current-main defect.
-
-## S062 implementation merge and S063 readiness — 2026-10-03
-
-- S062 PR #629 merged as `6f6a0a6567c1413c837afc86b943c1c45f5f03e0` after exact-head Web/docs/governance checks passed. Customer creation opens its server-created record; context-free Job intent continues through Project creation. S062 remains `IN_REVIEW` pending retained browser/permission/refresh evidence; S052/S056/S058 certification remains separate.
-- S063 reuses merged PRs #582 (Lead/Site Visit), #586 (Customer/Project), and #587 (derived CRM). Current CRM limits the visible pipeline and follow-ups, particularly mobile lanes with only their first Project, and omits existing Task ownership. Accepted Proposal handoff must link to canonical Project state; do not add another CRM persistence model.
-- Classification: `NEW_WORK_REQUIRED` only for the bounded S063 continuity gaps. No open S063 implementation PR or branch was found during this reconciliation. Repository main was `6f6a0a6567c1413c837afc86b943c1c45f5f03e0`; connector-native execution has no local worktree/dirty state. Existing CRM APIs and hosted Web CI suffice for this frontend slice; no migration or new infrastructure is required. Founder decision: NO for the bounded continuity scope. Stop if implementation requires a new assignment, conversion, proposal, or authorization policy. PR #630 merged as `28c939e405966ded5b3049f1fc64f3c3ae58ba98`; PR #631 merged as `b25988a11a3a4b62551f5bc3091f5fd298da6684` after exact-head Web/docs/governance checks. S063 remains `IN_REVIEW` for retained authenticated responsive, permission/tenant-negative, and refresh evidence; no duplicate implementation branch.
-
-## S066 active implementation — 2026-10-03
-
-- Readiness PR #633 merged as `2022b1c0f266f1ef1a7afff5b2d38121b6ee49f3`; non-draft implementation PR #634 is the sole S066 implementation lane.
-- The current slice links technician-visible Project Job rows into `/field`, preserves explicit assigned-Job deep links, labels outside-today context, and keeps a directly opened authorized Job usable when the daily queue is degraded.
-- No backend route, lifecycle, auth/RBAC/RLS, schema, financial handoff, offline/photo/issue/change/inventory/messaging/timekeeping capability is added.
-- Exact-head Web/docs/governance checks passed after the latest code/test repair. Retained authenticated responsive/negative/failure/refresh evidence remains open. Do not mark S066 DONE from repository implementation alone.
-
-## S052 certification harness merged — 2026-10-03
-
-- Readiness PR #636 merged as `ee714a38c52ef59ab97d1218d70bdab2af2ad35f`; certification PR #637 merged as `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60`.
-- The merged `s052` harness proves the bounded owner/admin Customer → ServiceAddress → Project contract, duplicate/validation behavior, inactive-membership and foreign-tenant denials, responsive 1440/768/390 evidence requirements, exact-SHA correlation, and fail-closed artifact validation without changing product auth/RBAC/RLS/schema/domain behavior.
-- Exact-head required CI, branch currency, Workflow security, Sprint governance, Dependency review, live documentation reconciliation, and review-thread resolution passed before merge.
-- S052 remains `IN_REVIEW`: no full retained non-production `s052` evidence run has passed. The exact-main frontend deployment for merge SHA `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60` is canceled and staging is older; dedicated synthetic admin/inactive and foreign-tenant fixture availability is not established by the available secret-safe integrations.
-- Do not create another S052 implementation branch. Resume only the operator-triggered evidence lane when a matching approved non-production deployment and the required dedicated synthetic fixtures are available. Stop for founder review only if passing evidence would require a new Customer merge policy, role/permission, auth/RBAC/RLS, schema/migration, domain model, production mutation, or real customer data.
-
-## S067 readiness — 2026-10-04
-
-- Classification: `NEW_WORK_REQUIRED` for bounded scheduling/visit continuity; no open S067 PR or remote S067 branch exists.
-- Current main at readiness inspection: `a74519f68100c04f5c0c42134c21e6fb64a05e42`.
-- Existing authority: Job schedule/reschedule/conflict/assignment contracts and `/dispatch` Day/Week/Crew views. Existing `SiteVisit.jobId` already supports same-org/same-Project Job linkage in the backend.
-- Known continuity gap: current web Site Visit DTO/capture does not carry the Job link, so scheduled visit work and captured visit evidence are not yet one continuous workflow.
-- Preserve project-only intake. Do not create another scheduling table/model, new status, auth/RBAC/RLS policy, route/GPS tracking, notifications, external calendar sync, or unsupported drag-and-drop mutation.
-- S056 is a release-certification prerequisite and does not block S067 implementation.
-
-## Founder-authorized 47802 supplier evidence seed — in review
-
-- Classification: `NEW_WORK_REQUIRED`; no existing import/seed PR or branch overlapped the fixed PR #682 supplier corpus.
-- Branch: `feat/costbook-supplier-seed-47802`; Sprint ID: NONE.
-- Scope: import the checked-in 3,188 Terre Haute observations through the existing tenant-scoped Regional Supplier Evidence boundary, creating/reusing the six real supplier records and preserving immutable provenance.
-- Safety: source workbook canonical keys are not trusted on seed; the governed matcher/review boundary owns canonical identity. No `Material.unitCost`, Estimate repricing, schema/migration, RLS/auth/RBAC, scraping, or numbered-sprint change.
-- Operator path: manual production-environment workflow with exact confirmation, explicit org/user context, fixed-corpus tests, serialized runs, 50-row batches, and final six-supplier/3,188-product/3,188-observation verification.
-- Existing live smoke state discovered during implementation: the target Costbook database contained zero supplier evidence before this work; a bounded ten-row ABC Supply replay-compatible smoke slice was written while validating the import contract. The governed seed is designed to reuse those real rows and finish the corpus without duplication.
-- Next safe action: complete exact-head CI/review for this branch, merge through normal governance when authorized, run the guarded workflow, then read back the verified ABC Supply supplier UUID for the ABC sandbox-feed configuration.
-
-## Assembly Catalog two-role browser evidence handoff — 2026-10-10
-
-- Implementation PR #709 is merged into `main` at `e1f655b50833b8fd0ab6865fc0a4f2bebea63ad8`.
-- Current bounded branch `test/assembly-catalog-auth-evidence-518` adds the manual authenticated Playwright evidence contract and workflow for issue #518, **not runtime evidence**.
-- Guardrails: exact Preview deployment SHA, non-production Supabase project, canonical sanitized tenant ID, real distinct owner and read-only auth, desktop 1440 and mobile 390, no Assembly writes, cleanup and credential scanning.
-- Pending external gate: ensure isolated Preview is deployed to selected SHA, owner + read-only smoke accounts exist in one smoke org and required secrets are installed. Dispatch manual workflow and review reports/screenshots; do not mark issue #518 browser evidence complete before that.
-- If assertions fail, repair only reproducible role, responsive, or selector errors on this bounded path; do not disable a test or relax auth/RLS/deployment checks.
-
-## Staging Prisma migration runner setup — 2026-10-18
-
-- Added a manual-only, staging-targeted GitHub Actions workflow on branch `ops/staging-prisma-migrations-20261018`; PR is pending review. It guards exact project ref `qfbgdkbamfaasmtjfyru`, runs the repository's `app/scripts/deploy-migrations.sh`, checks invoice backfill preconditions, provisions the staging app role, and verifies the full Prisma ledger.
-- Required GitHub Environment `staging` secrets: `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD`. These must point to the confirmed TradeOS Staging project; production secrets are not used.
-- Database remains at 46/60 Prisma migrations. The read-only invoice check passed (42 rows, no null legacy costs). Workflow setup itself did not mutate the database.
+Existing S052/S053/S064/S066 and Assembly Catalog browser certification gates
+remain open until their retained authenticated evidence passes. Production
+readiness is separate from implementation. Preserve existing auth/RBAC,
+forced RLS, Estimate snapshots and financial accuracy. Production credentials,
+protected migrations, supplier activation and ABC API licensing remain governed
+by their dedicated runbooks; this mission authorizes none of those operations.
 
 ## Next Eligible Sprint
 
 Sprint ID: S073
-Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit and no overlapping S073 implementation lane exists.
+Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit.
 Dependencies: S051 — DONE through merged PR #538.
-Overlap check: after the readiness PR merges, create exactly one isolated S073 implementation branch. Do not reopen or duplicate S052/S053/S064/S066/S067 lanes.
-Startup prompt: Execute S073 from current `main` using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`: build the release-critical S052-S060 resource/policy matrix, add missing live PostgreSQL same-org/cross-org and narrower-scope evidence, validate the matrix deterministically, and stop on any protected RLS/migration/auth/permission gap rather than widening policy inside S073.
+Overlap check: Recheck live PRs/branches before starting; this non-numbered repair does not advance S073 or authorize a second active sprint.
+Startup prompt: Execute S073 from current main using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md` after canonical startup/reconciliation; stop on protected policy gaps.

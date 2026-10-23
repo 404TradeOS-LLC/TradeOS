@@ -65,7 +65,7 @@ related_code:
 
 ## Kitchen assembly gaps — proposed follow-on (2026-10-18)
 
-A dependent branch `feat/costbook-kitchen-assembly-gaps-20261018` extends
+PR #773 on branch `feat/costbook-kitchen-assembly-gaps-20261018` extends
 merged PR #771's research catalog with two additional scoped, unpriced kitchen
 recipes: wall cabinet installation by EA, and straight-run prefabricated
 laminate countertop by LF. Both are NAHB finishing phase 5000 and CSI division
@@ -75,8 +75,48 @@ and Estimate Engine snapshots, and expressly blocks EA-to-LF piece conversion.
 
 No new wall-cabinet or laminate unit price was inferred. Stone/quartz slab
 fabrication, sink/cooktop cutouts, kitchen fillers, backsplash and separate
-mechanical/electrical scope are not silently included. Branch remains unmerged
-and not staging-certified until CI and authenticated preview evidence complete.
+mechanical/electrical scope are not silently included. PR #773 remains unmerged pending fresh checks and final-head review after
+reconciliation with main `762bb992`. Authenticated staging mapping/install
+evidence remains a separate certification gate; no deployment is certified.
+
+## Custom Item control ergonomics — implementation pending review
+
+The Estimate Builder's existing Custom Item form now scopes 44px text inputs
+to phone/tablet widths, keeps compact 32px text inputs at desktop widths, and
+uses 44px Add/select controls and a 44px Taxable label target. Field labels
+align at the top; the desktop Add action aligns with the text-input control
+row rather than the bottom of wrapping cost help. Shared primitives and
+other Estimate entry modes are unchanged.
+
+This implements the bounded control ergonomics from the canonical Figma
+Custom Item handoff (793:11017), not the entire illustrated shell. Request
+payloads, explicit blank-cost gating, validation, pending/failure retention,
+and success reset/refresh remain the existing contracts. Component-browser
+evidence uses production React Query, Input/Button/Label and generated
+Tailwind with controlled transport; it does not certify authentication,
+tenant isolation, server persistence, or deployed runtime behavior.
+
+
+## Estimate mapping keyboard repair — in progress, 2026-10-21
+
+Branch `fix/estimate-mapping-keyboard` continues the Figma mapping handoff from
+main `f5743412fa721279f6f00c9d41aa12ea72cbfb2a`. PR #781 is merged as
+`979198fc86edbababf57029e8d73b7ea08a26191`; its retry behavior is already on main.
+The existing starter-component picker still lacked combobox Arrow/Enter/Escape
+navigation. This bounded frontend repair keeps focus in the input, skips
+incompatible/already-mapped options, exposes the active descendant, scrolls the
+active result into view, and closes on Escape/Tab. Enter selects only an active,
+currently available result; pending/debouncing/failed searches cannot select stale
+rows. Pointer selection and explicit Install then Estimate Add remain separate.
+No backend, auth/RLS, pricing, snapshot or mutation contract changes.
+
+The isolated Playwright component suite passed all four cases using Chromium
+153, production React and mapping logic with synthetic query/Input fixtures at
+390/768/1024/1440. The same 390px case failed against the base implementation
+at its first ArrowDown active-descendant assertion. Its evidence does not
+certify the authenticated full application, persistence or tenant isolation.
+Branch implementation is not yet merged or deployed; Ready for Dev remains
+pending full canonical-screen and authenticated workflow evidence.
 
 ## Costbook researched assembly activation — PR #771 (proposed, 2026-10-18)
 
