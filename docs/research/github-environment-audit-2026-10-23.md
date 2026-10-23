@@ -313,12 +313,18 @@ unreferenced, under a separate authorization.
 Environment names select based on existing active deployment references —
 renaming any of the three would break the workflows, branch policies, and
 approval history that already use them, for zero security benefit. The guard
-test added by this audit's PR (`app/tests/github-environment-guard.test.ts`,
-run by the App lint/unit-tests/build required check) fails CI naming the
-offending file and value if any workflow declares a non-canonical, dynamic,
-or unparseable environment. If a new environment is ever intentional:
-create and protect it in GitHub first, add its name to the guard's canonical
-set in the same PR that introduces the reference, and record it here.
+test added by this audit's PR fails CI naming the offending file and value
+if any workflow declares a non-canonical, dynamic, or unparseable
+environment. It runs in two harnesses with identical logic for a reason:
+the App suite's CI scope detection skips workflow-only PRs, so the jest
+copy (`app/tests/github-environment-guard.test.ts`) is mirrored by a root
+`pr:test` copy (`scripts/__tests__/github-environment-guard.test.mjs`) that
+the Docs consistency check runs on every pull request. The extractor parses
+by YAML key path (`jobs.<job-id>.environment`), not by indentation, so
+reformatting a workflow cannot slip a declaration past it. If a new
+environment is ever intentional: create and protect it in GitHub first, add
+its name to the guard's canonical set in the same PR that introduces the
+reference, and record it here.
 
 ## 8. Completed changes
 

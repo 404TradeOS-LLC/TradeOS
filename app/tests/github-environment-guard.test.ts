@@ -12,6 +12,13 @@ import path from "node:path";
  * `staging` environment) happened. If a new environment is ever intentional:
  * create and protect it in GitHub first, then add its name here in the same
  * PR that introduces the workflow reference.
+ *
+ * This guard runs in two harnesses with identical logic, because the CI
+ * scope detection in verify-repository.yml skips the app suite for
+ * workflow-only PRs: this jest copy covers app-touching changes, and
+ * scripts/__tests__/github-environment-guard.test.mjs (root `pr:test`
+ * lane, run by Docs consistency on every PR) covers workflow-only changes.
+ * Keep the two implementations in sync.
  */
 const CANONICAL_ENVIRONMENTS: ReadonlySet<string> = new Set([
   "production",
@@ -54,13 +61,18 @@ function parseScalar(raw: string): { value: string | null; problem: string | nul
   return { value: token, problem: null };
 }
 
+interface StackEntry {
+  indent: number;
+  key: string;
+}
+
 /**
- * Extracts job/workflow-level `environment:` declarations from workflow
- * YAML. GitHub's schema only permits the key at workflow level (indent 0)
- * or as a job property (indent 4 under this repo's 2-space convention), so
- * deeper-indented `environment:` strings — e.g. JavaScript payload fields
- * inside `actions/github-script` steps — are not declarations and are
- * ignored. Both YAML shapes are handled:
+ * Extracts `environment:` declarations by YAML structure, not by absolute
+ * indentation: a declaration is a mapping key `environment` whose parent
+ * path is either the document root (workflow-level) or `jobs.<job-id>`.
+ * Literal/folded block scalars (run:/script: payloads) are consumed as
+ * content, and same-named keys elsewhere (a step `env:` variable, a script
+ * payload field) are not declarations. Both YAML shapes are handled:
  *
  *   environment: production
  *
@@ -70,39 +82,80 @@ function parseScalar(raw: string): { value: string | null; problem: string | nul
 function extractDeclarations(file: string, content: string): EnvironmentDeclaration[] {
   const lines = content.split(/\r?\n/);
   const declarations: EnvironmentDeclaration[] = [];
+  const stack: StackEntry[] = [];
+  let blockScalarIndent: number | null = null;
+  let pendingIndex: number | null = null;
+  let pendingPath: string[] | null = null;
+
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
-    if (rawLine.trimStart().startsWith("#")) continue;
-    const match = rawLine.match(/^(\s*)environment:(\s+(.*?))?\s*$/);
-    if (!match) continue;
-    const indent = match[1].length;
-    if (indent > 4) continue;
-    const rest = (match[3] ?? "").trim();
-    if (rest !== "") {
-      const { value, problem } = parseScalar(rest);
-      declarations.push({ file, line: i + 1, value, problem });
-      continue;
+    const stripped = rawLine.trimStart();
+    if (stripped === "" || stripped.startsWith("#")) continue;
+    const indent = rawLine.length - stripped.length;
+
+    if (blockScalarIndent !== null) {
+      if (indent > blockScalarIndent) continue;
+      blockScalarIndent = null;
     }
-    // Block form: find `name:` on a following, more-indented line.
-    let nameValue: string | null = null;
-    let nameProblem: string | null = null;
-    for (let j = i + 1; j < lines.length; j++) {
-      const next = lines[j];
-      if (next.trim() === "") continue;
-      const nextIndent = next.length - next.trimStart().length;
-      if (nextIndent <= indent) break;
-      const nameMatch = next.match(/^\s*name:\s+(.*?)\s*$/);
-      if (nameMatch) {
-        const parsed = parseScalar(nameMatch[1]);
-        nameValue = parsed.value;
-        nameProblem = parsed.problem;
-        break;
+
+    // A sequence entry ("- key: value") acts as a mapping key two columns
+    // deeper than the dash.
+    let effectiveIndent = indent;
+    let text = stripped;
+    if (text.startsWith("- ")) {
+      effectiveIndent = indent + 2;
+      text = text.slice(2);
+    }
+    const keyMatch = text.match(/^([^:#\s][^:#]*?):(?:\s+(.*?))?\s*$/);
+    if (!keyMatch) continue;
+    const key = keyMatch[1].trim().replace(/^["']|["']$/g, "");
+    const inlineValue = (keyMatch[2] ?? "").trim();
+
+    while (stack.length > 0 && stack[stack.length - 1].indent >= effectiveIndent) {
+      stack.pop();
+    }
+    const parentPath = stack.map((entry) => entry.key);
+
+    const isEnvironmentKey =
+      key === "environment" &&
+      (parentPath.length === 0 ||
+        (parentPath.length === 2 && parentPath[0] === "jobs"));
+
+    if (isEnvironmentKey) {
+      if (inlineValue !== "") {
+        const { value, problem } = parseScalar(inlineValue);
+        declarations.push({ file, line: i + 1, value, problem });
+        pendingIndex = null;
+        pendingPath = null;
+      } else {
+        declarations.push({ file, line: i + 1, value: null, problem: null });
+        pendingIndex = declarations.length - 1;
+        pendingPath = [...parentPath, "environment"];
+      }
+    } else if (key === "name" && pendingIndex !== null && pendingPath !== null) {
+      const expectedPath = pendingPath;
+      const pathMatches =
+        parentPath.length === expectedPath.length &&
+        parentPath.every((part, idx) => part === expectedPath[idx]);
+      if (pathMatches) {
+        const { value, problem } = parseScalar(inlineValue);
+        declarations[pendingIndex].value = value;
+        declarations[pendingIndex].problem = problem;
+        pendingIndex = null;
+        pendingPath = null;
       }
     }
-    if (nameValue === null && nameProblem === null) {
-      nameProblem = "environment block declares no `name:`";
+
+    if (inlineValue.startsWith("|") || inlineValue.startsWith(">")) {
+      blockScalarIndent = effectiveIndent;
     }
-    declarations.push({ file, line: i + 1, value: nameValue, problem: nameProblem });
+    stack.push({ indent: effectiveIndent, key });
+  }
+
+  for (const decl of declarations) {
+    if (decl.value === null && decl.problem === null) {
+      decl.problem = "environment block declares no `name:`";
+    }
   }
   return declarations;
 }
@@ -162,6 +215,26 @@ describe("environment extractor behavior", () => {
     expect(violationsFor(decls)[0]).toContain("bogus.yml:3");
   });
 
+  it("extracts job environments at nonstandard indentation", () => {
+    const content = [
+      "jobs:",
+      "    deploy:",
+      "        runs-on: ubuntu-latest",
+      "        environment: rogue",
+    ].join("\n");
+    const decls = extractDeclarations("wide.yml", content);
+    expect(decls).toHaveLength(1);
+    expect(decls[0].value).toBe("rogue");
+    expect(violationsFor(decls)).toHaveLength(1);
+  });
+
+  it("extracts a workflow-level environment", () => {
+    const decls = extractDeclarations("top.yml", "name: CI\nenvironment: staging\njobs:\n  a:\n    runs-on: ubuntu-latest\n");
+    expect(decls).toHaveLength(1);
+    expect(decls[0].value).toBe("staging");
+    expect(violationsFor(decls)).toEqual([]);
+  });
+
   it("accepts the block form with a canonical name", () => {
     const content = [
       "jobs:",
@@ -196,7 +269,21 @@ describe("environment extractor behavior", () => {
       "            const payload = {",
       "                environment: process.env.TRADEOS_AGENT_ENVIRONMENT,",
       "            };",
+      "            environment: rogue",
     ].join("\n");
     expect(extractDeclarations("payload.yml", content)).toEqual([]);
+  });
+
+  it("ignores step env variables named environment", () => {
+    const content = [
+      "jobs:",
+      "  build:",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      "      - run: echo hi",
+      "        env:",
+      "          environment: not-a-declaration",
+    ].join("\n");
+    expect(extractDeclarations("envvar.yml", content)).toEqual([]);
   });
 });
