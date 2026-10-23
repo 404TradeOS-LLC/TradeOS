@@ -201,6 +201,89 @@ describe("AssembliesDatabaseService", () => {
   });
 
   describe("starter catalog", () => {
+    it("publishes researched assemblies through the existing authenticated catalog API", () => {
+      const result = new AssembliesDatabaseService().listStarterCatalog();
+      expect(result.items).toHaveLength(107);
+      expect(result.items.find((item) => item.id === "tradeos:roofing-shingles-arch-asphalt"))
+        .toMatchObject({ nahbPhase: "4000", blockingReasons: [] });
+      expect(result.coverage.some((group) => group.nahbGroup === "Full Enclosure (Dry-in)")).toBe(true);
+      expect(result.items.find((item) => item.id === "openings:garage-door-section-steel"))
+        .toMatchObject({ nahbPhase: "4000", blockingReasons: [] });
+      expect(result.items.find((item) => item.id === "appliances:dishwasher-built-in-existing-ready"))
+        .toMatchObject({ csiDivision: "11", blockingReasons: [] });
+    });
+
+    it("rejects unresolved research source evidence before accessing tenant data", async () => {
+      await expect(new AssembliesDatabaseService().installStarterCatalogAssembly({
+        orgId: "org-1",
+        templateId: "tradeos:demo-cabinet-kitchen-base-wall",
+        componentMappings: [{ componentKey: "unused", costItemId: "11111111-1111-4111-8111-111111111111" }],
+      })).rejects.toThrow(/Research assembly cannot be installed.*SRC-0050/);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.assembly.create).not.toHaveBeenCalled();
+    });
+
+
+    it("installs a straight-run laminate countertop only with native LF material and labor mappings", async () => {
+      const ids = [
+        "11111111-1111-4111-8111-111111111111",
+        "22222222-2222-4222-8222-222222222222",
+      ];
+      mockPrisma.assembly.findFirst.mockResolvedValue(null);
+      mockPrisma.costItem.findMany.mockResolvedValue([
+        { id: ids[0], unitOfMeasure: "LF", laborRateId: null, materialId: "material-1", equipmentId: null, subcontractorId: null },
+        { id: ids[1], unitOfMeasure: "LF", laborRateId: "labor-1", materialId: null, equipmentId: null, subcontractorId: null },
+      ]);
+      mockPrisma.assembly.create.mockResolvedValue({
+        id: "kitchen-top-1", orgId: "org-1",
+        code: "12 36 23-TOS-001", name: "Prefabricated Laminate Countertop — Straight Run",
+        unitOfMeasure: "LF", description: "with evidence",
+        isTemplate: true, isActive: true,
+      });
+      mockPrisma.assemblyItem.createMany.mockResolvedValue({ count: 2 });
+      const created = await new AssembliesDatabaseService().installStarterCatalogAssembly({
+        orgId: "org-1", templateId: "kitchen:laminate-countertop-straight",
+        componentMappings: [
+          { componentKey: "laminate-countertop-material", costItemId: ids[0] },
+          { componentKey: "laminate-countertop-install", costItemId: ids[1] },
+        ],
+      });
+      expect(created.code).toBe("12 36 23-TOS-001");
+      expect(mockPrisma.assembly.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          orgId: "org-1", code: "12 36 23-TOS-001",
+          description: expect.stringContaining("Research evidence: SRC-0070"),
+          isTemplate: true,
+        }),
+      });
+      expect(mockPrisma.assemblyItem.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({ costItemId: ids[0], quantityPerUnit: 1, sortOrder: 1 }),
+          expect.objectContaining({ costItemId: ids[1], quantityPerUnit: 1, sortOrder: 2 }),
+        ],
+      });
+    });
+
+    it("rejects EA-priced prefabricated countertop material instead of pretending a piece is one LF", async () => {
+      const ids = [
+        "11111111-1111-4111-8111-111111111111",
+        "22222222-2222-4222-8222-222222222222",
+      ];
+      mockPrisma.assembly.findFirst.mockResolvedValue(null);
+      mockPrisma.costItem.findMany.mockResolvedValue([
+        { id: ids[0], unitOfMeasure: "EA", laborRateId: null, materialId: "material-1", equipmentId: null, subcontractorId: null },
+        { id: ids[1], unitOfMeasure: "LF", laborRateId: "labor-1", materialId: null, equipmentId: null, subcontractorId: null },
+      ]);
+      await expect(new AssembliesDatabaseService().installStarterCatalogAssembly({
+        orgId: "org-1", templateId: "kitchen:laminate-countertop-straight",
+        componentMappings: [
+          { componentKey: "laminate-countertop-material", costItemId: ids[0] },
+          { componentKey: "laminate-countertop-install", costItemId: ids[1] },
+        ],
+      })).rejects.toThrow(/Prefabricated laminate countertop.*expects LF but Cost Item uses EA/);
+      expect(mockPrisma.assembly.create).not.toHaveBeenCalled();
+    });
+
     it("installs a fully mapped starter as a tenant-scoped reusable assembly", async () => {
       mockPrisma.assembly.findFirst.mockResolvedValue(null);
       mockPrisma.costItem.findMany.mockResolvedValue([

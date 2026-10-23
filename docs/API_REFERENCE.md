@@ -14,6 +14,69 @@ related_code:
 
 # API Reference
 
+## Openings/appliance assembly API addendum (PR #774, pending)
+
+The unchanged `GET /api/v1/{costbook/}assemblies/starter-catalog`
+publishes three additional `research` templates in the dependent
+openings/appliance branch: `openings:window-vinyl-new-construction-flanged`,
+`openings:garage-door-section-steel` and
+`appliances:dishwasher-built-in-existing-ready`.
+After PR #774 lands on merged parent #773, the combined catalog contains **107** items
+with version `2026.09.1+research88+kitchen2+openings3`.
+
+Existing `POST .../starter-catalog/install` schema, authorization and
+same-tenant Cost Item resolution remain unchanged. Each new recipe's
+components are denominated EA and reject SF, LF or alternate package
+units as unreviewed conversions. Source-ID registry validation is
+fail-closed before a mutation and the installer does not generate a
+material price, create new circuits/piping or certify a selected model.
+Installed assembly descriptions retain registered provenance IDs
+SRC-0071–SRC-0073. See `docs/modules/cost-book.md` for exclusions.
+
+## Kitchen addendum to assembly catalog (PR #773)
+
+The same authenticated `GET /api/v1/{costbook/}assemblies/starter-catalog`
+response contains two additional `research` templates shipped in PR #773
+(merge `ef983efc`) after parent PR #771: `kitchen:wall-cabinet-prefab` and
+`kitchen:laminate-countertop-straight`. The resulting catalog contains 104
+templates (14 original, 88 researched, 2 kitchen); `catalogVersion` is
+`2026.09.1+research88+kitchen2`.
+
+The unchanged `POST .../starter-catalog/install` accepts those IDs with
+all-component tenant-owned `componentMappings` and `costbook.write`.
+The wall cabinet requires EA Cost Items; the straight-run countertop requires
+LF Cost Items. No automatic piece-to-foot conversion is done. Missing source
+registry entries block installation via HTTP 422; supplier quote, scope and
+local productivity review remain human responsibilities. Source IDs
+`SRC-0069` and `SRC-0070` are in the research registry.
+
+## Expanded assembly catalog contract (PR #771 — proposed, 2026-10-18)
+
+`GET /api/v1/costbook/assemblies/starter-catalog` and the compatible
+`GET /api/v1/assemblies/starter-catalog` continue requiring `costbook.read`.
+The response remains `{ catalogVersion, coverage, items }`, now containing
+14 existing reviewed starter templates and 88 separately marked `research`
+recipes. Research entries have `id: "tradeos:<source-id>"`, `nahbPhase`,
+`evidenceRefs`, `blockingReasons` and all standard mapping-component
+fields. The implementation does not supply prices or create tenant records on
+GET. The coverage array includes the original work groups and populated
+NAHB 1000–5000 phase groups.
+
+`POST /api/v1/costbook/assemblies/starter-catalog/install` and its
+`/api/v1/assemblies/starter-catalog/install` compatibility route retain
+`costbook.write` and the existing `{ templateId, componentMappings }`
+body. `tradeos:<source-id>` selections use the same atomic tenant-scoped
+install flow, active Cost Item checks, exact component-key coverage, unique
+Cost Item IDs, and kind/unit compatibility rules. Unresolved source IDs in
+`blockingReasons` return HTTP 422 before DB mutation. Each component's
+first declared compatible unit is its fixed quantity basis; alternatives
+such as BOX/EA are not accepted without explicit conversion. Installed
+assemblies retain source IDs in their description for later review and
+remain price-neutral until resolved by the canonical Costbook cost service.
+
+No change to Estimate Engine snapshot semantics, material-price history,
+auth/RLS, supplier feeds or migrations. Hosted verification remains pending.
+
 ## ABC Supply sandbox OAuth reauthorization (2026-10-11)
 
 ABC requires user-authorized access for third-party customer-specific
@@ -900,6 +963,10 @@ Estimate snapshots are unchanged.
 
 See `docs/operations/ABC_SUPPLY_LIVE_PRICING_PILOT.md` for the complete
 runbook, explicit apply command and live-verification gates.
+
+## Davis-Bacon prevailing-wage reads (PR #700, pending staging validation)
+
+Authenticated, tenant-scoped Costbook routes (require `costbook.read`): `GET /api/v1/costbook/davis-bacon/determinations` (optional normalized state, county and active-only filters); `GET /api/v1/costbook/davis-bacon/rates?wdNumber=IN20260050`; `GET /api/v1/costbook/davis-bacon/county-rates?state=IN&county=Vigo`. Rate values are government-contract floors, not customer or supplier prices. The `GET /api/cron/davis-bacon-sync` route requires a `CRON_SECRET` bearer; jobs are configured through `DAVIS_BACON_SYNC_JOBS`, and no scheduled invocation is enabled by this PR.
 
 
 ## ABC Supply provider-backed catalog API — issue #735 proposed slice (2026-10-13)

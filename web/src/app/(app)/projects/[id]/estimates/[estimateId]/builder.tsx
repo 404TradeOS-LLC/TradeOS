@@ -383,26 +383,32 @@ function EstimateStageFlow({
             {estimate.lineItems.length === 0 ? (
               <p className="border-b border-border/70 py-4 text-sm text-muted-foreground">No line items yet.</p>
             ) : (
-              <ul className="space-y-4">
-                {groupLineItems(estimate.lineItems).map(([section, sectionItems]) => (
-                  <li key={section} className="space-y-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{section}</h3>
-                    <ul className="divide-y divide-border/70">
-                      {sectionItems.map((lineItem) => (
-                        <EditableLineItem
-                          key={lineItem.id}
-                          estimateId={estimateId}
-                          lineItem={lineItem}
-                          isDraft={isDraft}
-                          onUpdated={onUpdated}
-                          onRemove={() => onRemoveLineItem(lineItem.id)}
-                          removing={removeLineItemPending}
-                        />
-                      ))}
-                    </ul>
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-4">
+                <p className="text-xs text-muted-foreground">Saved internal costs. Review customer pricing in Price.</p>
+                <div aria-hidden="true" className={cn("hidden gap-x-4 border-b border-border/70 pb-2 text-xs font-semibold text-muted-foreground lg:grid", estimateItemColumns)}>
+                  <span>Item / pricing basis</span><span>Quantity</span><span className="text-right">Unit cost</span><span className="text-right">Line cost</span>
+                </div>
+                <ul aria-label="Saved estimate items" className="space-y-4">
+                  {groupLineItems(estimate.lineItems).map(([section, sectionItems]) => (
+                    <li key={section} className="space-y-2">
+                      <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{section}</h3>
+                      <ul className="divide-y divide-border/70">
+                        {sectionItems.map((lineItem) => (
+                          <EditableLineItem
+                            key={lineItem.id}
+                            estimateId={estimateId}
+                            lineItem={lineItem}
+                            isDraft={isDraft}
+                            onUpdated={onUpdated}
+                            onRemove={() => onRemoveLineItem(lineItem.id)}
+                            removing={removeLineItemPending}
+                          />
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
             <EstimateStageAction label="Continue to price" onClick={advance} />
           </div>
@@ -1101,14 +1107,15 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
       </div>
 
       <div id={customPanelId} hidden={entryMode !== "custom"}>
-        <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
-          <div className="sm:col-span-2 lg:col-span-2">
-            <Label htmlFor="custom-description">Custom line item</Label>
-            <Input ref={customInputRef} id="custom-description" placeholder="e.g. debris handling" value={custom.description} onChange={(e) => setCustom({ ...custom, description: e.target.value })} />
+        <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-start">
+          <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
+            <Label className="leading-5" htmlFor="custom-description">Custom line item</Label>
+            <Input className="h-11 lg:h-8" ref={customInputRef} id="custom-description" placeholder="e.g. debris handling" value={custom.description} onChange={(e) => setCustom({ ...custom, description: e.target.value })} />
           </div>
-          <div>
-            <Label htmlFor="custom-quantity">Qty</Label>
+          <div className="space-y-1.5">
+            <Label className="leading-5" htmlFor="custom-quantity">Qty</Label>
             <Input
+              className="h-11 lg:h-8"
               id="custom-quantity"
               type="number"
               min="0"
@@ -1124,9 +1131,10 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
               </p>
             ) : null}
           </div>
-          <div>
-            <Label htmlFor="custom-unit-cost">Unit cost</Label>
+          <div className="space-y-1.5">
+            <Label className="leading-5" htmlFor="custom-unit-cost">Unit cost</Label>
             <Input
+              className="h-11 lg:h-8"
               id="custom-unit-cost"
               type="number"
               min="0"
@@ -1144,24 +1152,24 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
               </p>
             ) : null}
           </div>
-          <Button type="button" variant="secondary" onClick={() => addCustomLineItem()} disabled={customAdd.isPending || customUnitCostMissing || customQuantityInvalid || customUnitCostInvalid}>
+          <Button className="h-11 lg:mt-[26px]" type="button" variant="secondary" onClick={() => addCustomLineItem()} disabled={customAdd.isPending || customUnitCostMissing || customQuantityInvalid || customUnitCostInvalid}>
             {customAdd.isPending ? "Adding…" : "Add custom"}
           </Button>
-          <div>
-            <Label htmlFor="custom-unit">Unit</Label>
-            <Input id="custom-unit" value={custom.unitOfMeasure} onChange={(e) => setCustom({ ...custom, unitOfMeasure: e.target.value })} />
+          <div className="space-y-1.5">
+            <Label className="leading-5" htmlFor="custom-unit">Unit</Label>
+            <Input className="h-11 lg:h-8" id="custom-unit" value={custom.unitOfMeasure} onChange={(e) => setCustom({ ...custom, unitOfMeasure: e.target.value })} />
           </div>
-          <div>
-            <Label htmlFor="custom-section">Section</Label>
-            <Input id="custom-section" value={custom.section} onChange={(e) => setCustom({ ...custom, section: e.target.value })} />
+          <div className="space-y-1.5">
+            <Label className="leading-5" htmlFor="custom-section">Section</Label>
+            <Input className="h-11 lg:h-8" id="custom-section" value={custom.section} onChange={(e) => setCustom({ ...custom, section: e.target.value })} />
           </div>
-          <div>
-            <Label htmlFor="custom-cost-type">Cost type</Label>
-            <select id="custom-cost-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={custom.costType} onChange={(e) => setCustom({ ...custom, costType: e.target.value as LineItem["costType"] })}>
+          <div className="space-y-1.5">
+            <Label className="leading-5" htmlFor="custom-cost-type">Cost type</Label>
+            <select id="custom-cost-type" className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm" value={custom.costType} onChange={(e) => setCustom({ ...custom, costType: e.target.value as LineItem["costType"] })}>
               {costTypes.map((type) => <option key={type} value={type}>{type}</option>)}
             </select>
           </div>
-          <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={custom.taxable} onChange={(e) => setCustom({ ...custom, taxable: e.target.checked })} /> Taxable</label>
+          <label className="flex min-h-11 items-center gap-2 text-sm lg:mt-[26px]"><input type="checkbox" checked={custom.taxable} onChange={(e) => setCustom({ ...custom, taxable: e.target.checked })} /> Taxable</label>
         </div>
       </div>
 
@@ -1195,6 +1203,7 @@ function StarterAssemblySetup({
   const mappedIds = template.components.map((component) => mappings[component.key]?.id ?? "");
   const mappingComplete = mappedIds.every(Boolean);
   const duplicateMapping = mappingComplete && new Set(mappedIds).size !== mappedIds.length;
+  const evidenceBlocked = Boolean(template.blockingReasons?.length);
   const incompatibleComponent = template.components.find((component) => {
     const item = mappings[component.key];
     return item && !assessCostItemMapping(component, item).compatible;
@@ -1212,12 +1221,13 @@ function StarterAssemblySetup({
       const unitCost = resolved.reduce((total, row) => total + row.unitCost * row.component.quantityPerUnit, 0);
       return { unitCost, resolved };
     },
-    enabled: mappingComplete && !duplicateMapping && !incompatibleComponent,
+    enabled: !evidenceBlocked && mappingComplete && !duplicateMapping && !incompatibleComponent,
     staleTime: 60_000,
   });
 
   const install = useMutation({
     mutationFn: async () => {
+      if (evidenceBlocked) throw new Error(`Research evidence must be repaired: ${template.blockingReasons?.join("; ")}`);
       if (!mappingComplete) throw new Error("Map every recipe slot before installing the assembly.");
       if (duplicateMapping) throw new Error("Use a different Costbook item for each recipe slot.");
       if (incompatibleComponent) throw new Error(`${incompatibleComponent.label} is mapped to an incompatible Costbook item.`);
@@ -1250,7 +1260,8 @@ function StarterAssemblySetup({
   return (
     <div className="space-y-4 rounded-lg border border-warning/40 bg-warning/10 p-3">
       <div>
-        <p className="font-medium text-foreground">Setup required before this assembly can be priced or added.</p>
+        <p className="font-medium text-foreground">{evidenceBlocked ? "Research evidence pending — installation blocked." : "Setup required before this assembly can be priced or added."}</p>
+        {evidenceBlocked ? <p role="alert" className="mt-1 text-sm text-warning">{template.blockingReasons?.join("; ")}</p> : null}
         <p className="mt-1 text-sm text-muted-foreground">
           Map each starter recipe slot to an active, compatible Costbook item. TradeOS will not invent those mappings or a price.
         </p>
@@ -1294,9 +1305,22 @@ function StarterAssemblySetup({
           ) : preview.isLoading ? (
             <p className="mt-1 text-sm text-muted-foreground">Resolving mapped Costbook costs…</p>
           ) : preview.isError ? (
-            <p className="mt-1 text-sm text-warning" role="alert">
-              Cost preview unavailable. {preview.error instanceof Error ? preview.error.message : "Try again."}
-            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-sm text-warning" role="alert">
+                Cost preview unavailable. {preview.error instanceof Error ? preview.error.message : "Try again."}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-11 sm:min-h-7"
+                aria-label={preview.isFetching ? "Retrying Costbook cost preview" : "Retry Costbook cost preview"}
+                disabled={preview.isFetching || install.isPending}
+                onClick={() => void preview.refetch()}
+              >
+                {preview.isFetching ? "Retrying…" : "Retry preview"}
+              </Button>
+            </div>
           ) : preview.data ? (
             <div className="mt-2 grid gap-1 text-sm">
               <span><strong className="font-medium">{formatCurrency(preview.data.unitCost)}</strong> / {template.unitOfMeasure}</span>
@@ -1309,16 +1333,19 @@ function StarterAssemblySetup({
         <Button
           type="button"
           onClick={() => install.mutate()}
-          disabled={install.isPending || !mappingComplete || duplicateMapping || Boolean(incompatibleComponent) || !previewReady}
+          disabled={install.isPending || evidenceBlocked || !mappingComplete || duplicateMapping || Boolean(incompatibleComponent) || !previewReady}
         >
           {install.isPending ? "Installing…" : "Install assembly"}
         </Button>
       </div>
 
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {preview.isFetching ? "Refreshing Costbook cost preview…" : ""}
+      </p>
       <div className="text-xs text-muted-foreground">
         <p>Measured by {template.measurementBasis.toLowerCase()}. {template.wasteGuidance}</p>
         <p className="mt-1">
-          Provenance: {template.review.source}, reviewed {template.review.reviewedOn}. {template.review.regionalBasis}
+          Provenance: {template.review.source}{template.review.status === "reviewed" && template.review.reviewedOn ? `, reviewed ${template.review.reviewedOn}` : " · research recipe requiring estimator review"}. {template.review.regionalBasis}
         </p>
         <p className="mt-1">Installation creates the tenant assembly only. Review its resolved cost, then use the separate Add action to write the estimate line.</p>
       </div>
@@ -1345,6 +1372,7 @@ function StarterComponentMappingPicker({
   const [editing, setEditing] = useState(false);
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const resultsId = useId();
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedQuery(query.trim()), 200);
@@ -1360,6 +1388,22 @@ function StarterComponentMappingPicker({
 
   const displayValue = editing ? query : value ? `${value.code} · ${value.name}` : "";
   const assessment = value ? assessCostItemMapping(component, value) : null;
+  const results = search.isError || search.isFetching || query.trim() !== debouncedQuery ? [] : search.data ?? [];
+  const selectableResults = results.filter((item) => !unavailableIds.has(item.id) && assessCostItemMapping(component, item).compatible);
+  const activeItem = selectableResults.find((item) => item.id === activeId);
+  const optionId = (id: string) => `${resultsId}-option-${id}`;
+
+  const selectItem = (item: CostItemCatalogRecord) => {
+    onSelect(item);
+    setEditing(false);
+    setQuery("");
+    setOpen(false);
+    setActiveId(null);
+  };
+
+  useEffect(() => {
+    if (open && activeId) document.getElementById(`${resultsId}-option-${activeId}`)?.scrollIntoView({ block: "nearest" });
+  }, [activeId, open, resultsId]);
 
   return (
     <div className="grid gap-2 rounded-lg border border-border/70 bg-background/75 p-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] sm:items-start">
@@ -1374,15 +1418,37 @@ function StarterComponentMappingPicker({
         <Input
           role="combobox"
           aria-label={`Map ${component.label}`}
-          aria-expanded={open}
-          aria-controls={resultsId}
+          aria-expanded={open && !disabled}
+          aria-controls={open && !disabled ? resultsId : undefined}
+          aria-autocomplete="list"
+          aria-activedescendant={open && !disabled && activeItem ? optionId(activeItem.id) : undefined}
           autoComplete="off"
           placeholder="Search active Costbook items…"
           value={displayValue}
           disabled={disabled}
-          onFocus={() => setOpen(true)}
-          onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+          onFocus={() => { setOpen(true); setActiveId(null); }}
+          onBlur={() => { setOpen(false); setActiveId(null); }}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setOpen(false);
+              setActiveId(null);
+            } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault();
+              setOpen(true);
+              const index = open ? selectableResults.findIndex((item) => item.id === activeId) : -1;
+              const next = index < 0
+                ? event.key === "ArrowDown" ? 0 : selectableResults.length - 1
+                : Math.max(0, Math.min(selectableResults.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)));
+              setActiveId(selectableResults[next]?.id ?? null);
+            } else if (event.key === "Enter" && open) {
+              event.preventDefault();
+              if (activeItem) selectItem(activeItem);
+            }
+          }}
           onChange={(event) => {
+            setActiveId(null);
             setEditing(true);
             setQuery(event.target.value);
             if (value) onSelect(null);
@@ -1390,15 +1456,15 @@ function StarterComponentMappingPicker({
           }}
         />
         {open && !disabled ? (
-          <div id={resultsId} role="listbox" className="absolute z-30 mt-1 max-h-64 w-full min-w-[280px] overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg">
-            {search.isLoading ? (
-              <p className="px-3 py-2 text-xs text-muted-foreground">Searching Costbook…</p>
+          <div id={resultsId} role="listbox" aria-label={`Costbook items for ${component.label}`} className="absolute z-30 mt-1 max-h-64 w-full min-w-[280px] overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg">
+            {search.isLoading || search.isFetching || query.trim() !== debouncedQuery ? (
+              <p className="px-3 py-2 text-xs text-muted-foreground" role="status">Searching Costbook…</p>
             ) : search.isError ? (
               <p className="px-3 py-2 text-xs text-destructive" role="alert">Cost Items could not be loaded.</p>
-            ) : (search.data ?? []).length === 0 ? (
+            ) : results.length === 0 ? (
               <p className="px-3 py-2 text-xs text-muted-foreground">No active Cost Items found.</p>
             ) : (
-              (search.data ?? []).map((item) => {
+              results.map((item) => {
                 const itemAssessment = assessCostItemMapping(component, item);
                 const unavailable = unavailableIds.has(item.id);
                 const selectable = !unavailable && itemAssessment.compatible;
@@ -1410,18 +1476,15 @@ function StarterComponentMappingPicker({
                 return (
                   <button
                     key={item.id}
+                    id={optionId(item.id)}
                     type="button"
                     role="option"
+                    tabIndex={-1}
                     aria-selected={value?.id === item.id}
                     disabled={!selectable}
-                    className="grid w-full gap-0.5 rounded-sm px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                    className={cn("grid w-full gap-0.5 rounded-sm px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50", activeItem?.id === item.id && "bg-muted ring-2 ring-inset ring-ring")}
                     onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
-                      onSelect(item);
-                      setEditing(false);
-                      setQuery("");
-                      setOpen(false);
-                    }}
+                    onClick={() => selectItem(item)}
                   >
                     <span className="font-medium text-foreground">{item.code} · {item.name}</span>
                     <span className="text-xs text-muted-foreground">{detail}</span>
@@ -1445,8 +1508,11 @@ function groupLineItems(items: LineItem[]) {
   return Array.from(grouped.entries());
 }
 
+const estimateItemColumns = "lg:grid-cols-[minmax(0,1fr)_5.5rem_6.25rem_7.25rem]";
+
 function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, removing }: { estimateId: string; lineItem: LineItem; isDraft: boolean; onUpdated: () => void; onRemove: () => void; removing: boolean }) {
-  const costHelpId = useId();
+  const editorId = useId();
+  const costHelpId = `${editorId}-cost-help`;
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ description: lineItem.description, quantity: String(lineItem.quantity), unitCost: String(lineItem.unitCost), unitOfMeasure: lineItem.unitOfMeasure, section: lineItem.section, costType: lineItem.costType, taxable: lineItem.taxable });
   const [error, setError] = useState<string | null>(null);
@@ -1462,21 +1528,29 @@ function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, 
     onSuccess: () => { setError(null); setEditing(false); onUpdated(); },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to update line item"),
   });
-  return <li className="border-b border-border/70 px-0 py-4 last:border-b-0">
-    {editing && isDraft ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} aria-label="Description" />
-      <Input value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} aria-label="Section" />
-      <Input type="number" min="0" step="any" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} aria-label="Quantity" />
-      <Input type="number" min="0" step="0.01" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: e.target.value })} aria-label="Unit cost" required aria-describedby={costHelpId} />
-      <Input value={form.unitOfMeasure} onChange={(e) => setForm({ ...form, unitOfMeasure: e.target.value })} aria-label="Unit" />
-      <select className="flex h-10 rounded-md border border-input bg-background px-3 text-sm" value={form.costType} onChange={(e) => setForm({ ...form, costType: e.target.value as LineItem["costType"] })}>{costTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select>
-      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.taxable} onChange={(e) => setForm({ ...form, taxable: e.target.checked })} /> Taxable</label>
-      <div className="flex gap-2"><Button size="sm" onClick={() => update.mutate()} disabled={update.isPending || !form.unitCost.trim()}>{update.isPending ? "Saving…" : "Save"}</Button><Button size="sm" variant="ghost" onClick={() => { setError(null); setEditing(false); }}>Cancel</Button></div>
+  return <li aria-label={lineItem.description} className="border-b border-border/70 px-0 py-4 last:border-b-0">
+    {editing && isDraft ? <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="space-y-2"><Label htmlFor={`${editorId}-description`}>Description</Label><Input id={`${editorId}-description`} className="min-h-11 lg:min-h-8" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} aria-label="Description" /></div>
+      <div className="space-y-2"><Label htmlFor={`${editorId}-section`}>Section</Label><Input id={`${editorId}-section`} className="min-h-11 lg:min-h-8" value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} aria-label="Section" /></div>
+      <div className="space-y-2"><Label htmlFor={`${editorId}-quantity`}>Quantity</Label><Input id={`${editorId}-quantity`} className="min-h-11 lg:min-h-8" type="number" min="0" step="any" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} aria-label="Quantity" /></div>
+      <div className="space-y-2"><Label htmlFor={`${editorId}-unit-cost`}>Unit cost</Label><Input id={`${editorId}-unit-cost`} className="min-h-11 lg:min-h-8" type="number" min="0" step="0.01" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: e.target.value })} aria-label="Unit cost" required aria-describedby={costHelpId} /></div>
+      <div className="space-y-2"><Label htmlFor={`${editorId}-unit`}>Unit</Label><Input id={`${editorId}-unit`} className="min-h-11 lg:min-h-8" value={form.unitOfMeasure} onChange={(e) => setForm({ ...form, unitOfMeasure: e.target.value })} aria-label="Unit" /></div>
+      <div className="space-y-2"><Label htmlFor={`${editorId}-cost-type`}>Cost type</Label><select id={`${editorId}-cost-type`} className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-base lg:h-10 lg:text-sm" value={form.costType} onChange={(e) => setForm({ ...form, costType: e.target.value as LineItem["costType"] })}>{costTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
+      <label className="flex min-h-11 items-center gap-2 text-sm lg:min-h-7"><input type="checkbox" checked={form.taxable} onChange={(e) => setForm({ ...form, taxable: e.target.checked })} /> Taxable</label>
+      <div className="flex gap-2"><Button className="min-h-11 lg:min-h-7" size="sm" onClick={() => update.mutate()} disabled={update.isPending || !form.unitCost.trim()}>{update.isPending ? "Saving…" : "Save"}</Button><Button className="min-h-11 lg:min-h-7" size="sm" variant="ghost" onClick={() => { setError(null); setEditing(false); }}>Cancel</Button></div>
       <p id={costHelpId} className="sm:col-span-2 lg:col-span-4 text-xs text-muted-foreground">Enter a unit cost. Use 0 only when this item intentionally has no cost.</p>
       {error && <p role="alert" className="sm:col-span-2 lg:col-span-4 text-sm text-destructive">{error}</p>}
-    </div> : <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div className="space-y-1"><div className="font-medium">{lineItem.description}</div><div className="flex flex-wrap gap-2 text-sm text-muted-foreground"><span>{lineItem.quantity} {lineItem.unitOfMeasure} × {formatCurrency(lineItem.unitCost)}</span><Badge variant="outline">{lineItem.costType}</Badge><Badge variant="outline">{lineItem.assemblyId ? "Assembly source" : lineItem.costItemId ? "Costbook source" : "Custom item"}</Badge>{lineItem.taxable && <Badge variant="secondary">taxable</Badge>}</div></div>
-      <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end"><span className="text-base font-semibold">{formatCurrency(lineItem.lineCost)}</span>{isDraft && <div className="flex gap-1"><Button variant="ghost" size="sm" onClick={() => setEditing(true)}>Edit</Button><Button variant="ghost" size="sm" onClick={onRemove} disabled={removing}>Remove</Button></div>}</div>
+    </div> : <div className="space-y-2">
+      <div className={cn("grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-2", estimateItemColumns)}>
+        <div className="min-w-0 space-y-1"><div className="break-words font-medium">{lineItem.description}</div><div className="text-sm text-muted-foreground lg:hidden">{lineItem.quantity} {lineItem.unitOfMeasure} × {formatCurrency(lineItem.unitCost)}</div></div>
+        <div role="group" aria-label="Quantity" className="hidden min-w-0 break-words text-sm tabular-nums lg:block">{lineItem.quantity} {lineItem.unitOfMeasure}</div>
+        <div role="group" aria-label="Unit cost" className="hidden min-w-0 break-all text-right font-mono text-sm tabular-nums lg:block">{formatCurrency(lineItem.unitCost)}</div>
+        <div role="group" aria-label="Line cost" className="min-w-0 break-all text-right font-mono font-semibold tabular-nums">{formatCurrency(lineItem.lineCost)}</div>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2 text-sm text-muted-foreground"><Badge variant="outline">{lineItem.costType}</Badge><Badge variant="outline">{lineItem.assemblyId ? "Assembly source" : lineItem.costItemId ? "Costbook source" : "Custom item"}</Badge>{lineItem.taxable && <Badge variant="secondary">taxable</Badge>}</div>
+        {isDraft && <div className="ml-auto flex gap-1"><Button className="min-h-11 lg:min-h-7" variant="ghost" size="sm" onClick={() => setEditing(true)}>Edit</Button><Button className="min-h-11 lg:min-h-7" variant="ghost" size="sm" onClick={onRemove} disabled={removing}>Remove</Button></div>}
+      </div>
     </div>}
   </li>;
 }

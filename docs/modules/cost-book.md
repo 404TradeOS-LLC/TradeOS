@@ -47,6 +47,100 @@ related_code:
 
 # Cost Book
 
+## Openings and appliance estimating gaps (PR #774, pending)
+
+PR #774 extends merged parent #773 with three price-neutral, EA-denominated
+scope recipes to the existing tenant-owned mapping/installation pipeline.
+The combined proposed catalog is **107** templates (14 reviewed + 88 original
+research + 2 kitchen + 3 openings/appliance). These templates provide neither
+market prices nor unreviewed supplier substitutions:
+
+- `openings:window-vinyl-new-construction-flanged` (CSI 08 53 13,
+  NAHB 4000): one specified new-construction flanged vinyl window EA, one
+  separately reviewed EA flashing/sealant kit, and an EA labor line. Does
+  not substitute for retrofit insert-window work. Manufacturer context:
+  JELD-WEN vinyl integral-nailing-fin installation instructions (JII001) SRC-0071; the actual selected
+  product/wall system must determine flashing and fastening instructions.
+- `openings:garage-door-section-steel` (CSI 08 36 13, NAHB 4000):
+  one specified complete sectional steel garage door system, with qualified
+  installer labor separately mapped. Spring/cable work involves dangerous
+  stored energy and is **not** represented as a DIY task or generic
+  unit-for-unit parts swap. Excludes opener, electrical, opening repair and
+  disposal. Source: Clopay residential installation manual index SRC-0072.
+- `appliances:dishwasher-built-in-existing-ready` (CSI 11 31 00,
+  NAHB 5000): one model-specific dishwasher, one explicit connection kit,
+  and one ready-connection installation/test Cost Item. Requires already
+  compliant plumbing/electrical provision; new circuits, piping, cabinet
+  modifications, removal and leak repair are **not** implied or included.
+  Reference: GE model-specific dishwasher installation instructions
+  SRC-0073; actual model instructions and local qualifications take
+  precedence.
+
+All three are `research` templates requiring review and full tenant-scoped
+mapping. Installation is blocked if referenced source records are absent.
+Neither supplier quotes nor labor productivity figures are inferred.
+No schema, access policy, supplier integration, pricing snapshot or migration
+is modified in this branch; authenticated staging/browser proof is pending.
+
+## Kitchen assembly scope follow-on (PR #773)
+
+The source-backed expansion adds **two more price-neutral kitchen research
+templates** beyond the original 14 reviewed starters and 88 sourced recipes
+(104 templates at merged PR #773). The recipes are not supplier
+quotes or production-rate benchmarks:
+
+- `kitchen:wall-cabinet-prefab` (CSI 12 35 30, NAHB 5000, EA):
+  each specified wall cabinet, one separate per-cabinet fastening/shim allowance,
+  and one reviewed per-cabinet labor Cost Item. Actual size, stud support,
+  fastener instructions, fillers and additional framing remain project-specific.
+  Installation scope reference: SRC-0069 (Home Depot wall cabinets).
+- `kitchen:laminate-countertop-straight` (CSI 12 36 23, NAHB 5000, LF):
+  one linear foot of an exact specified straight-run prefabricated laminate
+  countertop and one separate LF-install labor Cost Item. It deliberately
+  excludes sink/cooktop cutouts, mitered seams, backsplash, end caps and other
+  complications. Reference SRC-0070 (Formica guidance on laminate cutouts and
+  sealing). A priced 8-foot piece in EA is **not** compatible with the LF
+  material slot until explicitly converted and priced in the tenant Costbook.
+
+Both carry `review.status="research"`, explicit source IDs, measured units,
+zero default material waste, no embedded dollar amounts, and must pass the
+same `costbook.write` / tenant-scoped exact component mapping
+gates as the rest of the starter workflow. Registered-source absence blocks
+installation. These are limited scope recipes and are not a complete stone,
+fabrication, cabinetry or electrical/plumbing estimate.
+
+Status: PR #773 merged as `ef983efc`; authenticated deployment is unverified. No schema, RLS,
+supplier pricing, Estimate Engine or production migration change.
+
+## Research assembly activation (October 18, 2026; proposed PR)
+
+The installed tenant-scoped Assembly model and Estimate Engine pricing remain the only
+write/pricing path. In addition to the 14 reviewed TradeOS starter recipes, the
+starter-catalog API now exposes all 88 sourced static `TRADEOS_ASSEMBLIES`
+recipes as **research** templates. The 88 retain their original source IDs,
+NAHB build phase, CSI division, material/labor/equipment component quantities,
+measurement basis, assumptions, and scope exclusions. The API returns 102
+browseable templates (14 reviewed starters + 88 research recipes), rather than
+pre-installing, assigning costs, or creating another catalog database.
+
+Each research component must be mapped to a distinct active, compatible Cost Item
+within the requesting tenant before installation. The first declared source
+unit is the recipe's quantity basis; alternate purchase units (e.g. EA vs BOX,
+SF vs ROLL) are not treated as 1:1 conversions. All installed assemblies still
+resolve pricing only through the canonical Costbook service and are added to
+estimates only by the existing explicit Estimate line-item action.
+
+11 researched recipes currently reference at least one missing source record
+(SRC-0041 through SRC-0050); their `blockingReasons` are visible in the
+catalog/Estimate setup UI, and the install API rejects them before any database
+write. Those recipes remain available for read-only inspection and source
+repair. Remaining research recipes still require local scope, labor, material,
+and production review before real quoting. The new browser includes NAHB
+1000–5000 phase facets alongside legacy residential work groups and CSI.
+
+This change does **not** verify hosted staging, apply any database migrations,
+populate missing source records, or constitute production pricing evidence.
+
 ## Estimate Items assembly picker
 
 S064 extends the existing Estimate Items picker without creating a parallel estimator. Installed tenant assemblies are searched through the existing assembly search contract, previewed with the existing current-unit-cost and recipe-item endpoints, and added only through the canonical Estimate Engine line-item mutation. The preview is advisory: it shows current cost/component evidence and selected-quantity job cost, while the Estimate Engine owns the persisted pricing snapshot/source identity.

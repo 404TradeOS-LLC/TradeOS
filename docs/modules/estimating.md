@@ -74,6 +74,34 @@ Focused regression coverage lives in `app/tests/estimate-costbook-snapshot.test.
 
 ## Frontend surfaces
 
+### Starter-component mapping keyboard contract
+
+The existing mapping combobox keeps DOM focus in its search input. ArrowDown
+opens the results and starts at the first compatible, unused Cost Item;
+ArrowUp starts at the last. Further arrows move through eligible options and
+stop at either end. `aria-activedescendant` references the highlighted option;
+active options scroll into view. Enter selects only that available option.
+Escape dismisses the list without changing an existing mapping; Tab dismisses
+and continues to the next form control. Options remain pointer selectable but
+are not separate Tab stops. IME composition retains its normal keyboard input.
+
+Changing text clears the old mapping under the existing contract. Debouncing,
+in-flight or failed searches suppress stale options and active descendants;
+loading is announced as status and failure remains an alert. Keyboard selection
+stages a mapping only: current-cost preview, Install, then reviewed Estimate Add
+retain their existing gates. Tests in
+`tests/components/starter-mapping-keyboard.spec.ts` mount the real production
+picker/assessment with synthetic transport and a native Input fixture. This
+component evidence is separate from full-app authenticated certification.
+
+Install both root and Web dependencies (`npm ci` and `npm --prefix web ci`) and
+Chromium (`npx playwright install chromium`), then run
+`npx playwright test --config playwright.components.config.ts`. This hermetic
+suite is separate from `tests/playwright` and its authenticated evidence
+workflow, which installs root dependencies only. TypeScript/React fixture
+dependencies load inside test execution, so listing either suite does not
+require Web dependencies.
+
 ### Failed finalization focus recovery (responsive Review)
 
 In the shared Scope / Items / Price / Review frontend, a failed finalize request retains the saved estimate and renders a focused `role="alert"` above the Retry finalization action. The focus handler only acts on a visible error notice and scrolls it toward the center so the fixed mobile action and Control Dock do not cover it. It uses the existing server-finalize mutation and does not imply proposal creation or saved pricing changes on failure. The previous standalone recovery PR #751 was closed unmerged; this is a reduced, current-main implementation for the single responsive Review surface. Source assertions are not hosted authenticated evidence.
@@ -86,6 +114,12 @@ Canonical Figma Desktop Scope/Items/Price/Review `378:440–443` and mobile trac
 Inactive stage forms remain mounted/hidden to preserve unfinished item edits, selections and pricing fields during navigation and viewport changes. The Items search shortcut is inactive outside Items. Dirty scope saves still await acknowledgment before leaving Scope, and failure preserves text. All saved prices, provenance, explicit reviewed Add, draft-only mutations and finalize-before-proposal contracts remain unchanged. The contextual rail displays the real saved total; it never adds scripted reconciliation amounts or verification claims.
 
 The opt-in `tests/playwright/estimate-stage-navigation.spec.ts` uses `TRADEOS_ESTIMATE_STAGE_PATH` (relative sanitized draft route) and optional `TRADEOS_ESTIMATE_STAGE_STATE`, under the existing non-production target guard. Project PATCH responses are intercepted for failure/retry, so the test does not persist scope. Its four-width matrix checks keyboard progression, pending/failure/retry, retained pricing inputs, breakpoint continuity and overflow. Synthetic local fixture execution proves frontend behavior only; signed-in persistence, tenant denial and complete design parity require separate governed evidence.
+
+### Saved item columns and edit labels (2026-10-17 UTC)
+
+Canonical Desktop Items `378:441` defines aligned saved item, quantity, unit amount and line amount columns. At 1024px and above, shared tracks align the headers and saved values; smaller screens retain the quantity × unit-cost summary and line cost with 44px edit/remove controls. The UI labels these internal fields Unit cost / Line cost and directs customer pricing review to Price. It renders the saved lineCost without recalculating it. Source/type/tax badges and existing edit/remove behavior remain intact.
+
+All six line-editor fields have visible associated labels and unique IDs. Numeric cost presence, mutation payload, pending/error retention and draft-only gates remain unchanged. Read-only named metric groups require form-specific automation to target the Unit cost spinbutton. The opt-in `estimate-item-layout.spec.ts` refuses all writes and checks actual response values, desktop alignment, visible labels, keyboard Cancel, mobile hit targets and overflow at 390/768/1024/1440. Synthetic local browser execution is UI evidence, not authenticated persistence or full-design certification.
 
 ### Explicit cost when editing saved items (2026-10-17 UTC)
 

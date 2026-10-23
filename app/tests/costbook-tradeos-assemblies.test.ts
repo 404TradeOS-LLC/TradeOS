@@ -52,8 +52,16 @@ describe('TradeOS assembly library', () => {
     expect(roofing.every((a) => a.trade === 'Roofing')).toBe(true);
   });
 
-  it('carries 58 sources with resolvable references', () => {
-    expect(TRADEOS_ASSEMBLY_SOURCES).toHaveLength(58);
+  it('carries original sources and new kitchen installation guidance with unique IDs', () => {
+    expect(TRADEOS_ASSEMBLY_SOURCES).toHaveLength(63);
+    expect(new Set(TRADEOS_ASSEMBLY_SOURCES.map((row) => row.sourceId)).size).toBe(63);
+    expect(getTradeosAssemblySource('SRC-0069')?.sourceOrganization).toBe('The Home Depot');
+    expect(getTradeosAssemblySource('SRC-0070')?.sourceOrganization).toBe('Formica Group');
+    expect(getTradeosAssemblySource('SRC-0071')?.sourceOrganization).toBe('JELD-WEN');
+    expect(getTradeosAssemblySource('SRC-0071')?.sourceDocumentTitle)
+      .toMatch(/Vinyl Windows with Integral Nailing Fin.*JII001/);
+    expect(getTradeosAssemblySource('SRC-0072')?.sourceOrganization).toBe('Clopay Corporation');
+    expect(getTradeosAssemblySource('SRC-0073')?.sourceOrganization).toBe('GE Appliances');
     expect(getTradeosAssemblySource('SRC-0001')?.sourceName).toMatch(/OSHA/i);
     expect(getTradeosAssemblySource('SRC-9999')).toBeUndefined();
   });

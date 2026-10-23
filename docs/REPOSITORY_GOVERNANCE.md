@@ -640,3 +640,19 @@ The protected `.github/workflows/backfill-abc-materials.yml` operator workflow n
 The manual-only `.github/workflows/abc-sandbox-catalog-evidence.yml` job runs only from `main` after the operator types `VERIFY_ABC_SANDBOX_PRODUCT_READ`. It checks a real ABC sandbox `client_credentials` + `product.read` token and at most two bounded Product API pages, using protected sandbox-only credentials from repository secrets or the `abc-sandbox` Environment. It has read-only GitHub permissions, no database connection, no customer OAuth refresh token, no production ABC API host, no product payload artifact, and no Material/Estimate writes. Its evidence output contains only counts and boolean statuses. Missing credentials fail closed; no success may be claimed until the real workflow passes with genuine credentials.
 
 ABC's API Terms do not authorize permanent catalog/database copying by default. This evidence workflow must not be repurposed into a product dump, unattended API scraper, production product sync, or price automation. Persistent catalog storage, indexed replication, and daily delta require express ABC permission and a new approved tenant/RLS and licensing design. See `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md` and issue #735.
+
+A separate `.github/workflows/deploy-staging-migrations.yml` workflow provides a manual staging-only migration path. It runs from `main` against the `staging` GitHub Environment, verifies the exact Supabase project ref, checks invoice backfill prerequisites, runs `app/scripts/deploy-migrations.sh`, and verifies the Prisma ledger. Configure the dedicated `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` environment secrets; Production credentials must not be reused. This workflow does not run automatically on pushes and does not replace the protected Production migration workflow.
+
+
+## Isolated frontend component browser verification
+
+The existing Verify repository Web unit-test job also installs the pinned
+root Playwright runner and Chromium, then runs `playwright.components.config.ts`.
+This suite uses synthetic transport and no credentials, backend, or database.
+It checks mapping keyboard behavior and Custom Item responsive controls,
+keyboard order and recovery through production components. Synthetic failure
+screenshots/test diagnostics are retained for seven days. Browser failures
+fail the existing Web test gate; no new permission or protected-check bypass
+is introduced. These results do not certify authenticated application workflows.
+
+Web scope includes component tests/configuration, root runner manifests and the verification workflow itself, so harness-only edits cannot skip this gate. A real temporary-Git regression test covers those paths and unrelated App/docs changes.

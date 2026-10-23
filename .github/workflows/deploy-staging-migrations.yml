@@ -1,0 +1,135 @@
+name: Deploy staging database migrations
+
+# Manual, staging-only Prisma migration deployment. This workflow uses a
+# dedicated GitHub Environment and secret names; it cannot select production.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-migrations-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Prisma migrations to TradeOS Staging
+    runs-on: ubuntu-latest
+    environment: staging
+    defaults:
+      run:
+        working-directory: app
+    env:
+      DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
+      APP_DB_ROLE_PASSWORD: ${{ secrets.STAGING_APP_DB_ROLE_PASSWORD }}
+      APP_DB_ROLE_NAME: ${{ vars.STAGING_APP_DB_ROLE_NAME }}
+      STAGING_PROJECT_REF: qfbgdkbamfaasmtjfyru
+      PGSSLMODE: require
+    steps:
+      - name: Verify main ref and staging credentials
+        working-directory: . # repository is not checked out yet
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main" || {
+            echo "::error::Dispatch this workflow from main only."
+            exit 1
+          }
+          test -n "$DATABASE_ADMIN_URL" || {
+            echo "::error::Configure STAGING_DATABASE_ADMIN_URL in the staging GitHub Environment."
+            exit 1
+          }
+          test -n "$APP_DB_ROLE_PASSWORD" || {
+            echo "::error::Configure STAGING_APP_DB_ROLE_PASSWORD in the staging GitHub Environment."
+            exit 1
+          }
+          node --input-type=module <<'NODE'
+          let url;
+          try {
+            url = new URL(process.env.DATABASE_ADMIN_URL);
+          } catch {
+            console.error("STAGING_DATABASE_ADMIN_URL is not a valid PostgreSQL URL.");
+            process.exit(1);
+          }
+          const expectedHost = `db.${process.env.STAGING_PROJECT_REF}.supabase.co`;
+          if (url.hostname !== expectedHost) {
+            console.error(`Refusing migration: expected staging host ${expectedHost}, received ${url.hostname}.`);
+            process.exit(1);
+          }
+          console.log(`Verified staging database host ${url.hostname}; credentials were not printed.`);
+          NODE
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Check invoice migration preconditions
+        run: |
+          # Prisma allows ?schema=public; libpq rejects this query parameter.
+          # Keep the full URL for Prisma; use the libpq-safe URL only for psql.
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          legacy_columns="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT count(*)
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'invoice_line_items'
+              AND column_name IN ('unit_cost', 'line_cost')
+          ")"
+          if [ "$legacy_columns" = "2" ]; then
+            null_legacy_costs="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+              SELECT count(*)
+              FROM public.invoice_line_items
+              WHERE unit_cost IS NULL OR line_cost IS NULL
+            ")"
+            if [ "$null_legacy_costs" != "0" ]; then
+              echo "::error::Invoice migration precheck found $null_legacy_costs rows with null legacy costs."
+              exit 1
+            fi
+            echo "Invoice legacy-cost backfill precheck passed."
+          elif [ "$legacy_columns" = "0" ]; then
+            echo "Legacy invoice-cost columns are already absent; precheck is not needed."
+          else
+            echo "::error::Invoice legacy-cost columns are in a partial state; refusing migration."
+            exit 1
+          fi
+
+      - name: Deploy tracked Prisma migrations and provision app role
+        run: bash scripts/deploy-migrations.sh
+
+      - name: Verify Prisma migration ledger
+        run: |
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          expected="$(find prisma/migrations -mindepth 2 -maxdepth 2 -type f -name migration.sql | wc -l | tr -d ' ')"
+          applied="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT count(*)
+            FROM public._prisma_migrations
+            WHERE finished_at IS NOT NULL
+              AND rolled_back_at IS NULL
+          ")"
+          unfinished="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT count(*)
+            FROM public._prisma_migrations
+            WHERE finished_at IS NULL
+              AND rolled_back_at IS NULL
+          ")"
+          rolled_back="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT count(*)
+            FROM public._prisma_migrations
+            WHERE rolled_back_at IS NOT NULL
+          ")"
+          if [ "$applied" != "$expected" ] || [ "$unfinished" != "0" ] || [ "$rolled_back" != "0" ]; then
+            echo "::error::Prisma ledger verification failed: expected=$expected applied=$applied unfinished=$unfinished rolled_back=$rolled_back."
+            exit 1
+          fi
+          echo "Verified $applied applied migrations; no unfinished or rolled-back migrations."
