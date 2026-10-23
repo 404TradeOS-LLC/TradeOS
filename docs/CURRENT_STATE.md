@@ -63,7 +63,23 @@ related_code:
 
 # TradeOS Current State
 
-## Kitchen assembly gaps — proposed follow-on (2026-10-18)
+## Openings and dishwasher catalog gap — source branch, 2026-10-18
+
+PR #774 on branch `feat/costbook-openings-appliance-gaps-20261018`
+is retargeted to main after parent PR #773 merged as `ef983efc` (and #771). Adds three distinct
+unpriced EA source recipes: flanged vinyl window for **new construction**
+(CSI 08 53 13, NAHB 4000), sectional steel garage door for qualified
+installation (CSI 08 36 13, NAHB 4000), and ready-connection built-in
+dishwasher (CSI 11 31 00, NAHB 5000). Manufacturer reference IDs
+SRC-0071–SRC-0073 resolve to JELD-WEN, Clopay and GE installation pages.
+
+All price, labor, product choice, construction, utility, and permitting
+conditions still require estimator validation. A combined 107 templates
+are proposed, not merged/installed/deployed or authenticated verified
+by this status entry. New research templates reuse costbook.write,
+tenant mapping, review and installed Estimate snapshot behavior.
+
+## Kitchen assembly gaps — merged PR #773 (2026-10-23)
 
 PR #773 on branch `feat/costbook-kitchen-assembly-gaps-20261018` extends
 merged PR #771's research catalog with two additional scoped, unpriced kitchen
@@ -75,9 +91,9 @@ and Estimate Engine snapshots, and expressly blocks EA-to-LF piece conversion.
 
 No new wall-cabinet or laminate unit price was inferred. Stone/quartz slab
 fabrication, sink/cooktop cutouts, kitchen fillers, backsplash and separate
-mechanical/electrical scope are not silently included. PR #773 remains unmerged pending fresh checks and final-head review after
-reconciliation with main `762bb992`. Authenticated staging mapping/install
-evidence remains a separate certification gate; no deployment is certified.
+mechanical/electrical scope are not silently included. PR #773 merged as `ef983efc` after all four required checks passed on
+reviewed head `97709786`. Authenticated staging mapping/install evidence
+remains a separate certification gate; no deployment is certified.
 
 ## Custom Item control ergonomics — implementation pending review
 

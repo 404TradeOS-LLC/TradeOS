@@ -14,6 +14,32 @@ related_docs:
 
 # Session Handoff
 
+## Openings/appliance retarget and validation — PR #774 (2026-10-23)
+
+- `EXISTING_WORK_FOUND`, Sprint ID: NONE. Existing branch
+  `feat/costbook-openings-appliance-gaps-20261018` retained; original head
+  `45278dcf`. Parent #773 is verified merged as `ef983efc`, with a landed tree
+  identical to reviewed head `97709786`. Retarget #774 to main and reconcile
+  the squash-merge ancestry without duplicating the parent's kitchen recipes.
+- Preserve main's Estimate Builder changes, Figma checkpoint, dependencies and
+  all three research scopes. Catalog total: 107. No schema, auth/RLS, financial
+  policy, supplier pricing or Estimate snapshot change. Keep qualified
+  installation, product-specific instructions and native EA mapping explicit.
+- The JELD-WEN JII001 source repair is retained. Hono 4.13.13 is already on
+  main through merged #783; the retargeted diff must contain no lockfile change.
+- Fresh focused API/type/build/docs validation and hosted exact-head checks
+  are required after reconciliation. No staging, browser or production
+  certification is claimed; this task leaves #774 open after revalidation.
+- Next five: validate the reconciled tree; publish to the existing branch;
+  reconcile source/lockfile review findings; verify fresh required checks;
+  record remaining review/certification limits for a separate merge decision.
+
+## Retained parent review checkpoint
+
+The following #773 checkpoint predates its verified merge as `ef983efc`;
+its pending-merge instructions are historical. The retained Figma/runtime
+certification boundaries remain in force.
+
 ## Costbook kitchen recipe reconciliation — PR #773 (2026-10-23)
 
 - `EXISTING_WORK_FOUND`, Sprint ID: NONE. Continue

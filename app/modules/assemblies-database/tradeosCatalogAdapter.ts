@@ -6,6 +6,7 @@
 import { NAHB_PHASE_TITLES, TRADEOS_ASSEMBLIES } from "../costbook/tradeosAssemblies";
 import { TRADEOS_ASSEMBLY_SOURCES } from "../costbook/tradeosAssemblySources";
 import { KITCHEN_GAP_CATALOG } from "./kitchenGapCatalog";
+import { OPENINGS_APPLIANCE_GAP_CATALOG } from "./openingsApplianceGapCatalog";
 import {
   ASSEMBLY_CATALOG,
   NAHB_GROUPS,
@@ -98,8 +99,23 @@ export const VERIFIED_KITCHEN_GAP_CATALOG = KITCHEN_GAP_CATALOG.map((recipe) => 
   };
 });
 
-/** Preserve existing starter and research recipes, adding separate price-neutral kitchen scopes. */
-export const EXPANDED_ASSEMBLY_CATALOG = [...ASSEMBLY_CATALOG, ...TRADEOS_RESEARCH_CATALOG, ...VERIFIED_KITCHEN_GAP_CATALOG];
+/** Resolve manufacturer reference IDs before making any new research recipe installable. */
+export const VERIFIED_OPENINGS_APPLIANCE_GAP_CATALOG = OPENINGS_APPLIANCE_GAP_CATALOG.map((recipe) => {
+  const missing = recipe.evidenceRefs.filter((ref) => !registeredSources.has(ref));
+  return {
+    ...recipe,
+    blockingReasons: [...recipe.blockingReasons,
+      ...(missing.length ? [`Missing openings/appliance source references: ${missing.join(", ")}`] : [])],
+  };
+});
+
+/** Keep existing 14 + 88 + 2 recipes intact, and layer in separate scoped gaps. */
+export const EXPANDED_ASSEMBLY_CATALOG = [
+  ...ASSEMBLY_CATALOG,
+  ...TRADEOS_RESEARCH_CATALOG,
+  ...VERIFIED_KITCHEN_GAP_CATALOG,
+  ...VERIFIED_OPENINGS_APPLIANCE_GAP_CATALOG,
+];
 
 export function getExpandedCatalogTemplate(id: string) {
   return EXPANDED_ASSEMBLY_CATALOG.find((template) => template.id === id);
