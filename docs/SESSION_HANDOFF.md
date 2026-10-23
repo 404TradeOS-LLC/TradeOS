@@ -34,22 +34,28 @@ numbered sprint or release-certification claim.
   `xImUa9CYUjx3Cb3zTrkfnY`; sixteen initial/pending/failure/invalid specimens
   at 390/768/1024/1440 exist. These are design targets, not full-app runtime
   certification. The entire illustrated shell is outside this code slice.
-- Verification: Web tests, lint and production build passed. New component
-  browser tests cover four widths using the production picker, React Query,
-  Base UI primitives and generated Tailwind with controlled transport only.
-  Discovery passed; execution is BLOCKED because Chromium is absent and the
-  Playwright browser download returns invalid/truncated archives. No browser
-  pass, screenshot, authenticated persistence, tenant or deployed-runtime
-  certification is claimed. Required hosted checks/review remain pending.
+- Verification: Web 507/507, lint, TypeScript and production build passed;
+  documentation ownership and 40/40 documentation tests passed. Hosted run
+  39713763198 at head 0da62c1 passed all eight Chromium component cases
+  (Custom Item and mapping at all four widths). All four synthetic failure
+  screenshots were downloaded and inspected. Artifact 12398047963 has SHA-256
+  c7331692622edd8d51b573231b67662b679bdc67149e9503c0246a51909efdcf.
+  This verifies isolated components with controlled transport, not authenticated
+  persistence, tenant boundaries, the full shell, or deployed runtime.
+- Current-head review identified a Web scope-filter gap. The repair includes
+  component tests/config, root runner manifests and the workflow in Web scope.
+  A real temporary-Git regression fails before the repair and passes after it.
+  Current-head CI/review for this follow-up remains pending; do not merge
+  based only on the prior green head. PR #785 is ready for review, not merged.
 - The local autonomy helper could not query PRs because `gh` is absent;
   authenticated GitHub connector reads supplied current open/recently-closed
   PR reconciliation instead. No repository guard was weakened.
 
 ## Next five bounded TODOs
 
-1. Run the four Custom Item browser cases in an environment with Chromium,
-   inspect screenshots, repair actual findings and verify baseline failure.
-2. Complete exact-head required CI and review for this repair; merge only
+1. Complete exact-head CI and review for the scope-filter repair; retain the
+   passing component evidence and inspect any new findings.
+2. Merge this repair only
    when every applicable gate passes, then verify landed main content.
 3. Reconcile Costbook search/result/cost-review Figma states and canonical entry.
 4. Reconcile Add assembly picker entry and canonical pricing labels/totals.

@@ -654,3 +654,5 @@ keyboard order and recovery through production components. Synthetic failure
 screenshots/test diagnostics are retained for seven days. Browser failures
 fail the existing Web test gate; no new permission or protected-check bypass
 is introduced. These results do not certify authenticated application workflows.
+
+Web scope includes component tests/configuration, root runner manifests and the verification workflow itself, so harness-only edits cannot skip this gate. A real temporary-Git regression test covers those paths and unrelated App/docs changes.

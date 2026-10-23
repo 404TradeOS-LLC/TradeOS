@@ -40,7 +40,7 @@ jobs:
           web=true
           if [ "$EVENT_NAME" = "pull_request" ]; then
             if git diff --quiet "origin/$BASE_REF...HEAD" -- app/ packages/knowledge-engine/; then app=false; fi
-            if git diff --quiet "origin/$BASE_REF...HEAD" -- web/; then web=false; fi
+            if git diff --quiet "origin/$BASE_REF...HEAD" -- web/ tests/components/ playwright.components.config.ts package.json package-lock.json .github/workflows/verify-repository.yml; then web=false; fi
           fi
           echo "app=$app" >> "$GITHUB_OUTPUT"
           echo "web=$web" >> "$GITHUB_OUTPUT"
