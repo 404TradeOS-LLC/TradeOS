@@ -14,14 +14,14 @@ related_code:
 
 # API Reference
 
-## Openings/appliance assembly API addendum (dependent branch, 2026-10-18)
+## Openings/appliance assembly API addendum (PR #774, pending)
 
 The unchanged `GET /api/v1/{costbook/}assemblies/starter-catalog`
 publishes three additional `research` templates in the dependent
 openings/appliance branch: `openings:window-vinyl-new-construction-flanged`,
 `openings:garage-door-section-steel` and
 `appliances:dishwasher-built-in-existing-ready`.
-When all three feature PRs land, the combined catalog contains **107** items
+After PR #774 lands on merged parent #773, the combined catalog contains **107** items
 with version `2026.09.1+research88+kitchen2+openings3`.
 
 Existing `POST .../starter-catalog/install` schema, authorization and
@@ -36,7 +36,8 @@ SRC-0071–SRC-0073. See `docs/modules/cost-book.md` for exclusions.
 ## Kitchen addendum to assembly catalog (PR #773)
 
 The same authenticated `GET /api/v1/{costbook/}assemblies/starter-catalog`
-response contains two additional `research` templates when PR #773 lands after merged parent PR #771: `kitchen:wall-cabinet-prefab` and
+response contains two additional `research` templates shipped in PR #773
+(merge `ef983efc`) after parent PR #771: `kitchen:wall-cabinet-prefab` and
 `kitchen:laminate-countertop-straight`. The resulting catalog contains 104
 templates (14 original, 88 researched, 2 kitchen); `catalogVersion` is
 `2026.09.1+research88+kitchen2`.

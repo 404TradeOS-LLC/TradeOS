@@ -47,9 +47,9 @@ related_code:
 
 # Cost Book
 
-## Openings and appliance estimating gaps (2026-10-18; dependent branch)
+## Openings and appliance estimating gaps (PR #774, pending)
 
-A third stacked research slice adds three price-neutral, EA-denominated
+PR #774 extends merged parent #773 with three price-neutral, EA-denominated
 scope recipes to the existing tenant-owned mapping/installation pipeline.
 The combined proposed catalog is **107** templates (14 reviewed + 88 original
 research + 2 kitchen + 3 openings/appliance). These templates provide neither
@@ -86,7 +86,7 @@ is modified in this branch; authenticated staging/browser proof is pending.
 
 The source-backed expansion adds **two more price-neutral kitchen research
 templates** beyond the original 14 reviewed starters and 88 sourced recipes
-(104 templates total after PR #773 lands). The recipes are not supplier
+(104 templates at merged PR #773). The recipes are not supplier
 quotes or production-rate benchmarks:
 
 - `kitchen:wall-cabinet-prefab` (CSI 12 35 30, NAHB 5000, EA):
@@ -109,7 +109,7 @@ gates as the rest of the starter workflow. Registered-source absence blocks
 installation. These are limited scope recipes and are not a complete stone,
 fabrication, cabinetry or electrical/plumbing estimate.
 
-Status: branch-only; not merged or authenticated-deployed. No schema, RLS,
+Status: PR #773 merged as `ef983efc`; authenticated deployment is unverified. No schema, RLS,
 supplier pricing, Estimate Engine or production migration change.
 
 ## Research assembly activation (October 18, 2026; proposed PR)
