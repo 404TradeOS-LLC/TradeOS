@@ -46,8 +46,9 @@ isolated by construction — there is no production ABC credential path in
 the codebase at all (§4.3).
 
 **CORRECTION (2026-10-23):** The two original P1 claims no longer stand as
-written: P1-a was disproven (the service-role key has verified, test-pinned
-server-only uses), and P1-b is informational (the web build skips were
+written: P1-a was disproven (the service-role key has verified, code-verified
+server-only uses, with tests covering the admin-client guard), and P1-b is
+informational (the web build skips were
 consistent with API-only changes). See the dated corrections in §6 and
 follow-up status in §§9–10.
 
@@ -274,12 +275,24 @@ key and powers brand-asset upload/serving (`web/src/app/actions/settings.ts`,
 `web/src/app/api/brand-assets/[orgId]/[assetKey]/route.ts`), project-file
 downloads (`web/src/app/api/project-files/[projectId]/[fileId]/route.ts`),
 and settings asset cleanup (`web/src/lib/settingsAssetCleanup.ts`); the
-design is pinned by tests (`web/src/lib/settingsAssetUpload.test.ts`,
+admin-client `server-only` guard and the brand-asset upload/removal actions
+are pinned by tests (`web/src/lib/settingsAssetUpload.test.ts`,
 `web/src/lib/envSecurity.test.ts`). The owner's removal order was
 conditional on confirming the key was not required; that confirmation
-failed, and the key was **not** removed. The residual, narrower hygiene
-question is whether the Preview scope should share the production project's
-service-role key or carry a staging-scoped key for staging previews.
+failed, and the key was **not** removed. The residual hygiene item is not
+an open choice: per docs/DEPLOYMENT_GUIDE.md ("Never copy a Production
+secret into Preview"), the Preview scope must carry a staging-scoped key
+or remain unset; it must never hold the production project's service-role
+key.
+
+**ADDENDUM (2026-10-24) — Preview key scoping is a requirement.** The
+§6 finding-a row and the §1 summary frame Preview key scoping as an open
+hygiene question; that framing is superseded. Per docs/DEPLOYMENT_GUIDE.md,
+a Preview deployment must never hold a Production secret, so the Preview
+scope of `tradeos-costbook-web` must carry a staging-scoped
+`SUPABASE_SERVICE_ROLE_KEY` or remain unset. This changes no other
+conclusion: the key's verified server-only uses still do not require
+removing it from the web project.
 
 **CORRECTION (2026-10-23) — P1-b is informational, not an active
 deployment-risk finding.** Vercel records identify two canceled web
