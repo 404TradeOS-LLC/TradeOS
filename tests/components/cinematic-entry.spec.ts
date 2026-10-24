@@ -12,7 +12,6 @@ import { tmpdir } from "node:os";
 const webRequire = createRequire(resolve("web/package.json"));
 let directory: string, css: string;
 test.beforeAll(async () => {
-  const ts = webRequire("typescript");
   directory = mkdtempSync(join(tmpdir(), "tradeos-entry-"));
   writeFileSync(
     join(directory, "entry.tsx"),
