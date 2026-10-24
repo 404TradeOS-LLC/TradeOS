@@ -1,5 +1,11 @@
 # TradeOS Product Design Contract
 
+**Status:** Canonical written design contract for TradeOS product UI.
+**Canonical Figma:** file key `xImUa9CYUjx3Cb3zTrkfnY` — `[CANONICAL] TradeOS — Product + Design System Source of Truth`.
+**Last reconciled:** 2026-10-24.
+
+This file is the written companion to the canonical Figma master. It is intentionally not a screen-by-screen replacement for Figma. It defines the permanent visual system, interaction grammar, product language, responsive rules, reusable patterns, and implementation boundaries that frontend work must preserve.
+
 ## Approved cinematic entry exception — 2026-10-24
 
 The founder explicitly approved the cinematic entry at
@@ -27,13 +33,6 @@ Do not propagate these Forge-style material effects into contractor workflows.
 Shared `Input`, `Label` and `Button` retain control semantics; the existing
 server action owns every auth transition and destination.
 
-
-**Status:** Canonical written design contract for TradeOS product UI.  
-**Canonical Figma:** file key `xImUa9CYUjx3Cb3zTrkfnY` — `[CANONICAL] TradeOS — Product + Design System Source of Truth`.  
-**Last reconciled:** 2026-10-02.
-
-This file is the written companion to the canonical Figma master. It is intentionally not a screen-by-screen replacement for Figma. It defines the permanent visual system, interaction grammar, product language, responsive rules, reusable patterns, and implementation boundaries that frontend work must preserve.
-
 ## 1. Authority model
 
 TradeOS has three kinds of truth. Keep them separate and synchronized.
@@ -41,6 +40,8 @@ TradeOS has three kinds of truth. Keep them separate and synchronized.
 1. **Capability truth** — governed product/domain contracts and live implementation define what TradeOS can actually do: routes, persisted state, lifecycle, permissions, mutations, money, security boundaries, and data contracts.
 2. **Design truth** — the canonical Figma file defines approved product hierarchy, visual intent, responsive composition, reusable components, interaction patterns, screen states, and current approved product screens.
 3. **Implementation truth** — current production code defines exact implementation values and accessibility behavior. In particular, `web/src/app/globals.css`, shared production components, and live route/domain contracts govern exact runtime behavior.
+
+The approved cinematic entry exception above applies only to `/login`; all other Sites work follows the rule below.
 
 Historical Sites work, old Figma files, sprint packets, screenshots, and archived design explorations are **reference only** unless deliberately reconciled and approved into the canonical Figma file.
 
@@ -630,7 +631,7 @@ Use the approved September 2026 TradeOS artwork represented in the Figma Foundat
 Rules:
 
 - use the correct light/dark artwork for the surface;
-- do not stretch or recolor supplied brand artwork;
+- do not stretch or recolor supplied brand artwork, except for the approved `/login` copper material described above;
 - keep required clear space;
 - use the horizontal lockup at appropriate product sizes;
 - use the standalone/simplified mark at smaller sizes;

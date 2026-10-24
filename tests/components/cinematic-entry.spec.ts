@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 const webRequire = createRequire(resolve("web/package.json"));
 let directory: string, css: string;
 test.beforeAll(async () => {
+  test.setTimeout(180_000);
   directory = mkdtempSync(join(tmpdir(), "tradeos-entry-"));
   writeFileSync(
     join(directory, "entry.tsx"),

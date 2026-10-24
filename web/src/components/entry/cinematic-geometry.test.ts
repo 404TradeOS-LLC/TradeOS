@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DOMParser } from "@xmldom/xmldom";
 import { Box3, Matrix4 } from "three";
+import { markSource, wordSource } from "./logo-sources.ts";
 import { createLogoParts } from "./cinema-geometry.ts";
 // SVGLoader requests gradient selectors; the official assets use solid fills.
 // This shim intentionally supports only these known solid-fill fixtures.
@@ -83,5 +84,11 @@ test("vector fallback preserves the exact supplied logo paths and transforms", a
     }
     walk(doc.documentElement);
     assert.deepEqual(actual, expected);
+    actual.length = 0;
+    const embedded = new DOMParser().parseFromString(
+      name === "mark" ? markSource : wordSource, "image/svg+xml",
+    );
+    walk(embedded.documentElement);
+    assert.deepEqual(actual, expected, "embedded renderer SVG must match official paths");
   }
 });
