@@ -22,6 +22,31 @@ exists today; update it whenever a new reusable component or pattern is added.
 
 ## Component library
 
+### `components/entry/` — approved login presentation
+
+Entry Canonical UI Map (scope: `/login` only):
+
+| Capability | Canonical owner | Source of truth | Allowed variants | Verification |
+| --- | --- | --- | --- | --- |
+| Form | Shared Input/Label/Button; LoginEntry composition | Existing loginAction and auth routes | Route-local copper presentation, no auth-policy variants | entry-state tests, login boundary tests, cinematic-entry browser specimens |
+| Scrollbar | Browser document scrolling | Route-local entry.module.css responsive layout | Stable narrow-screen overflow; no nested form scroll | Browser specimens at 390/768/1024/1440px |
+
+`LoginEntry` is the client presentation for the server `/login` route. It uses
+shared `Input`, `Label`, `Button` and the unchanged `loginAction`; pending blocks
+duplicate submission, invalid fields focus the first error, and a returned server
+error is announced while retaining entered values. Recovery/signup remain real
+Next links. Success routing remains in the server action.
+
+`CinematicIntro` owns a single-focusable-control modal, Skip/Escape, bounded
+first/return timing, reduced-motion bypass and cleanup. Renderer code is loaded
+only while the intro is active, with the official vector fallback visible until
+WebGL succeeds. Storage is optional and stores only visit/greeting preferences.
+`entry.module.css` is the sole owner of the route's approved dark/copper material
+tokens and self-hosted entry fonts; it must not alter global app themes.
+See `.stitch/DESIGN.md` for the founder-approved brand exception. Behavioral
+component tests use synthetic transport and do not certify real authentication.
+
+
 ### `components/ui/` — shadcn primitives
 `button`, `card` (`Card`/`CardHeader`/`CardTitle`/`CardDescription`/`CardAction`/
 `CardContent`/`CardFooter`), `badge`, `input`, `label`, `textarea`, `checkbox`, `select` /

@@ -63,6 +63,33 @@ related_code:
 
 # TradeOS Current State
 
+## Cinematic sign-in entry — implementation branch, 2026-10-24
+
+Founder-approved entry presentation is implemented on `feat/cinematic-entry`
+from main `7013cdcaab8faabcb9c0dd8e7a045ac776c9c748`. `/login` now uses the
+approved full-screen copper mark/wordmark introduction and centered sign-in
+scene. Initial visits use four seconds; returning visits use 2.5 seconds.
+Reduced motion bypasses the introduction; Skip/Escape and a metallic vector
+fallback keep entry usable without WebGL, storage, or a loaded renderer chunk.
+
+The existing `loginAction`, session/bootstrap logic, dashboard destination,
+password recovery and account creation remain authoritative. No simulated
+success state, inspection controls, auth policy, backend, database or workspace
+theme changes ship. Route-local tokens and self-hosted fonts live in
+`web/src/components/entry/entry.module.css`; the canonical brand exception and
+component owners are recorded in `.stitch/DESIGN.md` and `docs/ui-guide.md`.
+
+Local validation: 513 frontend unit tests, lint, TypeScript and the production
+build pass; production dependency audit reports zero vulnerabilities. The real
+entry component was visually inspected in an isolated browser harness with
+synthetic transport. This does not certify successful authentication, deployed
+behavior, Lighthouse scores, or actual GPU rendering. Six new component-browser
+specimens cover responsive forms, timed/keyboard entry and GPU/storage failure;
+local execution is blocked before launch by a missing Chromium binary after
+the official download returned an invalid archive. Hosted checks and review
+remain required before merge; this entry does not claim deployment.
+
+
 ## Openings and dishwasher catalog gap — source branch, 2026-10-18
 
 PR #774 on branch `feat/costbook-openings-appliance-gaps-20261018`

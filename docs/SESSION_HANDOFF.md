@@ -14,6 +14,34 @@ related_docs:
 
 # Session Handoff
 
+## Active bounded mission — cinematic entry implementation, 2026-10-24
+
+- `NEW_WORK_REQUIRED`, Sprint ID: NONE. Founder approved the cinematic Sites
+  entry and directed product implementation. Branch `feat/cinematic-entry`,
+  isolated worktree `/workspace/scratch/fb80abefb51d/tradeos-cinematic`, from
+  main `7013cdcaab8faabcb9c0dd8e7a045ac776c9c748`. No existing open PR implements
+  the entry; #787 is a separate Costbook controls lane and was left untouched.
+- Allowed scope: `/login` presentation, scoped entry components, official
+  vectors/fonts, renderer dependencies, entry tests and owner documentation.
+  Existing auth/session/bootstrap, routes, backend, database/RLS and workspace
+  themes remain unchanged. Approved design provenance is in `.stitch/DESIGN.md`.
+- Implemented: silent mark-first copper scene, four/2.5-second timing,
+  reduced-motion bypass, skip/focus/cleanup, GPU fallback, centered real sign-in,
+  curated greetings, client validation and failure/pending retention. The
+  Sites prototype's simulated auth and inspection affordances are excluded.
+- Verified locally: 513 frontend tests, lint, TypeScript, production build,
+  zero production audit vulnerabilities. Browser harness uses the production
+  component with synthetic transport; it proves presentation/interactions only.
+  Local component Playwright execution is blocked at launch by missing Chromium
+  after the official CDN returned an invalid archive. No live successful auth,
+  deployed Lighthouse score or real-GPU visual certification is claimed.
+- Merge/deployment remain subject to exact-head hosted checks and repository
+  review policy. Rollback: revert this bounded PR; no data migration exists.
+- Next five: publish the bounded PR; inspect hosted browser and required checks;
+  resolve scoped review findings; verify live staging auth and GPU/Lighthouse;
+  merge through protection and verify the deployed entry with the approved design.
+
+
 ## Openings/appliance retarget and validation — PR #774 (2026-10-23)
 
 - `EXISTING_WORK_FOUND`, Sprint ID: NONE. Existing branch

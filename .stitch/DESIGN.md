@@ -1,5 +1,33 @@
 # TradeOS Product Design Contract
 
+## Approved cinematic entry exception — 2026-10-24
+
+The founder explicitly approved the cinematic entry at
+https://tradeos-entry-studio.showb201.chatgpt.site (Sites project
+`appgprj_6abe93600f248191ae3faeb61a2ec06f`, source commit
+`2e658d16e17c61dddfb3df674ac9053f3e26c2fa`) and directed its product
+implementation. This is a deliberate, bounded exception to the historical
+Sites reference-only rule: the approved presentation owns `/login` only.
+Canonical Figma remains authoritative for authenticated workflows.
+
+The entry uses the supplied official mark and wordmark, machined copper,
+dark physical depth and schematic line motion. The mark arrives before the
+name; no tagline appears during the silent intro. Timing is four seconds on
+first visit, 2.5 on return, with Skip/Escape, focus restoration and reduced
+motion bypass. Login continues the scene at lower energy with the tagline
+and rotating curated greetings. No photographic hero, audio, weather,
+simulated auth result, or inspection controls belong in the product entry.
+
+Runtime owner: `web/src/components/entry/entry.module.css` defines route-local
+surface, copper, text and focus variables beneath its CSS-module root.
+`cinematic-intro.tsx` owns the timed modal; `cinema.ts` lazily creates and
+cleans up the beveled Three.js scene, and `metal-logo.tsx` owns the resilient
+vector material. Physical metallic gradients are intentional material cues.
+Do not propagate these Forge-style material effects into contractor workflows.
+Shared `Input`, `Label` and `Button` retain control semantics; the existing
+server action owns every auth transition and destination.
+
+
 **Status:** Canonical written design contract for TradeOS product UI.  
 **Canonical Figma:** file key `xImUa9CYUjx3Cb3zTrkfnY` — `[CANONICAL] TradeOS — Product + Design System Source of Truth`.  
 **Last reconciled:** 2026-10-02.
