@@ -217,6 +217,42 @@ Vercel environment metadata returned 403, and CLI fallback was not installed.
 No staging isolation or authenticated live journey is certified. Production
 and the previously declined user sign-in were left untouched.
 
+## Athena routine recovery repair — 2026-10-27
+
+`NEW_WORK_REQUIRED`: open-PR search found no keyed follow-up retry repair.
+Branch `fix/athena-follow-up-retries`, isolated worktree
+`/workspace/scratch/4360a72ccbf4/TradeOS-athena-recovery`, starts at main
+`9bd9a761`. Bounded scope: existing follow-up tool metadata, action-dispatch
+regressions and owner docs. No schema, permission, approval, RLS, financial,
+production environment or generic engine behavior changes.
+
+Two regression cases initially failed: same-key replay created another task,
+and changed input with a reused key executed. Optional engine receipts repair
+both; 57 focused tool/action tests pass. Legacy unkeyed calls, independent
+tenant keys and technician denial are covered. Complete API/Athena/hosted RLS
+verification is required before merge. Today #800 is merged into parent #798
+as `c7c7c19b`; it is not on main or deployed.
+
+
+## Today integration verification — 2026-10-27
+
+Shared-task #800 merged into Today at `c7c7c19b` after review coverage repair:
+530 web tests and 32 browser cases plus 2,884 API and 175 PostgreSQL tests
+passed on reviewed child head `5c2d8c7e`. Main #801 merged as `900d31e7`;
+its tree was verified equal to reviewed head `d476b8e9` after 2,873 API and
+174 PostgreSQL tests, 420 Athena contracts and four smoke tests passed.
+Integrate that unchanged low-risk routine recovery into Today, preserving both
+documentation additions. Final combined CI must pass before review/merge.
+
+Remaining contract proposal is not activation approval: explicit personal task
+identity/status-only writes and real scheduling sources still require their
+schema/RLS/domain decisions and implementations. No production migration,
+credential change, permission expansion or customer communication occurred.
+Vercel's latest READY staging API is `cf91d93f` and web is `c05c20d1`;
+newer attempts at `959e3ef4` are cancelled. Environment metadata is forbidden
+(403); unavailable CLI cannot restore access. These older mismatched runtimes
+cannot certify current Today. Do not retry declined user sign-in automatically.
+
 ## Next Eligible Sprint
 
 Sprint ID: S073
