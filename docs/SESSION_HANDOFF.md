@@ -190,6 +190,16 @@ because its executable was absent; installation returned a truncated ZIP.
 Hosted CI must verify the 31 component cases (including shared field task
 context at 390px) and the new live PostgreSQL test. These are not local passes.
 
+## Today review follow-through — 2026-10-27
+
+`EXISTING_WORK_FOUND`: extend #800 on `feat/field-assigned-job-tasks`; parent
+#798 remains draft at `23a9cd1d`. Review identified missing destination-page
+coverage. Added actual async FieldPage rendering tests for populated task
+information, empty tasks, unavailable tasks, safe text, stored due dates and
+continued job usability. No runtime or permission change. Prior final head
+`c8e58147` passed 2,884 API, 175 PostgreSQL, 528 web and 32 Chromium cases.
+New web test/lint/build and exact-head hosted verification precede integration.
+
 ## Next Eligible Sprint
 
 Sprint ID: S073
