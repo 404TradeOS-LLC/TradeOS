@@ -10,6 +10,8 @@ const mockPrisma = {
     update: jest.fn(),
     delete: jest.fn(),
   },
+  organizationMembership: { findFirst: jest.fn() },
+  jobAssignment: { findFirst: jest.fn() },
 };
 
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
@@ -330,6 +332,32 @@ describe("ProjectTask revision preconditions", () => {
     });
     expect(mockPrisma.projectTask.update).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ assignedTo: "Legacy crew label" }),
+    }));
+  });
+
+  it("preserves an unchanged member assignment and label when the Job changes", async () => {
+    const assignedUserId = "member-1";
+    mockPrisma.projectTask.findFirst.mockResolvedValue({
+      ...existing, assignedUserId, assignedTo: "Alex Rivera",
+    });
+    mockPrisma.job.findFirst.mockResolvedValue({ id: "job-2", projectId: "project-1", orgId: "org-1", archivedAt: null });
+    mockPrisma.organizationMembership.findFirst.mockResolvedValue({
+      role: "dispatcher", user: { fullName: "Alex Rivera", email: "alex@example.com" },
+    });
+    mockPrisma.projectTask.update.mockImplementation(async ({ data }: { data: object }) => ({
+      ...existing, assignedUserId, assignedTo: "Alex Rivera", ...data,
+    }));
+
+    await new ProjectTasksService().update("task-1", {
+      orgId: "org-1", jobId: "job-2",
+    });
+
+    expect(mockPrisma.projectTask.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        jobId: "job-2",
+        assignedUserId,
+        assignedTo: "Alex Rivera",
+      }),
     }));
   });
 
