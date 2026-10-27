@@ -53,6 +53,9 @@ related_code:
 
 # TradeOS Documentation
 
+The main-only [staging migration workflow](../.github/workflows/deploy-staging-migrations.yml) now checks for a known collision between Prisma's invoice expand migration and pre-existing Supabase-side schema changes **before** applying pending migrations. A failure indicates required ledger/schema reconciliation, not permission to retry or mark migrations applied without verified DDL. See [the deployment guide](DEPLOYMENT_GUIDE.md) and [the environment audit](research/github-environment-audit-2026-10-23.md).
+
+
 
 ## Staging repair and acceptance-test entrypoint — 2026-10-27
 
