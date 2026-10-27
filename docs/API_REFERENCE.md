@@ -1025,3 +1025,21 @@ The normalized response provides at most 50 ABC-listed branches, the full provid
 ## Validation runtime compatibility
 
 Request schemas use patched Zod 4.6.7. UUID-shaped entity inputs retain the previous 8-4-4-4-12 hexadecimal contract through `z.guid()`; nil/legacy identifiers remain parseable, malformed IDs fail, and existing permission/parent/tenant checks still decide access. Validation failures preserve HTTP 400, `error`, `details` and request correlation; individual Zod issue codes/metadata can change. Explicit record key/value schemas and string-input enum pipelines preserve bulk-row, metadata and status query behavior. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
+
+## Today routine follow-up recovery (2026-10-27)
+
+The existing `tradeos.athena.tools.office.create-follow-up` tool now advertises
+optional action-engine idempotency. Previously its `not_supported` metadata
+bypassed reservation even when the Workspace supplied a stable retry key, so
+an ambiguous-response retry could create a second task. Keyed calls now reuse
+the existing durable receipt scoped by tenant, actor, tool and version, with
+canonical validated-input binding. A changed input under the same key fails
+closed. Unkeyed legacy callers retain their previous behavior.
+
+This repairs execution recovery for an existing low-risk internal task tool;
+it does not send customer messages or grant new permissions. `crm.write`,
+resource/service tenant checks, RLS, audits and all approval policies remain
+unchanged. High-risk confirmation/resume is still a separate contract; this
+change does not turn an approval state into success or resubmit restricted
+actions. Action-engine dispatch is required for receipt guarantees; calling
+the service or tool handler directly does not provide deduplication.

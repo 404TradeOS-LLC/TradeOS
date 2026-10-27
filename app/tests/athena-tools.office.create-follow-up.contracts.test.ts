@@ -89,3 +89,57 @@ describe("athena-tools office: create-follow-up", () => {
     });
   });
 });
+
+// Exercise the registered production tool through the real action boundary.
+import { executeAthenaAction } from "../modules/athena-action-engine/engine";
+import { createInMemoryAthenaIdempotencyStore } from "../modules/athena-action-engine/idempotency";
+import { createAthenaToolRegistry } from "../modules/athena-tool-registry/registry";
+import { buildMinimalAthenaContext } from "../modules/athena-kernel/context";
+import { evaluateAthenaPermission } from "../modules/athena-permissions/policy";
+import type { CanonicalRole } from "../domain";
+
+function routineFixture(projectTasks = createFakeProjectTasks()) {
+  const tool = createFollowUpCreateTool({ projectTasks });
+  const toolRegistry = createAthenaToolRegistry(); toolRegistry.register(tool);
+  const idempotencyStore = createInMemoryAthenaIdempotencyStore();
+  let attempt = 0;
+  async function run(key?: string, title = "Call customer", role: CanonicalRole = "owner", orgId = "org-1") {
+    const executionId = `execution-${++attempt}`;
+    const actor = { userId: "user-1", orgId, role, permissions: role === "owner" ? ["crm.write"] : [] };
+    const decision = await evaluateAthenaPermission({ rawRole: role, orgId, userId: actor.userId, request: { kind: "tool", id: tool.id, risk: tool.risk, requiredPermissions: ["crm.write"] } });
+    return executeAthenaAction({ toolRegistry, idempotencyStore }, {
+      requestId: executionId, traceId: executionId, executionId, orgId, actor: { type: "user", id: actor.userId }, role,
+      toolId: tool.id, toolVersion: tool.version, input: { projectId: VALID_PROJECT_ID, title },
+      permissionDecision: decision, idempotencyKey: key, featureFlags: [],
+      aiContext: buildMinimalAthenaContext({ requestId: executionId, traceId: executionId, executionId, actor, request: { message: "Create a follow-up", requestSource: "test" } }),
+    });
+  }
+  return { run, projectTasks };
+}
+
+describe("routine follow-up execution and recovery", () => {
+  it("replays the saved receipt after a lost response without creating another task", async () => {
+    const { run, projectTasks } = routineFixture();
+    const first = await run("retry-key"); const retry = await run("retry-key");
+    expect(first.result.state).toBe("succeeded");
+    expect(retry.result).toEqual(first.result);
+    expect(projectTasks.create).toHaveBeenCalledTimes(1);
+  });
+  it("rejects key reuse for changed input without a second mutation", async () => {
+    const { run, projectTasks } = routineFixture();
+    await run("same-key"); const changed = await run("same-key", "Different commitment");
+    expect(changed.result.state).toBe("failed");
+    expect(projectTasks.create).toHaveBeenCalledTimes(1);
+  });
+  it("preserves unkeyed callers and isolates literal keys across tenants", async () => {
+    const legacy = routineFixture(); await legacy.run(); await legacy.run();
+    expect(legacy.projectTasks.create).toHaveBeenCalledTimes(2);
+    const scoped = routineFixture(); await scoped.run("shared", "Call customer", "owner", "org-1"); await scoped.run("shared", "Call customer", "owner", "org-2");
+    expect(scoped.projectTasks.create).toHaveBeenCalledTimes(2);
+  });
+  it("denies field mutation before creating a follow-up", async () => {
+    const { run, projectTasks } = routineFixture();
+    expect((await run("field-key", "Call customer", "technician")).result.state).toBe("denied");
+    expect(projectTasks.create).not.toHaveBeenCalled();
+  });
+});

@@ -154,6 +154,22 @@ forced RLS, Estimate snapshots and financial accuracy. Production credentials,
 protected migrations, supplier activation and ABC API licensing remain governed
 by their dedicated runbooks; this mission authorizes none of those operations.
 
+## Athena routine recovery repair — 2026-10-27
+
+`NEW_WORK_REQUIRED`: open-PR search found no keyed follow-up retry repair.
+Branch `fix/athena-follow-up-retries`, isolated worktree
+`/workspace/scratch/4360a72ccbf4/TradeOS-athena-recovery`, starts at main
+`9bd9a761`. Bounded scope: existing follow-up tool metadata, action-dispatch
+regressions and owner docs. No schema, permission, approval, RLS, financial,
+production environment or generic engine behavior changes.
+
+Two regression cases initially failed: same-key replay created another task,
+and changed input with a reused key executed. Optional engine receipts repair
+both; 57 focused tool/action tests pass. Legacy unkeyed calls, independent
+tenant keys and technician denial are covered. Complete API/Athena/hosted RLS
+verification is required before merge. Today #800 is merged into parent #798
+as `c7c7c19b`; it is not on main or deployed.
+
 ## Next Eligible Sprint
 
 Sprint ID: S073
