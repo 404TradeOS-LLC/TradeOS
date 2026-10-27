@@ -29,6 +29,8 @@ test("fails closed for production or unprovable API database bindings", () => {
     { ...api(), DATABASE_URL: "postgresql://app:pw@db.kssaceuetdjwfqnbzhly.supabase.co/postgres" },
     { ...api(), DATABASE_URL: "postgresql://postgres.kssaceuetdjwfqnbzhly:pw@aws-0-us-east-2.pooler.supabase.com/postgres" },
     { ...api(), DATABASE_URL: "not-a-postgresql-url" },
+    { ...api(), DATABASE_URL: `${api().DATABASE_URL}&host=/var/run/postgresql/` },
+    { ...api(), DATABASE_URL: `${api().DATABASE_URL}&host=unsafe` },
     { ...api(), AUTH_JWT_SECRET: "" },
     { ...api(), VERCEL_ENV: "production" },
   ]) assert.notDeepEqual(attestStagingPreview("api", values), []);
