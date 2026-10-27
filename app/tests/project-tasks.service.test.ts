@@ -2,6 +2,7 @@ const mockPrisma = {
   project: {
     findFirst: jest.fn(),
   },
+  job: { findFirst: jest.fn() },
   projectTask: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
@@ -315,6 +316,22 @@ describe("ProjectTask revision preconditions", () => {
   const revision = new Date("2026-10-26T12:00:00.000Z");
   const existing = { id: "task-1", projectId: "project-1", jobId: null, title: "Inspect flashing", status: "todo", assignedTo: null, dueDate: null, priority: "high", notes: null, completedAt: null, createdAt: revision, updatedAt: revision };
   beforeEach(() => { jest.resetAllMocks(); mockPrisma.projectTask.findFirst.mockResolvedValue(existing); });
+
+  it("keeps a legacy display assignee when Job changes without identity assignment", async () => {
+    mockPrisma.projectTask.findFirst.mockResolvedValue({
+      ...existing, assignedUserId: null, assignedTo: "Legacy crew label",
+    });
+    mockPrisma.job.findFirst.mockResolvedValue({ id: "job-2", projectId: "project-1", orgId: "org-1", archivedAt: null });
+    mockPrisma.projectTask.update.mockImplementation(async ({ data }: { data: object }) => ({
+      ...existing, assignedUserId: null, assignedTo: "Legacy crew label", ...data,
+    }));
+    await new ProjectTasksService().update("task-1", {
+      orgId: "org-1", jobId: "job-2", assignedUserId: null,
+    });
+    expect(mockPrisma.projectTask.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ assignedTo: "Legacy crew label" }),
+    }));
+  });
 
   it("rejects a stale revision before any write", async () => {
     const service = new ProjectTasksService();
