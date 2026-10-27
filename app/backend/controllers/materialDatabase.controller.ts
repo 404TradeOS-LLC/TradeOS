@@ -7,13 +7,13 @@ const service = new MaterialDatabaseService();
 const maxUnitCost = 99_999_999.9999;
 
 const createSchema = z.object({
-  orgId: z.string().uuid().optional(),
+  orgId: z.guid().optional(),
   sku: z.string().optional(),
   name: z.string().min(1),
   unitOfMeasure: z.string().min(1),
   unitCost: z.number().finite().nonnegative().max(maxUnitCost),
   wasteFactorPct: z.number().min(0).optional(),
-  supplierId: z.string().uuid().optional(),
+  supplierId: z.guid().optional(),
   omniclass23: z.string().min(1).optional(),
   unspsc: z.string().regex(/^\d{8}$/, "unspsc must be an 8-digit commodity code").optional(),
 });
@@ -48,12 +48,12 @@ export const materialDatabaseController = {
   },
   async calculate(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
-    const schema = z.object({ materialId: z.string().uuid(), quantity: z.coerce.number().positive() });
+    const schema = z.object({ materialId: z.guid(), quantity: z.coerce.number().positive() });
     res.json(await service.calculateMaterialCost(schema.parse(req.body), requireOrgId(req)));
   },
   async bulkImport(req: Request, res: Response) {
     requirePermissions(req, ["costbook.write"]);
-    const schema = z.object({ rows: z.array(z.record(z.unknown())) });
+    const schema = z.object({ rows: z.array(z.record(z.string(), z.unknown())) });
     const { rows } = schema.parse(req.body);
     res.json(await service.bulkImport(requireOrgId(req), rows as never));
   },

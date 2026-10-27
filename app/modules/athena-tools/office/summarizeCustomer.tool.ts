@@ -13,7 +13,7 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk/types";
 // methods already return (see modules/crm/service.ts) - no invented field.
 
 export const customerSummarizeInputSchema = z.object({
-  customerId: z.string().uuid(),
+  customerId: z.guid(),
 });
 export type CustomerSummarizeInput = z.infer<typeof customerSummarizeInputSchema>;
 

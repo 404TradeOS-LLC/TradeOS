@@ -20,7 +20,7 @@ import { warning } from "../../athena-tool-sdk/warnings";
 // text is deterministically templated from the technician's own input.
 
 export const jobRecommendationInputSchema = z.object({
-  jobId: z.string().uuid(),
+  jobId: z.guid(),
   observation: z.string().min(1).max(2_000),
 });
 export type JobRecommendationInput = z.infer<typeof jobRecommendationInputSchema>;

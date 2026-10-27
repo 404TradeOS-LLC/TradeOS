@@ -6,8 +6,8 @@ import { requireOrgId, requirePermissions } from "../requestContext";
 const service = new ChangeOrdersService();
 
 const createSchema = z.object({
-  projectId: z.string().uuid(),
-  estimateId: z.string().uuid().optional(),
+  projectId: z.guid(),
+  estimateId: z.guid().optional(),
   description: z.string().min(1),
   scheduleImpactDays: z.coerce.number().int().min(0).optional(),
 });
@@ -19,7 +19,7 @@ const updateSchema = z.object({
 
 const addLineItemSchema = z
   .object({
-    costItemId: z.string().uuid().optional(),
+    costItemId: z.guid().optional(),
     description: z.string().min(1).optional(),
     quantity: z.coerce.number().positive(),
     unitCost: z.coerce.number().nonnegative().optional(),

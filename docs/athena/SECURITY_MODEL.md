@@ -256,3 +256,6 @@ and forced-RLS boundaries remain authoritative for text, mobile, and voice.
 A14 does not introduce a speech-provider credential surface, a second approval
 mechanism, offline autonomous execution, or a channel-specific permission
 engine.
+## Validation runtime dependency repair
+
+Zod 4.6.7 replaces vulnerable validation code, including the nested Vercel validator through `$zod`. Constrained oversized collections reject before element parsing in the regression test. GUID parsing preserves existing identifier syntax only; tool grants, server-side record checks, approval gates, idempotency and forced tenant RLS are unchanged. Production code does not use the bundled Zod 3 compatibility entry point. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.

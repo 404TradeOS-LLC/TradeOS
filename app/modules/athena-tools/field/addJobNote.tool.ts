@@ -14,7 +14,7 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk/types";
 // "none"), so `events` is always [].
 
 export const jobAddNoteInputSchema = z.object({
-  jobId: z.string().uuid(),
+  jobId: z.guid(),
   body: z.string().min(1).max(5_000),
 });
 export type JobAddNoteInput = z.infer<typeof jobAddNoteInputSchema>;

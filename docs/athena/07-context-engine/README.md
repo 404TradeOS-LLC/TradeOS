@@ -205,3 +205,6 @@ same bounded immutable context snapshot is forwarded to downstream tool
 execution and the model-provider seam rather than being gathered and then
 dropped. These changes do not widen provider authorization, selected scope, or
 PII exposure.
+## Context identifier validation compatibility
+
+Contextual tool identifiers continue to accept the same UUID-shaped values after the Zod 4 security upgrade, using `z.guid()` rather than the newly stricter UUID validator. This is parser compatibility, not expanded retrieval authority: organization scoping, provider permissions and record-level access still govern context. No provider registration, projection or context policy changes. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.

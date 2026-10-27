@@ -18,7 +18,7 @@ const scheduleSchema = z.object({
 });
 
 const assignmentSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.guid(),
   assignmentRole: z.enum(jobAssignmentRoles),
   isLead: z.boolean().optional(),
   overrideConflict: z.boolean().optional(),

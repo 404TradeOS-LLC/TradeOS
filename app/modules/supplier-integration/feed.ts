@@ -7,10 +7,10 @@ import type { AbcSupplyAuthConfig } from "./abcSupply";
 import { abcSupplyRefreshTokenStore } from "./credentialStore";
 import { AbcAccountAuthorizationError } from "./abcAccountAuthorizationError";
 
-const endpointMapSchema = z.record(z.string().uuid(), z.string().url());
+const endpointMapSchema = z.record(z.guid(), z.string().url());
 const feedSchema = z.object({
   quotes: z.array(z.object({
-    materialId: z.string().uuid(),
+    materialId: z.guid(),
     proposedUnitCost: z.number().finite().nonnegative().max(99_999_999.9999),
   }).strict()).max(10_000),
 }).strict();

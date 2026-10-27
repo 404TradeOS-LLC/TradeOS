@@ -14,7 +14,7 @@ import { applyOverhead } from "../../estimate-engine/formulas";
 // analysis/read, never a mutation.
 
 export const estimateAnalyzeInputSchema = z.object({
-  estimateId: z.string().uuid(),
+  estimateId: z.guid(),
 });
 export type EstimateAnalyzeInput = z.infer<typeof estimateAnalyzeInputSchema>;
 

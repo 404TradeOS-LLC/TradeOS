@@ -47,7 +47,7 @@ export const athenaApprovalsController = {
 
   async get(req: Request, res: Response): Promise<void> {
     const { orgId } = requireAthenaApprovalAccess(req);
-    const approvalId = z.string().uuid().parse(req.params.approvalId);
+    const approvalId = z.guid().parse(req.params.approvalId);
     const detail = await service.getDetail(orgId, approvalId);
     if (!detail) {
       throw new ApiError(404, "Approval not found");
@@ -84,7 +84,7 @@ export const athenaApprovalsController = {
 
   async review(req: Request, res: Response): Promise<void> {
     const { auth, orgId } = requireAthenaApprovalAccess(req);
-    const approvalId = z.string().uuid().parse(req.params.approvalId);
+    const approvalId = z.guid().parse(req.params.approvalId);
     const body = approvalDecisionSchema.parse(req.body);
     try {
       const approval =

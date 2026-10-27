@@ -196,3 +196,6 @@ never persisted as a completed action; mobile field context remains
 `text`; and the assembled bounded context is forwarded into both downstream
 tool execution and the model-provider seam. These are correctness fixes inside
 the existing A14 architecture, not a new milestone or broader authority grant.
+## Patched tool input validation
+
+Athena tool inputs now use the API’s patched Zod 4 runtime. UUID-shaped inputs preserve their former accepted shapes through `z.guid()`; malformed IDs remain invalid. Explicit record schemas retain plugin metadata/action dictionary semantics. Tool permissions, confirmation policy, idempotency, audit and domain ownership remain unchanged. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.

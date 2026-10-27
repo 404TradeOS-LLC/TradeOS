@@ -63,6 +63,11 @@ related_code:
 
 # TradeOS Current State
 
+## API validation security prerequisite — 2026-10-27
+
+Existing PR #795 is extended to repair the dependency audit blocking Today 2.0 PR #798. The isolated runtime branch retains dotenv/Vercel patch updates, adds patched Zod 4.6.7 including Vercel's transitive validator, and includes body-parser 1.20.9 from #799. The previous identifier syntax contract is preserved using `z.guid()`; record and enum pipeline compatibility repairs do not alter JWT/membership, permissions, RLS, financial or supplier policy. No production change or merge is claimed. Full verification and PR-only major-upgrade review remain required; the independent moderate ip-address patch is tracked by #786. See [runtime upgrade evidence](architecture/API_VALIDATION_RUNTIME_UPGRADE.md).
+
+
 ## Openings and dishwasher catalog gap — source branch, 2026-10-18
 
 PR #774 on branch `feat/costbook-openings-appliance-gaps-20261018`

@@ -20,8 +20,8 @@ const listQueueQuerySchema = z.object({
 });
 
 const createSchema = z.object({
-  estimateId: z.string().uuid().optional(),
-  projectId: z.string().uuid().optional(),
+  estimateId: z.guid().optional(),
+  projectId: z.guid().optional(),
   companyName: z.string().optional(),
   showLineItemDetail: z.boolean().optional(),
   scopeOfWork: z.string().optional(),
