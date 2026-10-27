@@ -199,3 +199,21 @@ the existing A14 architecture, not a new milestone or broader authority grant.
 ## Patched tool input validation
 
 Athena tool inputs now use the API’s patched Zod 4 runtime. UUID-shaped inputs preserve their former accepted shapes through `z.guid()`; malformed IDs remain invalid. Explicit record schemas retain plugin metadata/action dictionary semantics. Tool permissions, confirmation policy, idempotency, audit and domain ownership remain unchanged. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
+
+## Today routine follow-up recovery (2026-10-27)
+
+The existing `tradeos.athena.tools.office.create-follow-up` tool now advertises
+optional action-engine idempotency. Previously its `not_supported` metadata
+bypassed reservation even when the Workspace supplied a stable retry key, so
+an ambiguous-response retry could create a second task. Keyed calls now reuse
+the existing durable receipt scoped by tenant, actor, tool and version, with
+canonical validated-input binding. A changed input under the same key fails
+closed. Unkeyed legacy callers retain their previous behavior.
+
+This repairs execution recovery for an existing low-risk internal task tool;
+it does not send customer messages or grant new permissions. `crm.write`,
+resource/service tenant checks, RLS, audits and all approval policies remain
+unchanged. High-risk confirmation/resume is still a separate contract; this
+change does not turn an approval state into success or resubmit restricted
+actions. Action-engine dispatch is required for receipt guarantees; calling
+the service or tool handler directly does not provide deduplication.

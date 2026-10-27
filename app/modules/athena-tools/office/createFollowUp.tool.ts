@@ -69,7 +69,9 @@ export function createFollowUpCreateTool(deps: FollowUpCreateToolDeps): AthenaTo
     risk: "low",
     confirmationPolicy: "contextual",
     timeoutMs: 5_000,
-    idempotency: "not_supported",
+    // Keyed dispatches use the existing action engine's durable, tenant/actor-
+    // scoped receipt. Optional preserves legacy callers that omit a key.
+    idempotency: "optional",
     compensationPolicy: "draft_only",
     inputSchema: followUpCreateInputSchema,
     async execute(input, _aiContext, execution) {
