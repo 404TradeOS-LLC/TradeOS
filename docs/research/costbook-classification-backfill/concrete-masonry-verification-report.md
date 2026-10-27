@@ -17,6 +17,7 @@ and plaster") and 30130000 ("Structural building products").
 | 30131603 | Concrete bricks | BRICK-CONCRETE-* | |
 | 30111601 | Cement | Portland + masonry cements | Masonry cement is a cement blend |
 | 30111504 | Mortars | Mason/thinset/specmix/veneer mortars | |
+| 30111606 | Grout | All 9 GROUT-* keys | Dedicated commodity — see correction at A2 |
 
 ## 2. Ambiguities — the honest gaps (recorded, not forced)
 
@@ -28,10 +29,14 @@ masonry product. These 7 keys carry `unspsc_status: ambiguous` with EMPTY code
 fields. Filling a code here would be invention. PSI rating, bag weight, and
 brand are the identity attributes; the class-level fit is documented.
 
-**A2 — Grout: no commodity; 30111504 is the closest fit.**
-Tile grout (Polyblend/Keracolor/Prism) and structural non-shrink grout share
-30111504 "Mortars" as an ambiguous mapping. The two grout uses must never merge
-on the shared code.
+**A2 — Grout: 30111606 "Grout", mapped (correction).**
+CORRECTION (2026-10-18, HUMAN-CALLS M7#26): this section originally claimed no
+grout commodity exists in v8.1201 and recorded 30111504 "Mortars" as an
+ambiguous closest fit. That claim was false — 30111606 "Grout" is a verified
+commodity in UNSPSC Codeset v8.1201. All 9 GROUT-* keys now map to 30111606
+(live map corrected in PR #763). Tile grout (Polyblend/Keracolor/Prism) and
+structural non-shrink grout share the code but are different uses — never
+merge on code.
 
 **A3 — Pavers: no commodity; two candidate codes each.**
 Concrete pavers: 30131502 vs 30131700. Clay pavers: 30131602 vs 30131700.
@@ -48,14 +53,16 @@ Standing finding: CSI publication required; no public source. All NULL.
 
 ## 4. Coverage register
 
-- **Mapped:** 33 keys across 5 commodities.
-- **Ambiguous:** 29 keys (concrete mix, grout, pavers, firebrick, refractory).
+- **Mapped:** 42 keys across 6 commodities (33 across 5 at the 2026-10-08 pass;
+  +9 grout keys to 30111606 per the A2 correction).
+- **Ambiguous:** 20 keys (concrete mix, pavers, firebrick, refractory).
 - **Unmapped:** 0. **Invented codes:** zero. **New keys:** zero.
 
 ## 5. What this means for the costbook
 
-This family has the lowest code yield of the five (53% mapped) because the
+This family has the lowest code yield of the five (68% mapped after the A2
+grout correction; 53% at the original pass) because the
 UNSPSC codeset genuinely lacks retail-masonry commodities. The ambiguous rows
 are not failures — they are the provenance record that prevents silent
-misclassification. Matching for concrete mix, grout, and pavers must rely on
+misclassification. Matching for concrete mix and pavers must rely on
 canonical keys and attributes, with codes as a secondary signal only.
