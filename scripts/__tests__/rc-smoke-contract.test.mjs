@@ -70,6 +70,11 @@ test("auth smoke covers rejection, login, refresh, logout, and protected-route d
 
 test("staging auth repair is explicit, branch-scoped, and never targets Production", () => {
   assert.match(stagingAuthRepair, /REPAIR_STAGING_AUTH/);
+  assert.match(stagingAuthRepair, /environment: staging/);
+  assert.match(stagingAuthRepair, /if: github\.ref == 'refs\/heads\/main'/);
+  assert.doesNotMatch(stagingAuthRepair, /--token=/);
+  assert.doesNotMatch(stagingAuthRepair, /    env:\n      VERCEL_TOKEN:/);
+  assert.equal((stagingAuthRepair.match(/VERCEL_TOKEN: \$\{\{ secrets\.VERCEL_TOKEN \}\}/g) ?? []).length, 4);
   assert.match(stagingAuthRepair, /STAGING_BRANCH: staging/);
   assert.match(stagingAuthRepair, /STAGING_SUPABASE_URL: https:\/\/qfbgdkbamfaasmtjfyru\.supabase\.co/);
   assert.match(stagingAuthRepair, /vercel env (?:update|add) SUPABASE_URL preview/);
