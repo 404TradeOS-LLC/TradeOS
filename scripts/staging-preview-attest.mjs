@@ -24,7 +24,7 @@ export function attestStagingPreview(kind, env) {
       const direct = db.hostname === `db.${STAGING_REF}.supabase.co`;
       const pooler = /(^|\.)pooler\.supabase\.com$/.test(db.hostname) &&
         username.endsWith(`.${STAGING_REF}`);
-      if (!["postgres:", "postgresql:"].includes(db.protocol) || !(direct || pooler)) fail("DATABASE_URL");
+      if (!["postgres:", "postgresql:"].includes(db.protocol) || !(direct || pooler) || db.searchParams.has("host")) fail("DATABASE_URL");
     }
   } else if (kind === "web") {
     if (env.NEXT_PUBLIC_SUPABASE_URL !== STAGING_URL) fail("NEXT_PUBLIC_SUPABASE_URL");
