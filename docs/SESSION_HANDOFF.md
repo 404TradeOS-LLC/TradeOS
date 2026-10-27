@@ -200,6 +200,23 @@ continued job usability. No runtime or permission change. Prior final head
 `c8e58147` passed 2,884 API, 175 PostgreSQL, 528 web and 32 Chromium cases.
 New web test/lint/build and exact-head hosted verification precede integration.
 
+## Remaining Today contracts — 2026-10-27
+
+`EXISTING_WORK_FOUND`: extend draft Today #798 after child #800 merged at
+`c7c7c19b` (tree verified equal to reviewed child). Proposal:
+`architecture/TODAY_FIELD_SCHEDULING_CONTRACTS.md`. It concretely defines the
+recommended personal task identity/status-only write boundary, RLS/column
+invariants, rollout and live test gates; and real Crew/Visit/Milestone/Blocker
+sources reusing Dispatch. These are proposed, not implemented or approved.
+New schema/authorization/RLS remains PR-only/human-decision work under AGENTS.
+
+Runtime repair proceeds independently in #801: optional keyed receipt for
+existing low-risk follow-up creation; no new mutation authority or risk change.
+Deployment inspection found latest staging attempts cancelled at `959e3ef4`;
+Vercel environment metadata returned 403, and CLI fallback was not installed.
+No staging isolation or authenticated live journey is certified. Production
+and the previously declined user sign-in were left untouched.
+
 ## Next Eligible Sprint
 
 Sprint ID: S073
