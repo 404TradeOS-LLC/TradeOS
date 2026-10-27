@@ -43,6 +43,11 @@ related_code:
 
 # TradeOS Engineering Command Center
 
+## Staging invoice schema and ledger collision preflight — 2026-10-27
+
+The staging migration workflow refuses to run tracked Prisma migrations if invoice selling-price columns already exist but the corresponding Prisma migration is absent from the ledger, or if a recorded expand migration is missing expected columns. An untracked Supabase-side expansion was verified in staging; do not bypass the fail-closed preflight. Reconcile the historical expand migration against the staging schema and both migration ledgers, then separately review the destructive contract phase and old Preview writers before allowing it to drop legacy invoice fields. This safeguard makes no database mutation and does not certify staging readiness.
+
+
 
 ## Staging repair approval gate and certification — 2026-10-27
 
