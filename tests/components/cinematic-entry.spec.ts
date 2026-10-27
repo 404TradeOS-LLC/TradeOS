@@ -200,8 +200,22 @@ test("first and returning intro complete on schedule and support keyboard skip",
   await expect(page.getByRole("button", { name: "Skip intro" })).toBeFocused();
   await expect(intro).toBeHidden({ timeout: 6000 });
   await expect(page.getByLabel("Email address")).toBeEnabled();
+  // Capture the actual rendered duration at insertion: a slow CI reload can
+  // outlive the short returning intro before a locator assertion starts.
+  await page.addInitScript(() => {
+    const capture = () => {
+      const node = document.querySelector('[role="dialog"][aria-label="TradeOS introduction"]');
+      if (node) {
+        (window as Window & { __returningIntroDuration?: string }).__returningIntroDuration =
+          getComputedStyle(node).animationDuration;
+      }
+    };
+    new MutationObserver(capture).observe(document, { childList: true, subtree: true });
+  });
   await page.reload();
-  await expect(intro).toHaveCSS("animation-duration", "2.5s");
+  await expect.poll(() => page.evaluate(() =>
+    (window as Window & { __returningIntroDuration?: string }).__returningIntroDuration
+  )).toBe("2.5s");
   await page.keyboard.press("Escape");
   await expect(intro).toBeHidden();
   await expect(
