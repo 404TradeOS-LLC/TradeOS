@@ -90,6 +90,20 @@ test("staging auth repair is explicit, branch-scoped, and never targets Producti
   assert.doesNotMatch(stagingAuthRepair, /kssaceuetdjwfqnbzhly/);
 });
 
+
+test("staging migration workflow rejects historical invoice schema/ledger collision before deployment", () => {
+  const migrationWorkflow = read(".github/workflows/deploy-staging-migrations.yml");
+  assert.match(migrationWorkflow, /environment: staging/);
+  assert.match(migrationWorkflow, /refs\/heads\/main/);
+  assert.match(migrationWorkflow, /Refuse conflicting invoice expand schema and Prisma ledger/);
+  assert.match(migrationWorkflow, /20260902193000_rename_invoice_line_price_columns/);
+  assert.match(migrationWorkflow, /untracked_existing_expand/);
+  assert.match(migrationWorkflow, /ledger_schema_mismatch/);
+  assert.match(migrationWorkflow, /no migrations were applied/);
+  assert.ok(migrationWorkflow.indexOf("Refuse conflicting invoice expand schema and Prisma ledger") <
+    migrationWorkflow.indexOf("Deploy tracked Prisma migrations and provision app role"));
+});
+
 test("golden workflow is explicitly limited to a dedicated non-production tenant", () => {
   assert.match(golden, /RC_ALLOW_MUTATIONS=true is required/);
   assert.match(golden, /RC_SMOKE_TENANT_LABEL is required/);
