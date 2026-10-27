@@ -654,6 +654,10 @@ ABC's API Terms do not authorize permanent catalog/database copying by default. 
 A separate `.github/workflows/deploy-staging-migrations.yml` workflow provides a manual staging-only migration path. It runs from `main` against the `staging` GitHub Environment, verifies the exact Supabase project ref, checks invoice backfill prerequisites, runs `app/scripts/deploy-migrations.sh`, and verifies the Prisma ledger. Configure the dedicated `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` environment secrets; Production credentials must not be reused. This workflow does not run automatically on pushes and does not replace the protected Production migration workflow.
 
 
+## Read-only staging Preview environment attestation
+
+`.github/workflows/attest-staging-preview.yml` is a manual-only operator lane, gated to `main` and protected by the existing GitHub `staging` reviewer environment. Each of the two Vercel steps receives `VERCEL_TOKEN` only for its own invocation, with an explicit project ID and `staging` branch Preview scope. `scripts/staging-preview-attest.mjs` validates issuer, database and frontend API destination without logging secret values. It does not deploy, mutate configuration, change RLS, or access Production. Codeowner approval and hosted checks are required before enabling this workflow. Success does not waive service-role-key attestation, migration review or authenticated acceptance.
+
 ## Isolated frontend component browser verification
 
 The existing Verify repository Web unit-test job also installs the pinned
