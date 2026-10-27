@@ -133,6 +133,19 @@ at its first ArrowDown active-descendant assertion. Its evidence does not
 certify the authenticated full application, persistence or tenant isolation.
 Branch implementation is not yet merged or deployed; Ready for Dev remains
 pending full canonical-screen and authenticated workflow evidence.
+## Historical assembly rematch repair — PR #772
+
+The second pass retains 20 additional historical supplier matches, yielding
+155 raw component rows and 75 assemblies with partial material rollups.
+Recipe quantities are preserved; ten-square synthetic rolls, 900-SF housewrap
+rolls and a derived ten-LF sill allocation use explicit price conversions.
+The exact 2-inch R-10 tongue-and-groove XPS observation replaces an ambiguous
+edge match. Incompatible collated/bulk nails, cap-fastener lengths, unproven
+foam adhesive/sealant/felt specifications and mechanically attached NailBase
+remain unmatched. NailBase attachment is documented by CertainTeed at
+https://www.certainteed.com/products/commercial-roofing-products/flintlastic-sa-nailbase.
+These are dated research observations, not live quotes or bid-ready prices;
+the existing audit boundary still excludes known first-pass false positives.
 
 ## Costbook researched assembly activation — PR #771 (proposed, 2026-10-18)
 
