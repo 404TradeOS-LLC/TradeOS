@@ -819,6 +819,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
             <Input
               ref={searchInputRef}
               id="item-search"
+              className="h-11 lg:h-8"
               role="combobox"
               aria-autocomplete="list"
               aria-expanded={!selected && orderedResults.length > 0}
@@ -877,7 +878,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
 
           <div className="space-y-2">
             <Label htmlFor="costbook-section">Section</Label>
-            <Input id="costbook-section" value={section} onChange={(e) => setSection(e.target.value)} />
+            <Input className="h-11 lg:h-8" id="costbook-section" value={section} onChange={(e) => setSection(e.target.value)} />
           </div>
 
           <div className="space-y-2">
@@ -887,6 +888,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
             <Input
               ref={quantityInputRef}
               id="quantity"
+              className="h-11 lg:h-8"
               type="number"
               min="0"
               step="any"
@@ -905,6 +907,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
 
           <Button
             type="button"
+            className="min-h-11"
             onClick={() => commitLineItem()}
             disabled={!canAddReviewedLine}
           >
@@ -915,12 +918,12 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
         <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
           <div>
             <Label htmlFor="costbook-cost-type">Costbook cost type</Label>
-            <select id="costbook-cost-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={costType} onChange={(e) => setCostType(e.target.value as LineItem["costType"] | "")}>
+            <select id="costbook-cost-type" className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm" value={costType} onChange={(e) => setCostType(e.target.value as LineItem["costType"] | "")}>
               <option value="">Auto-detect</option>
               {costTypes.map((type) => <option key={type} value={type}>{type}</option>)}
             </select>
           </div>
-          <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} /> Costbook item is taxable</label>
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} /> Costbook item is taxable</label>
           <p className="text-xs text-muted-foreground">These settings apply to the selected Costbook item.</p>
         </div>
 
@@ -1004,6 +1007,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
               <Button
                 variant="ghost"
                 size="sm"
+                className="min-h-11"
                 onClick={() => {
                   setSelected(null);
                   setQuery("");
