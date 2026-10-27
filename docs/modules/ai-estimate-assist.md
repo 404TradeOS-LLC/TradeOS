@@ -104,3 +104,7 @@ Route-level permission checks were added in `app/backend/controllers/aiEstimateA
 ## Last verified date
 
 2026-09-10
+
+## Validation runtime compatibility
+
+Estimate-assist generation, clarification and target IDs retain their existing UUID-shaped input contract through `z.guid()` under patched Zod 4. Scope defaults and the one-question interaction are unchanged. The upgrade adds no estimate approval, pricing mutation, regeneration or tenant access authority. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.

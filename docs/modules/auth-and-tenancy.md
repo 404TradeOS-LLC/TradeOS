@@ -200,3 +200,7 @@ Web/browser authentication bypass is retired. Preview browser certification must
 ## ABC Supplier token rotation and scoped transaction boundaries (October 2026)
 
 Authenticated request/background database sessions expose their already-validated actor only through scoped async-local context. Credential rotation requires that actor to be the same tenant's owner/admin; the SQL Vault function independently revalidates active membership and supplier ownership. The rotation helper starts and commits a separate `basePrisma` session instead of inheriting the pricing transaction proxy. If the Vault write fails, the provider quote flow stops before pricing; a subsequent pricing failure does not roll back an already-committed replacement refresh token. The Cron HTTP bearer token is *not* a tenant credential and grants no direct access to tenant data.
+
+## Validation runtime security upgrade
+
+Authentication and portal request schemas use patched Zod 4. UUID-shaped relationship inputs retain the former syntax contract via `z.guid()`; this does not change verified JWT subjects, active membership, portal customer binding, role normalization or forced request-session RLS. body-parser 1.20.9 patches compressed request-body failure handling. HTTP validation remains 400 with correlated structured diagnostics. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.

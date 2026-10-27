@@ -15,8 +15,8 @@ import type { JobsService } from "../../jobs/service";
 // eventRef(), never fabricating one.
 
 export const assignTechnicianInputSchema = z.object({
-  jobId: z.string().uuid(),
-  technicianId: z.string().uuid(),
+  jobId: z.guid(),
+  technicianId: z.guid(),
   assignmentRole: z.enum(jobAssignmentRoles),
   isLead: z.boolean().optional(),
 });

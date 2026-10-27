@@ -376,3 +376,7 @@ existing `/portal/*` route remains the staff preview.
 ## S030 dispatcher verification (active)
 
 The dispatcher workspace invokes only the existing canonical Job actions and schedule/assignment routes. It does not add statuses or generic status mutation. Scheduling and rescheduling preserve the existing conflict/override and lifecycle transition rules, and successful mutations refresh the rendered queue and summary.
+
+## Validation runtime compatibility
+
+Status lifecycle vocabulary and transitions are unchanged by the Zod 4 security repair. The comma-separated status helper now declares string input/output constraints for the typed pipeline while preserving literal enum results and absent queries. Exact `false` query values remain false. Legacy UUID-shaped identifiers remain parseable, with source existence, parent scope and transition authorization enforced by the existing services. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.

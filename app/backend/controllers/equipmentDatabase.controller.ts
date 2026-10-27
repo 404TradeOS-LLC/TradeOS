@@ -6,7 +6,7 @@ import { requireOrgId, requirePermissions } from "../requestContext";
 const service = new EquipmentDatabaseService();
 
 const createSchema = z.object({
-  orgId: z.string().uuid().optional(),
+  orgId: z.guid().optional(),
   name: z.string().min(1),
   ownershipCostPerHour: z.number().min(0).optional(),
   operatingCostPerHour: z.number().min(0).optional(),
@@ -38,7 +38,7 @@ export const equipmentDatabaseController = {
   async calculate(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
     const schema = z.object({
-      equipmentId: z.string().uuid(),
+      equipmentId: z.guid(),
       hours: z.coerce.number().positive(),
       billableHoursPerDay: z.coerce.number().positive().optional(),
       useDailyRate: z.boolean().optional(),

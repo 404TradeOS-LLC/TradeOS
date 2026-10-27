@@ -21,7 +21,7 @@ const listQueueQuerySchema = z.object({
 export const estimateEngineController = {
   async create(req: Request, res: Response) {
     const auth = requirePermissions(req, ["crm.write"]);
-    const schema = z.object({ projectId: z.string().uuid(), overheadPct: z.coerce.number().min(0).optional() });
+    const schema = z.object({ projectId: z.guid(), overheadPct: z.coerce.number().min(0).optional() });
     const estimate = await service.create({ ...schema.parse(req.body), orgId: requireOrgId(req) });
     await activityService.record({
       orgId: requireOrgId(req),
@@ -64,8 +64,8 @@ export const estimateEngineController = {
     const auth = requirePermissions(req, ["crm.write"]);
     const schema = z
       .object({
-        costItemId: z.string().uuid().optional(),
-        assemblyId: z.string().uuid().optional(),
+        costItemId: z.guid().optional(),
+        assemblyId: z.guid().optional(),
         quantity: z.coerce.number().positive(),
         description: z.string().trim().min(1).max(500).optional(),
         section: z.string().trim().min(1).max(120).optional(),
