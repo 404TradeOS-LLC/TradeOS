@@ -4,6 +4,12 @@ import { SUPPLIER_PRICES_47802 } from '../modules/costbook/supplierPrices47802';
 
 const pass2 = () => PRICED_ASSEMBLY_COMPONENTS.slice(135);
 const row = (key: string) => pass2().find(p => p.componentKey === key)!;
+const pass2MaterialCost = (id: string) =>
+  TRADEOS_ASSEMBLIES.find(a => a.id === id)?.components.reduce(
+    (sum, component) =>
+      sum + (pass2().find(p => p.componentKey === component.key)?.extendedCost ?? 0),
+    0,
+  ) ?? 0;
 
 describe('Pass-2 historical price evidence', () => {
   it('preserves canonical recipe quantities instead of silently scaling them', () => {
@@ -56,14 +62,22 @@ describe('Pass-2 historical price evidence', () => {
       'siding-fibercement-lap-hardie': [1, 228.48],
       'moisture-barrier-wrb-housewrap': [2, 16.70],
       'door-exterior-prehung-fiberglass': [2, 498.10],
+      'insul-batt-fiberglass-r13-2x4': [1, 0.83],
+      'paint-trim-interior-enamel-2coat': [2, 0.13],
       'flooring-hardwood-solid-oak-3-4': [0, 0],
       'framing-floor-ijoist-19-2oc': [0, 0],
       'roofing-sbs-roll-selfadhered-cap': [2, 146.13],
+      'roofing-membrane-epdm-60mil': [1, 9.79],
+      'roofing-flashing-pipe-boot': [2, 16.56],
+      'roofing-gutters-seamless-aluminum-5in': [3, 1.73],
       'insul-rigidfoam-xps-2in-foundation': [1, 1.57],
     };
     for (const [id, [count, cost]] of Object.entries(expected)) {
       expect(assemblyMaterialCost(id)?.pricedComponents).toBe(count);
       expect(assemblyMaterialCost(id)?.materialCostPerUnit).toBe(cost);
+      expect(assemblyMaterialCost(id)?.materialCostPerUnit).toBe(
+        Number(pass2MaterialCost(id).toFixed(2)),
+      );
     }
     expect(pass2()).toHaveLength(20);
     expect(ASSEMBLY_MATERIAL_COSTS.filter(a => a.pricedComponents > 0)).toHaveLength(75);
