@@ -276,6 +276,7 @@ model AppUser {
   sentInvites   OrganizationInvite[] @relation("InviteSender")
   createdJobs   Job[]                @relation("JobCreatedBy")
   completedJobs Job[]                @relation("JobCompletedBy")
+  assignedProjectTasks ProjectTask[] @relation("ProjectTaskAssignee")
   assignedJobs  JobAssignment[]      @relation("JobAssignmentUser")
   assignedJobActions JobAssignment[] @relation("JobAssignedBy")
   athenaExecutions AthenaExecution[]
@@ -1083,6 +1084,7 @@ model ProjectTask {
   jobId       String?   @map("job_id")
   title       String
   status      String    @default("todo")
+  assignedUserId String? @map("assigned_user_id")
   assignedTo  String?   @map("assigned_to")
   dueDate     DateTime? @map("due_date")
   priority    String    @default("medium")
@@ -1091,12 +1093,14 @@ model ProjectTask {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
 
+  assignedUser AppUser? @relation("ProjectTaskAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   job     Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
 
   @@index([projectId, status])
   @@index([projectId, dueDate])
   @@index([jobId, status])
+  @@index([assignedUserId, status, dueDate])
   @@map("project_tasks")
 }
 

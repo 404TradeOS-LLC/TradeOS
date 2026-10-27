@@ -258,3 +258,22 @@ for (const theme of ['light', 'dark']) {
     await expect(dialog).not.toBeVisible();
   });
 }
+
+
+test('field user saves a personally assigned task through the guarded Job route', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await openSyntheticToday(page, '?role=field&tasks=personal');
+  let writes = 0;
+  await page.route('**/api/proxy/jobs/test-job/tasks/personal-field-task/status', async route => {
+    writes++;
+    expect(route.request().postDataJSON()).toEqual({ status: 'completed', expectedUpdatedAt: '2026-10-27T12:00:00Z' });
+    await route.fulfill({ json: { id: 'personal-field-task', jobId: 'test-job', projectId: '11111111-1111-4111-8111-111111111111', status: 'completed' } });
+  });
+  await page.locator('.today-attention').getByRole('button', { name: /Update task/ }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Task status', { exact: true }).selectOption('completed');
+  await dialog.getByRole('button', { name: 'Save task status', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Task saved as completed' })).toBeVisible();
+  expect(writes).toBe(1); await expectNoPageOverflow(page, 390);
+});

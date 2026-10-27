@@ -55,3 +55,19 @@ test("missing or invalid task revisions cannot silently downgrade to an unguarde
   }
   assert.equal(calls, 0);
 });
+
+
+test("personal field saves use the narrow Job endpoint and verify the linked Job", async () => {
+  const field = { ...target, access: "assigned-field" as const, jobId: "job-a" };
+  assert.equal(canUpdateTodayTask("technician", field), true);
+  assert.equal(canUpdateTodayTask("viewer", field), false);
+  let requests = 0;
+  globalThis.fetch = async (url, init) => {
+    requests++; assert.equal(String(url), "/api/proxy/jobs/job-a/tasks/task-1/status");
+    assert.deepEqual(JSON.parse(String(init?.body)), { status: "completed", expectedUpdatedAt: target.updatedAt });
+    return Response.json({ id: target.taskId, projectId: target.projectId, jobId: "job-a", status: "completed" });
+  };
+  await updateTodayTaskStatus(field, "completed"); assert.equal(requests, 1);
+  globalThis.fetch = async () => Response.json({ id: target.taskId, projectId: target.projectId, jobId: "other", status: "completed" });
+  await assert.rejects(updateTodayTaskStatus(field, "completed"), /could not be confirmed/);
+});

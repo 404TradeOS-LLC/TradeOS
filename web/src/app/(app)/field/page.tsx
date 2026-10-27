@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FieldTaskStatusEditor } from "@/components/field/field-task-status-editor";
 import { FieldJobActions } from "@/components/field/field-job-actions";
 import { FieldNoteForm } from "@/components/field/field-note-form";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -245,13 +246,14 @@ export default async function FieldPage({
 
                 <section className="rounded-xl border border-border/70 bg-background/70 p-3" aria-labelledby="shared-job-tasks-heading">
                   <h3 id="shared-job-tasks-heading" className="text-sm font-semibold">Shared job tasks</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">Tasks attached to this job. The office manages task updates; report progress or blockers in Job notes.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Tasks attached to this job. Update tasks personally assigned to you, or report progress and blockers in Job notes.</p>
                   {selectedJob.tasks ? selectedJob.tasks.length ? (
                     <ul className="mt-3 grid gap-3">
                       {selectedJob.tasks.map((task) => (
                         <li key={task.id} className="rounded-lg border border-border/60 p-3">
                           <div className="flex flex-wrap items-center justify-between gap-2"><p className="min-w-0 break-words text-sm font-medium">{task.title}</p><StatusBadge status={task.status} /></div>
                           <p className="mt-1 text-xs text-muted-foreground">{task.assignedTo || "No responsible party recorded"}{task.dueDate ? ` · Due ${new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(task.dueDate))}` : " · No due date"}</p>
+                          {task.canUpdateStatus === true && typeof task.assignedUserId === "string" && task.assignedUserId === settings.currentUserId && task.updatedAt && selectedJob.project?.id && !["completed", "cancelled"].includes(selectedJob.status) ? <FieldTaskStatusEditor key={`${task.id}:${task.updatedAt}`} task={{ projectId: selectedJob.project.id, jobId: selectedJob.id, taskId: task.id, status: task.status, updatedAt: task.updatedAt, access: "assigned-field" }} /> : null}
                           {task.notes ? <p className="mt-2 whitespace-pre-wrap break-words text-sm text-muted-foreground">{task.notes}</p> : null}
                         </li>
                       ))}
