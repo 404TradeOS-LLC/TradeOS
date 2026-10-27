@@ -53,6 +53,14 @@ related_code:
 
 # TradeOS Documentation
 
+
+## Staging repair and acceptance-test entrypoint — 2026-10-27
+
+For staging, read [the Preview deployment QA checklist](QA_PREVIEW_DEPLOYMENT_CHECKLIST.md), [deployment guide](DEPLOYMENT_GUIDE.md), [GitHub environment audit](research/github-environment-audit-2026-10-23.md), and [repository governance](REPOSITORY_GOVERNANCE.md) before changing any credentials or issuing a deployment. The recovery workflow `.github/workflows/repair-staging-supabase-auth.yml` is manual, **main-only** and requires the approved `staging` GitHub Environment; `scripts/staging-repair.mjs` pins the staging Vercel team, project, branch and expected commit. Workflow-only changes must update this documentation entrypoint together with governance and the engineering command center.
+
+October 27 live reads found staging Supabase healthy, but a 15-migration gap relative to current `main`, three non-forced Team & Time RLS tables, mismatched older READY Preview builds and HTTP 403 when listing Vercel environment metadata. The ignored later builds were deliberate path-based skips, not evidence of an application build failure. **Do not certify newer staging code until environment isolation is proved, the schema is reconciled, matching builds are READY and authenticated journeys pass.** Never print or copy service-role keys or database URLs into issues, tests or documentation.
+
+
 Merge queue operations are documented in [testing/MERGE_QUEUE.md](testing/MERGE_QUEUE.md).
 The opt-in action consumes `status:merge-queue` once, then GitHub validates the
 synthetic group with the four existing required checks. The ruleset template
