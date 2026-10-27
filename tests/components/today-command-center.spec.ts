@@ -239,16 +239,22 @@ test('an offline task editor keeps changes local and sends no mutation', async (
 });
 
 
-test('field shared tasks open read-only context with a real assigned-job destination', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 1000 });
-  await openSyntheticToday(page, '?role=field&tasks=shared');
-  await page.getByRole('group', { name: "Filter today's work" }).getByRole('button', { name: 'Tasks', exact: true }).click();
-  await page.locator('.today-work').getByRole('button', { name: /Synthetic shared material check/ }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog.getByRole('heading', { name: 'Synthetic shared material check' })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: /Save/ })).toHaveCount(0);
-  await expect(dialog.getByText('Oct 27', { exact: true })).toBeVisible();
-  await expect(dialog.getByRole('link').filter({ hasText: /Open/ })).toHaveAttribute('href', '/field?job=test-job');
-  await expectNoPageOverflow(page, 390);
-  await page.screenshot({ path: test.info().outputPath('today-field-shared-task-mobile.png'), fullPage: true });
-});
+for (const theme of ['light', 'dark']) {
+  test(`field shared tasks open read-only context in ${theme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 1000 });
+    await openSyntheticToday(page, '?role=field&tasks=shared&theme=' + theme);
+    await page.getByRole('group', { name: "Filter today's work" }).getByRole('button', { name: 'Tasks', exact: true }).click();
+    await page.locator('.today-work').getByRole('button', { name: /Synthetic shared material check/ }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('heading', { name: 'Synthetic shared material check' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: /Save/ })).toHaveCount(0);
+    await expect(dialog.getByText('Oct 27', { exact: true })).toBeVisible();
+    const sourceLink = dialog.getByRole('link').filter({ hasText: /Open/ });
+    await expect(sourceLink).toHaveAttribute('href', '/field?job=test-job');
+    await expectNoPageOverflow(page, 390);
+    await dialog.screenshot({ path: test.info().outputPath(`today-field-shared-task-${theme}.png`), animations: 'disabled' });
+    await sourceLink.click();
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __testNavigation: string }).__testNavigation)).toBe('/field?job=test-job');
+    await expect(dialog).not.toBeVisible();
+  });
+}
