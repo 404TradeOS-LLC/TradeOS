@@ -136,9 +136,16 @@ export class ProjectTasksService {
       if (!job) throw new ApiError(404, `Job ${input.jobId} not found`);
     }
 
+    const conflict = () => new ApiError(409, "This task changed since you opened it. Refresh the source workspace before saving again.");
+    if (input.expectedUpdatedAt && existing.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()) throw conflict();
     const nextStatus = input.status ?? (existing.status as ProjectTaskStatus);
+    // Include the revision in the write predicate: checking it only on the
+    // preceding read would allow two requests to overwrite each other.
     const row = await this.db.projectTask.update({
-      where: { id },
+      where: {
+        id,
+        ...(input.expectedUpdatedAt ? { updatedAt: input.expectedUpdatedAt, project: input.orgId ? { orgId: input.orgId } : undefined } : {}),
+      },
       data: {
         jobId: input.jobId !== undefined ? input.jobId : existing.jobId,
         title: input.title ?? existing.title,
@@ -148,7 +155,12 @@ export class ProjectTasksService {
         priority: input.priority ?? existing.priority,
         notes: input.notes !== undefined ? input.notes : existing.notes,
         completedAt: nextStatus === "completed" ? existing.completedAt ?? new Date() : null,
+        // Preserve revision identity even for writes within one millisecond.
+        updatedAt: new Date(Math.max(Date.now(), existing.updatedAt.getTime() + 1)),
       },
+    }).catch((error: unknown) => {
+      if (input.expectedUpdatedAt && typeof error === "object" && error !== null && "code" in error && error.code === "P2025") throw conflict();
+      throw error;
     });
     return toDTO(row);
   }

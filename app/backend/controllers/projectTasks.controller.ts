@@ -28,6 +28,7 @@ const createSchema = z.object({
 });
 
 const updateSchema = z.object({
+  expectedUpdatedAt: z.string().datetime().optional(),
   jobId: z.guid().nullable().optional(),
   title: z.string().min(1).optional(),
   status: z.enum(projectTaskStatuses).optional(),
@@ -92,6 +93,14 @@ export const projectTasksController = {
     res.status(201).json(task);
   },
 
+  // Separate route deliberately fails closed on older backend deployments.
+  // An old PATCH handler would otherwise strip an unknown revision property.
+  async updateStatus(req: Request, res: Response): Promise<void> {
+    requirePermissions(req, ["crm.write"]);
+    z.object({ status: z.enum(projectTaskStatuses), expectedUpdatedAt: z.string().datetime() }).strict().parse(req.body);
+    return projectTasksController.update(req, res);
+  },
+
   async update(req: Request, res: Response) {
     const auth = requirePermissions(req, ["crm.write"]);
     const body = updateSchema.parse(req.body);
@@ -105,6 +114,7 @@ export const projectTasksController = {
       }
       const updatedTask = await taskService.update(req.params.taskId, {
         orgId,
+        expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined,
         jobId: body.jobId,
         title: body.title,
         status: body.status,

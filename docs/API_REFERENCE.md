@@ -773,12 +773,17 @@ Project task routes under `/api/v1/projects`:
 - `GET /api/v1/projects/:id/tasks`
 - `POST /api/v1/projects/:id/tasks`
 - `PATCH /api/v1/projects/:id/tasks/:taskId`
+- `PATCH /api/v1/projects/:id/tasks/:taskId/status`
 - `DELETE /api/v1/projects/:id/tasks/:taskId`
 
 `GET /api/v1/projects/tasks` is the org-scoped task feed used by the owner dashboard. It requires `crm.read`, stays inside the existing bearer-auth + membership + request-scoped DB session stack, and returns task rows with project, customer, and optional job context. Query parameters:
 
 - `limit` — optional integer, `1..50`, default service cap `24`
 - `includeCompleted` — optional boolean string (`true` or `false`); when omitted, completed tasks are excluded
+
+`PATCH /api/v1/projects/:id/tasks/:taskId/status` is the status-only guarded route used by Today. It requires exactly `status` and `expectedUpdatedAt`, rejects unrelated fields, and reuses the same permissions, scoped mutation and transactional audit path. An older backend without this route returns 404 without a write; the client never falls back to an unguarded endpoint.
+
+`PATCH /api/v1/projects/:id/tasks/:taskId` accepts optional `expectedUpdatedAt` (ISO UTC datetime) for optimistic concurrency. Today sends the source task's `updatedAt` with status-only changes. The server compares the revision in the atomic update predicate and returns HTTP 409 if the task changed, including a race after the initial read. No task/activity change commits for a rejected save. Updates advance the revision even within the same millisecond. Existing callers that omit the revision retain their previous behavior; guarded saves do not broaden `crm.write`, organization membership or forced RLS. Refresh the source before retrying a conflict.
 
 For nested task mutations, the route parent is authoritative: `PATCH` and `DELETE /api/v1/projects/:id/tasks/:taskId` reject a task whose stored `projectId` does not match `:id` before mutation or activity writes. When `PATCH` changes `jobId`, the replacement job must be active, belong to the authenticated organization, and belong to that same project; a cross-project job is rejected before the task update.
 

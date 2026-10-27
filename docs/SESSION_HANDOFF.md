@@ -46,6 +46,18 @@ related_docs:
   reconcile starter recipe selection in Figma; align staging through the
   existing governed process; execute real-login tenant/Add/reload evidence.
 
+
+## Today 2.0 active implementation — 2026-10-26
+
+- Sprint ID: NONE; `NEW_WORK_REQUIRED` for founder-supplied Today 2.0 brief. Repository `404TradeOS-LLC/TradeOS`, isolated branch `feat/today-2-command-center`, base `e17a166` (merged #774). Historical Today #585/#643 are already on main; no open Today implementation PR or remote branch overlapped. #793 entry work is separate and preserved.
+- Implemented authenticated Today/Needs You/Work data contract, operational UI, contextual source navigation, Athena reuse, two themes, Today timeline, upcoming work and persistent dock/Task creation. New interfaces and supported/unsupported boundaries are recorded in `architecture/TODAY_2_IMPLEMENTATION.md`.
+- Preserve JWT, membership and forced RLS; no policy/schema/financial mutation changes. Field ProjectTask assignment/write is unsupported, so field views do not read organization task or commercial queues.
+- Continuation: current repo `/workspace/scratch/4360a72ccbf4/TradeOS-resume` tracks the existing PR #798. `EXISTING_WORK_FOUND` confirmed against live PR and fetched main `f5fac882`. Prior head `fdcc63cc` passed hosted verification run 40427077847 including 20 Chromium component tests and PostgreSQL/migration rehearsal. All six original review threads were resolved.
+- The real Vercel Preview at https://tradeos-costbook-9vrksg8yo-billykshowalters.vercel.app/login is READY for `fdcc63cc`; dashboard redirects to login. Secure sign-in was declined. Do not retry sign-in without a new user request; live authenticated role journeys remain unverified.
+- New continuation adds permission-aware task status editing using the existing authenticated PATCH/audit path. Success requires confirmed source identity/status, then server refresh; errors/offline preserve the queue and pending saves prevent duplicate submission/dismissal. A backward-compatible backend revision precondition now makes Today task saves atomic against concurrent edits; legacy callers may omit it. New real PostgreSQL concurrent-save and tenant/read-only regressions require hosted verification. Fresh verification is recorded in `architecture/TODAY_2_IMPLEMENTATION.md` and the PR.
+- Next five: verify the new contextual task save in a permitted authenticated session; implement a reviewed field assignment/write contract; add genuine visit/crew/milestone source capabilities; connect Athena permitted execution and confirmation recovery; complete all acceptance/review gates before marking ready or merging. Keep PR draft while these gaps remain.
+- Earlier Costbook handoffs below are retained historical context; #773 and #774 are now merged in the captured base.
+
 ## Openings/appliance retarget and validation — PR #774 (2026-10-23)
 
 - `EXISTING_WORK_FOUND`, Sprint ID: NONE. Existing branch

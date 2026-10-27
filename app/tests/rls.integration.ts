@@ -22,6 +22,7 @@ import { EstimateEngineService } from "../modules/estimate-engine/service";
 import { InvoicesService } from "../modules/invoices/service";
 import { CrmService } from "../modules/crm/service";
 import { ContractsService } from "../modules/contracts/service";
+import { ProjectTasksService } from "../modules/project-tasks/service";
 import { JobsService } from "../modules/jobs/service";
 import { AuthService } from "../modules/auth/service";
 import { OrganizationSettingsService } from "../modules/settings/service";
@@ -1229,6 +1230,33 @@ describe("live organization row-level security", () => {
         })
       )
     ).rejects.toThrow();
+  });
+
+  it("serializes concurrent task revisions without losing a saved update or tenant isolation", async () => {
+    const task = await adminClient.projectTask.create({ data: { projectId: projectA, title: "Guarded concurrent task", status: "todo", priority: "high" } });
+    const revision = task.updatedAt;
+    const save = (status: "blocked" | "completed") => inSession(adminUser, orgA, "admin", async () =>
+      new ProjectTasksService(currentTransaction() as unknown as typeof appClient).update(task.id, { orgId: orgA, status, expectedUpdatedAt: revision })
+    );
+    try {
+      const results = await Promise.allSettled([save("blocked"), save("completed")]);
+      const successes = results.filter((result) => result.status === "fulfilled");
+      const failures = results.filter((result) => result.status === "rejected");
+      expect(successes).toHaveLength(1);
+      expect(failures).toHaveLength(1);
+      if (failures[0].status === "rejected") expect(failures[0].reason).toMatchObject({ statusCode: 409 });
+      const persisted = await adminClient.projectTask.findUniqueOrThrow({ where: { id: task.id } });
+      if (successes[0].status === "fulfilled") expect(persisted.status).toBe(successes[0].value.status);
+      expect(persisted.title).toBe(task.title);
+      expect(persisted.updatedAt.getTime()).toBeGreaterThan(revision.getTime());
+      await expect(save("completed")).rejects.toMatchObject({ statusCode: 409 });
+      await expect(inSession(otherUser, orgB, "owner", async () =>
+        new ProjectTasksService(currentTransaction() as unknown as typeof appClient).update(task.id, { orgId: orgB, status: "completed", expectedUpdatedAt: persisted.updatedAt })
+      )).rejects.toMatchObject({ statusCode: 404 });
+      await expect(inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().projectTask.update({ where: { id: task.id, updatedAt: persisted.updatedAt }, data: { status: "todo" } })
+      )).rejects.toThrow();
+    } finally { await adminClient.projectTask.delete({ where: { id: task.id } }); }
   });
 
   it("limits technician job visibility to assigned jobs while preserving tenant isolation", async () => {

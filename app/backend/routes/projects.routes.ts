@@ -30,4 +30,5 @@ projectsRouter.delete("/:id/files/:fileId", asyncHandler(projectFilesController.
 projectsRouter.get("/:id/tasks", asyncHandler(projectTasksController.listByProject));
 projectsRouter.post("/:id/tasks", asyncHandler(projectTasksController.create));
 projectsRouter.patch("/:id/tasks/:taskId", asyncHandler(projectTasksController.update));
+projectsRouter.patch("/:id/tasks/:taskId/status", asyncHandler(projectTasksController.updateStatus));
 projectsRouter.delete("/:id/tasks/:taskId", asyncHandler(projectTasksController.remove));

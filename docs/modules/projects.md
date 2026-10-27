@@ -101,3 +101,7 @@ Project workspace surfaces also expose the current job and field-coordination wo
 ## Last verified date
 
 2026-09-28
+
+## Today contextual task saves
+
+Today/Needs You/Work task dialogs use `PATCH /api/v1/projects/:id/tasks/:taskId/status`, a status-only guarded route sharing the existing project-task mutation and transactional activity history. It requires status plus revision, rejects unrelated fields, and fails closed with 404 on older backends; the client never falls back. Controls follow existing `crm.write`, with no new technician access. The optional `expectedUpdatedAt` request precondition is enforced in the database update predicate; a stale or concurrently changed task returns 409 without a saved mutation/activity event. Every update advances the revision, including same-millisecond edits. Existing clients can omit the precondition for backward compatibility. Today requires a valid source revision and sends only status plus that revision; successful confirmed saves refresh the operational queues. Offline, rejected and unconfirmed saves are not treated as resolutions. No schema or RLS changes.

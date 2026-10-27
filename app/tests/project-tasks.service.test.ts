@@ -310,3 +310,36 @@ describe("ProjectTasksService", () => {
     expect(tasks.map((task) => task.id)).toEqual(["task-open-1", "task-open-2"]);
   });
 });
+
+describe("ProjectTask revision preconditions", () => {
+  const revision = new Date("2026-10-26T12:00:00.000Z");
+  const existing = { id: "task-1", projectId: "project-1", jobId: null, title: "Inspect flashing", status: "todo", assignedTo: null, dueDate: null, priority: "high", notes: null, completedAt: null, createdAt: revision, updatedAt: revision };
+  beforeEach(() => { jest.resetAllMocks(); mockPrisma.projectTask.findFirst.mockResolvedValue(existing); });
+
+  it("rejects a stale revision before any write", async () => {
+    const service = new ProjectTasksService();
+    await expect(service.update("task-1", { orgId: "org-1", status: "completed", expectedUpdatedAt: new Date(revision.getTime() - 1) })).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.projectTask.update).not.toHaveBeenCalled();
+  });
+  it("checks the revision atomically and maps a race at the write to conflict", async () => {
+    mockPrisma.projectTask.update.mockRejectedValue({ code: "P2025" });
+    const service = new ProjectTasksService();
+    await expect(service.update("task-1", { orgId: "org-1", status: "completed", expectedUpdatedAt: revision })).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.projectTask.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "task-1", updatedAt: revision, project: { orgId: "org-1" } } }));
+  });
+  it("advances the revision even when the clock has not advanced", async () => {
+    mockPrisma.projectTask.update.mockImplementation(async ({ data }: { data: object }) => ({ ...existing, ...data }));
+    const clock = jest.spyOn(Date, "now").mockReturnValue(revision.getTime());
+    try {
+      const result = await new ProjectTasksService().update("task-1", { orgId: "org-1", status: "blocked", expectedUpdatedAt: revision });
+      expect(result.status).toBe("blocked");
+      expect(result.updatedAt).toBe("2026-10-26T12:00:00.001Z");
+    } finally { clock.mockRestore(); }
+  });
+  it("keeps missing and cross-tenant records hidden before revision checks", async () => {
+    mockPrisma.projectTask.findFirst.mockResolvedValue(null);
+    await expect(new ProjectTasksService().update("task-1", { orgId: "org-2", status: "completed", expectedUpdatedAt: revision })).rejects.toMatchObject({ statusCode: 404 });
+    expect(mockPrisma.projectTask.findFirst).toHaveBeenCalledWith({ where: { id: "task-1", project: { orgId: "org-2" } } });
+    expect(mockPrisma.projectTask.update).not.toHaveBeenCalled();
+  });
+});

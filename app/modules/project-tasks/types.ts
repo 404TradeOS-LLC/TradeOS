@@ -16,6 +16,7 @@ export interface CreateProjectTaskInput {
 }
 
 export interface UpdateProjectTaskInput {
+  expectedUpdatedAt?: Date;
   orgId?: string;
   jobId?: string | null;
   title?: string;
