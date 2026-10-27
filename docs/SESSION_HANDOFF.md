@@ -166,14 +166,6 @@ forced RLS, Estimate snapshots and financial accuracy. Production credentials,
 protected migrations, supplier activation and ABC API licensing remain governed
 by their dedicated runbooks; this mission authorizes none of those operations.
 
-## Next Eligible Sprint
-
-Sprint ID: S073
-Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit.
-Dependencies: S051 — DONE through merged PR #538.
-Overlap check: Recheck live PRs/branches before starting; this non-numbered repair does not advance S073 or authorize a second active sprint.
-Startup prompt: Execute S073 from current main using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md` after canonical startup/reconciliation; stop on protected policy gaps.
-
 ## Active continuation — shared assigned-job tasks (2026-10-27)
 
 Branch `feat/field-assigned-job-tasks` is isolated from active Today PR #798
@@ -197,3 +189,11 @@ ownership/preflight and whitespace passed. Local Chromium could not launch
 because its executable was absent; installation returned a truncated ZIP.
 Hosted CI must verify the 31 component cases (including shared field task
 context at 390px) and the new live PostgreSQL test. These are not local passes.
+
+## Next Eligible Sprint
+
+Sprint ID: S073
+Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit.
+Dependencies: S051 — DONE through merged PR #538.
+Overlap check: Recheck live PRs/branches before starting; this non-numbered repair does not advance S073 or authorize a second active sprint.
+Startup prompt: Execute S073 from current main using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md` after canonical startup/reconciliation; stop on protected policy gaps.
