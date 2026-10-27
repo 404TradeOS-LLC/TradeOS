@@ -68,6 +68,12 @@ export async function buildTodayFixture() {
         data.work=data.work.map(item=>({...item,href:'/field?job=test-job'}));
         data.stats=data.stats.map(stat=>({...stat,value:stat.id==='attention'?0:stat.value}));
         data.sources=[{id:'commercial',label:'Commercial work',state:'restricted',message:'Field test role receives assigned work only.'}];
+        if(params.get('tasks')==='shared'){
+          data.stats=data.stats.map(stat=>stat.id==='attention'?{...stat,value:1}:stat);
+          data.work.push({id:'shared-job-task',title:'Synthetic shared material check',context:'Synthetic Kitchen · framing',kind:'task',start:null,end:null,status:'blocked',assignee:'Another crew member',dueAt:'2026-10-27T00:00:00Z',href:'/field?job=test-job'});
+          data.attention=[{id:'shared-job-task',title:'Synthetic shared material check',context:'Synthetic Kitchen · Blocked task',source:'Job tasks',priority:'urgent',assignee:'Another crew member',dueAt:'2026-10-27T00:00:00Z',href:'/field?job=test-job',action:'Open assigned job',status:'blocked'}];
+        }
+
       }
       if(params.get('failure')==='attention'){
         data.stats=data.stats.map(stat=>stat.id==='attention'?{...stat,value:null}:stat);

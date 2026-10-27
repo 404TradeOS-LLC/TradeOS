@@ -166,6 +166,40 @@ forced RLS, Estimate snapshots and financial accuracy. Production credentials,
 protected migrations, supplier activation and ABC API licensing remain governed
 by their dedicated runbooks; this mission authorizes none of those operations.
 
+## Active continuation — shared assigned-job tasks (2026-10-27)
+
+Branch `feat/field-assigned-job-tasks` is isolated from active Today PR #798
+(head `23a9cd1d2ba85378b9b1838cb2ca8ed76a7a9fc8`). Reconciliation classification:
+`NEW_WORK_REQUIRED`: PR #702 covers denial tests/capture proposals, not this
+read-only task aggregation; #798 did not provide field task reads. Scope is
+project-task service/controller/routes, API client/Today/Field UI, regression
+tests and owning docs. Schema, RLS, commercial mutations and personal field-task
+write grants are excluded.
+
+The shared-job task projection and field source display are implemented. Local
+API/controller tests: 14 passed; web tests: 528 passed; API type check passed.
+Local live integration is blocked because `docker` is not installed. Added
+real PostgreSQL assignment/tenant/removed/declined coverage must pass hosted CI.
+Browser fixture records are explicitly synthetic. Authenticated deployed testing
+remains unverified; do not retry the previously declined browser sign-in.
+
+Complete local checks on this continuation: 2,884 API tests across 317 suites,
+528 web tests, API type/build, web lint/build, 159 governance tests, docs
+ownership/preflight and whitespace passed. Local Chromium could not launch
+because its executable was absent; installation returned a truncated ZIP.
+Hosted CI must verify the 31 component cases (including shared field task
+context at 390px) and the new live PostgreSQL test. These are not local passes.
+
+## Today review follow-through — 2026-10-27
+
+`EXISTING_WORK_FOUND`: extend #800 on `feat/field-assigned-job-tasks`; parent
+#798 remains draft at `23a9cd1d`. Review identified missing destination-page
+coverage. Added actual async FieldPage rendering tests for populated task
+information, empty tasks, unavailable tasks, safe text, stored due dates and
+continued job usability. No runtime or permission change. Prior final head
+`c8e58147` passed 2,884 API, 175 PostgreSQL, 528 web and 32 Chromium cases.
+New web test/lint/build and exact-head hosted verification precede integration.
+
 ## Next Eligible Sprint
 
 Sprint ID: S073

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 
 const listByOrganization = jest.fn();
+const listByAssignedJobs = jest.fn();
 const create = jest.fn();
 const update = jest.fn();
 const remove = jest.fn();
@@ -17,6 +18,7 @@ jest.mock("../db/client", () => ({
 jest.mock("../modules/project-tasks/service", () => ({
   ProjectTasksService: jest.fn().mockImplementation(() => ({
     listByOrganization,
+    listByAssignedJobs,
     create,
     update,
     remove,
@@ -194,5 +196,28 @@ describe("guarded status route payload", () => {
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
       expect(update).not.toHaveBeenCalled();
     }
+  });
+});
+
+
+describe("projectTasksController.listByAssignedJobs", () => {
+  beforeEach(() => jest.clearAllMocks());
+  const request = (query = {}) => ({ orgId: "org-1", auth: { userId: "tech-1", orgId: "org-1", role: "technician", canonicalRole: "technician" }, query }) as unknown as Request;
+  it("derives assignment identity from authenticated context", async () => {
+    listByAssignedJobs.mockResolvedValue([]);
+    const res = { json: jest.fn() } as unknown as Response;
+    await projectTasksController.listByAssignedJobs(request({ limit: "20" }), res);
+    expect(listByAssignedJobs).toHaveBeenCalledWith({ orgId: "org-1", userId: "tech-1", limit: 20 });
+    expect(res.json).toHaveBeenCalledWith([]);
+  });
+  it("rejects client supplied identity and invalid limits before querying", async () => {
+    for (const query of [{ userId: "other" }, { orgId: "other" }, { limit: "51" }, { limit: "0" }]) {
+      await expect(projectTasksController.listByAssignedJobs(request(query), {} as Response)).rejects.toThrow();
+    }
+    expect(listByAssignedJobs).not.toHaveBeenCalled();
+  });
+  it("requires authenticated identity", async () => {
+    await expect(projectTasksController.listByAssignedJobs({ orgId: "org-1", query: {} } as unknown as Request, {} as Response)).rejects.toMatchObject({ statusCode: 401 });
+    expect(listByAssignedJobs).not.toHaveBeenCalled();
   });
 });

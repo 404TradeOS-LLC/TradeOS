@@ -923,6 +923,14 @@ export function listProjectTasks(token: string, projectId: string) {
   return apiFetch<ProjectTask[]>(`/api/v1/projects/${projectId}/tasks`, { token });
 }
 
+/** Open shared tasks from jobs actively assigned to the authenticated caller. */
+export function listAssignedJobTasks(token: string, input: { limit?: number } = {}) {
+  const params = input.limit ? `?limit=${input.limit}` : "";
+  return apiFetch<(OrganizationProjectTask & { jobId: string })[]>(`/api/v1/projects/assigned-job-tasks${params}`, { token }).then(tasks => tasks.map(task => ({
+    ...task, projectStatus: normalizeStatus(task.projectStatus, legacyProjectStatusMap, projectStatuses, "lead"),
+  })));
+}
+
 export function listOrganizationProjectTasks(
   token: string,
   input: {
@@ -1341,6 +1349,16 @@ export function listJobsForDispatch(token: string, params: DispatchJobListParams
 }
 
 export interface FieldJobDetail extends DispatchJob {
+  tasks?: Array<{
+    id: string;
+    title: string;
+    status: string;
+    priority: string;
+    dueDate: string | null;
+    assignedTo: string | null;
+    completedAt: string | null;
+    notes: string | null;
+  }>;
   description: string;
   jobType: string;
   arrivalWindowStart: string | null;

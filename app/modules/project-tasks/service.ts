@@ -1,6 +1,6 @@
 import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
-import { CreateProjectTaskInput, ListProjectTasksInput, ProjectTaskDTO, ProjectTaskListItemDTO, ProjectTaskStatus, UpdateProjectTaskInput } from "./types";
+import { CreateProjectTaskInput, ListAssignedJobTasksInput, ListProjectTasksInput, ProjectTaskDTO, ProjectTaskListItemDTO, ProjectTaskStatus, UpdateProjectTaskInput } from "./types";
 
 const TASK_PRIORITY_WEIGHT: Record<ProjectTaskListItemDTO["priority"], number> = {
   high: 0,
@@ -13,31 +13,50 @@ function toSortableDate(value: Date | null) {
   return value ? value.getTime() : Number.POSITIVE_INFINITY;
 }
 
+const sharedInclude = {
+  project: {
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      customer: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  },
+  job: {
+    select: {
+      title: true,
+    },
+  },
+} as const;
+
+
 export class ProjectTasksService {
   constructor(private readonly db: typeof prisma = prisma) {}
 
+  /** Shared job tasks, not personal task assignment inferred from a display name. */
+  async listByAssignedJobs(input: ListAssignedJobTasksInput): Promise<ProjectTaskListItemDTO[]> {
+    if (!input.orgId || !input.userId) throw new ApiError(401, "Authenticated task scope is required");
+    const rows = await this.db.projectTask.findMany({
+      where: {
+        project: { orgId: input.orgId }, status: { not: "completed" },
+        job: {
+          orgId: input.orgId, archivedAt: null, status: { notIn: ["completed", "cancelled"] },
+          assignments: { some: { orgId: input.orgId, userId: input.userId, removedAt: null, declinedAt: null } },
+        },
+      },
+      include: sharedInclude,
+      orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }, { id: "asc" }],
+      take: Math.max(1, Math.min(input.limit ?? 50, 50)),
+    });
+    return rows.map(toListItemDTO);
+  }
+
   async listByOrganization(input: ListProjectTasksInput): Promise<ProjectTaskListItemDTO[]> {
     const limit = input.limit ? Math.max(1, Math.min(input.limit, 50)) : DEFAULT_ORGANIZATION_TASK_LIMIT;
-    const sharedInclude = {
-      project: {
-        select: {
-          id: true,
-          name: true,
-          status: true,
-          customer: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      },
-      job: {
-        select: {
-          title: true,
-        },
-      },
-    } as const;
-
     const openRows = await this.db.projectTask.findMany({
       where: {
         project: { orgId: input.orgId },
