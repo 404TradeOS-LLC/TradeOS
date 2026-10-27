@@ -34,7 +34,7 @@ export const aiEstimateAssistController = {
           quantity: z.coerce.number().positive(),
           status: z.enum(["pending", "accepted", "rejected"]),
           description: z.string().optional(),
-          targetId: z.string().uuid().optional(),
+          targetId: z.guid().optional(),
           targetKind: z.enum(["assembly", "costItem"]).optional(),
         })
       ),
@@ -58,7 +58,7 @@ export const aiEstimateAssistController = {
     }).strict();
 
     const body = schema.parse(req.body);
-    const estimateId = z.string().uuid().parse(req.params.id);
+    const estimateId = z.guid().parse(req.params.id);
     res.json(
       await structuredEstimator.generateDraft({
         estimateId,
@@ -74,13 +74,13 @@ export const aiEstimateAssistController = {
     const auth = requireAuthContext(req);
     requirePermissions(req, ["billing.write"]);
     const schema = z.object({
-      generationId: z.string().uuid().optional(),
+      generationId: z.guid().optional(),
       lineItems: z.array(
         z.object({
           draftLineItemId: z.string().min(1).max(200),
           status: z.enum(["pending", "accepted", "rejected"]),
           reviewToken: z.string().min(1).max(2_000).optional(),
-          targetId: z.string().uuid().optional(),
+          targetId: z.guid().optional(),
           targetKind: z.enum(["assembly", "costItem"]).optional(),
           description: z.string().trim().max(500).optional(),
           quantity: z.coerce.number().finite().positive().max(1_000_000),
@@ -92,7 +92,7 @@ export const aiEstimateAssistController = {
     if (body.generationId) {
       requireRoles(req, ["owner", "admin"]);
     }
-    const estimateId = z.string().uuid().parse(req.params.id);
+    const estimateId = z.guid().parse(req.params.id);
     res.json(
       await structuredEstimator.applyReviewedDraft({
         estimateId,

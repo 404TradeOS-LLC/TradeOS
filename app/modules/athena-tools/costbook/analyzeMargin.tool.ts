@@ -30,9 +30,9 @@ import type { AthenaToolDefinition, AthenaWarning } from "../../athena-tool-sdk"
 // calling marginFromMarkup().
 
 export const costbookAnalyzeMarginInputSchema = z.object({
-  costItemId: z.string().uuid(),
+  costItemId: z.guid(),
   quantity: z.number().positive().default(1),
-  regionId: z.string().uuid().optional(),
+  regionId: z.guid().optional(),
   sellPricePerUnit: z.number().positive(),
 });
 export type CostbookAnalyzeMarginInput = z.infer<typeof costbookAnalyzeMarginInputSchema>;

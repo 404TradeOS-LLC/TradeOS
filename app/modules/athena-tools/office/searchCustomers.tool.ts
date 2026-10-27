@@ -15,7 +15,7 @@ const CUSTOMER_SEARCH_LIMIT = 25;
 export const customerSearchInputSchema = z
   .object({
     query: z.string().min(1).max(200).optional(),
-    customerId: z.string().uuid().optional(),
+    customerId: z.guid().optional(),
   })
   .refine((input) => Boolean(input.query?.trim() || input.customerId), {
     message: "At least one of query or customerId is required.",

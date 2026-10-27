@@ -71,7 +71,7 @@ const auditStore = createPrismaAthenaAuditStore();
 const securityEventQuerySchema = z
   .object({
     eventType: z.enum(athenaSecurityAuditEventTypes).optional(),
-    actorUserId: z.string().uuid().optional(),
+    actorUserId: z.guid().optional(),
     outcome: z.enum(["allowed", "denied", "attempted", "succeeded", "failed"]).optional(),
     from: z.string().datetime().optional(),
     to: z.string().datetime().optional(),
@@ -99,18 +99,18 @@ const athenaKernelStateSchema = z.enum([
 
 const traceSearchQuerySchema = z
   .object({
-    traceId: z.string().uuid().optional(),
-    requestId: z.string().uuid().optional(),
-    executionId: z.string().uuid().optional(),
+    traceId: z.guid().optional(),
+    requestId: z.guid().optional(),
+    executionId: z.guid().optional(),
     status: athenaKernelStateSchema.optional(),
     toolId: z.string().trim().max(200).optional(),
     model: z.string().trim().max(200).optional(),
     provider: z.string().trim().max(200).optional(),
-    actorUserId: z.string().uuid().optional(),
+    actorUserId: z.guid().optional(),
     from: z.string().datetime().optional(),
     to: z.string().datetime().optional(),
     limit: z.coerce.number().int().min(1).max(200).optional(),
-    cursor: z.string().uuid().optional(),
+    cursor: z.guid().optional(),
   })
   .superRefine(validateWindowBounds);
 
@@ -130,7 +130,7 @@ export const athenaObservabilityController = {
 
   async getTrace(req: Request, res: Response): Promise<void> {
     const { orgId } = requireObservabilityAccess(req);
-    const traceId = z.string().uuid().parse(req.params.traceId);
+    const traceId = z.guid().parse(req.params.traceId);
     const trace = await getTrace(orgId, traceId);
     if (!trace) {
       throw new ApiError(404, "Trace not found");
@@ -140,7 +140,7 @@ export const athenaObservabilityController = {
 
   async getTraceByRequest(req: Request, res: Response): Promise<void> {
     const { orgId } = requireObservabilityAccess(req);
-    const requestId = z.string().uuid().parse(req.params.requestId);
+    const requestId = z.guid().parse(req.params.requestId);
     const trace = await getTraceByRequest(orgId, requestId);
     if (!trace) {
       throw new ApiError(404, "Trace not found");

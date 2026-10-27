@@ -57,7 +57,7 @@ function resolveStatusCode(result: AthenaKernelResult): number {
 }
 
 const selectedScopeSchema = z.object({
-  customerId: z.string().uuid().optional(), projectId: z.string().uuid().optional(), jobId: z.string().uuid().optional(), estimateId: z.string().uuid().optional(), invoiceId: z.string().uuid().optional(), page: z.string().trim().max(200).optional(),
+  customerId: z.guid().optional(), projectId: z.guid().optional(), jobId: z.guid().optional(), estimateId: z.guid().optional(), invoiceId: z.guid().optional(), page: z.string().trim().max(200).optional(),
 }).optional();
 const voiceConfirmationSchema = z.object({
   toolId: z.string().trim().min(1).max(200), toolVersion: z.string().trim().min(1).max(100), inputHash: z.string().regex(/^[a-f0-9]{64}$/), confirmed: z.literal(true),
@@ -67,7 +67,7 @@ const interactionSchema = z.object({
 }).strict().optional();
 
 export const athenaChatRequestSchema = z.object({
-  message: z.string().trim().min(1).max(ATHENA_MAX_MESSAGE_LENGTH), conversationId: z.string().uuid().optional(), selectedScope: selectedScopeSchema, interaction: interactionSchema, idempotencyKey: z.string().trim().min(1).max(200).optional(),
+  message: z.string().trim().min(1).max(ATHENA_MAX_MESSAGE_LENGTH), conversationId: z.guid().optional(), selectedScope: selectedScopeSchema, interaction: interactionSchema, idempotencyKey: z.string().trim().min(1).max(200).optional(),
 });
 
 export const athenaController = {
