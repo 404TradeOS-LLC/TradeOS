@@ -217,7 +217,7 @@ export class ProjectTasksService {
         jobId: input.jobId !== undefined ? input.jobId : existing.jobId,
         title: input.title ?? existing.title,
         status: nextStatus,
-        assignedTo: input.assignedTo !== undefined ? input.assignedTo : input.assignedUserId !== undefined ? (input.assignedUserId ? assignee?.user?.fullName ?? assignee?.user?.email ?? input.assignedUserId : null) : existing.assignedTo,
+        assignedTo: input.assignedTo !== undefined ? input.assignedTo : input.assignedUserId !== undefined && input.assignedUserId !== existing.assignedUserId ? (input.assignedUserId ? assignee?.user?.fullName ?? assignee?.user?.email ?? input.assignedUserId : null) : existing.assignedTo,
         ...(input.assignedUserId !== undefined ? { assignedUserId: input.assignedUserId } : {}),
         dueDate: input.dueDate !== undefined ? input.dueDate : existing.dueDate,
         priority: input.priority ?? existing.priority,
