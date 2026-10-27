@@ -63,6 +63,77 @@ related_code:
 
 # TradeOS Current State
 
+## Openings and dishwasher catalog gap — source branch, 2026-10-18
+
+PR #774 on branch `feat/costbook-openings-appliance-gaps-20261018`
+is retargeted to main after parent PR #773 merged as `ef983efc` (and #771). Adds three distinct
+unpriced EA source recipes: flanged vinyl window for **new construction**
+(CSI 08 53 13, NAHB 4000), sectional steel garage door for qualified
+installation (CSI 08 36 13, NAHB 4000), and ready-connection built-in
+dishwasher (CSI 11 31 00, NAHB 5000). Manufacturer reference IDs
+SRC-0071–SRC-0073 resolve to JELD-WEN, Clopay and GE installation pages.
+
+All price, labor, product choice, construction, utility, and permitting
+conditions still require estimator validation. A combined 107 templates
+are proposed, not merged/installed/deployed or authenticated verified
+by this status entry. New research templates reuse costbook.write,
+tenant mapping, review and installed Estimate snapshot behavior.
+
+## Kitchen assembly gaps — merged PR #773 (2026-10-23)
+
+PR #773 on branch `feat/costbook-kitchen-assembly-gaps-20261018` extends
+merged PR #771's research catalog with two additional scoped, unpriced kitchen
+recipes: wall cabinet installation by EA, and straight-run prefabricated
+laminate countertop by LF. Both are NAHB finishing phase 5000 and CSI division
+12; source refs `SRC-0069` and `SRC-0070` are registered. The combined
+catalog has 104 candidate templates. The work preserves per-tenant installation
+and Estimate Engine snapshots, and expressly blocks EA-to-LF piece conversion.
+
+No new wall-cabinet or laminate unit price was inferred. Stone/quartz slab
+fabrication, sink/cooktop cutouts, kitchen fillers, backsplash and separate
+mechanical/electrical scope are not silently included. PR #773 merged as `ef983efc` after all four required checks passed on
+reviewed head `97709786`. Authenticated staging mapping/install evidence
+remains a separate certification gate; no deployment is certified.
+
+## Custom Item control ergonomics — implementation pending review
+
+The Estimate Builder's existing Custom Item form now scopes 44px text inputs
+to phone/tablet widths, keeps compact 32px text inputs at desktop widths, and
+uses 44px Add/select controls and a 44px Taxable label target. Field labels
+align at the top; the desktop Add action aligns with the text-input control
+row rather than the bottom of wrapping cost help. Shared primitives and
+other Estimate entry modes are unchanged.
+
+This implements the bounded control ergonomics from the canonical Figma
+Custom Item handoff (793:11017), not the entire illustrated shell. Request
+payloads, explicit blank-cost gating, validation, pending/failure retention,
+and success reset/refresh remain the existing contracts. Component-browser
+evidence uses production React Query, Input/Button/Label and generated
+Tailwind with controlled transport; it does not certify authentication,
+tenant isolation, server persistence, or deployed runtime behavior.
+
+
+## Estimate mapping keyboard repair — in progress, 2026-10-21
+
+Branch `fix/estimate-mapping-keyboard` continues the Figma mapping handoff from
+main `f5743412fa721279f6f00c9d41aa12ea72cbfb2a`. PR #781 is merged as
+`979198fc86edbababf57029e8d73b7ea08a26191`; its retry behavior is already on main.
+The existing starter-component picker still lacked combobox Arrow/Enter/Escape
+navigation. This bounded frontend repair keeps focus in the input, skips
+incompatible/already-mapped options, exposes the active descendant, scrolls the
+active result into view, and closes on Escape/Tab. Enter selects only an active,
+currently available result; pending/debouncing/failed searches cannot select stale
+rows. Pointer selection and explicit Install then Estimate Add remain separate.
+No backend, auth/RLS, pricing, snapshot or mutation contract changes.
+
+The isolated Playwright component suite passed all four cases using Chromium
+153, production React and mapping logic with synthetic query/Input fixtures at
+390/768/1024/1440. The same 390px case failed against the base implementation
+at its first ArrowDown active-descendant assertion. Its evidence does not
+certify the authenticated full application, persistence or tenant isolation.
+Branch implementation is not yet merged or deployed; Ready for Dev remains
+pending full canonical-screen and authenticated workflow evidence.
+
 ## Costbook researched assembly activation — PR #771 (proposed, 2026-10-18)
 
 PR #771 on branch `feat/costbook-88-assembly-activation-20261018`

@@ -13,13 +13,14 @@ Components and Supplies"), Family 31160000 ("Hardware").
 
 | Code | Commodity title | Corpus keys mapped | Notes |
 |---|---|---|---|
-| 31162006 | Wire nails | Common/sinker/collated framing, siding, cap nails | Collation is packaging, not a commodity |
+| 31162006 | Wire nails | Common/sinker/collated framing, siding nails | Collation is packaging, not a commodity |
+| 31162002 | Cap nails | FAST-NAIL-PLASTIC-CAP-1_1-4-3M | Dedicated commodity — see correction at A4 |
 | 31162003 | Finishing nails | Finish nails 15/16 ga | |
 | 31162005 | Roofing nails | Roofing coil nails | |
 | 31161508 | Wood screws | Deck, wood, cabinet, structural screws | Structural screws ambiguous (A3) |
 | 31161509 | Drywall screws | Drywall coarse/fine, cementboard screws | |
 | 31161506 | Sheet metal screws | HVAC zip screws | |
-| 31161502 | Anchor screws | Tapcon/concrete screws — ambiguous (A1) | |
+| 31162104 | Screw anchors | Tapcon/concrete screws (6 keys) | Resolved from A1 — see correction there |
 | 31162102 | Wedge anchors | Wedge anchors | |
 | 31162101 | Concrete anchors | Hammer-drive anchors | |
 | 31162103 | Wall anchors | Drywall toggle/zinc anchors | |
@@ -33,11 +34,15 @@ Components and Supplies"), Family 31160000 ("Hardware").
 
 ## 2. Ambiguities (recorded, not silently resolved)
 
-**A1 — Tapcon/concrete screws: 31161502 vs 31162101.**
-Tapcon-style masonry screws function as screw anchors. The codeset offers both
-"Anchor screws" (31161502) and "Concrete anchors" (31162101). Mapped to 31161502
-with `ambiguous` status; the alternative is recorded in the note. Human review
-for anchor-substitution decisions.
+**A1 — Tapcon/concrete screws: 31162104 "Screw anchors", mapped (correction).**
+CORRECTION (2026-10-18, HUMAN-CALLS M10#39): this section originally recorded a
+31161502 "Anchor screws" vs 31162101 "Concrete anchors" ambiguity, mapped to
+31161502 with `ambiguous` status. The codeset also carries 31162104 "Screw
+anchors" — the functionally precise commodity for Tapcon-style masonry screws,
+verified in UNSPSC Codeset v8.1201. All 6 keys (ANCHOR-CONCRETE-SCREW-HEX-*,
+ANCHOR-TAPCON-*, FAST-SCREW-CONC-TAPCON-*) now map to 31162104 (live map
+corrected in PR #767). Human review still applies for anchor-substitution
+decisions.
 
 **A2 — Hurricane ties: 31162306 vs 31162310 vs 31162502.**
 Simpson H2.5A-style ties are strap-formed but function as hangers/brackets. All
@@ -49,9 +54,14 @@ HeadLok/LedgerLok/TimberLok have no dedicated commodity. "Wood screws" is the
 closest verified fit, but cross-brand structural substitution is an engineering
 decision — `ambiguous` status forces review.
 
-**A4 — Siding/cap nails → 31162006.**
-No dedicated commodity; wire nails is the verified fit. Recorded so a future
-codeset revision can be re-checked deterministically.
+**A4 — Siding nails → 31162006; cap nails → 31162002 (correction).**
+CORRECTION (2026-10-18, HUMAN-CALLS M10#42): this section originally claimed no
+dedicated cap-nail commodity exists. That claim was false — 31162002 "Cap
+nails" is a verified commodity in UNSPSC Codeset v8.1201, and
+FAST-NAIL-PLASTIC-CAP-1_1-4-3M now maps to it (live map corrected in PR #764).
+FAST-NAIL-SIDING-ALUM-1_1-4-1LB stays at 31162006 "Wire nails": ordinary
+aluminum siding nails, not cap nails (Codex review, 2026-10-18). Only the
+plastic-cap key takes 31162002.
 
 **A5 — Hangers 31162306 vs angle brackets 31162502.**
 Hanger-form connectors map to hangers; angle/clip-form to angle brackets. The
@@ -64,8 +74,10 @@ required. All fields NULL/unmapped.
 
 ## 4. Coverage register
 
-- **Mapped:** 95 keys across 17 commodities.
-- **Ambiguous:** 14 keys (Tapcon screws, structural screws, hurricane ties).
+- **Mapped:** 101 keys across 18 commodities (95 across 17 at the 2026-10-08
+  pass; +6 Tapcon keys to 31162104 per the A1 correction; cap nails split out
+  to 31162002 per the A4 correction).
+- **Ambiguous:** 8 keys (structural screws, hurricane ties).
 - **Unmapped:** 0.
 - **Invented codes:** zero.
 - **New keys created:** zero (backfill only).

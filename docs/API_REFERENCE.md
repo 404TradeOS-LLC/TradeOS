@@ -14,6 +14,42 @@ related_code:
 
 # API Reference
 
+## Openings/appliance assembly API addendum (PR #774, pending)
+
+The unchanged `GET /api/v1/{costbook/}assemblies/starter-catalog`
+publishes three additional `research` templates in the dependent
+openings/appliance branch: `openings:window-vinyl-new-construction-flanged`,
+`openings:garage-door-section-steel` and
+`appliances:dishwasher-built-in-existing-ready`.
+After PR #774 lands on merged parent #773, the combined catalog contains **107** items
+with version `2026.09.1+research88+kitchen2+openings3`.
+
+Existing `POST .../starter-catalog/install` schema, authorization and
+same-tenant Cost Item resolution remain unchanged. Each new recipe's
+components are denominated EA and reject SF, LF or alternate package
+units as unreviewed conversions. Source-ID registry validation is
+fail-closed before a mutation and the installer does not generate a
+material price, create new circuits/piping or certify a selected model.
+Installed assembly descriptions retain registered provenance IDs
+SRC-0071–SRC-0073. See `docs/modules/cost-book.md` for exclusions.
+
+## Kitchen addendum to assembly catalog (PR #773)
+
+The same authenticated `GET /api/v1/{costbook/}assemblies/starter-catalog`
+response contains two additional `research` templates shipped in PR #773
+(merge `ef983efc`) after parent PR #771: `kitchen:wall-cabinet-prefab` and
+`kitchen:laminate-countertop-straight`. The resulting catalog contains 104
+templates (14 original, 88 researched, 2 kitchen); `catalogVersion` is
+`2026.09.1+research88+kitchen2`.
+
+The unchanged `POST .../starter-catalog/install` accepts those IDs with
+all-component tenant-owned `componentMappings` and `costbook.write`.
+The wall cabinet requires EA Cost Items; the straight-run countertop requires
+LF Cost Items. No automatic piece-to-foot conversion is done. Missing source
+registry entries block installation via HTTP 422; supplier quote, scope and
+local productivity review remain human responsibilities. Source IDs
+`SRC-0069` and `SRC-0070` are in the research registry.
+
 ## Expanded assembly catalog contract (PR #771 — proposed, 2026-10-18)
 
 `GET /api/v1/costbook/assemblies/starter-catalog` and the compatible

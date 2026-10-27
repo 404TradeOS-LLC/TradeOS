@@ -408,3 +408,17 @@ Issue #735 owns the full catalog requirement. PR #736 merged a sandbox-only, dis
 Do not start any durable ABC Get All Items import or seven-day delta storage until ABC explicitly authorizes the intended retention and searchable display model. Keep issue #735 open until full persistence/sync (where permitted), browser evidence, customer-authenticated pricing, Material review, and Estimate handoff are actually verified.
 
 Staging Prisma migration execution is wired through `.github/workflows/deploy-staging-migrations.yml` on branch `ops/staging-prisma-migrations-20261018` (PR pending). It is manual-only, checks the exact TradeOS Staging Supabase host and invoice migration precondition, uses the existing Prisma deployment script, and verifies the resulting ledger. Before dispatch, configure the dedicated `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` secrets in GitHub Environment `staging`. No database migration has been run by this workflow setup.
+
+
+## Isolated frontend component browser verification
+
+The existing Verify repository Web unit-test job also installs the pinned
+root Playwright runner and Chromium, then runs `playwright.components.config.ts`.
+This suite uses synthetic transport and no credentials, backend, or database.
+It checks mapping keyboard behavior and Custom Item responsive controls,
+keyboard order and recovery through production components. Synthetic failure
+screenshots/test diagnostics are retained for seven days. Browser failures
+fail the existing Web test gate; no new permission or protected-check bypass
+is introduced. These results do not certify authenticated application workflows.
+
+Web scope includes component tests/configuration, root runner manifests and the verification workflow itself, so harness-only edits cannot skip this gate. A real temporary-Git regression test covers those paths and unrelated App/docs changes.

@@ -68,7 +68,7 @@ export class AssembliesDatabaseService {
   }
 
   listStarterCatalog() {
-    return { catalogVersion: `${ASSEMBLY_CATALOG_VERSION}+research88`, coverage: EXPANDED_ASSEMBLY_CATALOG_COVERAGE, items: EXPANDED_ASSEMBLY_CATALOG };
+    return { catalogVersion: `${ASSEMBLY_CATALOG_VERSION}+research88+kitchen2+openings3`, coverage: EXPANDED_ASSEMBLY_CATALOG_COVERAGE, items: EXPANDED_ASSEMBLY_CATALOG };
   }
 
   async installStarterCatalogAssembly(input: InstallCatalogAssemblyInput): Promise<AssemblyDTO> {

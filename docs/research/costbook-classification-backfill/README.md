@@ -28,11 +28,13 @@ For each CSV row whose key is not already in the map:
 - `mapped` → `{ unspsc, unspscTitle, status: "mapped", provenance, note }`
 - `ambiguous` → `{ status: "ambiguous", provenance, note }` (code fields empty)
 
-Ambiguities (bagged concrete mix, grout, pavers, housewrap/WRB, tapes,
-baffles, sill seal, vapor barrier, Tapcon screws, proprietary structural
+Ambiguities (bagged concrete mix, pavers, housewrap/WRB, tapes,
+baffles, sill seal, vapor barrier, proprietary structural
 screws, hurricane ties, 2x8+ generic-vs-joist, LSL rim board, LVL/glulam/PSL
 substitution, custom trusses) are recorded in the map notes and the reports —
-never silently merged.
+never silently merged. (Grout and Tapcon screws were removed from this list by
+the 2026-10-18 corrections: grout maps to UNSPSC 30111606 and Tapcon-style
+screws to 31162104 — see the family reports.)
 
 ## Full packages
 
