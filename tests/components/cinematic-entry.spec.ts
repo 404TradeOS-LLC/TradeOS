@@ -203,6 +203,19 @@ test("first and returning intro complete on schedule and support keyboard skip",
   // Capture the actual rendered duration at insertion: a slow CI reload can
   // outlive the short returning intro before a locator assertion starts.
   await page.addInitScript(() => {
+    // Keep the returning intro open until Escape is exercised. Without this
+    // guard, a slow reload can let the real 2.5-second timeout dismiss it first.
+    // The 2.5-second CSS animation still renders and is checked below.
+    const realSetTimeout = window.setTimeout;
+    window.setTimeout = ((
+      handler: TimerHandler,
+      duration?: number,
+      ...args: unknown[]
+    ) => Reflect.apply(
+      realSetTimeout,
+      window,
+      [handler, duration === 2500 ? 60_000 : duration, ...args],
+    )) as typeof window.setTimeout;
     const capture = () => {
       const node = document.querySelector('[role="dialog"][aria-label="TradeOS introduction"]');
       if (node) {
@@ -216,6 +229,9 @@ test("first and returning intro complete on schedule and support keyboard skip",
   await expect.poll(() => page.evaluate(() =>
     (window as Window & { __returningIntroDuration?: string }).__returningIntroDuration
   )).toBe("2.5s");
+  // This must be visible immediately before Escape: otherwise the timer, not
+  // the keyboard handler, might have completed the intro.
+  await expect(intro).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(intro).toBeHidden();
   await expect(
