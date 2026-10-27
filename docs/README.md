@@ -396,6 +396,10 @@ The protected `.github/workflows/backfill-abc-materials.yml` operator workflow n
 The staging database uses its own manually dispatched Prisma migration workflow at `.github/workflows/deploy-staging-migrations.yml`. It runs only from `main`, targets the verified TradeOS Staging project ref, and calls the repository's `app/scripts/deploy-migrations.sh` so Prisma history and restricted-role grants stay aligned. Configure `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` as secrets in the GitHub `staging` Environment; never reuse Production secrets. The workflow verifies the database host, invoice backfill precondition, and final Prisma ledger.
 
 
+## Staging Preview isolation attestation
+
+For the existing TradeOS API/web Vercel projects, use `.github/workflows/attest-staging-preview.yml` after approved merge to check branch-scoped `staging` Preview bindings. This workflow is manually dispatched from `main`, requires GitHub Environment `staging` approval, and reads values only inside Vercel's `env run` subprocess. It prints field names on failure, never credentials, and does not deploy or change settings. See `docs/QA_PREVIEW_DEPLOYMENT_CHECKLIST.md` for the remaining database-migration, privileged-key, exact-SHA and authenticated acceptance requirements.
+
 ## Isolated frontend component browser verification
 
 The existing Verify repository Web unit-test job also installs the pinned
