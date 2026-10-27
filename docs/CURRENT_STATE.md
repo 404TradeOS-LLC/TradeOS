@@ -63,6 +63,11 @@ related_code:
 
 # TradeOS Current State
 
+## API validation security prerequisite — 2026-10-27
+
+Existing PR #795 is extended to repair the dependency audit blocking Today 2.0 PR #798. The isolated runtime branch retains dotenv/Vercel patch updates, adds patched Zod 4.6.7 including Vercel's transitive validator, and includes body-parser 1.20.9 from #799. The previous identifier syntax contract is preserved using `z.guid()`; record and enum pipeline compatibility repairs do not alter JWT/membership, permissions, RLS, financial or supplier policy. No production change or merge is claimed. Full verification and PR-only major-upgrade review remain required; the independent moderate ip-address patch is tracked by #786. See [runtime upgrade evidence](architecture/API_VALIDATION_RUNTIME_UPGRADE.md).
+
+
 ## Openings and dishwasher catalog gap — source branch, 2026-10-18
 
 PR #774 on branch `feat/costbook-openings-appliance-gaps-20261018`
@@ -1385,3 +1390,22 @@ Following merge of #737 and independently merged #738 (on-demand Get Item), bran
 On branch `feat/abc-branch-order-availability-735`, TradeOS adds a sandbox-only, provider-backed Get Item Availability read and a contextual product detail link. The ABC response lists branches at which an item can be ordered and its provider-listed dimensional lengths. It does **not** represent on-hand inventory stock, specific customer's Ship-To approval, a Price Items quote, verified material price, or persistent catalog synchronization. The same catalog feature flag, `costbook.read` permission, global rate limiter, and server `product.read` token govern the read; no supplier responses are cached or written to the database.
 
 Until exact-head CI, real ABC sandbox integration and authenticated hosted UI evidence run, this is unproven against genuine provider availability. ABC data-copy rights and user-present customer-specific pricing remain external blockers. Issue #735 stays open.
+
+
+## Costbook picker control ergonomics — 2026-10-23
+
+The existing embedded Costbook/assembly catalog picker now uses 44px search,
+Section and Quantity inputs below 1024px (32px text inputs at larger widths),
+plus 44px Add, Clear, native cost-type Select and Taxable label targets. Shared
+primitives and their defaults are unchanged. Search, preview gates, mapping,
+mutation payloads, explicit Estimate Add, retained errors and reset behavior
+remain the existing source contract.
+
+The isolated `tests/components/catalog-item-controls.spec.ts` mounts the actual
+production picker, React Query, Base UI components and Tailwind at four widths.
+It exercises focus/keyboard selection, failed stored-cost preview, Clear with
+retained non-default values, quantity validation, non-default Add payload,
+pending/failure/retry and confirmed-success reset using synthetic transport.
+This harness does not prove authenticated persistence, tenant isolation, live
+supplier pricing, or full illustrated-shell parity. Current-head test results
+are recorded in the PR and Figma handoff, not inferred from source assertions.

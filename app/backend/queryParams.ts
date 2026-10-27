@@ -1,4 +1,4 @@
-import { z, ZodTypeAny } from "zod";
+import { z } from "zod";
 
 /**
  * Parses a comma-separated query string into an array validated against
@@ -7,7 +7,7 @@ import { z, ZodTypeAny } from "zod";
  * `intelligence.controller.ts`, shared here since the organization
  * work-queue endpoints repeat it across three resources.
  */
-export function commaSeparatedEnum<T extends ZodTypeAny>(itemSchema: T) {
+export function commaSeparatedEnum<T extends z.ZodType<string, string>>(itemSchema: T) {
   return z
     .string()
     .optional()

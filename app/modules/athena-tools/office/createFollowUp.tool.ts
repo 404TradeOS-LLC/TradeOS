@@ -34,7 +34,7 @@ function isValidDateOnly(value: string): boolean {
 }
 
 export const followUpCreateInputSchema = z.object({
-  projectId: z.string().uuid(),
+  projectId: z.guid(),
   title: z.string().min(1).max(200),
   dueDate: z.string().min(1).refine(isValidDateOnly, { message: "dueDate must be a valid YYYY-MM-DD calendar date." }).optional(),
   priority: z.enum(projectTaskPriorities).optional(),

@@ -14,7 +14,7 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk";
 // ever called here.
 
 export const weatherImpactInputSchema = z.object({
-  jobId: z.string().uuid().optional(),
+  jobId: z.guid().optional(),
 });
 export type WeatherImpactInput = z.infer<typeof weatherImpactInputSchema>;
 

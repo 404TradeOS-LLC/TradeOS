@@ -11,7 +11,7 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk/types";
 // event is emitted because this is not a finalize/send transition.
 
 export const estimateUpdateInputSchema = z.object({
-  estimateId: z.string().uuid(),
+  estimateId: z.guid(),
   lineItem: z.object({
     costItemId: z.string().optional(),
     assemblyId: z.string().optional(),

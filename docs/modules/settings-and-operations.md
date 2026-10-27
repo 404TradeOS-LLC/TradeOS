@@ -404,3 +404,7 @@ The supplier hierarchy view is an opt-in sandbox Product API read under `ABC_SUP
 ### ABC provider-listed branch ordering eligibility — no inventory or quote (#735)
 
 The new read-only sandbox Product API Item Availability endpoint is accessible only through authenticated Costbook detail pages and shares the existing global `abc-catalog` rate limit. Optional exact-branch filters require a numeric branch number; supplier data is not saved. Display must distinguish provider-listed branches and lengths from **physical stock quantities**, tenant-authorized Ship-To branches, and reviewed Price Items data. It does not use customer OAuth or the pricing refresh token. Live verification and full-catalog rights are separately tracked in issue #735.
+
+## Supplier and operations validation runtime
+
+Supplier feed endpoint maps, scheduled organization IDs and internal operation inputs now use patched Zod 4. Existing UUID-shaped identifiers remain accepted with `z.guid()` and malformed IDs remain rejected. Provider host trust, OAuth token handling, supplier activation/review authority, job actors and tenant isolation are unchanged; this migration introduces no production integration or configuration change. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.

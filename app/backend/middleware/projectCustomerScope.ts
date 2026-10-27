@@ -4,7 +4,7 @@ import { prisma } from "../../db/client";
 import { ApiError } from "./errorHandler";
 import { requireOrgId, requirePermissions } from "../requestContext";
 
-const relationIdSchema = z.string().uuid();
+const relationIdSchema = z.guid();
 
 /**
  * Prevents project create/update requests from linking a project to customer or

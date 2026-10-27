@@ -14,6 +14,38 @@ related_docs:
 
 # Session Handoff
 
+## Today 2.0 dependency audit continuation — 2026-10-27
+
+- `EXISTING_WORK_FOUND`, Sprint ID NONE. Preserve Today PR #798 at `d431ac5`; its final 26 Chromium cases passed in hosted run 40430809189, alongside 525 Web, 2873 API and 174 real PostgreSQL tests. Its backend build/audit fails on existing vulnerable dependencies.
+- Extend existing runtime PR #795 in `/workspace/scratch/4360a72ccbf4/TradeOS-api-runtime-security`; reconcile main `93d1fff`. Preserve #799's exact body-parser patch and close it as superseded only after the consolidated repair merges. Leave independent moderate ip-address work to #786.
+- Patch Zod directly and transitively to 4.6.7, preserve legacy identifier syntax with GUID validators, migrate one-argument records and typed enum pipelines. No role, tenant, RLS, schema, financial or production environment change. Major-upgrade review remains governed by AGENTS.md; no independent approval is claimed.
+- Local focused 72/72 and high-severity audit pass; full exact-head source and hosted PostgreSQL evidence must be recorded in the runtime upgrade document/PR.
+- Next five: finish full compatibility checks; publish/review #795 on the existing branch; clear dependency audit through normal required gates; reconcile/retest #798 on the landed security baseline; resume authenticated/field/domain/Athena acceptance without retrying the declined sign-in automatically.
+
+
+## Costbook picker ergonomics and browser recovery — 2026-10-23
+
+- Sprint ID: NONE; founder-authorized Figma-to-code continuation.
+  `NEW_WORK_REQUIRED`: main `e17a166d` includes #773/#774/#785, but only
+  Custom Item sizing shipped in #785. The open queue and remote branches do
+  not implement catalog-picker target sizing. The historical Figma branch
+  was absent; use `feat/figma-to-code-completion` from current main.
+- Scope: catalog Search/Section/Quantity 44px below 1024, 32px above; Add,
+  Clear, Select and Taxable targets 44px. No payload, pricing, auth/RLS,
+  defaults, query, mapping or persistence behavior changes.
+- Added four actual-production-component cases with synthetic transport.
+  Local Chromium 153 was recovered from an npm-packaged binary after the
+  Playwright CDN returned invalid archives. All twelve component cases pass
+  across 390/768/1024/1440; Web 507/507, lint, TypeScript and build pass.
+  Local browser evidence does not replace required hosted current-head CI.
+- Staging runtime certification remains separate: the latest inspected READY
+  web/API pair was different older SHAs. No new real-login, tenant-isolation,
+  Add persistence or reload claim. Fixture credentials remain in governed
+  workflow secrets; no secret is exposed or browser auth bypass introduced.
+- Next five: publish this scoped PR; verify twelve hosted browser cases;
+  reconcile starter recipe selection in Figma; align staging through the
+  existing governed process; execute real-login tenant/Add/reload evidence.
+
 ## Openings/appliance retarget and validation — PR #774 (2026-10-23)
 
 - `EXISTING_WORK_FOUND`, Sprint ID: NONE. Existing branch

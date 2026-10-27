@@ -13,7 +13,7 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk/types";
 // exposes fields needed to execute the assigned job.
 
 export const jobContextInputSchema = z.object({
-  jobId: z.string().uuid(),
+  jobId: z.guid(),
 });
 export type JobContextInput = z.infer<typeof jobContextInputSchema>;
 

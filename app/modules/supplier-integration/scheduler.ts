@@ -5,9 +5,9 @@ import { SupplierPriceSyncJobOutcome, SupplierPriceSyncJobSpec } from "./types";
 import { executeBackgroundAttempt } from "../background/retry";
 
 const jobSpecSchema = z.object({
-  orgId: z.string().uuid(),
-  userId: z.string().uuid(),
-  supplierId: z.string().uuid(),
+  orgId: z.guid(),
+  userId: z.guid(),
+  supplierId: z.guid(),
   label: z.string().min(1).optional(),
 });
 

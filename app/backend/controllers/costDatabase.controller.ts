@@ -7,15 +7,15 @@ import { catalogBooleanQuery, catalogQuerySchema, parseCatalogQuery } from "../.
 const service = new CostDatabaseService();
 
 const createCostItemSchema = z.object({
-  subcategoryId: z.string().uuid(),
+  subcategoryId: z.guid(),
   code: z.string().trim().min(1).max(80),
   name: z.string().trim().min(1).max(200),
   unitOfMeasure: z.string().trim().min(1).max(40),
   productionRate: z.number().finite().positive().max(99_999_999.9999).optional(),
-  laborRateId: z.string().uuid().optional(),
-  materialId: z.string().uuid().optional(),
-  equipmentId: z.string().uuid().optional(),
-  subcontractorId: z.string().uuid().optional(),
+  laborRateId: z.guid().optional(),
+  materialId: z.guid().optional(),
+  equipmentId: z.guid().optional(),
+  subcontractorId: z.guid().optional(),
   notes: z.string().trim().max(2000).optional(),
 }).strict();
 
@@ -24,10 +24,10 @@ const updateCostItemSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   unitOfMeasure: z.string().trim().min(1).max(40).optional(),
   productionRate: z.number().finite().positive().max(99_999_999.9999).nullable().optional(),
-  laborRateId: z.string().uuid().nullable().optional(),
-  materialId: z.string().uuid().nullable().optional(),
-  equipmentId: z.string().uuid().nullable().optional(),
-  subcontractorId: z.string().uuid().nullable().optional(),
+  laborRateId: z.guid().nullable().optional(),
+  materialId: z.guid().nullable().optional(),
+  equipmentId: z.guid().nullable().optional(),
+  subcontractorId: z.guid().nullable().optional(),
   notes: z.string().trim().max(2000).optional(),
   isActive: z.boolean().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, {
@@ -36,7 +36,7 @@ const updateCostItemSchema = z.object({
 
 const listQuerySchema = catalogQuerySchema.extend({
   active: catalogBooleanQuery.optional(),
-  subcategoryId: z.string().uuid().optional(),
+  subcategoryId: z.guid().optional(),
   componentType: z.enum(["labor", "material", "equipment", "subcontractor", "none"]).optional(),
 }).strict();
 
@@ -70,14 +70,14 @@ export const costDatabaseController = {
 
   async createCategory(req: Request, res: Response) {
     requirePermissions(req, ["costbook.write"]);
-    const schema = z.object({ divisionId: z.string().uuid(), code: z.string(), name: z.string(), sortOrder: z.number().optional() });
+    const schema = z.object({ divisionId: z.guid(), code: z.string(), name: z.string(), sortOrder: z.number().optional() });
     const category = await service.createCategory(schema.parse(req.body));
     res.status(201).json(category);
   },
 
   async createSubcategory(req: Request, res: Response) {
     requirePermissions(req, ["costbook.write"]);
-    const schema = z.object({ categoryId: z.string().uuid(), code: z.string(), name: z.string(), sortOrder: z.number().optional() });
+    const schema = z.object({ categoryId: z.guid(), code: z.string(), name: z.string(), sortOrder: z.number().optional() });
     const subcategory = await service.createSubcategory(schema.parse(req.body));
     res.status(201).json(subcategory);
   },
@@ -97,7 +97,7 @@ export const costDatabaseController = {
 
   async getById(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
-    const item = await service.getById(z.string().uuid().parse(req.params.id), requireOrgId(req));
+    const item = await service.getById(z.guid().parse(req.params.id), requireOrgId(req));
     res.json(item);
   },
 
@@ -111,21 +111,21 @@ export const costDatabaseController = {
     requirePermissions(req, ["costbook.write"]);
     const input = updateCostItemSchema.parse(req.body);
     if (input.isActive !== undefined) requirePermissions(req, ["costbook.manage"]);
-    const item = await service.update(z.string().uuid().parse(req.params.id), input, requireOrgId(req));
+    const item = await service.update(z.guid().parse(req.params.id), input, requireOrgId(req));
     res.json(item);
   },
 
   async remove(req: Request, res: Response) {
     requirePermissions(req, ["costbook.manage"]);
-    await service.delete(z.string().uuid().parse(req.params.id), requireOrgId(req));
+    await service.delete(z.guid().parse(req.params.id), requireOrgId(req));
     res.status(204).send();
   },
 
   async getUnitCost(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
     const quantity = parsePositiveNumber(req.query.quantity, 1);
-    const regionId = req.query.regionId === undefined ? undefined : z.string().uuid().parse(req.query.regionId);
-    const breakdown = await service.getUnitCost(z.string().uuid().parse(req.params.id), quantity, regionId, requireOrgId(req));
+    const regionId = req.query.regionId === undefined ? undefined : z.guid().parse(req.query.regionId);
+    const breakdown = await service.getUnitCost(z.guid().parse(req.params.id), quantity, regionId, requireOrgId(req));
     res.json(breakdown);
   },
 
