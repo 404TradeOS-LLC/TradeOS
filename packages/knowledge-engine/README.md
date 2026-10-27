@@ -118,6 +118,14 @@ exist under the same candidate root).
 
 ## 4. Vendored / community content
 
+Dependency maintenance (PR #782): the Loki generated todo frontend lockfile now
+resolves Vite 8.3.4 within its existing `^8.2.0` manifest range, together with
+the corresponding Rolldown/OXC dependencies. This is standalone vendored sample
+tooling, not a TradeOS application runtime or a change to corpus provenance or
+redistribution rights. Validate this sample with `npm ci` and `npm run build`
+inside `agent-skills/skills/loki-mode/examples/todo-app-generated/frontend/`;
+the TradeOS API verification lane does not build the sample.
+
 `agent-skills/skills/` (roughly 1,400 of this package's directories) is **not TradeOS-authored
 knowledge content**. It is the output of running `npx antigravity-awesome-skills` — a third-party
 AI-agent skills marketplace installer — evidenced directly by the committed npm logs at
