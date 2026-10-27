@@ -42,6 +42,8 @@ export interface ProjectTaskDTO {
   updatedAt: string;
 }
 
+export interface ListAssignedJobTasksInput { orgId: string; userId: string; limit?: number }
+
 export interface ListProjectTasksInput {
   orgId: string;
   limit?: number;

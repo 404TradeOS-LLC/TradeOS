@@ -243,6 +243,22 @@ export default async function FieldPage({
                   </p>
                 </section>
 
+                <section className="rounded-xl border border-border/70 bg-background/70 p-3" aria-labelledby="shared-job-tasks-heading">
+                  <h3 id="shared-job-tasks-heading" className="text-sm font-semibold">Shared job tasks</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">Tasks attached to this job. The office manages task updates; report progress or blockers in Job notes.</p>
+                  {selectedJob.tasks ? selectedJob.tasks.length ? (
+                    <ul className="mt-3 grid gap-3">
+                      {selectedJob.tasks.map((task) => (
+                        <li key={task.id} className="rounded-lg border border-border/60 p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2"><p className="min-w-0 break-words text-sm font-medium">{task.title}</p><StatusBadge status={task.status} /></div>
+                          <p className="mt-1 text-xs text-muted-foreground">{task.assignedTo || "No responsible party recorded"}{task.dueDate ? ` · Due ${new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(task.dueDate))}` : " · No due date"}</p>
+                          {task.notes ? <p className="mt-2 whitespace-pre-wrap break-words text-sm text-muted-foreground">{task.notes}</p> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : <p className="mt-3 text-sm text-muted-foreground">No tasks attached to this job.</p> : <p className="mt-3 text-sm text-muted-foreground">Task details are unavailable. Other job details remain usable.</p>}
+                </section>
+
                 {selectedJob.equipment.length > 0 ? (
                   <details className="rounded-xl border border-border/70 bg-background/70">
                     <summary className="cursor-pointer list-none px-3 py-3 text-sm font-medium">

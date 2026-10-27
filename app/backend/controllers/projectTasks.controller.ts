@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { requireOrgId, requirePermissions } from "../requestContext";
+import { requireAuthContext, requireOrgId, requirePermissions } from "../requestContext";
 import { ApiError } from "../middleware/errorHandler";
 import { prisma } from "../../db/client";
 import { runInDatabaseTransaction } from "../../db/requestSession";
@@ -39,6 +39,12 @@ const updateSchema = z.object({
 });
 
 export const projectTasksController = {
+  async listByAssignedJobs(req: Request, res: Response) {
+    const auth = requireAuthContext(req);
+    const query = z.object({ limit: z.coerce.number().int().min(1).max(50).optional() }).strict().parse(req.query);
+    res.json(await service.listByAssignedJobs({ orgId: requireOrgId(req), userId: auth.userId, limit: query.limit }));
+  },
+
   async listByOrganization(req: Request, res: Response) {
     requirePermissions(req, ["crm.read"]);
     const query = listQuerySchema.parse(req.query);

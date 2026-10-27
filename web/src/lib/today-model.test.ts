@@ -63,7 +63,7 @@ function createLoader(role = "owner", overrides: Record<string, (...args: unknow
     getDispatchSummary: async () => summary,
     getAthenaCapabilities: async () => ({ kernelEnabled: true }),
     listJobsForDispatch: async () => ({ items: [{ id: "job-a", title: "Paint cabinets", jobNumber: "J1", status: "scheduled", archivedAt: null, scheduledStart: "2026-10-26T12:00:00Z", scheduledEnd: "2026-10-26T16:00:00Z", project: { id: "project-a", name: "Kitchen" }, customer: null, assignedTechnicians: [{ userId: "user-a", name: "Billy" }], isOverdue: false }], total: 1 }),
-    listOrganizationProjectTasks: async () => [], listProposalQueue: async () => ({ items: [], total: 0, nextCursor: null }),
+    listAssignedJobTasks: async () => [], listOrganizationProjectTasks: async () => [], listProposalQueue: async () => ({ items: [], total: 0, nextCursor: null }),
     listEstimateQueue: async () => ({ items: [], total: 0, nextCursor: null }), listInvoiceQueue: async () => ({ items: [], total: 0, nextCursor: null }),
     listAthenaApprovals: async () => [], getScheduleConflicts: async () => ({ conflicts: [] }),
   };
@@ -102,8 +102,9 @@ test("actual field loader skips commercial, organization-task, approval and mana
   const fixture = createLoader("technician"); const data = await fixture.run(); assert.ok(data);
   assert.equal(data.viewer.presentation, "field"); assert.equal(data.work[0].href, "/field?job=job-a");
   for (const method of ["listOrganizationProjectTasks", "listProposalQueue", "listEstimateQueue", "listInvoiceQueue", "listAthenaApprovals", "getScheduleConflicts"]) assert.equal(fixture.calls.some((call) => call.method === method), false, method);
-  assert.equal(data.stats.find((stat) => stat.id === "tasks-due")?.value, null);
-  assert.ok(data.sources.some((source) => source.id === "tasks" && source.state === "restricted"));
+  assert.equal(data.stats.find((stat) => stat.id === "tasks-due")?.value, 0);
+  assert.ok(data.sources.some((source) => source.id === "tasks" && source.state === "ready"));
+  assert.ok(data.sources.some((source) => source.id === "task-writes" && source.state === "restricted"));
 });
 
 test("actual loader rejects missing identity and unsupported roles before operational queue reads", async () => {
@@ -280,4 +281,34 @@ test("task mutation targets come from the source record and completed refreshes 
   assert.equal(after.work.some(item => item.id === `task-${task.id}`), false);
   assert.equal(after.stats.find(item => item.id === "tasks-due")?.value, 0);
   assert.equal(after.stats.find(item => item.id === "attention")?.value, 0);
+});
+
+
+test("field tasks use active job scope, stored due day and read-only source navigation", async () => {
+  const task = { id: "shared-task", jobId: "job-a", projectId: "project-a", projectName: "Kitchen", jobTitle: "Paint cabinets", title: "Collect materials", status: "blocked", priority: "high", assignedTo: "Another crew member", dueDate: "2026-10-26T00:00:00Z", updatedAt: FIXTURE_NOW };
+  const fixture = createLoader("technician", { listAssignedJobTasks: async () => [task, { ...task, id: "ordinary", status: "todo", dueDate: null }] });
+  const data = await fixture.run(); assert.ok(data);
+  assert.equal(data.stats.find((stat) => stat.id === "tasks-due")?.value, 1);
+  const work = data.work.filter((row) => row.kind === "task"); assert.equal(work.length, 2);
+  assert.ok(work.every((row) => row.href === "/field?job=job-a" && !row.task));
+  const item = data.attention.find((row) => row.id === "task-shared-task"); assert.ok(item);
+  assert.equal(item.source, "Job tasks"); assert.equal(item.task, undefined);
+  assert.equal(item.action, "Open assigned job");
+  assert.equal(data.attention.some((row) => row.id === "task-ordinary"), false);
+  assert.equal(fixture.calls.filter((call) => call.method === "listAssignedJobTasks").length, 1);
+});
+
+test("field task failure preserves jobs and marks task counts unknown", async () => {
+  for (const load of [async () => { throw new Error("network unavailable"); }, async () => [{ id: "missing-job", status: "todo" }]]) {
+    const data = await createLoader("technician", { listAssignedJobTasks: load }).run(); assert.ok(data);
+    assert.ok(data.work.some((row) => row.kind === "job"));
+    assert.equal(data.stats.find((stat) => stat.id === "tasks-due")?.value, null);
+    assert.ok(data.sources.some((source) => source.id === "tasks" && source.state === "unavailable"));
+  }
+});
+
+test("capped field task results do not claim an exact total", async () => {
+  const data = await createLoader("technician", { listAssignedJobTasks: async () => Array.from({ length: 50 }, (_, i) => ({ id: String(i), jobId: "job-a", title: "Shared task", projectName: "Kitchen", status: "todo", dueDate: "2026-10-26T00:00:00Z" })) }).run(); assert.ok(data);
+  assert.equal(data.stats.find((stat) => stat.id === "tasks-due")?.value, null);
+  assert.ok(data.sources.some((source) => source.id === "tasks-coverage" && source.state === "partial"));
 });

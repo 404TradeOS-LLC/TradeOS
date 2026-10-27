@@ -173,3 +173,27 @@ Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit.
 Dependencies: S051 — DONE through merged PR #538.
 Overlap check: Recheck live PRs/branches before starting; this non-numbered repair does not advance S073 or authorize a second active sprint.
 Startup prompt: Execute S073 from current main using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md` after canonical startup/reconciliation; stop on protected policy gaps.
+
+## Active continuation — shared assigned-job tasks (2026-10-27)
+
+Branch `feat/field-assigned-job-tasks` is isolated from active Today PR #798
+(head `23a9cd1d2ba85378b9b1838cb2ca8ed76a7a9fc8`). Reconciliation classification:
+`NEW_WORK_REQUIRED`: PR #702 covers denial tests/capture proposals, not this
+read-only task aggregation; #798 did not provide field task reads. Scope is
+project-task service/controller/routes, API client/Today/Field UI, regression
+tests and owning docs. Schema, RLS, commercial mutations and personal field-task
+write grants are excluded.
+
+The shared-job task projection and field source display are implemented. Local
+API/controller tests: 14 passed; web tests: 528 passed; API type check passed.
+Local live integration is blocked because `docker` is not installed. Added
+real PostgreSQL assignment/tenant/removed/declined coverage must pass hosted CI.
+Browser fixture records are explicitly synthetic. Authenticated deployed testing
+remains unverified; do not retry the previously declined browser sign-in.
+
+Complete local checks on this continuation: 2,884 API tests across 317 suites,
+528 web tests, API type/build, web lint/build, 159 governance tests, docs
+ownership/preflight and whitespace passed. Local Chromium could not launch
+because its executable was absent; installation returned a truncated ZIP.
+Hosted CI must verify the 31 component cases (including shared field task
+context at 390px) and the new live PostgreSQL test. These are not local passes.

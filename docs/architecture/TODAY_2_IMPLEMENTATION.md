@@ -79,3 +79,22 @@ Four service tests, five controller tests and a real PostgreSQL concurrent-save/
 
 
 Deployment compatibility: Today uses the new status-only `PATCH /api/v1/projects/:id/tasks/:taskId/status`, which requires exactly status and revision and delegates to the existing audited transaction. An old backend would strip an unknown revision on the generic PATCH; using a distinct guarded route instead returns 404 without performing an unguarded write. There is no client fallback. The generic PATCH also accepts the optional guard for incremental adoption. Frontend-only preview cannot certify this new backend contract until its matching API is deployed to a verified nonproduction target.
+
+## Assigned-job task visibility (Today follow-up, 2026-10-27)
+
+`GET /api/v1/projects/assigned-job-tasks?limit=50` returns open shared tasks
+attached to the authenticated user's actively assigned, non-archived, nonterminal
+Jobs. The controller derives organization and user identity from authentication;
+unknown query keys and limits outside 1–50 are rejected. The service additionally
+filters Project and Job tenant ownership and active (not removed or declined)
+JobAssignments, under the existing forced RLS session. This projects the same
+tasks already exposed by an authorized Job detail read; it grants no writes.
+
+Technician Today uses this endpoint rather than the organization task queue.
+Shared tasks appear in Work, with blocked/overdue tasks in Needs You and due-day
+counts using stored calendar dates. Free-text `assignedTo` remains display-only,
+not personal authorization. Field rows open `/field?job=…`; the existing Field
+workspace now displays Job DTO tasks and directs progress reports to Job notes.
+Task status edits retain existing office permissions. Results at the 50-row cap
+are explicitly partial; a task-source failure leaves job scheduling usable and
+task counts unknown. No schema, RLS policy or mutation authority changed.

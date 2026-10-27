@@ -4,7 +4,7 @@ import { hasPermission, isSupportedRole, normalizeRole } from "../../../app/doma
 import {
   getAthenaCapabilities, getDispatchSummary, getOrganizationSettings, getScheduleConflicts,
   listAthenaApprovals, listEstimateQueue, listInvoiceQueue, listJobsForDispatch,
-  listOrganizationProjectTasks, listProposalQueue, toInclusiveEndBoundary,
+  listAssignedJobTasks, listOrganizationProjectTasks, listProposalQueue, toInclusiveEndBoundary,
   type DispatchJob, type DispatchSummary,
 } from "@/lib/api";
 import { getSession, getSessionToken } from "@/lib/session";
@@ -136,22 +136,26 @@ export const loadTodayData = cache(async (): Promise<TodayData | null> => {
   else sources.push({ id: "upcoming", label: "Upcoming work", state: "unavailable", message: "Schedule context is unavailable, so upcoming work cannot be determined." });
   restricted("site-visits", "Site visits", "Site Visit records are available within Projects. A supported organization-wide visit schedule is not available here; open the Project workspace for visit details.");
   restricted("crew-groups", "Crew groups", "Today shows assigned people from scheduled Jobs. Crew group aggregation is not supported by the existing schedule contract.");
-  if (commercial) {
-    requests.push(read("tasks", "Project tasks", () => listOrganizationProjectTasks(token, { limit: LIMIT, includeCompleted: false }), (tasks) => {
-      dueTasks = tasks.filter((task) => isTodayTask(task, generatedAt, timeZone)).length;
+  if (commercial || field) requests.push(read("tasks", field ? "Assigned-job tasks" : "Project tasks",
+    () => field ? listAssignedJobTasks(token, { limit: LIMIT }) : listOrganizationProjectTasks(token, { limit: LIMIT, includeCompleted: false }), (tasks) => {
+      if (field && tasks.some(task => !("jobId" in task) || !task.jobId)) throw new Error("Assigned tasks are missing job context.");
+      dueTasks = tasks.filter(task => isTodayTask(task, generatedAt, timeZone)).length;
       if (tasks.length === LIMIT) { dueTasks = null; partial("tasks", "Task coverage", "The first 50 open tasks are loaded. Totals may be incomplete."); }
       for (const task of tasks) {
         if (task.status === "completed") continue;
-        const href = `/projects/${task.projectId}?tab=tasks`;
-        const target = { projectId: task.projectId, taskId: task.id, status: task.status, updatedAt: task.updatedAt };
-        if (isTodayTask(task, generatedAt, timeZone)) work.push({ id: `task-${task.id}`, title: task.title, context: task.projectName,
-          kind: "task", start: null, end: null, assignee: task.assignedTo, status: task.status, href, task: target, dueAt: task.dueDate });
+        const jobId = "jobId" in task ? task.jobId : null;
+        const href = field ? `/field?job=${encodeURIComponent(String(jobId))}` : `/projects/${task.projectId}?tab=tasks`;
+        const editable = field ? {} : { task: { projectId: task.projectId, taskId: task.id, status: task.status, updatedAt: task.updatedAt } };
+        const context = [task.projectName, field ? task.jobTitle : null].filter(Boolean).join(" · ");
+        if (field || isTodayTask(task, generatedAt, timeZone)) work.push({ id: `task-${task.id}`, title: task.title, context,
+          kind: "task", start: null, end: null, assignee: task.assignedTo, status: task.status, href, ...editable, dueAt: task.dueDate });
         if (taskNeedsAttention(task, generatedAt, timeZone)) attention.push({ id: `task-${task.id}`, title: task.title,
-          context: [task.projectName, task.status === "blocked" ? "Blocked task" : "Overdue task"].join(" · "), source: "Tasks",
+          context: [context, task.status === "blocked" ? "Blocked task" : "Overdue task"].join(" · "), source: field ? "Job tasks" : "Tasks",
           priority: task.status === "blocked" ? "urgent" : "high", assignee: task.assignedTo, dueAt: task.dueDate, href,
-          action: task.status === "blocked" ? "Resolve blocker" : "Update task", updatedAt: task.updatedAt, status: task.status, task: target });
+          action: field ? "Open assigned job" : task.status === "blocked" ? "Resolve blocker" : "Update task", updatedAt: task.updatedAt, status: task.status, ...editable });
       }
     }));
+  if (commercial) {
     requests.push(read("proposals", "Proposal follow-ups", () => listProposalQueue(token, { unsigned: true, staleBefore: getStaleProposalCutoffIso(new Date(generatedAt)), limit: LIMIT }), (queue) => {
       if (queue.nextCursor) partial("proposals", "Proposal coverage", `${queue.total} stale proposals; the first ${queue.items.length} are loaded.`);
       for (const proposal of buildAttentionProposalRows(queue.items.filter((item) => item.contractId === null && item.sentAt !== null && Date.parse(item.sentAt) <= Date.parse(getStaleProposalCutoffIso(new Date(generatedAt))) && ["sent", "viewed"].includes(item.status)), [])) attention.push({ id: `proposal-${proposal.proposalId}`, title: `${proposal.projectName} · follow-up needed`,
@@ -171,7 +175,8 @@ export const loadTodayData = cache(async (): Promise<TodayData | null> => {
         href: `/projects/${invoice.projectId}/invoices/${invoice.invoiceId}`, action: "Review invoice" });
     }));
   } else {
-    restricted("tasks", "Project tasks", "Assigned field task updates need a verified assignment and write-permission contract. Use your assigned Job workspace for supported field actions.");
+    if (field) restricted("task-writes", "Task updates", "Shared tasks are visible through your active Job assignments. Task updates still require the existing office permissions; a personal field-task write contract is not enabled.");
+    else restricted("tasks", "Project tasks", "Your role does not have access to the organization task queue.");
     restricted("commercial", "Commercial queues", "Estimates, proposals and invoices are omitted from the field presentation.");
   }
   if (owner && athenaEnabled) requests.push(read("approvals", "Pending approvals", () => listAthenaApprovals(token, { status: "pending", limit: 200 }), (items) => {
@@ -206,7 +211,7 @@ export const loadTodayData = cache(async (): Promise<TodayData | null> => {
     stats: [
       { id: "active-jobs", label: field ? "My active jobs" : "Active jobs", value: summaryValue?.activeJobs ?? null, href: field ? "/field" : "/dispatch", helper: summaryValue?.scope.source === "assigned_only" ? "Assigned jobs only" : "Organization operational summary" },
       { id: "people", label: "People scheduled", value: todayJobsComplete ? people : null, href: field ? "/field" : "/dispatch?scheduled=today", helper: "Distinct assigned people on today's active jobs; crew groups are unavailable" },
-      { id: "tasks-due", label: "Tasks due today", value: dueTasks, href: "/dashboard/work", helper: field ? "Project Task assignment is unavailable for field accounts" : "Open tasks due on the organization's local day" },
+      { id: "tasks-due", label: "Tasks due today", value: dueTasks, href: "/dashboard/work", helper: field ? "Shared tasks on your assigned active jobs; stored due day" : "Open tasks due on the organization's local day" },
       { id: "attention", label: "Needs you", value: attentionUnavailable ? null : rows.length, href: "/dashboard/needs-you", helper: attentionUnavailable ? "Some sources are unavailable or only partially loaded" : "Unresolved actions in accessible queues" },
       { id: "approvals", label: "Pending approvals", value: approvals, href: owner ? "/athena/approvals" : "/dashboard/needs-you", helper: owner ? "Unexpired pending Athena approvals" : "Owner/admin approval access required" },
       { id: "conflicts", label: "Schedule conflicts", value: conflictsCount, href: manager ? "/dispatch?mode=week" : "/field", helper: manager ? "Distinct technician/job overlaps in the organization week" : "Dispatch access required" },
