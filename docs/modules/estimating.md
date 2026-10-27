@@ -207,3 +207,18 @@ Contextual Athena stores the project/estimate/scope snapshot associated with its
 The existing builder owns both responsive scope editors through one parent draft/save state and a shared editor. Desktop users can now edit the same Project `simpleScope` used by contextual Athena. Save success binds to the submitted value rather than the latest render. Failed saves retain input; finalized estimates stay read-only. No browser-local draft persistence is claimed.
 
 The Price breakdown groups saved `lineCost` snapshots by persisted cost type and does not multiply current source costs, apply markup, or alter server totals. Invalid amounts display Unavailable. Mobile Review labels direct costs and margin as internal, then links to the separate proposal form after backend finalization. Finalization failures expose retry; uncertain deletion exposes refresh before another attempt. Supplier quotes, Estimate snapshots and lifecycle permissions are unchanged.
+
+
+### Costbook/assembly picker control targets (2026-10-23)
+
+Search, Section and Quantity have 44px phone/tablet targets and 32px
+laptop/desktop text inputs. Add, Clear, native Costbook cost type and the
+Taxable label retain at least 44px targets. These overrides are scoped to the
+existing catalog picker and do not change global primitives, source cost
+review, keyboard selection, payloads, or authoritative server snapshots.
+The four-width production-component browser matrix in
+`tests/components/catalog-item-controls.spec.ts` checks target geometry, native
+Tab progression, Arrow/Enter selection, failed-preview gating, Clear retention,
+invalid quantity, retained Add errors, retry and confirmed-success reset.
+Only transport is synthetic; full-app authenticated and reload evidence is
+separate. Run with `npx playwright test --config playwright.components.config.ts`.
