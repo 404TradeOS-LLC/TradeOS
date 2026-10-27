@@ -5,7 +5,7 @@ import { asyncHandler } from "../middleware/asyncHandler";
 
 const uuidPathParam = (_req: Request, _res: Response, next: NextFunction, value: string) => {
   try {
-    z.string().uuid().parse(value);
+    z.guid().parse(value);
     next();
   } catch (error) {
     next(error);

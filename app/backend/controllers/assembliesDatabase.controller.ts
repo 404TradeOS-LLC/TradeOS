@@ -5,7 +5,7 @@ import { requireOrgId, requirePermissions } from "../requestContext";
 import { catalogBooleanQuery, catalogQuerySchema, parseCatalogQuery } from "../../modules/shared/catalog-query";
 
 const service = new AssembliesDatabaseService();
-const idSchema = z.string().uuid();
+const idSchema = z.guid();
 
 const createSchema = z.object({
   code: z.string().trim().min(1).max(80),
@@ -21,8 +21,8 @@ const updateSchema = createSchema.partial().extend({ isActive: z.boolean().optio
 );
 
 const addItemSchema = z.object({
-  costItemId: z.string().uuid().optional(),
-  childAssemblyId: z.string().uuid().optional(),
+  costItemId: z.guid().optional(),
+  childAssemblyId: z.guid().optional(),
   quantityPerUnit: z.coerce.number().finite().positive().max(1_000_000),
   sortOrder: z.coerce.number().int().min(0).max(1_000_000).optional(),
 }).strict().refine((value) => Boolean(value.costItemId) !== Boolean(value.childAssemblyId), {
@@ -33,12 +33,12 @@ const listSchema = catalogQuerySchema.extend({ active: catalogBooleanQuery.optio
 const templateListSchema = catalogQuerySchema.strict();
 const itemsListSchema = catalogQuerySchema.omit({ q: true }).strict();
 const searchSchema = z.object({ q: z.string().trim().max(200).optional() }).strict();
-const unitCostQuerySchema = z.object({ regionId: z.string().uuid().optional() }).strict();
+const unitCostQuerySchema = z.object({ regionId: z.guid().optional() }).strict();
 const installCatalogSchema = z.object({
   templateId: z.string().trim().min(1).max(100),
   componentMappings: z.array(z.object({
     componentKey: z.string().trim().min(1).max(100),
-    costItemId: z.string().uuid(),
+    costItemId: z.guid(),
   }).strict()).min(1).max(50),
 }).strict();
 

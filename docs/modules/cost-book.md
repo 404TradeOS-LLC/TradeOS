@@ -47,6 +47,71 @@ related_code:
 
 # Cost Book
 
+## Openings and appliance estimating gaps (PR #774, pending)
+
+PR #774 extends merged parent #773 with three price-neutral, EA-denominated
+scope recipes to the existing tenant-owned mapping/installation pipeline.
+The combined proposed catalog is **107** templates (14 reviewed + 88 original
+research + 2 kitchen + 3 openings/appliance). These templates provide neither
+market prices nor unreviewed supplier substitutions:
+
+- `openings:window-vinyl-new-construction-flanged` (CSI 08 53 13,
+  NAHB 4000): one specified new-construction flanged vinyl window EA, one
+  separately reviewed EA flashing/sealant kit, and an EA labor line. Does
+  not substitute for retrofit insert-window work. Manufacturer context:
+  JELD-WEN vinyl integral-nailing-fin installation instructions (JII001) SRC-0071; the actual selected
+  product/wall system must determine flashing and fastening instructions.
+- `openings:garage-door-section-steel` (CSI 08 36 13, NAHB 4000):
+  one specified complete sectional steel garage door system, with qualified
+  installer labor separately mapped. Spring/cable work involves dangerous
+  stored energy and is **not** represented as a DIY task or generic
+  unit-for-unit parts swap. Excludes opener, electrical, opening repair and
+  disposal. Source: Clopay residential installation manual index SRC-0072.
+- `appliances:dishwasher-built-in-existing-ready` (CSI 11 31 00,
+  NAHB 5000): one model-specific dishwasher, one explicit connection kit,
+  and one ready-connection installation/test Cost Item. Requires already
+  compliant plumbing/electrical provision; new circuits, piping, cabinet
+  modifications, removal and leak repair are **not** implied or included.
+  Reference: GE model-specific dishwasher installation instructions
+  SRC-0073; actual model instructions and local qualifications take
+  precedence.
+
+All three are `research` templates requiring review and full tenant-scoped
+mapping. Installation is blocked if referenced source records are absent.
+Neither supplier quotes nor labor productivity figures are inferred.
+No schema, access policy, supplier integration, pricing snapshot or migration
+is modified in this branch; authenticated staging/browser proof is pending.
+
+## Kitchen assembly scope follow-on (PR #773)
+
+The source-backed expansion adds **two more price-neutral kitchen research
+templates** beyond the original 14 reviewed starters and 88 sourced recipes
+(104 templates at merged PR #773). The recipes are not supplier
+quotes or production-rate benchmarks:
+
+- `kitchen:wall-cabinet-prefab` (CSI 12 35 30, NAHB 5000, EA):
+  each specified wall cabinet, one separate per-cabinet fastening/shim allowance,
+  and one reviewed per-cabinet labor Cost Item. Actual size, stud support,
+  fastener instructions, fillers and additional framing remain project-specific.
+  Installation scope reference: SRC-0069 (Home Depot wall cabinets).
+- `kitchen:laminate-countertop-straight` (CSI 12 36 23, NAHB 5000, LF):
+  one linear foot of an exact specified straight-run prefabricated laminate
+  countertop and one separate LF-install labor Cost Item. It deliberately
+  excludes sink/cooktop cutouts, mitered seams, backsplash, end caps and other
+  complications. Reference SRC-0070 (Formica guidance on laminate cutouts and
+  sealing). A priced 8-foot piece in EA is **not** compatible with the LF
+  material slot until explicitly converted and priced in the tenant Costbook.
+
+Both carry `review.status="research"`, explicit source IDs, measured units,
+zero default material waste, no embedded dollar amounts, and must pass the
+same `costbook.write` / tenant-scoped exact component mapping
+gates as the rest of the starter workflow. Registered-source absence blocks
+installation. These are limited scope recipes and are not a complete stone,
+fabrication, cabinetry or electrical/plumbing estimate.
+
+Status: PR #773 merged as `ef983efc`; authenticated deployment is unverified. No schema, RLS,
+supplier pricing, Estimate Engine or production migration change.
+
 ## Research assembly activation (October 18, 2026; proposed PR)
 
 The installed tenant-scoped Assembly model and Estimate Engine pricing remain the only

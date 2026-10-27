@@ -19,7 +19,7 @@ const listQuerySchema = z.object({
 });
 
 const createSchema = z.object({
-  jobId: z.string().uuid().optional(),
+  jobId: z.guid().optional(),
   title: z.string().min(1),
   assignedTo: z.string().trim().optional(),
   dueDate: z.string().datetime().optional(),
@@ -28,7 +28,7 @@ const createSchema = z.object({
 });
 
 const updateSchema = z.object({
-  jobId: z.string().uuid().nullable().optional(),
+  jobId: z.guid().nullable().optional(),
   title: z.string().min(1).optional(),
   status: z.enum(projectTaskStatuses).optional(),
   assignedTo: z.string().trim().nullable().optional(),

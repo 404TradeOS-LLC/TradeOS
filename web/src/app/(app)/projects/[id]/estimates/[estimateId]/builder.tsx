@@ -819,6 +819,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
             <Input
               ref={searchInputRef}
               id="item-search"
+              className="h-11 lg:h-8"
               role="combobox"
               aria-autocomplete="list"
               aria-expanded={!selected && orderedResults.length > 0}
@@ -877,7 +878,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
 
           <div className="space-y-2">
             <Label htmlFor="costbook-section">Section</Label>
-            <Input id="costbook-section" value={section} onChange={(e) => setSection(e.target.value)} />
+            <Input className="h-11 lg:h-8" id="costbook-section" value={section} onChange={(e) => setSection(e.target.value)} />
           </div>
 
           <div className="space-y-2">
@@ -887,6 +888,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
             <Input
               ref={quantityInputRef}
               id="quantity"
+              className="h-11 lg:h-8"
               type="number"
               min="0"
               step="any"
@@ -905,6 +907,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
 
           <Button
             type="button"
+            className="min-h-11"
             onClick={() => commitLineItem()}
             disabled={!canAddReviewedLine}
           >
@@ -915,12 +918,12 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
         <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
           <div>
             <Label htmlFor="costbook-cost-type">Costbook cost type</Label>
-            <select id="costbook-cost-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={costType} onChange={(e) => setCostType(e.target.value as LineItem["costType"] | "")}>
+            <select id="costbook-cost-type" className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm" value={costType} onChange={(e) => setCostType(e.target.value as LineItem["costType"] | "")}>
               <option value="">Auto-detect</option>
               {costTypes.map((type) => <option key={type} value={type}>{type}</option>)}
             </select>
           </div>
-          <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} /> Costbook item is taxable</label>
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} /> Costbook item is taxable</label>
           <p className="text-xs text-muted-foreground">These settings apply to the selected Costbook item.</p>
         </div>
 
@@ -1004,6 +1007,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
               <Button
                 variant="ghost"
                 size="sm"
+                className="min-h-11"
                 onClick={() => {
                   setSelected(null);
                   setQuery("");
@@ -1107,14 +1111,15 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
       </div>
 
       <div id={customPanelId} hidden={entryMode !== "custom"}>
-        <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
-          <div className="sm:col-span-2 lg:col-span-2">
-            <Label htmlFor="custom-description">Custom line item</Label>
-            <Input ref={customInputRef} id="custom-description" placeholder="e.g. debris handling" value={custom.description} onChange={(e) => setCustom({ ...custom, description: e.target.value })} />
+        <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-start">
+          <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
+            <Label className="leading-5" htmlFor="custom-description">Custom line item</Label>
+            <Input className="h-11 lg:h-8" ref={customInputRef} id="custom-description" placeholder="e.g. debris handling" value={custom.description} onChange={(e) => setCustom({ ...custom, description: e.target.value })} />
           </div>
-          <div>
-            <Label htmlFor="custom-quantity">Qty</Label>
+          <div className="space-y-1.5">
+            <Label className="leading-5" htmlFor="custom-quantity">Qty</Label>
             <Input
+              className="h-11 lg:h-8"
               id="custom-quantity"
               type="number"
               min="0"
@@ -1130,9 +1135,10 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
               </p>
             ) : null}
           </div>
-          <div>
-            <Label htmlFor="custom-unit-cost">Unit cost</Label>
+          <div className="space-y-1.5">
+            <Label className="leading-5" htmlFor="custom-unit-cost">Unit cost</Label>
             <Input
+              className="h-11 lg:h-8"
               id="custom-unit-cost"
               type="number"
               min="0"
@@ -1150,24 +1156,24 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
               </p>
             ) : null}
           </div>
-          <Button type="button" variant="secondary" onClick={() => addCustomLineItem()} disabled={customAdd.isPending || customUnitCostMissing || customQuantityInvalid || customUnitCostInvalid}>
+          <Button className="h-11 lg:mt-[26px]" type="button" variant="secondary" onClick={() => addCustomLineItem()} disabled={customAdd.isPending || customUnitCostMissing || customQuantityInvalid || customUnitCostInvalid}>
             {customAdd.isPending ? "Adding…" : "Add custom"}
           </Button>
-          <div>
-            <Label htmlFor="custom-unit">Unit</Label>
-            <Input id="custom-unit" value={custom.unitOfMeasure} onChange={(e) => setCustom({ ...custom, unitOfMeasure: e.target.value })} />
+          <div className="space-y-1.5">
+            <Label className="leading-5" htmlFor="custom-unit">Unit</Label>
+            <Input className="h-11 lg:h-8" id="custom-unit" value={custom.unitOfMeasure} onChange={(e) => setCustom({ ...custom, unitOfMeasure: e.target.value })} />
           </div>
-          <div>
-            <Label htmlFor="custom-section">Section</Label>
-            <Input id="custom-section" value={custom.section} onChange={(e) => setCustom({ ...custom, section: e.target.value })} />
+          <div className="space-y-1.5">
+            <Label className="leading-5" htmlFor="custom-section">Section</Label>
+            <Input className="h-11 lg:h-8" id="custom-section" value={custom.section} onChange={(e) => setCustom({ ...custom, section: e.target.value })} />
           </div>
-          <div>
-            <Label htmlFor="custom-cost-type">Cost type</Label>
-            <select id="custom-cost-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={custom.costType} onChange={(e) => setCustom({ ...custom, costType: e.target.value as LineItem["costType"] })}>
+          <div className="space-y-1.5">
+            <Label className="leading-5" htmlFor="custom-cost-type">Cost type</Label>
+            <select id="custom-cost-type" className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm" value={custom.costType} onChange={(e) => setCustom({ ...custom, costType: e.target.value as LineItem["costType"] })}>
               {costTypes.map((type) => <option key={type} value={type}>{type}</option>)}
             </select>
           </div>
-          <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={custom.taxable} onChange={(e) => setCustom({ ...custom, taxable: e.target.checked })} /> Taxable</label>
+          <label className="flex min-h-11 items-center gap-2 text-sm lg:mt-[26px]"><input type="checkbox" checked={custom.taxable} onChange={(e) => setCustom({ ...custom, taxable: e.target.checked })} /> Taxable</label>
         </div>
       </div>
 
@@ -1370,6 +1376,7 @@ function StarterComponentMappingPicker({
   const [editing, setEditing] = useState(false);
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const resultsId = useId();
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedQuery(query.trim()), 200);
@@ -1385,6 +1392,22 @@ function StarterComponentMappingPicker({
 
   const displayValue = editing ? query : value ? `${value.code} · ${value.name}` : "";
   const assessment = value ? assessCostItemMapping(component, value) : null;
+  const results = search.isError || search.isFetching || query.trim() !== debouncedQuery ? [] : search.data ?? [];
+  const selectableResults = results.filter((item) => !unavailableIds.has(item.id) && assessCostItemMapping(component, item).compatible);
+  const activeItem = selectableResults.find((item) => item.id === activeId);
+  const optionId = (id: string) => `${resultsId}-option-${id}`;
+
+  const selectItem = (item: CostItemCatalogRecord) => {
+    onSelect(item);
+    setEditing(false);
+    setQuery("");
+    setOpen(false);
+    setActiveId(null);
+  };
+
+  useEffect(() => {
+    if (open && activeId) document.getElementById(`${resultsId}-option-${activeId}`)?.scrollIntoView({ block: "nearest" });
+  }, [activeId, open, resultsId]);
 
   return (
     <div className="grid gap-2 rounded-lg border border-border/70 bg-background/75 p-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] sm:items-start">
@@ -1399,15 +1422,37 @@ function StarterComponentMappingPicker({
         <Input
           role="combobox"
           aria-label={`Map ${component.label}`}
-          aria-expanded={open}
-          aria-controls={resultsId}
+          aria-expanded={open && !disabled}
+          aria-controls={open && !disabled ? resultsId : undefined}
+          aria-autocomplete="list"
+          aria-activedescendant={open && !disabled && activeItem ? optionId(activeItem.id) : undefined}
           autoComplete="off"
           placeholder="Search active Costbook items…"
           value={displayValue}
           disabled={disabled}
-          onFocus={() => setOpen(true)}
-          onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+          onFocus={() => { setOpen(true); setActiveId(null); }}
+          onBlur={() => { setOpen(false); setActiveId(null); }}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setOpen(false);
+              setActiveId(null);
+            } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault();
+              setOpen(true);
+              const index = open ? selectableResults.findIndex((item) => item.id === activeId) : -1;
+              const next = index < 0
+                ? event.key === "ArrowDown" ? 0 : selectableResults.length - 1
+                : Math.max(0, Math.min(selectableResults.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)));
+              setActiveId(selectableResults[next]?.id ?? null);
+            } else if (event.key === "Enter" && open) {
+              event.preventDefault();
+              if (activeItem) selectItem(activeItem);
+            }
+          }}
           onChange={(event) => {
+            setActiveId(null);
             setEditing(true);
             setQuery(event.target.value);
             if (value) onSelect(null);
@@ -1415,15 +1460,15 @@ function StarterComponentMappingPicker({
           }}
         />
         {open && !disabled ? (
-          <div id={resultsId} role="listbox" className="absolute z-30 mt-1 max-h-64 w-full min-w-[280px] overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg">
-            {search.isLoading ? (
-              <p className="px-3 py-2 text-xs text-muted-foreground">Searching Costbook…</p>
+          <div id={resultsId} role="listbox" aria-label={`Costbook items for ${component.label}`} className="absolute z-30 mt-1 max-h-64 w-full min-w-[280px] overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg">
+            {search.isLoading || search.isFetching || query.trim() !== debouncedQuery ? (
+              <p className="px-3 py-2 text-xs text-muted-foreground" role="status">Searching Costbook…</p>
             ) : search.isError ? (
               <p className="px-3 py-2 text-xs text-destructive" role="alert">Cost Items could not be loaded.</p>
-            ) : (search.data ?? []).length === 0 ? (
+            ) : results.length === 0 ? (
               <p className="px-3 py-2 text-xs text-muted-foreground">No active Cost Items found.</p>
             ) : (
-              (search.data ?? []).map((item) => {
+              results.map((item) => {
                 const itemAssessment = assessCostItemMapping(component, item);
                 const unavailable = unavailableIds.has(item.id);
                 const selectable = !unavailable && itemAssessment.compatible;
@@ -1435,18 +1480,15 @@ function StarterComponentMappingPicker({
                 return (
                   <button
                     key={item.id}
+                    id={optionId(item.id)}
                     type="button"
                     role="option"
+                    tabIndex={-1}
                     aria-selected={value?.id === item.id}
                     disabled={!selectable}
-                    className="grid w-full gap-0.5 rounded-sm px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                    className={cn("grid w-full gap-0.5 rounded-sm px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50", activeItem?.id === item.id && "bg-muted ring-2 ring-inset ring-ring")}
                     onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
-                      onSelect(item);
-                      setEditing(false);
-                      setQuery("");
-                      setOpen(false);
-                    }}
+                    onClick={() => selectItem(item)}
                   >
                     <span className="font-medium text-foreground">{item.code} · {item.name}</span>
                     <span className="text-xs text-muted-foreground">{detail}</span>

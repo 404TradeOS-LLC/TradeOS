@@ -162,3 +162,7 @@ scoping, activity attribution, and idempotent repeat behavior remain enforced by
 ## S030 dispatcher verification (active)
 
 The `/dispatch` workspace now exposes the existing organization-scoped assignment, schedule/reschedule, conflict-check, and named lifecycle endpoints through a same-origin authenticated client proxy. Active assignments exclude both removed and declined rows in application predicates and detail/list includes, matching technician visibility policy. Job creation also requires assigned users to hold the canonical `technician` membership role; no new status, role, permission, migration, or RLS policy was introduced.
+
+## Identifier validation compatibility
+
+Jobs, assignments, scheduling and field tool IDs retain their previous UUID-shaped parser contract using `z.guid()` after the Zod 4 security upgrade. The stricter new UUID validator is not allowed to reject existing legacy-shaped records solely because of a dependency update. Job assignment checks, manager-only scheduling, field transitions, conflict rules and tenant/RLS boundaries are unchanged. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
