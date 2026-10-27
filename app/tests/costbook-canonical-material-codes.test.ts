@@ -150,19 +150,102 @@ describe("Canonical material classification codes", () => {
     }
   });
 
+  it("maps sheathing keys to 30103604 Wood sheathing or sheets (2026-10-18 research package)", () => {
+    for (const key of [
+      "OSB-RAD-BARRIER-7_16-4X8",
+      "OSB-RADIANT-BARRIER-1_2-4X8",
+      "OSB-SHEATHING-15_32-4X8",
+      "OSB-SHEATHING-19_32-4X8",
+      "OSB-SHEATHING-1_2-4X8",
+      "OSB-SHEATHING-5_8-4X8",
+      "OSB-SHEATHING-7_16-4X10",
+      "OSB-SHEATHING-7_16-4X8",
+      "OSB-SHEATHING-7_16-4X9",
+      "OSB-SUBFLOOR-19_32-4X8-TG",
+      "OSB-SUBFLOOR-23_32-4X8-TG",
+      "OSB-SUBFLOOR-PREMIUM-23_32-4X8-TG",
+      "OSB-SUBFLOOR-TG-23_32-4X8",
+      "OSB-ZIP-ROOF-5_8-4X8-TG",
+      "PLYWOOD-AC-1_2-4X8",
+      "PLYWOOD-CDX-11_32-4X8",
+      "PLYWOOD-CDX-15_32-4X8",
+      "PLYWOOD-CDX-19_32-4X8",
+      "PLYWOOD-CDX-1_2-4X8",
+      "PLYWOOD-CDX-23_32-4X8",
+      "PLYWOOD-CDX-3_4-4X8",
+      "PLYWOOD-CDX-5_8-4X8",
+      "PLYWOOD-HARDWOOD-BIRCH-3_4-4X8",
+      "PLYWOOD-HARDWOOD-OAK-3_4-4X8",
+      "PLYWOOD-LAUAN-1_2-4X8",
+      "PLYWOOD-PT-1_2-4X8",
+      "PLYWOOD-PT-3_4-4X8",
+      "PLYWOOD-PT-CDX-15_32-4X8",
+      "PLYWOOD-PT-CDX-23_32-4X8",
+      "PLYWOOD-SANDED-BCX-15_32-4X8",
+      "PLYWOOD-SANDED-BCX-1_2-4X8",
+      "PLYWOOD-SANDED-BCX-23_32-4X8",
+      "PLYWOOD-SANDED-BCX-3_4-4X8",
+      "PLYWOOD-SUBFLOOR-23_32-4X8-TG",
+      "PLYWOOD-SUBFLOOR-TG-23_32-4X8",
+      "PLYWOOD-UNDERLAY-1_4-4X8",
+      "SHEET-OSB-1_2-4X8",
+      "SHEET-OSB-5_8-4X8",
+      "SHEET-OSB-7_16-4X8",
+      "SHEET-OSB-TALLWALL-7_16-4X10",
+      "SHEET-OSB-TALLWALL-7_16-4X9",
+      "SHEET-PLY-ACX-1_2-4X8",
+      "SHEET-PLY-ACX-3_4-4X8",
+      "SHEET-PLY-ACX-3_8-4X8",
+      "SHEET-PLY-BIRCH-1_2-4X8",
+      "SHEET-PLY-BIRCH-3_4-4X8",
+      "SHEET-PLY-CDX-11_32-4X8",
+      "SHEET-PLY-CDX-15_32-4X8",
+      "SHEET-PLY-CDX-19_32-4X8",
+      "SHEET-PLY-CDX-23_32-4X8",
+      "SHEET-PLY-OAK-3_4-4X8",
+      "SHEET-PLY-PT-1_2-4X8",
+      "SHEET-PLY-PT-3_4-4X8",
+      "SHEET-PLY-PT-5_8-4X8",
+      "SHEET-PLYWOOD-BCX-3_4-4X8",
+      "SHEET-SUBFLOOR-OSB-SQ-3_4-4X8",
+      "SHEET-SUBFLOOR-OSB-TG-23_32-4X8",
+      "SHEET-SUBFLOOR-OSB-TG-3_4-4X8",
+      "SHEET-SUBFLOOR-PLY-TG-23_32-4X8",
+      "SHEET-UNDERLAY-LUAN-1_4-4X8",
+      "SHEET-UNDERLAY-PLY-1_4-4X8",
+      "UNDERLAYMENT-PLY-1_4-4X8",
+    ]) {
+      expect(codesForCanonicalKey(key)).toMatchObject({
+        unspsc: "30103604",
+        unspscTitle: "Wood sheathing or sheets",
+        status: "mapped",
+      });
+    }
+  });
+
+  it("keeps DensGlass gypsum sheathing ambiguous with no code (2026-10-18 research package)", () => {
+    const entry = codesForCanonicalKey("SHEATHING-DENSGLASS-1_2-4X8");
+    expect(entry?.status).toBe("ambiguous");
+    expect(entry?.unspsc).toBeUndefined();
+    expect(entry?.note).toBeTruthy();
+  });
+
   it("tracks coverage against the full corpus key list", () => {
     const coverage = canonicalMaterialCodeCoverage(corpusKeys);
     expect(coverage.total).toBe(corpusKeys.length);
     expect(coverage.mapped + coverage.ambiguous + coverage.unmapped).toBe(coverage.total);
     // The backfill added 397 rows to the map; 74 greenfield keys (framing/engineered)
     // are not in the static corpus yet, so 267 count against corpus coverage.
-    expect(Object.keys(CANONICAL_MATERIAL_CODES).length).toBeGreaterThanOrEqual(425);
-    expect(coverage.mapped).toBeGreaterThanOrEqual(267);
-    // 267 mapped in-corpus = 20 from the PR #694 seed batch + 247 from the backfill.
-    expect(coverage.ambiguous).toBeGreaterThanOrEqual(68);
-    // 68 ambiguous in-corpus = 7 from the seed batch + 61 from the backfill (recorded, never merged).
-    // (Was 83 before the 2026-10-18 grout correction moved 9 GROUT-* keys and the
-    // Tapcon correction moved 6 keys to mapped.)
+    // The 2026-10-18 sheathing package added 63 more rows, all in-corpus
+    // (62 mapped, 1 ambiguous): the map now holds 491 entries, with 347 mapped
+    // and 69 ambiguous against the corpus.
+    expect(Object.keys(CANONICAL_MATERIAL_CODES).length).toBeGreaterThanOrEqual(491);
+    expect(coverage.mapped).toBeGreaterThanOrEqual(347);
+    // 347 mapped in-corpus = 285 before this package (five-family backfill plus
+    // the 2026-10-18 correction PRs), +62 sheathing.
+    expect(coverage.ambiguous).toBeGreaterThanOrEqual(69);
+    // 69 ambiguous in-corpus = 68 after the five-family backfill and corrections
+    // (recorded, never merged), +1 DensGlass gypsum sheathing.
     // First batch is roofing/exterior only — the vast majority stays unmapped.
     // The five-family backfill (397 keys) dropped unmapped coverage below 95%;
     // the bulk of the corpus is still unclassified and awaits the next family wave.
