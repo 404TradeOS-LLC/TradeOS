@@ -411,3 +411,7 @@ fail the existing Web test gate; no new permission or protected-check bypass
 is introduced. These results do not certify authenticated application workflows.
 
 Web scope includes component tests/configuration, root runner manifests and the verification workflow itself, so harness-only edits cannot skip this gate. A real temporary-Git regression test covers those paths and unrelated App/docs changes.
+
+### Dependabot PR-body validation (2026-10-28)
+
+The required Docs consistency workflow still executes for Dependabot PRs; only the ten-section human-authored PR body validation step is bypassed for PRs **authored** by `dependabot[bot]`. All documentation ownership, unit, and consistency checks remain active. See `docs/REPOSITORY_GOVERNANCE.md`.
