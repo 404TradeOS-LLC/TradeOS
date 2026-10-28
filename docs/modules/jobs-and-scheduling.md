@@ -167,6 +167,44 @@ The `/dispatch` workspace now exposes the existing organization-scoped assignmen
 
 Jobs, assignments, scheduling and field tool IDs retain their previous UUID-shaped parser contract using `z.guid()` after the Zod 4 security upgrade. The stricter new UUID validator is not allowed to reject existing legacy-shaped records solely because of a dependency update. Job assignment checks, manager-only scheduling, field transitions, conflict rules and tenant/RLS boundaries are unchanged. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
 
+## Personal field-task ownership and status updates (2026-10-27)
+
+Implementation on `feat/field-task-ownership` adds nullable
+`ProjectTask.assignedUserId` (user FK, no name-based backfill). Shared job tasks
+remain readable. The Jobs-specific route is
+`PATCH /api/v1/jobs/:jobId/tasks/:taskId/status`, with a strict payload of
+status plus mandatory expectedUpdatedAt; the transaction locks Job/assignment
+rows, checks tenant/identity/revision, updates atomically and records activity.
+Role eligibility and RLS rules live in the
+[RBAC matrix](../RBAC_MATRIX.md#personal-field-task-ownership-and-status-updates-2026-10-27);
+404/409 outcomes and Job status rules live in
+[workflow lifecycles](../WORKFLOW_LIFECYCLES.md#personal-field-task-ownership-and-status-updates-2026-10-27).
+
+The migration and RLS shape for this feature, including the immutable-column
+trigger and the denial of technician create/delete/reassignment, are covered in
+the [RBAC matrix](../RBAC_MATRIX.md#personal-field-task-ownership-and-status-updates-2026-10-27).
+DB-controlled timestamps retain millisecond revision precision.
+
+Owner/admin/dispatcher may create or revise explicit assignment through the
+Project Tasks forms and the existing guarded generic PATCH. The new scoped
+`GET /api/v1/projects/:id/task-assignees` returns only permitted active-member
+choices and a server-derived capability. Legacy estimator ordinary task writes
+are preserved; this new identity-administration capability is not silently
+granted. Existing office status/title/note updates do not revalidate historical
+assignment eligibility unless identity or Job linkage changes.
+
+Today and Field job details return a server-derived canUpdateStatus flag based
+on the actual auth role, not the normalized settings presentation role. Only
+explicit nonempty matching identity, revision and capability enable the shared
+status editor; older/partial responses fail closed. UI saves use the narrow
+Job endpoint and verify record/project/Job/status before showing success.
+Assignment changes refresh the source and operational routes. No optimistic
+queue dismissal, automatic retry, financial change or production migration.
+
+This is a schema/RLS change requiring governed review and migration rehearsal
+before activation. Unit/type/build and hosted PostgreSQL/browser results must
+be recorded from the final head; authored tests alone are not certification.
+
 ## Accepted-proposal conversion (step 9; PR #810 pending)
 
 On an accepted proposal, **Create field job from accepted proposal** leads to
