@@ -3,7 +3,12 @@ name: Deploy staging database migrations
 # Manual, staging-only Prisma migration deployment. This workflow uses a
 # dedicated GitHub Environment and secret names; it cannot select production.
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      invoice_contract_confirmation:
+        description: "After independent retirement proof, type APPROVE_INVOICE_CONTRACT (required while contract migration is pending)"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -148,6 +153,35 @@ jobs:
             echo "Legacy invoice-cost columns are already absent; precheck is not needed."
           else
             echo "::error::Invoice legacy-cost columns are in a partial state; refusing migration."
+            exit 1
+          fi
+
+      - name: Require evidence-backed approval before dropping legacy invoice columns
+        shell: bash
+        env:
+          INVOICE_CONTRACT_CONFIRMATION: ${{ inputs.invoice_contract_confirmation }}
+          APPROVED_RETIREMENT_SHA: ${{ vars.STAGING_INVOICE_WRITERS_RETIRED_SHA }}
+        run: |
+          set -euo pipefail
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          contract_applied="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT count(*) FROM public._prisma_migrations
+            WHERE migration_name='20260902200000_contract_invoice_line_price_columns'
+              AND finished_at IS NOT NULL AND rolled_back_at IS NULL
+          ")"
+          if [ "$contract_applied" = "0" ]; then
+            # The next tracked migration drops columns still used by older
+            # API writers. A reviewed, SHA-bound retirement attestation is
+            # mandatory: workflow_dispatch confirmation alone is insufficient.
+            if [ "${INVOICE_CONTRACT_CONFIRMATION:-}" != "APPROVE_INVOICE_CONTRACT" ] ||
+               [ -z "${APPROVED_RETIREMENT_SHA:-}" ] ||
+               [ "$APPROVED_RETIREMENT_SHA" != "$GITHUB_SHA" ]; then
+              echo "::error::Invoice contract migration remains pending. Confirm all old staging writers are retired and both active staging Vercel aliases serve approved SHA $GITHUB_SHA. Then set staging Environment variable STAGING_INVOICE_WRITERS_RETIRED_SHA to that exact SHA and dispatch from main with APPROVE_INVOICE_CONTRACT. No migration applied."
+              exit 1
+            fi
+            echo "Reviewed invoice-writer retirement attestation matches exact workflow SHA."
+          elif [ "$contract_applied" != "1" ]; then
+            echo "::error::Unexpected invoice contract migration ledger state."
             exit 1
           fi
 
