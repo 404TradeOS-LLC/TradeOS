@@ -62,6 +62,42 @@ on:
         default: false
         type: boolean
 
+  # Reusable-workflow entry for the staging orchestrator
+  # (.github/workflows/staging-orchestrator.yml). Inputs mirror the dispatch
+  # inputs; workflow_call supports string/number/boolean but not choice, so
+  # choice inputs are declared as strings here. The caller passes secrets
+  # with `secrets: inherit`. No behavior changes for workflow_dispatch runs.
+  workflow_call:
+    inputs:
+      mode:
+        description: preflight (readiness only) or full (capture real evidence)
+        default: preflight
+        type: string
+      scenario:
+        description: Evidence scenario to execute
+        default: canonical
+        type: string
+      rc_base_url:
+        description: Approved non-production RC base URL (tradeos-costbook-web-*.vercel.app)
+        required: false
+        type: string
+      target_environment:
+        description: Non-production environment identity for this run
+        default: preview
+        type: string
+      smoke_tenant_label:
+        description: Label of the sanitized smoke tenant (must match the RC org name)
+        default: TradeOS Beta Smoke
+        type: string
+      expected_sha:
+        description: Commit SHA the RC deployment must have been built from
+        required: false
+        type: string
+      require_sha_correlation:
+        description: Fail if the deployment SHA cannot be correlated
+        default: false
+        type: boolean
+
 permissions:
   contents: read
 
