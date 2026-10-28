@@ -1,5 +1,12 @@
 #!/bin/sh
 
+# Staging coherence: a push to the staging branch must build this app even
+# when only the other app changed, so both staging deployments come from one
+# SHA. Ordinary PR previews keep the path-filtered behavior below.
+if [ "$VERCEL_GIT_COMMIT_REF" = "staging" ]; then
+  exit 1
+fi
+
 if [ "$VERCEL_ENV" = "production" ] && [ "$VERCEL_GIT_COMMIT_REF" = "main" ]; then
   exit 1
 fi
