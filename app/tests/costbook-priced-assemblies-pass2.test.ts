@@ -45,6 +45,12 @@ describe('Pass-2 historical price evidence', () => {
     ]) expect(pass2().some(p => p.componentKey === key)).toBe(false);
   });
 
+  it('does not count metal-roof Master Flash as an approved shingle-roof pipe boot', () => {
+    expect(pass2().some(p => p.componentKey === 'mat_pipe_boot_elastomeric_unit')).toBe(false);
+    expect(pass2().some(p => /Master Flash/i.test(p.productName))).toBe(false);
+    expect(assemblyMaterialCost('roofing-flashing-pipe-boot')?.materialCostPerUnit).toBe(0.06);
+  });
+
   it('uses the specified XPS thickness, R-value and tongue-and-groove edge', () => {
     const source = SUPPLIER_PRICES_47802.find(p => p.productKey === 'ABC-INSU-OC-F250-TG-2IN')!;
     const xps = row('mat_xps_board_2in_4x8');
@@ -68,7 +74,7 @@ describe('Pass-2 historical price evidence', () => {
       'framing-floor-ijoist-19-2oc': [0, 0],
       'roofing-sbs-roll-selfadhered-cap': [2, 146.13],
       'roofing-membrane-epdm-60mil': [1, 9.79],
-      'roofing-flashing-pipe-boot': [2, 15.01],
+      'roofing-flashing-pipe-boot': [1, 0.06],
       'roofing-gutters-seamless-aluminum-5in': [2, 1.38],
       'insul-rigidfoam-xps-2in-foundation': [1, 1.57],
     };
@@ -79,7 +85,7 @@ describe('Pass-2 historical price evidence', () => {
         Number(pass2MaterialCost(id).toFixed(2)),
       );
     }
-    expect(pass2()).toHaveLength(19);
+    expect(pass2()).toHaveLength(18);
     expect(ASSEMBLY_MATERIAL_COSTS.filter(a => a.pricedComponents > 0)).toHaveLength(75);
   });
 });
