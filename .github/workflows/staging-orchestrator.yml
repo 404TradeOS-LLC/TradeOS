@@ -607,7 +607,7 @@ jobs:
           health="$(curl -s "${bypass_args[@]}" "$API_STAGING_ALIAS/health")" || {
             echo "::error::Backend staging alias /health request failed at $API_STAGING_ALIAS."
             exit 1
-}
+          }
           reported_sha="$(printf '%s' "$health" | jq -r '.commitSha // empty')"
           if [ "$reported_sha" != "$SHA" ]; then
             echo "::error::Backend staging alias /health reports commitSha '${reported_sha:-absent}', not the approved SHA $SHA. The alias moved during evidence; refusing the run."
@@ -616,7 +616,7 @@ jobs:
           code="$(curl -s -o /dev/null -w "%{http_code}" "${bypass_args[@]}" "$WEB_STAGING_ALIAS")" || {
             echo "::error::Frontend staging alias request failed at $WEB_STAGING_ALIAS."
             exit 1
-}
+          }
           if [ "$code" != "200" ]; then
             echo "::error::Frontend staging alias at $WEB_STAGING_ALIAS returned HTTP $code (expected 200) after evidence."
             exit 1
