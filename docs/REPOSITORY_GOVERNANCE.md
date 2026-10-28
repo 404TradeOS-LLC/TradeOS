@@ -679,3 +679,7 @@ fail the existing Web test gate; no new permission or protected-check bypass
 is introduced. These results do not certify authenticated application workflows.
 
 Web scope includes component tests/configuration, root runner manifests and the verification workflow itself, so harness-only edits cannot skip this gate. A real temporary-Git regression test covers those paths and unrelated App/docs changes.
+
+## Dependabot-generated PR-body exception (2026-10-28)
+
+The required `.github/workflows/docs-consistency.yml` job runs for human and Dependabot PRs alike. Only the human-authored ten-section PR body check is skipped when `github.event.pull_request.user.login == 'dependabot[bot]'`; do **not** check `github.actor`, since maintainer-triggered edits preserve the original PR author. All other docs consistency, owner-document, preflight and autonomy tests continue to run. This is a narrow format exception and grants no approval, security, dependency or migration exemption.
