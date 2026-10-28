@@ -277,6 +277,66 @@ export class JobsService {
     return { ...detail, tasks: detail.tasks.map(task => ({ ...task, canUpdateStatus: actor.role === "technician" && task.assignedUserId === actor.userId && !row.archivedAt && !["completed", "cancelled"].includes(row.status) })) };
   }
 
+  async createFromAcceptedProposal(input: ConvertAcceptedProposalInput): Promise<JobDTO> {
+    assertManager(input.actor.role);
+    return runInDatabaseTransaction(this.db, async (tx) => {
+      const lockKey = `proposal-job:${input.orgId}:${input.proposalId}`;
+      await tx.$executeRaw(Prisma.sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+
+      const proposal = await tx.proposal.findFirst({
+        where: { id: input.proposalId, project: { orgId: input.orgId } },
+        include: { project: true },
+      });
+      if (!proposal) throw new ApiError(404, "Proposal not found");
+      if (normalizeProposalStatus(proposal.status) !== "accepted") {
+        throw new ApiError(409, "Only an accepted proposal can become a field job");
+      }
+
+      const previous = await tx.job.findFirst({
+        where: { orgId: input.orgId, sourceProposalId: proposal.id },
+        include: jobDetailInclude,
+      });
+      if (previous) return this.hydrateJobDTO(tx, input.orgId, previous);
+
+      if (!proposal.project.customerId) {
+        throw new ApiError(409, "Attach a customer to this project before creating a field job");
+      }
+
+      // Store customer-facing monetary values as decimal strings, not JS floats.
+      // Standalone jobs have no accepted baseline. This copy never changes when
+      // estimate lines, pricing sources, or later change orders are edited.
+      const acceptedBaselineJson: Record<string, unknown> = {
+        version: 1,
+        proposalId: proposal.id,
+        estimateId: proposal.estimateId,
+        projectId: proposal.projectId,
+        acceptedAt: proposal.respondedAt?.toISOString() ?? null,
+        scopeOfWork: proposal.scopeOfWork,
+        assumptions: proposal.assumptions,
+        exclusions: proposal.exclusions,
+        timeline: proposal.timeline,
+        finalPrice: proposal.finalPrice?.toString() ?? null,
+        priceLow: proposal.priceLow?.toString() ?? null,
+        priceHigh: proposal.priceHigh?.toString() ?? null,
+        paymentScheduleJson: proposal.paymentScheduleJson ?? null,
+        termsAndConditions: proposal.termsAndConditions,
+      };
+
+      return this.create({
+        orgId: input.orgId,
+        actor: input.actor,
+        projectId: proposal.projectId,
+        customerId: proposal.project.customerId,
+        serviceAddressId: input.serviceAddressId,
+        title: proposal.project.name,
+        description: proposal.scopeOfWork ?? proposal.project.simpleScope ?? "",
+        jobType: proposal.project.jobType?.trim() || "Project work",
+        sourceProposalId: proposal.id,
+        acceptedBaselineJson,
+      });
+    });
+  }
+
   async create(input: CreateJobInput): Promise<JobDTO> {
     assertManager(input.actor.role);
     return runInDatabaseTransaction(this.db, async (tx) => {
