@@ -3,7 +3,7 @@ import { ProjectHeader } from "@/components/projects/project-header";
 import { ProjectSidebar } from "@/components/projects/project-sidebar";
 import { ProjectWorkspace } from "@/components/projects/project-workspace";
 import { ProjectWorkspaceTabs, resolveProjectWorkspaceTab } from "@/components/projects/project-workspace-tabs";
-import { getOrganizationSettings, getProject } from "@/lib/api";
+import { getProjectTaskAssignees, getOrganizationSettings, getProject } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 
 const JOB_MANAGER_ROLES = new Set(["owner", "admin", "dispatcher"]);
@@ -17,9 +17,10 @@ export default async function ProjectDetailPage({
 }) {
   const [{ id }, resolvedSearchParams] = await Promise.all([params, searchParams]);
   const token = await getSessionToken();
-  const [project, settings] = await Promise.all([
+  const [project, settings, assignees] = await Promise.all([
     getProject(token ?? "", id),
     getOrganizationSettings(token ?? ""),
+    getProjectTaskAssignees(token ?? "", id).catch(() => ({ canAssign: false, members: [] })),
   ]);
   const activeTab = resolveProjectWorkspaceTab(resolvedSearchParams.tab);
   const showCanonicalLeadOverview =
@@ -75,6 +76,8 @@ export default async function ProjectDetailPage({
           tasks={project.tasks}
           jobs={project.jobs}
           currentRole={settings.currentRole}
+          taskMembers={assignees.members}
+          canAssignTaskIdentity={assignees.canAssign}
         />
 
         <ProjectSidebar

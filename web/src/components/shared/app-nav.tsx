@@ -11,6 +11,8 @@ import {
   ChevronRight,
   Clock3,
   ClipboardPlus,
+  ListChecks,
+  CircleAlert,
   FileText,
   LayoutGrid,
   MoreHorizontal,
@@ -42,7 +44,7 @@ interface NavLink {
 }
 
 const PRIMARY_NAV_LINKS: NavLink[] = [
-  { href: "/dashboard", label: "Dashboard", shortLabel: "Home", icon: LayoutGrid },
+  { href: "/dashboard", label: "Today", shortLabel: "Today", icon: LayoutGrid },
   { href: "/crm", label: "CRM", shortLabel: "CRM", icon: Users },
   { href: "/dispatch", label: "Dispatch", shortLabel: "Dispatch", icon: CalendarDays },
   { href: "/projects", label: "Projects", shortLabel: "Projects", icon: BriefcaseBusiness },
@@ -50,6 +52,7 @@ const PRIMARY_NAV_LINKS: NavLink[] = [
 ];
 
 const SECONDARY_NAV_LINKS: NavLink[] = [
+  { href: "/dashboard/needs-you", label: "Needs You", shortLabel: "Needs You", icon: CircleAlert },
   { href: "/customers", label: "Customers", shortLabel: "Customers", icon: Users },
   { href: "/costbook", label: "Costbook", shortLabel: "Costbook", icon: BookOpen },
   { href: "/brand-studio", label: "Brand Studio", shortLabel: "Brand", icon: Palette },
@@ -79,10 +82,11 @@ const CREATE_OPTIONS: Array<{
   icon: typeof FileText;
   featured: boolean;
 }> = [
-  { kind: "estimate", label: "Estimate from scope", helper: "Start with a plain-language scope and turn it into priced work.", icon: FileText, featured: true },
-  { kind: "job", label: "Job", helper: "Choose the Project this field Job belongs to.", icon: ClipboardPlus, featured: false },
-  { kind: "customer", label: "Customer", helper: "Add a customer and keep the relationship in one place.", icon: UserPlus, featured: false },
-  { kind: "invoice", label: "Invoice", helper: "Choose the Project that is ready to bill.", icon: Receipt, featured: false },
+  { kind: "estimate", label: "New Estimate", helper: "Start with a plain-language scope and turn it into priced work.", icon: FileText, featured: true },
+  { kind: "job", label: "New Job", helper: "Choose the Project this field Job belongs to.", icon: ClipboardPlus, featured: false },
+  { kind: "customer", label: "New Customer", helper: "Add a customer and keep the relationship in one place.", icon: UserPlus, featured: false },
+  { kind: "invoice", label: "New Invoice", helper: "Choose the Project that is ready to bill.", icon: Receipt, featured: false },
+  { kind: "task", label: "New Task", helper: "Choose the Project and add a task, assignment, and due date.", icon: ListChecks, featured: false },
   { kind: "change-order", label: "Change Order", helper: "Choose the Project whose scope is changing.", icon: ClipboardPlus, featured: false },
   { kind: "schedule", label: "Schedule", helper: "Open real unscheduled work and place it on the schedule.", icon: CalendarPlus, featured: false },
   { kind: "athena", label: "Ask Athena", helper: "Open Athena with the current TradeOS page and Project context attached.", icon: Sparkles, featured: false },
@@ -357,7 +361,7 @@ export function AppNav({
               </div>
             </Link>
 
-            <nav className="hidden items-center gap-1.5 2xl:flex" aria-label="Primary">
+            <nav className="hidden items-center gap-1.5 min-[1900px]:flex" aria-label="Primary">
               {primaryLinks.map((link) => (
                 <NavPill
                   key={link.href}
@@ -367,9 +371,7 @@ export function AppNav({
                 />
               ))}
               <span className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
-              {secondaryLinks.map((link) => (
-                <NavPill key={link.href} link={link} pathname={pathname} />
-              ))}
+
             </nav>
           </div>
 
@@ -402,7 +404,7 @@ export function AppNav({
     </header>
 
     {createOpen ? (
-      <div role="dialog" aria-modal="true" aria-label="Create" className="fixed inset-0 z-50 2xl:hidden">
+      <div role="dialog" aria-modal="true" aria-label="Create" className="fixed inset-0 z-50">
         <button
           type="button"
           aria-label="Close create menu"
@@ -412,7 +414,7 @@ export function AppNav({
         <div
           ref={createSheetRef}
           tabIndex={-1}
-          className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-2xl border-t border-border/70 bg-card p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] shadow-(--elev-4) outline-none animate-in slide-in-from-bottom duration-(--dur-3) ease-(--ease-emphasized)"
+          className="absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-2xl border-t border-border/70 bg-card p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] sm:left-1/2 sm:right-auto sm:w-[min(42rem,calc(100%_-_2rem))] sm:-translate-x-1/2 shadow-(--elev-4) outline-none animate-in slide-in-from-bottom duration-(--dur-3) ease-(--ease-emphasized)"
         >
           <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-border" aria-hidden="true" />
           <div className="mb-4 flex items-end justify-between gap-3">
@@ -467,7 +469,7 @@ export function AppNav({
         role="dialog"
         aria-modal="true"
         aria-label="More navigation"
-        className="fixed inset-0 z-50 2xl:hidden"
+        className="fixed inset-0 z-50"
       >
         <button
           type="button"
@@ -478,7 +480,7 @@ export function AppNav({
         <div
           ref={sheetRef}
           tabIndex={-1}
-          className="absolute inset-x-0 bottom-0 max-h-[75vh] overflow-y-auto rounded-t-2xl border-t border-border/70 bg-card p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] shadow-(--elev-4) outline-none animate-in slide-in-from-bottom duration-(--dur-3) ease-(--ease-emphasized)"
+          className="absolute inset-x-0 bottom-0 max-h-[75dvh] overflow-y-auto rounded-t-2xl border-t border-border/70 bg-card p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] sm:left-1/2 sm:right-auto sm:w-[min(42rem,calc(100%_-_2rem))] sm:-translate-x-1/2 shadow-(--elev-4) outline-none animate-in slide-in-from-bottom duration-(--dur-3) ease-(--ease-emphasized)"
         >
           <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-border" aria-hidden="true" />
           <div className="grid gap-4">
@@ -528,7 +530,7 @@ export function AppNav({
 
     <nav
       aria-label="404TradeOS Control Dock"
-      className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] 2xl:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
     >
       <div className="flex items-center gap-1 rounded-2xl border border-border/70 bg-card/95 p-1.5 shadow-(--elev-3) backdrop-blur-xl supports-[backdrop-filter]:bg-card/85">
         {DOCK_LEFT_LINKS.map((link) => (
@@ -545,7 +547,7 @@ export function AppNav({
           type="button"
           aria-label={CREATE_LINK.label}
           aria-expanded={createOpen}
-          onClick={() => setCreateOpen(true)}
+          onClick={() => { setMobileOpen(false); setCreateOpen(true); }}
           className="mx-1 flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-(--elev-1) outline-none transition-transform focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95"
         >
           <Plus className="size-5" aria-hidden="true" />
@@ -558,7 +560,7 @@ export function AppNav({
           type="button"
           aria-label={mobileOpen ? "Close more menu" : "Open more menu"}
           aria-expanded={mobileOpen}
-          onClick={() => setMobileOpen((value) => !value)}
+          onClick={() => { setCreateOpen(false); setMobileOpen((value) => !value); }}
           className={cn(
             "flex min-h-11 min-w-11 flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1.5 text-[11px] font-medium transition-all outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95",
             mobileOpen ? "bg-primary/10 text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"

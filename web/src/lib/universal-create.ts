@@ -1,7 +1,7 @@
-export const projectCreateIntents = ["job", "invoice", "change-order"] as const;
+export const projectCreateIntents = ["job", "invoice", "change-order", "task"] as const;
 export type ProjectCreateIntent = (typeof projectCreateIntents)[number];
 
-export const universalCreateKinds = ["estimate", "job", "customer", "invoice", "change-order", "schedule", "athena"] as const;
+export const universalCreateKinds = ["estimate", "job", "customer", "invoice", "task", "change-order", "schedule", "athena"] as const;
 export type UniversalCreateKind = (typeof universalCreateKinds)[number];
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -18,6 +18,12 @@ export const PROJECT_CREATE_INTENT_COPY: Record<ProjectCreateIntent, { title: st
     description: "Choose the Project to bill. The Invoice form still requires an eligible non-draft Estimate.",
     rowAction: "Create invoice",
     rowHelper: "Open this Project’s Invoice workflow.",
+  },
+  task: {
+    title: "Create task",
+    description: "Choose the Project this task belongs to, then add its assignment, due date, and priority.",
+    rowAction: "Add task",
+    rowHelper: "Open this Project’s task form.",
   },
   "change-order": {
     title: "Create change order",
@@ -52,6 +58,8 @@ export function buildProjectIntentDestination(projectId: string, intent: Project
       return `/projects/${projectId}/invoices/new`;
     case "change-order":
       return `/projects/${projectId}?tab=change-orders`;
+    case "task":
+      return `/projects/${projectId}?tab=tasks#title`;
   }
 }
 
@@ -64,6 +72,8 @@ export function buildUniversalCreateHref(kind: UniversalCreateKind, pathname: st
       return projectId ? buildProjectIntentDestination(projectId, "job") : "/projects?intent=job";
     case "customer":
       return "/customers/new";
+    case "task":
+      return projectId ? buildProjectIntentDestination(projectId, "task") : "/projects?intent=task";
     case "invoice":
       return projectId ? buildProjectIntentDestination(projectId, "invoice") : "/projects?intent=invoice";
     case "change-order":

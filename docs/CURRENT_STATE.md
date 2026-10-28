@@ -86,6 +86,15 @@ collection or enable the optional service in the Vercel project dashboard.
 Existing PR #795 is extended to repair the dependency audit blocking Today 2.0 PR #798. The isolated runtime branch retains dotenv/Vercel patch updates, adds patched Zod 4.6.7 including Vercel's transitive validator, and includes body-parser 1.20.9 from #799. The previous identifier syntax contract is preserved using `z.guid()`; record and enum pipeline compatibility repairs do not alter JWT/membership, permissions, RLS, financial or supplier policy. No production change or merge is claimed. Full verification and PR-only major-upgrade review remain required; the independent moderate ip-address patch is tracked by #786. See [runtime upgrade evidence](architecture/API_VALIDATION_RUNTIME_UPGRADE.md).
 
 
+
+## Today 2.0 implementation branch — 2026-10-26
+
+PR #798 continues on `feat/today-2-command-center` (`EXISTING_WORK_FOUND`, Sprint ID NONE). Today, Needs You and Work share authenticated source data, operational indicators, contextual source workspaces, semantic themes and the persistent five-slot Control Dock. Previous head `fdcc63cc6c6a28d94c8642e9e821857fda729960` passed 518 frontend tests, 20 Chromium component tests and hosted PostgreSQL integration/migration rehearsal (run 40427077847). Its real Vercel Preview is READY; unauthenticated dashboard redirect to login was observed. Secure sign-in was declined, so authenticated live-data journeys remain unverified.
+
+The current continuation adds task-status editing to the contextual workspace for existing `crm.write` roles, using the established authenticated project-task PATCH endpoint and its transactional activity record. Controls require a structured source task/project target and canonical write permission. A save is reported only after the server confirms the same record and requested status. Pending saves block duplicate submission and dialog dismissal; offline edits send no request; failures preserve the unresolved source. A successful save refreshes all operational data from source truth. The existing task PATCH now accepts optional `expectedUpdatedAt`; Today uses a guarded status-only route that requires this source revision and fails closed on older backends. The atomic update rejects stale/concurrent saves with 409 and advances revisions even within one millisecond; legacy clients can omit the guard. No rejected save records an activity event.
+
+Real stale proposals, overdue invoices/tasks/jobs, blocked tasks, conflicts and pending approvals feed Needs You; passive drafts remain separate. Counts retain unknown/partial semantics. Distinct people are not invented crew groups. The backend addition is the optional task revision precondition; no schema, role, JWT/membership, RLS, financial or supplier policy changes. Field Task writes, unsupported visit/crew/milestone aggregation and broader Athena confirmation/execution remain acceptance gaps. Current continuation verification belongs in [Today 2.0 implementation evidence](architecture/TODAY_2_IMPLEMENTATION.md); earlier results do not certify a later head.
+
 ## Openings and dishwasher catalog gap — source branch, 2026-10-18
 
 PR #774 on branch `feat/costbook-openings-appliance-gaps-20261018`
@@ -1443,6 +1452,25 @@ This harness does not prove authenticated persistence, tenant isolation, live
 supplier pricing, or full illustrated-shell parity. Current-head test results
 are recorded in the PR and Figma handoff, not inferred from source assertions.
 
+## Assigned-job task visibility (Today follow-up, 2026-10-27)
+
+`GET /api/v1/projects/assigned-job-tasks?limit=50` returns open shared tasks
+attached to the authenticated user's actively assigned, non-archived, nonterminal
+Jobs. The controller derives organization and user identity from authentication;
+unknown query keys and limits outside 1–50 are rejected. The service additionally
+filters Project and Job tenant ownership and active (not removed or declined)
+JobAssignments, under the existing forced RLS session. This projects the same
+tasks already exposed by an authorized Job detail read; it grants no writes.
+
+Technician Today uses this endpoint rather than the organization task queue.
+Shared tasks appear in Work, with blocked/overdue tasks in Needs You and due-day
+counts using stored calendar dates. Free-text `assignedTo` remains display-only,
+not personal authorization. Field rows open `/field?job=…`; the existing Field
+workspace now displays Job DTO tasks and directs progress reports to Job notes.
+Task status edits retain existing office permissions. Results at the 50-row cap
+are explicitly partial; a task-source failure leaves job scheduling usable and
+task counts unknown. No schema, RLS policy or mutation authority changed.
+
 ## Today routine follow-up recovery (2026-10-27)
 
 The existing `tradeos.athena.tools.office.create-follow-up` tool now advertises
@@ -1461,6 +1489,42 @@ change does not turn an approval state into success or resubmit restricted
 actions. Action-engine dispatch is required for receipt guarantees; calling
 the service or tool handler directly does not provide deduplication.
 
+## Personal field-task ownership and status updates (2026-10-27)
+
+Implementation on `feat/field-task-ownership` adds nullable
+`ProjectTask.assignedUserId` (user FK, no name-based backfill). Shared job tasks
+remain readable. Only the authenticated technician personally assigned by user
+ID, with an active non-declined JobAssignment on a nonterminal/unarchived Job,
+may use `PATCH /api/v1/jobs/:jobId/tasks/:taskId/status`. The strict payload is
+status plus mandatory expectedUpdatedAt. The transaction locks Job/assignment
+rows, checks tenant/identity/revision, updates atomically and records activity.
+Stale saves return 409; invisible/not-assigned records return 404.
+
+The migration removes technicians from the historical broad project-task write
+policy (whose generic helper includes technicians), adds a narrowly scoped RLS
+update policy, and restricts technician updates to status/timestamps with an
+immutable-column trigger. DB-controlled timestamps retain millisecond revision
+precision. Technician task create/delete/reassignment remains denied.
+
+Owner/admin/dispatcher may create or revise explicit assignment through the
+Project Tasks forms and the existing guarded generic PATCH. The new scoped
+`GET /api/v1/projects/:id/task-assignees` returns only permitted active-member
+choices and a server-derived capability. Legacy estimator ordinary task writes
+are preserved; this new identity-administration capability is not silently
+granted. Existing office status/title/note updates do not revalidate historical
+assignment eligibility unless identity or Job linkage changes.
+
+Today and Field job details return a server-derived canUpdateStatus flag based
+on the actual auth role, not the normalized settings presentation role. Only
+explicit nonempty matching identity, revision and capability enable the shared
+status editor; older/partial responses fail closed. UI saves use the narrow
+Job endpoint and verify record/project/Job/status before showing success.
+Assignment changes refresh the source and operational routes. No optimistic
+queue dismissal, automatic retry, financial change or production migration.
+
+This is a schema/RLS change requiring governed review and migration rehearsal
+before activation. Unit/type/build and hosted PostgreSQL/browser results must
+be recorded from the final head; authored tests alone are not certification.
 ### Pending P0 staging migration-history reconciliation — 2026-10-28
 
 PR for issue #811 proposes a protected, staging-only reconciliation of the already-executed invoice expand migration. Direct evidence: Supabase migration history stores the exact executable SQL used by the tracked Prisma file (comments differ); staging has 46 applied Prisma migrations, 0 unfinished, and 42 invoice rows with matching old/new monetary values. The workflow is **not merged or executed** by this documentation change. The later invoice contract migration remains blocked pending proof all legacy writers are retired. No production migration or staging schema deployment is certified.
