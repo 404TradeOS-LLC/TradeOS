@@ -1100,7 +1100,7 @@ model ProjectTask {
   @@index([projectId, status])
   @@index([projectId, dueDate])
   @@index([jobId, status])
-  @@index([assignedUserId, status, dueDate])
+  @@index([assignedUserId, status, dueDate], map: "idx_project_tasks_assigned_user_status_due")
   @@map("project_tasks")
 }
 

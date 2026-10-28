@@ -171,18 +171,19 @@ Jobs, assignments, scheduling and field tool IDs retain their previous UUID-shap
 
 Implementation on `feat/field-task-ownership` adds nullable
 `ProjectTask.assignedUserId` (user FK, no name-based backfill). Shared job tasks
-remain readable. Only the authenticated technician personally assigned by user
-ID, with an active non-declined JobAssignment on a nonterminal/unarchived Job,
-may use `PATCH /api/v1/jobs/:jobId/tasks/:taskId/status`. The strict payload is
-status plus mandatory expectedUpdatedAt. The transaction locks Job/assignment
+remain readable. The Jobs-specific route is
+`PATCH /api/v1/jobs/:jobId/tasks/:taskId/status`, with a strict payload of
+status plus mandatory expectedUpdatedAt; the transaction locks Job/assignment
 rows, checks tenant/identity/revision, updates atomically and records activity.
-Stale saves return 409; invisible/not-assigned records return 404.
+Role eligibility and RLS rules live in the
+[RBAC matrix](../RBAC_MATRIX.md#personal-field-task-ownership-and-status-updates-2026-10-27);
+404/409 outcomes and Job status rules live in
+[workflow lifecycles](../WORKFLOW_LIFECYCLES.md#personal-field-task-ownership-and-status-updates-2026-10-27).
 
-The migration removes technicians from the historical broad project-task write
-policy (whose generic helper includes technicians), adds a narrowly scoped RLS
-update policy, and restricts technician updates to status/timestamps with an
-immutable-column trigger. DB-controlled timestamps retain millisecond revision
-precision. Technician task create/delete/reassignment remains denied.
+The migration and RLS shape for this feature, including the immutable-column
+trigger and the denial of technician create/delete/reassignment, are covered in
+the [RBAC matrix](../RBAC_MATRIX.md#personal-field-task-ownership-and-status-updates-2026-10-27).
+DB-controlled timestamps retain millisecond revision precision.
 
 Owner/admin/dispatcher may create or revise explicit assignment through the
 Project Tasks forms and the existing guarded generic PATCH. The new scoped

@@ -129,26 +129,14 @@ task counts unknown. No schema, RLS policy or mutation authority changed.
 
 Implementation on `feat/field-task-ownership` adds nullable
 `ProjectTask.assignedUserId` (user FK, no name-based backfill). Shared job tasks
-remain readable. Only the authenticated technician personally assigned by user
-ID, with an active non-declined JobAssignment on a nonterminal/unarchived Job,
-may use `PATCH /api/v1/jobs/:jobId/tasks/:taskId/status`. The strict payload is
-status plus mandatory expectedUpdatedAt. The transaction locks Job/assignment
-rows, checks tenant/identity/revision, updates atomically and records activity.
-Stale saves return 409; invisible/not-assigned records return 404.
-
-The migration removes technicians from the historical broad project-task write
-policy (whose generic helper includes technicians), adds a narrowly scoped RLS
-update policy, and restricts technician updates to status/timestamps with an
-immutable-column trigger. DB-controlled timestamps retain millisecond revision
-precision. Technician task create/delete/reassignment remains denied.
-
-Owner/admin/dispatcher may create or revise explicit assignment through the
-Project Tasks forms and the existing guarded generic PATCH. The new scoped
-`GET /api/v1/projects/:id/task-assignees` returns only permitted active-member
-choices and a server-derived capability. Legacy estimator ordinary task writes
-are preserved; this new identity-administration capability is not silently
-granted. Existing office status/title/note updates do not revalidate historical
-assignment eligibility unless identity or Job linkage changes.
+remain readable. The ownership and lifecycle contract — role eligibility, RLS
+rules, 404/409 outcomes, and Job status rules — lives in the
+[RBAC matrix](../RBAC_MATRIX.md#personal-field-task-ownership-and-status-updates-2026-10-27)
+and [workflow lifecycles](../WORKFLOW_LIFECYCLES.md#personal-field-task-ownership-and-status-updates-2026-10-27).
+Projects-specific: the scoped `GET /api/v1/projects/:id/task-assignees`
+returns only permitted active-member choices and a server-derived capability,
+and the Project Tasks assignment form drives explicit assignment through the
+existing guarded generic PATCH.
 
 Today and Field job details return a server-derived canUpdateStatus flag based
 on the actual auth role, not the normalized settings presentation role. Only

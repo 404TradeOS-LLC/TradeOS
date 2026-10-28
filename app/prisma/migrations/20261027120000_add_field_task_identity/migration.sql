@@ -6,18 +6,22 @@ create index idx_project_tasks_assigned_user_status_due on public.project_tasks(
 -- from this table's broad office policy before adding the narrow path.
 alter policy project_tasks_write_policy on public.project_tasks using (
   current_app_can_write() and current_app_role() <> 'technician'
-  and exists (select 1 from projects p where p.id = project_tasks.project_id)
+  and exists (select 1 from projects p
+    where p.id = project_tasks.project_id)
 ) with check (
   current_app_can_write() and current_app_role() <> 'technician'
-  and exists (select 1 from projects p where p.id = project_tasks.project_id)
+  and exists (select 1 from projects p
+    where p.id = project_tasks.project_id)
 );
 
 create policy project_tasks_assigned_technician_update on public.project_tasks
 for update using (
   current_app_role() = 'technician'
   and assigned_user_id = current_app_user_id()
-  and exists (select 1 from organization_memberships m join users u on u.id = m.user_id where m.org_id = current_app_org_id() and m.user_id = current_app_user_id() and m.status = 'active' and m.role = 'technician' and u.is_active)
-  and exists (select 1 from projects p where p.id = project_tasks.project_id and p.org_id = current_app_org_id())
+  and exists (select 1 from organization_memberships m join users u on u.id = m.user_id
+    where m.org_id = current_app_org_id() and m.user_id = current_app_user_id() and m.status = 'active' and m.role = 'technician' and u.is_active)
+  and exists (select 1 from projects p
+    where p.id = project_tasks.project_id and p.org_id = current_app_org_id())
   and exists (select 1 from jobs j join job_assignments a on a.job_id = j.id
     where j.id = project_tasks.job_id and j.org_id = current_app_org_id()
       and j.archived_at is null and j.status not in ('completed', 'cancelled')
@@ -25,8 +29,10 @@ for update using (
       and a.removed_at is null and a.declined_at is null)
 ) with check (
   current_app_role() = 'technician' and assigned_user_id = current_app_user_id()
-  and exists (select 1 from organization_memberships m join users u on u.id = m.user_id where m.org_id = current_app_org_id() and m.user_id = current_app_user_id() and m.status = 'active' and m.role = 'technician' and u.is_active)
-  and exists (select 1 from projects p where p.id = project_tasks.project_id and p.org_id = current_app_org_id())
+  and exists (select 1 from organization_memberships m join users u on u.id = m.user_id
+    where m.org_id = current_app_org_id() and m.user_id = current_app_user_id() and m.status = 'active' and m.role = 'technician' and u.is_active)
+  and exists (select 1 from projects p
+    where p.id = project_tasks.project_id and p.org_id = current_app_org_id())
   and exists (select 1 from jobs j join job_assignments a on a.job_id = j.id
     where j.id = project_tasks.job_id and j.org_id = current_app_org_id()
       and j.archived_at is null and j.status not in ('completed', 'cancelled')

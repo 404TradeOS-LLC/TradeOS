@@ -6,7 +6,7 @@ import { projectTasksController } from "../backend/controllers/projectTasks.cont
 import type { SupportedRole } from "../domain";
 const admin = new PrismaClient({ datasources: { db: { url: process.env.TEST_DATABASE_ADMIN_URL! } } });
 const app = new PrismaClient({ datasources: { db: { url: process.env.TEST_DATABASE_URL! } } });
-const org = randomUUID(), foreignOrg = randomUUID(), owner = randomUUID(), tech = randomUUID(), peer = randomUUID(), outsider = randomUUID();
+const org = randomUUID(), foreignOrg = randomUUID(), owner = randomUUID(), tech = randomUUID(), peer = randomUUID(), outsider = randomUUID(), dispatcher = randomUUID(), estimator = randomUUID();
 const project = randomUUID(), foreignProject = randomUUID(), customer = randomUUID(), address = randomUUID(), job = randomUUID(), assignment = randomUUID();
 const session = <T>(userId: string, orgId: string, role: SupportedRole, op: () => Promise<T>) => runWithDatabaseSession(app, { userId, orgId, role }, op, "integration-test");
 const tx = () => getRequestDatabaseClient()!;
@@ -21,15 +21,15 @@ async function save(id: string, revision: Date, status = "completed") {
 describe("personal field task forced RLS and audited saves", () => {
   beforeAll(async () => {
     await admin.organization.createMany({ data: [{ id: org, name: "Field tasks A" }, { id: foreignOrg, name: "Field tasks B" }] });
-    await admin.appUser.createMany({ data: [owner, tech, peer, outsider].map(id => ({ id, authSubject: `field-${id}`, email: `${id}@example.test` })) });
-    await admin.organizationMembership.createMany({ data: [{ orgId: org, userId: owner, role: "owner" }, { orgId: org, userId: tech, role: "technician" }, { orgId: org, userId: peer, role: "technician" }, { orgId: foreignOrg, userId: outsider, role: "owner" }] });
+    await admin.appUser.createMany({ data: [owner, tech, peer, outsider, dispatcher, estimator].map(id => ({ id, authSubject: `field-${id}`, email: `${id}@example.test` })) });
+    await admin.organizationMembership.createMany({ data: [{ orgId: org, userId: owner, role: "owner" }, { orgId: org, userId: tech, role: "technician" }, { orgId: org, userId: peer, role: "technician" }, { orgId: foreignOrg, userId: outsider, role: "owner" }, { orgId: org, userId: dispatcher, role: "dispatcher" }, { orgId: org, userId: estimator, role: "estimator" }] });
     await admin.project.createMany({ data: [{ id: project, orgId: org, name: "Field tasks" }, { id: foreignProject, orgId: foreignOrg, name: "Foreign project" }] });
     await admin.customer.create({ data: { id: customer, orgId: org, name: "Field customer" } });
     await admin.serviceAddress.create({ data: { id: address, orgId: org, customerId: customer, addressLine1: "1 Test St", city: "Terre Haute", state: "IN", postalCode: "47802" } });
     await admin.job.create({ data: { id: job, orgId: org, projectId: project, customerId: customer, serviceAddressId: address, jobNumber: "FIELD-TASK-1", title: "Assigned work", description: "Test only", jobType: "Service", status: "scheduled", createdById: owner } });
     await admin.jobAssignment.createMany({ data: [{ id: assignment, orgId: org, jobId: job, userId: tech, assignmentRole: "technician", assignedById: owner }, { orgId: org, jobId: job, userId: peer, assignmentRole: "technician", assignedById: owner }] });
   });
-  afterAll(async () => { await admin.organization.deleteMany({ where: { id: { in: [org, foreignOrg] } } }); await admin.appUser.deleteMany({ where: { id: { in: [owner, tech, peer, outsider] } } }); await app.$disconnect(); await admin.$disconnect(); });
+  afterAll(async () => { await admin.organization.deleteMany({ where: { id: { in: [org, foreignOrg] } } }); await admin.appUser.deleteMany({ where: { id: { in: [owner, tech, peer, outsider, dispatcher, estimator] } } }); await app.$disconnect(); await admin.$disconnect(); });
   it("saves an explicit personal task with exactly one audited completion", async () => {
     const row = await task(); await save(row.id, row.updatedAt);
     const stored = await admin.projectTask.findUniqueOrThrow({ where: { id: row.id } });
@@ -101,5 +101,17 @@ describe("personal field task forced RLS and audited saves", () => {
     const row = await task();
     await expect(session(outsider, foreignOrg, "owner", () => new ProjectTasksService().updateAssignedStatus({ orgId: org, userId: tech, jobId: job, taskId: row.id, status: "completed", expectedUpdatedAt: row.updatedAt }))).rejects.toMatchObject({ statusCode: 404 });
     const created = await session(owner, org, "owner", () => new ProjectTasksService().create({ orgId: org, projectId: project, jobId: job, assignedUserId: tech, title: "Valid assignment" })); expect(created.assignedUserId).toBe(tech);
+  });
+  it("lets dispatcher sessions list assignees and create assigned tasks, and preserves estimator ordinary writes", async () => {
+    const members = await session(dispatcher, org, "dispatcher", () => new ProjectTasksService().listAssignableMembers(org, project));
+    expect(members.map(m => m.userId)).toEqual(expect.arrayContaining([owner, tech, peer]));
+    expect(members.every(m => m.status === "active")).toBe(true);
+    const assigned = await session(dispatcher, org, "dispatcher", () => new ProjectTasksService().create({ orgId: org, projectId: project, jobId: job, assignedUserId: tech, title: "Dispatcher-assigned work" }));
+    expect(assigned.assignedUserId).toBe(tech);
+    const storedAssigned = await admin.projectTask.findUniqueOrThrow({ where: { id: assigned.id } });
+    expect(storedAssigned.assignedUserId).toBe(tech); expect(storedAssigned.title).toBe("Dispatcher-assigned work");
+    const written = await session(estimator, org, "estimator", () => new ProjectTasksService().create({ orgId: org, projectId: project, title: "Estimator ordinary write" }));
+    const persisted = await admin.projectTask.findUniqueOrThrow({ where: { id: written.id } });
+    expect(persisted.title).toBe("Estimator ordinary write");
   });
 });

@@ -88,7 +88,7 @@ describe("ProjectTasksService", () => {
     expect(task.status).toBe("completed");
     expect(mockPrisma.projectTask.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "task-1" },
+        where: { id: "task-1", updatedAt: new Date("2026-07-03T12:00:00.000Z"), project: { orgId: "org-1" } },
         data: expect.objectContaining({
           status: "completed",
           completedAt: expect.any(Date),
@@ -371,6 +371,15 @@ describe("ProjectTask revision preconditions", () => {
     const service = new ProjectTasksService();
     await expect(service.update("task-1", { orgId: "org-1", status: "completed", expectedUpdatedAt: revision })).rejects.toMatchObject({ statusCode: 409 });
     expect(mockPrisma.projectTask.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "task-1", updatedAt: revision, project: { orgId: "org-1" } } }));
+  });
+  it("predicates the write on the read revision when the caller omitted expectedUpdatedAt", async () => {
+    mockPrisma.projectTask.update.mockImplementation(async ({ data }: { data: object }) => ({ ...existing, ...data }));
+    await new ProjectTasksService().update("task-1", { orgId: "org-1", status: "blocked" });
+    expect(mockPrisma.projectTask.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "task-1", updatedAt: revision, project: { orgId: "org-1" } } }));
+  });
+  it("maps a race at the write to conflict even when the caller omitted expectedUpdatedAt", async () => {
+    mockPrisma.projectTask.update.mockRejectedValue({ code: "P2025" });
+    await expect(new ProjectTasksService().update("task-1", { orgId: "org-1", status: "completed" })).rejects.toMatchObject({ statusCode: 409 });
   });
   it("advances the revision even when the clock has not advanced", async () => {
     mockPrisma.projectTask.update.mockImplementation(async ({ data }: { data: object }) => ({ ...existing, ...data }));

@@ -206,12 +206,17 @@ export class ProjectTasksService {
     const conflict = () => new ApiError(409, "This task changed since you opened it. Refresh the source workspace before saving again.");
     if (input.expectedUpdatedAt && existing.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()) throw conflict();
     const nextStatus = input.status ?? (existing.status as ProjectTaskStatus);
-    // Include the revision in the write predicate: checking it only on the
-    // preceding read would allow two requests to overwrite each other.
+    // Include the revision in the write predicate even when the caller
+    // omitted expectedUpdatedAt: checking it only on the preceding read
+    // would allow two requests to overwrite each other. The read revision
+    // (existing.updatedAt) is the predicate when no explicit revision came
+    // with the request, and a no-match result is a conflict either way.
+    const revision = input.expectedUpdatedAt ?? existing.updatedAt;
     const row = await this.db.projectTask.update({
       where: {
         id,
-        ...(input.expectedUpdatedAt ? { updatedAt: input.expectedUpdatedAt, project: input.orgId ? { orgId: input.orgId } : undefined } : {}),
+        updatedAt: revision,
+        project: input.orgId ? { orgId: input.orgId } : undefined,
       },
       data: {
         jobId: input.jobId !== undefined ? input.jobId : existing.jobId,
@@ -229,7 +234,7 @@ export class ProjectTasksService {
         updatedAt: new Date(Math.max(Date.now(), existing.updatedAt.getTime() + 1)),
       },
     }).catch((error: unknown) => {
-      if (input.expectedUpdatedAt && typeof error === "object" && error !== null && "code" in error && error.code === "P2025") throw conflict();
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "P2025") throw conflict();
       throw error;
     });
     return toDTO(row);
