@@ -63,6 +63,8 @@ For staging, read [the Preview deployment QA checklist](QA_PREVIEW_DEPLOYMENT_CH
 
 October 27 live reads found staging Supabase healthy, but a 15-migration gap relative to current `main`, three non-forced Team & Time RLS tables, mismatched older READY Preview builds and HTTP 403 when listing Vercel environment metadata. The ignored later builds were deliberate path-based skips, not evidence of an application build failure. **Do not certify newer staging code until environment isolation is proved, the schema is reconciled, matching builds are READY and authenticated journeys pass.** Never print or copy service-role keys or database URLs into issues, tests or documentation.
 
+The single authoritative staging run is `.github/workflows/staging-orchestrator.yml`: on a push to `staging` (or a manual dispatch of the current staging head) it records one approved SHA, runs a read-only staging database preflight, waits for both Vercel Git deployments of that SHA to reach READY, verifies deployed SHA via backend `/health` plus `/ready` and frontend reachability, re-verifies the staging head, then captures canonical beta evidence through a reusable-workflow call and publishes one PASS/FAIL verdict naming the first failing dependency and its repair. It never applies migrations (the main-only `deploy-staging-migrations.yml` remains the only migration path) and never merges. The preflight itself performs reads only; the guarded full evidence phase invoked through beta-evidence may create records in the non-production smoke tenant. The staging branch itself is fast-forwarded from approved SHAs only; the diverged pre-2026-10-27 staging line is preserved at branch `archive/staging-20261005`.
+
 
 Merge queue operations are documented in [testing/MERGE_QUEUE.md](testing/MERGE_QUEUE.md).
 The opt-in action consumes `status:merge-queue` once, then GitHub validates the
@@ -411,3 +413,7 @@ fail the existing Web test gate; no new permission or protected-check bypass
 is introduced. These results do not certify authenticated application workflows.
 
 Web scope includes component tests/configuration, root runner manifests and the verification workflow itself, so harness-only edits cannot skip this gate. A real temporary-Git regression test covers those paths and unrelated App/docs changes.
+
+### Dependabot PR-body validation (2026-10-28)
+
+The required Docs consistency workflow still executes for Dependabot PRs; only the ten-section human-authored PR body validation step is bypassed for PRs **authored** by `dependabot[bot]`. All documentation ownership, unit, and consistency checks remain active. See `docs/REPOSITORY_GOVERNANCE.md`.

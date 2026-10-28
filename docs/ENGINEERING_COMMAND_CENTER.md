@@ -57,6 +57,12 @@ The October 27 staging read audit found an active/healthy database, 46 applied P
 
 **Blocked as of this audit:** Vercel Preview environment-variable metadata responds HTTP 403 for both projects, preventing independent proof that the URL, application database and service-role credentials target staging rather than production. Do not push a potentially incompatible runtime, promote a stale Preview, or apply migrations by guessing credentials. First restore scoped read access, validate both deployment target bundles without exposing secrets, then use the dedicated `main`-restricted staging migration workflow, record its ledger/RLS evidence, explicitly redeploy matching reviewed API/web commits, and capture owner/office/technician authenticated journeys. See `docs/QA_PREVIEW_DEPLOYMENT_CHECKLIST.md` and the October 23 environment audit.
 
+## Staging orchestrator — single authoritative staging run — 2026-10-27
+
+`.github/workflows/staging-orchestrator.yml` replaces ad-hoc staging certification with one run identity: push to `staging` (or dispatch the staging head) and the run records one approved SHA, preflights the staging database read-only, waits for both Vercel Git deployments of that SHA to reach READY, verifies runtime identity, re-verifies the staging head, captures canonical beta evidence, and publishes one PASS/FAIL verdict naming the first failing dependency and its repair. The diverged staging branch was archived at `archive/staging-20261005` (old head `959e3ef4`) and recreated from current `main`; it now takes fast-forwards from approved SHAs only. The Vercel ignore scripts unconditionally proceed on the `staging` branch, so one staging push builds both apps at one SHA instead of the previous path-filtered mismatch (a docs-only staging push previously skipped one app entirely).
+
+What the orchestrator does NOT do yet, stated plainly: it has not demonstrated a live full PASS. Its first real run will fail closed at the database preflight until the two staging secrets are entered, and at the Vercel wait until a team-scoped token exists; beta evidence additionally needs its provisioned smoke identity (present by name) and its data-plane/tenant-isolation prerequisites (`BETA_RC_SUPABASE_PROJECT_REF` and either `BETA_RC_FOREIGN_PROJECT_ID` or `BETA_RC_FOREIGN_CUSTOMER_ID`, both present by name); for S052/S053 scenarios, identities that do not currently exist. Do not present the workflow file, a READY badge, or a branch alias as staging acceptance. When those three blockers clear, the next staging push is the demonstration: one SHA, two READY deployments, verified `/health`/`/ready`, and a beta-evidence bundle under one run.
+
 
 ## ABC Supply material activation pilot — 2026-10-09
 
@@ -437,3 +443,7 @@ fail the existing Web test gate; no new permission or protected-check bypass
 is introduced. These results do not certify authenticated application workflows.
 
 Web scope includes component tests/configuration, root runner manifests and the verification workflow itself, so harness-only edits cannot skip this gate. A real temporary-Git regression test covers those paths and unrelated App/docs changes.
+
+## Dependabot required-check hygiene (2026-10-28)
+
+The Docs consistency job remains required and runnable for Dependabot patch PRs. The PR-body ten-section check applies to human-authored PRs; Dependabot-authored PRs are exempted only from that formatting step by PR author identity. Workflow validity, docs ownership, preflight, autonomy and dependency review are not bypassed. This prevents false red checks without converting missing checks into successful release evidence.
