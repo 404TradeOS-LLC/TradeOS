@@ -15,7 +15,7 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk/types";
 // matching athena-tool-sdk/fixtures/recallPreferenceTool.ts's posture.
 
 export const estimateCreateInputSchema = z.object({
-  projectId: z.string().uuid(),
+  projectId: z.guid(),
   overheadPct: z.number().finite().min(0).max(100).optional(),
 });
 export type EstimateCreateInput = z.infer<typeof estimateCreateInputSchema>;

@@ -24,7 +24,7 @@ import { warning } from "../../athena-tool-sdk/warnings";
 // approval-requiring category itself since it writes nothing.
 
 export const invoicePrepareInputSchema = z.object({
-  estimateId: z.string().uuid(),
+  estimateId: z.guid(),
 });
 export type InvoicePrepareInput = z.infer<typeof invoicePrepareInputSchema>;
 

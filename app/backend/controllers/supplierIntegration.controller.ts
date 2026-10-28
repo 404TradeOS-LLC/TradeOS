@@ -28,17 +28,17 @@ import { requireOrgId, requirePermissions } from "../requestContext";
 import { catalogQuerySchema, parseCatalogQuery } from "../../modules/shared/catalog-query";
 
 const service = new SupplierIntegrationService();
-const idSchema = z.string().uuid();
+const idSchema = z.guid();
 
 const listQuerySchema = catalogQuerySchema.extend({
   status: z.enum(["pending", "approved", "rejected"]).optional(),
-  supplierId: z.string().uuid().optional(),
-  materialId: z.string().uuid().optional(),
+  supplierId: z.guid().optional(),
+  materialId: z.guid().optional(),
 }).strict();
 
 const enqueueSchema = z.object({
-  supplierId: z.string().uuid(),
-  materialId: z.string().uuid(),
+  supplierId: z.guid(),
+  materialId: z.guid(),
   proposedUnitCost: z.coerce.number().finite().nonnegative().max(99_999_999.9999),
   source: z.string().trim().min(1).max(64).optional(),
 }).strict();

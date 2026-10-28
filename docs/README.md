@@ -53,6 +53,17 @@ related_code:
 
 # TradeOS Documentation
 
+The main-only [staging migration workflow](../.github/workflows/deploy-staging-migrations.yml) now checks for a known collision between Prisma's invoice expand migration and pre-existing Supabase-side schema changes **before** applying pending migrations. A failure indicates required ledger/schema reconciliation, not permission to retry or mark migrations applied without verified DDL. See [the deployment guide](DEPLOYMENT_GUIDE.md) and [the environment audit](research/github-environment-audit-2026-10-23.md).
+
+
+
+## Staging repair and acceptance-test entrypoint — 2026-10-27
+
+For staging, read [the Preview deployment QA checklist](QA_PREVIEW_DEPLOYMENT_CHECKLIST.md), [deployment guide](DEPLOYMENT_GUIDE.md), [GitHub environment audit](research/github-environment-audit-2026-10-23.md), and [repository governance](REPOSITORY_GOVERNANCE.md) before changing any credentials or issuing a deployment. The recovery workflow `.github/workflows/repair-staging-supabase-auth.yml` is manual, **main-only** and requires the approved `staging` GitHub Environment; `scripts/staging-repair.mjs` pins the staging Vercel team, project, branch and expected commit. Workflow-only changes must update this documentation entrypoint together with governance and the engineering command center.
+
+October 27 live reads found staging Supabase healthy, but a 15-migration gap relative to current `main`, three non-forced Team & Time RLS tables, mismatched older READY Preview builds and HTTP 403 when listing Vercel environment metadata. The ignored later builds were deliberate path-based skips, not evidence of an application build failure. **Do not certify newer staging code until environment isolation is proved, the schema is reconciled, matching builds are READY and authenticated journeys pass.** Never print or copy service-role keys or database URLs into issues, tests or documentation.
+
+
 Merge queue operations are documented in [testing/MERGE_QUEUE.md](testing/MERGE_QUEUE.md).
 The opt-in action consumes `status:merge-queue` once, then GitHub validates the
 synthetic group with the four existing required checks. The ruleset template
@@ -386,3 +397,17 @@ The protected `.github/workflows/backfill-abc-materials.yml` operator workflow n
 **ABC Supply Product API live proof (issue #735):** The manual [ABC sandbox catalog evidence runbook](operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md) explains how to obtain real `product.read` catalog-pagination evidence without storing supplier content, retrieving customer-specific prices, or claiming full import. The associated workflow is disabled until deliberately dispatched from `main` with authorized sandbox credentials.
 
 The staging database uses its own manually dispatched Prisma migration workflow at `.github/workflows/deploy-staging-migrations.yml`. It runs only from `main`, targets the verified TradeOS Staging project ref, and calls the repository's `app/scripts/deploy-migrations.sh` so Prisma history and restricted-role grants stay aligned. Configure `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` as secrets in the GitHub `staging` Environment; never reuse Production secrets. The workflow verifies the database host, invoice backfill precondition, and final Prisma ledger.
+
+
+## Isolated frontend component browser verification
+
+The existing Verify repository Web unit-test job also installs the pinned
+root Playwright runner and Chromium, then runs `playwright.components.config.ts`.
+This suite uses synthetic transport and no credentials, backend, or database.
+It checks mapping keyboard behavior and Custom Item responsive controls,
+keyboard order and recovery through production components. Synthetic failure
+screenshots/test diagnostics are retained for seven days. Browser failures
+fail the existing Web test gate; no new permission or protected-check bypass
+is introduced. These results do not certify authenticated application workflows.
+
+Web scope includes component tests/configuration, root runner manifests and the verification workflow itself, so harness-only edits cannot skip this gate. A real temporary-Git regression test covers those paths and unrelated App/docs changes.

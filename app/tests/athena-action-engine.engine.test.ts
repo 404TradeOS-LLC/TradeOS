@@ -526,7 +526,7 @@ describe("athena action engine - executeAthenaAction", () => {
     it("still verifies a valid approval when the submitted input is structurally identical but built with different object key insertion order", async () => {
       const registry = createAthenaToolRegistry();
       let executed = false;
-      const recordInputSchema = z.object({ tags: z.record(z.string()) });
+      const recordInputSchema = z.object({ tags: z.record(z.string(), z.string()) });
       const recordTool: AthenaToolDefinition = {
         ...createEchoFixtureTool({ id: "tradeos.athena.fixture.record-input", risk: "high" }),
         inputSchema: recordInputSchema,

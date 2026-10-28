@@ -43,6 +43,21 @@ related_code:
 
 # TradeOS Engineering Command Center
 
+## Staging invoice schema and ledger collision preflight — 2026-10-27
+
+The staging migration workflow refuses to run tracked Prisma migrations if invoice selling-price columns already exist but the corresponding Prisma migration is absent from the ledger, or if a recorded expand migration is missing expected columns. An untracked Supabase-side expansion was verified in staging; do not bypass the fail-closed preflight. Reconcile the historical expand migration against the staging schema and both migration ledgers, then separately review the destructive contract phase and old Preview writers before allowing it to drop legacy invoice fields. This safeguard makes no database mutation and does not certify staging readiness.
+
+
+
+## Staging repair approval gate and certification — 2026-10-27
+
+TradeOS retains an isolated Supabase Staging project (`qfbgdkbamfaasmtjfyru`) and two separate Vercel Preview deployments for backend `tradeos-costbook` and frontend `tradeos-costbook-web`. The manual `.github/workflows/repair-staging-supabase-auth.yml` job is a privileged recovery workflow: execute it only from `main`, inside the existing `staging` GitHub Environment approval gate, with its explicitly typed confirmation. Inject `VERCEL_TOKEN` only into the four required steps, not checkout or dependency installation, and use environment-based CLI authentication instead of a token command argument. Do not weaken production protections to make staging tests pass.
+
+The October 27 staging read audit found an active/healthy database, 46 applied Prisma migrations (no unfinished/rolled-back entries), and three Team & Time tables with RLS enabled but not FORCE RLS. Current `main` has 61 tracked migration folders, so **15 migrations require review and staging-only preflight** before a newer runtime may be called schema-compatible. Older immutable Preview builds pass backend `/health` and `/ready` and render the web login, but use different old commits. The newer staging commit `959e3ef4` triggered builds that Vercel intentionally ignored because `vercel-ignore-build.sh` found no relevant source diff. This is not a successful staging deployment.
+
+**Blocked as of this audit:** Vercel Preview environment-variable metadata responds HTTP 403 for both projects, preventing independent proof that the URL, application database and service-role credentials target staging rather than production. Do not push a potentially incompatible runtime, promote a stale Preview, or apply migrations by guessing credentials. First restore scoped read access, validate both deployment target bundles without exposing secrets, then use the dedicated `main`-restricted staging migration workflow, record its ledger/RLS evidence, explicitly redeploy matching reviewed API/web commits, and capture owner/office/technician authenticated journeys. See `docs/QA_PREVIEW_DEPLOYMENT_CHECKLIST.md` and the October 23 environment audit.
+
+
 ## ABC Supply material activation pilot — 2026-10-09
 
 Production SQL read verification after the 47802 evidence seed reports 3,188 SupplierProducts, 3,188 source price observations, six Suppliers, and **zero active Materials / zero SupplierPriceUpdates**; observations are assigned to one tenant and historical rather than authenticated live ABC quotes. The new protected GitHub Actions workflow `preview-abc-supply-material.yml` makes the existing exact-product activation operator's **read-only** mode available to an owner/admin on mobile using the application user/organization IDs exposed by Settings → Costbook. Actual activation still needs independent SKU/UOM and baseline-cost authorization and explicit `--apply` outside this workflow. Live ABC sandbox quote and durable token rotation remain unproven until a reviewed Material becomes eligible.
@@ -408,3 +423,17 @@ Issue #735 owns the full catalog requirement. PR #736 merged a sandbox-only, dis
 Do not start any durable ABC Get All Items import or seven-day delta storage until ABC explicitly authorizes the intended retention and searchable display model. Keep issue #735 open until full persistence/sync (where permitted), browser evidence, customer-authenticated pricing, Material review, and Estimate handoff are actually verified.
 
 Staging Prisma migration execution is wired through `.github/workflows/deploy-staging-migrations.yml` on branch `ops/staging-prisma-migrations-20261018` (PR pending). It is manual-only, checks the exact TradeOS Staging Supabase host and invoice migration precondition, uses the existing Prisma deployment script, and verifies the resulting ledger. Before dispatch, configure the dedicated `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` secrets in GitHub Environment `staging`. No database migration has been run by this workflow setup.
+
+
+## Isolated frontend component browser verification
+
+The existing Verify repository Web unit-test job also installs the pinned
+root Playwright runner and Chromium, then runs `playwright.components.config.ts`.
+This suite uses synthetic transport and no credentials, backend, or database.
+It checks mapping keyboard behavior and Custom Item responsive controls,
+keyboard order and recovery through production components. Synthetic failure
+screenshots/test diagnostics are retained for seven days. Browser failures
+fail the existing Web test gate; no new permission or protected-check bypass
+is introduced. These results do not certify authenticated application workflows.
+
+Web scope includes component tests/configuration, root runner manifests and the verification workflow itself, so harness-only edits cannot skip this gate. A real temporary-Git regression test covers those paths and unrelated App/docs changes.
