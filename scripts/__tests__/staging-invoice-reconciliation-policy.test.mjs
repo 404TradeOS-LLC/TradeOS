@@ -10,7 +10,8 @@ test("invoice history reconciliation is manual, stage-only, approved and one-mig
   assert.match(reconciliation, /environment: staging/);
   assert.match(reconciliation, /group: deploy-migrations-staging/);
   assert.match(reconciliation, /refs\/heads\/main/);
-  assert.match(reconciliation, /db\.[^ ]+supabase\.co/);
+  assert.match(reconciliation, /qfbgdkbamfaasmtjfyru/);
+  assert.match(reconciliation, /\.supabase\.co/);
   assert.match(reconciliation, /RECONCILE_INVOICE_EXPAND_ONLY/);
   assert.match(reconciliation, /verify-staging-invoice-expand\.mjs/);
   assert.match(reconciliation, /prisma migrate resolve --applied 20260902193000_rename_invoice_line_price_columns/);
