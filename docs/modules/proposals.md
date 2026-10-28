@@ -59,6 +59,30 @@ duplicate delivery/activity history or overwrite the winning project side
 effect. The current `billing.read` read boundary and `documents.manage`
 mutation boundary remain unchanged.
 
+## Accepted proposal → field job (step 9)
+
+The organization-scoped `POST /api/v1/jobs/from-proposal/:proposalId` converts
+an **accepted** proposal to a single, **unscheduled** Job. The request accepts
+only a customer-owned `serviceAddressId`; all other job and commercial fields
+come from the accepted proposal and its project. The caller must have an
+owner/admin/dispatcher role and valid organization session. Foreign tenant,
+non-accepted proposal, missing customer, or mismatched address fails closed.
+
+The job stores a unique nullable `sourceProposalId` and
+`acceptedBaselineJson` copied at conversion time, including approved scope,
+assumptions, exclusions, estimate reference, monetary decimal **strings**,
+payment milestones and terms. The original proposal remains immutable.
+A transaction-scoped proposal lock plus a unique index prevents concurrent
+double jobs; retry returns the existing job without duplicating activities.
+The job's service address is chosen deliberately by a manager. Crew assignment,
+scheduling, signed contract, and invoicing are not implied by acceptance.
+
+The entry point is the accepted proposal's **Create field job from accepted
+proposal** action; it uses the existing address chooser and the Dispatch link.
+The additive migration `20261028151000_accepted_proposal_job_handoff`
+must be applied in authorized nonproduction before executing this API.
+There is no production migration execution in this PR.
+
 ## Emitted activity events
 
 - proposal send, view, accept, decline, and resend actions write delivery history and activity-oriented metadata
@@ -85,6 +109,7 @@ absent.
 ## Tests
 
 - `app/tests/proposals.service.test.ts`
+- `app/tests/jobs.service.test.ts` — accepted-proposal conversion, idempotency, unauthorized roles, tenant scope and address ownership
 - `app/tests/proposalsInvoicesContractsMigration.test.ts`
 - `app/tests/proposal-delivery.migration.test.ts`
 - `app/tests/proposals.athena-events-integration.test.ts`
