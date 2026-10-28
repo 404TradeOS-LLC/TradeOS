@@ -47,3 +47,11 @@ test("unknown project intent is rejected", () => {
   assert.equal(resolveProjectCreateIntent("job"), "job");
   assert.equal(resolveProjectCreateIntent("delete"), null);
 });
+
+test("Task create uses the existing Project selector and task form", () => {
+  assert.equal(resolveProjectCreateIntent("task"), "task");
+  assert.equal(buildUniversalCreateHref("task", "/dashboard"), "/projects?intent=task");
+  assert.equal(buildUniversalCreateHref("task", `/projects/${PROJECT_ID}`), `/projects/${PROJECT_ID}?tab=tasks#title`);
+  assert.equal(buildProjectIntentDestination("invalid", "task"), "/projects");
+  assert.equal(resolveNewProjectCreateIntent("task"), null);
+});
