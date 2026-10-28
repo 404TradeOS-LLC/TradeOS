@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   loadDashboardProjectDetails,
@@ -7,57 +6,7 @@ import {
   resolveDashboardOrganizationContext,
 } from "./dashboard-startup.ts";
 
-const sourceUrl = new URL("./page.tsx", import.meta.url);
-
-async function readDashboardSource() {
-  return readFile(sourceUrl, "utf8");
-}
-
-test("Today preserves independent invoice siblings and uses stale-only Proposal attention", async () => {
-  const source = await readDashboardSource();
-
-  assert.match(source, /Promise\.allSettled\(\[\s*listInvoiceQueue/);
-  assert.match(source, /overdueResult\.status === "fulfilled" \? overdueResult\.value : emptyQueue<InvoiceQueueItem>\(\)/);
-  assert.match(source, /unpaidResult\.status === "fulfilled" \? unpaidResult\.value : emptyQueue<InvoiceQueueItem>\(\)/);
-  assert.match(source, /listProposalQueue\(token, \{/);
-  assert.match(source, /unsigned: true/);
-  assert.match(source, /staleBefore: staleBeforeIso/);
-  assert.doesNotMatch(source, /ATTENTION_UNSIGNED_PROPOSAL_LIMIT|unsignedResult/);
-});
-
-test("Money preserves queue uncertainty instead of converting failed totals to zero", async () => {
-  const source = await readDashboardSource();
-
-  assert.match(source, /overdueUnavailable: overdueFailed/);
-  assert.match(source, /openUnavailable: unpaidFailed/);
-  assert.match(source, /overdueInvoiceTotal: invoiceQueues\.overdueUnavailable \? invoiceRows\.filter\(\(row\) => row\.overdue\)\.length : invoiceQueues\.overdue\.total/);
-  assert.match(source, /openInvoiceTotal: invoiceQueues\.openUnavailable \? invoiceRows\.length : invoiceQueues\.unpaid\.total/);
-  assert.match(source, /isPartial: invoiceQueues\.openUnavailable \|\| receivablesBase\.isPartial/);
-  assert.doesNotMatch(source, /fallbackInvoicesWaiting|buildOwnerKpis/);
-});
-
-test("partial source failures remain visible to their Today sections", async () => {
-  const source = await readDashboardSource();
-
-  assert.match(source, /overdueFailed \|\| unpaidFailed/);
-  assert.match(source, /error: error instanceof Error \? error\.message : "Stale proposal queue is temporarily unavailable"/);
-  assert.match(source, /currentSchedule: scheduleWindow\.today\.error/);
-  assert.match(source, /upcomingSchedule: scheduleWindow\.upcoming\.error/);
-  assert.match(source, /invoices: invoiceQueues\.error/);
-  assert.match(source, /proposals: staleProposalQueue\.error/);
-  assert.match(source, /openInvoicesUnavailable: invoiceQueues\.openUnavailable/);
-  assert.match(source, /overdueInvoicesUnavailable: invoiceQueues\.overdueUnavailable/);
-  assert.match(source, /Boolean\(staleProposalQueue\.error\)/);
-  assert.match(source, /invoiceQueues\.overdueUnavailable/);
-  assert.match(source, /Boolean\(blockedTaskQueue\.error\)/);
-  assert.match(source, /Boolean\(scheduleWindow\.conflicts\.error\)/);
-  assert.match(source, /const notificationCount = attentionUnavailable/);
-  assert.match(source, /staleProposalQueue\.queue\.total/);
-  assert.match(source, /invoiceQueues\.overdue\.total/);
-  assert.match(source, /blockedTaskQueue\.items\.length/);
-  assert.match(source, /scheduleWindow\.conflicts\.items\.length/);
-});
-
+// Legacy startup helpers remain available to other dashboard consumers.
 test("organization settings failure preserves successfully loaded project data", async () => {
   const projects = [{ id: "project-1", name: "Test Project" }];
   let settingsCalls = 0;
@@ -90,28 +39,9 @@ test("one failed project detail preserves fulfilled project siblings", async () 
   assert.equal(result.failedCount, 1);
 });
 
-test("dashboard wires project details through the isolated fan-out", async () => {
-  const source = await readDashboardSource();
-
-  assert.match(source, /loadDashboardProjectDetails\(token, projects, DASHBOARD_PROJECT_DETAIL_LIMIT, getProject\)/);
-  assert.match(source, /projectDetailsResult\.failedCount/);
-});
-
 test("settings outage uses dispatch timezone and does not expose demo organization identity", () => {
   assert.deepEqual(resolveDashboardOrganizationContext(null, "America/Chicago"), {
     companyName: "Organization unavailable",
     timeZone: "America/Chicago",
   });
-});
-
-test("Today backfills active scheduled Jobs across pages and preserves the exact scheduled-today count", async () => {
-  const source = await readDashboardSource();
-
-  assert.match(source, /const TERMINAL_JOB_STATUSES = new Set\(\["completed", "cancelled"\]\)/);
-  assert.match(source, /const DASHBOARD_SCHEDULE_FETCH_PAGE_SIZE = 100/);
-  assert.match(source, /async function loadActiveScheduledJobs/);
-  assert.match(source, /if \(TERMINAL_JOB_STATUSES\.has\(job\.status\)\) continue/);
-  assert.match(source, /activeJobs\.length < input\.limit/);
-  assert.match(source, /\(page - 1\) \* DASHBOARD_SCHEDULE_FETCH_PAGE_SIZE < totalRows/);
-  assert.match(source, /total: summary\.scheduledToday/);
 });

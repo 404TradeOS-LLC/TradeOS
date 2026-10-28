@@ -1,3 +1,5 @@
+import { hasPermission } from "../../../../app/domain/contracts";
+import { ProjectTaskAssignmentForm } from "@/components/projects/project-task-assignment-form";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { createEstimateAction, deleteProjectTaskAction, duplicateEstimateAction, rejectChangeOrderAction, updateProjectStatusAction, updateProjectTaskStatusAction, approveChangeOrderAction } from "@/app/actions/projects";
@@ -45,6 +47,8 @@ interface ProjectWorkspaceProps {
   tasks: ProjectTask[];
   jobs?: JobSummary[];
   currentRole: string;
+  canAssignTaskIdentity?: boolean;
+  taskMembers?: Array<{ userId: string; fullName: string | null; email: string; status: string }>;
 }
 
 export async function ProjectWorkspace({
@@ -61,6 +65,8 @@ export async function ProjectWorkspace({
   tasks,
   jobs = [],
   currentRole,
+  taskMembers = [],
+  canAssignTaskIdentity = false,
 }: ProjectWorkspaceProps) {
   const activity = buildProjectActivity({ ...project, customer, estimates, siteVisits, projectFiles, proposals, invoices, contracts, changeOrders, tasks });
   const notifications = buildProjectNotifications({ ...project, proposals, contracts, invoices });
@@ -414,7 +420,7 @@ export async function ProjectWorkspace({
     case "tasks":
       return (
         <div className="grid gap-6">
-          <ProjectTaskForm projectId={project.id} />
+          {hasPermission(currentRole, "crm.write") ? <ProjectTaskForm projectId={project.id} jobs={jobs} members={taskMembers} canAssignIdentity={canAssignTaskIdentity} /> : null}
           <div className="grid gap-4">
             {tasks.length === 0 ? (
               <EmptyState
@@ -437,7 +443,7 @@ export async function ProjectWorkspace({
                         </div>
                         {task.notes && <p className="text-sm text-muted-foreground">{task.notes}</p>}
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      {hasPermission(currentRole, "crm.write") ? <div className="flex flex-wrap gap-2">
                         <form action={updateProjectTaskStatusAction}>
                           <input type="hidden" name="projectId" value={project.id} />
                           <input type="hidden" name="taskId" value={task.id} />
@@ -461,8 +467,9 @@ export async function ProjectWorkspace({
                             Remove
                           </button>
                         </form>
-                      </div>
+                      </div> : null}
                     </div>
+                    {canAssignTaskIdentity ? <ProjectTaskAssignmentForm key={`${task.id}:${task.updatedAt}`} task={task} jobs={jobs} members={taskMembers} /> : null}
                   </CardContent>
                 </Card>
               ))

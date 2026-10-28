@@ -72,7 +72,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto w-full max-w-[96rem] flex-1 px-4 py-5 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] outline-none sm:px-6 sm:pt-6 sm:pb-[calc(env(safe-area-inset-bottom)+5.5rem)] 2xl:pb-6 lg:px-8"
+        className="mx-auto w-full max-w-[96rem] flex-1 px-4 py-5 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] outline-none sm:px-6 sm:pt-6 sm:pb-[calc(env(safe-area-inset-bottom)+5.5rem)] lg:px-8"
       >
         {children}
       </main>
