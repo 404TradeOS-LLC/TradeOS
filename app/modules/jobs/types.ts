@@ -167,6 +167,9 @@ export interface JobEquipmentDTO {
 }
 
 export interface JobTaskDTO {
+  canUpdateStatus?: boolean;
+  assignedUserId?: string | null;
+  updatedAt?: string;
   id: string;
   title: string;
   status: string;
