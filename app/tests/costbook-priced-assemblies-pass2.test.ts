@@ -68,8 +68,8 @@ describe('Pass-2 historical price evidence', () => {
       'framing-floor-ijoist-19-2oc': [0, 0],
       'roofing-sbs-roll-selfadhered-cap': [2, 146.13],
       'roofing-membrane-epdm-60mil': [1, 9.79],
-      'roofing-flashing-pipe-boot': [2, 16.56],
-      'roofing-gutters-seamless-aluminum-5in': [3, 1.73],
+      'roofing-flashing-pipe-boot': [2, 15.01],
+      'roofing-gutters-seamless-aluminum-5in': [2, 1.38],
       'insul-rigidfoam-xps-2in-foundation': [1, 1.57],
     };
     for (const [id, [count, cost]] of Object.entries(expected)) {
@@ -79,7 +79,7 @@ describe('Pass-2 historical price evidence', () => {
         Number(pass2MaterialCost(id).toFixed(2)),
       );
     }
-    expect(pass2()).toHaveLength(20);
+    expect(pass2()).toHaveLength(19);
     expect(ASSEMBLY_MATERIAL_COSTS.filter(a => a.pricedComponents > 0)).toHaveLength(75);
   });
 });

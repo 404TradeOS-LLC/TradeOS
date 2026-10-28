@@ -750,10 +750,10 @@ export const PRICED_ASSEMBLY_COMPONENTS: readonly PricedAssemblyComponent[] = [
     priceUnit: "GAL", extendedCost: 6.125,
     matchScore: 0.4 }, // pass2: Henry 208R SBS rubberized; borderline score
   { componentKey: "mat_pipe_boot_elastomeric_unit", label: "Heavy-Duty Aluminum Base Pipe Boot w/ Self-Sealing EPDM/Silicone Collar (1-1/2 in. to 3 in.)",
-    quantityPerUnit: 1, supplier: "ABCSupply",
-    productName: "Oatey All-Flash Aluminum Base Roof Flashing Boot (Fits 1-1/2 in to 3 in Pipe)", unitPrice: 16.5,
-    priceUnit: "EA", extendedCost: 16.5,
-    matchScore: 0.55 }, // pass2: Oatey All-Flash 1-1/2 to 3 in
+    quantityPerUnit: 1, supplier: "Niehaus",
+    productName: "Oatey 1-1/4 in. to 3 in. Master Flash Aluminum Base Pipe Boot Flashing", unitPrice: 14.95,
+    priceUnit: "EA", extendedCost: 14.95,
+    matchScore: 0.6 }, // pass2: Master Flash EPDM aluminum base, replaces neoprene All-Flash per Codex thread (recipe requires EPDM/silicone collar; 1-1/4 to 3 in covers 1-1/2 to 3 in)
   { componentKey: "fast_roofing_nails_boot", label: "1-1/4 in. x 0.120 in. Galvanized Roofing Nails",
     quantityPerUnit: 6, supplier: "Menards",
     productName: "1-1/4 in. Coil Roofing Nails 15-Degree (7,200 ct)", unitPrice: 0.01,
@@ -764,11 +764,7 @@ export const PRICED_ASSEMBLY_COMPONENTS: readonly PricedAssemblyComponent[] = [
     productName: "ACM 11-7/8 in Seamless Gutter Coil (.027 in Aluminum for 5 in K-Style) - White", unitPrice: 1.02,
     priceUnit: "LF", extendedCost: 1.071,
     matchScore: 0.57 }, // pass2: ACM .027 in for 5 in K-style
-  { componentKey: "mat_downspout_aluminum_2x3", label: "2 in. x 3 in. Corrugated Aluminum Downspout Lineals & Elbows",
-    quantityPerUnit: 0.27, supplier: "ABCSupply",
-    productName: "ACM 2 in x 3 in x 10 ft Corrugated Aluminum Downspout - White", unitPrice: 1.27,
-    priceUnit: "LF", extendedCost: 0.3429,
-    matchScore: 0.5 }, // pass2: ACM 2x3x10 ft corrugated
+  // pass2: mat_downspout_aluminum_2x3 left unmatched per Codex thread — the ACM lineals row ($1.27/LF) omits the 3 elbows/drop and the recipe does not pin the A/B mix; re-match when the mix is decided (corpus elbows: Style A $3.45, Style B $3.65).
   { componentKey: "mat_sealant_gutter_thermoplastic", label: "High-Performance Thermoplastic Gutter Lap Sealant (Geocel 2320 / Pro Flex)",
     quantityPerUnit: 0.035, supplier: "ABCSupply",
     productName: "Geocel 2320 Gutter and Flashing Tripolymer Sealant - Clear (10.3 oz Cartridge)", unitPrice: 8.95,
@@ -998,10 +994,10 @@ export const ASSEMBLY_MATERIAL_COSTS: readonly AssemblyMaterialCost[] = [
     totalComponents: 3, materialCostPerUnit: 1.06 },
   { assemblyId: "roofing-flashing-pipe-boot", assemblyName: "Roof Plumbing Vent Pipe Boot Flashing (Elastomeric Collar Al",
     unitOfMeasure: "EA", pricedComponents: 2,
-    totalComponents: 4, materialCostPerUnit: 16.56 },
+    totalComponents: 4, materialCostPerUnit: 15.01 },
   { assemblyId: "roofing-gutters-seamless-aluminum-5in", assemblyName: "5 in. Seamless Aluminum K-Style Gutter & Downspout Installat",
-    unitOfMeasure: "LF", pricedComponents: 3,
-    totalComponents: 7, materialCostPerUnit: 1.73 },
+    unitOfMeasure: "LF", pricedComponents: 2,
+    totalComponents: 7, materialCostPerUnit: 1.38 },
   { assemblyId: "insul-sprayfoam-closedcell-2in", assemblyName: "Closed-Cell Spray Polyurethane Foam Insulation (2 in. Thickn",
     unitOfMeasure: "SF", pricedComponents: 0,
     totalComponents: 3, materialCostPerUnit: 0 },
