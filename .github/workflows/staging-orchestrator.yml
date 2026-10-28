@@ -23,13 +23,15 @@ name: Staging orchestrator
 #   no environment. No migration-apply job is added here: the existing
 #   deploy-staging-migrations.yml remains the only migration path, and the
 #   preflight below performs reads only (prisma migrate status + SELECTs).
-#   Nothing in this workflow writes to any database, pushes to main, or
-#   merges anything.
+#   The preflight never writes to a database; the guarded full evidence
+#   phase may create records in the non-production smoke tenant through
+#   the app. Nothing in this workflow pushes to main or merges anything.
 # - Beta-evidence SHA correlation is deliberately NOT required here:
 #   beta-evidence correlates against the BETA_RC_DEPLOYMENT_SHA repository
 #   variable, which is unset, so requiring it would fail every run. Web SHA
-#   proof comes from the Vercel deployment meta (wait job) + the staging
-#   branch alias + the head guard; backend SHA proof comes from /health.
+#   proof comes from Vercel deployment metadata filtered to the staging ref
+#   (wait job) + the staging branch alias + the head guard; backend SHA proof
+#   comes from /health, including on the alias.
 #   The evidence metadata honestly records shaCorrelated=false.
 
 on:
@@ -76,6 +78,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_SHA: ${{ inputs.sha }}
           PUSH_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           # SHA values travel via env, never interpolated into script text,
@@ -93,7 +96,7 @@ jobs:
             echo "::error::Approved SHA $sha is not a commit in this repository."
             exit 1
           }
-          staging_head="$(gh api "repos/${{ github.repository }}/branches/staging" --jq '.commit.sha')"
+          staging_head="$(gh api "repos/${GITHUB_REPOSITORY}/branches/staging" --jq '.commit.sha')"
           if [ "$sha" != "$staging_head" ]; then
             echo "::error::Approved SHA $sha is not the current staging head $staging_head. Push the SHA to staging or dispatch the staging head."
             exit 1
@@ -120,6 +123,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ needs.record.outputs.sha }}
 
       - name: Count tracked Prisma migrations
         id: inventory
@@ -145,8 +149,6 @@ jobs:
       run:
         working-directory: app
     env:
-      DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
-      APP_DB_ROLE_PASSWORD: ${{ secrets.STAGING_APP_DB_ROLE_PASSWORD }}
       APP_DB_ROLE_NAME: ${{ vars.STAGING_APP_DB_ROLE_NAME }}
       STAGING_PROJECT_REF: qfbgdkbamfaasmtjfyru
       PGSSLMODE: require
@@ -157,6 +159,9 @@ jobs:
       - name: Fail closed on missing staging credentials
         working-directory: .
         shell: bash
+        env:
+          DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
+          APP_DB_ROLE_PASSWORD: ${{ secrets.STAGING_APP_DB_ROLE_PASSWORD }}
         run: |
           set -euo pipefail
           test -n "${DATABASE_ADMIN_URL:-}" || {
@@ -186,8 +191,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ needs.record.outputs.sha }}
 
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1c # v7.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "20"
           cache: npm
@@ -201,11 +207,13 @@ jobs:
 
       - name: Refuse conflicting invoice expand schema and Prisma ledger
         shell: bash
+        env:
+          DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
         run: |
           set -euo pipefail
           # Read-only mirror of the deploy-staging-migrations guard (#804).
           # No migration is applied or stamped here.
-          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\\?*}"
           invoice_expand_state="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
             WITH invoice_price_columns AS (
               SELECT count(*) AS present
@@ -248,9 +256,11 @@ jobs:
 
       - name: Check invoice migration preconditions
         shell: bash
+        env:
+          DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
         run: |
           set -euo pipefail
-          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\\?*}"
           legacy_columns="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
             SELECT count(*)
             FROM information_schema.columns
@@ -278,9 +288,11 @@ jobs:
 
       - name: Verify Prisma ledger against the repository inventory
         shell: bash
+        env:
+          DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
         run: |
           set -euo pipefail
-          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\\?*}"
           applied="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
             SELECT count(*) FROM public._prisma_migrations
             WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
@@ -302,6 +314,8 @@ jobs:
 
       - name: Report Prisma migrate status (informational; psql counts gate)
         shell: bash
+        env:
+          DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
         run: |
           set -euo pipefail
           DATABASE_URL="$DATABASE_ADMIN_URL" npx prisma migrate status || true
@@ -309,9 +323,11 @@ jobs:
       - name: Verify app role exists and check Team & Time RLS
         id: rls
         shell: bash
+        env:
+          DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
         run: |
           set -euo pipefail
-          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\\?*}"
           role_exists="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -v rolename="$APP_DB_ROLE_NAME" -Atqc "
             SELECT count(*) FROM pg_roles WHERE rolname = :'rolename'
           ")"
@@ -368,7 +384,7 @@ jobs:
         shell: bash
         run: |
           # Polls the Vercel deployments API for one READY deployment per
-          # project whose meta.githubCommitSha equals the approved SHA.
+          # project on the staging ref whose meta.githubCommitSha equals the approved SHA.
           # Fails closed on a missing token, on HTTP 401/403 (token lacks
           # team scope), on a terminal ERROR/CANCELED deployment, and on
           # timeout. The token is never printed.
@@ -383,45 +399,45 @@ jobs:
             while [ "$attempt" -lt 45 ]; do
               attempt=$((attempt + 1))
               local response http_code body match state uid url
-              response="$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $VERCEL_TOKEN" \
+              response="$(curl -s -w "\\n%{http_code}" -H "Authorization: Bearer $VERCEL_TOKEN" \\
                 "https://api.vercel.com/v6/deployments?projectId=${project_id}&limit=50")" || {
-                echo "::warning::Network error polling Vercel for $label (attempt $attempt); retrying in 60s."
+                echo "::warning::Network error polling Vercel for $label (attempt $attempt); retrying in 60s." >&2
                 sleep 60
                 continue
               }
               http_code="$(printf '%s' "$response" | tail -n 1)"
               body="$(printf '%s' "$response" | sed '$d')"
               if [ "$http_code" = "401" ] || [ "$http_code" = "403" ]; then
-                echo "::error::Vercel API returned HTTP $http_code for $label. The VERCEL_TOKEN lacks team scope for team_nY1VrcaEYEr4rcW7Gxweq7LP. Owner action: approve authorize_team_access, or replace VERCEL_TOKEN with a team-scoped token. No deployment can be verified until then."
+                echo "::error::Vercel API returned HTTP $http_code for $label. The VERCEL_TOKEN lacks team scope for team_nY1VrcaEYEr4rcW7Gxweq7LP. Owner action: approve authorize_team_access, or replace VERCEL_TOKEN with a team-scoped token. No deployment can be verified until then." >&2
                 return 1
               fi
               if [ "$http_code" != "200" ]; then
-                echo "::warning::Vercel API returned HTTP $http_code for $label (attempt $attempt); retrying in 60s."
+                echo "::warning::Vercel API returned HTTP $http_code for $label (attempt $attempt); retrying in 60s." >&2
                 sleep 60
                 continue
               fi
-              match="$(printf '%s' "$body" | jq -r --arg sha "$SHA" \
-                '.deployments[] | select(.meta.githubCommitSha == $sha) | "\(.uid) \(.url) \(.state)"' 2>/dev/null | head -n 1)" || true
+              match="$(printf '%s' "$body" | jq -r --arg sha "$SHA" \\
+                '.deployments[] | select(.meta.githubCommitSha == $sha and .meta.githubCommitRef == "staging") | "\\(.uid) \\(.url) \\(.state)"' 2>/dev/null | head -n 1)" || true
               if [ -z "$match" ]; then
-                echo "No $label deployment of $SHA yet (attempt $attempt); retrying in 60s."
+                echo "No $label deployment of $SHA yet (attempt $attempt); retrying in 60s." >&2
                 sleep 60
                 continue
               fi
               uid="$(printf '%s' "$match" | cut -d' ' -f1)"
               url="$(printf '%s' "$match" | cut -d' ' -f2)"
               state="$(printf '%s' "$match" | cut -d' ' -f3)"
-              echo "$label deployment $uid is $state."
+              echo "$label deployment $uid is $state." >&2
               if [ "$state" = "READY" ]; then
                 printf '%s %s' "$uid" "$url"
                 return 0
               fi
               if [ "$state" = "ERROR" ] || [ "$state" = "CANCELED" ]; then
-                echo "::error::$label deployment $uid of $SHA ended in state $state. Check the Vercel dashboard for the build log; the staging run cannot proceed on a failed deployment."
+                echo "::error::$label deployment $uid of $SHA ended in state $state. Check the Vercel dashboard for the build log; the staging run cannot proceed on a failed deployment." >&2
                 return 1
               fi
               sleep 60
             done
-            echo "::error::Timed out waiting for a READY $label deployment of $SHA after 45 minutes. Check the Vercel dashboard for the staging-branch deployments of this SHA."
+            echo "::error::Timed out waiting for a READY $label deployment of $SHA after 45 minutes. Check the Vercel dashboard for the staging-branch deployments of this SHA." >&2
             return 1
           }
 
@@ -509,9 +525,10 @@ jobs:
         shell: bash
         env:
           APPROVED_SHA: ${{ needs.record.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          staging_head="$(gh api "repos/${{ github.repository }}/branches/staging" --jq '.commit.sha')"
+          staging_head="$(gh api "repos/${GITHUB_REPOSITORY}/branches/staging" --jq '.commit.sha')"
           if [ "$staging_head" != "$APPROVED_SHA" ]; then
             echo "::error::Staging head moved during the run (now $staging_head, approved SHA was $APPROVED_SHA). The staging branch alias may now serve a different deployment, so evidence captured now would not belong to the approved SHA. Re-run the orchestrator."
             exit 1
@@ -526,7 +543,7 @@ jobs:
       mode: full
       scenario: canonical
       # The staging branch alias: beta-evidence derives "staging" from this
-      # host. The guard job just proved the alias serves the approved SHA.
+      # host. The guard job just proved the staging head is still the approved SHA.
       rc_base_url: https://tradeos-costbook-web-git-staging-billykshowalters.vercel.app
       target_environment: staging
       smoke_tenant_label: TradeOS Beta Smoke
@@ -585,7 +602,7 @@ jobs:
             echo "| evidence | ${{ needs.evidence.result }} |"
             echo
             if [ -n "$first_failed" ]; then
-              echo "**Verdict: FAIL** — first failing dependency: \`$first_failed\`."
+              echo "**Verdict: FAIL** — first failing dependency: \\`$first_failed\\`."
               echo
               echo "**Repair:** $first_repair"
               echo
@@ -610,7 +627,6 @@ jobs:
               "preflight-db": "${{ needs.preflight-db.result }}",
               "wait-deployments": "${{ needs.wait-deployments.result }}",
               "runtime": "${{ needs.runtime.result }}",
-              "guard": "${{ needs.guard.result }}",
               "evidence": "${{ needs.evidence.result }}"
             }
           }
