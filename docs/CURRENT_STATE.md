@@ -1465,3 +1465,9 @@ create invoices or change accepted prices. See `docs/modules/jobs-and-scheduling
 ### Step 9 approved Job display (PR #810, proposed)
 
 The unmerged accepted-proposal handoff branch also adds a manager-only Job approval-baseline detail page, linked from the successful conversion, with source proposal provenance and immutable scope/price/terms. It remains unshipped pending exact-head CI, staging migration, and authenticated browser evidence.
+
+### Pending P0 staging migration-history reconciliation — 2026-10-28
+
+Merged PR #812 provides a protected, staging-only reconciliation of the already-executed invoice expand migration. Direct evidence: Supabase migration history stores the exact executable SQL used by the tracked Prisma file (comments differ); staging has 46 applied Prisma migrations, 0 unfinished, and 42 invoice rows with matching old/new monetary values. The workflow has been merged but has not been executed as of the latest verified staging ledger read. The later invoice contract migration remains blocked pending proof all legacy writers are retired. No production migration or staging schema deployment is certified.
+
+The guarded staging migration workflow now enforces a hard stop on the destructive invoice contract phase until the protected Environment holds a matching approved retired-writers SHA and a separate exact dispatch confirmation. The gate is merged; neither reconciliation nor contract deployment has executed as of the latest verified staging ledger read.
