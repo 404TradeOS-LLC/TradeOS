@@ -24,7 +24,7 @@ export const adminDashboardController = {
   async materialPriceHistory(req: Request, res: Response) {
     requireOrgAccess(req, req.params.id);
     const schema = z.object({
-      materialId: z.string().uuid().optional(),
+      materialId: z.guid().optional(),
       materialQuery: z.string().trim().min(1).max(160).optional(),
       source: z.string().trim().min(1).max(64).optional(),
       dateFrom: z.coerce.date().optional(),

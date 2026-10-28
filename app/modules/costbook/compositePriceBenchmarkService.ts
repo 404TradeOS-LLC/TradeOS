@@ -84,23 +84,25 @@ export function buildCompositeBenchmarkSourceIdentifier(row: Pick<CompositePrice
   return `${sourceKey}-${sourceHash}-${row.sourceYear}-${row.itemCode}`;
 }
 
-function assertNoDuplicateUpsertKeys(rows: CompositePriceBenchmarkInput[]): void {
+// Schema refinement lets the runtime create a native Error while preserving
+// the duplicate-row diagnostic; constructing ZodError directly no longer does.
+const compositePriceBenchmarkRowsSchema = z.array(compositePriceBenchmarkInputSchema).superRefine((rows, ctx) => {
   const firstSeen = new Map<string, number>();
-  rows.forEach((row, index) => {
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index];
     const key = JSON.stringify([row.sourceName, row.sourceYear, row.itemCode]);
     const prior = firstSeen.get(key);
     if (prior != null) {
-      throw new z.ZodError([
-        {
-          code: z.ZodIssueCode.custom,
-          path: [index],
-          message: `duplicate composite benchmark upsert key also present at row ${prior + 1}: ${row.sourceName} / ${row.sourceYear} / ${row.itemCode}`,
-        },
-      ]);
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [index],
+        message: `duplicate composite benchmark upsert key also present at row ${prior + 1}: ${row.sourceName} / ${row.sourceYear} / ${row.itemCode}`,
+      });
+      return;
     }
     firstSeen.set(key, index);
-  });
-}
+  }
+});
 
 /**
  * Persists composite installed-price evidence as reference/history only.
@@ -109,8 +111,7 @@ function assertNoDuplicateUpsertKeys(rows: CompositePriceBenchmarkInput[]): void
  */
 export class CompositePriceBenchmarkService {
   async importRows(auth: AuthContext, inputRows: unknown[]): Promise<CompositeBenchmarkImportResult> {
-    const rows = inputRows.map((row) => compositePriceBenchmarkInputSchema.parse(row));
-    assertNoDuplicateUpsertKeys(rows);
+    const rows = compositePriceBenchmarkRowsSchema.parse(inputRows);
 
     let upserted = 0;
     let batches = 0;

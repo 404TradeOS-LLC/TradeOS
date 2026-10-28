@@ -205,3 +205,24 @@ same bounded immutable context snapshot is forwarded to downstream tool
 execution and the model-provider seam rather than being gathered and then
 dropped. These changes do not widen provider authorization, selected scope, or
 PII exposure.
+## Context identifier validation compatibility
+
+Contextual tool identifiers continue to accept the same UUID-shaped values after the Zod 4 security upgrade, using `z.guid()` rather than the newly stricter UUID validator. This is parser compatibility, not expanded retrieval authority: organization scoping, provider permissions and record-level access still govern context. No provider registration, projection or context policy changes. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
+
+## Today routine follow-up recovery (2026-10-27)
+
+The existing `tradeos.athena.tools.office.create-follow-up` tool now advertises
+optional action-engine idempotency. Previously its `not_supported` metadata
+bypassed reservation even when the Workspace supplied a stable retry key, so
+an ambiguous-response retry could create a second task. Keyed calls now reuse
+the existing durable receipt scoped by tenant, actor, tool and version, with
+canonical validated-input binding. A changed input under the same key fails
+closed. Unkeyed legacy callers retain their previous behavior.
+
+This repairs execution recovery for an existing low-risk internal task tool;
+it does not send customer messages or grant new permissions. `crm.write`,
+resource/service tenant checks, RLS, audits and all approval policies remain
+unchanged. High-risk confirmation/resume is still a separate contract; this
+change does not turn an approval state into success or resubmit restricted
+actions. Action-engine dispatch is required for receipt guarantees; calling
+the service or tool handler directly does not provide deduplication.

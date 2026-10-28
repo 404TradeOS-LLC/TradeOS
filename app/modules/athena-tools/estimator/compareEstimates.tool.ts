@@ -12,8 +12,8 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk/types";
 // risk "low", confirmationPolicy "never".
 
 export const estimateCompareInputSchema = z.object({
-  baseEstimateId: z.string().uuid(),
-  candidateEstimateId: z.string().uuid(),
+  baseEstimateId: z.guid(),
+  candidateEstimateId: z.guid(),
 });
 export type EstimateCompareInput = z.infer<typeof estimateCompareInputSchema>;
 

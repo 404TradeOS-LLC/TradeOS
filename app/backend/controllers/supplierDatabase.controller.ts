@@ -6,7 +6,7 @@ import { requireOrgId, requirePermissions } from "../requestContext";
 const service = new SupplierDatabaseService();
 
 const createSchema = z.object({
-  orgId: z.string().uuid().optional(),
+  orgId: z.guid().optional(),
   name: z.string().min(1),
   contactEmail: z.string().email().optional(),
   contactPhone: z.string().min(1).optional(),

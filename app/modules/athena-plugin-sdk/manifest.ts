@@ -22,7 +22,7 @@ const manifestSchema = z.object({
   eventsConsumed: z.array(z.string().min(1)).default([]),
   eventsPublished: z.array(z.string().min(1)).default([]),
   permissions: z.array(z.string().min(1)),
-  dataUse: z.record(z.unknown()),
+  dataUse: z.record(z.string(), z.unknown()),
   supportUrl: z.string().url().optional(),
   network: z.object({ allowedHosts: z.array(z.string().min(1)) }).optional(),
 }).strict();

@@ -5,6 +5,7 @@ export const CSI_DIVISIONS = [
   { code: "07", name: "Thermal and Moisture Protection" },
   { code: "08", name: "Openings" },
   { code: "09", name: "Finishes" },
+  { code: "11", name: "Equipment" },
   { code: "12", name: "Furnishings" },
   { code: "22", name: "Plumbing" },
   { code: "23", name: "HVAC" },

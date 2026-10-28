@@ -1,7 +1,7 @@
 {
   "name": "tradeos-costbook-api",
   "version": "0.1.0",
-  "description": "TradeOS Cost Book — MVP backend API (estimating and pricing platform for trade contractors)",
+  "description": "TradeOS Cost Book \u2014 MVP backend API (estimating and pricing platform for trade contractors)",
   "main": "dist/backend/start.js",
   "private": true,
   "scripts": {
@@ -37,14 +37,14 @@
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "cors": "^2.8.5",
-    "dotenv": "^18.0.8",
+    "dotenv": "^18.0.9",
     "express": "^4.22.3",
     "express-rate-limit": "^8.7.1",
     "jose": "^4.15.9",
     "node-cron": "^4.6.0",
     "pdfkit": "^0.20.2",
-    "zod": "^3.23.8",
-    "@vercel/functions": "^3.10.1"
+    "zod": "^4.6.7",
+    "@vercel/functions": "^3.10.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -52,19 +52,20 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.5",
     "@types/node-cron": "^3.0.11",
-    "@types/pdfkit": "^0.17.6",
+    "@types/pdfkit": "^0.17.7",
     "@types/supertest": "^7.2.1",
     "jest": "^30.5.2",
     "nodemon": "^3.1.4",
-    "playwright": "^1.64.0",
+    "playwright": "^1.64.1",
     "prisma": "^6.19.3",
     "supertest": "^7.3.1",
-    "ts-jest": "^29.4.14",
+    "ts-jest": "^29.4.15",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   },
   "overrides": {
     "deepmerge-ts": "8.0.0",
-    "qs": "6.16.0"
+    "qs": "6.16.0",
+    "zod": "$zod"
   }
 }

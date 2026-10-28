@@ -74,6 +74,34 @@ Focused regression coverage lives in `app/tests/estimate-costbook-snapshot.test.
 
 ## Frontend surfaces
 
+### Starter-component mapping keyboard contract
+
+The existing mapping combobox keeps DOM focus in its search input. ArrowDown
+opens the results and starts at the first compatible, unused Cost Item;
+ArrowUp starts at the last. Further arrows move through eligible options and
+stop at either end. `aria-activedescendant` references the highlighted option;
+active options scroll into view. Enter selects only that available option.
+Escape dismisses the list without changing an existing mapping; Tab dismisses
+and continues to the next form control. Options remain pointer selectable but
+are not separate Tab stops. IME composition retains its normal keyboard input.
+
+Changing text clears the old mapping under the existing contract. Debouncing,
+in-flight or failed searches suppress stale options and active descendants;
+loading is announced as status and failure remains an alert. Keyboard selection
+stages a mapping only: current-cost preview, Install, then reviewed Estimate Add
+retain their existing gates. Tests in
+`tests/components/starter-mapping-keyboard.spec.ts` mount the real production
+picker/assessment with synthetic transport and a native Input fixture. This
+component evidence is separate from full-app authenticated certification.
+
+Install both root and Web dependencies (`npm ci` and `npm --prefix web ci`) and
+Chromium (`npx playwright install chromium`), then run
+`npx playwright test --config playwright.components.config.ts`. This hermetic
+suite is separate from `tests/playwright` and its authenticated evidence
+workflow, which installs root dependencies only. TypeScript/React fixture
+dependencies load inside test execution, so listing either suite does not
+require Web dependencies.
+
 ### Failed finalization focus recovery (responsive Review)
 
 In the shared Scope / Items / Price / Review frontend, a failed finalize request retains the saved estimate and renders a focused `role="alert"` above the Retry finalization action. The focus handler only acts on a visible error notice and scrolls it toward the center so the fixed mobile action and Control Dock do not cover it. It uses the existing server-finalize mutation and does not imply proposal creation or saved pricing changes on failure. The previous standalone recovery PR #751 was closed unmerged; this is a reduced, current-main implementation for the single responsive Review surface. Source assertions are not hosted authenticated evidence.
@@ -179,3 +207,18 @@ Contextual Athena stores the project/estimate/scope snapshot associated with its
 The existing builder owns both responsive scope editors through one parent draft/save state and a shared editor. Desktop users can now edit the same Project `simpleScope` used by contextual Athena. Save success binds to the submitted value rather than the latest render. Failed saves retain input; finalized estimates stay read-only. No browser-local draft persistence is claimed.
 
 The Price breakdown groups saved `lineCost` snapshots by persisted cost type and does not multiply current source costs, apply markup, or alter server totals. Invalid amounts display Unavailable. Mobile Review labels direct costs and margin as internal, then links to the separate proposal form after backend finalization. Finalization failures expose retry; uncertain deletion exposes refresh before another attempt. Supplier quotes, Estimate snapshots and lifecycle permissions are unchanged.
+
+
+### Costbook/assembly picker control targets (2026-10-23)
+
+Search, Section and Quantity have 44px phone/tablet targets and 32px
+laptop/desktop text inputs. Add, Clear, native Costbook cost type and the
+Taxable label retain at least 44px targets. These overrides are scoped to the
+existing catalog picker and do not change global primitives, source cost
+review, keyboard selection, payloads, or authoritative server snapshots.
+The four-width production-component browser matrix in
+`tests/components/catalog-item-controls.spec.ts` checks target geometry, native
+Tab progression, Arrow/Enter selection, failed-preview gating, Clear retention,
+invalid quantity, retained Add errors, retry and confirmed-success reset.
+Only transport is synthetic; full-app authenticated and reload evidence is
+separate. Run with `npx playwright test --config playwright.components.config.ts`.

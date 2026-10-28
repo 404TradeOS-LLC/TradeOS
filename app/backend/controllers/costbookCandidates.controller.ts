@@ -7,7 +7,7 @@ import { requirePermissions } from "../requestContext";
 import { catalogQuerySchema, parseCatalogQuery } from "../../modules/shared/catalog-query";
 
 const service = new CostbookCandidateService();
-const idParamSchema = z.object({ id: z.string().uuid() });
+const idParamSchema = z.object({ id: z.guid() });
 
 const costRangeSchema = z.number().finite().nonnegative();
 
@@ -50,7 +50,7 @@ const reviewSchema = z.object({
 // The Knowledge Engine corpus is keyed by its own record ids, which are uuids
 // in the canonical export. Validated here so a malformed id fails at the edge.
 const ingestFromKnowledgeSchema = z.object({
-  knowledgeItemId: z.string().uuid(),
+  knowledgeItemId: z.guid(),
 }).strict();
 
 export const costbookCandidatesController = {
