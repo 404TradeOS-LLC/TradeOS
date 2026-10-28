@@ -200,3 +200,8 @@ through its project to the actor's organization. The service address must
 be active, in the same organization, and owned by the linked customer.
 Existing forced RLS remains in effect; any real DB permission proof requires
 the reviewed migration and staging tests before deployment.
+
+
+### Accepted proposal job snapshot read permissions (PR #810)
+
+Managers (owner/admin/dispatcher) can read the accepted commercial baseline through scoped Job detail. Assigned technicians continue to receive their job scope, location, and lifecycle data but have `acceptedBaselineJson` redacted in the Job detail response; the manager-only approved-baseline route does not grant technicians commercial access. No cross-tenant access or role elevation is permitted.
