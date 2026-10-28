@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-export function ProjectTaskForm({ projectId }: { projectId: string }) {
+export function ProjectTaskForm({ projectId, jobs = [], members = [], canAssignIdentity = false }: { canAssignIdentity?: boolean; projectId: string; jobs?: Array<{ id: string; title: string }>; members?: Array<{ userId: string; fullName: string | null; email: string; status: string }> }) {
   const [state, formAction, isPending] = useActionState(createProjectTaskAction, undefined);
 
   return (
@@ -23,7 +23,16 @@ export function ProjectTaskForm({ projectId }: { projectId: string }) {
           <Input id="title" name="title" placeholder="Call dumpster vendor" />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="assignedTo">Assigned to</Label>
+          <Label htmlFor="task-job">Job</Label>
+          <select id="task-job" name="jobId" className="min-h-11 rounded-md border border-input bg-background px-3"><option value="">Project task (no job)</option>{jobs.map(job => <option key={job.id} value={job.id}>{job.title}</option>)}</select>
+        </div>
+        {canAssignIdentity ? <div className="grid gap-2">
+          <Label htmlFor="task-user">Responsible member</Label>
+          <select id="task-user" name="assignedUserId" className="min-h-11 rounded-md border border-input bg-background px-3"><option value="">No personal assignment</option>{members.filter(member => member.status === "active").map(member => <option key={member.userId} value={member.userId}>{member.fullName || member.email}</option>)}</select>
+          <p className="text-xs text-muted-foreground">Technicians must be assigned to the selected job to update this task.</p>
+        </div> : null}
+        <div className="grid gap-2">
+          <Label htmlFor="assignedTo">Display label (optional)</Label>
           <Input id="assignedTo" name="assignedTo" placeholder="Field lead" />
         </div>
         <div className="grid gap-2">

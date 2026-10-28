@@ -22,6 +22,7 @@ import { EstimateEngineService } from "../modules/estimate-engine/service";
 import { InvoicesService } from "../modules/invoices/service";
 import { CrmService } from "../modules/crm/service";
 import { ContractsService } from "../modules/contracts/service";
+import { ProjectTasksService } from "../modules/project-tasks/service";
 import { JobsService } from "../modules/jobs/service";
 import { AuthService } from "../modules/auth/service";
 import { OrganizationSettingsService } from "../modules/settings/service";
@@ -1159,6 +1160,36 @@ describe("live organization row-level security", () => {
     ).rejects.toMatchObject({ statusCode: 404 });
   });
 
+  it("scopes shared field tasks to active assignments under forced RLS", async () => {
+    const unassignedId = randomUUID();
+    const taskIds = Array.from({ length: 4 }, () => randomUUID());
+    await adminClient.job.create({ data: { id: unassignedId, orgId: orgA, projectId: projectA, customerId: customerA, serviceAddressId: serviceAddressA, jobNumber: `TASK-${unassignedId}`, title: "Unassigned task job", description: "Isolation fixture", jobType: "Service", status: "scheduled", priority: "medium", createdById: adminUser } });
+    await adminClient.projectTask.createMany({ data: [
+      { id: taskIds[0], projectId: projectA, jobId: jobA, title: "Shared assigned-job task", assignedTo: "Someone else", status: "blocked", priority: "high" },
+      { id: taskIds[1], projectId: projectA, jobId: unassignedId, title: "Same org unassigned", status: "todo", priority: "medium" },
+      { id: taskIds[2], projectId: projectB, jobId: jobB, title: "Other tenant task", status: "todo", priority: "medium" },
+      { id: taskIds[3], projectId: projectA, jobId: jobA, title: "Completed task", status: "completed", priority: "medium" },
+    ] });
+    const load = (userId: string, orgId: string, role: SupportedRole) => inSession(userId, orgId, role, () => new ProjectTasksService().listByAssignedJobs({ orgId, userId }));
+    try {
+      const visible = await load(technicianUser, orgA, "technician");
+      expect(visible.map((task) => task.id)).toEqual([taskIds[0]]);
+      expect(visible[0].jobId).toBe(jobA);
+      expect(await load(viewerUser, orgA, "viewer")).toEqual([]);
+      expect(await load(otherUser, orgB, "owner")).toEqual([]);
+      // Even a mistaken service scope cannot defeat the session's tenant RLS.
+      expect(await inSession(otherUser, orgB, "owner", () => new ProjectTasksService().listByAssignedJobs({ orgId: orgA, userId: technicianUser }))).toEqual([]);
+      for (const data of [{ removedAt: new Date(), declinedAt: null }, { removedAt: null, declinedAt: new Date() }]) {
+        await adminClient.jobAssignment.update({ where: { id: technicianAssignmentA }, data });
+        expect(await load(technicianUser, orgA, "technician")).toEqual([]);
+      }
+    } finally {
+      await adminClient.jobAssignment.update({ where: { id: technicianAssignmentA }, data: { removedAt: null, declinedAt: null } });
+      await adminClient.projectTask.deleteMany({ where: { id: { in: taskIds } } });
+      await adminClient.job.delete({ where: { id: unassignedId } });
+    }
+  });
+
   it("enforces brand studio visibility and admin-only writes", async () => {
     const visibleProfile = await inSession(adminUser, orgA, "admin", async () =>
       currentTransaction().brandProfile.findUnique({ where: { organizationId: orgA } })
@@ -1229,6 +1260,33 @@ describe("live organization row-level security", () => {
         })
       )
     ).rejects.toThrow();
+  });
+
+  it("serializes concurrent task revisions without losing a saved update or tenant isolation", async () => {
+    const task = await adminClient.projectTask.create({ data: { projectId: projectA, title: "Guarded concurrent task", status: "todo", priority: "high" } });
+    const revision = task.updatedAt;
+    const save = (status: "blocked" | "completed") => inSession(adminUser, orgA, "admin", async () =>
+      new ProjectTasksService(currentTransaction() as unknown as typeof appClient).update(task.id, { orgId: orgA, status, expectedUpdatedAt: revision })
+    );
+    try {
+      const results = await Promise.allSettled([save("blocked"), save("completed")]);
+      const successes = results.filter((result) => result.status === "fulfilled");
+      const failures = results.filter((result) => result.status === "rejected");
+      expect(successes).toHaveLength(1);
+      expect(failures).toHaveLength(1);
+      if (failures[0].status === "rejected") expect(failures[0].reason).toMatchObject({ statusCode: 409 });
+      const persisted = await adminClient.projectTask.findUniqueOrThrow({ where: { id: task.id } });
+      if (successes[0].status === "fulfilled") expect(persisted.status).toBe(successes[0].value.status);
+      expect(persisted.title).toBe(task.title);
+      expect(persisted.updatedAt.getTime()).toBeGreaterThan(revision.getTime());
+      await expect(save("completed")).rejects.toMatchObject({ statusCode: 409 });
+      await expect(inSession(otherUser, orgB, "owner", async () =>
+        new ProjectTasksService(currentTransaction() as unknown as typeof appClient).update(task.id, { orgId: orgB, status: "completed", expectedUpdatedAt: persisted.updatedAt })
+      )).rejects.toMatchObject({ statusCode: 404 });
+      await expect(inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().projectTask.update({ where: { id: task.id, updatedAt: persisted.updatedAt }, data: { status: "todo" } })
+      )).rejects.toThrow();
+    } finally { await adminClient.projectTask.delete({ where: { id: task.id } }); }
   });
 
   it("limits technician job visibility to assigned jobs while preserving tenant isolation", async () => {

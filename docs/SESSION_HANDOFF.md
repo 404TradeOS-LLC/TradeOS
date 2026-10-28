@@ -319,6 +319,18 @@ Earlier handoff entries are historical.
   reconcile starter recipe selection in Figma; align staging through the
   existing governed process; execute real-login tenant/Add/reload evidence.
 
+
+## Today 2.0 active implementation — 2026-10-26
+
+- Sprint ID: NONE; `NEW_WORK_REQUIRED` for founder-supplied Today 2.0 brief. Repository `404TradeOS-LLC/TradeOS`, isolated branch `feat/today-2-command-center`, base `e17a166` (merged #774). Historical Today #585/#643 are already on main; no open Today implementation PR or remote branch overlapped. #793 entry work is separate and preserved.
+- Implemented authenticated Today/Needs You/Work data contract, operational UI, contextual source navigation, Athena reuse, two themes, Today timeline, upcoming work and persistent dock/Task creation. New interfaces and supported/unsupported boundaries are recorded in `architecture/TODAY_2_IMPLEMENTATION.md`.
+- Preserve JWT, membership and forced RLS; no policy/schema/financial mutation changes. Field ProjectTask assignment/write is unsupported, so field views do not read organization task or commercial queues.
+- Continuation: current repo `/workspace/scratch/4360a72ccbf4/TradeOS-resume` tracks the existing PR #798. `EXISTING_WORK_FOUND` confirmed against live PR and fetched main `f5fac882`. Prior head `fdcc63cc` passed hosted verification run 40427077847 including 20 Chromium component tests and PostgreSQL/migration rehearsal. All six original review threads were resolved.
+- The real Vercel Preview at https://tradeos-costbook-9vrksg8yo-billykshowalters.vercel.app/login is READY for `fdcc63cc`; dashboard redirects to login. Secure sign-in was declined. Do not retry sign-in without a new user request; live authenticated role journeys remain unverified.
+- New continuation adds permission-aware task status editing using the existing authenticated PATCH/audit path. Success requires confirmed source identity/status, then server refresh; errors/offline preserve the queue and pending saves prevent duplicate submission/dismissal. A backward-compatible backend revision precondition now makes Today task saves atomic against concurrent edits; legacy callers may omit it. New real PostgreSQL concurrent-save and tenant/read-only regressions require hosted verification. Fresh verification is recorded in `architecture/TODAY_2_IMPLEMENTATION.md` and the PR.
+- Next five: verify the new contextual task save in a permitted authenticated session; implement a reviewed field assignment/write contract; add genuine visit/crew/milestone source capabilities; connect Athena permitted execution and confirmation recovery; complete all acceptance/review gates before marking ready or merging. Keep PR draft while these gaps remain.
+- Earlier Costbook handoffs below are retained historical context; #773 and #774 are now merged in the captured base.
+
 ## Openings/appliance retarget and validation — PR #774 (2026-10-23)
 
 - `EXISTING_WORK_FOUND`, Sprint ID: NONE. Existing branch
@@ -427,6 +439,57 @@ forced RLS, Estimate snapshots and financial accuracy. Production credentials,
 protected migrations, supplier activation and ABC API licensing remain governed
 by their dedicated runbooks; this mission authorizes none of those operations.
 
+## Active continuation — shared assigned-job tasks (2026-10-27)
+
+Branch `feat/field-assigned-job-tasks` is isolated from active Today PR #798
+(head `23a9cd1d2ba85378b9b1838cb2ca8ed76a7a9fc8`). Reconciliation classification:
+`NEW_WORK_REQUIRED`: PR #702 covers denial tests/capture proposals, not this
+read-only task aggregation; #798 did not provide field task reads. Scope is
+project-task service/controller/routes, API client/Today/Field UI, regression
+tests and owning docs. Schema, RLS, commercial mutations and personal field-task
+write grants are excluded.
+
+The shared-job task projection and field source display are implemented. Local
+API/controller tests: 14 passed; web tests: 528 passed; API type check passed.
+Local live integration is blocked because `docker` is not installed. Added
+real PostgreSQL assignment/tenant/removed/declined coverage must pass hosted CI.
+Browser fixture records are explicitly synthetic. Authenticated deployed testing
+remains unverified; do not retry the previously declined browser sign-in.
+
+Complete local checks on this continuation: 2,884 API tests across 317 suites,
+528 web tests, API type/build, web lint/build, 159 governance tests, docs
+ownership/preflight and whitespace passed. Local Chromium could not launch
+because its executable was absent; installation returned a truncated ZIP.
+Hosted CI must verify the 31 component cases (including shared field task
+context at 390px) and the new live PostgreSQL test. These are not local passes.
+
+## Today review follow-through — 2026-10-27
+
+`EXISTING_WORK_FOUND`: extend #800 on `feat/field-assigned-job-tasks`; parent
+#798 remains draft at `23a9cd1d`. Review identified missing destination-page
+coverage. Added actual async FieldPage rendering tests for populated task
+information, empty tasks, unavailable tasks, safe text, stored due dates and
+continued job usability. No runtime or permission change. Prior final head
+`c8e58147` passed 2,884 API, 175 PostgreSQL, 528 web and 32 Chromium cases.
+New web test/lint/build and exact-head hosted verification precede integration.
+
+## Remaining Today contracts — 2026-10-27
+
+`EXISTING_WORK_FOUND`: extend draft Today #798 after child #800 merged at
+`c7c7c19b` (tree verified equal to reviewed child). Proposal:
+`architecture/TODAY_FIELD_SCHEDULING_CONTRACTS.md`. It concretely defines the
+recommended personal task identity/status-only write boundary, RLS/column
+invariants, rollout and live test gates; and real Crew/Visit/Milestone/Blocker
+sources reusing Dispatch. These are proposed, not implemented or approved.
+New schema/authorization/RLS remains PR-only/human-decision work under AGENTS.
+
+Runtime repair proceeds independently in #801: optional keyed receipt for
+existing low-risk follow-up creation; no new mutation authority or risk change.
+Deployment inspection found latest staging attempts cancelled at `959e3ef4`;
+Vercel environment metadata returned 403, and CLI fallback was not installed.
+No staging isolation or authenticated live journey is certified. Production
+and the previously declined user sign-in were left untouched.
+
 ## Athena routine recovery repair — 2026-10-27
 
 `NEW_WORK_REQUIRED`: open-PR search found no keyed follow-up retry repair.
@@ -442,6 +505,44 @@ both; 57 focused tool/action tests pass. Legacy unkeyed calls, independent
 tenant keys and technician denial are covered. Complete API/Athena/hosted RLS
 verification is required before merge. Today #800 is merged into parent #798
 as `c7c7c19b`; it is not on main or deployed.
+
+
+## Today integration verification — 2026-10-27
+
+Shared-task #800 merged into Today at `c7c7c19b` after review coverage repair:
+530 web tests and 32 browser cases plus 2,884 API and 175 PostgreSQL tests
+passed on reviewed child head `5c2d8c7e`. Main #801 merged as `900d31e7`;
+its tree was verified equal to reviewed head `d476b8e9` after 2,873 API and
+174 PostgreSQL tests, 420 Athena contracts and four smoke tests passed.
+Integrate that unchanged low-risk routine recovery into Today, preserving both
+documentation additions. Final combined CI must pass before review/merge.
+
+Remaining contract proposal is not activation approval: explicit personal task
+identity/status-only writes and real scheduling sources still require their
+schema/RLS/domain decisions and implementations. No production migration,
+credential change, permission expansion or customer communication occurred.
+Vercel's latest READY staging API is `cf91d93f` and web is `c05c20d1`;
+newer attempts at `959e3ef4` are cancelled. Environment metadata is forbidden
+(403); unavailable CLI cannot restore access. These older mismatched runtimes
+cannot certify current Today. Do not retry declined user sign-in automatically.
+
+## Field task implementation — 2026-10-27
+
+`NEW_WORK_REQUIRED` for the personal identity/write slice absent from #798.
+Branch `feat/field-task-ownership` starts at Today head `3eaa932f`. The founder
+explicitly requested implementation, not another plan. Scope: nullable task
+identity, narrow guarded field status route/service/RLS, office assignment
+controls, shared status editor, actual-role capability flags and regressions.
+No production migration/activation or financial mutation is authorized here.
+
+Implementation is present end to end. Focused tests initially pass; required
+full and hosted live PostgreSQL/browser verification is pending. Read-only
+boundary review caught and repaired historical-assignee office regression and
+undefined-identity UI matching; added a real two-session revocation-lock test.
+The existing SQL helper includes technicians, so the migration explicitly
+excludes them from the old broad task policy before adding the narrow one.
+Legacy estimator identity administration is not widened; regular task status
+updates remain supported. Schema/RLS changes retain PR-only merge posture.
 
 ## Next Eligible Sprint
 
