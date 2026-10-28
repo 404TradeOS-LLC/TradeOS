@@ -166,3 +166,22 @@ The `/dispatch` workspace now exposes the existing organization-scoped assignmen
 ## Identifier validation compatibility
 
 Jobs, assignments, scheduling and field tool IDs retain their previous UUID-shaped parser contract using `z.guid()` after the Zod 4 security upgrade. The stricter new UUID validator is not allowed to reject existing legacy-shaped records solely because of a dependency update. Job assignment checks, manager-only scheduling, field transitions, conflict rules and tenant/RLS boundaries are unchanged. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
+
+## Accepted-proposal conversion (step 9; PR #810 pending)
+
+On an accepted proposal, **Create field job from accepted proposal** leads to
+the existing service-address selection UI. Its authenticated backend route
+`POST /api/v1/jobs/from-proposal/:proposalId` accepts only
+`serviceAddressId`. The manager-only service verifies the source proposal's
+tenant and accepted status, project/customer/address consistency, then
+creates exactly one `unscheduled` Job and copies the immutable approval
+snapshot (including decimal-price strings). A transaction advisory lock
+precedes the existence check, and a unique nullable proposal-source index
+enforces one job even under concurrency. Duplicate submissions return the
+existing job and do not duplicate activity. The generic manual job path
+continues to work. Proposal-derived jobs cannot change their project,
+customer, or address through normal Job updates.
+
+The additive `20261028151000_accepted_proposal_job_handoff` migration and
+nonproduction RLS, retry, and browser evidence are release prerequisites;
+nothing in this unmerged slice deploys the migration or dispatches a crew.
