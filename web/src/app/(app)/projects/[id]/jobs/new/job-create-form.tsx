@@ -139,7 +139,9 @@ export function JobCreateForm({
       const formData = new FormData(event.currentTarget);
       const title = String(formData.get("title") ?? "").trim();
       const jobType = String(formData.get("jobType") ?? "").trim();
-      if (!sourceProposalId && (!title || !jobType)) throw new Error("Job title and job type are required.");
+      if (!sourceProposalId) {
+        if (!title || !jobType) throw new Error("Job title and job type are required.");
+      }
 
       let serviceAddressId = selectedAddressId;
       if (showAddressForm || !serviceAddressId) {
