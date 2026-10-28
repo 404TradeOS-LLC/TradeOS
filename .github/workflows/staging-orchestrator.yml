@@ -627,6 +627,7 @@ jobs:
               "preflight-db": "${{ needs.preflight-db.result }}",
               "wait-deployments": "${{ needs.wait-deployments.result }}",
               "runtime": "${{ needs.runtime.result }}",
+              "guard": "${{ needs.guard.result }}",
               "evidence": "${{ needs.evidence.result }}"
             }
           }
