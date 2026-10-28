@@ -79,8 +79,16 @@ jobs:
           INPUT_SHA: ${{ inputs.sha }}
           PUSH_SHA: ${{ github.sha }}
           GH_TOKEN: ${{ github.token }}
+          REF: ${{ github.ref }}
         run: |
           set -euo pipefail
+          # Manual dispatch must come from the staging branch: a dispatch
+          # from main would run the caller's revision of the reusable
+          # evidence workflow instead of the approved staging revision.
+          if [ "$REF" != "refs/heads/staging" ]; then
+            echo "::error::This workflow runs only on refs/heads/staging (push to staging, or dispatch from the staging branch). Refusing run from $REF."
+            exit 1
+          fi
           # SHA values travel via env, never interpolated into script text,
           # so a crafted dispatch input cannot break out of the assignment.
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
@@ -301,13 +309,27 @@ jobs:
             SELECT count(*) FROM public._prisma_migrations
             WHERE finished_at IS NULL AND rolled_back_at IS NULL
           ")"
-          rolled_back="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
-            SELECT count(*) FROM public._prisma_migrations
-            WHERE rolled_back_at IS NOT NULL
+          echo "Ledger: expected=${EXPECTED_MIGRATIONS} applied=${applied} unfinished=${unfinished}"
+          if [ "$applied" != "$EXPECTED_MIGRATIONS" ] || [ "$unfinished" != "0" ]; then
+            echo "::error::Prisma ledger mismatch: expected=${EXPECTED_MIGRATIONS} applied=${applied} unfinished=${unfinished}. A historical rolled-back row does not fail this check: a recovered migration is re-applied as a separate row, and the applied-count and name-set checks catch any migration that was never re-applied. Run the existing deploy-staging-migrations workflow (from main, with staging approval) after reviewing the gap. This workflow never stamps migrations as applied."
+            exit 1
+          fi
+          
+                   # Name-set comparison: this job runs with working-directory app, so
+          # prisma/migrations is the checkout inventory at the approved SHA.
+          expected_names="$(find prisma/migrations -mindepth 2 -maxdepth 2 -type f -name migration.sql | sed 's|prisma/migrations/||; s|/migration.sql||' | sort)"
+          applied_names="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT migration_name FROM public._prisma_migrations
+            WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
+            ORDER BY migration_name
           ")"
-          echo "Ledger: expected=${EXPECTED_MIGRATIONS} applied=${applied} unfinished=${unfinished} rolled_back=${rolled_back}"
-          if [ "$applied" != "$EXPECTED_MIGRATIONS" ] || [ "$unfinished" != "0" ] || [ "$rolled_back" != "0" ]; then
-            echo "::error::Prisma ledger mismatch: expected=${EXPECTED_MIGRATIONS} applied=${applied} unfinished=${unfinished} rolled_back=${rolled_back}. Run the existing deploy-staging-migrations workflow (from main, with staging approval) after reviewing the gap. This workflow never stamps migrations as applied."
+          if [ "$expected_names" != "$applied_names" ]; then
+            echo "::error::Prisma ledger name mismatch: the applied migration names do not exactly match the repository inventory (a count match alone can hide one unexpected plus one missing migration)."
+            echo "--- expected (repository) ---"
+            printf '%s\n' "$expected_names"
+            echo "--- applied (staging) ---"
+            printf '%s\n' "$applied_names"
+            diff <(printf '%s\n' "$expected_names") <(printf '%s\n' "$applied_names") || true
             exit 1
           fi
           echo "Prisma ledger matches the repository inventory."
@@ -328,10 +350,8 @@ jobs:
         run: |
           set -euo pipefail
           PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
-          role_exists="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -v rolename="$APP_DB_ROLE_NAME" -Atqc "
-            SELECT count(*) FROM pg_roles WHERE rolname = :'rolename'
-          ")"
-          if [ "$role_exists" != "1" ]; then
+                    role_exists="$(printf '%s' "SELECT count(*) FROM pg_roles WHERE rolname = :'rolename'" | psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -v rolename="$APP_DB_ROLE_NAME" -Atq -f -)"
+                    if [ "$role_exists" != "1" ]; then
             echo "::error::Staging app role ${APP_DB_ROLE_NAME} does not exist. The deploy-staging-migrations workflow provisions it; run that workflow before staging can be verified."
             exit 1
           fi
@@ -353,11 +373,11 @@ jobs:
           # FORCE missing is drift from the established forced-RLS posture and
           # needs a reviewed migration to repair, so it is reported (and
           # carried into the summary) rather than failing this read-only job.
-          if printf '%s' "$rls_report" | grep -q ':f:'; then
+          if printf '%s' "$rls_report" | grep -q ':false:'; then
             echo "::error::At least one Team & Time table has RLS disabled. Refusing staging run."
             exit 1
           fi
-          if printf '%s' "$rls_report" | grep -q ':f$'; then
+          if printf '%s' "$rls_report" | grep -q ':false$'; then
             echo "rls_force_drift=true" >> "$GITHUB_OUTPUT"
             echo "::warning::At least one Team & Time table has RLS enabled without FORCE RLS. This is drift from the forced-RLS posture; repair it through a reviewed migration. The summary carries this item."
           else
@@ -555,9 +575,56 @@ jobs:
       require_sha_correlation: false
     secrets: inherit
 
+  post-evidence-guard:
+    name: Re-verify staging head and alias identity after evidence
+    needs: [record, evidence]
+    runs-on: ubuntu-latest
+    env:
+      SHA: ${{ needs.record.outputs.sha }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      - name: Fail closed if staging moved during evidence
+        shell: bash
+        env:
+          APPROVED_SHA: ${{ needs.record.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          staging_head="$(gh api "repos/${GITHUB_REPOSITORY}/branches/staging" --jq '.commit.sha')"
+          if [ "$staging_head" != "$APPROVED_SHA" ]; then
+            echo "::error::Staging head moved during evidence (now $staging_head, approved SHA was $APPROVED_SHA). Evidence captured may not belong to the approved SHA. Re-run the orchestrator."
+            exit 1
+          fi
+          echo "Staging head unchanged after evidence: $staging_head."
+      - name: Re-verify staging alias identity for the approved SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          bypass_args=()
+          if [ -n "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
+            bypass_args=(-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET")
+          fi
+          health="$(curl -s "${bypass_args[@]}" "$API_STAGING_ALIAS/health")" || {
+            echo "::error::Backend staging alias /health request failed at $API_STAGING_ALIAS."
+            exit 1
+}
+          reported_sha="$(printf '%s' "$health" | jq -r '.commitSha // empty')"
+          if [ "$reported_sha" != "$SHA" ]; then
+            echo "::error::Backend staging alias /health reports commitSha '${reported_sha:-absent}', not the approved SHA $SHA. The alias moved during evidence; refusing the run."
+            exit 1
+          fi
+          code="$(curl -s -o /dev/null -w "%{http_code}" "${bypass_args[@]}" "$WEB_STAGING_ALIAS")" || {
+            echo "::error::Frontend staging alias request failed at $WEB_STAGING_ALIAS."
+            exit 1
+}
+          if [ "$code" != "200" ]; then
+            echo "::error::Frontend staging alias at $WEB_STAGING_ALIAS returned HTTP $code (expected 200) after evidence."
+            exit 1
+          fi
+          echo "Post-evidence alias identity OK: backend /health SHA $SHA, frontend alias HTTP 200."
   summary:
     name: Publish staging verdict
-    needs: [record, preflight-static, preflight-db, wait-deployments, runtime, guard, evidence]
+    needs: [record, preflight-static, preflight-db, wait-deployments, runtime, guard, evidence, post-evidence-guard]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -580,6 +647,7 @@ jobs:
           check "runtime" "${{ needs.runtime.result }}" "See the runtime job log. A /health commitSha mismatch means the served deployment is not the approved SHA; a /ready failure means the staging database or schema is not ready. If frontend checks return 401/403 and deployment protection was enabled, provision VERCEL_AUTOMATION_BYPASS_SECRET."
           check "guard" "${{ needs.guard.result }}" "Staging head moved during the run. Re-run the orchestrator; do not accept evidence from a moved alias."
           check "evidence" "${{ needs.evidence.result }}" "See the beta-evidence job log and its uploaded bundle. If identities are missing, provision the named BETA_RC_* secrets (never invent accounts). Today 2.0 features are out of scope until PR #798 merges; S052/S053 scenarios need their own identities and are not part of this run."
+          check "post-evidence-guard" "${{ needs.post-evidence-guard.result }}" "Staging head or alias identity moved during evidence. Re-run the orchestrator; do not accept evidence from a moved alias."
           {
             echo "## Staging orchestrator — verdict"
             echo
@@ -600,6 +668,7 @@ jobs:
             echo "| runtime | ${{ needs.runtime.result }} |"
             echo "| guard | ${{ needs.guard.result }} |"
             echo "| evidence | ${{ needs.evidence.result }} |"
+            echo "| post-evidence-guard | ${{ needs.post-evidence-guard.result }} |"
             echo
             if [ -n "$first_failed" ]; then
               echo "**Verdict: FAIL** — first failing dependency: \`$first_failed\`."
@@ -628,7 +697,8 @@ jobs:
               "wait-deployments": "${{ needs.wait-deployments.result }}",
               "runtime": "${{ needs.runtime.result }}",
               "guard": "${{ needs.guard.result }}",
-              "evidence": "${{ needs.evidence.result }}"
+              "evidence": "${{ needs.evidence.result }}",
+              "post-evidence-guard": "${{ needs.post-evidence-guard.result }}"
             }
           }
           EOF
