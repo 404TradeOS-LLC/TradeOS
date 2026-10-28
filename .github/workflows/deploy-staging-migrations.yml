@@ -170,7 +170,7 @@ jobs:
             WHERE finished_at IS NULL
               AND rolled_back_at IS NULL
           ")"
-          if [ "$applied" != "$expected" ] || [ "$unfinished" != "0" ] ]; then
+          if [ "$applied" != "$expected" ] || [ "$unfinished" != "0" ]; then
             echo "::error::Prisma ledger verification failed: expected=$expected applied=$applied unfinished=$unfinished."
             exit 1
           fi
