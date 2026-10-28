@@ -46,9 +46,10 @@ jobs:
           fi
           node --input-type=module <<'NODE'
           const url = new URL(process.env.DATABASE_ADMIN_URL);
-          const host = "db." + process.env.STAGING_PROJECT_REF + ".supabase.co";
+          const directHost = "db." + process.env.STAGING_PROJECT_REF + ".supabase.co";
+                    const poolerHost = "aws-0-us-east-2.pooler.supabase.com";
           if (!["postgres:", "postgresql:"].includes(url.protocol) ||
-              url.hostname !== host || url.pathname !== "/postgres") {
+              (url.hostname !== directHost && url.hostname !== poolerHost) || url.pathname !== "/postgres") {
             throw Error("Non-staging database identity or unexpected database name");
           }
           console.log("Validated staging-only PostgreSQL project identity.");
