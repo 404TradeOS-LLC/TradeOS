@@ -51,4 +51,4 @@ jobs:
         env:
           BASE_REF: ${{ github.event.merge_group.base_sha || format('origin/{0}', github.base_ref) }}
           run: npm run docs:check -- --base "$BASE_REF"
-          
+        
