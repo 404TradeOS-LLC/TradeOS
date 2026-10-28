@@ -91,3 +91,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 ## Last verified date
 
 2026-09-14
+
+## Metadata and identifier validation
+
+The patched Zod 4 runtime retains explicit string-key metadata records and legacy UUID-shaped activity/entity references. No activity event or financial aggregation rule changes. Structured validation failures still carry the request ID; individual issue diagnostics use Zod 4 metadata. Source services continue to enforce tenant ownership before recording or retrieving activity. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.

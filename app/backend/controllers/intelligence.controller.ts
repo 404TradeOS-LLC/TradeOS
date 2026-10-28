@@ -47,19 +47,19 @@ const searchQuerySchema = z.object({
 
 const activityQuerySchema = z.object({
   entityType: entityTypeSchema.optional(),
-  entityId: z.string().uuid().optional(),
+  entityId: z.guid().optional(),
   eventType: z.string().trim().optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 
 const referenceQuerySchema = z.object({
   entityType: entityTypeSchema,
-  entityId: z.string().uuid(),
+  entityId: z.guid(),
 });
 
 const createActivitySchema = z.object({
   entityType: entityTypeSchema,
-  entityId: z.string().uuid(),
+  entityId: z.guid(),
   eventType: z.string().trim().min(1).max(120),
   title: z.string().trim().min(1).max(160),
   description: z.string().trim().max(2000).optional(),
@@ -69,13 +69,13 @@ const createActivitySchema = z.object({
 
 const createNotificationSchema = z.object({
   entityType: entityTypeSchema,
-  entityId: z.string().uuid(),
+  entityId: z.guid(),
   category: z.enum(notificationCategories),
   title: z.string().trim().min(1).max(160),
   body: z.string().trim().min(1).max(2000),
   priority: z.enum(notificationPriorities).optional(),
   actionUrl: z.string().trim().optional(),
-  activityEventId: z.string().uuid().optional(),
+  activityEventId: z.guid().optional(),
 });
 
 const updateNotificationSchema = z.object({
@@ -93,7 +93,7 @@ const notificationQuerySchema = z.object({
 
 const createAttachmentSchema = z.object({
   entityType: entityTypeSchema,
-  entityId: z.string().uuid(),
+  entityId: z.guid(),
   kind: z.enum(attachmentKinds),
   fileName: z.string().trim().min(1).max(240),
   mimeType: z.string().trim().max(160).optional(),
@@ -107,16 +107,16 @@ const createAttachmentSchema = z.object({
 
 const createCommentSchema = z.object({
   entityType: entityTypeSchema,
-  entityId: z.string().uuid(),
+  entityId: z.guid(),
   body: z.string().trim().min(1).max(4000),
-  parentCommentId: z.string().uuid().optional(),
-  mentions: z.array(z.string().uuid()).optional(),
+  parentCommentId: z.guid().optional(),
+  mentions: z.array(z.guid()).optional(),
 });
 
 const updateCommentSchema = z.object({
   body: z.string().trim().min(1).max(4000).optional(),
   resolvedAt: z.string().datetime().nullable().optional(),
-  reactions: z.record(z.string(), z.array(z.string().uuid())).optional(),
+  reactions: z.record(z.string(), z.array(z.guid())).optional(),
 });
 
 const createTagSchema = z.object({
@@ -127,8 +127,8 @@ const createTagSchema = z.object({
 
 const assignTagSchema = z.object({
   entityType: entityTypeSchema,
-  entityId: z.string().uuid(),
-  tagId: z.string().uuid(),
+  entityId: z.guid(),
+  tagId: z.guid(),
 });
 
 const createSavedViewSchema = z.object({
@@ -150,7 +150,7 @@ const updateSavedViewSchema = z.object({
 
 const recordRecentItemSchema = z.object({
   entityType: entityTypeSchema,
-  entityId: z.string().uuid(),
+  entityId: z.guid(),
   title: z.string().trim().min(1).max(160),
   subtitle: z.string().trim().max(240).optional(),
   href: z.string().trim().min(1).max(240),
@@ -170,7 +170,7 @@ const createFeatureFlagSchema = z.object({
 
 const evaluateFeatureFlagSchema = z.object({
   key: z.string().trim().min(1).max(120),
-  userId: z.string().uuid().optional(),
+  userId: z.guid().optional(),
   planKey: z.string().trim().max(120).optional(),
   isBeta: z.boolean().optional(),
   isInternal: z.boolean().optional(),

@@ -74,6 +74,53 @@ jobs:
       - name: Install app dependencies
         run: npm ci
 
+      - name: Refuse conflicting invoice expand schema and Prisma ledger
+        run: |
+          set -euo pipefail
+          # A separate Supabase migration already expanded this schema in some
+          # staging databases without recording the tracked Prisma migration.
+          # Fail before migrate deploy applies any other pending migrations.
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          invoice_expand_state="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            WITH invoice_price_columns AS (
+              SELECT count(*) AS present
+              FROM information_schema.columns
+              WHERE table_schema = 'public'
+                AND table_name = 'invoice_line_items'
+                AND column_name IN ('unit_price', 'line_total')
+            ), prisma_expand AS (
+              SELECT EXISTS (
+                SELECT 1 FROM public._prisma_migrations
+                WHERE migration_name = '20260902193000_rename_invoice_line_price_columns'
+                  AND finished_at IS NOT NULL
+                  AND rolled_back_at IS NULL
+              ) AS applied
+            )
+            SELECT CASE
+              WHEN invoice_price_columns.present > 0 AND NOT prisma_expand.applied
+                THEN 'untracked_existing_expand'
+              WHEN invoice_price_columns.present <> 2 AND prisma_expand.applied
+                THEN 'ledger_schema_mismatch'
+              ELSE 'ok'
+            END
+            FROM invoice_price_columns CROSS JOIN prisma_expand
+          ")"
+          case "$invoice_expand_state" in
+            ok) echo "Invoice expand schema and Prisma ledger precheck passed." ;;
+            untracked_existing_expand)
+              echo "::error::Staging invoice selling-price columns exist, but the matching tracked Prisma expand migration is not recorded. Reconcile the historical Supabase migration and Prisma ledger with reviewed evidence before deploying; no migrations were applied."
+              exit 1
+              ;;
+            ledger_schema_mismatch)
+              echo "::error::Prisma records the invoice expand migration, but both expected price columns are not present. Repair reviewed schema drift before deploying; no migrations were applied."
+              exit 1
+              ;;
+            *)
+              echo "::error::Invoice expand preflight returned an unknown state; refusing staging migration."
+              exit 1
+              ;;
+          esac
+
       - name: Check invoice migration preconditions
         run: |
           # Prisma allows ?schema=public; libpq rejects this query parameter.

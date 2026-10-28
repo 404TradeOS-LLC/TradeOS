@@ -88,6 +88,17 @@ specimens cover responsive forms, timed/keyboard entry and GPU/storage failure;
 local execution is blocked before launch by a missing Chromium binary after
 the official download returned an invalid archive. Hosted checks and review
 remain required before merge; this entry does not claim deployment.
+## Web performance telemetry — PR #744
+
+The Next.js root layout includes Vercel Speed Insights for browser performance
+measurements. The dependency is scoped to `web/`; the JSON-only Express API
+does not load a browser telemetry SDK. This does not certify production metrics
+collection or enable the optional service in the Vercel project dashboard.
+
+
+## API validation security prerequisite — 2026-10-27
+
+Existing PR #795 is extended to repair the dependency audit blocking Today 2.0 PR #798. The isolated runtime branch retains dotenv/Vercel patch updates, adds patched Zod 4.6.7 including Vercel's transitive validator, and includes body-parser 1.20.9 from #799. The previous identifier syntax contract is preserved using `z.guid()`; record and enum pipeline compatibility repairs do not alter JWT/membership, permissions, RLS, financial or supplier policy. No production change or merge is claimed. Full verification and PR-only major-upgrade review remain required; the independent moderate ip-address patch is tracked by #786. See [runtime upgrade evidence](architecture/API_VALIDATION_RUNTIME_UPGRADE.md).
 
 
 ## Openings and dishwasher catalog gap — source branch, 2026-10-18
@@ -1307,6 +1318,7 @@ Merged PR #694 (`fd1e6479968fe890db2e9ffedef0af41c11e6827`) established the foun
 - Migration `20261008132000_add_material_classification_codes` adds nullable `omniclass_23` and `unspsc` to `materials` plus an index; no NOT NULL, no backfill, existing import/pricing paths untouched. Material create/update/bulk-import accept both codes and the DTO returns them (`unspsc` validated as 8-digit at the API boundary).
 - New `app/modules/costbook/canonicalMaterialCodes.ts`: `CANONICAL_MATERIAL_CODES` keyed by static-corpus `canonicalKey` with mapped/ambiguous/unmapped statuses, provenance, deterministic backfill queue, and coverage helpers. Verified coverage is deliberately progressive: 17 roofing/exterior materials use UNSPSC Codeset v8.1201 (e.g. shingles → `30151508`, siding → `30151802`, gutters → `30151703`), plus three governed untreated SPF 2×4 framing-stud keys use `30103605` (`Wood planks`) from the published UNSPSC v17.1001 detailed list. Treated, engineered, and otherwise ambiguous lumber remains unmapped; 7 roofing/exterior entries remain explicitly ambiguous and never silently merge. OmniClass 23 codes are pending verification against the CSI publication.
 - **2026-10-08 five-family backfill (merged follow-up):** the full research program landed in `CANONICAL_MATERIAL_CODES` — 397 new rows (319 mapped, 78 ambiguous), all read from UNSPSC Codeset v8.1201, zero invented: framing lumber (83 → `30103603`), engineered lumber (27 → `30103601/602/606/607`), fasteners (109 → 17 verified fastener commodities), concrete/masonry (62 → 5 verified commodities), insulation (116 → `30141503/504/506/507`). Codeset gaps (bagged concrete mix, grout, pavers, housewrap/WRB, tapes, baffles) stay ambiguous with empty code fields and documented reasons. Map now holds 425 entries; 267 map to keys in the static corpus (74 greenfield framing/engineered keys are canonical-ready but not in the corpus yet). Packages live under `docs/research/costbook-classification-backfill/`.
+- **Sheathing backfill (2026-10-18 research package):** 63 more rows landed in `CANONICAL_MATERIAL_CODES` — 62 mapped to UNSPSC `30103604` "Wood sheathing or sheets" (OSB, softwood plywood, ZIP and radiant-barrier panels, subfloor and underlayment panels), all UNSPSC Codeset v8.1201, zero invented; commodity rests on the 2026-10-08 full class-30103600 codeset read. One key stays ambiguous with an empty code field: `SHEATHING-DENSGLASS-1_2-4X8` (glass-mat gypsum sheathing — not a wood product; no verified gypsum-panel commodity yet, recorded for a future gypsum/drywall pass). Map now holds 491 entries; 347 mapped / 69 ambiguous against the static corpus. Package: `sheathing-classifications.csv` + `sheathing-verification-report.md` under `docs/research/costbook-classification-backfill/`.
 - Classification-assisted matching in `canonicalProductMatcher.ts`: supplier-carried UNSPSC/OmniClass codes confirm an already-strong text match, narrow weak matches to human review, and downgrade code conflicts to human review (duplicate/misattribution prevention). With no codes present, matcher behavior is byte-identical to before.
 
 
@@ -1412,3 +1424,40 @@ Following merge of #737 and independently merged #738 (on-demand Get Item), bran
 On branch `feat/abc-branch-order-availability-735`, TradeOS adds a sandbox-only, provider-backed Get Item Availability read and a contextual product detail link. The ABC response lists branches at which an item can be ordered and its provider-listed dimensional lengths. It does **not** represent on-hand inventory stock, specific customer's Ship-To approval, a Price Items quote, verified material price, or persistent catalog synchronization. The same catalog feature flag, `costbook.read` permission, global rate limiter, and server `product.read` token govern the read; no supplier responses are cached or written to the database.
 
 Until exact-head CI, real ABC sandbox integration and authenticated hosted UI evidence run, this is unproven against genuine provider availability. ABC data-copy rights and user-present customer-specific pricing remain external blockers. Issue #735 stays open.
+
+
+## Costbook picker control ergonomics — 2026-10-23
+
+The existing embedded Costbook/assembly catalog picker now uses 44px search,
+Section and Quantity inputs below 1024px (32px text inputs at larger widths),
+plus 44px Add, Clear, native cost-type Select and Taxable label targets. Shared
+primitives and their defaults are unchanged. Search, preview gates, mapping,
+mutation payloads, explicit Estimate Add, retained errors and reset behavior
+remain the existing source contract.
+
+The isolated `tests/components/catalog-item-controls.spec.ts` mounts the actual
+production picker, React Query, Base UI components and Tailwind at four widths.
+It exercises focus/keyboard selection, failed stored-cost preview, Clear with
+retained non-default values, quantity validation, non-default Add payload,
+pending/failure/retry and confirmed-success reset using synthetic transport.
+This harness does not prove authenticated persistence, tenant isolation, live
+supplier pricing, or full illustrated-shell parity. Current-head test results
+are recorded in the PR and Figma handoff, not inferred from source assertions.
+
+## Today routine follow-up recovery (2026-10-27)
+
+The existing `tradeos.athena.tools.office.create-follow-up` tool now advertises
+optional action-engine idempotency. Previously its `not_supported` metadata
+bypassed reservation even when the Workspace supplied a stable retry key, so
+an ambiguous-response retry could create a second task. Keyed calls now reuse
+the existing durable receipt scoped by tenant, actor, tool and version, with
+canonical validated-input binding. A changed input under the same key fails
+closed. Unkeyed legacy callers retain their previous behavior.
+
+This repairs execution recovery for an existing low-risk internal task tool;
+it does not send customer messages or grant new permissions. `crm.write`,
+resource/service tenant checks, RLS, audits and all approval policies remain
+unchanged. High-risk confirmation/resume is still a separate contract; this
+change does not turn an approval state into success or resubmit restricted
+actions. Action-engine dispatch is required for receipt guarantees; calling
+the service or tool handler directly does not provide deduplication.

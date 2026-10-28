@@ -35,13 +35,22 @@ Only three environments are real, workflow-managed configuration:
   credential check. It was created deliberately, with protections, during
   this audit (see §7).
 
-The audit found **no P0 findings**. The most serious issue is on the Vercel
-side, not in GitHub: a `SUPABASE_SERVICE_ROLE_KEY` is scoped into the
-frontend project where it has no legitimate use (§6, P1-a), and the frontend
-production deployment is one merge behind the API because the two newest
-web production deployments were canceled (§6, P1-b). ABC Supply sandbox
-credentials are isolated by construction — there is no production ABC
-credential path in the codebase at all (§4.3).
+The audit found **no P0 findings**. The initial P1-a and P1-b
+classifications were later corrected: the frontend has verified server-only
+uses for its service-role key, and the web deployment sequence is
+informational given the recorded API-only changes (§6). The remaining
+security and operations questions are narrower: whether Preview should use
+a staging-scoped service-role key, and the unresolved staging credentials
+and owner checks recorded in §§9–10. ABC Supply sandbox credentials are
+isolated by construction — there is no production ABC credential path in
+the codebase at all (§4.3).
+
+**CORRECTION (2026-10-23):** The two original P1 claims no longer stand as
+written: P1-a was disproven (the service-role key has verified, code-verified
+server-only uses, with tests covering the admin-client guard), and P1-b is
+informational (the web build skips were
+consistent with API-only changes). See the dated corrections in §6 and
+follow-up status in §§9–10.
 
 No environment was deleted, no secret was changed, and no production action
 was executed during this audit.
@@ -130,8 +139,18 @@ account; three are linked to this repository:
 | Project | ID | Role | Status |
 |---|---|---|---|
 | `tradeos-costbook` | `prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD` | API (Express), `api.404tradeos.com` | **Live.** Production branch `main` (established from deployment evidence: every production deployment carries `githubCommitRef: main`). Latest production READY 2026-10-23 at `e17a166d` (current `main` tip at audit time). |
-| `tradeos-costbook-web` | `prj_jDyORkIa7ug3ZtgtNujwEa65hQ36` | Frontend (Next.js) | **Live.** Latest production READY 2026-10-23 at `762bb992` — one merge behind the API (§6, P1-b). |
+| `tradeos-costbook-web` | `prj_jDyORkIa7ug3ZtgtNujwEa65hQ36` | Frontend (Next.js) | **Live.** Latest production READY 2026-10-23 at `762bb992`; subsequent API-only changes did not require a web rebuild (see §6, P1-b correction). |
 | `tradeos` | `prj_iDDuPvsaUsS5p2IwzbYYMM5YuK3Q` | Leftover from the S027 browser-completion era | **Dormant** since 2026-09-07, still git-linked to this repo, holds exactly one env var (`BACKEND_API_URL`). No corresponding GitHub shells — consistent with the 2026-08-11 records freeze. |
+
+**CORRECTION (2026-10-23):** The web row's "one merge behind the API"
+framing above is withdrawn. Vercel records identify two canceled web
+production deployments at `ef983efc` and `e17a166d`, and link the
+cancellations to the ignored-build-step behavior. The available report
+records an aggregate comparison of `762bb992..e17a166d` with no
+web-relevant changes; it does not include separate changed-path output for
+each deployment. The existing web deployment at `762bb992` was verified
+READY. The deployment sequence is informational, not evidence of a
+demo-integrity defect.
 
 All five GitHub shells map to live projects/targets (bare `Preview` cannot
 be definitively attributed to one of the two costbook projects, but both
@@ -244,9 +263,50 @@ inspected read-only; nothing was approved, rejected, or executed.
 
 | # | Finding | Remediation |
 |---|---|---|
-| a | `SUPABASE_SERVICE_ROLE_KEY` is set on the **frontend** project `tradeos-costbook-web` in **Production and Preview** scopes. A service-role key bypasses RLS; the web project has no legitimate use for it (it has no `DATABASE_URL` and reaches data through `BACKEND_API_URL` + publishable keys). | Owner removes it from `tradeos-costbook-web` in Vercel (this audit's tooling cannot write Vercel env vars). §8. |
-| b | **Front/back deployment skew.** `tradeos-costbook-web` production READY is `762bb992`; the two newer web production deployments (`ef983efc`, `e17a166d`) are **CANCELED**, while the API is current at `e17a166d`. The frontend is one merge behind the API. Cancellation actor/reason is not exposed by Vercel data. Demo-integrity risk until explained. | Owner investigates the cancellations in Vercel and redeploys current `main` for the web project. §8. |
+| a | `SUPABASE_SERVICE_ROLE_KEY` is set on the **frontend** project `tradeos-costbook-web` in **Production and Preview** scopes. A service-role key bypasses RLS. The web project has verified server-only uses for brand assets, project-file downloads, and settings asset cleanup (see correction below). The Preview scope's key scoping remains an open hygiene question. | No removal: the key has verified server-only uses. Decide whether Preview should use a staging-scoped key. |
+| b | **[INFORMATIONAL] API-only deployment sequence.** The web project's production deployment remains at `762bb992`; later API-side commits triggered canceled web builds. The report's aggregate comparison found no web-relevant changes. | No remediation indicated by the recorded evidence. See correction below; the sequence is not a demo-integrity finding. |
 | c | **[FIXED during audit] Staging environment/secrets vacuum.** `deploy-staging-migrations.yml` referenced a `staging` environment that did not exist, with its credential names present nowhere; first dispatch would have auto-created it unprotected and failed its credential check. | `staging` environment pre-created with required reviewer + `main`-only policy (§7). Credential entry remains the owner's (§8). |
+
+**CORRECTION (2026-10-23) — P1-a is withdrawn as written.** The claim that
+`tradeos-costbook-web` "has no legitimate use" for
+`SUPABASE_SERVICE_ROLE_KEY` is false. Verified against `main` @ `7013cdca`:
+`web/src/lib/supabase/admin.ts` (marked `import "server-only"`) reads the
+key and powers brand-asset upload/serving (`web/src/app/actions/settings.ts`,
+`web/src/app/api/brand-assets/[orgId]/[assetKey]/route.ts`), project-file
+downloads (`web/src/app/api/project-files/[projectId]/[fileId]/route.ts`),
+and settings asset cleanup (`web/src/lib/settingsAssetCleanup.ts`); the
+admin-client `server-only` guard and the brand-asset upload/removal actions
+are pinned by tests (`web/src/lib/settingsAssetUpload.test.ts`,
+`web/src/lib/envSecurity.test.ts`). The owner's removal order was
+conditional on confirming the key was not required; that confirmation
+failed, and the key was **not** removed. The residual hygiene item is not
+an open choice: per docs/DEPLOYMENT_GUIDE.md ("Never copy a Production
+secret into Preview"), the Preview scope must carry a staging-scoped key
+or remain unset; it must never hold the production project's service-role
+key.
+
+**ADDENDUM (2026-10-24) — Preview key scoping is a requirement.** The
+§6 finding-a row and the §1 summary frame Preview key scoping as an open
+hygiene question; that framing is superseded. Per docs/DEPLOYMENT_GUIDE.md,
+a Preview deployment must never hold a Production secret, so the Preview
+scope of `tradeos-costbook-web` must carry a staging-scoped
+`SUPABASE_SERVICE_ROLE_KEY` or remain unset. This changes no other
+conclusion: the key's verified server-only uses still do not require
+removing it from the web project.
+
+**CORRECTION (2026-10-23) — P1-b is informational, not an active
+deployment-risk finding.** Vercel records identify two canceled web
+production deployments: `dpl_Ez8h6m28ghJYvj1BFGG76Y3ATrYk` at
+`ef983efc` and `dpl_571o27vvc1NLNfzMzGXMeiRKF94J` at `e17a166d`.
+The available report records an aggregate comparison over
+`762bb992..e17a166d` with zero web-relevant changes and attributes the
+cancellations to `web/vercel-ignore-build.sh`; it does not preserve
+per-deployment changed-path output or enough detail to independently
+substantiate the additional `7013cdca` deployment claim. The evidence
+supports treating the observed API-only deployment sequence as
+informational, with no redeploy indicated. Production web at `762bb992`
+was verified READY. The original "one merge behind" and demo-integrity
+framing are withdrawn.
 
 ### P2
 
@@ -282,7 +342,7 @@ inspected read-only; nothing was approved, rejected, or executed.
 | Environment | Purpose | Configuration |
 |---|---|---|
 | `production` | Live application database migrations and production data operations | Required reviewer BillyKShowalter; `main`-only branch policy; secrets `DATABASE_ADMIN_URL`, `APP_DB_ROLE_NAME`, `APP_DB_ROLE_PASSWORD` |
-| `staging` | Staging database migrations against `qfbgdkbamfaasmtjfyru` | Required reviewer BillyKShowalter; `main`-only branch policy; pending owner entry of `STAGING_DATABASE_ADMIN_URL`, `STAGING_APP_DB_ROLE_PASSWORD` (secrets) and `STAGING_APP_DB_ROLE_NAME` (variable) |
+| `staging` | Staging database migrations against `qfbgdkbamfaasmtjfyru` | Required reviewer BillyKShowalter; `main`-only branch policy; `STAGING_APP_DB_ROLE_NAME=tradeos_app` is set; owner entry of `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` (secrets) remains pending |
 | `abc-sandbox` | ABC Supply sandbox evidence only | `main`-only branch policy; secrets `ABC_SUPPLY_SANDBOX_CLIENT_ID`, `ABC_SUPPLY_SANDBOX_CLIENT_SECRET` |
 
 The five Vercel shells (`Preview`, `Production – tradeos-costbook`,
@@ -343,8 +403,9 @@ change; no secret values were read or altered.
 2. **`abc-sandbox` environment hardened (2026-10-23)** — custom deployment
    branch policy allowing `main` only, matching all recorded legitimate
    usage (§3); both sandbox secrets verified intact by name afterward.
-3. **October 19 production run inspected read-only** (§5). Recommendation:
-   cancel. Not approved, not canceled, not executed by this audit.
+3. **October 19 production run canceled (2026-10-23)** (§5). Run
+   `39192898810` was canceled on the owner's order; it was not
+   re-dispatched, and no production migration was executed. See §10.
 
 In this PR's diff: this audit report, and the environment drift-guard test
 (§7). **No workflow file was modified, no environment deleted, no secret
@@ -352,25 +413,65 @@ changed, no production action executed.**
 
 ## 9. Remaining blockers
 
-All four require the owner; none can be completed by an agent.
+These items record remaining owner decisions and credentials; several
+operational actions were completed on 2026-10-23 and are marked accordingly
+below and in §10.
 
-1. **Enter the staging credentials** in the new GitHub `staging`
-   environment: secrets `STAGING_DATABASE_ADMIN_URL` (for the staging
-   project `qfbgdkbamfaasmtjfyru` — the workflow refuses any other host) and
-   `STAGING_APP_DB_ROLE_PASSWORD`, plus variable `STAGING_APP_DB_ROLE_NAME`.
-   Until then, the first staging dispatch fails its credential check by
-   design. After entry, staging backup + the invoice legacy-cost NULL
-   pre-check still precede any staging run, per the existing staging plan.
+1. **[PARTIALLY COMPLETE] Enter the remaining staging credentials** in
+   the new GitHub `staging` environment: secrets
+   `STAGING_DATABASE_ADMIN_URL` (for staging project
+   `qfbgdkbamfaasmtjfyru`; the workflow refuses any other host) and
+   `STAGING_APP_DB_ROLE_PASSWORD` remain pending. Variable
+   `STAGING_APP_DB_ROLE_NAME=tradeos_app` is already set. Until both
+   secrets are entered, the first staging dispatch fails its credential
+   check by design. After entry, staging backup + the invoice legacy-cost
+   NULL pre-check still precede any staging run, per the existing plan.
 2. **Vercel web-project hygiene**: remove `SUPABASE_SERVICE_ROLE_KEY` from
    `tradeos-costbook-web` (Production and Preview scopes) (§6 P1-a), and
    confirm the Preview-scope `DATABASE_URL`/`SUPABASE_URL` targets on both
    live projects point at staging, never production (§6 P2-c).
-3. **Decide the October 19 production run** (§5): recommendation is
-   **cancel** run `39192898810` at the gate and re-dispatch fresh when the
-   Davis-Bacon migration is wanted in production.
+   **CORRECTION (2026-10-23):** The removal directive in this item is
+   withdrawn (see the §6 P1-a correction): the key is required by the web
+   project, the conditional confirmation of non-requirement failed, and
+   the key was not removed. The Preview-target confirmation was completed
+   the same day (§10); the only open residue is the narrower Preview-scope
+   service-role-key scoping question recorded in the §6 correction.
+3. **[RESOLVED] October 19 production run.** Run `39192898810` was
+   canceled on the owner's order; the deployment is inactive, nothing was
+   re-dispatched, and no production migration executed (§10). A fresh
+   deliberate run can be considered when the Davis-Bacon migration is
+   wanted in production.
 4. **Decide two Vercel postures**: whether to enable Vercel Authentication
    for the two live projects' preview deployments (§6 P2-b), and what to do
    with the dormant, still-git-linked `tradeos` project (§6 P2-e).
+
+## 10. Follow-up actions completed 2026-10-23 (addendum)
+
+Recorded after this report's PR (#791) merged, later the same day:
+
+- **October 19 production run canceled.** Run `39192898810` was canceled
+  on the owner's order (§5 recommendation carried out; §9 item 3
+  resolved). Verified in GitHub afterward: the run is
+  completed/cancelled and its deployment record is inactive. Nothing was
+  re-dispatched, and no production migration was executed.
+- **Staging environment: variable set, secrets still pending.** Variable
+  `STAGING_APP_DB_ROLE_NAME` was set to `tradeos_app` (the confirmed
+  staging role name) in the GitHub `staging` environment. The two secrets
+  (`STAGING_DATABASE_ADMIN_URL`, `STAGING_APP_DB_ROLE_PASSWORD`) remain
+  unset — §9 item 1 stays open for those two values only, still the
+  owner's to enter.
+- **Preview target classification completed with limits.** For entries
+  whose values were readable, the Preview-scope
+  `DATABASE_URL`/`SUPABASE_URL` targets were classified as non-production.
+  Sensitive/write-only entries remain unresolved because their targets
+  could not be verified. An owner dashboard check is recommended for those
+  entries; the available evidence does not establish their targets.
+- **Vercel Authentication posture.** It remains **OFF** on both live
+  projects. Recommendation recorded: keep it off for demo access, and
+  revisit only if previews ever carry real customer data (§6 P2-b).
+- **Dormant `tradeos` project.** Verified to have no custom domains.
+  Retirement is the owner's call; it was not deleted or disconnected
+  (§6 P2-e).
 
 ## Evidence index
 

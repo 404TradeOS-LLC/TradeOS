@@ -11,7 +11,7 @@ import { adminShellCss, AdminPricingInput, renderAdminPricingShell } from "../vi
 const service = new AdminDashboardService();
 const inputSchema = z.object({
   bearerToken: z.string().trim().min(1),
-  orgId: z.string().uuid(),
+  orgId: z.guid(),
   materialQuery: z.string().trim().max(160).optional(),
   source: z.string().trim().max(64).optional(),
   dateFrom: z.string().trim().optional(),

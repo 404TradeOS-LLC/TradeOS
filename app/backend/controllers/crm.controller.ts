@@ -46,7 +46,7 @@ const serviceAddressUpdateSchema = serviceAddressSchema.partial().refine((value)
 
 const equipmentSchema = z
   .object({
-    serviceAddressId: z.string().uuid().optional(),
+    serviceAddressId: z.guid().optional(),
     name: z.string().trim().min(1).max(160),
     manufacturer: z.string().trim().max(160).optional(),
     model: z.string().trim().max(160).optional(),
@@ -64,7 +64,7 @@ const equipmentUpdateSchema = equipmentSchema.partial().refine((value) => Object
 const noteSchema = z
   .object({
     entityType: z.enum(["customer", "job"]),
-    entityId: z.string().uuid(),
+    entityId: z.guid(),
     body: z.string().trim().min(1).max(4000),
   })
   .strict();
@@ -77,8 +77,8 @@ const customerImportSchema = z
 
 const serviceAgreementSchema = z
   .object({
-    serviceAddressId: z.string().uuid().optional(),
-    projectId: z.string().uuid().optional(),
+    serviceAddressId: z.guid().optional(),
+    projectId: z.guid().optional(),
     name: z.string().trim().min(1).max(160),
     status: z.string().trim().max(80).optional(),
     startDate: z.string().datetime().optional(),

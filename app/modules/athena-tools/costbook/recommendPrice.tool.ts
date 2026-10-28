@@ -24,9 +24,9 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk";
 // unaffected by calling this tool.
 
 export const costbookRecommendPriceInputSchema = z.object({
-  costItemId: z.string().uuid(),
+  costItemId: z.guid(),
   quantity: z.number().finite().positive().default(1),
-  regionId: z.string().uuid().optional(),
+  regionId: z.guid().optional(),
   targetMarginPct: z.number().finite().min(0).lt(100),
 });
 export type CostbookRecommendPriceInput = z.infer<typeof costbookRecommendPriceInputSchema>;

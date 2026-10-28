@@ -211,3 +211,7 @@ The guarded staging-repair control owns provisioning of that encrypted branch-sc
 ## Supplier Cron shared limits and credential durability (October 2026)
 
 The Vercel supplier price-sync route uses two independent, database-backed, atomic rate budgets (authorized and unauthorized) across all serverless instances. They are enforced through a narrowly granted private PostgreSQL function; only a hash of the request key is retained, never a raw address or bearer credential. Database failure prevents worker execution instead of silently falling back to an in-memory budget. Owner/admin background work uses verified tenant sessions. On ABC OAuth token rotation, the Vault write is committed in a separate verified actor-scoped transaction before quote processing continues, so a later pricing rollback cannot undo the provider's replacement token. Neither workflow bypasses supplier-price review/approval gates.
+
+## API validation dependency boundary
+
+The API now uses Zod 4.6.7 directly, with `$zod` overriding the older nested Vercel configuration validator. This removes vulnerable validation implementations without adding an adapter layer or changing the request auth/membership/RLS stack. Controllers and Athena tools preserve legacy UUID-shaped inputs through `z.guid()`, while explicit record and typed pipeline schemas retain existing data semantics. body-parser resolves to patched 1.20.9. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
