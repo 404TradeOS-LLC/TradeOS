@@ -63,6 +63,14 @@ related_code:
 
 # TradeOS Current State
 
+## Web performance telemetry — PR #744
+
+The Next.js root layout includes Vercel Speed Insights for browser performance
+measurements. The dependency is scoped to `web/`; the JSON-only Express API
+does not load a browser telemetry SDK. This does not certify production metrics
+collection or enable the optional service in the Vercel project dashboard.
+
+
 ## API validation security prerequisite — 2026-10-27
 
 Existing PR #795 is extended to repair the dependency audit blocking Today 2.0 PR #798. The isolated runtime branch retains dotenv/Vercel patch updates, adds patched Zod 4.6.7 including Vercel's transitive validator, and includes body-parser 1.20.9 from #799. The previous identifier syntax contract is preserved using `z.guid()`; record and enum pipeline compatibility repairs do not alter JWT/membership, permissions, RLS, financial or supplier policy. No production change or merge is claimed. Full verification and PR-only major-upgrade review remain required; the independent moderate ip-address patch is tracked by #786. See [runtime upgrade evidence](architecture/API_VALIDATION_RUNTIME_UPGRADE.md).
