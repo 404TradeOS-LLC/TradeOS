@@ -364,6 +364,8 @@ export async function createProjectTaskAction(_prev: FormActionState, formData: 
       token: token ?? undefined,
       body: JSON.stringify({
         title,
+        jobId: String(formData.get("jobId") ?? "").trim() || undefined,
+        assignedUserId: String(formData.get("assignedUserId") ?? "").trim() || undefined,
         assignedTo: assignedTo || undefined,
         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
         priority,
@@ -540,4 +542,23 @@ function splitTextareaLines(value: string) {
     .split("\n")
     .map((entry) => entry.trim())
     .filter(Boolean);
+}
+
+
+export async function assignProjectTaskAction(_previous: { error?: string; saved?: boolean }, form: FormData): Promise<{ error?: string; saved?: boolean }> {
+  const token = await getSessionToken();
+  if (!token) return { error: "Sign in before assigning a task." };
+  const projectId = String(form.get("projectId") ?? ""), taskId = String(form.get("taskId") ?? "");
+  const jobId = String(form.get("jobId") ?? "").trim() || null;
+  const assignedUserId = String(form.get("assignedUserId") ?? "").trim() || null;
+  const expectedUpdatedAt = String(form.get("expectedUpdatedAt") ?? "");
+  if (!Number.isFinite(Date.parse(expectedUpdatedAt))) return { error: "Task revision is unavailable. Refresh before assigning." };
+  try {
+    const result = await apiFetch<{ id: string; projectId: string; jobId: string | null; assignedUserId: string | null }>(`/api/v1/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`, {
+      token, method: "PATCH", body: JSON.stringify({ jobId, assignedUserId, expectedUpdatedAt }),
+    });
+    if (result.id !== taskId || result.projectId !== projectId || result.jobId !== jobId || result.assignedUserId !== assignedUserId) return { error: "Assignment could not be confirmed. Refresh the source before trying again." };
+  } catch (error) { return { error: error instanceof ApiClientError ? error.message : "Assignment failed. Refresh before trying again." }; }
+  for (const path of [`/projects/${projectId}`, "/dashboard", "/dashboard/work", "/dashboard/needs-you", "/field"]) revalidatePath(path);
+  return { saved: true };
 }

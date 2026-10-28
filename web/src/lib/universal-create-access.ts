@@ -9,6 +9,7 @@ export function canUseUniversalCreate(kind: UniversalCreateKind, role: unknown, 
   switch (kind) {
     case "estimate":
     case "customer":
+    case "task":
       return hasPermission(role, "crm.write");
     case "invoice":
     case "change-order":
