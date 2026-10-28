@@ -1,0 +1,155 @@
+name: Reconcile staging invoice expand Prisma ledger
+
+# Reviewer-gated, staging-only history repair. No schema migration or deploy.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type RECONCILE_INVOICE_EXPAND_ONLY after reviewing issue #811"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-migrations-staging
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    name: Reconcile verified preexisting invoice expansion in staging
+    runs-on: ubuntu-latest
+    environment: staging
+    defaults:
+      run:
+        working-directory: app
+    env:
+      DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
+      STAGING_PROJECT_REF: qfbgdkbamfaasmtjfyru
+      PGSSLMODE: require
+    steps:
+      - name: Require main, exact confirmation and staging host
+        working-directory: .
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ] || [ "$CONFIRMATION" != "RECONCILE_INVOICE_EXPAND_ONLY" ]; then
+            echo "::error::Dispatch from main with exact typed confirmation."
+            exit 1
+          fi
+          if [ -z "${DATABASE_ADMIN_URL:-}" ]; then
+            echo "::error::Set STAGING_DATABASE_ADMIN_URL in protected staging Environment."
+            exit 1
+          fi
+          node --input-type=module <<'NODE'
+          const url = new URL(process.env.DATABASE_ADMIN_URL);
+          const host = "db." + process.env.STAGING_PROJECT_REF + ".supabase.co";
+          if (!["postgres:", "postgresql:"].includes(url.protocol) ||
+              url.hostname !== host || url.pathname !== "/postgres") {
+            throw Error("Non-staging database identity or unexpected database name");
+          }
+          console.log("Validated staging-only PostgreSQL project identity.");
+          NODE
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install PostgreSQL client and Prisma dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client
+          npm ci
+
+      - name: Assert exact histories, schema, data and executable SQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          PSQL_URL="${DATABASE_ADMIN_URL%%\?*}"
+          require_count() {
+            local label="$1" expected="$2" sql="$3" actual
+            actual="$(psql "$PSQL_URL" -X -v ON_ERROR_STOP=1 -Atqc "$sql")"
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::$label: expected $expected, received ${actual:-empty}. Refusing history change."
+              exit 1
+            fi
+          }
+          require_count "Applied Prisma ledger" "46" \
+            "SELECT count(*) FROM public._prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL"
+          require_count "Unfinished Prisma ledger" "0" \
+            "SELECT count(*) FROM public._prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL"
+          require_count "Prisma expand not previously recorded" "0" \
+            "SELECT count(*) FROM public._prisma_migrations WHERE migration_name='20260902193000_rename_invoice_line_price_columns'"
+          require_count "Prisma contract not recorded" "0" \
+            "SELECT count(*) FROM public._prisma_migrations WHERE migration_name='20260902200000_contract_invoice_line_price_columns'"
+          require_count "Unique applied Supabase invoice expand" "1" \
+            "SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version='20260902232955' AND name='20260902193000_rename_invoice_line_price_columns' AND cardinality(statements)=1"
+          require_count "Legacy and expanded column precision/non-null" "4" \
+            "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='invoice_line_items' AND is_nullable='NO' AND data_type='numeric' AND ((column_name IN ('unit_price','unit_cost') AND numeric_precision=12 AND numeric_scale=4) OR (column_name IN ('line_total','line_cost') AND numeric_precision=14 AND numeric_scale=2))"
+          require_count "Price divergence or missing new values" "0" \
+            "SELECT count(*) FROM public.invoice_line_items WHERE unit_price IS NULL OR line_total IS NULL OR unit_price IS DISTINCT FROM unit_cost OR line_total IS DISTINCT FROM line_cost"
+          require_count "Actual synchronization trigger" "1" \
+            "SELECT count(*) FROM pg_trigger WHERE tgrelid='public.invoice_line_items'::regclass AND tgname='invoice_line_item_price_columns_sync' AND NOT tgisinternal AND pg_get_triggerdef(oid) ILIKE '%BEFORE INSERT OR UPDATE%'"
+          require_count "Actual synchronization function" "1" \
+            "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='sync_invoice_line_item_price_columns' AND p.pronargs=0"
+
+          # Validate the independently executed SQL against the tracked Prisma
+          # SQL, excluding ONLY whitespace and whole-line comments.
+          sql_b64="$(psql "$PSQL_URL" -X -v ON_ERROR_STOP=1 -Atqc \
+            "SELECT replace(encode(convert_to(statements[1], 'UTF8'), 'base64'), E'\n', '') FROM supabase_migrations.schema_migrations WHERE version='20260902232955' AND name='20260902193000_rename_invoice_line_price_columns' AND cardinality(statements)=1")"
+          if [ -z "$sql_b64" ]; then
+            echo "::error::Supabase applied invoice SQL is unavailable."
+            exit 1
+          fi
+          printf '%s' "$sql_b64" | base64 --decode > "$RUNNER_TEMP/staging-invoice-expand.sql"
+          node ../scripts/verify-staging-invoice-expand.mjs \
+            "$RUNNER_TEMP/staging-invoice-expand.sql" \
+            prisma/migrations/20260902193000_rename_invoice_line_price_columns/migration.sql
+          rm -f "$RUNNER_TEMP/staging-invoice-expand.sql"
+          echo "All read-only reconciliation assertions passed."
+
+      - name: Record only the already-applied migration in Prisma
+        shell: bash
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
+        run: |
+          set -euo pipefail
+          # No migrate deploy: the next contract migration drops old columns.
+          npx prisma migrate resolve --applied 20260902193000_rename_invoice_line_price_columns
+
+      - name: Verify 47 applied, zero unfinished, legacy columns intact
+        shell: bash
+        run: |
+          set -euo pipefail
+          PSQL_URL="${DATABASE_ADMIN_URL%%\?*}"
+          result="$(psql "$PSQL_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT
+              (SELECT count(*) FROM public._prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL)::text || ':' ||
+              (SELECT count(*) FROM public._prisma_migrations WHERE migration_name='20260902193000_rename_invoice_line_price_columns' AND finished_at IS NOT NULL AND rolled_back_at IS NULL)::text || ':' ||
+              (SELECT count(*) FROM public._prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL)::text || ':' ||
+              (SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='invoice_line_items' AND column_name IN ('unit_cost','line_cost'))::text
+          ")"
+          if [ "$result" != "47:1:0:2" ]; then
+            echo "::error::Unexpected staging reconciliation result: $result."
+            exit 1
+          fi
+          {
+            echo "## Staging invoice expand history reconciliation"
+            echo
+            echo "- Project: TradeOS Staging (${STAGING_PROJECT_REF})"
+            echo "- Exactly one already-applied expand migration recorded in Prisma"
+            echo "- 47 applied, 0 unfinished, both legacy invoice columns preserved"
+            echo "- No schema deploy or contract/drop-column migration was executed"
+            echo "- Issue #811: separately verify old-writer retirement before any further migration"
+          } >> "$GITHUB_STEP_SUMMARY"
