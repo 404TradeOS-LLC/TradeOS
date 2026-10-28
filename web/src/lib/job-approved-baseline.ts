@@ -19,7 +19,7 @@ function stringOrNull(value: unknown): string | null {
 }
 function priceOrNull(value: unknown): string | null {
   const s = stringOrNull(value);
-  return s && /^\\d+(?:\\.\\d{1,2})?$/.test(s) ? s : null;
+  return s && /^\d+(?:\.\d{1,2})?$/.test(s) ? s : null;
 }
 export function readApprovedJobBaseline(value: unknown): ApprovedJobBaseline | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
