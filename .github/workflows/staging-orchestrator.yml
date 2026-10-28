@@ -488,6 +488,43 @@ jobs:
       WEB_DEPLOYMENT_URL: ${{ needs.wait-deployments.outputs.web_deployment_url }}
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
     steps:
+      - name: Confirm both staging aliases resolve to the pinned deployment IDs
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          EXPECTED_API_DEPLOYMENT_ID: ${{ needs.wait-deployments.outputs.api_deployment_id }}
+          EXPECTED_WEB_DEPLOYMENT_ID: ${{ needs.wait-deployments.outputs.web_deployment_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error::VERCEL_TOKEN missing: cannot authenticate alias-to-deployment binding."
+            exit 1
+          fi
+          check_alias() {
+            local label="$1" alias="$2" project_id="$3" expected_id="$4"
+            local response code body deployed_id actual_project
+            response="$(curl -sS -w '\n%{http_code}' \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v4/aliases/$alias?teamId=team_nY1VrcaEYEr4rcW7Gxweq7LP&projectId=$project_id")" || {
+              echo "::error::Unable to retrieve $label alias binding from Vercel."
+              return 1
+            }
+            code="$(printf '%s' "$response" | tail -n 1)"
+            if [ "$code" != "200" ]; then
+              echo "::error::Vercel alias lookup failed for $label (HTTP $code); confirm team-scoped token and alias access."
+              return 1
+            fi
+            body="$(printf '%s' "$response" | sed '$d')"
+            deployed_id="$(printf '%s' "$body" | jq -r '.deploymentId // .deployment.id // empty')"
+            actual_project="$(printf '%s' "$body" | jq -r '.projectId // empty')"
+            if [ -z "$expected_id" ] || [ "$deployed_id" != "$expected_id" ] || [ "$actual_project" != "$project_id" ]; then
+              echo "::error::$label staging alias does not point to the selected deployment/project. Expected $expected_id for $project_id; got $deployed_id for $actual_project. Refusing mismatched evidence."
+              return 1
+            fi
+            echo "$label staging alias is bound to expected deployment $expected_id."
+          }
+          check_alias backend "tradeos-costbook-git-staging-billykshowalters.vercel.app" "$API_PROJECT_ID" "$EXPECTED_API_DEPLOYMENT_ID"
+          check_alias frontend "tradeos-costbook-web-git-staging-billykshowalters.vercel.app" "$WEB_PROJECT_ID" "$EXPECTED_WEB_DEPLOYMENT_ID"
       - name: Check backend deployment and staging alias health, readiness, and SHA
         shell: bash
         run: |
@@ -577,7 +614,7 @@ jobs:
 
   post-evidence-guard:
     name: Re-verify staging head and alias identity after evidence
-    needs: [record, evidence]
+    needs: [record, evidence, wait-deployments]
     runs-on: ubuntu-latest
     env:
       SHA: ${{ needs.record.outputs.sha }}
@@ -596,6 +633,43 @@ jobs:
             exit 1
           fi
           echo "Staging head unchanged after evidence: $staging_head."
+      - name: Confirm both staging aliases resolve to the pinned deployment IDs
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          EXPECTED_API_DEPLOYMENT_ID: ${{ needs.wait-deployments.outputs.api_deployment_id }}
+          EXPECTED_WEB_DEPLOYMENT_ID: ${{ needs.wait-deployments.outputs.web_deployment_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error::VERCEL_TOKEN missing: cannot authenticate alias-to-deployment binding."
+            exit 1
+          fi
+          check_alias() {
+            local label="$1" alias="$2" project_id="$3" expected_id="$4"
+            local response code body deployed_id actual_project
+            response="$(curl -sS -w '\n%{http_code}' \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v4/aliases/$alias?teamId=team_nY1VrcaEYEr4rcW7Gxweq7LP&projectId=$project_id")" || {
+              echo "::error::Unable to retrieve $label alias binding from Vercel."
+              return 1
+            }
+            code="$(printf '%s' "$response" | tail -n 1)"
+            if [ "$code" != "200" ]; then
+              echo "::error::Vercel alias lookup failed for $label (HTTP $code); confirm team-scoped token and alias access."
+              return 1
+            fi
+            body="$(printf '%s' "$response" | sed '$d')"
+            deployed_id="$(printf '%s' "$body" | jq -r '.deploymentId // .deployment.id // empty')"
+            actual_project="$(printf '%s' "$body" | jq -r '.projectId // empty')"
+            if [ -z "$expected_id" ] || [ "$deployed_id" != "$expected_id" ] || [ "$actual_project" != "$project_id" ]; then
+              echo "::error::$label staging alias does not point to the selected deployment/project. Expected $expected_id for $project_id; got $deployed_id for $actual_project. Refusing mismatched evidence."
+              return 1
+            fi
+            echo "$label staging alias is bound to expected deployment $expected_id."
+          }
+          check_alias backend "tradeos-costbook-git-staging-billykshowalters.vercel.app" "$API_PROJECT_ID" "$EXPECTED_API_DEPLOYMENT_ID"
+          check_alias frontend "tradeos-costbook-web-git-staging-billykshowalters.vercel.app" "$WEB_PROJECT_ID" "$EXPECTED_WEB_DEPLOYMENT_ID"
       - name: Re-verify staging alias identity for the approved SHA
         shell: bash
         run: |
