@@ -185,3 +185,7 @@ No browser role or permission is granted through this mechanism. Preview browser
 ## Supplier sync operational privileges (October 2026)
 
 The supplier price-sync endpoint uses a platform Cron bearer secret; this does **not** establish a tenant identity. Every configured job still checks an active organization membership and passes through the normal background RLS session. The ABC refresh-token Vault wrappers authorize only an active tenant owner/admin with the configured supplier, and rotation persists in its own actor-scoped transaction (never under the PostgreSQL administrator connection). The `tradeos_app` restricted database role may execute only the private rate-budget wrapper and the two reviewed Vault helpers; it has no direct access to the shared budget table or Vault secrets. Rate-budget keys are SHA-256 hashes separated into authorized and unauthorized namespaces.
+
+## Validation runtime and permissions
+
+The Zod 4 security migration preserves the previous identifier shape contract using `z.guid()`. Parsing a nil/legacy identifier conveys no authority: JWT identity, organization membership, domain permissions, parent-record checks and forced RLS are unchanged. Customer portal identity and technician assignment restrictions remain in force. No role or permission is added by this dependency repair. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.

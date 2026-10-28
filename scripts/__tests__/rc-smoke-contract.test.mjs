@@ -70,6 +70,11 @@ test("auth smoke covers rejection, login, refresh, logout, and protected-route d
 
 test("staging auth repair is explicit, branch-scoped, and never targets Production", () => {
   assert.match(stagingAuthRepair, /REPAIR_STAGING_AUTH/);
+  assert.match(stagingAuthRepair, /environment: staging/);
+  assert.match(stagingAuthRepair, /if: github\.ref == 'refs\/heads\/main'/);
+  assert.doesNotMatch(stagingAuthRepair, /--token=/);
+  assert.doesNotMatch(stagingAuthRepair, /    env:\n      VERCEL_TOKEN:/);
+  assert.equal((stagingAuthRepair.match(/VERCEL_TOKEN: \$\{\{ secrets\.VERCEL_TOKEN \}\}/g) ?? []).length, 4);
   assert.match(stagingAuthRepair, /STAGING_BRANCH: staging/);
   assert.match(stagingAuthRepair, /STAGING_SUPABASE_URL: https:\/\/qfbgdkbamfaasmtjfyru\.supabase\.co/);
   assert.match(stagingAuthRepair, /vercel env (?:update|add) SUPABASE_URL preview/);
@@ -83,6 +88,20 @@ test("staging auth repair is explicit, branch-scoped, and never targets Producti
   assert.doesNotMatch(stagingAuthRepair, /vercel redeploy[^\n]*--yes/);
   assert.doesNotMatch(stagingAuthRepair, /\bproduction\b/i);
   assert.doesNotMatch(stagingAuthRepair, /kssaceuetdjwfqnbzhly/);
+});
+
+
+test("staging migration workflow rejects historical invoice schema/ledger collision before deployment", () => {
+  const migrationWorkflow = read(".github/workflows/deploy-staging-migrations.yml");
+  assert.match(migrationWorkflow, /environment: staging/);
+  assert.match(migrationWorkflow, /refs\/heads\/main/);
+  assert.match(migrationWorkflow, /Refuse conflicting invoice expand schema and Prisma ledger/);
+  assert.match(migrationWorkflow, /20260902193000_rename_invoice_line_price_columns/);
+  assert.match(migrationWorkflow, /untracked_existing_expand/);
+  assert.match(migrationWorkflow, /ledger_schema_mismatch/);
+  assert.match(migrationWorkflow, /no migrations were applied/);
+  assert.ok(migrationWorkflow.indexOf("Refuse conflicting invoice expand schema and Prisma ledger") <
+    migrationWorkflow.indexOf("Deploy tracked Prisma migrations and provision app role"));
 });
 
 test("golden workflow is explicitly limited to a dedicated non-production tenant", () => {

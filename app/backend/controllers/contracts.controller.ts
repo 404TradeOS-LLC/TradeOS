@@ -6,7 +6,7 @@ import { requireAuthContext, requireOrgId } from "../requestContext";
 const service = new ContractsService();
 
 const createSchema = z.object({
-  proposalId: z.string().uuid(),
+  proposalId: z.guid(),
   termsText: z.string().optional(),
 });
 

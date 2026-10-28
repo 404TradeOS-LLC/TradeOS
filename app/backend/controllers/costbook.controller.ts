@@ -9,7 +9,7 @@ import { catalogBooleanQuery, catalogQuerySchema, parseCatalogQuery } from "../.
 const service = new CostbookService();
 const regionalSupplierEvidenceService = new RegionalSupplierEvidenceService();
 
-const idParamSchema = z.object({ id: z.string().uuid() });
+const idParamSchema = z.object({ id: z.guid() });
 const abcItemParamsSchema = z.object({ itemNumber: z.string().regex(/^[A-Za-z0-9_-]{1,80}$/) });
 const abcCatalogQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(100_000).default(1),
@@ -51,7 +51,7 @@ const materialSchema = z.object({
   unitOfMeasure: z.string().trim().min(1).max(40),
   unitCost: requiredNumberSchema,
   wasteFactorPct: optionalPercentSchema,
-  supplierId: z.string().uuid().nullable().optional(),
+  supplierId: z.guid().nullable().optional(),
   omniclass23: z.string().trim().min(1).max(80).nullable().optional(),
   unspsc: z.string().trim().regex(/^\d{8}$/, "unspsc must be an 8-digit commodity code").nullable().optional(),
 }).strict();
@@ -125,7 +125,7 @@ const regionalSupplierProductSchema = z.object({
   packageQuantity: z.number().finite().positive().nullable().optional(),
   productUrl: z.string().url().max(2000).nullable().optional(),
   canonicalMaterialKey: z.string().trim().max(200).nullable().optional(),
-  materialId: z.string().uuid().nullable().optional(),
+  materialId: z.guid().nullable().optional(),
   availabilityStatus: z.enum(["available", "unavailable", "unknown"]).optional(),
   isActive: z.boolean().optional(),
   sourceFile: z.string().trim().max(500).nullable().optional(),
@@ -172,7 +172,7 @@ const regionalSupplierObservationSchema = z.object({
 });
 
 const regionalSupplierEvidenceImportSchema = z.object({
-  supplierId: z.string().uuid(),
+  supplierId: z.guid(),
   sourceFile: z.string().trim().max(500).nullable().optional(),
   products: z.array(regionalSupplierProductSchema).min(1).max(2500),
   observations: z.array(regionalSupplierObservationSchema).min(1).max(2500),
@@ -183,19 +183,19 @@ const regionalSupplierCanonicalMatchReviewSchema = z.object({
 }).strict();
 
 const regionalSupplierEvidenceListQuerySchema = z.object({
-  supplierId: z.string().uuid().optional(),
+  supplierId: z.guid().optional(),
   priceStatus: z.enum(["priced", "unavailable", "not-listed", "needs-review"]).optional(),
   q: z.string().trim().max(200).optional(),
-  cursor: z.string().uuid().optional(),
+  cursor: z.guid().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
 }).strict();
 
-const materialsListQuerySchema = catalogQuerySchema.extend({ supplierId: z.string().uuid().optional(), active: catalogBooleanQuery.optional() }).strict();
+const materialsListQuerySchema = catalogQuerySchema.extend({ supplierId: z.guid().optional(), active: catalogBooleanQuery.optional() }).strict();
 const laborListQuerySchema = catalogQuerySchema.extend({ active: catalogBooleanQuery.optional(), trade: z.string().trim().max(120).optional() }).strict();
 const equipmentListQuerySchema = catalogQuerySchema.strict();
 const divisionsListQuerySchema = catalogQuerySchema.extend({ active: catalogBooleanQuery.optional() }).strict();
-const categoriesListQuerySchema = catalogQuerySchema.extend({ divisionId: z.string().uuid().optional(), active: catalogBooleanQuery.optional() }).strict();
-const subcategoriesListQuerySchema = catalogQuerySchema.extend({ categoryId: z.string().uuid().optional(), active: catalogBooleanQuery.optional() }).strict();
+const categoriesListQuerySchema = catalogQuerySchema.extend({ divisionId: z.guid().optional(), active: catalogBooleanQuery.optional() }).strict();
+const subcategoriesListQuerySchema = catalogQuerySchema.extend({ categoryId: z.guid().optional(), active: catalogBooleanQuery.optional() }).strict();
 
 const divisionSchema = z.object({
   code: z.string().trim().min(1).max(40),
@@ -209,7 +209,7 @@ const divisionUpdateSchema = divisionSchema.partial().extend({ isActive: z.boole
 );
 
 const categorySchema = z.object({
-  divisionId: z.string().uuid(),
+  divisionId: z.guid(),
   code: z.string().trim().min(1).max(40),
   name: z.string().trim().min(1).max(200),
   sortOrder: z.coerce.number().int().min(0).optional(),
@@ -221,7 +221,7 @@ const categoryUpdateSchema = categorySchema.omit({ divisionId: true }).partial()
 );
 
 const subcategorySchema = z.object({
-  categoryId: z.string().uuid(),
+  categoryId: z.guid(),
   code: z.string().trim().min(1).max(40),
   name: z.string().trim().min(1).max(200),
   sortOrder: z.coerce.number().int().min(0).optional(),

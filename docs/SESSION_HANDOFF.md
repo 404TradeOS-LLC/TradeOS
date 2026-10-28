@@ -14,6 +14,15 @@ related_docs:
 
 # Session Handoff
 
+## Today 2.0 dependency audit continuation — 2026-10-27
+
+- `EXISTING_WORK_FOUND`, Sprint ID NONE. Preserve Today PR #798 at `d431ac5`; its final 26 Chromium cases passed in hosted run 40430809189, alongside 525 Web, 2873 API and 174 real PostgreSQL tests. Its backend build/audit fails on existing vulnerable dependencies.
+- Extend existing runtime PR #795 in `/workspace/scratch/4360a72ccbf4/TradeOS-api-runtime-security`; reconcile main `93d1fff`. Preserve #799's exact body-parser patch and close it as superseded only after the consolidated repair merges. Leave independent moderate ip-address work to #786.
+- Patch Zod directly and transitively to 4.6.7, preserve legacy identifier syntax with GUID validators, migrate one-argument records and typed enum pipelines. No role, tenant, RLS, schema, financial or production environment change. Major-upgrade review remains governed by AGENTS.md; no independent approval is claimed.
+- Local focused 72/72 and high-severity audit pass; full exact-head source and hosted PostgreSQL evidence must be recorded in the runtime upgrade document/PR.
+- Next five: finish full compatibility checks; publish/review #795 on the existing branch; clear dependency audit through normal required gates; reconcile/retest #798 on the landed security baseline; resume authenticated/field/domain/Athena acceptance without retrying the declined sign-in automatically.
+
+
 ## Costbook picker ergonomics and browser recovery — 2026-10-23
 
 - Sprint ID: NONE; founder-authorized Figma-to-code continuation.
@@ -144,6 +153,22 @@ readiness is separate from implementation. Preserve existing auth/RBAC,
 forced RLS, Estimate snapshots and financial accuracy. Production credentials,
 protected migrations, supplier activation and ABC API licensing remain governed
 by their dedicated runbooks; this mission authorizes none of those operations.
+
+## Athena routine recovery repair — 2026-10-27
+
+`NEW_WORK_REQUIRED`: open-PR search found no keyed follow-up retry repair.
+Branch `fix/athena-follow-up-retries`, isolated worktree
+`/workspace/scratch/4360a72ccbf4/TradeOS-athena-recovery`, starts at main
+`9bd9a761`. Bounded scope: existing follow-up tool metadata, action-dispatch
+regressions and owner docs. No schema, permission, approval, RLS, financial,
+production environment or generic engine behavior changes.
+
+Two regression cases initially failed: same-key replay created another task,
+and changed input with a reused key executed. Optional engine receipts repair
+both; 57 focused tool/action tests pass. Legacy unkeyed calls, independent
+tenant keys and technician denial are covered. Complete API/Athena/hosted RLS
+verification is required before merge. Today #800 is merged into parent #798
+as `c7c7c19b`; it is not on main or deployed.
 
 ## Next Eligible Sprint
 
