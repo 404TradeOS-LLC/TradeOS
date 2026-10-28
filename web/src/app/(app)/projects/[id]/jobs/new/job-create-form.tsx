@@ -167,7 +167,11 @@ export function JobCreateForm({
             }),
           });
 
-      router.push(`/dispatch?view=all&q=${encodeURIComponent(created.jobNumber ?? created.title ?? title)}`);
+      if (sourceProposalId) {
+        router.push(`/projects/${projectId}/jobs/${created.id}`);
+      } else {
+        router.push(`/dispatch?view=all&q=${encodeURIComponent(created.jobNumber ?? created.title ?? title)}`);
+      }
       router.refresh();
     } catch (caught) {
       const message = caught instanceof ClientApiError
