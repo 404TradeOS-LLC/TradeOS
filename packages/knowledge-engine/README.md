@@ -371,3 +371,7 @@ same duplicate/canonical-path confusion this document addresses. That branch was
 this phase. Flagging it here so a founder reviewing this PR can decide whether that branch's work
 should be coordinated with, superseded by, or discarded relative to this one — it was not
 investigated further since it falls outside this phase's scope.
+
+## Dependency-only security maintenance (2026-10-28)
+
+The Dependabot package-security update in PR #807 updates the `loki-mode/examples/todo-app-generated/backend` example's npm lockfile and manifest: `body-parser` to 1.20.9, plus `ip-address` and `qs` patch updates. This is an isolated dependency-maintenance change to the generated example, not a change to the canonical TradeOS runtime or knowledge-engine retrieval contract. It still follows the existing dependency review and required CI checks before merge.
