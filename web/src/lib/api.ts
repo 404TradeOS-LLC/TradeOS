@@ -1341,6 +1341,8 @@ export function listJobsForDispatch(token: string, params: DispatchJobListParams
 }
 
 export interface FieldJobDetail extends DispatchJob {
+  sourceProposalId?: string | null;
+  acceptedBaselineJson?: unknown;
   description: string;
   jobType: string;
   arrivalWindowStart: string | null;
