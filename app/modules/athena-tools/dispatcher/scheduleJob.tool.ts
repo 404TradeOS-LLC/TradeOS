@@ -19,7 +19,7 @@ import type { JobDTO } from "../../jobs/types";
 // non-blocking try/catch posture).
 
 export const scheduleJobInputSchema = z.object({
-  jobId: z.string().uuid(),
+  jobId: z.guid(),
   scheduledStart: z.string().datetime(),
   scheduledEnd: z.string().datetime(),
   arrivalWindowStart: z.string().datetime().optional(),

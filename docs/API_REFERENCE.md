@@ -1021,3 +1021,25 @@ The JSON response is normalized to an unpriced product with `marketingDescriptio
 `GET /api/v1/costbook/abc/catalog/items/:itemNumber/availability` accepts an optional `branchNumber` (1–6 decimal digits), requires authenticated `costbook.read` access, the existing disabled-by-default `ABC_SUPPLY_CATALOG_BROWSE_ENABLED` flag and ABC's separate sandbox TPA `product.read` credentials. It uses the official Get Item Availability `GET /api/product/v1/availability/items/{itemNumber}/branches` endpoint, shares the global Product API catalog limiter, and sets `Cache-Control:no-store`.
 
 The normalized response provides at most 50 ABC-listed branches, the full provider branch count, optional exact-branch listed/not-listed check, and provider-sourced dimensional length text. **Meaning:** `availabilityMeaning:"listed_for_ordering_not_stock_quantity"`. No inventory quantity, allocation, authorization of customer Ship-To, stock guarantee, customer-specific price, or persisted supplier copy can be inferred. No database write, Material, or estimate changes occur, and `pricing:"not-requested"` / `persisted:false` are explicit. The existing Get Item and Hierarchy routes remain unchanged.
+
+## Validation runtime compatibility
+
+Request schemas use patched Zod 4.6.7. UUID-shaped entity inputs retain the previous 8-4-4-4-12 hexadecimal contract through `z.guid()`; nil/legacy identifiers remain parseable, malformed IDs fail, and existing permission/parent/tenant checks still decide access. Validation failures preserve HTTP 400, `error`, `details` and request correlation; individual Zod issue codes/metadata can change. Explicit record key/value schemas and string-input enum pipelines preserve bulk-row, metadata and status query behavior. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
+
+## Today routine follow-up recovery (2026-10-27)
+
+The existing `tradeos.athena.tools.office.create-follow-up` tool now advertises
+optional action-engine idempotency. Previously its `not_supported` metadata
+bypassed reservation even when the Workspace supplied a stable retry key, so
+an ambiguous-response retry could create a second task. Keyed calls now reuse
+the existing durable receipt scoped by tenant, actor, tool and version, with
+canonical validated-input binding. A changed input under the same key fails
+closed. Unkeyed legacy callers retain their previous behavior.
+
+This repairs execution recovery for an existing low-risk internal task tool;
+it does not send customer messages or grant new permissions. `crm.write`,
+resource/service tenant checks, RLS, audits and all approval policies remain
+unchanged. High-risk confirmation/resume is still a separate contract; this
+change does not turn an approval state into success or resubmit restricted
+actions. Action-engine dispatch is required for receipt guarantees; calling
+the service or tool handler directly does not provide deduplication.

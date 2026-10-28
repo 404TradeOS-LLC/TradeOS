@@ -24,7 +24,7 @@ function toProjectDTO<T extends { status: string }>(project: T): T & { status: R
 }
 
 const customerSchema = z.object({
-  orgId: z.string().uuid().optional(),
+  orgId: z.guid().optional(),
   name: z.string().min(1),
   email: z.string().email().optional(),
   phone: z.string().optional(),
@@ -43,13 +43,13 @@ const customerUpdateSchema = z.object({
 });
 
 const projectSchema = z.object({
-  orgId: z.string().uuid().optional(),
-  customerId: z.string().uuid().optional(),
+  orgId: z.guid().optional(),
+  customerId: z.guid().optional(),
   name: z.string().min(1),
   jobType: z.string().optional(),
   siteAddress: z.string().optional(),
   simpleScope: z.string().optional(),
-  regionId: z.string().uuid().optional(),
+  regionId: z.guid().optional(),
 });
 
 const projectUpdateSchema = z.object({
@@ -57,8 +57,8 @@ const projectUpdateSchema = z.object({
   jobType: z.string().optional(),
   siteAddress: z.string().optional(),
   simpleScope: z.string().optional(),
-  regionId: z.string().uuid().optional(),
-  customerId: z.string().uuid().optional(),
+  regionId: z.guid().optional(),
+  customerId: z.guid().optional(),
 });
 
 const siteVisitDetailsSchema = z.object({
@@ -73,7 +73,7 @@ const siteVisitDetailsSchema = z.object({
 });
 
 const siteVisitSchema = z.object({
-  jobId: z.string().uuid().optional(),
+  jobId: z.guid().optional(),
   transcript: z.string().optional(),
   notes: z.string().optional(),
   detailsJson: siteVisitDetailsSchema.optional(),

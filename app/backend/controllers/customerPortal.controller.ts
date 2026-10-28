@@ -8,7 +8,7 @@ import { CustomerPortalService } from "../../modules/customer-portal/service";
 const service = new CustomerPortalService();
 
 const redeemSchema = z.object({ token: z.string().min(40).max(128) });
-const issueSchema = z.object({ customerId: z.string().uuid() });
+const issueSchema = z.object({ customerId: z.guid() });
 const signSchema = z.object({
   signerName: z.string().trim().min(1).max(200),
   signatureDataUrl: z.string().max(2_000_000).optional(),

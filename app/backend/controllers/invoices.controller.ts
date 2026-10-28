@@ -27,9 +27,9 @@ const lineItemSchema = z.object({
 });
 
 const createSchema = z.object({
-  projectId: z.string().uuid(),
-  estimateId: z.string().uuid().optional(),
-  proposalId: z.string().uuid().optional(),
+  projectId: z.guid(),
+  estimateId: z.guid().optional(),
+  proposalId: z.guid().optional(),
   type: z.enum(["full", "progress"]).optional(),
   percentComplete: z.coerce.number().min(0).max(100).optional(),
   dueDate: z.string().optional(),

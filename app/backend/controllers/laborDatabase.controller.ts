@@ -7,7 +7,7 @@ const service = new LaborDatabaseService();
 const maxHourlyRate = 99_999_999.99;
 
 const createSchema = z.object({
-  orgId: z.string().uuid().optional(),
+  orgId: z.guid().optional(),
   trade: z.string().trim().min(1).max(120),
   baseHourlyRate: z.preprocess(
     rejectBlankNumericInput,
@@ -16,7 +16,7 @@ const createSchema = z.object({
     })
   ),
   burdenPct: z.preprocess(rejectBlankNumericInput, z.coerce.number().finite().min(0).max(100).optional()),
-  regionId: z.string().uuid().optional(),
+  regionId: z.guid().optional(),
 }).strict();
 
 export const laborDatabaseController = {
@@ -43,7 +43,7 @@ export const laborDatabaseController = {
   },
   async calculate(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
-    const schema = z.object({ laborRateId: z.string().uuid(), quantity: z.coerce.number().positive(), productionRate: z.coerce.number().positive() });
+    const schema = z.object({ laborRateId: z.guid(), quantity: z.coerce.number().positive(), productionRate: z.coerce.number().positive() });
     res.json(await service.calculateLaborCost(schema.parse(req.body), requireOrgId(req)));
   },
 };

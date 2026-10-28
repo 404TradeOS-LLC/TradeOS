@@ -7,6 +7,12 @@ import {
   buildAthenaIdempotencyScopeKey,
   type AthenaCompletedActionOutcome,
 } from "../modules/athena-action-engine/idempotency";
+import { ProjectTasksService } from "../modules/project-tasks/service";
+import { createFollowUpCreateTool } from "../modules/athena-tools/office/createFollowUp.tool";
+import { createAthenaToolRegistry } from "../modules/athena-tool-registry/registry";
+import { executeAthenaAction } from "../modules/athena-action-engine/engine";
+import { buildMinimalAthenaContext } from "../modules/athena-kernel/context";
+import { evaluateAthenaPermission } from "../modules/athena-permissions/policy";
 import { computeCanonicalInputHash } from "../modules/athena-action-engine/inputHash";
 
 const appDatabaseUrl = requiredEnvironment("TEST_DATABASE_URL");
@@ -48,6 +54,31 @@ describe("live row-level security for Athena action idempotency", () => {
     await adminClient.organization.deleteMany({ where: { id: { in: [orgA, orgB] } } });
     await appClient.$disconnect();
     await adminClient.$disconnect();
+  });
+
+  it("replays a real follow-up task receipt across separate database sessions", async () => {
+    const project = await adminClient.project.create({ data: { orgId: orgA, name: "Routine recovery fixture" } });
+    const tool = createFollowUpCreateTool({ projectTasks: new ProjectTasksService() });
+    const registry = createAthenaToolRegistry(); registry.register(tool);
+    const key = `follow-up-${randomUUID()}`;
+    async function run() {
+      return inSession(ownerA, orgA, "owner", async () => {
+        const executionId = randomUUID();
+        const actor = { userId: ownerA, orgId: orgA, role: "owner" as const, permissions: ["crm.write"] };
+        const permissionDecision = await evaluateAthenaPermission({ rawRole: "owner", orgId: orgA, userId: ownerA, request: { kind: "tool", id: tool.id, risk: tool.risk, requiredPermissions: ["crm.write"] } });
+        return executeAthenaAction({ toolRegistry: registry, idempotencyStore: createPrismaAthenaIdempotencyStore() }, {
+          requestId: executionId, traceId: executionId, executionId, orgId: orgA, actor: { type: "user", id: ownerA }, role: "owner", toolId: tool.id, toolVersion: tool.version,
+          input: { projectId: project.id, title: "Call about inspection" }, permissionDecision, idempotencyKey: key, featureFlags: [],
+          aiContext: buildMinimalAthenaContext({ requestId: executionId, traceId: executionId, executionId, actor, request: { message: "Create follow-up", requestSource: "test" } }),
+        });
+      });
+    }
+    try {
+      const first = await run(); const replay = await run();
+      expect(first.result.state).toBe("succeeded");
+      expect(replay.result).toEqual(first.result);
+      expect(await adminClient.projectTask.count({ where: { projectId: project.id } })).toBe(1);
+    } finally { await adminClient.project.delete({ where: { id: project.id } }); }
   });
 
   it("persists a completed outcome across fresh store instances", async () => {

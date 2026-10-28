@@ -8,12 +8,12 @@ import { JobsService } from "../../modules/jobs/service";
 
 const service = new JobsService();
 
-const uuidArray = z.array(z.string().uuid()).optional();
+const uuidArray = z.array(z.guid()).optional();
 
 const createJobSchema = z.object({
-  projectId: z.string().uuid(),
-  customerId: z.string().uuid(),
-  serviceAddressId: z.string().uuid(),
+  projectId: z.guid(),
+  customerId: z.guid(),
+  serviceAddressId: z.guid(),
   title: z.string().trim().min(1),
   description: z.string().trim().optional(),
   jobType: z.string().trim().min(1),
@@ -30,9 +30,9 @@ const createJobSchema = z.object({
 });
 
 const updateJobSchema = z.object({
-  projectId: z.string().uuid().optional(),
-  customerId: z.string().uuid().optional(),
-  serviceAddressId: z.string().uuid().optional(),
+  projectId: z.guid().optional(),
+  customerId: z.guid().optional(),
+  serviceAddressId: z.guid().optional(),
   title: z.string().trim().min(1).optional(),
   description: z.string().trim().optional(),
   jobType: z.string().trim().min(1).optional(),
@@ -51,7 +51,7 @@ const scheduleSchema = z.object({
 });
 
 const assignmentSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.guid(),
   assignmentRole: z.enum(jobAssignmentRoles),
   isLead: z.boolean().optional(),
   overrideConflict: z.boolean().optional(),
@@ -89,9 +89,9 @@ const strictOptionalBooleanParam = z
 const listJobsQuerySchema = z.object({
   status: z.enum(jobStatuses).optional(),
   priority: z.enum(jobPriorities).optional(),
-  projectId: z.string().uuid().optional(),
-  customerId: z.string().uuid().optional(),
-  technicianId: z.string().uuid().optional(),
+  projectId: z.guid().optional(),
+  customerId: z.guid().optional(),
+  technicianId: z.guid().optional(),
   scheduledFrom: z.string().datetime().optional(),
   scheduledTo: z.string().datetime().optional(),
   archived: strictOptionalBooleanParam,
@@ -104,7 +104,7 @@ const listJobsQuerySchema = z.object({
 });
 
 const scheduleConflictsQuerySchema = z.object({
-  technicianId: z.string().uuid().optional(),
+  technicianId: z.guid().optional(),
   scheduledFrom: z.string().datetime(),
   scheduledTo: z.string().datetime(),
 });

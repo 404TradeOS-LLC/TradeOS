@@ -34,7 +34,7 @@ function isValidDateOnly(value: string): boolean {
 }
 
 export const followUpCreateInputSchema = z.object({
-  projectId: z.string().uuid(),
+  projectId: z.guid(),
   title: z.string().min(1).max(200),
   dueDate: z.string().min(1).refine(isValidDateOnly, { message: "dueDate must be a valid YYYY-MM-DD calendar date." }).optional(),
   priority: z.enum(projectTaskPriorities).optional(),
@@ -69,7 +69,9 @@ export function createFollowUpCreateTool(deps: FollowUpCreateToolDeps): AthenaTo
     risk: "low",
     confirmationPolicy: "contextual",
     timeoutMs: 5_000,
-    idempotency: "not_supported",
+    // Keyed dispatches use the existing action engine's durable, tenant/actor-
+    // scoped receipt. Optional preserves legacy callers that omit a key.
+    idempotency: "optional",
     compensationPolicy: "draft_only",
     inputSchema: followUpCreateInputSchema,
     async execute(input, _aiContext, execution) {
