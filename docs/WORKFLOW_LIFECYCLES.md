@@ -380,3 +380,17 @@ The dispatcher workspace invokes only the existing canonical Job actions and sch
 ## Validation runtime compatibility
 
 Status lifecycle vocabulary and transitions are unchanged by the Zod 4 security repair. The comma-separated status helper now declares string input/output constraints for the typed pipeline while preserving literal enum results and absent queries. Exact `false` query values remain false. Legacy UUID-shaped identifiers remain parseable, with source existence, parent scope and transition authorization enforced by the existing services. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
+
+## Proposal accepted → unscheduled Job handoff (PR #810, unmerged)
+
+After a proposal reaches canonical `accepted` status, an owner/admin/dispatcher
+can explicitly create a field job with a chosen customer-owned ServiceAddress.
+This is a **new Job creation**, not another Proposal status transition.
+It preserves the accepted scope/price/terms and estimate provenance on
+`Job.acceptedBaselineJson` with unique `Job.sourceProposalId`.
+Concurrent conversion attempts serialize and retries reuse the existing job.
+The new job starts `unscheduled`, with no technician assignments, and follows
+the existing scheduling/dispatch/field lifecycle. Contract-signing,
+change-order and invoice workflows remain separate; this handoff does not
+claim authorization to start work without required contract approvals.
+Implementation and migration are pending CI and nonproduction acceptance.
