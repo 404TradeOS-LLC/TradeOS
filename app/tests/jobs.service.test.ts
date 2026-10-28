@@ -328,6 +328,22 @@ describe("JobsService", () => {
     expect(mockDb.proposal.findFirst).not.toHaveBeenCalled();
   });
 
+  it("does not expose accepted commercial pricing to assigned technician job reads", async () => {
+    const jobRow = {
+      ...scheduledJob,
+      sourceProposalId: "proposal-1",
+      acceptedBaselineJson: { version: 1, proposalId: "proposal-1", finalPrice: "7125.37", termsAndConditions: "Net 15" },
+    };
+    mockDb.job.findFirst.mockResolvedValue(jobRow);
+    const service = new JobsService(mockDb as never);
+
+    const owner = await service.getById("org-1", "job-1", { userId: "owner-1", role: "owner" });
+    const technician = await service.getById("org-1", "job-1", { userId: "tech-1", role: "technician" });
+    expect(owner.acceptedBaselineJson).toMatchObject({ finalPrice: "7125.37" });
+    expect(technician.acceptedBaselineJson).toBeNull();
+    expect(technician.description).toBe("Seasonal maintenance");
+  });
+
   it("uses half-open interval bounds for technician conflicts", async () => {
     const service = new JobsService(mockDb as never);
 
