@@ -31,7 +31,11 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Validate PR description
-        if: github.event_name == 'pull_request'
+        # Dependabot-generated bodies cannot carry the 10 required sections,
+        # so the body check is skipped for dependabot[bot] only. The job
+        # still runs and reports success, so the required check is satisfied;
+        # human-authored PRs are unchanged. Check the PR author (not the\n        # triggering actor), so edits by maintainers remain exempt.
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
         run: npm run pr:body-check
 
       - name: Install docs checker dependencies
