@@ -442,22 +442,24 @@ Rules:
 
 ## 17. Today / contractor command center
 
+Founder-directed Today 2.0 revision (2026-10-26): the supplied graphite/copper desktop and mobile mockups supersede the historical four-section composition for this implementation. Today prioritizes the briefing, operational indicators, Needs You, Today’s Work, timeline, contextual Athena and persistent Control Dock. Financial analytics and the Money summary are removed from Today; individual actionable invoices remain in Needs You. Keep existing record workspaces and calendar-day/permission contracts authoritative. Canonical Figma nodes 295:9, 295:121 and 48:2 were inspected; their components and exception semantics are retained while the newer founder brief governs composition. Browser certification and remaining domain capabilities are tracked in `docs/architecture/TODAY_2_IMPLEMENTATION.md`; this revision is not evidence that those gates passed.
+
 Today is the owner command surface, not a widget collection.
 
-The operating rhythm remains:
+The Today 2.0 operating rhythm is:
 
-**Now / Needs You / Coming Up / Money**
+**Briefing / Operational Indicators / Needs You / Today’s Work / Coming Up**
 
 It should answer:
 
 1. What should I do now?
 2. What genuinely needs my decision?
 3. What is coming up?
-4. What money needs attention?
+4. What should I do next?
 
 Do not regrow a card wall below the command surface.
 
-Needs You follows the exception-queue contract above. Continue Working handles normal progression. Money uses canonical invoice/payment truth.
+Needs You follows the exception-queue contract above. Continue Working handles normal progression. Actionable overdue invoices appear only as individual Needs You records backed by canonical invoice truth; Today has no Money summary or financial analytics.
 
 ## 18. Pricing and trust
 
