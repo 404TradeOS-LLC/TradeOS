@@ -205,8 +205,9 @@ export interface JobActivityDTO {
 }
 
 export interface JobDTO extends JobSummaryDTO {
-  sourceProposalId: string | null;
-  acceptedBaselineJson: unknown;
+  /** New proposal-derived job provenance; optional for older standalone Job DTO fixtures. */
+  sourceProposalId?: string | null;
+  acceptedBaselineJson?: unknown;
   projectId: string;
   customerId: string;
   serviceAddressId: string;
