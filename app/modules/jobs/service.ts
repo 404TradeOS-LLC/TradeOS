@@ -269,7 +269,14 @@ export class JobsService {
       this.activities.list({ orgId, entityType: "job", entityId: row.id, limit: 25 }),
     ]);
 
-    return toJobDTO(row, notes, recentActivity);
+    const detail = toJobDTO(row, notes, recentActivity);
+    // Assigned field technicians need executable scope and job logistics, not
+    // customer-approved commercial pricing/payment terms. Keep full snapshot
+    // accessible through the separately role-checked manager handoff page.
+    if (!MANAGER_ROLES.has(actor.role)) {
+      detail.acceptedBaselineJson = null;
+    }
+    return detail;
   }
 
   /**
