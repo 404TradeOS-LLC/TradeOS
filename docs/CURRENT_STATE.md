@@ -1447,3 +1447,7 @@ behind an additive DB migration, exact-head CI, authorized staging and
 authenticated end-to-end evidence. **This is not shipped or production
 certified**, and it does not automatically assign a crew, sign a contract,
 create invoices or change accepted prices. See `docs/modules/jobs-and-scheduling.md`.
+
+### Step 9 approved Job display (PR #810, proposed)
+
+The unmerged accepted-proposal handoff branch also adds a manager-only Job approval-baseline detail page, linked from the successful conversion, with source proposal provenance and immutable scope/price/terms. It remains unshipped pending exact-head CI, staging migration, and authenticated browser evidence.
