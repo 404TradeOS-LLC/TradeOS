@@ -25,7 +25,6 @@ jobs:
       run:
         working-directory: app
     env:
-      DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
       STAGING_PROJECT_REF: qfbgdkbamfaasmtjfyru
       PGSSLMODE: require
     steps:
@@ -34,6 +33,7 @@ jobs:
         shell: bash
         env:
           CONFIRMATION: ${{ inputs.confirmation }}
+          DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
         run: |
           set -euo pipefail
           if [ "$GITHUB_REF" != "refs/heads/main" ] || [ "$CONFIRMATION" != "RECONCILE_INVOICE_EXPAND_ONLY" ]; then
@@ -74,6 +74,8 @@ jobs:
 
       - name: Assert exact histories, schema, data and executable SQL
         shell: bash
+        env:
+          DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
         run: |
           set -euo pipefail
           PSQL_URL="${DATABASE_ADMIN_URL%%\?*}"
@@ -130,6 +132,8 @@ jobs:
 
       - name: Verify 47 applied, zero unfinished, legacy columns intact
         shell: bash
+        env:
+          DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
         run: |
           set -euo pipefail
           PSQL_URL="${DATABASE_ADMIN_URL%%\?*}"
