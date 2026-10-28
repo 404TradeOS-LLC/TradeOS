@@ -213,7 +213,7 @@ jobs:
           set -euo pipefail
           # Read-only mirror of the deploy-staging-migrations guard (#804).
           # No migration is applied or stamped here.
-          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\\?*}"
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
           invoice_expand_state="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
             WITH invoice_price_columns AS (
               SELECT count(*) AS present
@@ -260,7 +260,7 @@ jobs:
           DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
         run: |
           set -euo pipefail
-          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\\?*}"
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
           legacy_columns="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
             SELECT count(*)
             FROM information_schema.columns
@@ -292,7 +292,7 @@ jobs:
           DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
         run: |
           set -euo pipefail
-          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\\?*}"
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
           applied="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
             SELECT count(*) FROM public._prisma_migrations
             WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
@@ -327,7 +327,7 @@ jobs:
           DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
         run: |
           set -euo pipefail
-          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\\?*}"
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
           role_exists="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -v rolename="$APP_DB_ROLE_NAME" -Atqc "
             SELECT count(*) FROM pg_roles WHERE rolname = :'rolename'
           ")"
@@ -399,7 +399,7 @@ jobs:
             while [ "$attempt" -lt 45 ]; do
               attempt=$((attempt + 1))
               local response http_code body match state uid url
-              response="$(curl -s -w "\\n%{http_code}" -H "Authorization: Bearer $VERCEL_TOKEN" \\
+              response="$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $VERCEL_TOKEN" \
                 "https://api.vercel.com/v6/deployments?projectId=${project_id}&limit=50")" || {
                 echo "::warning::Network error polling Vercel for $label (attempt $attempt); retrying in 60s." >&2
                 sleep 60
@@ -416,8 +416,8 @@ jobs:
                 sleep 60
                 continue
               fi
-              match="$(printf '%s' "$body" | jq -r --arg sha "$SHA" \\
-                '.deployments[] | select(.meta.githubCommitSha == $sha and .meta.githubCommitRef == "staging") | "\\(.uid) \\(.url) \\(.state)"' 2>/dev/null | head -n 1)" || true
+              match="$(printf '%s' "$body" | jq -r --arg sha "$SHA" \
+                '.deployments[] | select(.meta.githubCommitSha == $sha and .meta.githubCommitRef == "staging") | "\(.uid) \(.url) \(.state)"' 2>/dev/null | head -n 1)" || true
               if [ -z "$match" ]; then
                 echo "No $label deployment of $SHA yet (attempt $attempt); retrying in 60s." >&2
                 sleep 60
@@ -602,7 +602,7 @@ jobs:
             echo "| evidence | ${{ needs.evidence.result }} |"
             echo
             if [ -n "$first_failed" ]; then
-              echo "**Verdict: FAIL** — first failing dependency: \\`$first_failed\\`."
+              echo "**Verdict: FAIL** — first failing dependency: \`$first_failed\`."
               echo
               echo "**Repair:** $first_repair"
               echo
