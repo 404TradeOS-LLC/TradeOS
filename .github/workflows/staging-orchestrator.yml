@@ -427,10 +427,12 @@ jobs:
 
           api_result="$(poll_project "$API_PROJECT_ID" "backend")" || exit 1
           web_result="$(poll_project "$WEB_PROJECT_ID" "frontend")" || exit 1
-          echo "api_deployment_id=$(printf '%s' "$api_result" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-          echo "api_deployment_url=https://$(printf '%s' "$api_result" | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
-          echo "web_deployment_id=$(printf '%s' "$web_result" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-          echo "web_deployment_url=https://$(printf '%s' "$web_result" | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+                    {
+            echo "api_deployment_id=$(printf '%s' "$api_result" | cut -d' ' -f1)"
+            echo "api_deployment_url=https://$(printf '%s' "$api_result" | cut -d' ' -f2)"
+            echo "web_deployment_id=$(printf '%s' "$web_result" | cut -d' ' -f1)"
+            echo "web_deployment_url=https://$(printf '%s' "$web_result" | cut -d' ' -f2)"
+          } >> "$GITHUB_OUTPUT"
           {
             echo "## Vercel staging deployments"
             echo
