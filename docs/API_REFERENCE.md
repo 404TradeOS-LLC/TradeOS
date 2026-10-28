@@ -773,12 +773,17 @@ Project task routes under `/api/v1/projects`:
 - `GET /api/v1/projects/:id/tasks`
 - `POST /api/v1/projects/:id/tasks`
 - `PATCH /api/v1/projects/:id/tasks/:taskId`
+- `PATCH /api/v1/projects/:id/tasks/:taskId/status`
 - `DELETE /api/v1/projects/:id/tasks/:taskId`
 
 `GET /api/v1/projects/tasks` is the org-scoped task feed used by the owner dashboard. It requires `crm.read`, stays inside the existing bearer-auth + membership + request-scoped DB session stack, and returns task rows with project, customer, and optional job context. Query parameters:
 
 - `limit` — optional integer, `1..50`, default service cap `24`
 - `includeCompleted` — optional boolean string (`true` or `false`); when omitted, completed tasks are excluded
+
+`PATCH /api/v1/projects/:id/tasks/:taskId/status` is the status-only guarded route used by Today. It requires exactly `status` and `expectedUpdatedAt`, rejects unrelated fields, and reuses the same permissions, scoped mutation and transactional audit path. An older backend without this route returns 404 without a write; the client never falls back to an unguarded endpoint.
+
+`PATCH /api/v1/projects/:id/tasks/:taskId` accepts optional `expectedUpdatedAt` (ISO UTC datetime) for optimistic concurrency. Today sends the source task's `updatedAt` with status-only changes. The server compares the revision in the atomic update predicate and returns HTTP 409 if the task changed, including a race after the initial read. No task/activity change commits for a rejected save. Updates advance the revision even within the same millisecond. Existing callers that omit the revision retain their previous behavior; guarded saves do not broaden `crm.write`, organization membership or forced RLS. Refresh the source before retrying a conflict.
 
 For nested task mutations, the route parent is authoritative: `PATCH` and `DELETE /api/v1/projects/:id/tasks/:taskId` reject a task whose stored `projectId` does not match `:id` before mutation or activity writes. When `PATCH` changes `jobId`, the replacement job must be active, belong to the authenticated organization, and belong to that same project; a cross-project job is rejected before the task update.
 
@@ -1026,6 +1031,25 @@ The normalized response provides at most 50 ABC-listed branches, the full provid
 
 Request schemas use patched Zod 4.6.7. UUID-shaped entity inputs retain the previous 8-4-4-4-12 hexadecimal contract through `z.guid()`; nil/legacy identifiers remain parseable, malformed IDs fail, and existing permission/parent/tenant checks still decide access. Validation failures preserve HTTP 400, `error`, `details` and request correlation; individual Zod issue codes/metadata can change. Explicit record key/value schemas and string-input enum pipelines preserve bulk-row, metadata and status query behavior. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
 
+## Assigned-job task visibility (Today follow-up, 2026-10-27)
+
+`GET /api/v1/projects/assigned-job-tasks?limit=50` returns open shared tasks
+attached to the authenticated user's actively assigned, non-archived, nonterminal
+Jobs. The controller derives organization and user identity from authentication;
+unknown query keys and limits outside 1–50 are rejected. The service additionally
+filters Project and Job tenant ownership and active (not removed or declined)
+JobAssignments, under the existing forced RLS session. This projects the same
+tasks already exposed by an authorized Job detail read; it grants no writes.
+
+Technician Today uses this endpoint rather than the organization task queue.
+Shared tasks appear in Work, with blocked/overdue tasks in Needs You and due-day
+counts using stored calendar dates. Free-text `assignedTo` remains display-only,
+not personal authorization. Field rows open `/field?job=…`; the existing Field
+workspace now displays Job DTO tasks and directs progress reports to Job notes.
+Task status edits retain existing office permissions. Results at the 50-row cap
+are explicitly partial; a task-source failure leaves job scheduling usable and
+task counts unknown. No schema, RLS policy or mutation authority changed.
+
 ## Today routine follow-up recovery (2026-10-27)
 
 The existing `tradeos.athena.tools.office.create-follow-up` tool now advertises
@@ -1043,6 +1067,43 @@ unchanged. High-risk confirmation/resume is still a separate contract; this
 change does not turn an approval state into success or resubmit restricted
 actions. Action-engine dispatch is required for receipt guarantees; calling
 the service or tool handler directly does not provide deduplication.
+
+## Personal field-task ownership and status updates (2026-10-27)
+
+Implementation on `feat/field-task-ownership` adds nullable
+`ProjectTask.assignedUserId` (user FK, no name-based backfill). Shared job tasks
+remain readable. Only the authenticated technician personally assigned by user
+ID, with an active non-declined JobAssignment on a nonterminal/unarchived Job,
+may use `PATCH /api/v1/jobs/:jobId/tasks/:taskId/status`. The strict payload is
+status plus mandatory expectedUpdatedAt. The transaction locks Job/assignment
+rows, checks tenant/identity/revision, updates atomically and records activity.
+Stale saves return 409; invisible/not-assigned records return 404.
+
+The migration removes technicians from the historical broad project-task write
+policy (whose generic helper includes technicians), adds a narrowly scoped RLS
+update policy, and restricts technician updates to status/timestamps with an
+immutable-column trigger. DB-controlled timestamps retain millisecond revision
+precision. Technician task create/delete/reassignment remains denied.
+
+Owner/admin/dispatcher may create or revise explicit assignment through the
+Project Tasks forms and the existing guarded generic PATCH. The new scoped
+`GET /api/v1/projects/:id/task-assignees` returns only permitted active-member
+choices and a server-derived capability. Legacy estimator ordinary task writes
+are preserved; this new identity-administration capability is not silently
+granted. Existing office status/title/note updates do not revalidate historical
+assignment eligibility unless identity or Job linkage changes.
+
+Today and Field job details return a server-derived canUpdateStatus flag based
+on the actual auth role, not the normalized settings presentation role. Only
+explicit nonempty matching identity, revision and capability enable the shared
+status editor; older/partial responses fail closed. UI saves use the narrow
+Job endpoint and verify record/project/Job/status before showing success.
+Assignment changes refresh the source and operational routes. No optimistic
+queue dismissal, automatic retry, financial change or production migration.
+
+This is a schema/RLS change requiring governed review and migration rehearsal
+before activation. Unit/type/build and hosted PostgreSQL/browser results must
+be recorded from the final head; authored tests alone are not certification.
 
 ## Accepted proposal → job API (PR #810, proposed)
 
