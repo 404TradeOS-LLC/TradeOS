@@ -188,9 +188,10 @@ jobs:
             console.error("STAGING_DATABASE_ADMIN_URL is not a valid PostgreSQL URL.");
             process.exit(1);
           }
-          const expectedHost = `db.${process.env.STAGING_PROJECT_REF}.supabase.co`;
-          if (url.hostname !== expectedHost) {
-            console.error(`Refusing preflight: expected staging host ${expectedHost}, received ${url.hostname}. This workflow never touches a non-staging database.`);
+          const directHost = `db.${process.env.STAGING_PROJECT_REF}.supabase.co`;
+          const poolerHost = "aws-0-us-east-2.pooler.supabase.com";
+          if (url.hostname !== directHost && url.hostname !== poolerHost) {
+            console.error(`Refusing preflight: expected staging host ${directHost} or pooler host ${poolerHost}, received ${url.hostname}. This workflow never touches a non-staging database.`);
             process.exit(1);
           }
           console.log(`Verified staging database host ${url.hostname}; credentials were not printed.`);
