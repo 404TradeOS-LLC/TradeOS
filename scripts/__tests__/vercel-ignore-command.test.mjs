@@ -54,7 +54,8 @@ function fixture() {
 }
 
 function runIgnoredBuildStep(fixtureState, overrides = {}, scriptDir = "app") {
-  return spawnSync("sh", ["-c", vercelConfig.ignoreCommand], {
+  const config = scriptDir === "web" ? webVercelConfig : vercelConfig;
+  return spawnSync("sh", ["-c", config.ignoreCommand], {
     cwd: join(fixtureState.cwd, scriptDir),
     env: {
       ...process.env,
