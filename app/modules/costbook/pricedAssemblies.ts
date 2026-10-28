@@ -749,11 +749,10 @@ export const PRICED_ASSEMBLY_COMPONENTS: readonly PricedAssemblyComponent[] = [
     productName: "Henry 208R Wet Patch Roof Cement SBS Rubberized Leak Repair (1 Gallon Pail)", unitPrice: 24.5,
     priceUnit: "GAL", extendedCost: 6.125,
     matchScore: 0.4 }, // pass2: Henry 208R SBS rubberized; borderline score
-  { componentKey: "mat_pipe_boot_elastomeric_unit", label: "Heavy-Duty Aluminum Base Pipe Boot w/ Self-Sealing EPDM/Silicone Collar (1-1/2 in. to 3 in.)",
-    quantityPerUnit: 1, supplier: "Niehaus",
-    productName: "Oatey 1-1/4 in. to 3 in. Master Flash Aluminum Base Pipe Boot Flashing", unitPrice: 14.95,
-    priceUnit: "EA", extendedCost: 14.95,
-    matchScore: 0.6 }, // pass2: Master Flash EPDM aluminum base, replaces neoprene All-Flash per Codex thread (recipe requires EPDM/silicone collar; 1-1/4 to 3 in covers 1-1/2 to 3 in)
+  // pass2: mat_pipe_boot_elastomeric_unit stays unmatched: the Oatey Master Flash
+  // EPDM/aluminum-base product is for metal/profled roofs, not shingle-roof
+  // flange integration. Never price incompatible materials solely because
+  // collar dimensions or elastomer chemistry match.
   { componentKey: "fast_roofing_nails_boot", label: "1-1/4 in. x 0.120 in. Galvanized Roofing Nails",
     quantityPerUnit: 6, supplier: "Menards",
     productName: "1-1/4 in. Coil Roofing Nails 15-Degree (7,200 ct)", unitPrice: 0.01,
@@ -993,8 +992,8 @@ export const ASSEMBLY_MATERIAL_COSTS: readonly AssemblyMaterialCost[] = [
     unitOfMeasure: "LF", pricedComponents: 1,
     totalComponents: 3, materialCostPerUnit: 1.06 },
   { assemblyId: "roofing-flashing-pipe-boot", assemblyName: "Roof Plumbing Vent Pipe Boot Flashing (Elastomeric Collar Al",
-    unitOfMeasure: "EA", pricedComponents: 2,
-    totalComponents: 4, materialCostPerUnit: 15.01 },
+    unitOfMeasure: "EA", pricedComponents: 1,
+    totalComponents: 4, materialCostPerUnit: 0.06 },
   { assemblyId: "roofing-gutters-seamless-aluminum-5in", assemblyName: "5 in. Seamless Aluminum K-Style Gutter & Downspout Installat",
     unitOfMeasure: "LF", pricedComponents: 2,
     totalComponents: 7, materialCostPerUnit: 1.38 },
