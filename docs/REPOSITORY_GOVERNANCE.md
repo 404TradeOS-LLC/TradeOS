@@ -55,6 +55,8 @@ related_code:
 
 The protected, manual `.github/workflows/deploy-staging-migrations.yml` must fail before any Prisma migration if the historical invoice expand columns already exist but `20260902193000_rename_invoice_line_price_columns` is not recorded as applied, or if an applied expand migration's expected columns are missing. This guards against a dual-tool migration history collision observed in Supabase Staging. The safe response is to reconcile the schema and both ledgers with reviewed evidence; do not delete a ledger entry, stamp a migration as applied, or proceed to the invoice contract phase without confirming that older Preview writers are retired. The workflow remains staging-only, `main`-restricted and under the existing Environment approval gate.
 
+The companion reconciliation workflow `.github/workflows/reconcile-staging-invoice-expand.yml` (also `main`-restricted, confirmation-gated, and staging-environment-approved) records an already-applied invoice expand migration with `prisma migrate resolve --applied` and makes no schema change. Its staging-identity check accepts the direct staging database host and the staging Supabase Transaction pooler host (`aws-0-us-east-2.pooler.supabase.com`), because GitHub runners cannot reach the direct host over IPv6. The pooler hostname is regional rather than project-specific, so the staging-environment secret's provenance and the workflow's read-only staging assertions remain the project binding.
+
 
 
 ## Staging repair workflow authorization boundary — 2026-10-27

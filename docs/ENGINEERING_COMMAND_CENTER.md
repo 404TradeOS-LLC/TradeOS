@@ -47,6 +47,8 @@ related_code:
 
 The staging migration workflow refuses to run tracked Prisma migrations if invoice selling-price columns already exist but the corresponding Prisma migration is absent from the ledger, or if a recorded expand migration is missing expected columns. An untracked Supabase-side expansion was verified in staging; do not bypass the fail-closed preflight. Reconcile the historical expand migration against the staging schema and both migration ledgers, then separately review the destructive contract phase and old Preview writers before allowing it to drop legacy invoice fields. This safeguard makes no database mutation and does not certify staging readiness.
 
+Staging invoice-expand reconciliation — 2026-10-28: the `main`-restricted, confirmation-gated `.github/workflows/reconcile-staging-invoice-expand.yml` records the already-applied expand migration (`prisma migrate resolve --applied` only) after read-only assertions on the staging schema and both ledgers. Its staging-identity check accepts the direct staging host and the staging Transaction pooler host (`aws-0-us-east-2.pooler.supabase.com`), because GitHub runners cannot reach the direct host over IPv6. The workflow makes no schema change and leaves the remaining migrations and both legacy invoice columns untouched.
+
 
 
 ## Staging repair approval gate and certification — 2026-10-27
