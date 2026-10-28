@@ -170,13 +170,8 @@ jobs:
             WHERE finished_at IS NULL
               AND rolled_back_at IS NULL
           ")"
-          rolled_back="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
-            SELECT count(*)
-            FROM public._prisma_migrations
-            WHERE rolled_back_at IS NOT NULL
-          ")"
-          if [ "$applied" != "$expected" ] || [ "$unfinished" != "0" ] || [ "$rolled_back" != "0" ]; then
-            echo "::error::Prisma ledger verification failed: expected=$expected applied=$applied unfinished=$unfinished rolled_back=$rolled_back."
+          if [ "$applied" != "$expected" ] || [ "$unfinished" != "0" ] ]; then
+            echo "::error::Prisma ledger verification failed: expected=$expected applied=$applied unfinished=$unfinished."
             exit 1
           fi
-          echo "Verified $applied applied migrations; no unfinished or rolled-back migrations."
+          echo "Verified $applied applied migrations; no unfinished migrations. A historical rolled-back row does not fail this check: a recovered migration is re-applied as a separate row."
