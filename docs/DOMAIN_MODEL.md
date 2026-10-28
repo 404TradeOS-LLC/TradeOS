@@ -422,3 +422,17 @@ The data-foundation slice does not add replacement catalog models. `SupplierProd
 ## Davis-Bacon reference rates (PR #700, pending)
 
 `DavisBaconDetermination` stores tenant-scoped SAM.gov WD metadata and county coverage. `DavisBaconRate` stores versioned, provenance-labeled prevailing-wage floor rows and references its parent by both determination ID and organization ID, enforced by a composite foreign key. Forced row-level security protects reads and writes. These government-contract floors are not commercial estimating prices, and syncing does not reprice existing estimates.
+
+## Proposal-derived Job source and approval baseline — PR #810 (pending)
+
+The canonical `Job` adds nullable `sourceProposalId` (unique globally) and
+nullable `acceptedBaselineJson` as an additive migration. Standalone jobs
+retain NULL values. An accepted-proposal handoff uses the existing Job
+`orgId/projectId/customerId/serviceAddressId` relations, with one job per
+source proposal and a frozen version-1 customer-approved snapshot (estimate id,
+scope, assumptions, exclusions, timeline, Decimal amounts serialized as
+strings, payment milestones, terms and accepted timestamp). It is neither a
+replacement Estimate/Proposal entity nor a costbook repricing operation.
+Tenant and ownership checks precede creation; subsequent job mutations cannot
+reparent a proposal-derived job to a different project, customer, or address.
+The change is unmerged and migration-dependent.
