@@ -1440,3 +1440,5 @@ the service or tool handler directly does not provide deduplication.
 ### Pending P0 staging migration-history reconciliation — 2026-10-28
 
 PR for issue #811 proposes a protected, staging-only reconciliation of the already-executed invoice expand migration. Direct evidence: Supabase migration history stores the exact executable SQL used by the tracked Prisma file (comments differ); staging has 46 applied Prisma migrations, 0 unfinished, and 42 invoice rows with matching old/new monetary values. The workflow is **not merged or executed** by this documentation change. The later invoice contract migration remains blocked pending proof all legacy writers are retired. No production migration or staging schema deployment is certified.
+
+The follow-up staging migration workflow now proposes a hard stop on the destructive invoice contract phase until the protected Environment holds a matching approved retired-writers SHA and a separate exact dispatch confirmation. Neither this gate nor the history reconciliation has been merged or executed at this point.
