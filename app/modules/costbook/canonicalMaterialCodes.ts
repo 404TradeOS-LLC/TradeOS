@@ -2155,6 +2155,322 @@ export const CANONICAL_MATERIAL_CODES: Readonly<Record<string, CanonicalMaterial
     provenance: UNSPSC_V8_PROVENANCE,
     note: "NO housewrap/weather-barrier commodity in v8.1201. WRB is not thermal insulation; left code-empty. Material and roll size are the identity attributes.",
   },
+  // ---- Sheathing: backfilled from the 2026-10-18 research package ----
+  "OSB-RAD-BARRIER-7_16-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; radiant-barrier foil facing is an attribute.",
+  },
+  "OSB-RADIANT-BARRIER-1_2-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; radiant-barrier foil facing is an attribute.",
+  },
+  "OSB-SHEATHING-15_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thickness and panel size are attributes.",
+  },
+  "OSB-SHEATHING-19_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thickness and panel size are attributes.",
+  },
+  "OSB-SHEATHING-1_2-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thickness and panel size are attributes.",
+  },
+  "OSB-SHEATHING-5_8-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thickness and panel size are attributes.",
+  },
+  "OSB-SHEATHING-7_16-4X10": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thickness and panel size are attributes.",
+  },
+  "OSB-SHEATHING-7_16-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thickness and panel size are attributes.",
+  },
+  "OSB-SHEATHING-7_16-4X9": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thickness and panel size are attributes.",
+  },
+  "OSB-SUBFLOOR-19_32-4X8-TG": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; T&G or square edge profile and subfloor application are attributes.",
+  },
+  "OSB-SUBFLOOR-23_32-4X8-TG": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; T&G or square edge profile and subfloor application are attributes.",
+  },
+  "OSB-SUBFLOOR-PREMIUM-23_32-4X8-TG": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; T&G or square edge profile and subfloor application are attributes.",
+  },
+  "OSB-SUBFLOOR-TG-23_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; T&G or square edge profile and subfloor application are attributes.",
+  },
+  "OSB-ZIP-ROOF-5_8-4X8-TG": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; integrated WRB coating is an attribute — the panel remains wood sheathing.",
+  },
+  "PLYWOOD-AC-1_2-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "PLYWOOD-CDX-11_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "PLYWOOD-CDX-15_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "PLYWOOD-CDX-19_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "PLYWOOD-CDX-1_2-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "PLYWOOD-CDX-23_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "PLYWOOD-CDX-3_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "PLYWOOD-CDX-5_8-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "PLYWOOD-HARDWOOD-BIRCH-3_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; species and face grade are attributes (non-structural use).",
+  },
+  "PLYWOOD-HARDWOOD-OAK-3_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; species and face grade are attributes (non-structural use).",
+  },
+  "PLYWOOD-LAUAN-1_2-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; species and face grade are attributes (non-structural use).",
+  },
+  "PLYWOOD-PT-1_2-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; pressure treatment is an attribute.",
+  },
+  "PLYWOOD-PT-3_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; pressure treatment is an attribute.",
+  },
+  "PLYWOOD-PT-CDX-15_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; pressure treatment is an attribute.",
+  },
+  "PLYWOOD-PT-CDX-23_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; pressure treatment is an attribute.",
+  },
+  "PLYWOOD-SANDED-BCX-15_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "PLYWOOD-SANDED-BCX-1_2-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "PLYWOOD-SANDED-BCX-23_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "PLYWOOD-SANDED-BCX-3_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "PLYWOOD-SUBFLOOR-23_32-4X8-TG": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; T&G or square edge profile and subfloor application are attributes.",
+  },
+  "PLYWOOD-SUBFLOOR-TG-23_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; T&G or square edge profile and subfloor application are attributes.",
+  },
+  "PLYWOOD-UNDERLAY-1_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thin underlayment application is an attribute.",
+  },
+  "SHEET-OSB-1_2-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thickness and panel size are attributes.",
+  },
+  "SHEET-OSB-5_8-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thickness and panel size are attributes.",
+  },
+  "SHEET-OSB-7_16-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thickness and panel size are attributes.",
+  },
+  "SHEET-OSB-TALLWALL-7_16-4X10": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thickness and panel size are attributes.",
+  },
+  "SHEET-OSB-TALLWALL-7_16-4X9": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thickness and panel size are attributes.",
+  },
+  "SHEET-PLY-ACX-1_2-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "SHEET-PLY-ACX-3_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "SHEET-PLY-ACX-3_8-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "SHEET-PLY-BIRCH-1_2-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; species and face grade are attributes (non-structural use).",
+  },
+  "SHEET-PLY-BIRCH-3_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; species and face grade are attributes (non-structural use).",
+  },
+  "SHEET-PLY-CDX-11_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "SHEET-PLY-CDX-15_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "SHEET-PLY-CDX-19_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "SHEET-PLY-CDX-23_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "SHEET-PLY-OAK-3_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; species and face grade are attributes (non-structural use).",
+  },
+  "SHEET-PLY-PT-1_2-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; pressure treatment is an attribute.",
+  },
+  "SHEET-PLY-PT-3_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; pressure treatment is an attribute.",
+  },
+  "SHEET-PLY-PT-5_8-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; pressure treatment is an attribute.",
+  },
+  "SHEET-PLYWOOD-BCX-3_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; veneer grade and thickness are attributes.",
+  },
+  "SHEET-SUBFLOOR-OSB-SQ-3_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; T&G or square edge profile and subfloor application are attributes.",
+  },
+  "SHEET-SUBFLOOR-OSB-TG-23_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; T&G or square edge profile and subfloor application are attributes.",
+  },
+  "SHEET-SUBFLOOR-OSB-TG-3_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; T&G or square edge profile and subfloor application are attributes.",
+  },
+  "SHEET-SUBFLOOR-PLY-TG-23_32-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; T&G or square edge profile and subfloor application are attributes.",
+  },
+  "SHEET-UNDERLAY-LUAN-1_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thin underlayment application is an attribute.",
+  },
+  "SHEET-UNDERLAY-PLY-1_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thin underlayment application is an attribute.",
+  },
+  "UNDERLAYMENT-PLY-1_4-4X8": {
+    unspsc: "30103604", unspscTitle: "Wood sheathing or sheets", status: "mapped",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Wood sheathing/sheets commodity; thin underlayment application is an attribute.",
+  },
+  "SHEATHING-DENSGLASS-1_2-4X8": {
+    status: "ambiguous",
+    provenance: UNSPSC_V8_PROVENANCE,
+    note: "Glass-mat gypsum sheathing; not a wood product. No verified gypsum-panel commodity in this pass; left code-empty.",
+  },
   // ---- Ambiguous: recorded, never silently merged ----
   "ROOFING-RIDGE-CAP": {
     status: "ambiguous",
