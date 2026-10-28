@@ -63,6 +63,9 @@ related_code:
 
 # TradeOS Current State
 
+## Costbook preview policy — PR #775 blocked on isolation verification
+
+The proposed web-only `feat/costbook-*` deployment allowlist is prepared for review; backend branches stay restricted. Do not merge or enable it until effective Preview Supabase and backend bindings are independently verified as staging-only. The connected Vercel account can read the project but its environment-metadata request returned HTTP 403; the CLI has no existing credentials. Historical staging claims are not current binding evidence. No deployment or environment value was changed.
 ## Web performance telemetry — PR #744
 
 The Next.js root layout includes Vercel Speed Insights for browser performance
