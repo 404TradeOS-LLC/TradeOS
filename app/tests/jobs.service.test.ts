@@ -344,6 +344,43 @@ describe("JobsService", () => {
     expect(technician.description).toBe("Seasonal maintenance");
   });
 
+  it("preserves technician ownership flags while redacting accepted proposal commercial terms", async () => {
+    const makeTask = (id: string, assignedUserId: string) => ({
+      id,
+      assignedUserId,
+      updatedAt: new Date("2026-07-16T13:00:00.000Z"),
+      title: id,
+      status: "todo",
+      priority: "medium",
+      dueDate: null,
+      assignedTo: null,
+      completedAt: null,
+      notes: null,
+    });
+    const job = {
+      ...scheduledJob,
+      sourceProposalId: "proposal-1",
+      acceptedBaselineJson: { version: 1, proposalId: "proposal-1", finalPrice: "7125.37", termsAndConditions: "Net 15" },
+      tasks: [makeTask("assigned-task", "tech-1"), makeTask("other-task", "tech-2")],
+    };
+    mockDb.job.findFirst.mockResolvedValue(job);
+    const service = new JobsService(mockDb as never);
+
+    const manager = await service.getById("org-1", "job-1", { userId: "owner-1", role: "owner" });
+    expect(manager.acceptedBaselineJson).toMatchObject({ finalPrice: "7125.37" });
+    expect(manager.tasks.every(task => task.canUpdateStatus === false)).toBe(true);
+
+    const assignedTechnician = await service.getById("org-1", "job-1", { userId: "tech-1", role: "technician" });
+    expect(assignedTechnician.acceptedBaselineJson).toBeNull();
+    expect(assignedTechnician.tasks.find(task => task.id === "assigned-task")?.canUpdateStatus).toBe(true);
+    expect(assignedTechnician.tasks.find(task => task.id === "other-task")?.canUpdateStatus).toBe(false);
+
+    mockDb.job.findFirst.mockResolvedValue({ ...job, archivedAt: new Date("2026-07-18T13:00:00.000Z") });
+    const archived = await service.getById("org-1", "job-1", { userId: "tech-1", role: "technician" });
+    expect(archived.tasks.every(task => task.canUpdateStatus === false)).toBe(true);
+    expect(archived.acceptedBaselineJson).toBeNull();
+  });
+
   it("uses half-open interval bounds for technician conflicts", async () => {
     const service = new JobsService(mockDb as never);
 
