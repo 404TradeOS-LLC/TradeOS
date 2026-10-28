@@ -22,6 +22,9 @@ const mockDb = {
   project: {
     findFirst: jest.fn(),
   },
+  proposal: {
+    findFirst: jest.fn(),
+  },
   customer: {
     findFirst: jest.fn(),
   },
@@ -65,6 +68,8 @@ const scheduledJob = {
   customerId: "customer-1",
   serviceAddressId: "address-1",
   jobNumber: "JOB-2026-000001",
+  sourceProposalId: null,
+  acceptedBaselineJson: null,
   title: "AC tune-up",
   description: "Seasonal maintenance",
   jobType: "HVAC Service",
@@ -219,6 +224,108 @@ describe("JobsService", () => {
         ],
       })
     );
+  });
+
+
+  const acceptedProposal = {
+    id: "proposal-1",
+    projectId: "project-1",
+    estimateId: "estimate-1",
+    status: "accepted",
+    respondedAt: new Date("2026-10-26T12:00:00.000Z"),
+    scopeOfWork: "Refinish fifteen cabinets",
+    assumptions: "Existing oak is sound",
+    exclusions: "Countertop replacement",
+    timeline: "Five days",
+    finalPrice: { toString: () => "7125.37" },
+    priceLow: null,
+    priceHigh: null,
+    paymentScheduleJson: [{ label: "Completion", amountPercent: 100 }],
+    termsAndConditions: "Net 15",
+    project: { id: "project-1", orgId: "org-1", customerId: "customer-1", name: "Kitchen cabinets", simpleScope: "Paint cabinets", jobType: "Cabinet refinishing" },
+  };
+
+  const conversionInput = {
+    orgId: "org-1",
+    actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" as const },
+    proposalId: "proposal-1",
+    serviceAddressId: "address-1",
+  };
+
+  it("converts an accepted proposal into one unscheduled job with an immutable monetary snapshot", async () => {
+    mockDb.proposal.findFirst.mockResolvedValue(acceptedProposal);
+    const converted = { ...scheduledJob, sourceProposalId: "proposal-1", acceptedBaselineJson: { finalPrice: "7125.37" } };
+    mockDb.job.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(converted);
+    mockDb.job.create.mockResolvedValue(converted);
+    const service = new JobsService(mockDb as never);
+
+    const job = await service.createFromAcceptedProposal(conversionInput);
+
+    expect(job.sourceProposalId).toBe("proposal-1");
+    expect(job.acceptedBaselineJson).toEqual({ finalPrice: "7125.37" });
+    expect(mockDb.proposal.findFirst).toHaveBeenCalledWith({
+      where: { id: "proposal-1", project: { orgId: "org-1" } },
+      include: { project: true },
+    });
+    expect(mockDb.$executeRaw).toHaveBeenCalled();
+    expect(mockDb.job.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        sourceProposalId: "proposal-1",
+        projectId: "project-1",
+        customerId: "customer-1",
+        serviceAddressId: "address-1",
+        description: "Refinish fifteen cabinets",
+        title: "Kitchen cabinets",
+        jobType: "Cabinet refinishing",
+        status: "unscheduled",
+        acceptedBaselineJson: expect.objectContaining({
+          estimateId: "estimate-1",
+          finalPrice: "7125.37",
+          scopeOfWork: "Refinish fifteen cabinets",
+          exclusions: "Countertop replacement",
+          termsAndConditions: "Net 15",
+        }),
+      }),
+    }));
+  });
+
+  it("returns the original job on conversion retry rather than creating another", async () => {
+    mockDb.proposal.findFirst.mockResolvedValue(acceptedProposal);
+    const previous = { ...scheduledJob, sourceProposalId: "proposal-1" };
+    mockDb.job.findFirst.mockResolvedValueOnce(previous);
+    const service = new JobsService(mockDb as never);
+
+    const result = await service.createFromAcceptedProposal(conversionInput);
+
+    expect(result.id).toBe("job-1");
+    expect(mockDb.job.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses a draft or cross-organization proposal without job creation", async () => {
+    const service = new JobsService(mockDb as never);
+    mockDb.proposal.findFirst.mockResolvedValueOnce({ ...acceptedProposal, status: "draft" }).mockResolvedValueOnce(null);
+
+    await expect(service.createFromAcceptedProposal(conversionInput)).rejects.toMatchObject({ statusCode: 409 });
+    await expect(service.createFromAcceptedProposal(conversionInput)).rejects.toMatchObject({ statusCode: 404 });
+    expect(mockDb.job.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a service address owned by another customer", async () => {
+    mockDb.proposal.findFirst.mockResolvedValue(acceptedProposal);
+    mockDb.job.findFirst.mockResolvedValueOnce(null);
+    mockDb.serviceAddress.findFirst.mockResolvedValue({ id: "address-1", orgId: "org-1", customerId: "other-customer" });
+    const service = new JobsService(mockDb as never);
+
+    await expect(service.createFromAcceptedProposal(conversionInput)).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockDb.job.create).not.toHaveBeenCalled();
+  });
+
+  it("forbids a technician from converting proposals", async () => {
+    const service = new JobsService(mockDb as never);
+    await expect(service.createFromAcceptedProposal({
+      ...conversionInput, actor: { ...conversionInput.actor, role: "technician" },
+    })).rejects.toMatchObject({ statusCode: 403 });
+    expect(mockDb.proposal.findFirst).not.toHaveBeenCalled();
   });
 
   it("uses half-open interval bounds for technician conflicts", async () => {
