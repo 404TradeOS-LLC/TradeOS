@@ -441,6 +441,13 @@ export class JobsService {
     return runInDatabaseTransaction(this.db, async (tx) => {
       const existing = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, true);
       if (existing.archivedAt) throw new ApiError(409, `Job ${jobId} is archived`);
+      if (existing.sourceProposalId && (
+        (input.projectId !== undefined && input.projectId !== existing.projectId) ||
+        (input.customerId !== undefined && input.customerId !== existing.customerId) ||
+        (input.serviceAddressId !== undefined && input.serviceAddressId !== existing.serviceAddressId)
+      )) {
+        throw new ApiError(409, "Proposal-derived jobs cannot be reassigned to another project, customer, or address");
+      }
 
       const projectId = input.projectId ?? existing.projectId;
       const customerId = input.customerId ?? existing.customerId;
