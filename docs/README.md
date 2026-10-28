@@ -63,6 +63,8 @@ For staging, read [the Preview deployment QA checklist](QA_PREVIEW_DEPLOYMENT_CH
 
 October 27 live reads found staging Supabase healthy, but a 15-migration gap relative to current `main`, three non-forced Team & Time RLS tables, mismatched older READY Preview builds and HTTP 403 when listing Vercel environment metadata. The ignored later builds were deliberate path-based skips, not evidence of an application build failure. **Do not certify newer staging code until environment isolation is proved, the schema is reconciled, matching builds are READY and authenticated journeys pass.** Never print or copy service-role keys or database URLs into issues, tests or documentation.
 
+The single authoritative staging run is `.github/workflows/staging-orchestrator.yml`: on a push to `staging` (or a manual dispatch of the current staging head) it records one approved SHA, runs a read-only staging database preflight, waits for both Vercel Git deployments of that SHA to reach READY, verifies deployed SHA via backend `/health` plus `/ready` and frontend reachability, re-verifies the staging head, then captures canonical beta evidence through a reusable-workflow call and publishes one PASS/FAIL verdict naming the first failing dependency and its repair. It never applies migrations (the main-only `deploy-staging-migrations.yml` remains the only migration path), never writes to a database, and never merges. The staging branch itself is fast-forwarded from approved SHAs only; the diverged pre-2026-10-27 staging line is preserved at branch `archive/staging-20261005`.
+
 
 Merge queue operations are documented in [testing/MERGE_QUEUE.md](testing/MERGE_QUEUE.md).
 The opt-in action consumes `status:merge-queue` once, then GitHub validates the
