@@ -421,3 +421,9 @@ Web scope includes component tests/configuration, root runner manifests and the 
 ### Dependabot PR-body validation (2026-10-28)
 
 The required Docs consistency workflow still executes for Dependabot PRs; only the ten-section human-authored PR body validation step is bypassed for PRs **authored** by `dependabot[bot]`. All documentation ownership, unit, and consistency checks remain active. See `docs/REPOSITORY_GOVERNANCE.md`.
+
+### Protected staging invoice-expand history reconciliation (2026-10-28)
+
+The manual, reviewer-gated `.github/workflows/reconcile-staging-invoice-expand.yml` is separate from the normal deploy workflow. It checks the independently executed Supabase invoice expansion against the repository's exact executable Prisma SQL, schema, trigger, four monetary columns and nondivergent invoice rows. Only after a main-branch, staging-Environment approval and typed confirmation does it record that **one already-executed** migration in Prisma. It does not execute schema migrations or drop legacy invoice columns. The remaining staging migration backlog is blocked until issue #811's old-writer retirement evidence and separately reviewed deploy.
+
+The ordinary protected staging migration workflow also fails closed before the invoice contract/drop-legacy migration unless the exact main commit has an independently reviewed `STAGING_INVOICE_WRITERS_RETIRED_SHA` Environment variable and the dispatch supplies `APPROVE_INVOICE_CONTRACT`. The two workflows share one non-cancelling staging migration concurrency group.

@@ -451,3 +451,9 @@ Web scope includes component tests/configuration, root runner manifests and the 
 ## Dependabot required-check hygiene (2026-10-28)
 
 The Docs consistency job remains required and runnable for Dependabot patch PRs. The PR-body ten-section check applies to human-authored PRs; Dependabot-authored PRs are exempted only from that formatting step by PR author identity. Workflow validity, docs ownership, preflight, autonomy and dependency review are not bypassed. This prevents false red checks without converting missing checks into successful release evidence.
+
+## P0 staging migration history reconciliation — issue #811 (2026-10-28)
+
+The reviewer-gated manual workflow `reconcile-staging-invoice-expand.yml` is the sole proposed fix for the historical Supabase/Prisma invoice expand collision. It proves SQL provenance and actual schema/data state before invoking `prisma migrate resolve --applied` **for that one already-executed migration only**. It does not call `prisma migrate deploy` or change production. Dispatch must originate from `main` with exact typed confirmation and a successful `staging` Environment approval. The normal deployment remains separate and blocked pending legacy invoice-writer retirement evidence. Record the outcome under issue #811; require 47 applied, 0 unfinished and legacy columns intact before planning the remaining migrations.
+
+For the later staging invoice contract/drop-column migration, independently verify old-writer retirement, record approved main SHA in `STAGING_INVOICE_WRITERS_RETIRED_SHA` under the protected staging Environment, and dispatch the existing migration workflow with `APPROVE_INVOICE_CONTRACT`. Both conditions are required; reconciliation alone never authorizes legacy-column removal.
