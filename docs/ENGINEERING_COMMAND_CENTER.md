@@ -437,3 +437,7 @@ fail the existing Web test gate; no new permission or protected-check bypass
 is introduced. These results do not certify authenticated application workflows.
 
 Web scope includes component tests/configuration, root runner manifests and the verification workflow itself, so harness-only edits cannot skip this gate. A real temporary-Git regression test covers those paths and unrelated App/docs changes.
+
+## Dependabot required-check hygiene (2026-10-28)
+
+The Docs consistency job remains required and runnable for Dependabot patch PRs. The PR-body ten-section check applies to human-authored PRs; Dependabot-authored PRs are exempted only from that formatting step by PR author identity. Workflow validity, docs ownership, preflight, autonomy and dependency review are not bypassed. This prevents false red checks without converting missing checks into successful release evidence.
