@@ -146,10 +146,11 @@ at its first ArrowDown active-descendant assertion. Its evidence does not
 certify the authenticated full application, persistence or tenant isolation.
 Branch implementation is not yet merged or deployed; Ready for Dev remains
 pending full canonical-screen and authenticated workflow evidence.
+
 ## Historical assembly rematch repair — PR #772
 
-The second pass retains 20 additional historical supplier matches, yielding
-155 raw component rows and 75 assemblies with partial material rollups.
+The second pass retains 18 additional historical supplier matches, yielding
+153 raw component rows and 75 assemblies with partial material rollups.
 Recipe quantities are preserved; ten-square synthetic rolls, 900-SF housewrap
 rolls and a derived ten-LF sill allocation use explicit price conversions.
 The exact 2-inch R-10 tongue-and-groove XPS observation replaces an ambiguous
@@ -1449,3 +1450,9 @@ unchanged. High-risk confirmation/resume is still a separate contract; this
 change does not turn an approval state into success or resubmit restricted
 actions. Action-engine dispatch is required for receipt guarantees; calling
 the service or tool handler directly does not provide deduplication.
+
+### Pending P0 staging migration-history reconciliation — 2026-10-28
+
+PR for issue #811 proposes a protected, staging-only reconciliation of the already-executed invoice expand migration. Direct evidence: Supabase migration history stores the exact executable SQL used by the tracked Prisma file (comments differ); staging has 46 applied Prisma migrations, 0 unfinished, and 42 invoice rows with matching old/new monetary values. The workflow is **not merged or executed** by this documentation change. The later invoice contract migration remains blocked pending proof all legacy writers are retired. No production migration or staging schema deployment is certified.
+
+The follow-up staging migration workflow now proposes a hard stop on the destructive invoice contract phase until the protected Environment holds a matching approved retired-writers SHA and a separate exact dispatch confirmation. Neither this gate nor the history reconciliation has been merged or executed at this point.
