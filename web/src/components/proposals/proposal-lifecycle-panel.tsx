@@ -1,11 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { createContractAction } from "@/app/actions/contracts";
 import { acceptProposalAction, duplicateProposalAction, rejectProposalAction, resendProposalAction, sendProposalAction } from "@/app/actions/proposals";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Timeline } from "@/components/shared/timeline";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Proposal } from "@/lib/api";
 import { buildProposalTimeline, formatDateTime, getProposalDisplayStatus } from "@/lib/document-workflow";
@@ -92,6 +93,21 @@ export function ProposalLifecyclePanel({ projectId, proposal }: ProposalLifecycl
             <p className="text-sm text-muted-foreground">Carry the approved scope and terms directly into a signable contract.</p>
             {contractState?.error && <p className="text-sm text-destructive">{contractState.error}</p>}
           </form>
+        )}
+
+        {proposal.status === "accepted" && (
+          <div className="space-y-2">
+            <Link
+              href={`/projects/${projectId}/jobs/new?proposalId=${proposal.id}`}
+              className={buttonVariants({ variant: "secondary", className: "w-full" })}
+            >
+              Create field job from accepted proposal
+            </Link>
+            <p className="text-sm text-muted-foreground">
+              Confirm the service address and carry the approved scope and price into an unscheduled job.
+              Scheduling and crew assignment remain separate actions.
+            </p>
+          </div>
         )}
 
         {proposal.status === "declined" && (
