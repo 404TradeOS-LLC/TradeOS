@@ -145,14 +145,16 @@ export const loadTodayData = cache(async (): Promise<TodayData | null> => {
         if (task.status === "completed") continue;
         const jobId = "jobId" in task ? task.jobId : null;
         const href = field ? `/field?job=${encodeURIComponent(String(jobId))}` : `/projects/${task.projectId}?tab=tasks`;
-        const editable = field ? {} : { task: { projectId: task.projectId, taskId: task.id, status: task.status, updatedAt: task.updatedAt } };
+        const target = { projectId: task.projectId, taskId: task.id, status: task.status, updatedAt: task.updatedAt };
+        const personallyAssigned = field && task.canUpdateStatus === true && typeof task.assignedUserId === "string" && task.assignedUserId.length > 0 && typeof settings.currentUserId === "string" && task.assignedUserId === settings.currentUserId && typeof jobId === "string";
+        const editable = field ? personallyAssigned ? { task: { ...target, access: "assigned-field" as const, jobId } } : {} : { task: target };
         const context = [task.projectName, field ? task.jobTitle : null].filter(Boolean).join(" · ");
         if (field || isTodayTask(task, generatedAt, timeZone)) work.push({ id: `task-${task.id}`, title: task.title, context,
           kind: "task", start: null, end: null, assignee: task.assignedTo, status: task.status, href, ...editable, dueAt: task.dueDate });
         if (taskNeedsAttention(task, generatedAt, timeZone)) attention.push({ id: `task-${task.id}`, title: task.title,
           context: [context, task.status === "blocked" ? "Blocked task" : "Overdue task"].join(" · "), source: field ? "Job tasks" : "Tasks",
           priority: task.status === "blocked" ? "urgent" : "high", assignee: task.assignedTo, dueAt: task.dueDate, href,
-          action: field ? "Open assigned job" : task.status === "blocked" ? "Resolve blocker" : "Update task", updatedAt: task.updatedAt, status: task.status, ...editable });
+          action: field ? personallyAssigned ? "Update task" : "Open assigned job" : task.status === "blocked" ? "Resolve blocker" : "Update task", updatedAt: task.updatedAt, status: task.status, ...editable });
       }
     }));
   if (commercial) {
@@ -175,7 +177,7 @@ export const loadTodayData = cache(async (): Promise<TodayData | null> => {
         href: `/projects/${invoice.projectId}/invoices/${invoice.invoiceId}`, action: "Review invoice" });
     }));
   } else {
-    if (field) restricted("task-writes", "Task updates", "Shared tasks are visible through your active Job assignments. Task updates still require the existing office permissions; a personal field-task write contract is not enabled.");
+    if (field) restricted("task-writes", "Task updates", "Only tasks assigned to your authenticated user ID on an active assigned Job can be updated. Other shared tasks remain read-only.");
     else restricted("tasks", "Project tasks", "Your role does not have access to the organization task queue.");
     restricted("commercial", "Commercial queues", "Estimates, proposals and invoices are omitted from the field presentation.");
   }

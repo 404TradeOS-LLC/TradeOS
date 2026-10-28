@@ -124,3 +124,28 @@ workspace now displays Job DTO tasks and directs progress reports to Job notes.
 Task status edits retain existing office permissions. Results at the 50-row cap
 are explicitly partial; a task-source failure leaves job scheduling usable and
 task counts unknown. No schema, RLS policy or mutation authority changed.
+
+## Personal field-task ownership and status updates (2026-10-27)
+
+Implementation on `feat/field-task-ownership` adds nullable
+`ProjectTask.assignedUserId` (user FK, no name-based backfill). Shared job tasks
+remain readable. The ownership and lifecycle contract — role eligibility, RLS
+rules, 404/409 outcomes, and Job status rules — lives in the
+[RBAC matrix](../RBAC_MATRIX.md#personal-field-task-ownership-and-status-updates-2026-10-27)
+and [workflow lifecycles](../WORKFLOW_LIFECYCLES.md#personal-field-task-ownership-and-status-updates-2026-10-27).
+Projects-specific: the scoped `GET /api/v1/projects/:id/task-assignees`
+returns only permitted active-member choices and a server-derived capability,
+and the Project Tasks assignment form drives explicit assignment through the
+existing guarded generic PATCH.
+
+Today and Field job details return a server-derived canUpdateStatus flag based
+on the actual auth role, not the normalized settings presentation role. Only
+explicit nonempty matching identity, revision and capability enable the shared
+status editor; older/partial responses fail closed. UI saves use the narrow
+Job endpoint and verify record/project/Job/status before showing success.
+Assignment changes refresh the source and operational routes. No optimistic
+queue dismissal, automatic retry, financial change or production migration.
+
+This is a schema/RLS change requiring governed review and migration rehearsal
+before activation. Unit/type/build and hosted PostgreSQL/browser results must
+be recorded from the final head; authored tests alone are not certification.

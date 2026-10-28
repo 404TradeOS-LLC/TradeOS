@@ -886,6 +886,9 @@ export function getChangeOrder(token: string, id: string) {
 }
 
 export interface ProjectTask {
+  canUpdateStatus?: boolean;
+  assignedUserId?: string | null;
+  jobId?: string | null;
   id: string;
   projectId: string;
   title: string;
@@ -1350,6 +1353,9 @@ export function listJobsForDispatch(token: string, params: DispatchJobListParams
 
 export interface FieldJobDetail extends DispatchJob {
   tasks?: Array<{
+    canUpdateStatus?: boolean;
+    assignedUserId?: string | null;
+    updatedAt?: string;
     id: string;
     title: string;
     status: string;
@@ -1804,4 +1810,9 @@ export function reviewAthenaApproval(token: string, approvalId: string, decision
     method: "POST",
     body: JSON.stringify({ decision }),
   });
+}
+
+
+export function getProjectTaskAssignees(token: string, projectId: string) {
+  return apiFetch<{ canAssign: boolean; members: Array<{ userId: string; fullName: string | null; email: string; status: string }> }>(`/api/v1/projects/${encodeURIComponent(projectId)}/task-assignees`, { token });
 }

@@ -312,3 +312,12 @@ test("capped field task results do not claim an exact total", async () => {
   assert.equal(data.stats.find((stat) => stat.id === "tasks-due")?.value, null);
   assert.ok(data.sources.some((source) => source.id === "tasks-coverage" && source.state === "partial"));
 });
+
+
+test("field loader grants edit targets only to explicit personal identity on assigned Jobs", async () => {
+  const base = { id: "own", projectId: "project-a", jobId: "job-a", projectName: "Kitchen", title: "Inspect", status: "blocked", assignedTo: "Same display name", updatedAt: FIXTURE_NOW };
+  const data = await createLoader("technician", { listAssignedJobTasks: async () => [{ ...base, assignedUserId: "user-a", canUpdateStatus: true }, { ...base, id: "other", assignedUserId: "other" }, { ...base, id: "legacy" }] }).run(); assert.ok(data);
+  const own = data.work.find(row => row.id === "task-own"); assert.equal(own?.task?.access, "assigned-field"); assert.equal(own?.task?.jobId, "job-a");
+  assert.equal(data.work.find(row => row.id === "task-other")?.task, undefined);
+  assert.equal(data.work.find(row => row.id === "task-legacy")?.task, undefined);
+});

@@ -10,6 +10,7 @@ export function TodayTaskEditor({ task, online, onBusy, onSaved }: {
   onBusy: (busy: boolean) => void;
   onSaved: (status: TodayTaskStatus) => void;
 }) {
+  const controlId = `task-status-${task.taskId}`;
   const [status, setStatus] = useState(task.status);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,8 +38,8 @@ export function TodayTaskEditor({ task, online, onBusy, onSaved }: {
   }
 
   return <form onSubmit={save} aria-label="Update task status" aria-busy={pending} className="my-5 space-y-3 rounded-xl border border-border p-4">
-    <label htmlFor="today-task-status" className="block text-sm font-medium">Task status</label>
-    <select id="today-task-status" value={status} disabled={pending || !online} onChange={event => { setStatus(event.target.value); setError(null); }} className="min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm">
+    <label htmlFor={controlId} className="block text-sm font-medium">Task status</label>
+    <select id={controlId} value={status} disabled={pending || !online} onChange={event => { setStatus(event.target.value); setError(null); }} className="min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm">
       {todayTaskStatuses.map(value => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}
     </select>
     <p className="text-xs leading-5 text-muted-foreground">Saves to the project task and records your change in its activity history.</p>

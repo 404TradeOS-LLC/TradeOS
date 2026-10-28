@@ -267,7 +267,8 @@ export class JobsService {
       this.activities.list({ orgId, entityType: "job", entityId: row.id, limit: 25 }),
     ]);
 
-    return toJobDTO(row, notes, recentActivity);
+    const result = toJobDTO(row, notes, recentActivity);
+    return { ...result, tasks: result.tasks.map(task => ({ ...task, canUpdateStatus: actor.role === "technician" && task.assignedUserId === actor.userId && !row.archivedAt && !["completed", "cancelled"].includes(row.status) })) };
   }
 
   async create(input: CreateJobInput): Promise<JobDTO> {
@@ -1686,6 +1687,8 @@ function toJobDTO(
     tasks: row.tasks.map(
       (task): JobTaskDTO => ({
         id: task.id,
+        assignedUserId: task.assignedUserId,
+        updatedAt: task.updatedAt?.toISOString(),
         title: task.title,
         status: task.status,
         priority: task.priority,

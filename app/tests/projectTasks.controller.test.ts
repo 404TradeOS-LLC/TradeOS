@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 
+const listAssignableMembers = jest.fn();
+const updateAssignedStatus = jest.fn();
 const listByOrganization = jest.fn();
 const listByAssignedJobs = jest.fn();
 const create = jest.fn();
@@ -17,6 +19,8 @@ jest.mock("../db/client", () => ({
 
 jest.mock("../modules/project-tasks/service", () => ({
   ProjectTasksService: jest.fn().mockImplementation(() => ({
+    listAssignableMembers,
+    updateAssignedStatus,
     listByOrganization,
     listByAssignedJobs,
     create,
@@ -220,4 +224,37 @@ describe("projectTasksController.listByAssignedJobs", () => {
     await expect(projectTasksController.listByAssignedJobs({ orgId: "org-1", query: {} } as unknown as Request, {} as Response)).rejects.toMatchObject({ statusCode: 401 });
     expect(listByAssignedJobs).not.toHaveBeenCalled();
   });
+});
+
+
+describe("personal task controller", () => {
+  const jobId = "11111111-1111-4111-8111-111111111111", taskId = "22222222-2222-4222-8222-222222222222";
+  const req = (role = "technician", body = { status: "completed", expectedUpdatedAt: "2026-10-27T10:00:00Z" }) => ({ orgId: "org-a", auth: { userId: "tech-a", orgId: "org-a", role }, params: { jobId, taskId }, body }) as unknown as Request;
+  beforeEach(() => { jest.clearAllMocks(); mockPrisma.$transaction.mockImplementation(async (fn: (tx: object) => unknown) => fn({})); });
+  it("uses trusted identity and records activity inside the task transaction", async () => {
+    updateAssignedStatus.mockResolvedValue({ id: taskId, title: "Inspect", projectId: "project-a", jobId });
+    const res = { json: jest.fn() } as unknown as Response;
+    await projectTasksController.updateAssignedStatus(req(), res);
+    expect(updateAssignedStatus).toHaveBeenCalledWith({ orgId: "org-a", userId: "tech-a", jobId, taskId, status: "completed", expectedUpdatedAt: new Date("2026-10-27T10:00:00Z") });
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({ actorUserId: "tech-a", entityId: taskId, eventType: "task.completed" }));
+  });
+  it("rejects viewer role, missing revision and extra mutation fields", async () => {
+    await expect(projectTasksController.updateAssignedStatus(req("viewer"), {} as Response)).rejects.toMatchObject({ statusCode: 403 });
+    for (const body of [{ status: "completed" }, { status: "completed", expectedUpdatedAt: "2026-10-27T10:00:00Z", assignedUserId: "another" }]) await expect(projectTasksController.updateAssignedStatus(req("technician", body as never), {} as Response)).rejects.toThrow();
+    expect(updateAssignedStatus).not.toHaveBeenCalled(); expect(record).not.toHaveBeenCalled();
+  });
+  it("does not record success when the source rejects a stale save", async () => {
+    updateAssignedStatus.mockRejectedValue({ statusCode: 409 });
+    await expect(projectTasksController.updateAssignedStatus(req(), {} as Response)).rejects.toMatchObject({ statusCode: 409 });
+    expect(record).not.toHaveBeenCalled();
+  });
+});
+
+
+test("legacy office roles retain task writes without new identity administration", async () => {
+  const res = { json: jest.fn() } as unknown as Response;
+  const req = { orgId: "org-a", auth: { userId: "estimator-a", orgId: "org-a", role: "estimator" }, params: { id: "11111111-1111-4111-8111-111111111111" }, query: {} } as unknown as Request;
+  await projectTasksController.listTaskAssignees(req, res);
+  expect(res.json).toHaveBeenCalledWith({ canAssign: false, members: [] });
+  expect(listAssignableMembers).not.toHaveBeenCalled();
 });

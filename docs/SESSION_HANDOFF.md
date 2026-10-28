@@ -253,6 +253,24 @@ newer attempts at `959e3ef4` are cancelled. Environment metadata is forbidden
 (403); unavailable CLI cannot restore access. These older mismatched runtimes
 cannot certify current Today. Do not retry declined user sign-in automatically.
 
+## Field task implementation — 2026-10-27
+
+`NEW_WORK_REQUIRED` for the personal identity/write slice absent from #798.
+Branch `feat/field-task-ownership` starts at Today head `3eaa932f`. The founder
+explicitly requested implementation, not another plan. Scope: nullable task
+identity, narrow guarded field status route/service/RLS, office assignment
+controls, shared status editor, actual-role capability flags and regressions.
+No production migration/activation or financial mutation is authorized here.
+
+Implementation is present end to end. Focused tests initially pass; required
+full and hosted live PostgreSQL/browser verification is pending. Read-only
+boundary review caught and repaired historical-assignee office regression and
+undefined-identity UI matching; added a real two-session revocation-lock test.
+The existing SQL helper includes technicians, so the migration explicitly
+excludes them from the old broad task policy before adding the narrow one.
+Legacy estimator identity administration is not widened; regular task status
+updates remain supported. Schema/RLS changes retain PR-only merge posture.
+
 ## Next Eligible Sprint
 
 Sprint ID: S073

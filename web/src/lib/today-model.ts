@@ -1,6 +1,6 @@
 import { getTaskDueBucket } from "../components/dashboard/dashboard-task-dates.ts";
 
-export interface TodayTaskTarget { projectId: string; taskId: string; status: string; updatedAt: string }
+export interface TodayTaskTarget { access?: "assigned-field"; jobId?: string; projectId: string; taskId: string; status: string; updatedAt: string }
 
 export type TodayPresentation = "owner" | "office" | "field";
 export interface TodayAttentionItem {

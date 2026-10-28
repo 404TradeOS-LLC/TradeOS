@@ -9,6 +9,7 @@ export interface CreateProjectTaskInput {
   projectId: string;
   jobId?: string | null;
   title: string;
+  assignedUserId?: string | null;
   assignedTo?: string;
   dueDate?: Date;
   priority?: ProjectTaskPriority;
@@ -21,6 +22,7 @@ export interface UpdateProjectTaskInput {
   jobId?: string | null;
   title?: string;
   status?: ProjectTaskStatus;
+  assignedUserId?: string | null;
   assignedTo?: string | null;
   dueDate?: Date | null;
   priority?: ProjectTaskPriority;
@@ -33,6 +35,7 @@ export interface ProjectTaskDTO {
   jobId: string | null;
   title: string;
   status: ProjectTaskStatus;
+  assignedUserId?: string | null;
   assignedTo: string | null;
   dueDate: string | null;
   priority: ProjectTaskPriority;
@@ -55,4 +58,9 @@ export interface ProjectTaskListItemDTO extends ProjectTaskDTO {
   projectStatus: string;
   customerName: string | null;
   jobTitle: string | null;
+}
+
+export interface UpdateAssignedTaskStatusInput {
+  orgId: string; userId: string; jobId: string; taskId: string;
+  status: ProjectTaskStatus; expectedUpdatedAt: Date;
 }

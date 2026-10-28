@@ -1,6 +1,7 @@
 # Today: field identity and operational scheduling contracts
 
-Status: PROPOSED — implementation/authorization decision required, not shipped.
+Status: Field task ownership implemented on `feat/field-task-ownership`, pending
+review and migration rehearsal; scheduling contracts remain PROPOSED. Not deployed.
 Owner: Billy Showalter, Founder. Date: 2026-10-27.
 Parent: Today PR #798. Shared-job task visibility: merged child #800.
 
@@ -24,7 +25,7 @@ implementation truth. Do not mark these capabilities complete from this file.
   blocker record is available to the Today aggregation. Arbitrary JSON, task
   title keywords, unpaid invoices and passive activity cannot stand in for it.
 
-## 2. Recommended field task identity/write contract
+## 2. Field task identity/write implementation contract
 
 ### Identity and migration
 
@@ -35,7 +36,9 @@ Use an index for assigned user/status/due date and retain project/job indexes.
 A deleted user clears the identity, preventing an orphaned write grant.
 
 The existing office create/update workflow gains an explicit user selector.
-`crm.write` remains the office gate. The server validates active membership in
+`crm.write` remains the ordinary task-write gate; explicit identity
+administration requires raw owner/admin/dispatcher, preserving legacy estimator
+ordinary task writes without widening its user-directory RLS access. The server validates active membership in
 the task Project's organization; a technician assignment additionally requires
 an active assignment to the linked Job. Reject cross-tenant or inactive users.
 The office may clear assignment. Setting a display string never grants access.
@@ -150,3 +153,7 @@ changes PR-only/human-decision work. Required checks and a reviewed migration
 are still necessary; a generic instruction to continue is not a recorded
 ADR-009 protected-merge exception. Implementation can proceed in reviewed PRs,
 but none of these unimplemented capabilities is production-certified here.
+
+The implementation and final-head verification record in owning module/API docs
+supersede proposal wording for field tasks only. Scheduling sections remain
+proposals and do not represent implemented sources.
