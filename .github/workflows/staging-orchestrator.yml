@@ -1,0 +1,627 @@
+name: Staging orchestrator
+
+# Single authoritative staging run: one approved SHA -> Vercel Git deployments
+# -> runtime checks -> beta evidence -> one PASS/FAIL summary.
+#
+# Triggers:
+#   push to staging — the pushed commit is the approved SHA.
+#   workflow_dispatch with an explicit SHA — the SHA must equal the current
+#     staging head, otherwise the record job fails closed.
+#
+# Design notes (see docs/ENGINEERING_COMMAND_CENTER.md):
+# - The orchestrator coordinates beta-evidence.yml via a reusable-workflow
+#   call; it does not duplicate that workflow, rc-smoke.yml, or
+#   preview-smoke-check.yml. Evidence runs against the staging branch alias,
+#   because beta-evidence derives the "staging" environment from that alias
+#   host. A guard job re-verifies the staging head immediately before
+#   evidence so the alias cannot drift mid-run without failing closed.
+# - Vercel deployment polling uses secrets.VERCEL_TOKEN. If the token is
+#   absent or lacks team scope (HTTP 403), the wait job fails closed with
+#   the exact owner action instead of passing silently.
+# - The DB preflight uses the reviewer-gated staging environment ONLY
+#   because the staging database credential lives there. Evidence jobs use
+#   no environment. No migration-apply job is added here: the existing
+#   deploy-staging-migrations.yml remains the only migration path, and the
+#   preflight below performs reads only (prisma migrate status + SELECTs).
+#   Nothing in this workflow writes to any database, pushes to main, or
+#   merges anything.
+# - Beta-evidence SHA correlation is deliberately NOT required here:
+#   beta-evidence correlates against the BETA_RC_DEPLOYMENT_SHA repository
+#   variable, which is unset, so requiring it would fail every run. Web SHA
+#   proof comes from the Vercel deployment meta (wait job) + the staging
+#   branch alias + the head guard; backend SHA proof comes from /health.
+#   The evidence metadata honestly records shaCorrelated=false.
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Approved commit SHA to stage (must equal the current staging head)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-orchestrator
+  cancel-in-progress: false
+
+env:
+  STAGING_PROJECT_REF: qfbgdkbamfaasmtjfyru
+  API_PROJECT_ID: prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD
+  WEB_PROJECT_ID: prj_jDyORkIa7ug3ZtgtNujwEa65hQ36
+  WEB_STAGING_ALIAS: https://tradeos-costbook-web-git-staging-billykshowalters.vercel.app
+  API_STAGING_ALIAS: https://tradeos-costbook-git-staging-billykshowalters.vercel.app
+
+jobs:
+  record:
+    name: Record approved SHA
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: staging
+          fetch-depth: 0
+
+      - name: Resolve and validate the approved SHA
+        id: resolve
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_SHA: ${{ inputs.sha }}
+          PUSH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # SHA values travel via env, never interpolated into script text,
+          # so a crafted dispatch input cannot break out of the assignment.
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            sha="$INPUT_SHA"
+          else
+            sha="$PUSH_SHA"
+          fi
+          if ! printf '%s' "$sha" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::Approved SHA must be a full 40-hex commit SHA."
+            exit 1
+          fi
+          git cat-file -e "$sha^{commit}" || {
+            echo "::error::Approved SHA $sha is not a commit in this repository."
+            exit 1
+          }
+          staging_head="$(gh api "repos/${{ github.repository }}/branches/staging" --jq '.commit.sha')"
+          if [ "$sha" != "$staging_head" ]; then
+            echo "::error::Approved SHA $sha is not the current staging head $staging_head. Push the SHA to staging or dispatch the staging head."
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Staging orchestrator — run identity"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Approved SHA | $sha |"
+            echo "| Staging head | $staging_head |"
+            echo "| Trigger | ${{ github.event_name }} |"
+            echo "| Staging Supabase ref | ${STAGING_PROJECT_REF} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  preflight-static:
+    name: Inventory repository migrations
+    needs: record
+    runs-on: ubuntu-latest
+    outputs:
+      migration_count: ${{ steps.inventory.outputs.migration_count }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Count tracked Prisma migrations
+        id: inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          count="$(find app/prisma/migrations -mindepth 2 -maxdepth 2 -type f -name migration.sql | wc -l | tr -d ' ')"
+          echo "migration_count=$count" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Repository migration inventory"
+            echo
+            echo "Tracked migration.sql files: $count"
+            echo
+            echo "The DB preflight compares the staging ledger against this count."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  preflight-db:
+    name: Read-only staging DB preflight
+    needs: [record, preflight-static]
+    runs-on: ubuntu-latest
+    environment: staging
+    defaults:
+      run:
+        working-directory: app
+    env:
+      DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
+      APP_DB_ROLE_PASSWORD: ${{ secrets.STAGING_APP_DB_ROLE_PASSWORD }}
+      APP_DB_ROLE_NAME: ${{ vars.STAGING_APP_DB_ROLE_NAME }}
+      STAGING_PROJECT_REF: qfbgdkbamfaasmtjfyru
+      PGSSLMODE: require
+      EXPECTED_MIGRATIONS: ${{ needs.preflight-static.outputs.migration_count }}
+    outputs:
+      rls_force_drift: ${{ steps.rls.outputs.rls_force_drift }}
+    steps:
+      - name: Fail closed on missing staging credentials
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${DATABASE_ADMIN_URL:-}" || {
+            echo "::error::STAGING_DATABASE_ADMIN_URL is not set in the staging GitHub Environment. Owner action: enter the staging admin URL (host db.${STAGING_PROJECT_REF}.supabase.co) in the staging environment, then re-run. No database check can run without it."
+            exit 1
+          }
+          test -n "${APP_DB_ROLE_PASSWORD:-}" || {
+            echo "::error::STAGING_APP_DB_ROLE_PASSWORD is not set in the staging GitHub Environment. Owner action: enter the staging app-role password in the staging environment, then re-run."
+            exit 1
+          }
+          node --input-type=module <<'NODE'
+          let url;
+          try {
+            url = new URL(process.env.DATABASE_ADMIN_URL);
+          } catch {
+            console.error("STAGING_DATABASE_ADMIN_URL is not a valid PostgreSQL URL.");
+            process.exit(1);
+          }
+          const expectedHost = `db.${process.env.STAGING_PROJECT_REF}.supabase.co`;
+          if (url.hostname !== expectedHost) {
+            console.error(`Refusing preflight: expected staging host ${expectedHost}, received ${url.hostname}. This workflow never touches a non-staging database.`);
+            process.exit(1);
+          }
+          console.log(`Verified staging database host ${url.hostname}; credentials were not printed.`);
+          NODE
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1c # v7.1.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Refuse conflicting invoice expand schema and Prisma ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Read-only mirror of the deploy-staging-migrations guard (#804).
+          # No migration is applied or stamped here.
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          invoice_expand_state="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            WITH invoice_price_columns AS (
+              SELECT count(*) AS present
+              FROM information_schema.columns
+              WHERE table_schema = 'public'
+                AND table_name = 'invoice_line_items'
+                AND column_name IN ('unit_price', 'line_total')
+            ), prisma_expand AS (
+              SELECT EXISTS (
+                SELECT 1 FROM public._prisma_migrations
+                WHERE migration_name = '20260902193000_rename_invoice_line_price_columns'
+                  AND finished_at IS NOT NULL
+                  AND rolled_back_at IS NULL
+              ) AS applied
+            )
+            SELECT CASE
+              WHEN invoice_price_columns.present > 0 AND NOT prisma_expand.applied
+                THEN 'untracked_existing_expand'
+              WHEN invoice_price_columns.present <> 2 AND prisma_expand.applied
+                THEN 'ledger_schema_mismatch'
+              ELSE 'ok'
+            END
+            FROM invoice_price_columns CROSS JOIN prisma_expand
+          ")"
+          case "$invoice_expand_state" in
+            ok) echo "Invoice expand schema and Prisma ledger precheck passed." ;;
+            untracked_existing_expand)
+              echo "::error::Staging invoice selling-price columns exist, but the matching tracked Prisma expand migration is not recorded. Reconcile the historical Supabase migration and Prisma ledger with reviewed evidence before deploying; no migrations were applied or stamped by this workflow."
+              exit 1
+              ;;
+            ledger_schema_mismatch)
+              echo "::error::Prisma records the invoice expand migration, but both expected price columns are not present. Repair reviewed schema drift before deploying."
+              exit 1
+              ;;
+            *)
+              echo "::error::Invoice expand preflight returned an unknown state; refusing staging run."
+              exit 1
+              ;;
+          esac
+
+      - name: Check invoice migration preconditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          legacy_columns="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT count(*)
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'invoice_line_items'
+              AND column_name IN ('unit_cost', 'line_cost')
+          ")"
+          if [ "$legacy_columns" = "2" ]; then
+            null_legacy_costs="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+              SELECT count(*)
+              FROM public.invoice_line_items
+              WHERE unit_cost IS NULL OR line_cost IS NULL
+            ")"
+            if [ "$null_legacy_costs" != "0" ]; then
+              echo "::error::Invoice migration precheck found $null_legacy_costs rows with null legacy costs."
+              exit 1
+            fi
+            echo "Invoice legacy-cost backfill precheck passed."
+          elif [ "$legacy_columns" = "0" ]; then
+            echo "Legacy invoice-cost columns are already absent; precheck is not needed."
+          else
+            echo "::error::Invoice legacy-cost columns are in a partial state; refusing staging run."
+            exit 1
+          fi
+
+      - name: Verify Prisma ledger against the repository inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          applied="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT count(*) FROM public._prisma_migrations
+            WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
+          ")"
+          unfinished="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT count(*) FROM public._prisma_migrations
+            WHERE finished_at IS NULL AND rolled_back_at IS NULL
+          ")"
+          rolled_back="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT count(*) FROM public._prisma_migrations
+            WHERE rolled_back_at IS NOT NULL
+          ")"
+          echo "Ledger: expected=${EXPECTED_MIGRATIONS} applied=${applied} unfinished=${unfinished} rolled_back=${rolled_back}"
+          if [ "$applied" != "$EXPECTED_MIGRATIONS" ] || [ "$unfinished" != "0" ] || [ "$rolled_back" != "0" ]; then
+            echo "::error::Prisma ledger mismatch: expected=${EXPECTED_MIGRATIONS} applied=${applied} unfinished=${unfinished} rolled_back=${rolled_back}. Run the existing deploy-staging-migrations workflow (from main, with staging approval) after reviewing the gap. This workflow never stamps migrations as applied."
+            exit 1
+          fi
+          echo "Prisma ledger matches the repository inventory."
+
+      - name: Report Prisma migrate status (informational; psql counts gate)
+        shell: bash
+        run: |
+          set -euo pipefail
+          DATABASE_URL="$DATABASE_ADMIN_URL" npx prisma migrate status || true
+
+      - name: Verify app role exists and check Team & Time RLS
+        id: rls
+        shell: bash
+        run: |
+          set -euo pipefail
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          role_exists="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -v rolename="$APP_DB_ROLE_NAME" -Atqc "
+            SELECT count(*) FROM pg_roles WHERE rolname = :'rolename'
+          ")"
+          if [ "$role_exists" != "1" ]; then
+            echo "::error::Staging app role ${APP_DB_ROLE_NAME} does not exist. The deploy-staging-migrations workflow provisions it; run that workflow before staging can be verified."
+            exit 1
+          fi
+          rls_report="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT c.relname || ':' || c.relrowsecurity || ':' || c.relforcerowsecurity
+            FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public'
+              AND c.relname IN ('team_time_profiles', 'team_time_shifts', 'team_time_events')
+            ORDER BY c.relname
+          ")"
+          echo "RLS report (table:enabled:forced):"
+          echo "$rls_report"
+          row_count="$(printf '%s' "$rls_report" | grep -c . || true)"
+          if [ "$row_count" != "3" ]; then
+            echo "::error::Expected 3 Team & Time tables in the RLS report, found $row_count. Schema drift; refusing staging run."
+            exit 1
+          fi
+          # RLS disabled on any of these tables is a tenant-isolation hole: fail.
+          # FORCE missing is drift from the established forced-RLS posture and
+          # needs a reviewed migration to repair, so it is reported (and
+          # carried into the summary) rather than failing this read-only job.
+          if printf '%s' "$rls_report" | grep -q ':f:'; then
+            echo "::error::At least one Team & Time table has RLS disabled. Refusing staging run."
+            exit 1
+          fi
+          if printf '%s' "$rls_report" | grep -q ':f$'; then
+            echo "rls_force_drift=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::At least one Team & Time table has RLS enabled without FORCE RLS. This is drift from the forced-RLS posture; repair it through a reviewed migration. The summary carries this item."
+          else
+            echo "rls_force_drift=false" >> "$GITHUB_OUTPUT"
+            echo "Team & Time RLS is enabled and forced on all three tables."
+          fi
+
+  wait-deployments:
+    name: Wait for both Vercel staging deployments
+    needs: [record, preflight-db]
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    outputs:
+      api_deployment_id: ${{ steps.poll.outputs.api_deployment_id }}
+      api_deployment_url: ${{ steps.poll.outputs.api_deployment_url }}
+      web_deployment_id: ${{ steps.poll.outputs.web_deployment_id }}
+      web_deployment_url: ${{ steps.poll.outputs.web_deployment_url }}
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      SHA: ${{ needs.record.outputs.sha }}
+    steps:
+      - name: Poll Vercel until both deployments of the SHA are READY
+        id: poll
+        shell: bash
+        run: |
+          # Polls the Vercel deployments API for one READY deployment per
+          # project whose meta.githubCommitSha equals the approved SHA.
+          # Fails closed on a missing token, on HTTP 401/403 (token lacks
+          # team scope), on a terminal ERROR/CANCELED deployment, and on
+          # timeout. The token is never printed.
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error::VERCEL_TOKEN is not configured as a repository secret. Vercel deployment polling cannot run. Owner action: provision a team-scoped Vercel token for team_nY1VrcaEYEr4rcW7Gxweq7LP as the VERCEL_TOKEN repository secret. The Muse Vercel connector token is personal-scope only and returns HTTP 403 on team reads; it cannot substitute."
+            exit 1
+          fi
+
+          poll_project() {
+            local project_id="$1" label="$2"
+            local attempt=0
+            while [ "$attempt" -lt 45 ]; do
+              attempt=$((attempt + 1))
+              local response http_code body match state uid url
+              response="$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $VERCEL_TOKEN" \
+                "https://api.vercel.com/v6/deployments?projectId=${project_id}&limit=50")" || {
+                echo "::warning::Network error polling Vercel for $label (attempt $attempt); retrying in 60s."
+                sleep 60
+                continue
+              }
+              http_code="$(printf '%s' "$response" | tail -n 1)"
+              body="$(printf '%s' "$response" | sed '$d')"
+              if [ "$http_code" = "401" ] || [ "$http_code" = "403" ]; then
+                echo "::error::Vercel API returned HTTP $http_code for $label. The VERCEL_TOKEN lacks team scope for team_nY1VrcaEYEr4rcW7Gxweq7LP. Owner action: approve authorize_team_access, or replace VERCEL_TOKEN with a team-scoped token. No deployment can be verified until then."
+                return 1
+              fi
+              if [ "$http_code" != "200" ]; then
+                echo "::warning::Vercel API returned HTTP $http_code for $label (attempt $attempt); retrying in 60s."
+                sleep 60
+                continue
+              fi
+              match="$(printf '%s' "$body" | jq -r --arg sha "$SHA" \
+                '.deployments[] | select(.meta.githubCommitSha == $sha) | "\(.uid) \(.url) \(.state)"' 2>/dev/null | head -n 1)" || true
+              if [ -z "$match" ]; then
+                echo "No $label deployment of $SHA yet (attempt $attempt); retrying in 60s."
+                sleep 60
+                continue
+              fi
+              uid="$(printf '%s' "$match" | cut -d' ' -f1)"
+              url="$(printf '%s' "$match" | cut -d' ' -f2)"
+              state="$(printf '%s' "$match" | cut -d' ' -f3)"
+              echo "$label deployment $uid is $state."
+              if [ "$state" = "READY" ]; then
+                printf '%s %s' "$uid" "$url"
+                return 0
+              fi
+              if [ "$state" = "ERROR" ] || [ "$state" = "CANCELED" ]; then
+                echo "::error::$label deployment $uid of $SHA ended in state $state. Check the Vercel dashboard for the build log; the staging run cannot proceed on a failed deployment."
+                return 1
+              fi
+              sleep 60
+            done
+            echo "::error::Timed out waiting for a READY $label deployment of $SHA after 45 minutes. Check the Vercel dashboard for the staging-branch deployments of this SHA."
+            return 1
+          }
+
+          api_result="$(poll_project "$API_PROJECT_ID" "backend")" || exit 1
+          web_result="$(poll_project "$WEB_PROJECT_ID" "frontend")" || exit 1
+          echo "api_deployment_id=$(printf '%s' "$api_result" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "api_deployment_url=https://$(printf '%s' "$api_result" | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+          echo "web_deployment_id=$(printf '%s' "$web_result" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "web_deployment_url=https://$(printf '%s' "$web_result" | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Vercel staging deployments"
+            echo
+            echo "| App | Deployment ID | URL |"
+            echo "| --- | --- | --- |"
+            echo "| Backend | $(printf '%s' "$api_result" | cut -d' ' -f1) | https://$(printf '%s' "$api_result" | cut -d' ' -f2) |"
+            echo "| Frontend | $(printf '%s' "$web_result" | cut -d' ' -f1) | https://$(printf '%s' "$web_result" | cut -d' ' -f2) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  runtime:
+    name: Verify deployed runtime identity
+    needs: [record, preflight-db, wait-deployments]
+    runs-on: ubuntu-latest
+    env:
+      SHA: ${{ needs.record.outputs.sha }}
+      API_DEPLOYMENT_URL: ${{ needs.wait-deployments.outputs.api_deployment_url }}
+      WEB_DEPLOYMENT_URL: ${{ needs.wait-deployments.outputs.web_deployment_url }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      - name: Check backend deployment and staging alias health, readiness, and SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The bypass header is inert while Vercel Authentication is off
+          # (current state on both projects) and is required only if
+          # deployment protection is ever enabled. The secret is never printed.
+          bypass_args=()
+          if [ -n "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
+            bypass_args=(-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET")
+          fi
+          check_backend() {
+            local base_url="$1" label="$2"
+            local health ready_code reported_sha ready_status
+            health="$(curl -s "${bypass_args[@]}" "$base_url/health")" || {
+              echo "::error::$label /health request failed at $base_url."
+              exit 1
+            }
+            reported_sha="$(printf '%s' "$health" | jq -r '.commitSha // empty')"
+            if [ "$reported_sha" != "$SHA" ]; then
+              echo "::error::$label /health reports commitSha '${reported_sha:-absent}', not the approved SHA $SHA. The served deployment is not the approved one; refusing the run."
+              exit 1
+            fi
+            ready_code="$(curl -s -o /tmp/ready.json -w "%{http_code}" "${bypass_args[@]}" "$base_url/ready")" || {
+              echo "::error::$label /ready request failed at $base_url."
+              exit 1
+            }
+            ready_status="$(jq -r '.status // empty' /tmp/ready.json)"
+            if [ "$ready_code" != "200" ] || [ "$ready_status" != "ready" ]; then
+              echo "::error::$label /ready is not ready (HTTP $ready_code, status ${ready_status:-unknown}). The staging database or schema is not ready; check the preflight-db job and the deployment logs."
+              exit 1
+            fi
+            echo "$label OK: SHA $SHA, /ready ready."
+          }
+          check_backend "$API_DEPLOYMENT_URL" "Backend deployment"
+          check_backend "$API_STAGING_ALIAS" "Backend staging alias"
+          for web_url in "$WEB_DEPLOYMENT_URL" "$WEB_STAGING_ALIAS"; do
+            code="$(curl -s -o /dev/null -w "%{http_code}" "${bypass_args[@]}" "$web_url")" || {
+              echo "::error::Frontend request failed at $web_url."
+              exit 1
+            }
+            if [ "$code" != "200" ]; then
+              echo "::error::Frontend at $web_url returned HTTP $code (expected 200). If deployment protection was enabled, provision VERCEL_AUTOMATION_BYPASS_SECRET; otherwise check the Vercel deployment log."
+              exit 1
+            fi
+            echo "Frontend OK: $web_url returned HTTP 200."
+          done
+
+  guard:
+    name: Re-verify staging head before evidence
+    needs: [record, runtime]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail closed if staging moved during the run
+        shell: bash
+        env:
+          APPROVED_SHA: ${{ needs.record.outputs.sha }}
+        run: |
+          set -euo pipefail
+          staging_head="$(gh api "repos/${{ github.repository }}/branches/staging" --jq '.commit.sha')"
+          if [ "$staging_head" != "$APPROVED_SHA" ]; then
+            echo "::error::Staging head moved during the run (now $staging_head, approved SHA was $APPROVED_SHA). The staging branch alias may now serve a different deployment, so evidence captured now would not belong to the approved SHA. Re-run the orchestrator."
+            exit 1
+          fi
+          echo "Staging head unchanged: $staging_head."
+
+  evidence:
+    name: Beta evidence (canonical, staging)
+    needs: [record, preflight-db, guard]
+    uses: ./.github/workflows/beta-evidence.yml
+    with:
+      mode: full
+      scenario: canonical
+      # The staging branch alias: beta-evidence derives "staging" from this
+      # host. The guard job just proved the alias serves the approved SHA.
+      rc_base_url: https://tradeos-costbook-web-git-staging-billykshowalters.vercel.app
+      target_environment: staging
+      smoke_tenant_label: TradeOS Beta Smoke
+      expected_sha: ${{ needs.record.outputs.sha }}
+      # Deliberately false: beta-evidence correlates against the
+      # BETA_RC_DEPLOYMENT_SHA repository variable, which is unset, so
+      # requiring it would fail every run. SHA proof comes from the wait
+      # job (Vercel deployment meta), the alias, the guard, and /health.
+      require_sha_correlation: false
+    secrets: inherit
+
+  summary:
+    name: Publish staging verdict
+    needs: [record, preflight-static, preflight-db, wait-deployments, runtime, guard, evidence]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine the first failing dependency and write the verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          first_failed=""
+          first_repair=""
+          check() {
+            if [ -z "$first_failed" ] && [ "$2" != "success" ]; then
+              first_failed="$1"
+              first_repair="$3"
+            fi
+          }
+          check "record" "${{ needs.record.result }}" "The approved SHA is invalid or is not the staging head. Push the SHA to staging or dispatch the current staging head."
+          check "preflight-static" "${{ needs.preflight-static.result }}" "The repository migration inventory could not be built. Check the workflow log; this is a repository tooling failure, not a staging failure."
+          check "preflight-db" "${{ needs.preflight-db.result }}" "See the preflight-db job log. If staging secrets are unset, the owner action is: enter STAGING_DATABASE_ADMIN_URL (host db.qfbgdkbamfaasmtjfyru.supabase.co) and STAGING_APP_DB_ROLE_PASSWORD in the staging GitHub Environment, then re-run. If the ledger mismatches, run the existing deploy-staging-migrations workflow (from main, with staging approval) after reviewing the gap. Never stamp migrations as applied."
+          check "wait-deployments" "${{ needs.wait-deployments.result }}" "See the wait-deployments job log. If HTTP 403, the Vercel token lacks team scope: approve authorize_team_access or provision a team-scoped VERCEL_TOKEN. If timed out, check the Vercel dashboard for the staging-branch deployments of the approved SHA."
+          check "runtime" "${{ needs.runtime.result }}" "See the runtime job log. A /health commitSha mismatch means the served deployment is not the approved SHA; a /ready failure means the staging database or schema is not ready. If frontend checks return 401/403 and deployment protection was enabled, provision VERCEL_AUTOMATION_BYPASS_SECRET."
+          check "guard" "${{ needs.guard.result }}" "Staging head moved during the run. Re-run the orchestrator; do not accept evidence from a moved alias."
+          check "evidence" "${{ needs.evidence.result }}" "See the beta-evidence job log and its uploaded bundle. If identities are missing, provision the named BETA_RC_* secrets (never invent accounts). Today 2.0 features are out of scope until PR #798 merges; S052/S053 scenarios need their own identities and are not part of this run."
+          {
+            echo "## Staging orchestrator — verdict"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Approved SHA | ${{ needs.record.outputs.sha }} |"
+            echo "| Backend deployment | ${{ needs.wait-deployments.outputs.api_deployment_id }} ${{ needs.wait-deployments.outputs.api_deployment_url }} |"
+            echo "| Frontend deployment | ${{ needs.wait-deployments.outputs.web_deployment_id }} ${{ needs.wait-deployments.outputs.web_deployment_url }} |"
+            echo "| Staging Supabase ref | ${STAGING_PROJECT_REF} |"
+            echo "| RLS FORCE drift (Team & Time) | ${{ needs.preflight-db.outputs.rls_force_drift }} |"
+            echo
+            echo "| Job | Result |"
+            echo "| --- | --- |"
+            echo "| record | ${{ needs.record.result }} |"
+            echo "| preflight-static | ${{ needs.preflight-static.result }} |"
+            echo "| preflight-db | ${{ needs.preflight-db.result }} |"
+            echo "| wait-deployments | ${{ needs.wait-deployments.result }} |"
+            echo "| runtime | ${{ needs.runtime.result }} |"
+            echo "| guard | ${{ needs.guard.result }} |"
+            echo "| evidence | ${{ needs.evidence.result }} |"
+            echo
+            if [ -n "$first_failed" ]; then
+              echo "**Verdict: FAIL** — first failing dependency: \`$first_failed\`."
+              echo
+              echo "**Repair:** $first_repair"
+              echo
+              echo "Downstream results are consequences of this failure, not additional causes."
+            else
+              echo "**Verdict: PASS** — one approved SHA produced matching staging deployments, a verified staging database, passing runtime checks, and beta evidence."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat > manifest.json <<EOF
+          {
+            "run_id": "${{ github.run_id }}",
+            "approved_sha": "${{ needs.record.outputs.sha }}",
+            "staging_supabase_ref": "${STAGING_PROJECT_REF}",
+            "api_deployment_id": "${{ needs.wait-deployments.outputs.api_deployment_id }}",
+            "api_deployment_url": "${{ needs.wait-deployments.outputs.api_deployment_url }}",
+            "web_deployment_id": "${{ needs.wait-deployments.outputs.web_deployment_id }}",
+            "web_deployment_url": "${{ needs.wait-deployments.outputs.web_deployment_url }}",
+            "rls_force_drift": "${{ needs.preflight-db.outputs.rls_force_drift }}",
+            "results": {
+              "record": "${{ needs.record.result }}",
+              "preflight-static": "${{ needs.preflight-static.result }}",
+              "preflight-db": "${{ needs.preflight-db.result }}",
+              "wait-deployments": "${{ needs.wait-deployments.result }}",
+              "runtime": "${{ needs.runtime.result }}",
+              "guard": "${{ needs.guard.result }}",
+              "evidence": "${{ needs.evidence.result }}"
+            }
+          }
+          EOF
+          if [ -n "$first_failed" ]; then
+            exit 1
+          fi
+
+      - name: Upload run manifest
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: staging-orchestrator-manifest
+          path: manifest.json
+          if-no-files-found: error
+          retention-days: 90
