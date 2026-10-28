@@ -16,12 +16,12 @@ export default async function NewProjectJobPage({ params, searchParams }: { para
     getOrganizationSettings(token ?? ""),
   ]);
 
-  const proposal = proposalId ? await getProposal(token ?? "", proposalId) : null;
-  if (proposal && (proposal.projectId !== project.id || proposal.status !== "accepted")) {
+  if (!JOB_MANAGER_ROLES.has(settings.currentRole)) {
     redirect(`/projects/${project.id}`);
   }
 
-  if (!JOB_MANAGER_ROLES.has(settings.currentRole)) {
+  const proposal = proposalId ? await getProposal(token ?? "", proposalId) : null;
+  if (proposal && (proposal.projectId !== project.id || proposal.status !== "accepted")) {
     redirect(`/projects/${project.id}`);
   }
 
