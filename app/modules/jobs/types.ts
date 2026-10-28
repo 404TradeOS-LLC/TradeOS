@@ -45,6 +45,16 @@ export interface CreateJobInput {
   equipmentIds?: string[];
   overrideConflict?: boolean;
   overrideReason?: string;
+  /** Internal, server-derived conversion provenance; never accepted by the generic job route. */
+  sourceProposalId?: string;
+  acceptedBaselineJson?: Record<string, unknown>;
+}
+
+export interface ConvertAcceptedProposalInput {
+  orgId: string;
+  actor: AuthContext;
+  proposalId: string;
+  serviceAddressId: string;
 }
 
 export interface UpdateJobInput {
@@ -195,6 +205,8 @@ export interface JobActivityDTO {
 }
 
 export interface JobDTO extends JobSummaryDTO {
+  sourceProposalId: string | null;
+  acceptedBaselineJson: unknown;
   projectId: string;
   customerId: string;
   serviceAddressId: string;
