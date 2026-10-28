@@ -189,3 +189,8 @@ nothing in this unmerged slice deploys the migration or dispatches a crew.
 ## Approved baseline in Job workspace (PR #810)
 
 The manager-only `/projects/[id]/jobs/[jobId]` handoff page reads `GET /api/v1/jobs/:jobId` under the existing tenant/RLS boundary and verifies the job belongs to the route's project. Its read-only display renders the frozen accepted proposal scope, price, exclusions, assumptions, terms and payment milestones without re-pricing from Costbook. The approved-proposal conversion form opens this page after creating/reusing the Job; standalone Jobs display a truthful no-baseline state. Scheduling and dispatch are still separate.
+
+
+### Commercial snapshot data minimization (PR #810)
+
+The accepted scope remains visible as executable Job description to assigned field technicians; customer-approved prices, payment milestones and contract terms from the frozen baseline are redacted from technician-scoped Job detail reads. Owner/admin/dispatcher can inspect the full baseline from the protected approval handoff page.
