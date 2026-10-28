@@ -19,10 +19,11 @@ concurrency:
 jobs:
   repair:
     name: Restore staging backend Supabase issuer configuration
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: staging
     timeout-minutes: 20
     env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       REPAIR_CONFIRM: ${{ inputs.confirm }}
       VERCEL_TEAM_ID: team_nY1VrcaEYEr4rcW7Gxweq7LP
       BACKEND_PROJECT_ID: prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD
@@ -39,6 +40,8 @@ jobs:
 
       - name: Require explicit staging-only confirmation
         shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
           if [ "$REPAIR_CONFIRM" != "REPAIR_STAGING_AUTH" ]; then
@@ -58,16 +61,20 @@ jobs:
         run: npm install --global vercel@59.11.2
 
       - name: Verify Vercel token
-        run: vercel whoami --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel whoami
 
       - name: Restore branch-scoped staging Supabase URL
         shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          if VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$BACKEND_PROJECT_ID" vercel env update SUPABASE_URL preview "$STAGING_BRANCH" --value "$STAGING_SUPABASE_URL" --yes --token="$VERCEL_TOKEN"; then
+          if VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$BACKEND_PROJECT_ID" vercel env update SUPABASE_URL preview "$STAGING_BRANCH" --value "$STAGING_SUPABASE_URL" --yes; then
             exit 0
           fi
-          printf '%s' "$STAGING_SUPABASE_URL" | VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$BACKEND_PROJECT_ID" vercel env add SUPABASE_URL preview "$STAGING_BRANCH" --token="$VERCEL_TOKEN"
+          printf '%s' "$STAGING_SUPABASE_URL" | VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$BACKEND_PROJECT_ID" vercel env add SUPABASE_URL preview "$STAGING_BRANCH"
 
       - name: Capture current staging branch identity
         shell: bash
@@ -78,6 +85,8 @@ jobs:
           echo "STAGING_EXPECTED_SHA=$staging_sha" >> "$GITHUB_ENV"
 
       - name: Redeploy and verify the exact staging backend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: node scripts/staging-repair.mjs
 
       - name: Retain staging deployment identity and readiness evidence

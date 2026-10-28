@@ -51,6 +51,21 @@ related_code:
 
 # Repository Governance
 
+## Staging migration schema-ledger preflight — 2026-10-27
+
+The protected, manual `.github/workflows/deploy-staging-migrations.yml` must fail before any Prisma migration if the historical invoice expand columns already exist but `20260902193000_rename_invoice_line_price_columns` is not recorded as applied, or if an applied expand migration's expected columns are missing. This guards against a dual-tool migration history collision observed in Supabase Staging. The safe response is to reconcile the schema and both ledgers with reviewed evidence; do not delete a ledger entry, stamp a migration as applied, or proceed to the invoice contract phase without confirming that older Preview writers are retired. The workflow remains staging-only, `main`-restricted and under the existing Environment approval gate.
+
+
+
+## Staging repair workflow authorization boundary — 2026-10-27
+
+The manual Supabase-auth recovery workflow `.github/workflows/repair-staging-supabase-auth.yml` is a privileged staging-only operation even though it writes only the Vercel `SUPABASE_URL` Preview variable scoped to branch `staging`. Its job MUST run from `main` and reference the canonical `staging` GitHub Environment so the existing required reviewer and main-only deployment restriction apply *before* secrets become available. The typed `REPAIR_STAGING_AUTH` confirmation, hardcoded Supabase staging project ref, Vercel team/project identity, exact Git SHA and runtime `/health`/`/ready` checks are additional defenses, not substitutes for the environment gate.
+
+Do not expose the repository-level `VERCEL_TOKEN` to an entire workflow job: use the secret only on the explicit confirmation, token-validation, environment-repair and guarded deployment steps. Prefer the CLI's `VERCEL_TOKEN` environment authentication to `--token` arguments, which can expose credentials in process listings. Checkout, dependency installation and unrelated actions must not receive the secret. Contract assertions in `scripts/__tests__/rc-smoke-contract.test.mjs` enforce this requirement.
+
+For staging deployment certification, Vercel Preview variable identity (API and web), staged database migrations/RLS, matching backend/frontend commits, authenticated multi-role workflow evidence and clean runtime checks are independent gates. A healthy old staging build or a path-based ignored build cannot satisfy them. If Vercel metadata reads return 403, stop rather than broadening production access, copying unverified secrets, or weakening deployment protection. The October 27 audit identified this explicit access blocker; resolve it through least-privilege authorized access before staging rollout.
+
+
 ## ABC supplier preview workflow security — 2026-10-09
 
 The manually dispatched `.github/workflows/preview-abc-supply-material.yml` is a production-scoped **read-only operator preview**, not permission to create a Material. It accepts exactly one reviewed ABC supplier product key and two validated UUID inputs. Its `production` Environment and restricted application database role are mandatory, and `runWithBackgroundDatabaseSession` checks active tenant owner/admin membership and `costbook.manage` without granting roles. It cannot accept `--apply`, initial costs, or approval confirmations. Protected approvals, branch governance and the separately authorized activation command remain intact. Log output is restricted to the existing operator's candidate summary; no database credential or OAuth token is echoed.
