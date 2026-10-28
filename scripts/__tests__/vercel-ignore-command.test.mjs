@@ -37,6 +37,11 @@ function fixture() {
     join(cwd, "app", "vercel-ignore-build.sh"),
     readFileSync(new URL("app/vercel-ignore-build.sh", repositoryRoot), "utf8"),
   );
+  mkdirSync(join(cwd, "web"));
+  writeFileSync(
+    join(cwd, "web", "vercel-ignore-build.sh"),
+    readFileSync(new URL("web/vercel-ignore-build.sh", repositoryRoot), "utf8"),
+  );
   git(cwd, "add", ".");
   git(cwd, "commit", "--quiet", "-m", "initial");
   const previousSha = git(cwd, "rev-parse", "HEAD");
@@ -48,9 +53,9 @@ function fixture() {
   return { cwd, previousSha, commitSha: git(cwd, "rev-parse", "HEAD") };
 }
 
-function runIgnoredBuildStep(fixtureState, overrides = {}) {
+function runIgnoredBuildStep(fixtureState, overrides = {}, scriptDir = "app") {
   return spawnSync("sh", ["-c", vercelConfig.ignoreCommand], {
-    cwd: join(fixtureState.cwd, "app"),
+    cwd: join(fixtureState.cwd, scriptDir),
     env: {
       ...process.env,
       VERCEL_ENV: "preview",
@@ -98,6 +103,27 @@ test("missing previous deployment commit fails open to a build", () => {
     runIgnoredBuildStep(state, { VERCEL_GIT_PREVIOUS_SHA: "missing" }),
     1,
   );
+});
+
+test("staging-branch backend builds always proceed even when backend inputs are unchanged", () => {
+  const state = fixture();
+  assert.equal(
+    runIgnoredBuildStep(state, { VERCEL_GIT_COMMIT_REF: "staging" }),
+    1,
+  );
+});
+
+test("staging-branch frontend builds always proceed even when frontend inputs are unchanged", () => {
+  const state = fixture();
+  assert.equal(
+    runIgnoredBuildStep(state, { VERCEL_GIT_COMMIT_REF: "staging" }, "web"),
+    1,
+  );
+});
+
+test("non-staging frontend previews still skip when frontend inputs are unchanged", () => {
+  const state = fixture();
+  assert.equal(runIgnoredBuildStep(state, {}, "web"), 0);
 });
 
 
