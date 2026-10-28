@@ -189,3 +189,14 @@ The supplier price-sync endpoint uses a platform Cron bearer secret; this does *
 ## Validation runtime and permissions
 
 The Zod 4 security migration preserves the previous identifier shape contract using `z.guid()`. Parsing a nil/legacy identifier conveys no authority: JWT identity, organization membership, domain permissions, parent-record checks and forced RLS are unchanged. Customer portal identity and technician assignment restrictions remain in force. No role or permission is added by this dependency repair. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
+
+## Step 9 proposal-to-job conversion permission (PR #810, unmerged)
+
+`POST /api/v1/jobs/from-proposal/:proposalId` uses the existing Job manager
+boundary (owner, admin, dispatcher) and request-authenticated `orgId`; no
+new role or permission is introduced. Technicians and customer-portal users
+cannot convert proposals. The source proposal must be accepted and scoped
+through its project to the actor's organization. The service address must
+be active, in the same organization, and owned by the linked customer.
+Existing forced RLS remains in effect; any real DB permission proof requires
+the reviewed migration and staging tests before deployment.
