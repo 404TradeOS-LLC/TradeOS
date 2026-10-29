@@ -76,9 +76,7 @@ mutation boundary remain unchanged.
 The organization-scoped `POST /api/v1/jobs/from-proposal/:proposalId` converts
 an **accepted** proposal to a single, **unscheduled** Job. The request accepts
 only a customer-owned `serviceAddressId`; all other job and commercial fields
-come from the accepted proposal and its project. The caller must have an
-owner/admin/dispatcher role and valid organization session. Foreign tenant,
-non-accepted proposal, missing customer, or mismatched address fails closed.
+come from the accepted proposal and its project. Access and denial rules are defined in the [RBAC matrix](../RBAC_MATRIX.md#accepted-proposal-job-snapshot-read-permissions) and [workflow lifecycle](../WORKFLOW_LIFECYCLES.md).
 
 The job stores a unique nullable `sourceProposalId` and
 `acceptedBaselineJson` copied at conversion time, including approved scope,
