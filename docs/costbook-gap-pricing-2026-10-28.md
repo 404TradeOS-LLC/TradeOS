@@ -90,7 +90,7 @@ some assemblies.
 | Component | Recipe qty | Unit price | Extended / SF | Supplier / source | Verification | Review flag |
 |---|---|---|---|---|---|---|
 | mat_hardwood_oak_34x325 | 1.1 SF | $3.29 / SF (3/4 in. x 3-1/4 in. Select & Better red oak, model 314SELRO) | $3.62 | flooring.org | P | ⚠️ REVIEW BEFORE BIDS — exact dimension/species match. Grade is Select & Better; the recipe does not pin a grade, so a #2-grade product would be cheaper (published #2 3-1/4 in. prices run ~$1.89/SF). A $2.79/SF sale price on the same page expired 10/27/2026; $3.29 is the current regular price. Min. order 13 bundles (18.75 SF each). |
-| mat_underlayment_felt_15lb | 1.1 SF | $34.98 / 432 SF roll = $0.0810 / SF | $0.089 | Lowe's (Warrior 15 lb felt, 36 in. x 144 ft) | S | ⚠️ REVIEW BEFORE BIDS — secondhand attribution: the $34.98 figure comes from a resale listing quoting a Lowe's price, not from a Lowe's product page. Sanity check: September baseline Niehaus $31.95/roll, same order of magnitude. |
+| mat_underlayment_felt_15lb | 1.1 SF | $34.97 / 432 SF roll = $0.0809 / SF | $0.089 | Home Depot (Warrior Roofing 15, 432 SF) | S | ⚠️ REVIEW BEFORE BIDS — the original Lowe's attribution was unsupported; replaced with an identifiable Home Depot Warrior product listing. Confirm suitability as a flooring underlayment before use. Sanity check: September baseline Niehaus $31.95/roll, same order of magnitude. |
 | fast_flooring_cleats_16ga_2in | 5.5 EA | $304.13 / 15,000-ct box = $0.0203 / EA (Powernail 16 ga 2 in. L-cleats) | $0.112 | Powernail (manufacturer store) | S | ⚠️ REVIEW BEFORE BIDS — per-EA cost depends heavily on pack size (1,000-ct boxes run ~$0.03–$0.05/EA); the bulk-box conversion is used here. |
 | labor_install_solid_hardwood (labor) | 0.05 HR | — | — | — | R | Labor is not a supplier price. |
 | **Material subtotal** | | | **$3.82 / SF** | | | Labor excluded. |
@@ -113,7 +113,7 @@ some assemblies.
 | Component | Recipe qty | Unit price | Extended / SF | Supplier / source | Verification | Review flag |
 |---|---|---|---|---|---|---|
 | mat_ijoist_series_1178 | 0.675 LF | $5.25–$6.75 / LF (TJI 210, 11-7/8 in.) | $3.54–$4.56 | Truitt & White TJI cost guide (Bay Area) | G | ⚠️ REVIEW BEFORE BIDS — guide range, NOT a Terre Haute quote. Engineered lumber is pro-dealer/special-order, not retail shelf stock; a local dealer quote is required. A second published table lists 11-7/8 in. at $6.18/LF, inside this range. |
-| mat_rimboard_engineered_1178 | 0.127 LF | $62.29 / 18 ft = $3.46 / LF (1-1/4 in. x 11-7/8 in. x 18 ft LSL rim board/stringer blank) | $0.44 | Menards | S | ⚠️ REVIEW BEFORE BIDS. Sanity check: September baseline Niehaus $49.95/EA (length unstated in that extraction). |
+| mat_rimboard_engineered_1178 | 0.127 LF | $62.29 / 18 ft = $3.46 / LF (after rebate) (1-1/4 in. x 11-7/8 in. x 18 ft LSL rim board/stringer blank) | $0.44 | Menards | S | ⚠️ REVIEW BEFORE BIDS — Menards lists this as an after-rebate value; verify the cash price. Sanity check: September baseline Niehaus $49.95/EA (length unstated in that extraction). |
 | mat_web_stiffeners_plywood | 0.02 PAIR | — | $0 (allowance) | — | R | Documented reason: web stiffeners are cut from sheathing/rim offcuts on site; there is no separate purchasable SKU for a 0.02-pair allocation. Carried at $0, not hidden inside another line. |
 | mat_squash_blocks_2x4 | 0.08 LF | $4.15 / 8 ft = $0.519 / LF (kiln-dried 2x4 stud) | $0.042 | Menards (price survey dated 2026-10-14) | S | ⚠️ REVIEW BEFORE BIDS |
 | fast_nails_10d_16d_ijoist | 0.85 EA | $31.73 / ~220-ct 5 lb box = $0.144 / EA (Grip-Rite 16d 3-1/2 in. common) | $0.123 | Home Depot | S | ⚠️ REVIEW BEFORE BIDS — recipe units read "EA/LBS," which is ambiguous; treated here as 0.85 nails per SF. The 16d box price is used for the combined 10d/16d component (10d runs slightly cheaper). |
@@ -248,6 +248,19 @@ The following original publishers provide identifiable evidence for selected pla
 - South Mini Splits lists a 12 ft. PVC cover kit at $44: https://southminisplits.com/products/12ft-pvc-decorative-line-set .
 - Younits lists the 50 ft. 14/4 mini-split cable at $37.50: https://younits.com/14-4-ga-mini-split-wire-50-ft.html .
 - Total Home Supply identifies the Diversitech DDS-30 disconnect and whip kit: https://www.totalhomesupply.com/p/quick-disconnect-switch-kit-for-mini-split-air-conditioner-systems . Its $69 observation still needs a retained price confirmation.
+- Menards identifies the 18 ft. LSL rim board at $62.29 **after rebate**: https://www.menards.com/main/p-1642874261788930-c-5663.htm . The cash price may differ.
+- Menards lists a ProAire mini-split pad at $35.59 after rebate in its catalog: https://www.menards.com/main/heating-cooling/air-conditioners-accessories/c-1642874294161258.htm . Verify dimensions and cash price.
+- Zoro identifies the Teks #10 x 1-1/2 in., 100-pack pancake screw SKU 21605: https://www.zoro.com/teks-10-x-1-12-in-standing-seam-panel-roofing-screw-pancake-head-star-drive-w-t-25-bit-zinc-100pk-21605/i/G422800292/ . The $20.65 observation needs a retained price confirmation.
+- Home Depot lists Gibraltar 50 ft. butyl tape at $7.98: https://www.homedepot.com/p/205945574 .
+- Industrial Products lists the DuPont Froth-Pak 200 kit at $374.99: https://www.industrialproducts.com/dupont-12031949-froth-pak-low-gwp-200-closed-cell-spray-foam-sealant-kit.html . The density/R-value mismatch noted above remains.
+- Hardware World lists Napco 2 mil, 12 x 200 ft. film at $45.69: https://www.hardwareworld.com/p38h8ql/Napco-Clear-Poly-Sheeting-2-Mil-12-Ft-x-200-Ft .
+- All Contractors Supply lists ALCM 5 gal. foundation coating at $52.42: https://allcontractorssupply.com/products/foundation-coating .
+- Home Depot lists Quikrete 10 lb. hydraulic cement model 112611 at $15.97: https://www.homedepot.com/p/202531999 . It remains a proxy for cove mortar.
+- Home Depot lists Grip-Rite 16d 5 lb. common nails at $31.73: https://www.homedepot.com/p/202308546 . Nail count and mixed 10d/16d use still need validation.
+- Home Depot lists Warrior Roofing 15, 432 SF felt at $34.97: https://www.homedepot.com/p/100092007 . This replaces the unsupported Lowe's attribution; flooring suitability remains unverified.
+- Supply Maverick lists a 24 ga HardyLoc **fixed** clip at $0.75: https://supplymaverick.com/product/1-12-galvanized-standing-seam-clips/ . It does not substantiate the proposed $0.75–$1.50 **expansion** clip range or prove system compatibility.
+- We Rent It lists a skid-steer breaker at $180/day: https://rent.werentit.net/products/skid-steer-breaker-j5mcfs01mvvh . This substantiates only the lower bound, not the $375/day upper bound.
+- ZT Supply Chain's mini-excavator planning guide gives $275–$450/day: https://ztsupplychain.com/mini-excavator-rental-rates/ . This is not a Terre Haute rental quote.
 - JBL Disposal's Terre Haute listing states $60 per ton for extra weight: https://www.jbldisposal.com/dumpster-rental-terre-haute-in/ . This is an overage charge, not a standalone disposal quote.
 - Truitt & White's TJI guide lists TJI 210, 11-7/8 in., at $5.25–$6.75 per linear foot: https://truittandwhite.com/cost-of-tji-joists . This is a regional guide, not a Terre Haute dealer quote.
 - MyHomeQuote's standing-seam guide lists 24-gauge panels at $5.50–$6.50 per square foot: https://www.myhomequote.com/cost/roofing/standing-seam-metal-roof-cost . This is a planning guide, not a panel order.
