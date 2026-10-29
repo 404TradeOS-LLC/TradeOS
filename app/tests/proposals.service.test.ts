@@ -145,6 +145,64 @@ describe("ProposalsService", () => {
     );
   });
 
+  it("returns the original proposal for a repeated key and unchanged payload", async () => {
+    const input = { orgId: "org-1", estimateId: "estimate-1", finalPrice: 7125.37 };
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
+    });
+    mockPrisma.proposal.findFirst.mockResolvedValueOnce(null).mockImplementationOnce(async () => ({
+      ...proposalRow("draft"),
+      idempotencyHash: mockPrisma.proposal.create.mock.calls[0][0].data.idempotencyHash,
+    }));
+    mockPrisma.proposal.create.mockResolvedValue({ ...proposalRow("draft"), id: "proposal-1" });
+
+    const service = new ProposalsService();
+    const first = await service.createWithIdempotency(input, "9a8b7c6d-5e4f-4321-8abc-0123456789ab");
+    const replay = await service.createWithIdempotency(input, "9a8b7c6d-5e4f-4321-8abc-0123456789ab");
+
+    expect(first.replayed).toBe(false);
+    expect(replay).toMatchObject({ replayed: true, proposal: { id: "proposal-1" } });
+    expect(mockPrisma.proposal.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects key reuse when the proposal payload changes", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
+    });
+    mockPrisma.proposal.findFirst.mockResolvedValue({ ...proposalRow("draft"), idempotencyHash: "a".repeat(64) });
+
+    await expect(new ProposalsService().createWithIdempotency(
+      { orgId: "org-1", estimateId: "estimate-1", finalPrice: 1 },
+      "9a8b7c6d-5e4f-4321-8abc-0123456789ab"
+    )).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.proposal.create).not.toHaveBeenCalled();
+  });
+
+  it("resolves a concurrent unique-key insert to the committed proposal", async () => {
+    const input = { orgId: "org-1", estimateId: "estimate-1" };
+    let requestHash = "";
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
+    });
+    mockPrisma.proposal.findFirst.mockResolvedValueOnce(null).mockImplementationOnce(async () => ({
+      ...proposalRow("draft"),
+      id: "proposal-race",
+      idempotencyHash: requestHash,
+    }));
+    mockPrisma.proposal.create.mockImplementationOnce(async (args: { data: { idempotencyHash: string } }) => {
+      requestHash = args.data.idempotencyHash;
+      throw { code: "P2002" };
+    });
+
+    const result = await new ProposalsService().createWithIdempotency(
+      input,
+      "9a8b7c6d-5e4f-4321-8abc-0123456789ab"
+    );
+
+    expect(result).toMatchObject({ replayed: true, proposal: { id: "proposal-race" } });
+    expect(mockPrisma.project.update).not.toHaveBeenCalled();
+  });
+
   it("rejects edits to an accepted proposal", async () => {
     mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("accepted"));
     mockPrisma.proposal.updateMany.mockResolvedValue({ count: 0 });
