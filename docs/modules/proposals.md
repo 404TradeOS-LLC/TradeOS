@@ -44,7 +44,7 @@ Own proposal drafting, sending, viewing, acceptance or decline handling, PDF gen
 - The request fingerprint is SHA-256 over canonicalized request JSON; organization context is derived from authentication and is not part of the client fingerprint. The lookup remains scoped through the parent Project and does not relax RLS or permissions.
 - A missing or malformed key is rejected before persistence. Current first-party Proposal Review forms seed the key per draft and preserve it in the returned React action state, including the ambiguous API-error recovery state.
 
-The key applies to draft creation only; it does not send a proposal or change pricing/lifecycle semantics. A full page reload seeds a new key, so the existing recovery instruction to inspect the Project proposal list remains the safe path after leaving the form.
+The key applies to draft creation only; it does not send a proposal or change pricing/lifecycle semantics. Uniqueness is retained for the lifetime of the proposal (there is no TTL cleanup). A full page reload seeds a new key, so the existing recovery instruction to inspect the Project proposal list remains the safe path after leaving the form.
 
 ## Organization work-queue read
 
