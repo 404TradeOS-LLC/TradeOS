@@ -34,6 +34,18 @@ Own proposal drafting, sending, viewing, acceptance or decline handling, PDF gen
 - `/api/v1/proposals/*`
 - `GET /api/v1/proposals` — organization-scoped work-queue read (see below)
 
+## Idempotent proposal creation
+
+`POST /api/v1/proposals` requires a UUID `Idempotency-Key` header for persisted draft creation. The key is stored with the proposal and unique per project, so retries and concurrent submissions for the same project cannot create duplicate drafts.
+
+- First successful create returns `201`, the proposal representation, and `Idempotency-Replayed: false`.
+- Repeating the key with the same request returns the original proposal with `200` and `Idempotency-Replayed: true`; no second proposal or project status write is made.
+- Reusing a key with different request details returns `409`. The client must inspect the Project's Proposals tab before starting a new draft.
+- The request fingerprint is SHA-256 over canonicalized request JSON; organization context is derived from authentication and is not part of the client fingerprint. The lookup remains scoped through the parent Project and does not relax RLS or permissions.
+- A missing or malformed key is rejected before persistence. Current first-party Proposal Review forms seed the key per draft and preserve it in the returned React action state, including the ambiguous API-error recovery state.
+
+The key applies to draft creation only; it does not send a proposal or change pricing/lifecycle semantics. Uniqueness is retained for the lifetime of the proposal (there is no TTL cleanup). A full page reload seeds a new key, so the existing recovery instruction to inspect the Project proposal list remains the safe path after leaving the form.
+
 ## Organization work-queue read
 
 `GET /api/v1/proposals` (`ProposalsService.listOrganizationQueue`) returns every proposal in the caller's organization, newest-activity-first, for dashboard/reporting/future-Athena-tool consumers that need a company-wide view rather than a single project's proposals.
