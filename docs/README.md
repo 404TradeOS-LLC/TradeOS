@@ -401,6 +401,8 @@ The protected `.github/workflows/backfill-abc-materials.yml` operator workflow n
 
 The staging database uses its own manually dispatched Prisma migration workflow at `.github/workflows/deploy-staging-migrations.yml`. It runs only from `main`, targets the verified TradeOS Staging project ref, and calls the repository's `app/scripts/deploy-migrations.sh` so Prisma history and restricted-role grants stay aligned. Configure `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` as secrets in the GitHub `staging` Environment; never reuse Production secrets. The workflow verifies the database host, invoice backfill precondition, and final Prisma ledger.
 
+Deploy workflow pooler support — 2026-10-29: `.github/workflows/deploy-staging-migrations.yml` now accepts the staging Supabase Transaction pooler host (`aws-0-us-east-2.pooler.supabase.com`) in addition to the direct host, with the same project-ref-suffixed username requirement the reconcile workflow uses, because GitHub runners cannot reach the direct host over IPv6. For `prisma migrate deploy` the workflow converts a verified Transaction-pooler URL to session mode (port 5432, pgbouncer param stripped); the psql checks keep the secret as-is. Staging ledger stood at 47 applied of 61 tracked after the 2026-10-29 invoice-expand reconciliation (47 applied, 0 unfinished, legacy columns intact, proven by the reconcile workflow's final check); the remaining 14 migrations still require the writer-retirement attestation before the contract migration runs.
+
 
 ## Isolated frontend component browser verification
 
