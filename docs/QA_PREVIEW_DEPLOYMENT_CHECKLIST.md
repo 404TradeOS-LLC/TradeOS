@@ -83,6 +83,26 @@ of a server-only Vercel variable. Verify those settings in Vercel and confirm
 behavior through server-side routes; do not infer correctness because a build
 completed.
 
+### Protected staging environment attestation
+
+For the dedicated `staging` branch, the manually dispatched
+`.github/workflows/attest-staging-preview.yml` workflow verifies the
+effective branch-scoped Preview values for **both existing Vercel projects**
+inside an approved GitHub `staging` job. Dispatch it from `main` after
+the CODEOWNER-reviewed workflow is merged. It uses the existing scoped
+`VERCEL_TOKEN` GitHub secret, without downloading a .env file or displaying
+credential values.
+
+The workflow fails if Vercel denies variable access (including HTTP 403),
+if the API issuer or Postgres host/pooler identity is not staging, or if
+the frontend targets a non-staging Supabase URL or API origin. Passing means
+only that the listed binding checks succeeded at execution time; it is
+**not** evidence that the Preview service-role key belongs to the staging
+project, that the database migration ledger is current, or that the
+frontend and backend deployments have matching reviewed commit SHAs.
+Those require separate owner-safe provider attestation, migration review,
+and authenticated role journeys before deployment certification.
+
 ## 2. Automated checks
 
 Run the frontend source checks from the repository root:
