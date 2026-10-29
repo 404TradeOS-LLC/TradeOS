@@ -564,6 +564,7 @@ describe("JobsService", () => {
     mockDb.jobAssignment.findFirst.mockResolvedValue({ id: "assignment-1" });
     mockDb.job.update.mockResolvedValue({
       ...scheduledJob,
+      acceptedBaselineJson: { finalPrice: "7125.37", termsAndConditions: "Net 15" },
       status: "completed",
       actualEnd: new Date("2026-07-16T15:05:00.000Z"),
       completedAt: new Date("2026-07-16T15:05:00.000Z"),
@@ -578,6 +579,7 @@ describe("JobsService", () => {
     });
 
     expect(job.status).toBe("completed");
+    expect(job.acceptedBaselineJson).toBeNull();
     expect(mockDb.job.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
