@@ -240,6 +240,8 @@ before any bid use.
 
 The following original publishers provide identifiable evidence for selected planning rows:
 
+- Home Depot lists the Nashua 1.89 in. x 30 yd. duct tape at $7.98: https://www.homedepot.com/p/207203956 . Confirm the exact tape variant before purchase.
+- Powernail's 15,000-count 16-gauge 2 in. cleat case lists $304.13: https://store.powernail.com/black-box-2-16-ga-15-x-1m-powercleats . Confirm pack quantity and current price before use.
 - JBL Disposal's Terre Haute listing states $60 per ton for extra weight: https://www.jbldisposal.com/dumpster-rental-terre-haute-in/ . This is an overage charge, not a standalone disposal quote.
 - Truitt & White's TJI guide lists TJI 210, 11-7/8 in., at $5.25–$6.75 per linear foot: https://truittandwhite.com/cost-of-tji-joists . This is a regional guide, not a Terre Haute dealer quote.
 - MyHomeQuote's standing-seam guide lists 24-gauge panels at $5.50–$6.50 per square foot: https://www.myhomequote.com/cost/roofing/standing-seam-metal-roof-cost . This is a planning guide, not a panel order.
