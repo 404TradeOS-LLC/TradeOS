@@ -34,7 +34,9 @@ function readPaymentSchedule(formData: FormData) {
   };
 }
 
-export async function createProposalAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+type CreateProposalActionState = FormActionState | { error: string; statusCheck: true };
+
+export async function createProposalAction(_prev: CreateProposalActionState, formData: FormData): Promise<CreateProposalActionState> {
   const token = await getSessionToken();
   const projectId = String(formData.get("projectId") ?? "");
   const estimateId = String(formData.get("estimateId") ?? "");
@@ -70,7 +72,10 @@ export async function createProposalAction(_prev: FormActionState, formData: For
       }),
     });
   } catch (err) {
-    return { error: err instanceof ApiClientError ? err.message : "Something went wrong." };
+    return {
+      error: err instanceof ApiClientError ? err.message : "Something went wrong.",
+      statusCheck: true,
+    };
   }
 
   revalidatePath(`/projects/${projectId}`);

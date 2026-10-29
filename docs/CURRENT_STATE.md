@@ -63,6 +63,12 @@ related_code:
 
 # TradeOS Current State
 
+## Proposal draft status-check recovery — 2026-10-29
+
+The finalized Estimate Review links to the existing Proposal Review form with its `estimateId`. That form creates a draft through the existing proposal action; customer send remains a separate explicit action, and returned errors preserve edited fields.
+
+The form's API-error state provides a direct link to the same authenticated Project's Proposals tab (`?tab=proposals`) so staff can inspect the list before manually retrying. Local payment-schedule validation stays inline. This is a navigation aid, not a server status lookup or idempotency guarantee: it does not auto-retry or infer the POST result. Authenticated runtime behavior and tenant-denial evidence remain separate verification gates.
+
 ## Web performance telemetry — PR #744
 
 The Next.js root layout includes Vercel Speed Insights for browser performance
