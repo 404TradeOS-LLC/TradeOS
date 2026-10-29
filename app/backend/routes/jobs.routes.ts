@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response, Router } from "express";
 import { z } from "zod";
 import { jobsController, scheduleController } from "../controllers/jobsTransactional.controller";
+import { projectTasksController } from "../controllers/projectTasks.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
 
 const uuidPathParam = (_req: Request, _res: Response, next: NextFunction, value: string) => {
@@ -18,6 +19,7 @@ jobsRouter.param("assignmentId", uuidPathParam);
 jobsRouter.post("/", asyncHandler(jobsController.create));
 jobsRouter.get("/", asyncHandler(jobsController.list));
 jobsRouter.get("/dispatch-summary", asyncHandler(jobsController.dispatchSummary));
+jobsRouter.patch("/:jobId/tasks/:taskId/status", asyncHandler(projectTasksController.updateAssignedStatus));
 jobsRouter.get("/:jobId", asyncHandler(jobsController.getById));
 jobsRouter.patch("/:jobId", asyncHandler(jobsController.update));
 jobsRouter.delete("/:jobId", asyncHandler(jobsController.remove));

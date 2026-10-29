@@ -276,6 +276,7 @@ model AppUser {
   sentInvites   OrganizationInvite[] @relation("InviteSender")
   createdJobs   Job[]                @relation("JobCreatedBy")
   completedJobs Job[]                @relation("JobCompletedBy")
+  assignedProjectTasks ProjectTask[] @relation("ProjectTaskAssignee")
   assignedJobs  JobAssignment[]      @relation("JobAssignmentUser")
   assignedJobActions JobAssignment[] @relation("JobAssignedBy")
   athenaExecutions AthenaExecution[]
@@ -1040,6 +1041,8 @@ model Proposal {
   sentAt             DateTime? @map("sent_at")
   viewedAt           DateTime? @map("viewed_at")
   respondedAt        DateTime? @map("responded_at")
+  idempotencyKey     String?   @map("idempotency_key")
+  idempotencyHash    String?   @map("idempotency_hash")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
 
@@ -1049,6 +1052,7 @@ model Proposal {
   contracts Contract[]
   deliveries ProposalDelivery[]
 
+  @@unique([projectId, idempotencyKey], map: "proposals_project_id_idempotency_key_key")
   @@index([projectId])
   @@index([estimateId])
   @@map("proposals")
@@ -1083,6 +1087,7 @@ model ProjectTask {
   jobId       String?   @map("job_id")
   title       String
   status      String    @default("todo")
+  assignedUserId String? @map("assigned_user_id")
   assignedTo  String?   @map("assigned_to")
   dueDate     DateTime? @map("due_date")
   priority    String    @default("medium")
@@ -1091,12 +1096,14 @@ model ProjectTask {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
 
+  assignedUser AppUser? @relation("ProjectTaskAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   job     Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
 
   @@index([projectId, status])
   @@index([projectId, dueDate])
   @@index([jobId, status])
+  @@index([assignedUserId, status, dueDate], map: "idx_project_tasks_assigned_user_status_due")
   @@map("project_tasks")
 }
 

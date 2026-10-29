@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-20
+last_verified: 2026-10-29
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -63,6 +63,44 @@ related_code:
 
 # TradeOS Current State
 
+## Cinematic sign-in entry — implementation branch, 2026-10-24
+
+Founder-approved entry presentation is implemented on `feat/cinematic-entry`
+from main `7013cdcaab8faabcb9c0dd8e7a045ac776c9c748`. `/login` now uses the
+approved full-screen copper mark/wordmark introduction and centered sign-in
+scene. Initial visits use four seconds; returning visits use 2.5 seconds.
+Reduced motion bypasses the introduction; Skip/Escape and a metallic vector
+fallback keep entry usable without WebGL, storage, or a loaded renderer chunk.
+
+The existing `loginAction`, session/bootstrap logic, dashboard destination,
+password recovery and account creation remain authoritative. No simulated
+success state, inspection controls, auth policy, backend, database or workspace
+theme changes ship. Route-local tokens and self-hosted fonts live in
+`web/src/components/entry/entry.module.css`; the canonical brand exception and
+component owners are recorded in `.stitch/DESIGN.md` and `docs/ui-guide.md`.
+
+Local validation: 513 frontend unit tests, lint, TypeScript and the production
+build pass; production dependency audit reports zero vulnerabilities. The real
+entry component was visually inspected in an isolated browser harness with
+synthetic transport. This does not certify successful authentication, deployed
+behavior, Lighthouse scores, or actual GPU rendering. Six new component-browser
+specimens cover responsive forms, timed/keyboard entry and GPU/storage failure;
+local execution is blocked before launch by a missing Chromium binary after
+the official download returned an invalid archive. Hosted checks passed on this PR head; review and deployment verification remain separate gates.
+## Field authorization evidence — PR #702
+
+The Field page now has executable denied-role tests, alongside its static
+UI/action contract checks. Missing authentication and non-technician roles
+return before job requests, including direct job links. JobsService tests
+assert unassigned technician reads/transitions fail without status or activity
+writes. A disposable-PostgreSQL test covers both an unassigned job and a same-org job assigned to another technician against raw reads and updates, with service denial for the unassigned case. Hosted integration and repository checks passed at the merged PR head; local Docker was unavailable. No RLS, authorization policy,
+storage implementation or field capture capability is changed or certified.
+## Proposal draft status-check recovery — 2026-10-29
+
+The finalized Estimate Review links to the existing Proposal Review form with its `estimateId`. That form creates a draft through the existing proposal action; customer send remains a separate explicit action, and returned errors preserve edited fields.
+
+The form's API-error state provides a direct link to the same authenticated Project's Proposals tab (`?tab=proposals`) so staff can inspect the list before manually retrying. Local payment-schedule validation stays inline. This is a navigation aid, not a server status lookup or idempotency guarantee: it does not auto-retry or infer the POST result. Authenticated runtime behavior and tenant-denial evidence remain separate verification gates.
+
 ## Web performance telemetry — PR #744
 
 The Next.js root layout includes Vercel Speed Insights for browser performance
@@ -75,6 +113,15 @@ collection or enable the optional service in the Vercel project dashboard.
 
 Existing PR #795 is extended to repair the dependency audit blocking Today 2.0 PR #798. The isolated runtime branch retains dotenv/Vercel patch updates, adds patched Zod 4.6.7 including Vercel's transitive validator, and includes body-parser 1.20.9 from #799. The previous identifier syntax contract is preserved using `z.guid()`; record and enum pipeline compatibility repairs do not alter JWT/membership, permissions, RLS, financial or supplier policy. No production change or merge is claimed. Full verification and PR-only major-upgrade review remain required; the independent moderate ip-address patch is tracked by #786. See [runtime upgrade evidence](architecture/API_VALIDATION_RUNTIME_UPGRADE.md).
 
+
+
+## Today 2.0 implementation branch — 2026-10-26
+
+PR #798 continues on `feat/today-2-command-center` (`EXISTING_WORK_FOUND`, Sprint ID NONE). Today, Needs You and Work share authenticated source data, operational indicators, contextual source workspaces, semantic themes and the persistent five-slot Control Dock. Previous head `fdcc63cc6c6a28d94c8642e9e821857fda729960` passed 518 frontend tests, 20 Chromium component tests and hosted PostgreSQL integration/migration rehearsal (run 40427077847). Its real Vercel Preview is READY; unauthenticated dashboard redirect to login was observed. Secure sign-in was declined, so authenticated live-data journeys remain unverified.
+
+The current continuation adds task-status editing to the contextual workspace for existing `crm.write` roles, using the established authenticated project-task PATCH endpoint and its transactional activity record. Controls require a structured source task/project target and canonical write permission. A save is reported only after the server confirms the same record and requested status. Pending saves block duplicate submission and dialog dismissal; offline edits send no request; failures preserve the unresolved source. A successful save refreshes all operational data from source truth. The existing task PATCH now accepts optional `expectedUpdatedAt`; Today uses a guarded status-only route that requires this source revision and fails closed on older backends. The atomic update rejects stale/concurrent saves with 409 and advances revisions even within one millisecond; legacy clients can omit the guard. No rejected save records an activity event.
+
+Real stale proposals, overdue invoices/tasks/jobs, blocked tasks, conflicts and pending approvals feed Needs You; passive drafts remain separate. Counts retain unknown/partial semantics. Distinct people are not invented crew groups. The backend addition is the optional task revision precondition; no schema, role, JWT/membership, RLS, financial or supplier policy changes. Field Task writes, unsupported visit/crew/milestone aggregation and broader Athena confirmation/execution remain acceptance gaps. Current continuation verification belongs in [Today 2.0 implementation evidence](architecture/TODAY_2_IMPLEMENTATION.md); earlier results do not certify a later head.
 
 ## Openings and dishwasher catalog gap — source branch, 2026-10-18
 
@@ -1433,6 +1480,25 @@ This harness does not prove authenticated persistence, tenant isolation, live
 supplier pricing, or full illustrated-shell parity. Current-head test results
 are recorded in the PR and Figma handoff, not inferred from source assertions.
 
+## Assigned-job task visibility (Today follow-up, 2026-10-27)
+
+`GET /api/v1/projects/assigned-job-tasks?limit=50` returns open shared tasks
+attached to the authenticated user's actively assigned, non-archived, nonterminal
+Jobs. The controller derives organization and user identity from authentication;
+unknown query keys and limits outside 1–50 are rejected. The service additionally
+filters Project and Job tenant ownership and active (not removed or declined)
+JobAssignments, under the existing forced RLS session. This projects the same
+tasks already exposed by an authorized Job detail read; it grants no writes.
+
+Technician Today uses this endpoint rather than the organization task queue.
+Shared tasks appear in Work, with blocked/overdue tasks in Needs You and due-day
+counts using stored calendar dates. Free-text `assignedTo` remains display-only,
+not personal authorization. Field rows open `/field?job=…`; the existing Field
+workspace now displays Job DTO tasks and directs progress reports to Job notes.
+Task status edits retain existing office permissions. Results at the 50-row cap
+are explicitly partial; a task-source failure leaves job scheduling usable and
+task counts unknown. No schema, RLS policy or mutation authority changed.
+
 ## Today routine follow-up recovery (2026-10-27)
 
 The existing `tradeos.athena.tools.office.create-follow-up` tool now advertises
@@ -1451,8 +1517,52 @@ change does not turn an approval state into success or resubmit restricted
 actions. Action-engine dispatch is required for receipt guarantees; calling
 the service or tool handler directly does not provide deduplication.
 
+## Personal field-task ownership and status updates (2026-10-27)
+
+Implementation on `feat/field-task-ownership` adds nullable
+`ProjectTask.assignedUserId` (user FK, no name-based backfill). Shared job tasks
+remain readable. Only the authenticated technician personally assigned by user
+ID, with an active non-declined JobAssignment on a nonterminal/unarchived Job,
+may use `PATCH /api/v1/jobs/:jobId/tasks/:taskId/status`. The strict payload is
+status plus mandatory expectedUpdatedAt. The transaction locks Job/assignment
+rows, checks tenant/identity/revision, updates atomically and records activity.
+Stale saves return 409; invisible/not-assigned records return 404.
+
+The migration removes technicians from the historical broad project-task write
+policy (whose generic helper includes technicians), adds a narrowly scoped RLS
+update policy, and restricts technician updates to status/timestamps with an
+immutable-column trigger. DB-controlled timestamps retain millisecond revision
+precision. Technician task create/delete/reassignment remains denied.
+
+Owner/admin/dispatcher may create or revise explicit assignment through the
+Project Tasks forms and the existing guarded generic PATCH. The new scoped
+`GET /api/v1/projects/:id/task-assignees` returns only permitted active-member
+choices and a server-derived capability. Legacy estimator ordinary task writes
+are preserved; this new identity-administration capability is not silently
+granted. Existing office status/title/note updates do not revalidate historical
+assignment eligibility unless identity or Job linkage changes.
+
+Today and Field job details return a server-derived canUpdateStatus flag based
+on the actual auth role, not the normalized settings presentation role. Only
+explicit nonempty matching identity, revision and capability enable the shared
+status editor; older/partial responses fail closed. UI saves use the narrow
+Job endpoint and verify record/project/Job/status before showing success.
+Assignment changes refresh the source and operational routes. No optimistic
+queue dismissal, automatic retry, financial change or production migration.
+
+This is a schema/RLS change requiring governed review and migration rehearsal
+before activation. Unit/type/build and hosted PostgreSQL/browser results must
+be recorded from the final head; authored tests alone are not certification.
 ### Pending P0 staging migration-history reconciliation — 2026-10-28
 
 PR for issue #811 proposes a protected, staging-only reconciliation of the already-executed invoice expand migration. Direct evidence: Supabase migration history stores the exact executable SQL used by the tracked Prisma file (comments differ); staging has 46 applied Prisma migrations, 0 unfinished, and 42 invoice rows with matching old/new monetary values. The workflow is **not merged or executed** by this documentation change. The later invoice contract migration remains blocked pending proof all legacy writers are retired. No production migration or staging schema deployment is certified.
 
 The follow-up staging migration workflow now proposes a hard stop on the destructive invoice contract phase until the protected Environment holds a matching approved retired-writers SHA and a separate exact dispatch confirmation. Neither this gate nor the history reconciliation has been merged or executed at this point.
+
+### Proposal draft create idempotency — merged PR #819 (2026-10-29)
+
+PR #819 merged to `main` as `bc85a503025be60c6ff472a03a17fa34c0565ec8` from reviewed head `895115789a80934aad75201889ea3c22845df77b`. Proposal Review sends a per-attempt UUID in `Idempotency-Key`; the authenticated API derives the organization-scoped Project, stores a canonical SHA-256 request fingerprint, and enforces one row per `(project_id, idempotency_key)`. A new draft returns `201`; the same key and canonical payload replay the original proposal with `200` and `Idempotency-Replayed: true`; changed payload under the same key returns `409`. Keyless legacy clients remain compatible without deduplication. The additive migration adds nullable key/hash fields, a paired-null constraint and project-scoped unique index; auth, tenant context, RLS, permissions, price derivation and separate proposal-send behavior are unchanged.
+
+The client retains its UUID across server-action errors. A full reload seeds a new key, so the existing authenticated Project proposals list remains the recovery path. There is no status lookup endpoint or automatic retry. Exact PR-head verification passed: App/Web unit and integration tests, typecheck/build/lint, PostgreSQL migration/RLS rehearsal, Docs consistency (#4755, #4758–#4760), live docs reconciliation, governance, branch currency and dependency review. PostgreSQL concurrency coverage verified four same-key requests under request-scoped RLS: one insert, three replays, one persisted proposal. The merge is verified on `main`; this is **Implemented**, not evidence of production deployment. The protected production migration has not been executed, and authenticated production/browser behavior is not certified.
+
+

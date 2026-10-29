@@ -136,6 +136,13 @@ Canonical display states:
 Current persisted values:
 
 - new service writes persist `draft`, `sent`, `viewed`, `accepted`, and canonical `declined`
+
+Draft-creation request contract:
+
+- first-party `POST /api/v1/proposals` requests send a UUID `Idempotency-Key`; older web bundles and external clients may omit it during independent deployments, in which case creation keeps legacy non-idempotent behavior
+- a replay with the same canonical request returns the same Proposal without inserting another draft; a changed request under the same key returns `409`; requests without a key do not receive this guarantee
+- this request contract prevents duplicate draft creation but does not add a proposal lifecycle state, automatic retry, customer send, or pricing transition
+
 - historical `rejected` rows remain accepted by the database constraint and are displayed canonically as `declined`
 
 Current enforced transitions:
@@ -380,3 +387,40 @@ The dispatcher workspace invokes only the existing canonical Job actions and sch
 ## Validation runtime compatibility
 
 Status lifecycle vocabulary and transitions are unchanged by the Zod 4 security repair. The comma-separated status helper now declares string input/output constraints for the typed pipeline while preserving literal enum results and absent queries. Exact `false` query values remain false. Legacy UUID-shaped identifiers remain parseable, with source existence, parent scope and transition authorization enforced by the existing services. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
+
+## Personal field-task ownership and status updates (2026-10-27)
+
+Implementation on `feat/field-task-ownership` adds nullable
+`ProjectTask.assignedUserId` (user FK, no name-based backfill). Shared job tasks
+remain readable. Only the authenticated technician personally assigned by user
+ID, with an active non-declined JobAssignment on a nonterminal/unarchived Job,
+may use `PATCH /api/v1/jobs/:jobId/tasks/:taskId/status`. The strict payload is
+status plus mandatory expectedUpdatedAt. The transaction locks Job/assignment
+rows, checks tenant/identity/revision, updates atomically and records activity.
+Stale saves return 409; invisible/not-assigned records return 404.
+
+The migration removes technicians from the historical broad project-task write
+policy (whose generic helper includes technicians), adds a narrowly scoped RLS
+update policy, and restricts technician updates to status/timestamps with an
+immutable-column trigger. DB-controlled timestamps retain millisecond revision
+precision. Technician task create/delete/reassignment remains denied.
+
+Owner/admin/dispatcher may create or revise explicit assignment through the
+Project Tasks forms and the existing guarded generic PATCH. The new scoped
+`GET /api/v1/projects/:id/task-assignees` returns only permitted active-member
+choices and a server-derived capability. Legacy estimator ordinary task writes
+are preserved; this new identity-administration capability is not silently
+granted. Existing office status/title/note updates do not revalidate historical
+assignment eligibility unless identity or Job linkage changes.
+
+Today and Field job details return a server-derived canUpdateStatus flag based
+on the actual auth role, not the normalized settings presentation role. Only
+explicit nonempty matching identity, revision and capability enable the shared
+status editor; older/partial responses fail closed. UI saves use the narrow
+Job endpoint and verify record/project/Job/status before showing success.
+Assignment changes refresh the source and operational routes. No optimistic
+queue dismissal, automatic retry, financial change or production migration.
+
+This is a schema/RLS change requiring governed review and migration rehearsal
+before activation. Unit/type/build and hosted PostgreSQL/browser results must
+be recorded from the final head; authored tests alone are not certification.

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { getProject, getProjectProposalDraft } from "@/lib/api";
 import { ProposalContextPanel } from "@/components/proposals/proposal-context-panel";
 import { PageHeader } from "@/components/shared/page-header";
@@ -19,7 +20,7 @@ export default async function NewProposalPage({ params, searchParams }: { params
         backLabel="Back to project"
       />
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <NewProposalForm projectId={id} estimates={project.estimates} draft={draft} initialEstimateId={estimateId} />
+        <NewProposalForm idempotencyKey={randomUUID()} projectId={id} estimates={project.estimates} draft={draft} initialEstimateId={estimateId} />
         <ProposalContextPanel projectId={project.id} latestVisit={project.siteVisits[0] ?? null} projectFiles={project.projectFiles} />
       </div>
     </div>

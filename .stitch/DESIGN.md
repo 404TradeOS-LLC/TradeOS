@@ -1,10 +1,37 @@
 # TradeOS Product Design Contract
 
-**Status:** Canonical written design contract for TradeOS product UI.  
-**Canonical Figma:** file key `xImUa9CYUjx3Cb3zTrkfnY` — `[CANONICAL] TradeOS — Product + Design System Source of Truth`.  
-**Last reconciled:** 2026-10-02.
+**Status:** Canonical written design contract for TradeOS product UI.
+**Canonical Figma:** file key `xImUa9CYUjx3Cb3zTrkfnY` — `[CANONICAL] TradeOS — Product + Design System Source of Truth`.
+**Last reconciled:** 2026-10-24.
 
 This file is the written companion to the canonical Figma master. It is intentionally not a screen-by-screen replacement for Figma. It defines the permanent visual system, interaction grammar, product language, responsive rules, reusable patterns, and implementation boundaries that frontend work must preserve.
+
+## Approved cinematic entry exception — 2026-10-24
+
+The founder explicitly approved the cinematic entry at
+https://tradeos-entry-studio.showb201.chatgpt.site (Sites project
+`appgprj_6abe93600f248191ae3faeb61a2ec06f`, source commit
+`2e658d16e17c61dddfb3df674ac9053f3e26c2fa`) and directed its product
+implementation. This is a deliberate, bounded exception to the historical
+Sites reference-only rule: the approved presentation owns `/login` only.
+Canonical Figma remains authoritative for authenticated workflows.
+
+The entry uses the supplied official mark and wordmark, machined copper,
+dark physical depth and schematic line motion. The mark arrives before the
+name; no tagline appears during the silent intro. Timing is four seconds on
+first visit, 2.5 on return, with Skip/Escape, focus restoration and reduced
+motion bypass. Login continues the scene at lower energy with the tagline
+and rotating curated greetings. No photographic hero, audio, weather,
+simulated auth result, or inspection controls belong in the product entry.
+
+Runtime owner: `web/src/components/entry/entry.module.css` defines route-local
+surface, copper, text and focus variables beneath its CSS-module root.
+`cinematic-intro.tsx` owns the timed modal; `cinema.ts` lazily creates and
+cleans up the beveled Three.js scene, and `metal-logo.tsx` owns the resilient
+vector material. Physical metallic gradients are intentional material cues.
+Do not propagate these Forge-style material effects into contractor workflows.
+Shared `Input`, `Label` and `Button` retain control semantics; the existing
+server action owns every auth transition and destination.
 
 ## 1. Authority model
 
@@ -13,6 +40,8 @@ TradeOS has three kinds of truth. Keep them separate and synchronized.
 1. **Capability truth** — governed product/domain contracts and live implementation define what TradeOS can actually do: routes, persisted state, lifecycle, permissions, mutations, money, security boundaries, and data contracts.
 2. **Design truth** — the canonical Figma file defines approved product hierarchy, visual intent, responsive composition, reusable components, interaction patterns, screen states, and current approved product screens.
 3. **Implementation truth** — current production code defines exact implementation values and accessibility behavior. In particular, `web/src/app/globals.css`, shared production components, and live route/domain contracts govern exact runtime behavior.
+
+The approved cinematic entry exception above applies only to `/login`; all other Sites work follows the rule below.
 
 Historical Sites work, old Figma files, sprint packets, screenshots, and archived design explorations are **reference only** unless deliberately reconciled and approved into the canonical Figma file.
 
@@ -442,22 +471,24 @@ Rules:
 
 ## 17. Today / contractor command center
 
+Founder-directed Today 2.0 revision (2026-10-26): the supplied graphite/copper desktop and mobile mockups supersede the historical four-section composition for this implementation. Today prioritizes the briefing, operational indicators, Needs You, Today’s Work, timeline, contextual Athena and persistent Control Dock. Financial analytics and the Money summary are removed from Today; individual actionable invoices remain in Needs You. Keep existing record workspaces and calendar-day/permission contracts authoritative. Canonical Figma nodes 295:9, 295:121 and 48:2 were inspected; their components and exception semantics are retained while the newer founder brief governs composition. Browser certification and remaining domain capabilities are tracked in `docs/architecture/TODAY_2_IMPLEMENTATION.md`; this revision is not evidence that those gates passed.
+
 Today is the owner command surface, not a widget collection.
 
-The operating rhythm remains:
+The Today 2.0 operating rhythm is:
 
-**Now / Needs You / Coming Up / Money**
+**Briefing / Operational Indicators / Needs You / Today’s Work / Coming Up**
 
 It should answer:
 
 1. What should I do now?
 2. What genuinely needs my decision?
 3. What is coming up?
-4. What money needs attention?
+4. What should I do next?
 
 Do not regrow a card wall below the command surface.
 
-Needs You follows the exception-queue contract above. Continue Working handles normal progression. Money uses canonical invoice/payment truth.
+Needs You follows the exception-queue contract above. Continue Working handles normal progression. Actionable overdue invoices appear only as individual Needs You records backed by canonical invoice truth; Today has no Money summary or financial analytics.
 
 ## 18. Pricing and trust
 
@@ -602,7 +633,7 @@ Use the approved September 2026 TradeOS artwork represented in the Figma Foundat
 Rules:
 
 - use the correct light/dark artwork for the surface;
-- do not stretch or recolor supplied brand artwork;
+- do not stretch or recolor supplied brand artwork, except for the approved `/login` copper material described above;
 - keep required clear space;
 - use the horizontal lockup at appropriate product sizes;
 - use the standalone/simplified mark at smaller sizes;

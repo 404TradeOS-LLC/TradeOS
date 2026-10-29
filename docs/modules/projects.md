@@ -101,3 +101,51 @@ Project workspace surfaces also expose the current job and field-coordination wo
 ## Last verified date
 
 2026-09-28
+
+## Today contextual task saves
+
+Today/Needs You/Work task dialogs use `PATCH /api/v1/projects/:id/tasks/:taskId/status`, a status-only guarded route sharing the existing project-task mutation and transactional activity history. It requires status plus revision, rejects unrelated fields, and fails closed with 404 on older backends; the client never falls back. Controls follow existing `crm.write`, with no new technician access. The optional `expectedUpdatedAt` request precondition is enforced in the database update predicate; a stale or concurrently changed task returns 409 without a saved mutation/activity event. Every update advances the revision, including same-millisecond edits. Existing clients can omit the precondition for backward compatibility. Today requires a valid source revision and sends only status plus that revision; successful confirmed saves refresh the operational queues. Offline, rejected and unconfirmed saves are not treated as resolutions. No schema or RLS changes.
+
+## Assigned-job task visibility (Today follow-up, 2026-10-27)
+
+`GET /api/v1/projects/assigned-job-tasks?limit=50` returns open shared tasks
+attached to the authenticated user's actively assigned, non-archived, nonterminal
+Jobs. The controller derives organization and user identity from authentication;
+unknown query keys and limits outside 1–50 are rejected. The service additionally
+filters Project and Job tenant ownership and active (not removed or declined)
+JobAssignments, under the existing forced RLS session. This projects the same
+tasks already exposed by an authorized Job detail read; it grants no writes.
+
+Technician Today uses this endpoint rather than the organization task queue.
+Shared tasks appear in Work, with blocked/overdue tasks in Needs You and due-day
+counts using stored calendar dates. Free-text `assignedTo` remains display-only,
+not personal authorization. Field rows open `/field?job=…`; the existing Field
+workspace now displays Job DTO tasks and directs progress reports to Job notes.
+Task status edits retain existing office permissions. Results at the 50-row cap
+are explicitly partial; a task-source failure leaves job scheduling usable and
+task counts unknown. No schema, RLS policy or mutation authority changed.
+
+## Personal field-task ownership and status updates (2026-10-27)
+
+Implementation on `feat/field-task-ownership` adds nullable
+`ProjectTask.assignedUserId` (user FK, no name-based backfill). Shared job tasks
+remain readable. The ownership and lifecycle contract — role eligibility, RLS
+rules, 404/409 outcomes, and Job status rules — lives in the
+[RBAC matrix](../RBAC_MATRIX.md#personal-field-task-ownership-and-status-updates-2026-10-27)
+and [workflow lifecycles](../WORKFLOW_LIFECYCLES.md#personal-field-task-ownership-and-status-updates-2026-10-27).
+Projects-specific: the scoped `GET /api/v1/projects/:id/task-assignees`
+returns only permitted active-member choices and a server-derived capability,
+and the Project Tasks assignment form drives explicit assignment through the
+existing guarded generic PATCH.
+
+Today and Field job details return a server-derived canUpdateStatus flag based
+on the actual auth role, not the normalized settings presentation role. Only
+explicit nonempty matching identity, revision and capability enable the shared
+status editor; older/partial responses fail closed. UI saves use the narrow
+Job endpoint and verify record/project/Job/status before showing success.
+Assignment changes refresh the source and operational routes. No optimistic
+queue dismissal, automatic retry, financial change or production migration.
+
+This is a schema/RLS change requiring governed review and migration rehearsal
+before activation. Unit/type/build and hosted PostgreSQL/browser results must
+be recorded from the final head; authored tests alone are not certification.
