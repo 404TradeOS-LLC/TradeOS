@@ -28,7 +28,7 @@ function canonicalize(value: unknown): unknown {
 }
 
 function proposalRequestHash(input: CreateProposalInput): string {
-  const { orgId: _orgId, ...request } = input;
+  const request = Object.fromEntries(Object.entries(input).filter(([key]) => key !== "orgId"));
   return createHash("sha256").update(JSON.stringify(canonicalize(request))).digest("hex");
 }
 
