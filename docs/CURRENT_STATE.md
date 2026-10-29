@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-20
+last_verified: 2026-10-29
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -1527,6 +1527,8 @@ PR for issue #811 proposes a protected, staging-only reconciliation of the alrea
 
 The follow-up staging migration workflow now proposes a hard stop on the destructive invoice contract phase until the protected Environment holds a matching approved retired-writers SHA and a separate exact dispatch confirmation. Neither this gate nor the history reconciliation has been merged or executed at this point.
 
-### Proposal draft create idempotency — 2026-10-29
+### Proposal draft create idempotency — merged PR #819 (2026-10-29)
 
-The Proposal Review create action sends a per-attempt UUID in `Idempotency-Key`. The authenticated API resolves it through the organization-scoped Project, persists a canonical request fingerprint on the Proposal, and enforces one row per `(project_id, idempotency_key)`. An identical retry returns the original proposal (`200`, `Idempotency-Replayed: true`); a changed payload with the same key returns `409`; a new create returns `201`. The existing project-proposals recovery link remains for retries after a page reload, because a reload seeds a fresh key. The database migration adds nullable key/hash fields with a paired-null check and a project-scoped unique index; it does not alter RLS policies, auth, tenant context, price derivation or proposal-send behavior. Verification passed on exact PR #819 head `c3dfb9c80fa909505d81a5e37afdf2165b681999` on 2026-10-29: App unit/typecheck/build/integration, PostgreSQL migration/RLS rehearsal, Web tests/lint/build, docs consistency/reconciliation, governance, dependency review, and branch currency. PR #819 is still open, so this workflow remains Ready for Dev until merge; do not mark Implemented before it reaches `main`. CI does not certify production deployment or migration execution.
+PR #819 merged to `main` as `bc85a503025be60c6ff472a03a17fa34c0565ec8` from reviewed head `895115789a80934aad75201889ea3c22845df77b`. Proposal Review sends a per-attempt UUID in `Idempotency-Key`; the authenticated API derives the organization-scoped Project, stores a canonical SHA-256 request fingerprint, and enforces one row per `(project_id, idempotency_key)`. A new draft returns `201`; the same key and canonical payload replay the original proposal with `200` and `Idempotency-Replayed: true`; changed payload under the same key returns `409`. Keyless legacy clients remain compatible without deduplication. The additive migration adds nullable key/hash fields, a paired-null constraint and project-scoped unique index; auth, tenant context, RLS, permissions, price derivation and separate proposal-send behavior are unchanged.
+
+The client retains its UUID across server-action errors. A full reload seeds a new key, so the existing authenticated Project proposals list remains the recovery path. There is no status lookup endpoint or automatic retry. Exact PR-head verification passed: App/Web unit and integration tests, typecheck/build/lint, PostgreSQL migration/RLS rehearsal, Docs consistency (#4755, #4758–#4760), live docs reconciliation, governance, branch currency and dependency review. PostgreSQL concurrency coverage verified four same-key requests under request-scoped RLS: one insert, three replays, one persisted proposal. The merge is verified on `main`; this is **Implemented**, not evidence of production deployment. The protected production migration has not been executed, and authenticated production/browser behavior is not certified.
