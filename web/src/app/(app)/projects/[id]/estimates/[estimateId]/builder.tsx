@@ -18,6 +18,7 @@ import { FeedbackState } from "@/components/ui/feedback-state";
 import { Textarea } from "@/components/ui/textarea";
 import type { Estimate } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { markerGeometry, type MarkerGeometry } from "@/lib/motion/lifecycle";
 import { groupSavedDirectCosts } from "@/lib/estimate-direct-costs";
 import { canAddReviewedEstimateCatalogItem } from "@/lib/estimate-catalog-review";
 
@@ -308,6 +309,32 @@ function EstimateStageFlow({
   const stageIndex = stages.findIndex((stage) => stage.id === activeStage);
   const stageHeadingRefs = useRef<Partial<Record<EstimateStage, HTMLHeadingElement | null>>>({});
   const focusOnStageChange = useRef(false);
+  // Advance contract (motion §06): a single copper marker moves to the
+  // acknowledged active stage. Stage changes here are already acknowledged
+  // (goToStage awaits a successful scope save before advancing), so the
+  // marker never moves on a prediction. Geometry is measured from the live
+  // buttons, so grid gaps and responsive widths stay correct; reduced
+  // motion collapses the move to an instant swap via motion.css and the
+  // global reduced-motion override. Focus behavior below is untouched.
+  const stageNavRef = useRef<HTMLOListElement | null>(null);
+  const stageButtonRefs = useRef<Partial<Record<EstimateStage, HTMLButtonElement | null>>>({});
+  const [stageMarker, setStageMarker] = useState<MarkerGeometry | null>(null);
+
+  useEffect(() => {
+    const measure = () => {
+      const nav = stageNavRef.current;
+      const button = stageButtonRefs.current[activeStage];
+      if (!nav || !button) return;
+      const geometry = markerGeometry(
+        { left: button.offsetLeft, width: button.offsetWidth },
+        { left: nav.offsetLeft, width: nav.offsetWidth },
+      );
+      if (geometry) setStageMarker(geometry);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [activeStage]);
 
   useEffect(() => {
     if (!focusOnStageChange.current) return;
@@ -333,26 +360,36 @@ function EstimateStageFlow({
   return (
     <section className="space-y-4" aria-label="Estimate workflow">
       <nav aria-label="Estimate stages">
-        <ol className="grid grid-cols-4 border-b border-border/70 lg:max-w-2xl lg:gap-5">
-          {stages.map((stage, index) => (
-            <li key={stage.id} className="min-w-0">
-              <button
-                type="button"
-                aria-current={activeStage === stage.id ? "step" : undefined}
-                onClick={() => void goToStage(stage.id)}
-                disabled={scopeSavePending && activeStage === "scope" && stage.id !== "scope"}
-                className={cn(
-                  "min-h-11 w-full border-b-2 px-1 text-xs font-semibold transition-colors lg:text-left lg:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                  activeStage === stage.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"
-                )}
-              >
-                <span className="mr-1 text-[10px] tabular-nums" aria-hidden="true">{index + 1}</span>
-                <span className="sr-only">Step {index + 1} of {stages.length}: </span>
-                {stage.label}
-              </button>
-            </li>
-          ))}
-        </ol>
+        <div className="relative">
+          <ol className="grid grid-cols-4 border-b border-border/70 lg:max-w-2xl lg:gap-5" ref={stageNavRef}>
+            {stages.map((stage, index) => (
+              <li key={stage.id} className="min-w-0">
+                <button
+                  ref={(node) => { stageButtonRefs.current[stage.id] = node; }}
+                  type="button"
+                  aria-current={activeStage === stage.id ? "step" : undefined}
+                  onClick={() => void goToStage(stage.id)}
+                  disabled={scopeSavePending && activeStage === "scope" && stage.id !== "scope"}
+                  className={cn(
+                    "min-h-11 w-full border-b-2 border-transparent px-1 text-xs font-semibold transition-colors lg:text-left lg:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                    activeStage === stage.id ? "text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  <span className="mr-1 text-[10px] tabular-nums" aria-hidden="true">{index + 1}</span>
+                  <span className="sr-only">Step {index + 1} of {stages.length}: </span>
+                  {stage.label}
+                </button>
+              </li>
+            ))}
+          </ol>
+          {stageMarker ? (
+            <span
+              aria-hidden="true"
+              className="motion-advance-marker pointer-events-none absolute bottom-0 left-0 h-0.5 bg-primary"
+              style={{ transform: `translateX(${stageMarker.left}px)`, width: `${stageMarker.width}px` }}
+            />
+          ) : null}
+        </div>
       </nav>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)]">
