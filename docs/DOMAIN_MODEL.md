@@ -112,6 +112,7 @@ A customer-facing commercial document stored in `Proposal`.
 - belongs to one project
 - may reference one estimate
 - owns proposal delivery history
+- stores an optional create-attempt idempotency key and request fingerprint; the pair is unique per Project, with null values reserved for historical or non-keyed rows
 - can produce contracts and support invoices
 - uses canonical lifecycle states `draft`, `generated`, `sent`, `viewed`, `accepted`, `declined`, and `expired`; historical stored `rejected` rows remain read-compatible and normalize to `declined`, while new decline mutations persist canonical `declined`
 
@@ -473,3 +474,4 @@ replacement Estimate/Proposal entity nor a costbook repricing operation.
 Tenant and ownership checks precede creation; subsequent job mutations cannot
 reparent a proposal-derived job to a different project, customer, or address.
 The change is unmerged and migration-dependent.
+

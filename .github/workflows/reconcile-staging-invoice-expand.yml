@@ -46,10 +46,18 @@ jobs:
           fi
           node --input-type=module <<'NODE'
           const url = new URL(process.env.DATABASE_ADMIN_URL);
-          const host = "db." + process.env.STAGING_PROJECT_REF + ".supabase.co";
+          const directHost = "db." + process.env.STAGING_PROJECT_REF + ".supabase.co";
+          const poolerHost = "aws-0-us-east-2.pooler.supabase.com";
+          const poolerUsername = decodeURIComponent(url.username);
+          const directMatch = url.hostname === directHost &&
+            (url.port === "" || url.port === "5432");
+          const poolerMatch = url.hostname === poolerHost &&
+            (url.port === "5432" || url.port === "6543") &&
+            /^[a-zA-Z_][a-zA-Z0-9_]*\.[a-z0-9]{20}$/.test(poolerUsername) &&
+            poolerUsername.endsWith("." + process.env.STAGING_PROJECT_REF);
           if (!["postgres:", "postgresql:"].includes(url.protocol) ||
-              url.hostname !== host || url.pathname !== "/postgres") {
-            throw Error("Non-staging database identity or unexpected database name");
+              url.pathname !== "/postgres" || !(directMatch || poolerMatch)) {
+            throw Error("Non-staging database identity or unsupported PostgreSQL connection mode");
           }
           console.log("Validated staging-only PostgreSQL project identity.");
           NODE
@@ -124,9 +132,34 @@ jobs:
       - name: Record only the already-applied migration in Prisma
         shell: bash
         env:
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
+          DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
+          STAGING_PROJECT_REF: qfbgdkbamfaasmtjfyru
         run: |
           set -euo pipefail
+          # Prisma CLI needs a stable session; shared Transaction pooling (:6543)
+          # is unsuitable for migration commands. Reuse the protected secret
+          # with the same verified staging host/user in session mode (:5432).
+          DATABASE_URL="$(node --input-type=module <<'NODE'
+          const url = new URL(process.env.DATABASE_ADMIN_URL);
+          const directHost = "db." + process.env.STAGING_PROJECT_REF + ".supabase.co";
+          const poolerHost = "aws-0-us-east-2.pooler.supabase.com";
+          const user = decodeURIComponent(url.username);
+          const direct = url.hostname === directHost &&
+            (url.port === "" || url.port === "5432");
+          const pooler = url.hostname === poolerHost &&
+            (url.port === "6543" || url.port === "5432") &&
+            /^[a-zA-Z_][a-zA-Z0-9_]*\.[a-z0-9]{20}$/.test(user) &&
+            user.endsWith("." + process.env.STAGING_PROJECT_REF);
+          if (!["postgres:", "postgresql:"].includes(url.protocol) ||
+              url.pathname !== "/postgres" || !(direct || pooler)) {
+            throw Error("Staging migration requires verified direct or session-pooler identity");
+          }
+          if (pooler) url.port = "5432";
+          url.searchParams.delete("pgbouncer");
+          process.stdout.write(url.toString());
+          NODE
+          )"
+          export DATABASE_URL
           # No migrate deploy: the next contract migration drops old columns.
           npx prisma migrate resolve --applied 20260902193000_rename_invoice_line_price_columns
 

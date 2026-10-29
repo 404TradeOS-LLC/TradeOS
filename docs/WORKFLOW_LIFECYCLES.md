@@ -136,6 +136,13 @@ Canonical display states:
 Current persisted values:
 
 - new service writes persist `draft`, `sent`, `viewed`, `accepted`, and canonical `declined`
+
+Draft-creation request contract:
+
+- first-party `POST /api/v1/proposals` requests send a UUID `Idempotency-Key`; older web bundles and external clients may omit it during independent deployments, in which case creation keeps legacy non-idempotent behavior
+- a replay with the same canonical request returns the same Proposal without inserting another draft; a changed request under the same key returns `409`; requests without a key do not receive this guarantee
+- this request contract prevents duplicate draft creation but does not add a proposal lifecycle state, automatic retry, customer send, or pricing transition
+
 - historical `rejected` rows remain accepted by the database constraint and are displayed canonically as `declined`
 
 Current enforced transitions:
@@ -431,3 +438,4 @@ the existing scheduling/dispatch/field lifecycle. Contract-signing,
 change-order and invoice workflows remain separate; this handoff does not
 claim authorization to start work without required contract approvals.
 Implementation and migration are pending CI and nonproduction acceptance.
+

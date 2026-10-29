@@ -26,6 +26,7 @@ related_code:
   - scripts/__tests__/pr-body-check.test.mjs
   - .github/workflows/docs-consistency.yml
   - .github/workflows/reconcile-production-migration.yml
+  - .github/workflows/reconcile-staging-invoice-expand.yml
   - .github/workflows/verify-repository.yml
   - .github/workflows/deploy-migrations.yml
   - .github/workflows/dependabot-patch-automerge.yml
@@ -420,6 +421,6 @@ The required Docs consistency workflow still executes for Dependabot PRs; only t
 
 ### Protected staging invoice-expand history reconciliation (2026-10-28)
 
-The manual, reviewer-gated `.github/workflows/reconcile-staging-invoice-expand.yml` is separate from the normal deploy workflow. It checks the independently executed Supabase invoice expansion against the repository's exact executable Prisma SQL, schema, trigger, four monetary columns and nondivergent invoice rows. Only after a main-branch, staging-Environment approval and typed confirmation does it record that **one already-executed** migration in Prisma. It does not execute schema migrations or drop legacy invoice columns. The remaining staging migration backlog is blocked until issue #811's old-writer retirement evidence and separately reviewed deploy.
+The manual, reviewer-gated `.github/workflows/reconcile-staging-invoice-expand.yml` is separate from the normal deploy workflow. It checks the independently executed Supabase invoice expansion against the repository's exact executable Prisma SQL, schema, trigger, four monetary columns and nondivergent invoice rows. Only after a main-branch, staging-Environment approval and typed confirmation does it record that **one already-executed** migration in Prisma. It does not execute schema migrations or drop legacy invoice columns. The remaining staging migration backlog is blocked until issue #811's old-writer retirement evidence and separately reviewed deploy. The Prisma history write uses the direct connection or the matching staging session pooler (port 5432); a staging Transaction-pooler secret (port 6543) is normalized to session mode first.
 
 The ordinary protected staging migration workflow also fails closed before the invoice contract/drop-legacy migration unless the exact main commit has an independently reviewed `STAGING_INVOICE_WRITERS_RETIRED_SHA` Environment variable and the dispatch supplies `APPROVE_INVOICE_CONTRACT`. The two workflows share one non-cancelling staging migration concurrency group.
