@@ -81,9 +81,9 @@ some assemblies.
 | Component | Recipe qty | Unit price | Extended / SF | Supplier / source | Verification | Review flag |
 |---|---|---|---|---|---|---|
 | labor_demo_concrete (labor) | 0.05 HR | — | — | — | R | Labor is not a supplier price. |
-| equip_skidsteer_breaker | 0.025 HR | $180–$375 / day ÷ 8 hr = $22.50–$46.88 / HR | $0.56–$1.17 | Published rental planning ranges (Louisville/Denver 2026 guides) | G | ⚠️ REVIEW BEFORE BIDS — range, not a quote; rental-house quote required. Base skid-steer hire is a separate line. |
+| equip_skidsteer_breaker | 0.025 HR | $180–$295 / day ÷ 8 hr = $22.50–$36.88 / HR | $0.56–$0.92 | We Rent It / First Place Rental listings | G | ⚠️ REVIEW BEFORE BIDS — range, not a quote; rental-house quote required. Base skid-steer hire is a separate line. |
 | equip_concrete_disposal_ton | 0.026 TON | $60.00 / TON | $1.56 | JBL Disposal, Terre Haute, IN | S | ⚠️ REVIEW BEFORE BIDS — disposal weight only. |
-| **Material + equipment subtotal** | | | **$2.12–$2.73 / SF** | | | Labor excluded. No material components in this recipe. |
+| **Material + equipment subtotal** | | | **$2.12–$2.48 / SF** | | | Labor excluded. No material components in this recipe. |
 
 ### 3.4 `flooring-hardwood-solid-oak-3-4` — Solid 3/4 in. x 3-1/4 in. Oak Hardwood Flooring (Blind-Nailed) — per SF
 
@@ -199,7 +199,7 @@ before any bid use.
 |---|---|---|
 | demo-flooring-carpet-pad | SF | $0.036 |
 | demo-roofing-shingle-tearoff | SQ | $9.86 |
-| demo-concrete-slab-4in | SF | $2.12–$2.73 |
+| demo-concrete-slab-4in | SF | $2.12–$2.48 |
 | flooring-hardwood-solid-oak-3-4 | SF | $3.82 |
 | hvac-minisplit-singlezone-12k | EA | $1,598.09 |
 | framing-floor-ijoist-19-2oc | SF | $4.15–$5.16 |
@@ -263,7 +263,7 @@ The following original publishers provide identifiable evidence for selected pla
 - ZT Supply Chain's mini-excavator planning guide gives $275–$450/day: https://ztsupplychain.com/mini-excavator-rental-rates/ . This is not a Terre Haute rental quote.
 - Home Depot lists LG outdoor unit KUSAH121B at $749: https://www.homedepot.com/p/337763286 and identifies the matching indoor KNSAH121B at https://www.homedepot.com/p/337763272 . Confirm the indoor unit's $498 price and pairing before use.
 - Acme Tools lists Diablo DS0612BW25, 25 bi-metal blades, at $59.47: https://www.acmetools.com/diablo-tools-6in-bi-metal-recip-blade-for-nail-embedded-wood-25pc-ds0612bw25/008925099321.html . The prior “Ace Tool” attribution was incorrect.
-- JBL Disposal's Terre Haute listing states $60 per ton for extra weight: https://www.jbldisposal.com/dumpster-rental-terre-haute-in/ . This is an overage charge, not a standalone disposal quote.
+- We Rent It lists a skid-steer breaker at $180/day: https://rent.werentit.net/products/skid-steer-breaker-j5mcfs01mvvh ; First Place Rental lists a skid-steer breaker attachment at $295/day: https://rentals.firstplacerental.com/categories/earthmoving/loaders-skid-steers-attachments . These are nonlocal planning bounds, excluding the skid steer itself. The prior $375/day upper bound was not supported as a breaker rate.\n- Trimgy's 24 ga Galvalume steel mid-profile trim guide lists $3.40–$6.00/LF: https://trimgy.com/resources/sheet-metal-trim-industry-data/ . Profile and finish remain unspecified.\n- JBL Disposal's Terre Haute listing states $60 per ton for extra weight: https://www.jbldisposal.com/dumpster-rental-terre-haute-in/ . This is an overage charge, not a standalone disposal quote.
 - Truitt & White's TJI guide lists TJI 210, 11-7/8 in., at $5.25–$6.75 per linear foot: https://truittandwhite.com/cost-of-tji-joists . This is a regional guide, not a Terre Haute dealer quote.
 - MyHomeQuote's standing-seam guide lists 24-gauge panels at $5.50–$6.50 per square foot: https://www.myhomequote.com/cost/roofing/standing-seam-metal-roof-cost . This is a planning guide, not a panel order.
 
