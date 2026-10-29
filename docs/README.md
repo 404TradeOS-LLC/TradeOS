@@ -401,6 +401,12 @@ The protected `.github/workflows/backfill-abc-materials.yml` operator workflow n
 
 The staging database uses its own manually dispatched Prisma migration workflow at `.github/workflows/deploy-staging-migrations.yml`. It runs only from `main`, targets the verified TradeOS Staging project ref, and calls the repository's `app/scripts/deploy-migrations.sh` so Prisma history and restricted-role grants stay aligned. Configure `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` as secrets in the GitHub `staging` Environment; never reuse Production secrets. The workflow verifies the database host, invoice backfill precondition, and final Prisma ledger.
 
+Deploy workflow pooler support — 2026-10-29: `.github/workflows/deploy-staging-migrations.yml` now accepts the staging Supabase Transaction pooler host (`aws-0-us-east-2.pooler.supabase.com`) in addition to the direct host, with the same project-ref-suffixed username requirement the reconcile workflow uses, because GitHub runners cannot reach the direct host over IPv6. For `prisma migrate deploy` the workflow converts a verified Transaction-pooler URL to session mode (port 5432, pgbouncer param stripped); the psql checks keep the secret as-is. Staging ledger stood at 47 applied of 61 tracked after the 2026-10-29 invoice-expand reconciliation (47 applied, 0 unfinished, legacy columns intact, proven by the reconcile workflow's final check); the remaining 14 migrations still require the writer-retirement attestation before the contract migration runs.
+
+
+## Staging Preview isolation attestation
+
+For the existing TradeOS API/web Vercel projects, use `.github/workflows/attest-staging-preview.yml` after approved merge to check branch-scoped `staging` Preview bindings. This workflow is manually dispatched from `main`, requires GitHub Environment `staging` approval, and reads values only inside Vercel's `env run` subprocess. It prints field names on failure, never credentials, and does not deploy or change settings. See `docs/QA_PREVIEW_DEPLOYMENT_CHECKLIST.md` for the remaining database-migration, privileged-key, exact-SHA and authenticated acceptance requirements.
 
 ## Isolated frontend component browser verification
 
@@ -424,3 +430,4 @@ The required Docs consistency workflow still executes for Dependabot PRs; only t
 The manual, reviewer-gated `.github/workflows/reconcile-staging-invoice-expand.yml` is separate from the normal deploy workflow. It checks the independently executed Supabase invoice expansion against the repository's exact executable Prisma SQL, schema, trigger, four monetary columns and nondivergent invoice rows. Only after a main-branch, staging-Environment approval and typed confirmation does it record that **one already-executed** migration in Prisma. It does not execute schema migrations or drop legacy invoice columns. The remaining staging migration backlog is blocked until issue #811's old-writer retirement evidence and separately reviewed deploy. The Prisma history write uses the direct connection or the matching staging session pooler (port 5432); a staging Transaction-pooler secret (port 6543) is normalized to session mode first.
 
 The ordinary protected staging migration workflow also fails closed before the invoice contract/drop-legacy migration unless the exact main commit has an independently reviewed `STAGING_INVOICE_WRITERS_RETIRED_SHA` Environment variable and the dispatch supplies `APPROVE_INVOICE_CONTRACT`. The two workflows share one non-cancelling staging migration concurrency group.
+
