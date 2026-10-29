@@ -130,12 +130,12 @@ before any bid use.
 | Component | Recipe qty | Unit price | Extended / SQ | Supplier / source | Verification | Review flag |
 |---|---|---|---|---|---|---|
 | mat_metal_panels_standing_seam_24ga | 1.12 SQ | $5.50–$6.50 / SF × 100 SF/SQ = $550–$650 / SQ (24 ga material) | $616.00–$728.00 | myhomequote 24-gauge guide (Angi 2026 guide gives $3–$8/SF for 24 ga) | G | ⚠️ REVIEW BEFORE BIDS — guide range; fabricator quote required. Panel width/profile/finish move the price materially. |
-| fast_clips_standing_seam_expansion | 40.5 EA | $0.75–$1.50 / EA | $30.38–$60.75 | Published standing-seam material guide | G | ⚠️ REVIEW BEFORE BIDS — clips are system-specific and normally ship with the panel order; no standalone retail box price was found. Range only. |
+| fast_clips_standing_seam_expansion | 40.5 EA | — | — | System-specific fabricator quote required | R | No price carried: the only identifiable $0.75 clip is fixed, not an expansion clip, and compatibility cannot be assumed. |
 | fast_screws_pancake_head | 81.0 EA | $20.65 / 100 pk = $0.2065 / EA (Teks #10 x 1-1/2 in. pancake head, star drive) | $16.73 | Zoro | S | ⚠️ REVIEW BEFORE BIDS |
-| mat_trim_standing_seam_flashing | 12.5 LF | $3.00–$7.00 / LF | $37.50–$87.50 | Published standing-seam material guide | G | ⚠️ REVIEW BEFORE BIDS — guide range; trim profile drives the price. |
+| mat_trim_standing_seam_flashing | 12.5 LF | $3.40–$6.00 / LF | $42.50–$75.00 | Trimgy 24 ga Galvalume mid-profile guide | G | ⚠️ REVIEW BEFORE BIDS — guide range; confirm actual profile and finish with fabricator. |
 | mat_sealant_butyl_tape_metal | 25.0 LF | $7.98 / 50 ft roll = $0.1596 / LF (Gibraltar butyl tape, 1/2 in. x 3/32 in. x 50 ft) | $3.99 | Home Depot | S | ⚠️ REVIEW BEFORE BIDS. Sanity check: September baseline ABC Supply $11.50/roll (45 LF). |
 | labor_install_standing_seam (labor) | 2.2 HR | — | — | — | R | Labor is not a supplier price. |
-| **Material subtotal** | | | **$704.59–$896.97 / SQ** | | | Labor excluded. Note: the rollup on main says 0/3 for this assembly while the recipe has 6 components; the recipe count governs. |
+| **Material subtotal** | | | **$679.21–$823.72 / SQ, incomplete** | | | Labor excluded. Note: the rollup on main says 0/3 for this assembly while the recipe has 6 components; the recipe count governs. |
 
 ### 3.8 `insul-sprayfoam-closedcell-2in` — Closed-Cell Spray Polyurethane Foam Insulation (2 in. Thickness, R-14) — per SF
 
@@ -203,7 +203,7 @@ before any bid use.
 | flooring-hardwood-solid-oak-3-4 | SF | $3.82 |
 | hvac-minisplit-singlezone-12k | EA | $1,598.09 |
 | framing-floor-ijoist-19-2oc | SF | $4.15–$5.16 |
-| roofing-metal-standing-seam-24ga | SQ | $704.59–$896.97 |
+| roofing-metal-standing-seam-24ga | SQ | $679.21–$823.72, excluding unquoted expansion clips |
 | insul-sprayfoam-closedcell-2in | SF | $4.32 |
 | waterproofing-foundation-spray-bituminous | SF | $0.49 |
 | demo-roofing-shingle-tearoff-2layers | SQ | $18.54 |
