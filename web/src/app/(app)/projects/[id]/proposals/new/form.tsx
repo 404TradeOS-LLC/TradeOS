@@ -14,11 +14,13 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Estimate, ProposalDraftPreview } from "@/lib/api";
 
 export function NewProposalForm({
+  idempotencyKey,
   projectId,
   estimates,
   draft,
   initialEstimateId,
 }: {
+  idempotencyKey: string;
   projectId: string;
   estimates: Estimate[];
   draft: ProposalDraftPreview;
@@ -51,6 +53,7 @@ export function NewProposalForm({
           onReset={(event) => event.preventDefault()}
         >
           <input type="hidden" name="projectId" value={projectId} />
+          <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
           <div className="flex flex-col gap-2">
             <Label htmlFor="estimateId">Estimate</Label>
             <select
