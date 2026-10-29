@@ -1,0 +1,121 @@
+/**
+ * TradeOS Motion collection (spec §§02, 16).
+ *
+ * CSS counterpart to web/src/lib/motion/tokens.ts. Where a spec value
+ * already exists in production (globals.css --dur-1, --dur-3,
+ * --ease-emphasized), the variable below aliases it instead of restating
+ * the value. tokens.ts and this file are kept in sync by
+ * web/src/lib/motion/motion-css.test.ts.
+ *
+ * The global prefers-reduced-motion override in globals.css stays intact
+ * and governs every transition on the page. The reduced blocks below add
+ * the component-level reduced variants the spec requires (static paths,
+ * no travel, no stagger, opacity-only <=100ms) and also honor the optional
+ * user preference via [data-motion="reduced"] on <html>, which
+ * use-motion-preference.ts maintains.
+ */
+
+:root {
+  --motion-micro: var(--dur-1);
+  --motion-state: 240ms;
+  --motion-resolve: var(--dur-3);
+  --motion-connect: 280ms;
+  --motion-recalculate: 220ms;
+  --motion-advance: 280ms;
+  --motion-complete: 240ms;
+  --motion-signature: 640ms;
+  --motion-reduced: 100ms;
+  --motion-stagger: 35ms;
+  --motion-stagger-cap: 105ms;
+  --motion-displacement: 4px;
+  --motion-settle: var(--ease-emphasized);
+  --motion-transit: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* Resolve (§03): categories reveal with a capped stagger. The delay comes
+   from --motion-delay, set inline by the component from staggerDelayMs. */
+.motion-resolve-item {
+  transition:
+    opacity var(--motion-resolve) var(--motion-settle),
+    transform var(--motion-resolve) var(--motion-settle);
+  transition-delay: var(--motion-delay, 0ms);
+}
+
+.motion-resolve-item[data-state="hidden"] {
+  opacity: 0;
+  transform: translateY(var(--motion-displacement));
+}
+
+/* Connect (§04): a fixed SVG datum travels once toward the destination.
+   Pending holds the datum near the source; confirmed rests it at full
+   span. There is no ambient loop: the datum stops when the process does. */
+.motion-connect-datum {
+  transition: transform var(--motion-connect) var(--motion-transit);
+  transform-box: fill-box;
+  transform-origin: left center;
+}
+
+.motion-connect-datum[data-state="pending"] {
+  transform: scaleX(0.1);
+}
+
+.motion-connect-datum[data-state="confirmed"],
+.motion-connect-datum[data-state="failed"] {
+  transform: scaleX(1);
+}
+
+/* Recalculate (§05): only the delta emphasis transitions. The numbers
+   themselves swap in one commit; digits never roll. */
+.motion-price-delta-value {
+  transition: opacity var(--motion-recalculate) var(--motion-settle);
+}
+
+/* Advance (§06): the lifecycle marker moves one segment on an
+   acknowledged change. transform + width only; rows never reorder. */
+.motion-advance-marker {
+  transition:
+    transform var(--motion-advance) var(--motion-transit),
+    width var(--motion-advance) var(--motion-transit);
+  will-change: transform;
+}
+
+/* Complete (§07): a single emphasis. No looping pulse, no modal. */
+.motion-complete-label {
+  transition: opacity var(--motion-complete) var(--motion-settle);
+}
+
+/* Reduced motion (§16): instant state swap or <=100ms opacity only.
+   Travel, stagger, and path animation are removed; labels, deltas,
+   reasons, and errors stay visible. */
+@media (prefers-reduced-motion: reduce) {
+  .motion-resolve-item,
+  .motion-connect-datum,
+  .motion-price-delta-value,
+  .motion-advance-marker,
+  .motion-complete-label {
+    transition-duration: var(--motion-reduced) !important;
+    transition-delay: 0ms !important;
+    transform: none !important;
+  }
+
+  .motion-resolve-item[data-state="hidden"] {
+    opacity: 0;
+    transform: none;
+  }
+}
+
+[data-motion="reduced"] .motion-resolve-item,
+[data-motion="reduced"] .motion-connect-datum,
+[data-motion="reduced"] .motion-price-delta-value,
+[data-motion="reduced"] .motion-advance-marker,
+[data-motion="reduced"] .motion-complete-label {
+  transition-duration: var(--motion-reduced) !important;
+  transition-delay: 0ms !important;
+  transform: none !important;
+}
+
+[data-motion="reduced"] .motion-resolve-item[data-state="hidden"] {
+  opacity: 0;
+  transform: none;
+}
