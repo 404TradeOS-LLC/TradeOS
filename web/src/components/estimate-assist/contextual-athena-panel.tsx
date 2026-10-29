@@ -44,7 +44,7 @@ export function ContextualAthenaPanel({
   projectId: string;
   isDraft: boolean;
   headingId?: string;
-  onAdded?: () => void;
+  onAdded?: (reason?: string) => void;
   onOpenFullReview?: () => void;
   fullReviewPending?: boolean;
 }) {
@@ -73,7 +73,7 @@ export function ContextualAthenaPanel({
         }),
       });
       setAddedIds((current) => new Set(current).add(suggestion.id));
-      onAdded?.();
+      onAdded?.("Athena suggestion added");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Athena suggestion could not be added.");
     } finally {

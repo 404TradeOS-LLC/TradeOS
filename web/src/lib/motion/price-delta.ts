@@ -40,8 +40,7 @@ export function computePriceDelta(input: {
   previousMinor: number;
   currentMinor: number;
   currency: string;
-}): PriceDelta {
-  const { previousMinor, currentMinor, currency } = input;
+}): PriceDelta {  const { previousMinor, currentMinor, currency } = input;
   if (!Number.isFinite(previousMinor) || !Number.isFinite(currentMinor)) {
     throw new Error("Price deltas require finite minor-unit values.");
   }
@@ -64,4 +63,17 @@ export function computePriceDelta(input: {
         ? formatMinor(0, currency)
         : `${sign}${formatMinor(deltaMinor, currency)}`,
   };
+}
+
+/**
+ * Convert a server total in major units (dollars) to integer minor units.
+ *
+ * Math.round absorbs binary floating-point representation error
+ * (1234.56 stored as 1234.55999… still converts to 123456); it never
+ * rounds a price to a coarser precision. Non-finite input returns null
+ * so callers skip rendering instead of showing a fabricated price.
+ */
+export function toMinorUnits(value: number): number | null {
+  if (!Number.isFinite(value)) return null;
+  return Math.round(value * 100);
 }

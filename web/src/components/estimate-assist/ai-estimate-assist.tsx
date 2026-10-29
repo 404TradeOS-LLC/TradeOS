@@ -41,6 +41,8 @@ import {
   type SavedEstimateLineIdentity,
   type VerifiedEstimateApplyLine,
 } from "@/lib/estimate-apply-verification";
+import { ResolveSequence } from "@/components/motion/resolve-sequence";
+import { draftCategories } from "@/lib/motion/adapters";
 
 type SuggestionStatus = "pending" | "accepted" | "rejected";
 
@@ -228,6 +230,7 @@ export function AIEstimateAssist({
   }, [applyState]);
 
   const isCurrentReview = () => reviewContext.current?.projectId === projectId && reviewContext.current?.estimateId === estimateId;
+  const [submittedScope, setSubmittedScope] = useState<string | null>(null);
 
   const reviewStats = useMemo(() => {
     const accepted = suggestions.filter((suggestion) => suggestion.status === "accepted");
@@ -259,6 +262,10 @@ export function AIEstimateAssist({
         }
       );
     },
+    // Capture the submitted scope verbatim: while a new interpretation is
+    // generating, the previous draft is invalidated, so the skeleton must
+    // show what was actually submitted, not an edited textarea value.
+    onMutate: () => setSubmittedScope(scopeOfWork),
     onSuccess: (payload) => {
       if (!isCurrentReview()) return;
       setStructuredDraft(payload);
@@ -358,6 +365,14 @@ export function AIEstimateAssist({
     regenerateSuggestions.mutate();
   };
 
+  // Revealed boundary: a draft counts as revealed only once its payload
+  // has arrived and no newer generation is in flight. While generating,
+  // the prior draft is invalidated and the skeleton shows the scope that
+  // was actually submitted. Human acknowledgement (accept/apply) stays in
+  // the review flow below; this sequence renders the interpretation only.
+  const interpretationPending = regenerateSuggestions.isPending;
+  const interpretationDraft = interpretationPending ? null : structuredDraft;
+
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
       <fieldset disabled={reviewLocked} className="min-w-0 space-y-6">
@@ -453,6 +468,16 @@ export function AIEstimateAssist({
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {interpretationPending || structuredDraft ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Interpreted scope</p>
+                <ResolveSequence
+                  rawInput={interpretationDraft?.scopeOfWork ?? submittedScope ?? scopeOfWork}
+                  categories={draftCategories(interpretationDraft)}
+                  revealed={interpretationDraft !== null}
+                />
+              </div>
+            ) : null}
             {structuredDraft ? (
               <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
                 <div className="flex flex-wrap items-center gap-2">

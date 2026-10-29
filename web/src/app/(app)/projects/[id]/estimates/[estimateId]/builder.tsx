@@ -21,6 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Estimate } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { markerGeometry, type MarkerGeometry } from "@/lib/motion/lifecycle";
+import { PriceDelta } from "@/components/motion/price-delta";
+import { toMinorUnits } from "@/lib/motion/price-delta";
 import { groupSavedDirectCosts } from "@/lib/estimate-direct-costs";
 import { canAddReviewedEstimateCatalogItem } from "@/lib/estimate-catalog-review";
 import { createEstimateReviewNavigator } from "@/lib/estimate-review-navigation";
@@ -98,16 +100,33 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
     staleTime: 15_000,
   });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: estimateKey });
+  const [lastRecalculation, setLastRecalculation] = useState<{ previousTotalMinor: number; reason: string } | null>(null);
+
+  const invalidate = (reason?: string) => {
+    // Previous-totals source for the Price stage delta: no caller carries
+    // previous totals, so the snapshot is taken here, when a pricing
+    // mutation's onSuccess fires. Query data is still the pre-mutation
+    // record at that point (the refetch lands later), so the snapshot is
+    // the last server-confirmed total, never an invented value. Only
+    // pricing mutations pass a reason; finalize, scope saves, and pricing
+    // mode switches (same math, different expression) do not.
+    if (reason && estimate) {
+      const previousTotalMinor = toMinorUnits(estimate.totalPrice);
+      if (previousTotalMinor !== null) setLastRecalculation({ previousTotalMinor, reason });
+    }
+    queryClient.invalidateQueries({ queryKey: estimateKey });
+  };
 
   const removeLineItem = useMutation({
     mutationFn: (lineItemId: string) => clientFetch(`/estimates/${estimateId}/line-items/${lineItemId}`, { method: "DELETE" }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate("Line item removed"),
   });
 
   const finalize = useMutation({
     mutationFn: () => clientFetch(`/estimates/${estimateId}/finalize`, { method: "POST" }),
-    onSuccess: invalidate,
+    // No reason: finalizing locks the version without changing the price,
+    // and react-query must never feed the mutation result in as a reason.
+    onSuccess: () => invalidate(),
   });
 
   const runningTotals = useMemo(() => {
@@ -151,6 +170,14 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
       isCurrent: () => reviewContext.current?.projectId === projectId && reviewContext.current?.estimateId === estimateId,
     });
   };
+
+  // Last repricing delta for the Price stage. Rendered only when the
+  // saved total actually moved; a no-change save shows nothing.
+  const currentTotalMinor = toMinorUnits(runningTotals.totalPrice);
+  const recalculationDelta =
+    lastRecalculation && currentTotalMinor !== null && currentTotalMinor !== lastRecalculation.previousTotalMinor
+      ? { previousTotalMinor: lastRecalculation.previousTotalMinor, currentTotalMinor, reason: lastRecalculation.reason }
+      : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -234,6 +261,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         onFinalize={() => { if (!saveScope.isPending && scopeDraft.trim() === persistedScope.trim()) finalize.mutate(); }}
         finalizePending={finalize.isPending || saveScope.isPending}
         finalizeError={finalize.isError ? (finalize.error instanceof Error ? finalize.error.message : "Unable to finalize estimate. Review the items and try again.") : null}
+        recalculationDelta={recalculationDelta}
       />
     </div>
   );
@@ -306,6 +334,7 @@ function EstimateStageFlow({
   onFinalize,
   finalizePending,
   finalizeError,
+  recalculationDelta,
 }: {
   projectId: string;
   projectName: string;
@@ -330,6 +359,7 @@ function EstimateStageFlow({
   onFinalize: () => void;
   finalizePending: boolean;
   finalizeError: string | null;
+  recalculationDelta: { previousTotalMinor: number; currentTotalMinor: number; reason: string } | null;
 }) {
   const stages: Array<{ id: EstimateStage; label: string }> = [
     { id: "scope", label: "Scope" },
@@ -484,6 +514,15 @@ function EstimateStageFlow({
           <div hidden={activeStage !== "price"} className="space-y-4 pb-24 lg:pb-0">
             <h2 ref={(node) => { stageHeadingRefs.current.price = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Price the work</h2>
             <p className="text-sm text-muted-foreground">Use Apply or Save overhead / tax to save pricing changes. Review uses the saved estimate total.</p>
+            {recalculationDelta ? (
+              <PriceDelta
+                previousMinor={recalculationDelta.previousTotalMinor}
+                currentMinor={recalculationDelta.currentTotalMinor}
+                currency="USD"
+                reason={recalculationDelta.reason}
+                label="Last recalculation"
+              />
+            ) : null}
             <EstimateDirectCostBreakdown lineItems={estimate.lineItems} />
             <PricingPanel
               estimateId={estimateId}
@@ -627,7 +666,7 @@ function EstimateStageAction({ label, onClick, disabled = false }: { label: stri
 }
 
 
-function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; onAdded: () => void; active: boolean }) {
+function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; onAdded: (reason?: string) => void; active: boolean }) {
   const queryClient = useQueryClient();
   const catalogPanelId = useId();
   const customPanelId = useId();
@@ -842,7 +881,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
       setActiveIndex(0);
       quantityInputRef.current?.blur();
       searchInputRef.current?.focus();
-      onAdded();
+      onAdded("Line item added");
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to add line item"),
   });
@@ -862,7 +901,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
     onSuccess: () => {
       setCustom({ description: "", unitOfMeasure: "EA", unitCost: "", quantity: "1", section: "Reconstruction / Finish", costType: "labor", taxable: false });
       setError(null);
-      onAdded();
+      onAdded("Custom line item added");
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to add custom line item"),
   });
@@ -1627,7 +1666,7 @@ function groupLineItems(items: LineItem[]) {
 
 const estimateItemColumns = "lg:grid-cols-[minmax(0,1fr)_5.5rem_6.25rem_7.25rem]";
 
-function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, removing }: { estimateId: string; lineItem: LineItem; isDraft: boolean; onUpdated: () => void; onRemove: () => void; removing: boolean }) {
+function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, removing }: { estimateId: string; lineItem: LineItem; isDraft: boolean; onUpdated: (reason?: string) => void; onRemove: () => void; removing: boolean }) {
   const editorId = useId();
   const costHelpId = `${editorId}-cost-help`;
   const [editing, setEditing] = useState(false);
@@ -1642,7 +1681,7 @@ function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, 
       }
       return clientFetch(`/estimates/${estimateId}/line-items/${lineItem.id}`, { method: "PATCH", body: JSON.stringify({ ...form, quantity, unitCost }) });
     },
-    onSuccess: () => { setError(null); setEditing(false); onUpdated(); },
+    onSuccess: () => { setError(null); setEditing(false); onUpdated("Line item updated"); },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to update line item"),
   });
   return <li aria-label={lineItem.description} className="border-b border-border/70 px-0 py-4 last:border-b-0">
@@ -1685,7 +1724,7 @@ function PricingPanel({
   hasTaxableLineItems: boolean;
   pricingModeLabel: string;
   isDraft: boolean;
-  onUpdated: () => void;
+  onUpdated: (reason?: string) => void;
 }) {
   const [mode, setMode] = useState<"markup" | "targetMargin">(estimate.targetMarginPct != null ? "targetMargin" : "markup");
   const [value, setValue] = useState(String(estimate.targetMarginPct ?? estimate.profitPct ?? 0));
@@ -1725,7 +1764,7 @@ function PricingPanel({
       if (!Number.isFinite(overheadPct) || overheadPct < 0 || !Number.isFinite(taxPct) || taxPct < 0 || taxPct > 100) throw new Error("Enter valid overhead and tax percentages");
       return clientFetch(`/estimates/${estimateId}`, { method: "PATCH", body: JSON.stringify({ overheadPct, taxPct }) });
     },
-    onSuccess: () => { setError(null); onUpdated(); },
+    onSuccess: () => { setError(null); onUpdated("Overhead / tax saved"); },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to update estimate settings"),
   });
 
