@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { JobCreateForm } from "./job-create-form";
 import { buttonVariants } from "@/components/ui/button";
-import { getOrganizationSettings, getProject, getProposal } from "@/lib/api";
+import { ApiClientError, getOrganizationSettings, getProject, getProposal } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 
 const JOB_MANAGER_ROLES = new Set(["owner", "admin", "dispatcher"]);
@@ -20,8 +20,16 @@ export default async function NewProjectJobPage({ params, searchParams }: { para
     redirect(`/projects/${project.id}`);
   }
 
-  const proposal = proposalId ? await getProposal(token ?? "", proposalId) : null;
-  if (proposal && (proposal.projectId !== project.id || proposal.status !== "accepted")) {
+  if (proposalId !== undefined && (typeof proposalId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(proposalId))) {
+    redirect(`/projects/${project.id}`);
+  }
+  const proposal = proposalId
+    ? await getProposal(token ?? "", proposalId).catch((error: unknown) => {
+        if (error instanceof ApiClientError && error.status >= 400 && error.status < 500) return null;
+        throw error;
+      })
+    : null;
+  if (proposalId && (!proposal || proposal.projectId !== project.id || proposal.status !== "accepted")) {
     redirect(`/projects/${project.id}`);
   }
 
