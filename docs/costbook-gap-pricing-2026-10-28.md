@@ -235,3 +235,13 @@ before any bid use.
 4. Decide whether to wire these prices into `pricedAssemblies.ts` (a separate,
    code-changing PR with tests) or keep this document as a research-only reference.
    Wiring is NOT part of this proposal.
+
+## Source traceability (review in progress)
+
+The following original publishers provide identifiable evidence for selected planning rows:
+
+- JBL Disposal's Terre Haute listing states $60 per ton for extra weight: https://www.jbldisposal.com/dumpster-rental-terre-haute-in/ . This is an overage charge, not a standalone disposal quote.
+- Truitt & White's TJI guide lists TJI 210, 11-7/8 in., at $5.25–$6.75 per linear foot: https://truittandwhite.com/cost-of-tji-joists . This is a regional guide, not a Terre Haute dealer quote.
+- MyHomeQuote's standing-seam guide lists 24-gauge panels at $5.50–$6.50 per square foot: https://www.myhomequote.com/cost/roofing/standing-seam-metal-roof-cost . This is a planning guide, not a panel order.
+
+**Evidence gap:** The other priced rows have no retained direct product or guide URL in this proposal, including the clip and trim ranges and rental guides. Their stated search-result prices cannot be independently traced from this document. Treat their subtotals as unverified research leads and obtain direct source evidence or fresh supplier quotes before approving this proposal or using any price in a bid.
