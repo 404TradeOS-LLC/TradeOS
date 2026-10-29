@@ -63,6 +63,8 @@ The October 27 staging read audit found an active/healthy database, 46 applied P
 
 What the orchestrator does NOT do yet, stated plainly: it has not demonstrated a live full PASS. Its first real run will fail closed at the database preflight until the two staging secrets are entered, and at the Vercel wait until a team-scoped token exists; beta evidence additionally needs its provisioned smoke identity (present by name) and its data-plane/tenant-isolation prerequisites (`BETA_RC_SUPABASE_PROJECT_REF` and either `BETA_RC_FOREIGN_PROJECT_ID` or `BETA_RC_FOREIGN_CUSTOMER_ID`, both present by name); for S052/S053 scenarios, identities that do not currently exist. Do not present the workflow file, a READY badge, or a branch alias as staging acceptance. When those three blockers clear, the next staging push is the demonstration: one SHA, two READY deployments, verified `/health`/`/ready`, and a beta-evidence bundle under one run.
 
+Staging orchestrator preflight host acceptance — 2026-10-28: the read-only preflight's staging-identity check now accepts the direct staging host and the staging Transaction pooler host (`aws-0-us-east-2.pooler.supabase.com`), because GitHub runners cannot reach the direct host over IPv6. The preflight remains read-only; the pooler hostname is regional rather than project-specific, so the staging-environment secret's provenance remains the project binding.
+
 
 ## ABC Supply material activation pilot — 2026-10-09
 

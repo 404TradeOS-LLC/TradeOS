@@ -188,12 +188,22 @@ jobs:
             console.error("STAGING_DATABASE_ADMIN_URL is not a valid PostgreSQL URL.");
             process.exit(1);
           }
-          const expectedHost = `db.${process.env.STAGING_PROJECT_REF}.supabase.co`;
-          if (url.hostname !== expectedHost) {
-            console.error(`Refusing preflight: expected staging host ${expectedHost}, received ${url.hostname}. This workflow never touches a non-staging database.`);
+          const directHost = `db.${process.env.STAGING_PROJECT_REF}.supabase.co`;
+          const poolerHost = "aws-0-us-east-2.pooler.supabase.com";
+          const poolerUsername = decodeURIComponent(url.username);
+          const matchingPoolerUsername =
+            /^[a-zA-Z_][a-zA-Z0-9_]*\.[a-z0-9]{20}$/.test(poolerUsername) &&
+            poolerUsername.endsWith("."+process.env.STAGING_PROJECT_REF);
+          const directMatch = url.hostname === directHost &&
+            (url.port === "" || url.port === "5432");
+          const poolerMatch = url.hostname === poolerHost &&
+            (url.port === "5432" || url.port === "6543") && matchingPoolerUsername;
+          if (!["postgres:", "postgresql:"].includes(url.protocol) ||
+              url.pathname !== "/postgres" || !(directMatch || poolerMatch)) {
+            console.error("Refusing preflight: database URL is not the expected staging project identity.");
             process.exit(1);
           }
-          console.log(`Verified staging database host ${url.hostname}; credentials were not printed.`);
+          console.log("Validated staging-only PostgreSQL project identity; credentials were not printed.");
           NODE
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

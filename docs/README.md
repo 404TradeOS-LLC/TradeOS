@@ -26,6 +26,7 @@ related_code:
   - scripts/__tests__/pr-body-check.test.mjs
   - .github/workflows/docs-consistency.yml
   - .github/workflows/reconcile-production-migration.yml
+  - .github/workflows/staging-orchestrator.yml
   - .github/workflows/verify-repository.yml
   - .github/workflows/deploy-migrations.yml
   - .github/workflows/dependabot-patch-automerge.yml
