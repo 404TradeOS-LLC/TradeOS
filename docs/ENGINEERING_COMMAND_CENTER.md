@@ -433,6 +433,10 @@ Do not start any durable ABC Get All Items import or seven-day delta storage unt
 Staging Prisma migration execution is wired through `.github/workflows/deploy-staging-migrations.yml` on branch `ops/staging-prisma-migrations-20261018` (PR pending). It is manual-only, checks the exact TradeOS Staging Supabase host and invoice migration precondition, uses the existing Prisma deployment script, and verifies the resulting ledger. Before dispatch, configure the dedicated `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` secrets in GitHub Environment `staging`. No database migration has been run by this workflow setup.
 
 
+## Protected staging Preview binding attestation
+
+The manual, reviewer-gated `.github/workflows/attest-staging-preview.yml` workflow provides read-only effective Preview configuration checks when this connector cannot list Vercel environment metadata (403). Dispatch from `main` only, after workflow review. It accesses the existing GitHub `staging` Environment, pins both Vercel project IDs and the `staging` Git branch, and runs `scripts/staging-preview-attest.mjs` inside Vercel's in-memory `env run` scope. It verifies the staging Supabase issuer/database host and frontend staging API origin. No credentials are printed, and it cannot update envs, deploy, or migrate. A green attestation does not verify the service-role key's project provenance, staging migration ledger, matching deployments, or authenticated Today workflows; these remain separate gates.
+
 ## Isolated frontend component browser verification
 
 The existing Verify repository Web unit-test job also installs the pinned

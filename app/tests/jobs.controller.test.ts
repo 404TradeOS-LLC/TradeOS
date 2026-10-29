@@ -1,5 +1,6 @@
 const create = jest.fn();
 const list = jest.fn();
+const getById = jest.fn();
 const schedule = jest.fn();
 const archive = jest.fn();
 const getDispatchSummary = jest.fn();
@@ -11,7 +12,7 @@ jest.mock("../modules/jobs/service", () => ({
     schedule,
     archive,
     getDispatchSummary,
-    getById: jest.fn(),
+    getById,
     update: jest.fn(),
     reschedule: jest.fn(),
     dispatch: jest.fn(),
@@ -109,6 +110,22 @@ describe("jobsController", () => {
         pageSize: 10,
       })
     );
+  });
+
+  it("rejects a technician detail read for a job they are not assigned to", async () => {
+    const notFound = Object.assign(new Error("Job not found"), { statusCode: 404 });
+    getById.mockRejectedValue(notFound);
+    const req = {
+      params: { jobId: "job-1" },
+      orgId: "org-1",
+      auth: { userId: "tech-1", orgId: "org-1", role: "technician" },
+    } as any;
+    const res = responseDouble();
+
+    await expect(jobsController.getById(req, res)).rejects.toMatchObject({ statusCode: 404 });
+
+    expect(getById).toHaveBeenCalledWith("org-1", "job-1", req.auth);
+    expect(res.json).not.toHaveBeenCalled();
   });
 
   it("parses unassigned=true strictly as the boolean true (only unassigned jobs)", async () => {
