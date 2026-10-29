@@ -668,6 +668,8 @@ ABC's API Terms do not authorize permanent catalog/database copying by default. 
 
 A separate `.github/workflows/deploy-staging-migrations.yml` workflow provides a manual staging-only migration path. It runs from `main` against the `staging` GitHub Environment, verifies the exact Supabase project ref, checks invoice backfill prerequisites, runs `app/scripts/deploy-migrations.sh`, and verifies the Prisma ledger. Configure the dedicated `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` environment secrets; Production credentials must not be reused. This workflow does not run automatically on pushes and does not replace the protected Production migration workflow.
 
+Deploy workflow pooler support — 2026-10-29: the deploy workflow's staging-identity check now accepts the direct staging host or the staging Supabase Transaction pooler host, with the same project-ref-suffixed username requirement as the reconcile workflow, because GitHub runners cannot reach the direct host over IPv6. For `prisma migrate deploy` it converts a verified Transaction-pooler URL to session mode (port 5432, pgbouncer param stripped); psql checks keep the secret as-is. Staging ledger stood at 47 applied of 61 tracked after the 2026-10-29 invoice-expand reconciliation; the remaining 14 migrations still require the writer-retirement attestation before the contract migration runs.
+
 
 ## Read-only staging Preview environment attestation
 
