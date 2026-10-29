@@ -68,7 +68,7 @@ jobs:
               url.pathname !== "/postgres" || !(directMatch || poolerMatch)) {
             console.error("Refusing migration: STAGING_DATABASE_ADMIN_URL is not a verified staging database identity (direct host or pooler with project-ref username).");
             process.exit(1);
-              }
+          }
           console.log(`Verified staging database host ${url.hostname}; credentials were not printed.`);
           NODE
 
@@ -195,7 +195,7 @@ jobs:
           fi
 
       - name: Deploy tracked Prisma migrations and provision app role
-                run: |
+        run: |
           set -euo pipefail
           # Prisma migrate deploy needs a stable session; shared Transaction
           # pooling (:6543) is unsuitable for migration commands. Reuse the
