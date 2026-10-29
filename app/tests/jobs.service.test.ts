@@ -328,6 +328,19 @@ describe("JobsService", () => {
     expect(mockDb.proposal.findFirst).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["projectId", "project-2"],
+    ["customerId", "customer-2"],
+    ["serviceAddressId", "address-2"],
+  ] as const)("rejects proposal-derived job reparenting through %s", async (field, value) => {
+    mockDb.job.findFirst.mockResolvedValue({ ...scheduledJob, sourceProposalId: "proposal-1" });
+    const service = new JobsService(mockDb as never);
+    await expect(service.update("job-1", {
+      orgId: "org-1", actor: conversionInput.actor, [field]: value,
+    })).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockDb.job.update).not.toHaveBeenCalled();
+  });
+
   it("does not expose accepted commercial pricing to assigned technician job reads", async () => {
     const jobRow = {
       ...scheduledJob,
