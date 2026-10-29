@@ -86,8 +86,15 @@ synthetic transport. This does not certify successful authentication, deployed
 behavior, Lighthouse scores, or actual GPU rendering. Six new component-browser
 specimens cover responsive forms, timed/keyboard entry and GPU/storage failure;
 local execution is blocked before launch by a missing Chromium binary after
-the official download returned an invalid archive. Hosted checks and review
-remain required before merge; this entry does not claim deployment.
+the official download returned an invalid archive. Hosted checks passed on this PR head; review and deployment verification remain separate gates.
+## Field authorization evidence — PR #702
+
+The Field page now has executable denied-role tests, alongside its static
+UI/action contract checks. Missing authentication and non-technician roles
+return before job requests, including direct job links. JobsService tests
+assert unassigned technician reads/transitions fail without status or activity
+writes. A disposable-PostgreSQL test covers both an unassigned job and a same-org job assigned to another technician against raw reads and updates, with service denial for the unassigned case. Hosted integration and repository checks passed at the merged PR head; local Docker was unavailable. No RLS, authorization policy,
+storage implementation or field capture capability is changed or certified.
 ## Proposal draft status-check recovery — 2026-10-29
 
 The finalized Estimate Review links to the existing Proposal Review form with its `estimateId`. That form creates a draft through the existing proposal action; customer send remains a separate explicit action, and returned errors preserve edited fields.
@@ -1557,4 +1564,5 @@ The follow-up staging migration workflow now proposes a hard stop on the destruc
 PR #819 merged to `main` as `bc85a503025be60c6ff472a03a17fa34c0565ec8` from reviewed head `895115789a80934aad75201889ea3c22845df77b`. Proposal Review sends a per-attempt UUID in `Idempotency-Key`; the authenticated API derives the organization-scoped Project, stores a canonical SHA-256 request fingerprint, and enforces one row per `(project_id, idempotency_key)`. A new draft returns `201`; the same key and canonical payload replay the original proposal with `200` and `Idempotency-Replayed: true`; changed payload under the same key returns `409`. Keyless legacy clients remain compatible without deduplication. The additive migration adds nullable key/hash fields, a paired-null constraint and project-scoped unique index; auth, tenant context, RLS, permissions, price derivation and separate proposal-send behavior are unchanged.
 
 The client retains its UUID across server-action errors. A full reload seeds a new key, so the existing authenticated Project proposals list remains the recovery path. There is no status lookup endpoint or automatic retry. Exact PR-head verification passed: App/Web unit and integration tests, typecheck/build/lint, PostgreSQL migration/RLS rehearsal, Docs consistency (#4755, #4758–#4760), live docs reconciliation, governance, branch currency and dependency review. PostgreSQL concurrency coverage verified four same-key requests under request-scoped RLS: one insert, three replays, one persisted proposal. The merge is verified on `main`; this is **Implemented**, not evidence of production deployment. The protected production migration has not been executed, and authenticated production/browser behavior is not certified.
+
 
