@@ -34,9 +34,12 @@ function readPaymentSchedule(formData: FormData) {
   };
 }
 
-export async function createProposalAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+type CreateProposalActionState = FormActionState | { error: string; statusCheck: true };
+
+export async function createProposalAction(_prev: CreateProposalActionState, formData: FormData): Promise<CreateProposalActionState> {
   const token = await getSessionToken();
   const projectId = String(formData.get("projectId") ?? "");
+  const idempotencyKey = String(formData.get("idempotencyKey") ?? "");
   const estimateId = String(formData.get("estimateId") ?? "");
   const companyName = String(formData.get("companyName") ?? "").trim();
   const showLineItemDetail = formData.get("showLineItemDetail") === "on";
@@ -50,12 +53,16 @@ export async function createProposalAction(_prev: FormActionState, formData: For
   if ("error" in paymentSchedule) {
     return { error: paymentSchedule.error };
   }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
+    return { error: "Refresh this form before creating the proposal." };
+  }
 
   let proposal: Proposal;
   try {
     proposal = await apiFetch<Proposal>("/api/v1/proposals", {
       method: "POST",
       token: token ?? undefined,
+      headers: { "Idempotency-Key": idempotencyKey },
       body: JSON.stringify({
         estimateId: estimateId || undefined,
         projectId: projectId || undefined,
@@ -70,7 +77,10 @@ export async function createProposalAction(_prev: FormActionState, formData: For
       }),
     });
   } catch (err) {
-    return { error: err instanceof ApiClientError ? err.message : "Something went wrong." };
+    return {
+      error: err instanceof ApiClientError ? err.message : "Something went wrong.",
+      statusCheck: true,
+    };
   }
 
   revalidatePath(`/projects/${projectId}`);

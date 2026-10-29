@@ -1041,6 +1041,8 @@ model Proposal {
   sentAt             DateTime? @map("sent_at")
   viewedAt           DateTime? @map("viewed_at")
   respondedAt        DateTime? @map("responded_at")
+  idempotencyKey     String?   @map("idempotency_key")
+  idempotencyHash    String?   @map("idempotency_hash")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
 
@@ -1050,6 +1052,7 @@ model Proposal {
   contracts Contract[]
   deliveries ProposalDelivery[]
 
+  @@unique([projectId, idempotencyKey], map: "proposals_project_id_idempotency_key_key")
   @@index([projectId])
   @@index([estimateId])
   @@map("proposals")
