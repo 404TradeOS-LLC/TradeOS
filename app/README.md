@@ -134,6 +134,7 @@ curl -X POST localhost:4000/api/v1/proposals/preview/<estimateId> \
 
 curl -X POST localhost:4000/api/v1/proposals \
   -H "Authorization: Bearer <token>" \
+  -H "Idempotency-Key: <uuid-for-this-create-attempt>" \
   -H "Content-Type: application/json" \
   -d '{"estimateId": "<estimateId>"}'
 
