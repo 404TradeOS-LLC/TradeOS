@@ -1308,6 +1308,9 @@ describe("live organization row-level security", () => {
 
   it("denies an unassigned same-organization technician job reads and completion at the database boundary", async () => {
     const unassignedJob = randomUUID();
+    const assignedTechnician = randomUUID();
+    const assignedMembership = randomUUID();
+    const assignedRow = randomUUID();
     await adminClient.job.create({ data: {
       id: unassignedJob, orgId: orgA, projectId: projectA,
       customerId: customerA, serviceAddressId: serviceAddressA,
@@ -1315,6 +1318,8 @@ describe("live organization row-level security", () => {
       jobType: "HVAC Service", status: "on_site", priority: "medium", createdById: adminUser,
     } });
     try {
+      await adminClient.appUser.create({ data: { id: assignedTechnician, authSubject: assignedTechnician, email: `rls-${assignedTechnician}@example.com` } });
+      await adminClient.organizationMembership.create({ data: { id: assignedMembership, orgId: orgA, userId: assignedTechnician, role: "technician", status: "active" } });
       const hidden = await inSession(technicianUser, orgA, "technician", async () =>
         currentTransaction().job.findUnique({ where: { id: unassignedJob } })
       );
@@ -1331,11 +1336,26 @@ describe("live organization row-level security", () => {
           orgId: orgA, actor: { userId: technicianUser, orgId: orgA, role: "technician" },
         })
       )).rejects.toMatchObject({ statusCode: 404 });
+      await adminClient.jobAssignment.create({ data: {
+        id: assignedRow, orgId: orgA, jobId: unassignedJob, userId: assignedTechnician,
+        assignmentRole: "lead", isLead: true, assignedById: adminUser,
+      } });
+      const hiddenAssignedElsewhere = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().job.findUnique({ where: { id: unassignedJob } })
+      );
+      expect(hiddenAssignedElsewhere).toBeNull();
+      const deniedAssignedElsewhere = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().job.updateMany({ where: { id: unassignedJob }, data: { status: "completed" } })
+      );
+      expect(deniedAssignedElsewhere.count).toBe(0);
       expect((await adminClient.job.findUnique({ where: { id: unassignedJob } }))?.status).toBe("on_site");
       expect(await adminClient.activityEvent.count({ where: { orgId: orgA, entityType: "job", entityId: unassignedJob } })).toBe(0);
     } finally {
       await adminClient.activityEvent.deleteMany({ where: { orgId: orgA, entityType: "job", entityId: unassignedJob } });
+      await adminClient.jobAssignment.deleteMany({ where: { id: assignedRow } });
       await adminClient.job.delete({ where: { id: unassignedJob } });
+      await adminClient.organizationMembership.deleteMany({ where: { id: assignedMembership } });
+      await adminClient.appUser.deleteMany({ where: { id: assignedTechnician } });
     }
   });
 
