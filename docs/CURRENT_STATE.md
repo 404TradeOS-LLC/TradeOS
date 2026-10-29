@@ -63,6 +63,12 @@ related_code:
 
 # TradeOS Current State
 
+## Proposal draft status-check recovery — PR #816, 2026-10-29
+
+Main at `0e870008da9adb3799f255e937e46c0b96711b8b` already links a server-finalized Estimate Review to the existing Proposal Review form with its `estimateId`. The form creates a draft through the existing proposal action; customer send remains a separate explicit action, and returned errors preserve edited fields.
+
+The feature branch `feat/figma-to-code-completion` proposes a direct link from non-local creation errors to the same authenticated Project's Proposals tab (`?tab=proposals`) so staff can inspect the list before manually retrying. Local payment-schedule validation stays inline. This is a navigation aid, not a status lookup or idempotency guarantee: it does not auto-retry or infer the POST result. PR #816 is draft and pending review/checks; this behavior is not yet on main or certified in an authenticated runtime.
+
 ## Web performance telemetry — PR #744
 
 The Next.js root layout includes Vercel Speed Insights for browser performance
