@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
+import { getRequestDatabaseClient } from "../../db/requestSession";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { ProposalGeneratorService } from "../proposal-generator/service";
 import { ProposalDocument } from "../proposal-generator/types";
@@ -29,6 +30,26 @@ function canonicalize(value: unknown): unknown {
 function proposalRequestHash(input: CreateProposalInput): string {
   const request = Object.fromEntries(Object.entries(input).filter(([key]) => key !== "orgId"));
   return createHash("sha256").update(JSON.stringify(canonicalize(request))).digest("hex");
+}
+
+
+async function withProposalCreateSavepoint<T>(operation: () => Promise<T>): Promise<T> {
+  const activeTransaction = getRequestDatabaseClient();
+  if (!activeTransaction) return operation();
+
+  // A duplicate insert aborts the current PostgreSQL transaction. Isolate the
+  // insert and its project side effect so the caller can read the winner after rollback.
+  const savepoint = `proposal_create_${randomUUID().replace(/-/g, "")}`;
+  await activeTransaction.$executeRawUnsafe(`SAVEPOINT "${savepoint}"`);
+  try {
+    const result = await operation();
+    await activeTransaction.$executeRawUnsafe(`RELEASE SAVEPOINT "${savepoint}"`);
+    return result;
+  } catch (error) {
+    await activeTransaction.$executeRawUnsafe(`ROLLBACK TO SAVEPOINT "${savepoint}"`);
+    await activeTransaction.$executeRawUnsafe(`RELEASE SAVEPOINT "${savepoint}"`);
+    throw error;
+  }
 }
 
 function isUniqueConstraintViolation(error: unknown): boolean {
@@ -95,9 +116,11 @@ export class ProposalsService {
     if (replay) return replay;
 
     try {
-      const row = input.estimateId
-        ? await this.createFromEstimate(input, { idempotencyKey, requestHash })
-        : await this.createFromProject(input, { idempotencyKey, requestHash });
+      const row = await withProposalCreateSavepoint(() =>
+        input.estimateId
+          ? this.createFromEstimate(input, { idempotencyKey, requestHash })
+          : this.createFromProject(input, { idempotencyKey, requestHash })
+      );
       return { proposal: toDTO(row), replayed: false };
     } catch (error) {
       if (!isUniqueConstraintViolation(error)) throw error;
