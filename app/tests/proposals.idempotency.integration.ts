@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import type { AuthContext } from "../backend/auth/context";
+import { prisma } from "../db/client";
 import { runWithDatabaseSession } from "../db/requestSession";
 import { ProposalsService } from "../modules/proposals/service";
 
@@ -70,7 +71,7 @@ describe("proposal create idempotency in a request-scoped PostgreSQL transaction
     expect(new Set(results.map((result) => result.proposal.id)).size).toBe(1);
 
     const proposals = await runWithDatabaseSession(appClient, auth, () =>
-      adminClient.proposal.findMany({ where: { projectId } })
+      prisma.proposal.findMany({ where: { projectId, project: { orgId } } })
     );
     expect(proposals).toHaveLength(1);
     expect(proposals[0].idempotencyKey).toBe(requestKey);
