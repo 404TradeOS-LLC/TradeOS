@@ -25,6 +25,7 @@ export function NewProposalForm({
   initialEstimateId?: string;
 }) {
   const [state, formAction, isPending] = useActionState(createProposalAction, undefined);
+  const canCheckProjectProposals = Boolean(state && "statusCheck" in state && state.statusCheck);
   const errorRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (!state?.error) return;
@@ -157,7 +158,7 @@ export function NewProposalForm({
               <p ref={errorRef} role="alert" tabIndex={-1} className="text-sm text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
                 {state.error}
               </p>
-              {state.error !== "Each payment row needs a label and percent." && (
+              {canCheckProjectProposals && (
                 <div className="mt-3 flex flex-col items-start gap-2">
                   <p className="text-sm text-muted-foreground">
                     If you cannot confirm whether the draft was created, check this Project’s proposals before trying again.
