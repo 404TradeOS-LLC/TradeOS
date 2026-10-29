@@ -242,6 +242,12 @@ The following original publishers provide identifiable evidence for selected pla
 
 - Home Depot lists the Nashua 1.89 in. x 30 yd. duct tape at $7.98: https://www.homedepot.com/p/207203956 . Confirm the exact tape variant before purchase.
 - Powernail's 15,000-count 16-gauge 2 in. cleat case lists $304.13: https://store.powernail.com/black-box-2-16-ga-15-x-1m-powercleats . Confirm pack quantity and current price before use.
+- Home Depot lists the CORE 20 x 30 ft., 8 mil blue tarp at $87.95: https://www.homedepot.com/p/321674521 .
+- Flooring.org identifies unfinished red oak model 314SELRO at $3.29/SF: https://www.flooring.org/34-x-3-14-select-better-red-oak/ .
+- Pioneer's 25 ft. copper line-set listing shows a $180 option: https://www.pioneerminisplit.com/products/copper-piping-kit-for-mini-split-installation?variant=14833895505962 . Confirm that the selected variant has the required tubing dimensions.
+- South Mini Splits lists a 12 ft. PVC cover kit at $44: https://southminisplits.com/products/12ft-pvc-decorative-line-set .
+- Younits lists the 50 ft. 14/4 mini-split cable at $37.50: https://younits.com/14-4-ga-mini-split-wire-50-ft.html .
+- Total Home Supply identifies the Diversitech DDS-30 disconnect and whip kit: https://www.totalhomesupply.com/p/quick-disconnect-switch-kit-for-mini-split-air-conditioner-systems . Its $69 observation still needs a retained price confirmation.
 - JBL Disposal's Terre Haute listing states $60 per ton for extra weight: https://www.jbldisposal.com/dumpster-rental-terre-haute-in/ . This is an overage charge, not a standalone disposal quote.
 - Truitt & White's TJI guide lists TJI 210, 11-7/8 in., at $5.25–$6.75 per linear foot: https://truittandwhite.com/cost-of-tji-joists . This is a regional guide, not a Terre Haute dealer quote.
 - MyHomeQuote's standing-seam guide lists 24-gauge panels at $5.50–$6.50 per square foot: https://www.myhomequote.com/cost/roofing/standing-seam-metal-roof-cost . This is a planning guide, not a panel order.
