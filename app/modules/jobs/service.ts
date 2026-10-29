@@ -1153,7 +1153,9 @@ export class JobsService {
         },
       });
 
-      return this.hydrateJobDTO(tx, input.orgId, row);
+      const detail = await this.hydrateJobDTO(tx, input.orgId, row);
+      if (!MANAGER_ROLES.has(input.actor.role)) detail.acceptedBaselineJson = null;
+      return detail;
     });
   }
 
