@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
@@ -11,6 +11,29 @@ import { legacyProposalStatusMap, normalizeEstimateStatus, normalizeProposalStat
 import { clampQueueLimit, decodeUpdatedAtCursor, encodeUpdatedAtCursor, buildUpdatedAtRange, QueuePage } from "../shared/pagination";
 import { expandCanonicalStatusFilter } from "../shared/statusFilter";
 import { CreateProposalInput, ProposalDTO, ProposalDeliveryDTO, ProposalDraftPreviewDTO, ProposalQueueFilters, ProposalQueueItemDTO } from "./types";
+
+
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, entry]) => entry !== undefined)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entry]) => [key, canonicalize(entry)])
+    );
+  }
+  return value;
+}
+
+function proposalRequestHash(input: CreateProposalInput): string {
+  const request = Object.fromEntries(Object.entries(input).filter(([key]) => key !== "orgId"));
+  return createHash("sha256").update(JSON.stringify(canonicalize(request))).digest("hex");
+}
+
+function isUniqueConstraintViolation(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2002");
+}
 
 interface PaymentScheduleEntry {
   label: string;
@@ -28,6 +51,60 @@ export class ProposalsService {
       ? await this.createFromEstimate(input)
       : await this.createFromProject(input);
     return toDTO(row);
+  }
+
+  /**
+   * Creates one proposal for an organization-scoped request key. A replay
+   * returns the original proposal; reusing the key for different input fails
+   * with 409. The database unique constraint arbitrates simultaneous requests.
+   */
+  async createWithIdempotency(
+    input: CreateProposalInput,
+    idempotencyKey: string
+  ): Promise<{ proposal: ProposalDTO; replayed: boolean }> {
+    if (!input.orgId) throw new ApiError(400, "Organization context is required");
+    const requestHash = proposalRequestHash(input);
+    let projectId: string;
+
+    if (input.estimateId) {
+      const estimate = await prisma.estimate.findFirst({
+        where: { id: input.estimateId, orgId: input.orgId },
+        select: { projectId: true },
+      });
+      if (!estimate) throw new ApiError(404, `Estimate ${input.estimateId} not found`);
+      projectId = estimate.projectId;
+    } else {
+      if (!input.projectId) throw new ApiError(400, "projectId is required when estimateId is not provided");
+      const project = await this.getProjectDraftContext(input.projectId, input.orgId);
+      projectId = project.id;
+    }
+
+    const findReplay = async () => {
+      const existing = await prisma.proposal.findFirst({
+        where: { projectId, idempotencyKey, project: { orgId: input.orgId } },
+        include: { deliveries: { orderBy: { occurredAt: "desc" } } },
+      });
+      if (!existing) return null;
+      if (existing.idempotencyHash !== requestHash) {
+        throw new ApiError(409, "This proposal request key was already used with different details. Check the project proposal list before starting a new draft.");
+      }
+      return { proposal: toDTO(existing), replayed: true as const };
+    };
+
+    const replay = await findReplay();
+    if (replay) return replay;
+
+    try {
+      const row = input.estimateId
+        ? await this.createFromEstimate(input, { idempotencyKey, requestHash })
+        : await this.createFromProject(input, { idempotencyKey, requestHash });
+      return { proposal: toDTO(row), replayed: false };
+    } catch (error) {
+      if (!isUniqueConstraintViolation(error)) throw error;
+      const concurrentReplay = await findReplay();
+      if (concurrentReplay) return concurrentReplay;
+      throw error;
+    }
   }
 
   async listByProject(projectId: string, orgId?: string): Promise<ProposalDTO[]> {
@@ -396,7 +473,7 @@ export class ProposalsService {
     });
   }
 
-  private async createFromEstimate(input: CreateProposalInput) {
+  private async createFromEstimate(input: CreateProposalInput, idempotency?: { idempotencyKey: string; requestHash: string }) {
     const estimate = await prisma.estimate.findFirst({ where: { id: input.estimateId, orgId: input.orgId } });
     if (!estimate) throw new ApiError(404, `Estimate ${input.estimateId} not found`);
 
@@ -422,13 +499,15 @@ export class ProposalsService {
         finalPrice: input.finalPrice ?? (hasExplicitRange ? null : finalizedEstimatePrice),
         paymentScheduleJson: this.normalizePaymentSchedule(input.paymentScheduleJson) as object | undefined,
         termsAndConditions: input.termsAndConditions,
+        idempotencyKey: idempotency?.idempotencyKey,
+        idempotencyHash: idempotency?.requestHash,
       },
     });
     await prisma.project.update({ where: { id: estimate.projectId }, data: { status: "estimating" } });
     return proposal;
   }
 
-  private async createFromProject(input: CreateProposalInput) {
+  private async createFromProject(input: CreateProposalInput, idempotency?: { idempotencyKey: string; requestHash: string }) {
     if (!input.projectId) throw new ApiError(400, "projectId is required when estimateId is not provided");
 
     const project = await this.getProjectDraftContext(input.projectId, input.orgId);
@@ -461,6 +540,8 @@ export class ProposalsService {
         finalPrice: input.finalPrice ?? null,
         paymentScheduleJson: this.normalizePaymentSchedule(input.paymentScheduleJson, draft.paymentSchedule) as object | undefined,
         termsAndConditions: input.termsAndConditions,
+        idempotencyKey: idempotency?.idempotencyKey,
+        idempotencyHash: idempotency?.requestHash,
       },
     });
     await prisma.project.update({ where: { id: project.id }, data: { status: "estimating" } });
