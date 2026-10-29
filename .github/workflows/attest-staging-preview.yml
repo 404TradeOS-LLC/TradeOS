@@ -1,0 +1,53 @@
+name: Attest TradeOS staging Preview bindings
+
+# Read-only, human-gated diagnostic. No environment mutation, database
+# migration, deployment, credential output, or production access.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: attest-staging-preview
+  cancel-in-progress: false
+
+jobs:
+  attest:
+    name: Verify staging API and web environment isolation
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERCEL_ORG_ID: team_nY1VrcaEYEr4rcW7Gxweq7LP
+      STAGING_BRANCH: staging
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@59.11.2
+
+      - name: Verify API staging Preview bindings
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD
+        run: |
+          set -euo pipefail
+          test -n "${VERCEL_TOKEN:-}" || { echo "::error::VERCEL_TOKEN is unavailable to the approved staging job."; exit 1; }
+          vercel env run -e preview --git-branch "$STAGING_BRANCH" -- node scripts/staging-preview-attest.mjs api
+
+      - name: Verify web staging Preview bindings
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: prj_jDyORkIa7ug3ZtgtNujwEa65hQ36
+        run: |
+          set -euo pipefail
+          test -n "${VERCEL_TOKEN:-}" || { echo "::error::VERCEL_TOKEN is unavailable to the approved staging job."; exit 1; }
+          vercel env run -e preview --git-branch "$STAGING_BRANCH" -- node scripts/staging-preview-attest.mjs web
