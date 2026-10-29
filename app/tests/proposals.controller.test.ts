@@ -83,6 +83,23 @@ describe("proposalsController", () => {
     expect(replayRes.status).toHaveBeenCalledWith(200);
   });
 
+  it("preserves legacy unkeyed proposal creation during client rollout", async () => {
+    const req = buildRequest("admin");
+    req.body = { projectId: "11111111-1111-4111-8111-111111111111" };
+    delete req.headers["idempotency-key"];
+    const res = buildResponse();
+    createMock.mockResolvedValue({ id: "proposal-legacy" });
+
+    await proposalsController.create(req, res);
+
+    expect(createMock).toHaveBeenCalledWith({
+      projectId: "11111111-1111-4111-8111-111111111111",
+      orgId: "org-1",
+    });
+    expect(createWithIdempotencyMock).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
   it("rejects technician proposal sends", async () => {
     const req = buildRequest("technician");
     const res = buildResponse();
