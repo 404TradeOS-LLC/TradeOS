@@ -377,6 +377,16 @@ permission, and RLS contract while allowing parallel authenticated page-loader
 requests to queue behind the intentionally one-connection serverless Prisma
 pool instead of returning a transaction-acquisition `500` after two seconds.
 
+## Proposal draft create idempotency
+
+`POST /api/v1/proposals` requires an `Idempotency-Key` header containing a UUID.
+
+- New draft: HTTP `201`, proposal JSON, and `Idempotency-Replayed: false`.
+- Same key and canonical request body: HTTP `200`, the original proposal JSON, and `Idempotency-Replayed: true`.
+- Same key with a different body: HTTP `409`; the caller should inspect the Project's Proposals list.
+- The key is unique within the project resolved from the authenticated organization; the request fingerprint uses SHA-256 over key-order-independent JSON. The database unique index resolves simultaneous creates.
+- Missing or invalid keys fail validation before a proposal is written. This contract does not auto-retry requests or send the proposal.
+
 ## Route groups
 
 Mounted route groups from `app/backend/server.ts`:
