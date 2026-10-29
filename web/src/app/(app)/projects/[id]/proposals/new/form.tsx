@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
 import { createProposalAction } from "@/app/actions/proposals";
 import { PaymentScheduleFields } from "@/components/proposals/payment-schedule-fields";
 import { SummaryMetricCard } from "@/components/shared/summary-metric-card";
@@ -151,7 +153,23 @@ export function NewProposalForm({
             <Label htmlFor="termsAndConditions">Terms &amp; conditions</Label>
             <Textarea id="termsAndConditions" name="termsAndConditions" rows={4} />
           </div>
-          {state?.error && <p ref={errorRef} role="alert" tabIndex={-1} className="rounded-sm text-sm text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">{state.error}</p>}
+          {state?.error && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
+              <p ref={errorRef} role="alert" tabIndex={-1} className="text-sm text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                {state.error}
+              </p>
+              {state.error !== "Each payment row needs a label and percent." && (
+                <div className="mt-3 flex flex-col items-start gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    If you cannot confirm whether the draft was created, check this Project’s proposals before trying again.
+                  </p>
+                  <Link href={`/projects/${projectId}?tab=proposals`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                    Check Project proposals
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
           <Button type="submit" disabled={isPending}>
             {isPending ? "Creating…" : "Create proposal"}
           </Button>
