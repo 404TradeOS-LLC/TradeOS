@@ -1031,7 +1031,7 @@ export interface ProposalDraftPreview {
 }
 
 export function getProposal(token: string, id: string) {
-  return apiFetch<Proposal>(`/api/v1/proposals/${id}`, { token }).then((proposal) => ({
+  return apiFetch<Proposal>(`/api/v1/proposals/${encodeURIComponent(id)}`, { token }).then((proposal) => ({
     ...proposal,
     status: normalizeStatus(proposal.status, legacyProposalStatusMap, proposalStatuses, "draft"),
   }));
