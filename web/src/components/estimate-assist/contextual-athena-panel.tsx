@@ -42,7 +42,7 @@ export function ContextualAthenaPanel({
   projectId: string;
   isDraft: boolean;
   headingId?: string;
-  onAdded?: () => void;
+  onAdded?: (reason?: string) => void;
 }) {
   const [suggestions, setSuggestions] = useState<ContextualSuggestion[]>([]);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -69,7 +69,7 @@ export function ContextualAthenaPanel({
         }),
       });
       setAddedIds((current) => new Set(current).add(suggestion.id));
-      onAdded?.();
+      onAdded?.("Athena suggestion added");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Athena suggestion could not be added.");
     } finally {

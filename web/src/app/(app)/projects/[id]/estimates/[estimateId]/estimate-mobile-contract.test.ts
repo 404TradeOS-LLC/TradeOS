@@ -114,7 +114,7 @@ test("embedded assembly picker previews installed assemblies and gates unmapped 
   assert.match(builder, /Map each starter recipe slot to an active, compatible Costbook item/);
   assert.match(builder, /TradeOS will not invent those mappings or a price/);
   assert.match(builder, /\[item\.kind === "costItem" \? "costItemId" : "assemblyId"\]/);
-  assert.match(builder, /onSuccess: \(\) => \{[\s\S]*onAdded\(\)/);
+  assert.match(builder, /onSuccess: \(\) => \{[\s\S]*onAdded\(/);
 });
 
 test("starter assembly setup stays inline and requires install before estimate add", async () => {

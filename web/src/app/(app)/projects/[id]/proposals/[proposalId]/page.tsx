@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ActivityTimeline } from "@/components/shared/activity-timeline";
+import { ConnectionLine } from "@/components/motion/connection-line";
 import { ProposalContextPanel } from "@/components/proposals/proposal-context-panel";
 import { ProposalLifecyclePanel } from "@/components/proposals/proposal-lifecycle-panel";
 import { ProposalReviewForm } from "@/components/proposals/proposal-review-form";
@@ -58,6 +59,17 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
                 <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Next milestone</div>
                 <div className="mt-1 font-medium">{getNextMilestone(displayStatus)}</div>
               </div>
+              {proposal.estimateId ? (
+                <div>
+                  <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Source</div>
+                  <div className="mt-1">
+                    <ConnectionLine sourceLabel="Estimate" destinationLabel="Proposal" status="confirmed" />
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Created from an estimate. The proposal draft exists as its own record; previewing it never creates a second document.
+                  </p>
+                </div>
+              ) : null}
               <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-1">
                 <SummaryMetricCard label="Low" value={formatInvoiceCurrency(proposal.priceLow)} />
                 <SummaryMetricCard label="High" value={formatInvoiceCurrency(proposal.priceHigh)} />

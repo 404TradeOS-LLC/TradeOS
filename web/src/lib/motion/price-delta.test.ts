@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { computePriceDelta } from "./price-delta.ts";
+import { computePriceDelta, toMinorUnits } from "./price-delta.ts";
 
 test("increase: spec plywood example $42.18 -> $46.92 is +$4.74", () => {
   const delta = computePriceDelta({ previousMinor: 4218, currentMinor: 4692, currency: "USD" });
@@ -37,4 +37,13 @@ test("non-integer minor units throw instead of rendering a rounded price", () =>
     () => computePriceDelta({ previousMinor: 4218, currentMinor: Number.NaN, currency: "USD" }),
     /finite/,
   );
+});
+
+test("toMinorUnits converts major units and absorbs representation error", () => {
+  assert.equal(toMinorUnits(42.18), 4218);
+  assert.equal(toMinorUnits(1234.56), 123456);
+  assert.equal(toMinorUnits(0), 0);
+  assert.equal(toMinorUnits(-10.5), -1050);
+  assert.equal(toMinorUnits(Number.NaN), null);
+  assert.equal(toMinorUnits(Number.POSITIVE_INFINITY), null);
 });

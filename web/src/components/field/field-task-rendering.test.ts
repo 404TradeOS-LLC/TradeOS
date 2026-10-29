@@ -6,6 +6,7 @@ import vm from "node:vm";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as fieldWorkspace from "../../lib/field-workspace.ts";
+import * as motionAdapters from "../../lib/motion/adapters.ts";
 
 const require = createRequire(import.meta.url);
 const ts = require("typescript");
@@ -22,6 +23,8 @@ async function renderField(tasks: Task[] | undefined) {
     if (name === "@/lib/session") return { getSessionToken: async () => "test-only-token" };
     if (name === "@/lib/field-workspace") return fieldWorkspace;
     if (name === "@/lib/document-workflow") return { formatScheduleInZone: () => "Schedule" };
+    if (name === "@/lib/motion/adapters") return motionAdapters;
+    if (name === "@/components/motion/lifecycle-line") return { LifecycleLine: ({ label, stages, current, completed }: { label: string; stages: Array<{ id: string; label: string }>; current: string | null; completed: ReadonlyArray<string> }) => React.createElement("ol", { "aria-label": label }, stages.map((stage) => React.createElement("li", { key: stage.id }, `${stage.label}${stage.id === current ? " (Current)" : completed.includes(stage.id) ? " (Completed)" : ""}`))) };
     if (name === "@/components/ui/empty-state") return { EmptyState: ({ title }: { title: string }) => React.createElement("p", null, title) };
     if (name === "@/components/shared/status-badge") return { StatusBadge: ({ status }: { status: string }) => React.createElement("span", null, status) };
     if (name === "@/components/field/field-task-status-editor") return { FieldTaskStatusEditor: () => React.createElement("button", null, "Save assigned field task") };
@@ -36,6 +39,7 @@ async function renderField(tasks: Task[] | undefined) {
 test("actual Field page renders shared task details, calendar due date and safe text", async () => {
   const html = await renderField([{ id: "task-1", title: "Inspect <site>", status: "blocked", priority: "high", dueDate: "2026-10-27T00:00:00.000Z", assignedTo: "Other crew member", notes: "Delivery delayed" }, { id: "task-2", title: "Completed preparation", status: "completed", priority: "medium", dueDate: null, assignedTo: null, notes: null }]);
   for (const text of ["Shared job tasks", "Inspect &lt;site&gt;", "blocked", "Oct 27, 2026", "Other crew member", "Delivery delayed", "Completed preparation", "No responsible party recorded", "No due date", "Update tasks personally assigned to you", "Job notes"]) assert.ok(html.includes(text), text);
+  assert.ok(html.includes("Scheduled (Current)"), "job progress line renders from the server-confirmed status");
   assert.equal(html.includes("No tasks attached"), false);
   assert.equal(html.includes("Task details are unavailable"), false);
   assert.equal(html.includes("Save task status"), false);

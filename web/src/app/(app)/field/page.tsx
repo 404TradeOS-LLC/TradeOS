@@ -4,6 +4,8 @@ import { FieldTaskStatusEditor } from "@/components/field/field-task-status-edit
 import { FieldJobActions } from "@/components/field/field-job-actions";
 import { FieldNoteForm } from "@/components/field/field-note-form";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { LifecycleLine } from "@/components/motion/lifecycle-line";
+import { JOB_LIFECYCLE_STAGES, jobLifecycle } from "@/lib/motion/adapters";
 import {
   getFieldJob,
   getDispatchSummary,
@@ -115,6 +117,10 @@ export default async function FieldPage({
     : jobs;
   const timezone = settings.settings.timezone || "UTC";
   const addressLink = mapsHref(selectedJob?.serviceAddress ?? null);
+  // Job progress renders only for linear-progression statuses. Paused,
+  // unscheduled, and cancelled have no progression position, so the
+  // StatusBadge above remains the sole truth for those states.
+  const selectedJobLifecycle = selectedJob ? jobLifecycle(selectedJob.status) : null;
 
   return (
     <div className="mx-auto grid w-full max-w-4xl gap-4 pb-28 sm:gap-5 2xl:pb-6">
@@ -194,6 +200,16 @@ export default async function FieldPage({
               </header>
 
               <div className="grid gap-4 p-4 sm:p-5">
+                {selectedJobLifecycle ? (
+                  <div>
+                    <LifecycleLine
+                      label="Job progress"
+                      stages={JOB_LIFECYCLE_STAGES}
+                      current={selectedJobLifecycle.current}
+                      completed={selectedJobLifecycle.completed}
+                    />
+                  </div>
+                ) : null}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <section className="rounded-xl border border-border/70 bg-background/70 p-3" aria-label="Job schedule">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">

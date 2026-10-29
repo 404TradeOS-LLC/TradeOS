@@ -129,6 +129,112 @@ own acknowledged-state seam verified before wiring:
 8. Screen-reader announcement audit on physical devices, 390px + desktop
    browser evidence, and Figma reconciliation of this spec.
 
+## Adapters wired in this phase (same branch, second commit)
+
+Shared seams live in `web/src/lib/motion/adapters.ts` (pure mappings,
+unit-tested): `jobLifecycle`, `invoiceLifecycle`, `draftCategories`,
+plus `toMinorUnits` in `price-delta.ts`. Each mapping returns null when
+the record does not support an exact mapping, so callers render the
+existing badge/status UI alone instead of a promoted or invented stage.
+
+1. **ResolveSequence → Athena interpretation (Scope/Items), WIRED.**
+   The real contract is POST `/estimates/{id}/ai-estimator/draft` →
+   `StructuredAIEstimateDraft` (verbatim `scopeOfWork` echo, detected
+   trade, draft line items, validation block), review-only until the
+   user accepts suggestions and applies them through the existing
+   engine path. Wired into the assist page's "Athena review pipeline"
+   card: categories are the draft line-item descriptions, in payload
+   order, via `draftCategories`; revealed only when a payload has
+   arrived and no newer generation is in flight (a regeneration
+   invalidates the prior draft and shows the neutral skeleton with the
+   scope captured verbatim in `onMutate`). Human acknowledgement
+   (accept/apply) stays in the existing review flow; the sequence
+   renders the interpretation only. The builder's smaller
+   `ContextualAthenaPanel` (`/ai-suggestions`) was inspected and left
+   unwired: one interpretation surface, done well, beats two.
+2. **PriceDelta → estimate repricing, WIRED (supplier-switch: BLOCKED
+   with cause, see below).** No caller carried previous totals, so the
+   previous-totals source is implemented, not assumed: pricing
+   mutations funnel through the builder's `invalidate`, and the
+   snapshot is taken in `onSuccess`, when query data is still the
+   pre-mutation server record (the refetch lands later). The Price
+   stage renders "Last recalculation" only when the saved total
+   actually moved. Reasons name the change ("Line item added/updated/
+   removed", "Custom line item added", "Overhead / tax saved", "Athena
+   suggestion added"). Deliberately excluded: finalize (locks the
+   version, no price change), scope saves, pricing-mode switches (same
+   math, different expression), and the starter-catalog `install`
+   (writes the catalog, not the estimate). A real footgun was fixed
+   en route: `finalize` previously passed `invalidate` bare as
+   `onSuccess`, which would have fed the mutation result in as the
+   reason once `invalidate` accepted one; it now calls
+   `invalidate()` explicitly. USD is the product's existing money
+   convention (both `formatCurrency` helpers hardcode it); estimates
+   carry no currency field.
+3. **Copperline estimate → proposal transformation, WIRED.** The
+   confirmed boundary is the created proposal record itself:
+   `createProposalAction` POSTs `/api/v1/proposals` and redirects to
+   `/projects/{id}/proposals/{proposal.id}`. The proposal detail page's
+   snapshot card renders `ConnectionLine` confirmed (Estimate →
+   Proposal) only when `proposal.estimateId` is non-null. The creation
+   form renders no confirmed line (nothing is created yet), and the
+   preview page gets none either: preview must never mean generated.
+   The form's existing "Creating…" state, error box, and
+   check-proposals recovery link already cover pending/failed, so no
+   duplicate pending/failed line was added. (Copy correction during
+   the work: estimates have no "finalized" status — the enum is
+   draft/ready/sent/viewed/approved/declined/expired/superseded — so
+   the line says "Created from an estimate", not "finalized".)
+4. **LifecycleLine → field, Today, job/invoice, payment, WIRED.**
+   - Field page: the selected job renders "Job progress" for linear
+     statuses only (scheduled → dispatched → traveling → on_site →
+     completed). The field action model offers exactly one next
+     transition per status, so prior stages are confirmed by the
+     workflow itself. Unscheduled, paused, and cancelled render no
+     line; the StatusBadge remains sole truth there.
+   - Today: the selected work item renders "Job progress" only when
+     its kind is `job` AND its plain status string maps exactly onto
+     the linear job lifecycle. Tasks, visits, and any other status
+     keep the existing status text alone.
+   - Invoice page: "Invoice progress" (draft → sent → viewed →
+     partially paid → paid) derives completion from the record's own
+     fields, not stage order, because the product allows bypasses
+     (office-recorded offline payments, mark-paid without a payment):
+     draft by the record existing, sent by `sentAt`, partially-paid by
+     a recorded payment. Viewed has no timestamp or delivery
+     vocabulary on the record, so it is never claimed completed — it
+     renders upcoming (view not recorded) unless it is the current
+     status. Overdue and voided render no line.
+   - Payment completion gate: paid renders as current only when
+     `status === "paid"` AND `balanceDue === 0` (reconciled zero
+     balance from backend truth). A paid status with any other
+     balance (including negative or non-numeric) renders no line.
+     Recording a payment refetches the invoice, so the line advances
+     only on server-confirmed state.
+5. **Actuals → future-assumption review, BLOCKED (exact gap).** No
+   first-party actuals surface exists to wire: no actual-cost entity,
+   route, or component was found (field-page "actual" hits are the
+   `actualStart` timestamp and prose; Expense is target-only per
+   `.stitch/DESIGN.md` §22 until persistence exists). The image
+   spec's actuals adapter has no acknowledged-state seam in the
+   product, so nothing was built for it rather than a fabricated UI.
+6. **Supplier-switch recalculation, BLOCKED (premise mismatch).** No
+   supplier-switch UI or endpoint exists in the estimate flow, and
+   the product invariant forbids what the spec title implies:
+   estimate prices are snapshots ("Estimate Engine captures a new
+   snapshot on Add"; DESIGN.md §18: persisted prices "must not
+   silently drift when Costbook changes later"). A Costbook supplier
+   change must never recalculate an estimate. The PriceDelta wiring
+   above therefore covers user-driven estimate repricing only.
+
+## Still not wired
+
+- Actuals (blocked, see above) and boot completion states.
+- Field voice/photo/change/dependency states (no verified seam).
+- Screen-reader announcement audit on physical devices, 390px +
+  desktop browser evidence (§19), and Figma reconciliation of this
+  spec.
+
 ## Guards that hold by construction
 
 - Motion never delays an actionable result, hides uncertainty, invents
@@ -155,6 +261,30 @@ own acknowledged-state seam verified before wiring:
   `web/node_modules`; fixed with a real `npm ci` in the worktree
   (lockfile verified unchanged afterwards). No `package-lock.json`
   change is included in this branch.
+
+### Adapters phase validation (same worktree, second commit)
+
+- `cd web && node --test 'src/lib/motion/*.test.ts' 'src/components/motion/*.test.ts'` — 37 pass, 0 fail (32 lib tests + 5 adapter-contract tests).
+- `cd web && npm test` — 570 pass, 0 fail (559 + 11 new: 5 adapter-mapping tests, 1 `toMinorUnits` test, 5 adapter-contract tests).
+- `cd web && npm run lint` — clean.
+- `cd web && npm run build` — succeeds (route table renders; no type errors).
+- Two test-harness adjustments, neither a weakening: the field page's
+  vm-sandbox test allowlist gained stubs for the two new field-page
+  imports (the real `adapters` module plus a minimal `LifecycleLine`
+  stand-in) and a new assertion that the scheduled job renders
+  "Scheduled (Current)"; the estimate mobile contract test's
+  `onAdded()` regex was widened to `onAdded(` because the add-success
+  callbacks now intentionally carry a repricing reason — the
+  success-to-parent-notification contract it pins is unchanged, and
+  the exact reason strings are pinned by the new adapter-contract
+  test.
+- A real defect caught by the build during this phase: `finalize`
+  passed `invalidate` bare as `onSuccess`, which would have fed the
+  mutation result in as the repricing reason once `invalidate`
+  accepted one; it now calls `invalidate()` explicitly. A second
+  defect caught the same way: the repricing delta was first computed
+  in `EstimateBuilder` while the Price stage renders in
+  `EstimateStageFlow`; it is now passed as a prop.
 - `npm run docs:check` — fails locally with the repo's known pre-existing
   gap, confirmed exactly: `Cannot find package 'minimatch' imported from
   scripts/docs-check-lib.mjs` (worktrees have no root `node_modules`).
