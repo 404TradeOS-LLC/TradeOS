@@ -157,7 +157,7 @@ describe("ProposalsService", () => {
     }));
     mockPrisma.proposal.create.mockResolvedValue({
       ...proposalRow("draft"),
-      id: "proposal-idempotent",
+      id: "proposal-1",
     });
 
     const service = new ProposalsService();
