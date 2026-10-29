@@ -62,7 +62,7 @@ describe("proposalsController", () => {
 
   it("returns 201 for a new proposal request and 200 for an idempotent replay", async () => {
     const req = buildRequest("admin");
-    req.body = { projectId: "project-1" };
+    req.body = { projectId: "11111111-1111-4111-8111-111111111111" };
     const res = buildResponse();
     createWithIdempotencyMock
       .mockResolvedValueOnce({ proposal: { id: "proposal-1" }, replayed: false })
