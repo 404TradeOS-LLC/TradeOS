@@ -63,14 +63,37 @@ related_code:
 
 # TradeOS Current State
 
+## Cinematic sign-in entry — implementation branch, 2026-10-24
+
+Founder-approved entry presentation is implemented on `feat/cinematic-entry`
+from main `7013cdcaab8faabcb9c0dd8e7a045ac776c9c748`. `/login` now uses the
+approved full-screen copper mark/wordmark introduction and centered sign-in
+scene. Initial visits use four seconds; returning visits use 2.5 seconds.
+Reduced motion bypasses the introduction; Skip/Escape and a metallic vector
+fallback keep entry usable without WebGL, storage, or a loaded renderer chunk.
+
+The existing `loginAction`, session/bootstrap logic, dashboard destination,
+password recovery and account creation remain authoritative. No simulated
+success state, inspection controls, auth policy, backend, database or workspace
+theme changes ship. Route-local tokens and self-hosted fonts live in
+`web/src/components/entry/entry.module.css`; the canonical brand exception and
+component owners are recorded in `.stitch/DESIGN.md` and `docs/ui-guide.md`.
+
+Local validation: 513 frontend unit tests, lint, TypeScript and the production
+build pass; production dependency audit reports zero vulnerabilities. The real
+entry component was visually inspected in an isolated browser harness with
+synthetic transport. This does not certify successful authentication, deployed
+behavior, Lighthouse scores, or actual GPU rendering. Six new component-browser
+specimens cover responsive forms, timed/keyboard entry and GPU/storage failure;
+local execution is blocked before launch by a missing Chromium binary after
+the official download returned an invalid archive. Hosted checks passed on this PR head; review and deployment verification remain separate gates.
 ## Field authorization evidence — PR #702
 
 The Field page now has executable denied-role tests, alongside its static
 UI/action contract checks. Missing authentication and non-technician roles
 return before job requests, including direct job links. JobsService tests
 assert unassigned technician reads/transitions fail without status or activity
-writes. A disposable-PostgreSQL test covers both an unassigned job and a same-org job assigned to another technician against raw reads and updates, with service denial for the unassigned case; required hosted integration CI
-must prove it because local Docker is unavailable. No RLS, authorization policy,
+writes. A disposable-PostgreSQL test covers both an unassigned job and a same-org job assigned to another technician against raw reads and updates, with service denial for the unassigned case. Hosted integration and repository checks passed at the merged PR head; local Docker was unavailable. No RLS, authorization policy,
 storage implementation or field capture capability is changed or certified.
 ## Proposal draft status-check recovery — 2026-10-29
 
@@ -1541,4 +1564,5 @@ The follow-up staging migration workflow now proposes a hard stop on the destruc
 PR #819 merged to `main` as `bc85a503025be60c6ff472a03a17fa34c0565ec8` from reviewed head `895115789a80934aad75201889ea3c22845df77b`. Proposal Review sends a per-attempt UUID in `Idempotency-Key`; the authenticated API derives the organization-scoped Project, stores a canonical SHA-256 request fingerprint, and enforces one row per `(project_id, idempotency_key)`. A new draft returns `201`; the same key and canonical payload replay the original proposal with `200` and `Idempotency-Replayed: true`; changed payload under the same key returns `409`. Keyless legacy clients remain compatible without deduplication. The additive migration adds nullable key/hash fields, a paired-null constraint and project-scoped unique index; auth, tenant context, RLS, permissions, price derivation and separate proposal-send behavior are unchanged.
 
 The client retains its UUID across server-action errors. A full reload seeds a new key, so the existing authenticated Project proposals list remains the recovery path. There is no status lookup endpoint or automatic retry. Exact PR-head verification passed: App/Web unit and integration tests, typecheck/build/lint, PostgreSQL migration/RLS rehearsal, Docs consistency (#4755, #4758–#4760), live docs reconciliation, governance, branch currency and dependency review. PostgreSQL concurrency coverage verified four same-key requests under request-scoped RLS: one insert, three replays, one persisted proposal. The merge is verified on `main`; this is **Implemented**, not evidence of production deployment. The protected production migration has not been executed, and authenticated production/browser behavior is not certified.
+
 
