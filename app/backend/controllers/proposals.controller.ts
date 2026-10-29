@@ -85,7 +85,13 @@ export const proposalsController = {
   },
   async create(req: Request, res: Response) {
     requirePermissions(req, ["documents.manage"]);
-    res.status(201).json(await service.create({ ...createSchema.parse(req.body), orgId: requireOrgId(req) }));
+    const idempotencyKey = z.guid().parse(req.headers["idempotency-key"]);
+    const result = await service.createWithIdempotency(
+      { ...createSchema.parse(req.body), orgId: requireOrgId(req) },
+      idempotencyKey
+    );
+    res.setHeader("Idempotency-Replayed", result.replayed ? "true" : "false");
+    res.status(result.replayed ? 200 : 201).json(result.proposal);
   },
   async update(req: Request, res: Response) {
     requirePermissions(req, ["documents.manage"]);
