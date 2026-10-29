@@ -181,7 +181,7 @@ before any bid use.
 |---|---|---|---|---|---|---|
 | labor_deck_demolition (labor) | 0.05 HR | — | — | — | R | Labor is not a supplier price. |
 | equip_deck_disposal_ton | 0.0075 TON | $60.00 / TON | $0.45 | JBL Disposal, Terre Haute, IN | S | ⚠️ REVIEW BEFORE BIDS — disposal weight only; container + haul separate. |
-| mat_sawzall_blades_consumables | 0.01 EA | $59.47 / 25 pk = $2.379 / EA (Diablo Demo Demon 6 in. bi-metal, nail-embedded wood) | $0.024 | Ace Tool | S | ⚠️ REVIEW BEFORE BIDS |
+| mat_sawzall_blades_consumables | 0.01 EA | $59.47 / 25 pk = $2.379 / EA (Diablo Demo Demon 6 in. bi-metal, nail-embedded wood) | $0.024 | Acme Tools | S | ⚠️ REVIEW BEFORE BIDS |
 | **Material + equipment subtotal** | | | **$0.47 / SF** | | | Labor excluded. |
 
 ### 3.13 `earthwork-trench-excavation-mini` — Continuous Footing Trench Excavation via Mini-Excavator — per CY
@@ -261,6 +261,8 @@ The following original publishers provide identifiable evidence for selected pla
 - Supply Maverick lists a 24 ga HardyLoc **fixed** clip at $0.75: https://supplymaverick.com/product/1-12-galvanized-standing-seam-clips/ . It does not substantiate the proposed $0.75–$1.50 **expansion** clip range or prove system compatibility.
 - We Rent It lists a skid-steer breaker at $180/day: https://rent.werentit.net/products/skid-steer-breaker-j5mcfs01mvvh . This substantiates only the lower bound, not the $375/day upper bound.
 - ZT Supply Chain's mini-excavator planning guide gives $275–$450/day: https://ztsupplychain.com/mini-excavator-rental-rates/ . This is not a Terre Haute rental quote.
+- Home Depot lists LG outdoor unit KUSAH121B at $749: https://www.homedepot.com/p/337763286 and identifies the matching indoor KNSAH121B at https://www.homedepot.com/p/337763272 . Confirm the indoor unit's $498 price and pairing before use.
+- Acme Tools lists Diablo DS0612BW25, 25 bi-metal blades, at $59.47: https://www.acmetools.com/diablo-tools-6in-bi-metal-recip-blade-for-nail-embedded-wood-25pc-ds0612bw25/008925099321.html . The prior “Ace Tool” attribution was incorrect.
 - JBL Disposal's Terre Haute listing states $60 per ton for extra weight: https://www.jbldisposal.com/dumpster-rental-terre-haute-in/ . This is an overage charge, not a standalone disposal quote.
 - Truitt & White's TJI guide lists TJI 210, 11-7/8 in., at $5.25–$6.75 per linear foot: https://truittandwhite.com/cost-of-tji-joists . This is a regional guide, not a Terre Haute dealer quote.
 - MyHomeQuote's standing-seam guide lists 24-gauge panels at $5.50–$6.50 per square foot: https://www.myhomequote.com/cost/roofing/standing-seam-metal-roof-cost . This is a planning guide, not a panel order.
