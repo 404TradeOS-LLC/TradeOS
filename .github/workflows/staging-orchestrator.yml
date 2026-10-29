@@ -345,11 +345,11 @@ jobs:
           echo "Prisma ledger matches the repository inventory."
 
       - name: Report Prisma migrate status (informational; psql counts gate)
-      shell: bash
-                timeout-minutes: 10
+        shell: bash
+        timeout-minutes: 10
         env:
           DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
-          run: |
+        run: |
           set -euo pipefail
           # Prisma migrate commands need a stable session; shared Transaction
           # pooling (:6543) hangs them. Reuse the protected secret with the
