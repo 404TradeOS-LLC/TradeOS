@@ -344,8 +344,9 @@ jobs:
           fi
           echo "Prisma ledger matches the repository inventory."
 
-      - name: Report Prisma migrate status (informational; psql counts gate)        shell: bash
-        timeout-minutes: 10
+      - name: Report Prisma migrate status (informational; psql counts gate)
+      shell: bash
+                timeout-minutes: 10
         env:
           DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
           run: |
@@ -354,7 +355,7 @@ jobs:
           # pooling (:6543) hangs them. Reuse the protected secret with the
           # same verified staging host/user in session mode (:5432), mirroring
               # deploy-staging-migrations.yml. psql steps keep the secret as-is.
-                        DATABASE_URL="$(node --input-type=module <<'NODE'
+          DATABASE_URL="$(node --input-type=module <<'NODE'
           const url = new URL(process.env.DATABASE_ADMIN_URL);
           const directHost = "db." + process.env.STAGING_PROJECT_REF + ".supabase.co";
           const poolerHost = "aws-0-us-east-2.pooler.supabase.com";
