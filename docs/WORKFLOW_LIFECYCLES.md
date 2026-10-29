@@ -136,6 +136,13 @@ Canonical display states:
 Current persisted values:
 
 - new service writes persist `draft`, `sent`, `viewed`, `accepted`, and canonical `declined`
+
+Draft-creation request contract:
+
+- `POST /api/v1/proposals` requires a UUID `Idempotency-Key` from the authenticated office user
+- a replay with the same canonical request returns the same Proposal without inserting another draft; a changed request under the same key returns `409`
+- this request contract prevents duplicate draft creation but does not add a proposal lifecycle state, automatic retry, customer send, or pricing transition
+
 - historical `rejected` rows remain accepted by the database constraint and are displayed canonically as `declined`
 
 Current enforced transitions:
