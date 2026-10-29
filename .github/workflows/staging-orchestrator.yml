@@ -344,14 +344,38 @@ jobs:
           fi
           echo "Prisma ledger matches the repository inventory."
 
-      - name: Report Prisma migrate status (informational; psql counts gate)
-        shell: bash
-        env:
-          DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
-        run: |
-          set -euo pipefail
-          DATABASE_URL="$DATABASE_ADMIN_URL" npx prisma migrate status || true
-
+            - name: Report Prisma migrate status (informational; psql counts gate)
+                    shell: bash
+                            timeout-minutes: 10
+                                    env:
+                                              DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
+                                                      run: |
+                                                                set -euo pipefail
+                                                                          # Prisma migrate commands need a stable session; shared Transaction
+                                                                                    # pooling (:6543) hangs them. Reuse the protected secret with the
+                                                                                              # same verified staging host/user in session mode (:5432), mirroring
+                                                                                                        # deploy-staging-migrations.yml. psql steps keep the secret as-is.
+                                                                                                                  DATABASE_URL="$(node --input-type=module <<'NODE'
+                                                                                                                              const url = new URL(process.env.DATABASE_ADMIN_URL);
+                                                                                                                                          const directHost = "db." + process.env.STAGING_PROJECT_REF + ".supabase.co";
+                                                                                                                                                      const poolerHost = "aws-0-us-east-2.pooler.supabase.com";
+                                                                                                                                                                  const user = decodeURIComponent(url.username);
+                                                                                                                                                                              const direct = url.hostname === directHost &&
+                                                                                                                                                                                            (url.port === "" || url.port === "5432");
+                                                                                                                                                                                                        const pooler = url.hostname === poolerHost &&
+                                                                                                                                                                                                                      (url.port === "6543" || url.port === "5432") &&
+                                                                                                                                                                                                                                    /^[a-zA-Z_][a-zA-Z0-9_]*\.[a-z0-9]{20}$/.test(user) &&
+                                                                                                                  user.endsWith("." + process.env.STAGING_PROJECT_REF);
+                                                                                                              if (!["postgres:", "postgresql:"].includes(url.protocol) ||
+                                                                                                                  url.pathname!== "/postgres" ||!(direct || pooler)) {
+                                                                                                                throw Error("Staging preflight requires verified direct or session-pooler identity");
+                                                                                                              }
+                                                                                                              if (pooler) url.port = "5432";
+                                                                                                              url.searchParams.delete("pgbouncer");
+                                                                                                              process.stdout.write(url.toString());
+                                                                                                              NODE
+                                                                                                              )"
+                                                                                                              DATABASE_URL="$DATABASE_URL" npx prisma migrate status || true
       - name: Verify app role exists and check Team & Time RLS
         id: rls
         shell: bash
