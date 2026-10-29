@@ -344,8 +344,7 @@ jobs:
           fi
           echo "Prisma ledger matches the repository inventory."
 
-      - name: Report Prisma migrate status (informational; psql counts gate)
-        shell: bash
+      - name: Report Prisma migrate status (informational; psql counts gate)        shell: bash
         timeout-minutes: 10
         env:
           DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
@@ -356,15 +355,15 @@ jobs:
           # same verified staging host/user in session mode (:5432), mirroring
               # deploy-staging-migrations.yml. psql steps keep the secret as-is.
                         DATABASE_URL="$(node --input-type=module <<'NODE'
-                                    const url = new URL(process.env.DATABASE_ADMIN_URL);
-                                                const directHost = "db." + process.env.STAGING_PROJECT_REF + ".supabase.co";
-                                                            const poolerHost = "aws-0-us-east-2.pooler.supabase.com";
-                                                                        const user = decodeURIComponent(url.username);
-            const direct = url.hostname === directHost &&
-                                                                                                    (url.port === "" || url.port === "5432");
-                    const pooler = url.hostname === poolerHost &&
-                                      (url.port === "6543" || url.port === "5432") &&
-                                                    /^[a-zA-Z_][a-zA-Z0-9_]*\.[a-z0-9]{20}$/.test(user) &&
+          const url = new URL(process.env.DATABASE_ADMIN_URL);
+          const directHost = "db." + process.env.STAGING_PROJECT_REF + ".supabase.co";
+          const poolerHost = "aws-0-us-east-2.pooler.supabase.com";
+          const user = decodeURIComponent(url.username);
+          const direct = url.hostname === directHost &&
+            (url.port === "" || url.port === "5432");
+          const pooler = url.hostname === poolerHost &&
+            (url.port === "6543" || url.port === "5432") &&
+            /^[a-zA-Z_][a-zA-Z0-9_]*\.[a-z0-9]{20}$/.test(user) &&
             user.endsWith("." + process.env.STAGING_PROJECT_REF);
           if (!["postgres:", "postgresql:"].includes(url.protocol) ||
               url.pathname!== "/postgres" ||!(direct || pooler)) {
