@@ -231,4 +231,4 @@ The manager-only `/projects/[id]/jobs/[jobId]` handoff page reads `GET /api/v1/j
 
 ### Commercial snapshot data minimization (PR #810)
 
-The accepted scope remains visible as executable Job description to assigned field technicians; customer-approved prices, payment milestones and contract terms from the frozen baseline are redacted from technician-scoped Job detail reads. Owner/admin/dispatcher can inspect the full baseline from the protected approval handoff page.
+The accepted scope remains the executable Job description. The frozen commercial baseline is carried separately in `acceptedBaselineJson`; see [accepted proposal job snapshot read permissions](../RBAC_MATRIX.md#accepted-proposal-job-snapshot-read-permissions) for the access rule.
