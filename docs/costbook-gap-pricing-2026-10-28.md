@@ -115,10 +115,10 @@ some assemblies.
 | mat_ijoist_series_1178 | 0.675 LF | $5.25–$6.75 / LF (TJI 210, 11-7/8 in.) | $3.54–$4.56 | Truitt & White TJI cost guide (Bay Area) | G | ⚠️ REVIEW BEFORE BIDS — guide range, NOT a Terre Haute quote. Engineered lumber is pro-dealer/special-order, not retail shelf stock; a local dealer quote is required. A second published table lists 11-7/8 in. at $6.18/LF, inside this range. |
 | mat_rimboard_engineered_1178 | 0.127 LF | $62.29 / 18 ft = $3.46 / LF (after rebate) (1-1/4 in. x 11-7/8 in. x 18 ft LSL rim board/stringer blank) | $0.44 | Menards | S | ⚠️ REVIEW BEFORE BIDS — Menards lists this as an after-rebate value; verify the cash price. Sanity check: September baseline Niehaus $49.95/EA (length unstated in that extraction). |
 | mat_web_stiffeners_plywood | 0.02 PAIR | — | $0 (allowance) | — | R | Documented reason: web stiffeners are cut from sheathing/rim offcuts on site; there is no separate purchasable SKU for a 0.02-pair allocation. Carried at $0, not hidden inside another line. |
-| mat_squash_blocks_2x4 | 0.08 LF | $4.15 / 8 ft = $0.519 / LF (kiln-dried 2x4 stud) | $0.042 | Menards (price survey dated 2026-10-14) | S | ⚠️ REVIEW BEFORE BIDS |
+| mat_squash_blocks_2x4 | 0.08 LF | — | — | Current local stud quote required | R | The earlier $4.15 survey has no retained identifiable source and is excluded from this subtotal. |
 | fast_nails_10d_16d_ijoist | 0.85 EA | $31.73 / ~220-ct 5 lb box = $0.144 / EA (Grip-Rite 16d 3-1/2 in. common) | $0.123 | Home Depot | S | ⚠️ REVIEW BEFORE BIDS — recipe units read "EA/LBS," which is ambiguous; treated here as 0.85 nails per SF. The 16d box price is used for the combined 10d/16d component (10d runs slightly cheaper). |
 | labor_framing_ijoist_system (labor) | 0.024 HR | — | — | — | R | Labor is not a supplier price. |
-| **Material subtotal** | | | **$4.15–$5.16 / SF** | | | Labor excluded; web stiffeners at $0 offcut allowance. |
+| **Material subtotal** | | | **$4.11–$5.12 / SF, incomplete** | | | Labor excluded; web stiffeners at $0 offcut allowance. |
 
 ### 3.7 `roofing-metal-standing-seam-24ga` — Standing Seam Metal Roofing (24 ga Steel, 16 in. Snap-Lock/Mechanical, Concealed Clips) — per SQ
 
@@ -202,7 +202,7 @@ before any bid use.
 | demo-concrete-slab-4in | SF | $2.12–$2.48 |
 | flooring-hardwood-solid-oak-3-4 | SF | $3.82 |
 | hvac-minisplit-singlezone-12k | EA | $1,598.09 |
-| framing-floor-ijoist-19-2oc | SF | $4.15–$5.16 |
+| framing-floor-ijoist-19-2oc | SF | $4.11–$5.12, excluding unquoted squash blocks |
 | roofing-metal-standing-seam-24ga | SQ | $679.21–$823.72, excluding unquoted expansion clips |
 | insul-sprayfoam-closedcell-2in | SF | $4.32 |
 | waterproofing-foundation-spray-bituminous | SF | $0.49 |
