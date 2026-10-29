@@ -393,6 +393,34 @@ describe("JobsService", () => {
     );
   });
 
+  it("scopes technician detail reads to active assignments and hides an unassigned job", async () => {
+    mockDb.job.findFirst.mockResolvedValue(null);
+    const service = new JobsService(mockDb as never);
+    await expect(service.getById("org-1", "job-1", { userId: "tech-1", role: "technician" }))
+      .rejects.toMatchObject({ statusCode: 404 });
+    expect(mockDb.job.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        id: "job-1", orgId: "org-1",
+        assignments: { some: { userId: "tech-1", removedAt: null, declinedAt: null } },
+      }),
+    }));
+    expect(mockDb.job.update).not.toHaveBeenCalled();
+    expect(mockDb.activityEvent.create).not.toHaveBeenCalled();
+  });
+
+  it("does not complete or emit activity for a technician without an active assignment", async () => {
+    mockDb.job.findFirst.mockResolvedValue({ ...scheduledJob, status: "on_site" });
+    mockDb.jobAssignment.findFirst.mockResolvedValue(null);
+    await expect(new JobsService(mockDb as never).complete("job-1", {
+      orgId: "org-1", actor: { userId: "tech-1", orgId: "org-1", role: "technician" },
+    })).rejects.toMatchObject({ statusCode: 403 });
+    expect(mockDb.jobAssignment.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { orgId: "org-1", jobId: "job-1", userId: "tech-1", removedAt: null, declinedAt: null },
+    }));
+    expect(mockDb.job.update).not.toHaveBeenCalled();
+    expect(mockDb.activityEvent.create).not.toHaveBeenCalled();
+  });
+
   it("lets an assigned technician complete an on-site job", async () => {
     mockDb.job.findFirst.mockResolvedValue({
       ...scheduledJob,
