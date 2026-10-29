@@ -71,8 +71,11 @@ jest.mock("../modules/athena-events/service", () => ({
 }));
 
 import { ProposalsService } from "../modules/proposals/service";
+import * as requestSession from "../db/requestSession";
 
 describe("ProposalsService", () => {
+  afterEach(() => jest.restoreAllMocks());
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockAthenaEventService.publish.mockResolvedValue({
@@ -181,6 +184,10 @@ describe("ProposalsService", () => {
   it("resolves a concurrent unique-key insert to the committed proposal", async () => {
     const input = { orgId: "org-1", estimateId: "estimate-1" };
     let requestHash = "";
+    const transactionCommands = jest.fn().mockResolvedValue(undefined);
+    jest.spyOn(requestSession, "getRequestDatabaseClient").mockReturnValue({
+      $executeRawUnsafe: transactionCommands,
+    } as never);
     mockPrisma.estimate.findFirst.mockResolvedValue({
       id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
     });
@@ -200,6 +207,9 @@ describe("ProposalsService", () => {
     );
 
     expect(result).toMatchObject({ replayed: true, proposal: { id: "proposal-race" } });
+    expect(transactionCommands).toHaveBeenNthCalledWith(1, expect.stringMatching(/^SAVEPOINT "proposal_create_/));
+    expect(transactionCommands).toHaveBeenNthCalledWith(2, expect.stringMatching(/^ROLLBACK TO SAVEPOINT "proposal_create_/));
+    expect(transactionCommands).toHaveBeenNthCalledWith(3, expect.stringMatching(/^RELEASE SAVEPOINT "proposal_create_/));
     expect(mockPrisma.project.update).not.toHaveBeenCalled();
   });
 
