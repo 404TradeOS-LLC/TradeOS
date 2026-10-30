@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
-import { attestStagingPreview, STAGING_REF, STAGING_URL, STAGING_API_ORIGIN } from "../staging-preview-attest.mjs";
+import { attestStagingPreview, attestEnvDetail, attestStagingRuntime, attestWithRuntime, STAGING_REF, PROD_REF, STAGING_URL, STAGING_API_ORIGIN, STAGING_WEB_ORIGIN } from "../staging-preview-attest.mjs";
 
 const api = () => ({
   SUPABASE_URL: STAGING_URL,
@@ -73,4 +73,69 @@ test("protected workflow selects the exact projects and branch without mutating 
   assert.equal((workflow.match(/vercel env run -e preview --git-branch/g) || []).length, 2);
   assert.doesNotMatch(workflow, /--token|vercel (?:deploy|redeploy|env (?:add|update|rm))/);
   assert.doesNotMatch(workflow, /kssaceuetdjwfqnbzhly|environment: production/);
+});
+
+function stubFetch({ health = { status: "ok" }, ready = { status: "ready", checks: { database: { status: "ok" } } }, homeOk = true, loginOk = true } = {}) {
+  return async (url) => {
+    if (url === `${STAGING_API_ORIGIN}/health`) {
+      return { ok: true, status: 200, json: async () => health };
+    }
+    if (url === `${STAGING_API_ORIGIN}/ready`) {
+      return { ok: true, status: 200, json: async () => ready };
+    }
+    if (url === `${STAGING_WEB_ORIGIN}/`) {
+      return homeOk ? { ok: true, status: 200 } : { ok: false, status: 404 };
+    }
+    if (url === `${STAGING_WEB_ORIGIN}/login`) {
+      return loginOk ? { ok: true, status: 200 } : { ok: false, status: 404 };
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+}
+
+test("env detail distinguishes missing from mismatch", () => {
+  const missing = Object.fromEntries(attestEnvDetail("api", {}).map((d) => [d.field, d.reason]));
+  assert.equal(missing.SUPABASE_URL, "missing");
+  assert.equal(missing.AUTH_JWT_SECRET, "missing");
+  assert.equal(missing.DATABASE_URL, "missing");
+  assert.deepEqual(
+    attestEnvDetail("api", { ...api(), SUPABASE_URL: `https://${PROD_REF}.supabase.co` }),
+    [{ field: "SUPABASE_URL", reason: "mismatch" }],
+  );
+});
+
+test("runtime checks pass when healthy and fail on unserved web or unready api", async () => {
+  assert.deepEqual(await attestStagingRuntime("api", stubFetch()), []);
+  assert.deepEqual(await attestStagingRuntime("web", stubFetch()), []);
+  assert.deepEqual(
+    await attestStagingRuntime("api", stubFetch({ ready: { status: "not_ready", checks: { database: { status: "error" } } } })),
+    ["API_READINESS"],
+  );
+  assert.deepEqual(await attestStagingRuntime("web", stubFetch({ homeOk: false })), ["WEB_SERVING"]);
+  assert.deepEqual(await attestStagingRuntime("web", stubFetch({ loginOk: false })), ["WEB_SERVING"]);
+});
+
+test("withheld api secrets are runtime-inferred only when runtime is healthy", async () => {
+  const healthy = await attestWithRuntime("api", {}, stubFetch());
+  assert.deepEqual(healthy.errors, []);
+  assert.deepEqual(healthy.runtimeInferred, ["SUPABASE_URL", "AUTH_JWT_SECRET", "DATABASE_URL"]);
+  const unhealthy = await attestWithRuntime("api", {}, stubFetch({ ready: { status: "not_ready", checks: { database: { status: "error" } } } }));
+  assert.ok(unhealthy.errors.includes("SUPABASE_URL"));
+  assert.ok(unhealthy.errors.includes("API_READINESS"));
+  assert.deepEqual(unhealthy.runtimeInferred, []);
+});
+
+test("a wrong env value is never excused by healthy runtime", async () => {
+  const result = await attestWithRuntime("api", { ...api(), SUPABASE_URL: `https://${PROD_REF}.supabase.co` }, stubFetch());
+  assert.deepEqual(result.errors, ["SUPABASE_URL"]);
+});
+
+test("web service key is runtime-inferred but public url and backend url absence are not", async () => {
+  const noKey = await attestWithRuntime("web", { NEXT_PUBLIC_SUPABASE_URL: STAGING_URL, BACKEND_API_URL: STAGING_API_ORIGIN }, stubFetch());
+  assert.deepEqual(noKey.errors, []);
+  assert.ok(noKey.runtimeInferred.includes("SUPABASE_SERVICE_ROLE_KEY"));
+  const noBackend = await attestWithRuntime("web", { NEXT_PUBLIC_SUPABASE_URL: STAGING_URL, SUPABASE_SERVICE_ROLE_KEY: "test-only-staging-service-role" }, stubFetch());
+  assert.deepEqual(noBackend.errors, ["BACKEND_API_URL"]);
+  const noPublic = await attestWithRuntime("web", { SUPABASE_SERVICE_ROLE_KEY: "test-only-staging-service-role", BACKEND_API_URL: STAGING_API_ORIGIN }, stubFetch());
+  assert.deepEqual(noPublic.errors, ["NEXT_PUBLIC_SUPABASE_URL"]);
 });
