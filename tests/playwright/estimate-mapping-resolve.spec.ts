@@ -99,7 +99,7 @@ test.describe('Estimate mapping resolve', () => {
           { id: 'i2', componentName: 'Top plate', componentCode: 'PLATE', componentUnitOfMeasure: 'LF', quantityPerUnit: 1, componentType: 'cost_item' },
         ], total: 2 } });
       });
-      const screen = await openResolveScreen(page);
+      await openResolveScreen(page);
       const capture = async (stage: string) => {
         if (process.env.TRADEOS_AGENT_EVIDENCE === 'true') {
           await test.info().attach(`${width}-mapping-${stage}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
@@ -180,7 +180,7 @@ test.describe('Estimate mapping resolve', () => {
         const id = url.split('/costbook/cost-items/')[1].split('/')[0];
         const count = (attempts.get(url) ?? 0) + 1;
         attempts.set(url, count);
-        if (count === 1) await route.fulfill({ status: 500, json: { error: 'Isolated preview failure' } });
+        if (count <= 2) await route.fulfill({ status: 500, json: { error: 'Isolated preview failure' } });
         else await route.fulfill({ status: 200, json: { totalUnitCost: unitCosts[id] ?? 0 } });
       });
       const screen = await openResolveScreen(page);
