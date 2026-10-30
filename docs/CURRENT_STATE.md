@@ -185,10 +185,11 @@ Tailwind with controlled transport; it does not certify authentication,
 tenant isolation, server persistence, or deployed runtime behavior.
 
 
-## Estimate mapping keyboard repair — in progress, 2026-10-21
+## Estimate mapping keyboard repair — on main
 
-Branch `fix/estimate-mapping-keyboard` continues the Figma mapping handoff from
-main `f5743412fa721279f6f00c9d41aa12ea72cbfb2a`. PR #781 is merged as
+The Figma mapping handoff keyboard work is on main (branch
+`fix/estimate-mapping-keyboard` no longer exists in remotes; the picker
+carries the contract and the component suite covers it). PR #781 is merged as
 `979198fc86edbababf57029e8d73b7ea08a26191`; its retry behavior is already on main.
 The existing starter-component picker still lacked combobox Arrow/Enter/Escape
 navigation. This bounded frontend repair keeps focus in the input, skips
@@ -203,8 +204,27 @@ The isolated Playwright component suite passed all four cases using Chromium
 390/768/1024/1440. The same 390px case failed against the base implementation
 at its first ArrowDown active-descendant assertion. Its evidence does not
 certify the authenticated full application, persistence or tenant isolation.
-Branch implementation is not yet merged or deployed; Ready for Dev remains
-pending full canonical-screen and authenticated workflow evidence.
+Authenticated full-app workflow evidence remains pending.
+
+## Estimate mapping resolve screen — dedicated install-time gate
+
+Selecting a starter recipe in the estimate builder now opens a dedicated
+"Resolve required assembly mapping" screen instead of an embedded panel. All
+recipe components map on one screen through the existing
+`StarterComponentMappingPicker` and compatibility assessment, with
+incompatibility reasons inline. A "Before you continue" checklist surfaces
+the four already-enforced checks — mapped identity, unit/kind
+compatibility, active organization access, and price-snapshot persistence
+on the separate Add — and the explicit actions are "Resolve Cost item
+mappings" (Install, then the existing separate Add) and "Keep draft
+unchanged" (close with zero mutation; Install never fires). No backend,
+auth/RLS, pricing, snapshot or mutation contract changes; the install gate
+conditions are unchanged, only surfaced. This is the install-time gate only;
+no re-resolve flow for saved estimates is added. The handoff step/state
+matrix is covered by extended component evidence (checklist states,
+resolve gating, install pending/failure, keep-draft zero mutation) and a
+new intercepted Playwright matrix spec for the authenticated journey,
+which still needs a signed-in session and draft route to run.
 
 ## Historical assembly rematch repair — PR #772
 
