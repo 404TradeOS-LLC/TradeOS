@@ -14,6 +14,24 @@ related_docs:
 
 # Session Handoff
 
+## Estimate quick-create partial-failure recovery — 2026-10-29
+
+- `NEW_WORK_REQUIRED` for the existing `/projects/new?intent=estimate` action;
+  the closed, unmerged #731 addresses a distinct onboarding quick-start route.
+  Branch `fix/estimate-create-saved-project-recovery` starts at main
+  `1829a64b1ee10b037f0446ab325979d2d5c9a27a`.
+- A failed or ambiguous Estimate POST after Project creation now sends the user
+  to the saved Project with a notice to inspect its Estimates, instead of
+  leaving the original form ready to create another Project on retry. No API,
+  auth, schema, RLS, pricing, or financial behavior is changed.
+- Local checks: Web 548/548, lint, TypeScript and production build pass;
+  documentation 40/40, PR governance 168/168, docs ownership and whitespace
+  pass. Exact-head hosted CI and review remain required. Authenticated
+  nonproduction recovery and delayed-commit evidence remain separate gates.
+- Next five: publish the bounded PR; verify exact-head hosted checks; resolve
+  review findings; verify authenticated saved-Project recovery and ambiguous
+  Estimate response; merge only when normal gates pass.
+
 ## Active bounded mission — cinematic entry implementation, 2026-10-24
 
 - `NEW_WORK_REQUIRED`, Sprint ID: NONE. Founder approved the cinematic Sites
