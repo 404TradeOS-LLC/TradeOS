@@ -63,6 +63,32 @@ related_code:
 
 # TradeOS Current State
 
+## Job handoff API-only staging promotion — 2026-10-30
+
+Draft PR #810 remains the canonical feature PR at source
+`7506e46fd473ed6a82fafcf39a33fbf8e2d78a04`. This staging-only promotion copies
+its seven backend/schema/test files and API owner docs onto staging
+`52117b65741840951e1cb286b86b6c660f10b099`, preserving #833's repairs.
+All web source and workflow files remain at the staging base. Both Vercel apps
+build on a staging push; the web build therefore retains the prior UI while
+the new API is verified before a separate web promotion.
+
+Protected apply run [41065635236](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/41065635236)
+applied `20261028151000_accepted_proposal_job_handoff` to staging, checksum
+`3db2c92bf2ae533b47ba976ab09ae814c7974a161c219d61fc6dc31f07aed293`.
+Fresh read-only evidence shows 67 completed, zero unfinished, zero Jobs, and
+enabled/forced Jobs and all three Team & Time tables. No apply runs in this
+promotion. The dedicated manual migration workflow was disabled after explicit
+founder approval; its source-SHA variable remains present.
+
+Current Vercel staging API/web builds are READY at the base SHA, not the feature
+SHA. Environment-metadata reads returned HTTP 403 for both projects; no local
+authenticated Vercel CLI is available. Re-attest staging bindings through the
+protected existing path before merge/deployment, then require exact-head CI,
+review, API readiness, separate web promotion, authenticated step-9 evidence
+and release review. No feature deployment, browser PASS or production action
+is claimed.
+
 ## Estimate quick-create partial-failure recovery — implementation branch, 2026-10-29
 
 The Today and Universal Create estimate path saves a Project before posting a

@@ -424,3 +424,17 @@ queue dismissal, automatic retry, financial change or production migration.
 This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
+
+## Proposal accepted → unscheduled Job handoff (PR #810, unmerged)
+
+After a proposal reaches canonical `accepted` status, an owner/admin/dispatcher
+can explicitly create a field job with a chosen customer-owned ServiceAddress.
+This is a **new Job creation**, not another Proposal status transition.
+It preserves the accepted scope/price/terms and estimate provenance on
+`Job.acceptedBaselineJson` with unique `Job.sourceProposalId`.
+Concurrent conversion attempts serialize and retries reuse the existing job.
+The new job starts `unscheduled`, with no technician assignments, and follows
+the existing scheduling/dispatch/field lifecycle. Contract-signing,
+change-order and invoice workflows remain separate; this handoff does not
+claim authorization to start work without required contract approvals.
+Implementation and migration are pending CI and nonproduction acceptance.

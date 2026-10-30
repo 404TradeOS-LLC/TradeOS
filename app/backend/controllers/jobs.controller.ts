@@ -29,6 +29,10 @@ const createJobSchema = z.object({
   overrideReason: z.string().trim().optional(),
 });
 
+const convertAcceptedProposalSchema = z.object({
+  serviceAddressId: z.guid(),
+}).strict();
+
 const updateJobSchema = z.object({
   projectId: z.guid().optional(),
   customerId: z.guid().optional(),
@@ -114,6 +118,17 @@ const noteSchema = z.object({
 });
 
 export const jobsController = {
+  async createFromAcceptedProposal(req: Request, res: Response) {
+    const auth = requireAuthContext(req);
+    const body = convertAcceptedProposalSchema.parse(req.body);
+    res.json(await service.createFromAcceptedProposal({
+      orgId: requireOrgId(req),
+      actor: auth,
+      proposalId: z.guid().parse(req.params.proposalId),
+      serviceAddressId: body.serviceAddressId,
+    }));
+  },
+
   async create(req: Request, res: Response) {
     const auth = requireAuthContext(req);
     const body = createJobSchema.parse(req.body);

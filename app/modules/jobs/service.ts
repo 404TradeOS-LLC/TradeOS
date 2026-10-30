@@ -6,9 +6,11 @@ import { runInDatabaseTransaction } from "../../db/requestSession";
 import { ActivityTimelineService } from "../intelligence/service";
 import { getDefaultAthenaEventService } from "../athena-events/service";
 import { jobStatuses, JobStatus } from "../../domain/contracts";
+import { normalizeProposalStatus } from "../../domain";
 import {
   AddJobAssignmentInput,
   CreateJobInput,
+  ConvertAcceptedProposalInput,
   DispatchSummaryDTO,
   JobActivityDTO,
   JobAssignmentDTO,
@@ -267,8 +269,72 @@ export class JobsService {
       this.activities.list({ orgId, entityType: "job", entityId: row.id, limit: 25 }),
     ]);
 
-    const result = toJobDTO(row, notes, recentActivity);
-    return { ...result, tasks: result.tasks.map(task => ({ ...task, canUpdateStatus: actor.role === "technician" && task.assignedUserId === actor.userId && !row.archivedAt && !["completed", "cancelled"].includes(row.status) })) };
+    const detail = toJobDTO(row, notes, recentActivity);
+    // Redact commercial snapshots for technicians; retain per-task edit rights.
+    if (!MANAGER_ROLES.has(actor.role)) {
+      detail.acceptedBaselineJson = null;
+    }
+    return { ...detail, tasks: detail.tasks.map(task => ({ ...task, canUpdateStatus: actor.role === "technician" && task.assignedUserId === actor.userId && !row.archivedAt && !["completed", "cancelled"].includes(row.status) })) };
+  }
+
+  async createFromAcceptedProposal(input: ConvertAcceptedProposalInput): Promise<JobDTO> {
+    assertManager(input.actor.role);
+    return runInDatabaseTransaction(this.db, async (tx) => {
+      const lockKey = `proposal-job:${input.orgId}:${input.proposalId}`;
+      await tx.$executeRaw(Prisma.sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+
+      const proposal = await tx.proposal.findFirst({
+        where: { id: input.proposalId, project: { orgId: input.orgId } },
+        include: { project: true },
+      });
+      if (!proposal) throw new ApiError(404, "Proposal not found");
+      if (normalizeProposalStatus(proposal.status) !== "accepted") {
+        throw new ApiError(409, "Only an accepted proposal can become a field job");
+      }
+
+      const previous = await tx.job.findFirst({
+        where: { orgId: input.orgId, sourceProposalId: proposal.id },
+        include: jobDetailInclude,
+      });
+      if (previous) return this.hydrateJobDTO(tx, input.orgId, previous);
+
+      if (!proposal.project.customerId) {
+        throw new ApiError(409, "Attach a customer to this project before creating a field job");
+      }
+
+      // Store customer-facing monetary values as decimal strings, not JS floats.
+      // Standalone jobs have no accepted baseline. This copy never changes when
+      // estimate lines, pricing sources, or later change orders are edited.
+      const acceptedBaselineJson: Record<string, unknown> = {
+        version: 1,
+        proposalId: proposal.id,
+        estimateId: proposal.estimateId,
+        projectId: proposal.projectId,
+        acceptedAt: proposal.respondedAt?.toISOString() ?? null,
+        scopeOfWork: proposal.scopeOfWork,
+        assumptions: proposal.assumptions,
+        exclusions: proposal.exclusions,
+        timeline: proposal.timeline,
+        finalPrice: proposal.finalPrice?.toString() ?? null,
+        priceLow: proposal.priceLow?.toString() ?? null,
+        priceHigh: proposal.priceHigh?.toString() ?? null,
+        paymentScheduleJson: proposal.paymentScheduleJson ?? null,
+        termsAndConditions: proposal.termsAndConditions,
+      };
+
+      return this.create({
+        orgId: input.orgId,
+        actor: input.actor,
+        projectId: proposal.projectId,
+        customerId: proposal.project.customerId,
+        serviceAddressId: input.serviceAddressId,
+        title: proposal.project.name,
+        description: proposal.scopeOfWork ?? proposal.project.simpleScope ?? "",
+        jobType: proposal.project.jobType?.trim() || "Project work",
+        sourceProposalId: proposal.id,
+        acceptedBaselineJson,
+      });
+    });
   }
 
   async create(input: CreateJobInput): Promise<JobDTO> {
@@ -298,6 +364,10 @@ export class JobsService {
           customerId: input.customerId,
           serviceAddressId: input.serviceAddressId,
           jobNumber,
+          sourceProposalId: input.sourceProposalId ?? null,
+          acceptedBaselineJson: input.acceptedBaselineJson
+            ? (input.acceptedBaselineJson as Prisma.InputJsonValue)
+            : undefined,
           title: input.title.trim(),
           description: input.description?.trim() ?? "",
           jobType: input.jobType.trim(),
@@ -370,6 +440,13 @@ export class JobsService {
     return runInDatabaseTransaction(this.db, async (tx) => {
       const existing = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, true);
       if (existing.archivedAt) throw new ApiError(409, `Job ${jobId} is archived`);
+      if (existing.sourceProposalId && (
+        (input.projectId !== undefined && input.projectId !== existing.projectId) ||
+        (input.customerId !== undefined && input.customerId !== existing.customerId) ||
+        (input.serviceAddressId !== undefined && input.serviceAddressId !== existing.serviceAddressId)
+      )) {
+        throw new ApiError(409, "Proposal-derived jobs cannot be reassigned to another project, customer, or address");
+      }
 
       const projectId = input.projectId ?? existing.projectId;
       const customerId = input.customerId ?? existing.customerId;
@@ -1076,7 +1153,9 @@ export class JobsService {
         },
       });
 
-      return this.hydrateJobDTO(tx, input.orgId, row);
+      const detail = await this.hydrateJobDTO(tx, input.orgId, row);
+      if (!MANAGER_ROLES.has(input.actor.role)) detail.acceptedBaselineJson = null;
+      return detail;
     });
   }
 
@@ -1640,6 +1719,8 @@ function toJobDTO(
     projectId: row.projectId,
     customerId: row.customerId,
     serviceAddressId: row.serviceAddressId,
+    sourceProposalId: row.sourceProposalId,
+    acceptedBaselineJson: row.acceptedBaselineJson,
     description: row.description,
     arrivalWindowStart: row.arrivalWindowStart?.toISOString() ?? null,
     arrivalWindowEnd: row.arrivalWindowEnd?.toISOString() ?? null,

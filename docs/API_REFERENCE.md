@@ -1114,3 +1114,17 @@ queue dismissal, automatic retry, financial change or production migration.
 This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
+
+## Accepted proposal → job API (PR #810, proposed)
+
+`POST /api/v1/jobs/from-proposal/:proposalId` requires an authenticated
+owner/admin/dispatcher and a UUID proposal id. JSON body is strictly
+`{"serviceAddressId":"<customer-owned-service-address-uuid>"}`; caller cannot
+supply organization, project, customer, commercial scope, pricing or status.
+The accepted proposal must belong to the caller's organization. The service
+returns a Job DTO (`sourceProposalId`, `acceptedBaselineJson` included).
+Repeated requests return the same job; draft/declined proposals and mismatched
+customer/service-address ownership fail. A successful new job is unscheduled
+and does not automatically dispatch crews or invoice. Migration
+`20261028151000_accepted_proposal_job_handoff` is required before runtime use.
+This API is proposed on an unmerged branch, not yet available on production.

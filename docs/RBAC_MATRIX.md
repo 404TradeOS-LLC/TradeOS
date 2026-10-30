@@ -226,3 +226,19 @@ queue dismissal, automatic retry, financial change or production migration.
 This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
+
+## Step 9 proposal-to-job conversion permission (PR #810, unmerged)
+
+`POST /api/v1/jobs/from-proposal/:proposalId` uses the existing Job manager
+boundary (owner, admin, dispatcher) and request-authenticated `orgId`; no
+new role or permission is introduced. Technicians and customer-portal users
+cannot convert proposals. The source proposal must be accepted and scoped
+through its project to the actor's organization. The service address must
+be active, in the same organization, and owned by the linked customer.
+Existing forced RLS remains in effect; any real DB permission proof requires
+the reviewed migration and staging tests before deployment.
+
+
+### Accepted proposal job snapshot read permissions (PR #810)
+
+Managers (owner/admin/dispatcher) can read the accepted commercial baseline through scoped Job detail. Assigned technicians continue to receive their job scope, location, and lifecycle data but have `acceptedBaselineJson` redacted in the Job detail response; the manager-only approved-baseline route does not grant technicians commercial access. No cross-tenant access or role elevation is permitted.
