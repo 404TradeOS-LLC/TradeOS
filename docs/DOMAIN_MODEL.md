@@ -461,15 +461,8 @@ This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
 
-## Team & Time RLS posture (pending tracked migration, 2026-10-30)
+## Team & Time sourced schema and security model (2026-10-30)
 
-The three Team & Time tables `team_time_profiles`, `team_time_shifts` and
-`team_time_events` originate outside the current Prisma migration inventory
-and are not implicitly created by the TradeOS domain migration chain. The
-review-pending `20261030010000_force_team_time_rls` migration detects existing
-tables and enables/forces their RLS posture, or reports and skips absent tables
-without inventing a schema or a tenant policy. Existing explicit grants and
-policy design remain unchanged: FORCE RLS is an enforcement posture, **not**
-a grant of access to the application role. Future Team & Time reads/writes
-need separately reviewed organization-scoped policies and role evidence.
-Neither staging nor production deployment is claimed by this source change.
+The previously out-of-repository staging Team & Time schema is represented by two tracked Prisma migrations before the FORCE migration. `team_time_profiles`, `team_time_shifts` and `team_time_events` retain organization identifiers, audited shift changes and integrity constraints. Fresh databases create all three before FORCE; existing staging tables are preserved. The last migration fails closed if any expected table is missing, preventing permanently recorded no-op FORCE status.
+
+The deployed v6 Edge Function's server-only PostgREST client runs with a service-role secret, which bypasses PostgreSQL RLS even under FORCE. Therefore JWT verification, active membership, organization-bound lookups, supervisor approval checks, job assignment and shift ownership are mandatory service controls. An isolated synthetic transport test exercises denied cross-tenant, unassigned and non-supervisor calls. No direct public client grants, policy escape hatches or production activation are introduced. All code remains unshipped until protected staging review and runtime acceptance.
