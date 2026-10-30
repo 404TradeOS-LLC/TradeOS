@@ -34,6 +34,7 @@ import {
 } from "../../app/scripts/beta-evidence/lib/evidence-artifacts.mjs";
 
 import { assertAuthenticatedSmokeTenant } from "../../app/scripts/beta-evidence/lib/tenant-identity.mjs";
+import { createdCustomerIdFromUrl } from "../../app/scripts/beta-evidence/lib/customer-detail-url.mjs";
 
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
@@ -447,6 +448,21 @@ test("canonical beta evidence verifies persisted Costbook-independent line costs
   // The evidence runner must continue refusing production and unproven tenants.
   assert.match(capture, /assertApprovedRcUrl\(baseUrlInput\)/);
   assert.match(capture, /BETA_ALLOW_MUTATIONS=true is required/);
+});
+
+test("beta capture waits for the persisted Customer UUID rather than matching /customers/new", () => {
+  const uuid = "1643d999-509c-4742-8d68-46c6a9129d55";
+  const origin = "https://tradeos-costbook-web-git-staging-billykshowalters.vercel.app";
+  assert.equal(createdCustomerIdFromUrl(`${origin}/customers/new`), null);
+  assert.equal(createdCustomerIdFromUrl(`${origin}/customers`), null);
+  assert.equal(createdCustomerIdFromUrl(`${origin}/customers/not-a-uuid`), null);
+  assert.equal(createdCustomerIdFromUrl(`${origin}/customers/${uuid}/edit`), null);
+  assert.equal(createdCustomerIdFromUrl("not a URL"), null);
+  assert.equal(createdCustomerIdFromUrl(`${origin}/customers/${uuid}`), uuid);
+  assert.equal(createdCustomerIdFromUrl(`${origin}/customers/${uuid}?tab=projects`), uuid);
+  assert.match(capture, /waitForURL\(\(url\) => createdCustomerIdFromUrl\(url\) !== null/);
+  assert.match(capture, /const customerId = createdCustomerIdFromUrl\(page\.url\(\)\)/);
+  assert.doesNotMatch(capture, /waitForURL\(\/\\\/customers\\\/[\^]/);
 });
 
 test("S053 evidence is opt-in and defaults do not change the canonical beta flow", () => {
