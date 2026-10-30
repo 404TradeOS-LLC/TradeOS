@@ -434,3 +434,7 @@ The ordinary protected staging migration workflow also fails closed before the i
 ### P0 staging beta-evidence smoke identity (2026-10-30)
 
 The [staging orchestrator](../.github/workflows/staging-orchestrator.yml) now passes a verified synthetic smoke organization UUID into [Beta Evidence](../.github/workflows/beta-evidence.yml). Authenticated evidence validates the backend Settings `orgId` (or the exact backend Settings name when no canonical UUID is supplied), rather than treating rendered branding as tenant proof. This is a fail-closed verification repair; staging four-width acceptance remains pending a successful hosted run.
+
+### Pending Team & Time FORCE RLS posture migration (2026-10-30)
+
+`app/prisma/migrations/20261030010000_force_team_time_rls/migration.sql` conditionally enables and forces RLS on the three independently created Team & Time tables. Missing tables are skipped without creating shadow tables or policies; no database access is granted. Its dedicated PostgreSQL integration fixture validates present/absent/repeated execution under rollback. This is source work only, **not** a staging or production application; governed migration approval and authenticated runtime evidence remain separate.
