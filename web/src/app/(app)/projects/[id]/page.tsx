@@ -13,7 +13,7 @@ export default async function ProjectDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; estimateStart?: string }>;
 }) {
   const [{ id }, resolvedSearchParams] = await Promise.all([params, searchParams]);
   const token = await getSessionToken();
@@ -23,6 +23,11 @@ export default async function ProjectDetailPage({
     getProjectTaskAssignees(token ?? "", id).catch(() => ({ canAssign: false, members: [] })),
   ]);
   const activeTab = resolveProjectWorkspaceTab(resolvedSearchParams.tab);
+  const estimateStartNotice = resolvedSearchParams.estimateStart === "review" ? (
+    <p role="alert" className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-foreground">
+      Project saved. The estimate request could not be confirmed. Check this Project’s estimates before starting another one.
+    </p>
+  ) : null;
   const showCanonicalLeadOverview =
     activeTab === "overview" &&
     project.estimates.length === 0 &&
@@ -33,13 +38,16 @@ export default async function ProjectDetailPage({
 
   if (showCanonicalLeadOverview) {
     return (
-      <LeadOverview
-        project={project}
-        customer={project.customer}
-        estimates={project.estimates}
-        siteVisits={project.siteVisits}
-        projectFiles={project.projectFiles}
-      />
+      <div className="flex flex-col gap-4">
+        {estimateStartNotice}
+        <LeadOverview
+          project={project}
+          customer={project.customer}
+          estimates={project.estimates}
+          siteVisits={project.siteVisits}
+          projectFiles={project.projectFiles}
+        />
+      </div>
     );
   }
 
@@ -53,6 +61,7 @@ export default async function ProjectDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
+      {estimateStartNotice}
       <ProjectHeader
         project={project}
         subtitle={project.simpleScope ?? "Move this job from estimate into full project execution."}

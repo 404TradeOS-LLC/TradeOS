@@ -52,6 +52,10 @@ on:
         required: true
         default: TradeOS Beta Smoke
         type: string
+      smoke_org_id:
+        description: Optional canonical smoke organization UUID from the authorized non-production database
+        required: false
+        type: string
       expected_sha:
         description: Commit SHA the RC deployment must have been built from
         required: false
@@ -89,6 +93,11 @@ on:
         description: Label of the sanitized smoke tenant (must match the RC org name)
         default: TradeOS Beta Smoke
         type: string
+      smoke_org_id:
+        description: Canonical expected smoke organization UUID, when known
+        required: false
+        default: ""
+        type: string
       expected_sha:
         description: Commit SHA the RC deployment must have been built from
         required: false
@@ -125,6 +134,7 @@ jobs:
       BETA_EXPECTED_ENVIRONMENT: ${{ inputs.target_environment }}
       BETA_SMOKE_TENANT_LABEL: ${{ inputs.smoke_tenant_label }}
       BETA_SMOKE_ORG_LABEL: ${{ inputs.smoke_tenant_label }}
+      BETA_SMOKE_ORG_ID: ${{ inputs.smoke_org_id }}
       BETA_EXPECTED_SHA: ${{ inputs.expected_sha }}
       BETA_REQUIRE_SHA_CORRELATION: ${{ inputs.scenario == 's052' || inputs.scenario == 's053' || inputs.require_sha_correlation }}
       BETA_RC_DEPLOYMENT_URL: ${{ vars.BETA_RC_DEPLOYMENT_URL }}

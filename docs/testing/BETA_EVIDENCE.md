@@ -142,6 +142,29 @@ that is recorded as follow-up rather than silently assumed away.
 should have been built from. Set `require_sha_correlation: true` to make an
 uncorrelated deployment a hard failure — required for a merged-SHA evidence run.
 
+### Authenticated smoke-organization assertion (P0, 2026-10-30)
+
+The bootstrap test now uses the **request-authenticated** `GET /api/proxy/settings`
+response rather than visible Settings text or an editable company-name control.
+When `BETA_SMOKE_ORG_ID` is configured, the returned `orgId` must equal that
+canonical UUID; the label is still required as an operator-supplied fixture
+description. Without an expected UUID, the authenticated Settings response must
+contain a valid organization UUID and its server-returned
+`settings.companyName` must equal `BETA_SMOKE_ORG_LABEL` exactly.
+A custom brand name cannot substitute for a missing canonical organization ID.
+A missing response, wrong org ID, or mismatch fails closed **before** saving
+browser storage state or collecting evidence. The workflow does not infer tenant
+identity from the rendered page, bypass tenant checks, or disclose credentials.
+
+The 2026-10-29 staging orchestrator run 40962013890 passed its database and
+deployment identity gates but failed authentication bootstrap because the
+previous Settings-page assertion could not establish the configured smoke
+organization. This code repair removes that unreliable UI-based assertion; it
+does **not** certify the smoke account's membership, staging authentication,
+or browser evidence until a subsequent hosted run passes. Use the canonical
+non-production organization ID to distinguish a branded tenant from a session
+in a different organization.
+
 ## Smoke tenant
 
 One canonical synthetic tenant, obviously non-real:
