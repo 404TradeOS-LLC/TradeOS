@@ -210,12 +210,14 @@ be recorded from the final head; authored tests alone are not certification.
 On an accepted proposal, **Create field job from accepted proposal** leads to
 the existing service-address selection UI. Its authenticated backend route
 `POST /api/v1/jobs/from-proposal/:proposalId` accepts only
-`serviceAddressId`. The manager-only service verifies the source proposal's
-tenant and accepted status, project/customer/address consistency, then
-creates exactly one `unscheduled` Job and copies the immutable approval
-snapshot (including decimal-price strings). A transaction advisory lock
-precedes the existence check, and a unique nullable proposal-source index
-enforces one job even under concurrency. Duplicate submissions return the
+`serviceAddressId`. Conversion authorization and denial rules are defined in
+[Step 9 proposal-to-job conversion permission](../RBAC_MATRIX.md#step-9-proposal-to-job-conversion-permission);
+accepted-to-Job lifecycle boundaries are defined in
+[Proposal accepted → unscheduled Job handoff](../WORKFLOW_LIFECYCLES.md#proposal-accepted--unscheduled-job-handoff).
+The service verifies project/customer/address consistency, copies the immutable
+approval snapshot (including decimal-price strings), and uses a transaction
+advisory lock before its existence check. A unique nullable proposal-source
+index enforces one Job even under concurrency. Duplicate submissions return the
 existing job and do not duplicate activity. The generic manual job path
 continues to work. Proposal-derived jobs cannot change their project,
 customer, or address through normal Job updates.
