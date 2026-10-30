@@ -1,4 +1,14 @@
 export const ENTRY_TIMING = { first: 4000, returning: 2500 } as const;
+// Software rasterizers (SwiftShader in headless/GPU-less environments,
+// Mesa llvmpipe, and anything reporting itself as software) make the
+// PMREM environment pass pathologically slow: its deferred cost blocks the
+// main thread past the intro exit timer, so the intro overstays its
+// scheduled duration. Detecting them lets the cinema skip the environment
+// map there and keep the intro on schedule; the scene lights still shade
+// the metal. Hardware renderers keep the full reflective environment.
+export function isSoftwareRendererName(renderer: string): boolean {
+  return /swiftshader|llvmpipe|software/i.test(renderer);
+}
 export type VisitKind = keyof typeof ENTRY_TIMING;
 export const GREETINGS = [
   "Coffee ready? Let’s build.",
