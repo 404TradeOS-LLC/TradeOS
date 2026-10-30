@@ -434,3 +434,7 @@ The ordinary protected staging migration workflow also fails closed before the i
 ### P0 staging beta-evidence smoke identity (2026-10-30)
 
 The [staging orchestrator](../.github/workflows/staging-orchestrator.yml) now passes a verified synthetic smoke organization UUID into [Beta Evidence](../.github/workflows/beta-evidence.yml). Authenticated evidence validates the backend Settings `orgId` (or the exact backend Settings name when no canonical UUID is supplied), rather than treating rendered branding as tenant proof. This is a fail-closed verification repair; staging four-width acceptance remains pending a successful hosted run.
+
+### Team & Time schema and FORCE RLS source — 2026-10-30
+
+Before FORCE, `20261030004500_team_time_foundation` and `20261030005500_team_time_integrity` restore the staging-origin table/constraint definitions into the tracked Prisma rollout. `20261030010000_force_team_time_rls` fails closed on missing tables, and does not grant direct table access. `supabase/functions/team-time/index.ts` is a v6-derived source-controlled candidate with complete bounded shift pagination, not a staging or production deployment; `app/tests/team-time-edge-auth.test.ts` tests actual function authorization with fake privileged transport. Important: service-role requests bypass RLS despite FORCE, and enforce tenancy only through verified service checks. Protected staging migration and browser acceptance are pending.

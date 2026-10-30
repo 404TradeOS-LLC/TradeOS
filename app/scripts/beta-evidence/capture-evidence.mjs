@@ -7,6 +7,7 @@
 // screenshots are never resized to fake a smaller viewport.
 
 import { openEstimateCustomEntry } from "./lib/estimate-entry.mjs";
+import { createdCustomerIdFromUrl } from "./lib/customer-detail-url.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright";
@@ -438,8 +439,10 @@ try {
   await page.locator('[name="name"]').fill(customerName);
   await page.locator('[name="email"]').fill(customerEmail);
   await page.getByRole("button", { name: "Create customer" }).click();
-  await page.waitForURL(/\/customers\/[^/?]+(?:\?|$)/, { timeout: 60_000 });
-  const customerId = /\/customers\/([^/?]+)/.exec(page.url())?.[1];
+  // A regex that accepts /customers/new can falsely pass *before* the server
+  // action navigates to the saved Customer. Wait for a real UUID detail route.
+  await page.waitForURL((url) => createdCustomerIdFromUrl(url) !== null, { timeout: 60_000 });
+  const customerId = createdCustomerIdFromUrl(page.url());
   assertBusiness("created customer resolves an id", Boolean(customerId), `url was ${page.url()}`);
 
   if (scenario === "s052") {
@@ -513,16 +516,35 @@ try {
     new URL(`/projects/new?customerId=${encodeURIComponent(customerId)}`, parsedBaseUrl).toString(),
     { waitUntil: "networkidle", timeout: 60_000 },
   );
-  // Exercise the canonical Customer → Project continuity path instead of
-  // depending on the generic customer-list selector. The page resolves this
-  // Customer through the tenant-scoped getCustomer() read and renders the
-  // authoritative id as a hidden field only when that context is valid.
-  const linkedCustomerId = await page.locator('input[type="hidden"][name="customerId"]').inputValue();
+  // The Project form has two legitimate states: a server-resolved Customer
+  // context uses a hidden id, and the general create form uses a selected
+  // Customer option. Both must contain the exact new Customer id. Never
+  // silently select another Customer or rely on visible branding for identity.
+  const customerLinkField = page.locator('form [name="customerId"]');
+  await customerLinkField.waitFor({ state: "attached", timeout: 15_000 });
+  const customerLinkType = await customerLinkField.evaluate((element) =>
+    element.tagName === "SELECT"
+      ? "customer-selector"
+      : element.tagName === "INPUT" && element.type === "hidden"
+        ? "customer-context"
+        : "unexpected",
+  );
+  const linkedCustomerId = await customerLinkField.inputValue({ timeout: 15_000 });
   assertBusiness(
     "project creation carries the exact server-created customer",
-    linkedCustomerId === customerId,
-    `expected customerId=${customerId}; rendered ${linkedCustomerId || "missing"}`,
+    ["customer-context", "customer-selector"].includes(customerLinkType) &&
+      linkedCustomerId === customerId,
+    `expected customerId=${customerId}; rendered=${linkedCustomerId || "missing"}; form=${customerLinkType}`,
   );
+  if (scenario === "s052") {
+    // S052 explicitly certifies the Customer context + saved ServiceAddress.
+    // A generic selector here would not establish that higher-level contract.
+    assertBusiness(
+      "S052 uses the resolved customer-context form",
+      customerLinkType === "customer-context",
+      `form=${customerLinkType}`,
+    );
+  }
   await page.locator('[name="name"]').fill(projectName);
   await page.locator('[name="jobType"]').fill("Residential condo remodel");
 
@@ -553,14 +575,18 @@ try {
   await page.waitForLoadState("networkidle");
   assertBusiness("project workspace resolves an id", new URL(page.url()).pathname === `/projects/${projectId}`, `url was ${page.url()}`);
 
+  const readProject = async () => page.evaluate(async (id) => {
+    const response = await fetch(`/api/proxy/projects/${id}`, { headers: { Accept: "application/json" } });
+    return { status: response.status, body: response.ok ? await response.json() : null };
+  }, projectId);
+  const beforeReload = await readProject();
+  assertBusiness("customer-linked project API is readable", beforeReload.status === 200, `HTTP ${beforeReload.status}`);
+  assertBusiness(
+    "project persists the selected customer",
+    beforeReload.body?.customerId === customerId,
+    `customerId=${beforeReload.body?.customerId ?? "missing"}`,
+  );
   if (scenario === "s052") {
-    const readProject = async () => page.evaluate(async (id) => {
-      const response = await fetch(`/api/proxy/projects/${id}`, { headers: { Accept: "application/json" } });
-      return { status: response.status, body: response.ok ? await response.json() : null };
-    }, projectId);
-    const beforeReload = await readProject();
-    assertBusiness("customer-linked project API is readable", beforeReload.status === 200, `HTTP ${beforeReload.status}`);
-    assertBusiness("project persists the selected customer", beforeReload.body?.customerId === customerId, `customerId=${beforeReload.body?.customerId}`);
     assertBusiness("project persists the jobsite address", beforeReload.body?.siteAddress === expectedProjectSiteAddress, `siteAddress=${beforeReload.body?.siteAddress}`);
     assertBusiness("project persists plain-language scope", beforeReload.body?.simpleScope === scope, "simpleScope did not match the submitted scope");
     await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
