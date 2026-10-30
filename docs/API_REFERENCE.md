@@ -1128,3 +1128,10 @@ customer/service-address ownership fail. A successful new job is unscheduled
 and does not automatically dispatch crews or invoice. Migration
 `20261028151000_accepted_proposal_job_handoff` is required before runtime use.
 This API is proposed on an unmerged branch, not yet available on production.
+
+## Accepted-scope conversion validation — 2026-10-30
+
+`POST /api/v1/jobs/from-proposal/:proposalId` returns HTTP 409 before creating
+a new Job if the accepted proposal's `scopeOfWork` is null, empty or whitespace.
+It never fills missing accepted scope from the current Project. An existing
+source-linked Job is still returned on retry, without creating another Job.

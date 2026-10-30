@@ -289,8 +289,20 @@ describe("JobsService", () => {
     }));
   });
 
-  it("returns the original job on conversion retry rather than creating another", async () => {
-    mockDb.proposal.findFirst.mockResolvedValue(acceptedProposal);
+  it.each([null, "", "   "])("rejects missing accepted scope %p without copying mutable project scope", async (scopeOfWork) => {
+    mockDb.proposal.findFirst.mockResolvedValue({ ...acceptedProposal, scopeOfWork });
+    mockDb.job.findFirst.mockResolvedValueOnce(null);
+    const service = new JobsService(mockDb as never);
+
+    await expect(service.createFromAcceptedProposal(conversionInput)).rejects.toMatchObject({
+      statusCode: 409,
+      message: "The accepted proposal must include a scope of work before creating a field job",
+    });
+    expect(mockDb.job.create).not.toHaveBeenCalled();
+  });
+
+  it.each([acceptedProposal.scopeOfWork, null])("returns the original job on retry even with accepted scope %p", async (scopeOfWork) => {
+    mockDb.proposal.findFirst.mockResolvedValue({ ...acceptedProposal, scopeOfWork });
     const previous = { ...scheduledJob, sourceProposalId: "proposal-1" };
     mockDb.job.findFirst.mockResolvedValueOnce(previous);
     const service = new JobsService(mockDb as never);

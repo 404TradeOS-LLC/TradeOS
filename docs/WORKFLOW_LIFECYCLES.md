@@ -438,3 +438,11 @@ the existing scheduling/dispatch/field lifecycle. Contract-signing,
 change-order and invoice workflows remain separate; this handoff does not
 claim authorization to start work without required contract approvals.
 Implementation and migration are pending CI and nonproduction acceptance.
+
+## Accepted Job scope integrity — 2026-10-30
+
+A new proposal-derived Job requires nonblank scope stored on the accepted
+proposal. Its executable description comes only from that accepted scope, never
+from the Project's current `simpleScope`. Missing accepted scope fails closed
+with HTTP 409; an existing conversion remains retrievable on an idempotent retry.
+The guard does not modify the accepted proposal or create replacement terms.

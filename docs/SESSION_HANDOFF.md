@@ -14,6 +14,27 @@ related_docs:
 
 # Session Handoff
 
+## Accepted-scope repair — 2026-10-30
+
+- Continue existing #837 API-only staging lane and canonical #810 feature.
+  Founder directed #810 ready for review; status verified. Both old heads had
+  green required checks; #837 review found a real mutable-scope fallback.
+- Copied the same bounded repair from #810: reject new null/empty/whitespace
+  accepted scope with409; preserve existing-Job retries even without scope.
+  Three regression cases fail before repair and all44 Job tests pass afterward
+  on #810. Same service/test logic applied here; hosted final-head CI required.
+- No schema, web, workflow, Team & Time, credential or production changes.
+  Migration already applied; do not re-enable the disabled migration runner.
+- Next five: push both repairs; verify exact-head CI; resolve validated #837
+  review after proof; obtain supported protected staging-binding attestation;
+  promote API then web and retain authenticated step-9 and release review.
+
+- Fresh local staging-branch validation:44 Job tests,40 docs tests and docs
+  ownership pass; API source is identical to the feature repair. Final-head
+  hosted checks/review and protected binding attestation remain open.
+
+## Historical continuity
+
 ## Job handoff API-only staging promotion — 2026-10-30
 
 - Sprint ID NONE. Existing feature work: draft #810 at

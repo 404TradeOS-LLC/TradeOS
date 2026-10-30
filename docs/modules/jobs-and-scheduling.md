@@ -242,3 +242,10 @@ The manager-only `/projects/[id]/jobs/[jobId]` handoff page reads `GET /api/v1/j
 ### Commercial snapshot data minimization (PR #810)
 
 The accepted scope remains the executable Job description. The frozen commercial baseline is carried separately in `acceptedBaselineJson`; see [accepted proposal job snapshot read permissions](../RBAC_MATRIX.md#accepted-proposal-job-snapshot-read-permissions) for the access rule.
+
+## Accepted-scope validation repair — 2026-10-30
+
+Conversion now validates the proposal's recorded scope before creating a new
+Job. See [accepted Job scope integrity](../WORKFLOW_LIFECYCLES.md#accepted-job-scope-integrity)
+for the lifecycle rule and [API validation](../API_REFERENCE.md#accepted-scope-conversion-validation--2026-10-30)
+for failure and retry behavior. No schema change is needed.
