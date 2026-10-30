@@ -460,3 +460,16 @@ queue dismissal, automatic retry, financial change or production migration.
 This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
+
+## Team & Time RLS posture (pending tracked migration, 2026-10-30)
+
+The three Team & Time tables `team_time_profiles`, `team_time_shifts` and
+`team_time_events` originate outside the current Prisma migration inventory
+and are not implicitly created by the TradeOS domain migration chain. The
+review-pending `20261030010000_force_team_time_rls` migration detects existing
+tables and enables/forces their RLS posture, or reports and skips absent tables
+without inventing a schema or a tenant policy. Existing explicit grants and
+policy design remain unchanged: FORCE RLS is an enforcement posture, **not**
+a grant of access to the application role. Future Team & Time reads/writes
+need separately reviewed organization-scoped policies and role evidence.
+Neither staging nor production deployment is claimed by this source change.
