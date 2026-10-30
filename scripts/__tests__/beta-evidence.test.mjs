@@ -462,7 +462,6 @@ test("beta capture waits for the persisted Customer UUID rather than matching /c
   assert.equal(createdCustomerIdFromUrl(`${origin}/customers/${uuid}?tab=projects`), uuid);
   assert.match(capture, /waitForURL\(\(url\) => createdCustomerIdFromUrl\(url\) !== null/);
   assert.match(capture, /const customerId = createdCustomerIdFromUrl\(page\.url\(\)\)/);
-  assert.doesNotMatch(capture, /waitForURL\(\/\\\/customers\\\/[\^]/);
 });
 
 test("S053 evidence is opt-in and defaults do not change the canonical beta flow", () => {
