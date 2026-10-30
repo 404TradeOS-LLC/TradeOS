@@ -30,6 +30,21 @@ async function db(table:string,params:Record<string,string>={},method='GET',payl
  if(!response.ok){const body=await response.json().catch(()=>({}));if(response.status===409||body.code==='23505'||body.code==='23P01')throw new HttpError(409,'This time record changed. Refresh and try again.');throw new HttpError(500,'The time service could not save this change.')}
  return response.status===204?[]:await response.json()
 }
+// Pagination is scoped by the already-verified organization and user filters.
+// Never truncate approvals/exports to an arbitrary first page. Fail explicitly
+// at a hard resource limit instead of returning a misleading partial result.
+async function allRows(table:string,params:Record<string,string>,maxRows=10000){
+ const pageSize=200
+ const all:unknown[]=[]
+ for(let offset=0;offset<=maxRows;offset+=pageSize){
+  const page=await db(table,{...params,limit:String(pageSize),offset:String(offset)})
+  if(!Array.isArray(page))throw new HttpError(503,'Team & Time could not load the complete records.')
+  all.push(...page)
+  if(all.length>maxRows)throw new HttpError(503,'Too many time records to display or export. Narrow this workspace before continuing.')
+  if(page.length<pageSize)return all
+ }
+ throw new HttpError(503,'Team & Time did not finish loading records. No partial export was returned.')
+}
 async function actor(req:Request){
  const token=req.headers.get('authorization')||''
  if(!/^Bearer\s+\S+$/.test(token))throw new HttpError(401,'Sign in to record time.')
@@ -76,8 +91,8 @@ async function bootstrap(req:Request,user:{id:string,full_name:string},orgId:unk
  if(!selected)return reply(req,{organizations,selectOrganization:true})
  const org=selected.org_id,supervisor=SUPERVISORS.has(selected.role)
  const ownProfile=(await db('team_time_profiles',{select:'user_id,worker_type,active',org_id:`eq.${org}`,user_id:`eq.${user.id}`,limit:'1'}))[0]||null
- const assignments=await db('job_assignments',{select:'job_id',org_id:`eq.${org}`,user_id:`eq.${user.id}`,removed_at:'is.null',limit:'100'})
- const shifts=await db('team_time_shifts',{select:'id,org_id,worker_user_id,worker_type,job_id,started_at,ended_at,break_started_at,break_minutes,note,status,corrected_at,correction_reason,reviewed_at,reviewed_by_id,updated_at',org_id:`eq.${org}`,...(supervisor?{}:{worker_user_id:`eq.${user.id}`}),order:'started_at.desc',limit:'100'})
+ const assignments=await allRows('job_assignments',{select:'job_id',org_id:`eq.${org}`,user_id:`eq.${user.id}`,removed_at:'is.null',order:'id.asc'})
+ const shifts=await allRows('team_time_shifts',{select:'id,org_id,worker_user_id,worker_type,job_id,started_at,ended_at,break_started_at,break_minutes,note,status,corrected_at,correction_reason,reviewed_at,reviewed_by_id,updated_at',org_id:`eq.${org}`,...(supervisor?{}:{worker_user_id:`eq.${user.id}`}),order:'started_at.desc,id.desc'})
  const jobIds=[...new Set([...assignments.map((a:{job_id:string})=>a.job_id),...shifts.map((s:{job_id:string})=>s.job_id)])].filter(validId)
  const jobs=jobIds.length?await db('jobs',{select:'id,title,scheduled_start,scheduled_end',org_id:`eq.${org}`,id:`in.(${jobIds.join(',')})`,archived_at:'is.null',limit:'100'}):[]
  let workers=[]
