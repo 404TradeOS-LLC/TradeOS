@@ -33,6 +33,8 @@ import {
   validateEvidenceSet,
 } from "../../app/scripts/beta-evidence/lib/evidence-artifacts.mjs";
 
+import { assertAuthenticatedSmokeTenant } from "../../app/scripts/beta-evidence/lib/tenant-identity.mjs";
+
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
 
@@ -568,6 +570,33 @@ test("the documented secret names map to the runtime names the scripts read", ()
       `${name} is documented outside the secrets table, so it will not render as a table row`,
     );
   }
+});
+
+test("smoke tenant verification requires canonical authenticated Settings identity", () => {
+  const orgId = "9814bd72-626a-42f4-8871-cd755cb9d685";
+  const otherId = "00000000-0000-4000-8000-000000000001";
+  const good = { orgId, settings: { companyName: "TradeOS Beta Smoke" } };
+  assert.equal(assertAuthenticatedSmokeTenant(good, "TradeOS Beta Smoke"), orgId);
+  assert.equal(assertAuthenticatedSmokeTenant(
+    { orgId, settings: { companyName: "Custom brand" } },
+    "TradeOS Beta Smoke", orgId,
+  ), orgId);
+  assert.throws(() => assertAuthenticatedSmokeTenant(
+    { orgId: otherId, settings: { companyName: "TradeOS Beta Smoke" } },
+    "TradeOS Beta Smoke", orgId,
+  ), /organization ID does not match/);
+  assert.throws(() => assertAuthenticatedSmokeTenant(
+    { orgId: otherId, settings: { companyName: "Other Organization" } },
+    "TradeOS Beta Smoke",
+  ), /organization name does not match/);
+  assert.throws(() => assertAuthenticatedSmokeTenant(
+    { settings: { companyName: "TradeOS Beta Smoke" } }, "TradeOS Beta Smoke",
+  ), /valid organization identity/);
+  assert.throws(() => assertAuthenticatedSmokeTenant(
+    { orgId, settings: { companyName: "Other Organization" } }, "",
+  ), /label is required/);
+  assert.match(authSetup, /assertAuthenticatedSmokeTenant\(await response\.json\(\), expectedOrg, expectedOrgId\)/);
+  assert.doesNotMatch(authSetup, /settingsText\.includes\(expectedOrg\)/);
 });
 
 test("the tenant assertion cannot be skipped and mutation consent is never implicit", () => {
