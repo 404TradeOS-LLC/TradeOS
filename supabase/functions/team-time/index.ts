@@ -78,7 +78,7 @@ async function profile(orgId:string,userId:string){
 async function authorizedJob(orgId:string,userId:string,jobId:unknown){
  if(!validId(jobId))throw new HttpError(400,'Select a job assigned to you.')
  const [job]=await db('jobs',{select:'id,org_id,title,scheduled_start,scheduled_end',id:`eq.${jobId}`,org_id:`eq.${orgId}`,archived_at:'is.null',limit:'1'})
- const [assignment]=await db('job_assignments',{select:'id',org_id:`eq.${orgId}`,job_id:`eq.${jobId}`,user_id:`eq.${userId}`,removed_at:'is.null',limit:'1'})
+ const [assignment]=await db('job_assignments',{select:'id',org_id:`eq.${orgId}`,job_id:`eq.${jobId}`,user_id:`eq.${userId}`,removed_at:'is.null',declined_at:'is.null',limit:'1'})
  if(!job||!assignment)throw new HttpError(403,'This job is not assigned to your account.')
  return job
 }
@@ -91,10 +91,10 @@ async function bootstrap(req:Request,user:{id:string,full_name:string},orgId:unk
  if(!selected)return reply(req,{organizations,selectOrganization:true})
  const org=selected.org_id,supervisor=SUPERVISORS.has(selected.role)
  const ownProfile=(await db('team_time_profiles',{select:'user_id,worker_type,active',org_id:`eq.${org}`,user_id:`eq.${user.id}`,limit:'1'}))[0]||null
- const assignments=await allRows<{job_id:string}>('job_assignments',{select:'job_id',org_id:`eq.${org}`,user_id:`eq.${user.id}`,removed_at:'is.null',order:'id.asc'})
+ const assignments=await allRows<{job_id:string}>('job_assignments',{select:'job_id',org_id:`eq.${org}`,user_id:`eq.${user.id}`,removed_at:'is.null',declined_at:'is.null',order:'id.asc'})
  const shifts=await allRows<{job_id:string}>('team_time_shifts',{select:'id,org_id,worker_user_id,worker_type,job_id,started_at,ended_at,break_started_at,break_minutes,note,status,corrected_at,correction_reason,reviewed_at,reviewed_by_id,updated_at',org_id:`eq.${org}`,...(supervisor?{}:{worker_user_id:`eq.${user.id}`}),order:'started_at.desc,id.desc'})
  const jobIds=[...new Set([...assignments.map((a:{job_id:string})=>a.job_id),...shifts.map((s:{job_id:string})=>s.job_id)])].filter(validId)
- const jobs=jobIds.length?await db('jobs',{select:'id,title,scheduled_start,scheduled_end',org_id:`eq.${org}`,id:`in.(${jobIds.join(',')})`,archived_at:'is.null',limit:'100'}):[]
+ const jobs=jobIds.length?await allRows('jobs',{select:'id,title,scheduled_start,scheduled_end',org_id:`eq.${org}`,id:`in.(${jobIds.join(',')})`,archived_at:'is.null'}):[]
  let workers=[]
  if(supervisor){const memberships=await db('organization_memberships',{select:'user_id,role',org_id:`eq.${org}`,status:'eq.active',limit:'100'});const ids=memberships.map((m:{user_id:string})=>m.user_id).filter(validId);const names=ids.length?await db('users',{select:'id,full_name',id:`in.(${ids.join(',')})`,is_active:'eq.true',limit:'100'}):[];const profiles=await db('team_time_profiles',{select:'user_id,worker_type,active',org_id:`eq.${org}`,limit:'100'});workers=names.map((n:{id:string,full_name:string})=>({id:n.id,name:n.full_name,role:memberships.find((m:{user_id:string})=>m.user_id===n.id)?.role,workerType:profiles.find((p:{user_id:string})=>p.user_id===n.id)?.worker_type||null,active:profiles.find((p:{user_id:string})=>p.user_id===n.id)?.active??false}))}
  return reply(req,{orgId:org,role:selected.role,user:{id:user.id,name:user.full_name},workerType:ownProfile?.active?ownProfile.worker_type:null,supervisor,jobs,assignedJobIds:assignments.map((a:{job_id:string})=>a.job_id),shifts,workers,organizations})

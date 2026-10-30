@@ -16,12 +16,12 @@ const userB = "20000000-0000-4000-8000-000000000021";
 const jobA = "10000000-0000-4000-8000-000000000081";
 const shiftB = "20000000-0000-4000-8000-000000000112";
 
-type Call = { table: string; method: string; orgFilter: string | null; key: string | null; offset: string | null };
+type Call = { table: string; method: string; orgFilter: string | null; key: string | null; offset: string | null; query: string };
 function harness({
   actorId = userA, role = "technician", membershipOrg = orgA,
-  assigned = false, shiftsCount = 0,
+  assigned = false, shiftsCount = 0, assignmentDeclined = false, jobsCount = 1,
 }: {
-  actorId?: string; role?: string; membershipOrg?: string; assigned?: boolean; shiftsCount?: number;
+  actorId?: string; role?: string; membershipOrg?: string; assigned?: boolean; shiftsCount?: number; assignmentDeclined?: boolean; jobsCount?: number;
 } = {}) {
   let handle: ((request: Request) => Promise<Response>) | undefined;
   const calls: Call[] = [];
@@ -31,7 +31,7 @@ function harness({
     if (!u.pathname.startsWith("/rest/v1/")) throw new Error("Unexpected upstream path");
     const table = u.pathname.slice("/rest/v1/".length);
     const h = new Headers(init.headers);
-    calls.push({ table, method: init.method ?? "GET", orgFilter: u.searchParams.get("org_id"), key: h.get("apikey"), offset: u.searchParams.get("offset") });
+    calls.push({ table, method: init.method ?? "GET", orgFilter: u.searchParams.get("org_id"), key: h.get("apikey"), offset: u.searchParams.get("offset"), query: u.search });
     if (table === "users") return Response.json([{ id: actorId, auth_subject: actorId, full_name: "Test Worker", is_active: true }]);
     if (table === "organization_memberships") {
       const wantedOrg = u.searchParams.get("org_id");
@@ -41,8 +41,19 @@ function harness({
       return Response.json([{ org_id: membershipOrg, role, user_id: actorId, status: "active" }]);
     }
     if (table === "team_time_profiles") return Response.json([{org_id: membershipOrg, user_id: actorId, active: true, worker_type:"employee"}]);
-    if (table === "jobs") return Response.json([{id: jobA, org_id: membershipOrg, title:"Assigned Job"}]);
-    if (table === "job_assignments") return Response.json(assigned ? [{ id: "10000000-0000-4000-8000-000000000099", user_id: actorId }] : []);
+    if (table === "jobs") {
+      if (jobsCount <= 1) return Response.json([{id: jobA, org_id: membershipOrg, title:"Assigned Job"}]);
+      const offset = Number(u.searchParams.get("offset") ?? "0");
+      const limit = Number(u.searchParams.get("limit") ?? "200");
+      const remaining = Math.max(0, jobsCount - offset);
+      return Response.json(Array.from({length: Math.min(limit, remaining)}, (_, i) => ({
+        id: `job-${offset + i}`, org_id: membershipOrg, title: `Job ${offset + i}`,
+      })));
+    }
+    if (table === "job_assignments") {
+      if (assignmentDeclined) return Response.json(u.searchParams.get("declined_at") === "is.null" ? [] : [{ id: "10000000-0000-4000-8000-000000000099", user_id: actorId, job_id: jobA }]);
+      return Response.json(assigned ? [{ id: "10000000-0000-4000-8000-000000000099", user_id: actorId, job_id: jobA }] : []);
+    }
     if (table === "team_time_shifts") {
       const offset = Number(u.searchParams.get("offset") ?? "0");
       const limit = Number(u.searchParams.get("limit") ?? "200");
@@ -127,6 +138,24 @@ test("supervisor bootstrap pages beyond 100 shifts without dropping pending appr
   expect(pages.map(p=>p.offset)).toEqual(["0","200"]);
   expect(pages.every(p=>p.orgFilter===`eq.${orgA}`)).toBe(true);
   expect(pages.every(p=>p.key==="test-bypass-role")).toBe(true);
+});
+
+test("clock_in denies a declined assignment whose row still exists", async () => {
+  const h = harness({assigned: true, assignmentDeclined: true});
+  const r = await h.request({action:"clock_in",orgId:orgA,jobId:jobA});
+  expect(r.status).toBe(403);
+  expect(h.calls.some(c => c.table==="team_time_shifts" && c.method==="POST")).toBe(false);
+  expect(h.calls.some(c => c.table==="job_assignments" && c.query.includes("declined_at=is.null"))).toBe(true);
+});
+
+test("bootstrap pages job metadata beyond the old 100-row page", async () => {
+  const h = harness({role:"manager", assigned: true, jobsCount: 250});
+  const r = await h.request({action:"bootstrap",orgId:orgA});
+  expect(r.status).toBe(200);
+  const payload = r.payload as {jobs: unknown[]};
+  expect(payload.jobs).toHaveLength(250);
+  const pages = h.calls.filter(c => c.table==="jobs");
+  expect(pages.map(p => p.offset)).toEqual(["0","200"]);
 });
 
 test("oversized workspace fails explicitly rather than exporting a partial 10000-row subset", async () => {
