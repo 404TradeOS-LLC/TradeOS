@@ -92,13 +92,15 @@ theme changes ship. Route-local tokens and self-hosted fonts live in
 component owners are recorded in `.stitch/DESIGN.md` and `docs/ui-guide.md`.
 
 Software-renderer guard (2026-10-30): on software rasterizers (SwiftShader,
-llvmpipe) the cinema skips the PMREM environment pass. The pass itself is
-fast, but its deferred cost blocked the main thread past the intro exit
-timer in GPU-less environments, so the first intro overstayed its scheduled
-four seconds and the component suite's intro-timing test failed. The scene
-lights still shade the metal there; hardware renderers keep the full
-reflective environment. Approved 4s/2.5s timing, Skip/Escape, focus
-restoration, and the reduced-motion bypass are unchanged.
+llvmpipe, Windows WARP via the Microsoft Basic Render Driver) the cinema
+skips the PMREM environment pass; an unknown or unavailable renderer name
+counts as software too. The pass itself is fast, but its deferred cost
+blocked the main thread past the intro exit timer in GPU-less environments,
+so the first intro overstayed its scheduled four seconds and the component
+suite's intro-timing test failed. The scene lights still shade the metal
+there; hardware renderers keep the full reflective environment. Approved
+4s/2.5s timing, Skip/Escape, focus restoration, and the reduced-motion
+bypass are unchanged.
 
 Local validation: 513 frontend unit tests, lint, TypeScript and the production
 build pass; production dependency audit reports zero vulnerabilities. The real

@@ -6,9 +6,11 @@ import {
   getVisitKind,
   isSoftwareRendererName,
   nextGreeting,
+  readRendererName,
   rememberVisit,
   validateCredentials,
   type EntryStorage,
+  type RendererInfoSource,
 } from "./entry-state.ts";
 const memory = (): EntryStorage => {
   const values = new Map<string, string>();
@@ -52,12 +54,45 @@ test("software rasterizers are detected so the intro skips the environment pass"
   assert.equal(isSoftwareRendererName("Mesa Software Renderer"), true);
   assert.equal(
     isSoftwareRendererName(
+      "ANGLE (Microsoft Basic Render Driver Direct3D11 vs_5_0 ps_5_0)",
+    ),
+    true,
+  );
+  assert.equal(
+    isSoftwareRendererName(
       "ANGLE (NVIDIA GeForce RTX 4060 Direct3D11 vs_5_0 ps_5_0)",
     ),
     false,
   );
   assert.equal(isSoftwareRendererName("Apple M1 Pro"), false);
-  assert.equal(isSoftwareRendererName(""), false);
+  // Unknown or unavailable names count as software: the expensive pass
+  // must not run on a context that cannot be proven to be hardware.
+  assert.equal(isSoftwareRendererName(""), true);
+  assert.equal(isSoftwareRendererName("   "), true);
+});
+test("renderer name lookup tolerates a missing extension or throwing context", () => {
+  const swiftShader: RendererInfoSource = {
+    getExtension: (name) =>
+      name === "WEBGL_debug_renderer_info"
+        ? { UNMASKED_RENDERER_WEBGL: 0x9246 }
+        : null,
+    getParameter: () => "Google SwiftShader",
+  };
+  assert.equal(readRendererName(swiftShader), "Google SwiftShader");
+  const noExtension: RendererInfoSource = {
+    getExtension: () => null,
+    getParameter: () => {
+      throw Error("must not be called");
+    },
+  };
+  assert.equal(readRendererName(noExtension), "");
+  const throwing: RendererInfoSource = {
+    getExtension: () => {
+      throw Error("blocked");
+    },
+    getParameter: () => "",
+  };
+  assert.equal(readRendererName(throwing), "");
 });
 test("validation rejects empty/malformed values but preserves password-manager input", () => {
   assert.deepEqual(validateCredentials("", ""), {
