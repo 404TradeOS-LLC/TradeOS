@@ -34,11 +34,15 @@ export function JobCreateForm({
   customerId,
   projectName,
   projectSiteAddress,
+  sourceProposalId,
+  approvedScope,
 }: {
   projectId: string;
   customerId: string;
   projectName: string;
   projectSiteAddress: string | null;
+  sourceProposalId?: string | null;
+  approvedScope?: string | null;
 }) {
   const router = useRouter();
   const [addresses, setAddresses] = useState<ServiceAddress[]>([]);
@@ -135,28 +139,39 @@ export function JobCreateForm({
       const formData = new FormData(event.currentTarget);
       const title = String(formData.get("title") ?? "").trim();
       const jobType = String(formData.get("jobType") ?? "").trim();
-      if (!title || !jobType) throw new Error("Job title and job type are required.");
+      if (!sourceProposalId) {
+        if (!title || !jobType) throw new Error("Job title and job type are required.");
+      }
 
       let serviceAddressId = selectedAddressId;
       if (showAddressForm || !serviceAddressId) {
         serviceAddressId = await createServiceAddress(formData);
       }
 
-      const created = await clientFetch<CreatedJob>("/jobs", {
-        method: "POST",
-        body: JSON.stringify({
-          projectId,
-          customerId,
-          serviceAddressId,
-          title,
-          description: String(formData.get("description") ?? "").trim() || undefined,
-          jobType,
-          priority: String(formData.get("priority") ?? "medium"),
-          estimatedDurationMinutes: Number(formData.get("estimatedDurationMinutes") || 120),
-        }),
-      });
+      const created = sourceProposalId
+        ? await clientFetch<CreatedJob>(`/jobs/from-proposal/${sourceProposalId}`, {
+            method: "POST",
+            body: JSON.stringify({ serviceAddressId }),
+          })
+        : await clientFetch<CreatedJob>("/jobs", {
+            method: "POST",
+            body: JSON.stringify({
+              projectId,
+              customerId,
+              serviceAddressId,
+              title,
+              description: String(formData.get("description") ?? "").trim() || undefined,
+              jobType,
+              priority: String(formData.get("priority") ?? "medium"),
+              estimatedDurationMinutes: Number(formData.get("estimatedDurationMinutes") || 120),
+            }),
+          });
 
-      router.push(`/dispatch?view=all&q=${encodeURIComponent(created.jobNumber ?? created.title ?? title)}`);
+      if (sourceProposalId) {
+        router.push(`/projects/${projectId}/jobs/${created.id}`);
+      } else {
+        router.push(`/dispatch?view=all&q=${encodeURIComponent(created.jobNumber ?? created.title ?? title)}`);
+      }
       router.refresh();
     } catch (caught) {
       const message = caught instanceof ClientApiError
@@ -173,37 +188,55 @@ export function JobCreateForm({
   return (
     <form onSubmit={onSubmit} className="grid gap-5 rounded-xl border border-border/70 bg-card p-5 shadow-(--elev-1)">
       <div>
-        <h2 className="text-lg font-semibold">Create field job</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Turn the approved project scope into a schedulable field job for {projectName}.</p>
+        <h2 className="text-lg font-semibold">{sourceProposalId ? "Approved proposal → field job" : "Create field job"}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {sourceProposalId
+            ? "The accepted scope, terms and pricing are snapshotted into one unscheduled job. Choose its service address; dispatch happens later."
+            : `Turn the approved project scope into a schedulable field job for ${projectName}.`}
+        </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="grid gap-1.5 text-sm font-medium">
-          Job title
-          <input className={fieldClass} name="title" defaultValue={projectName} required />
-        </label>
-        <label className="grid gap-1.5 text-sm font-medium">
-          Job type
-          <input className={fieldClass} name="jobType" placeholder="Install, repair, remodel…" required />
-        </label>
-        <label className="grid gap-1.5 text-sm font-medium">
-          Priority
-          <select className={fieldClass} name="priority" defaultValue="medium">
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
-        </label>
-        <label className="grid gap-1.5 text-sm font-medium">
-          Estimated duration (minutes)
-          <input className={fieldClass} name="estimatedDurationMinutes" type="number" min="1" step="15" defaultValue="120" required />
-        </label>
-      </div>
-
-      <label className="grid gap-1.5 text-sm font-medium">
-        Description
-        <textarea name="description" rows={4} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" placeholder="Field scope, access notes, or completion expectations" />
-      </label>
+      {sourceProposalId ? (
+        <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+          <div className="font-medium">{projectName}</div>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+            {approvedScope?.trim() || "No written scope was included in the accepted proposal. Verify scope before dispatch."}
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Approved pricing, assumptions, exclusions and payment terms are preserved on the job record.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-1.5 text-sm font-medium">
+              Job title
+              <input className={fieldClass} name="title" defaultValue={projectName} required />
+            </label>
+            <label className="grid gap-1.5 text-sm font-medium">
+              Job type
+              <input className={fieldClass} name="jobType" placeholder="Install, repair, remodel…" required />
+            </label>
+            <label className="grid gap-1.5 text-sm font-medium">
+              Priority
+              <select className={fieldClass} name="priority" defaultValue="medium">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+            <label className="grid gap-1.5 text-sm font-medium">
+              Estimated duration (minutes)
+              <input className={fieldClass} name="estimatedDurationMinutes" type="number" min="1" step="15" defaultValue="120" required />
+            </label>
+          </div>
+    
+          <label className="grid gap-1.5 text-sm font-medium">
+            Description
+            <textarea name="description" rows={4} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" placeholder="Field scope, access notes, or completion expectations" />
+          </label>
+        </>
+      )}
 
       <div className="grid gap-3 rounded-lg border border-border/60 bg-muted/20 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -255,7 +288,7 @@ export function JobCreateForm({
 
       <div className="flex justify-end">
         <button type="submit" disabled={busy || loadingAddresses || addressLoadFailed} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/80 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50">
-          {busy ? "Creating job…" : "Create job and open Dispatch"}
+          {busy ? "Creating job…" : sourceProposalId ? "Create from accepted proposal" : "Create job and open Dispatch"}
         </button>
       </div>
     </form>

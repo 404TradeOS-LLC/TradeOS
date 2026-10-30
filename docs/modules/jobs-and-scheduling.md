@@ -204,3 +204,40 @@ queue dismissal, automatic retry, financial change or production migration.
 This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
+
+## Accepted-proposal conversion (step 9; PR #810 pending)
+
+On an accepted proposal, **Create field job from accepted proposal** leads to
+the existing service-address selection UI. Its authenticated backend route
+`POST /api/v1/jobs/from-proposal/:proposalId` accepts only
+`serviceAddressId`. Conversion authorization and denial rules are defined in
+[Step 9 proposal-to-job conversion permission](../RBAC_MATRIX.md#step-9-proposal-to-job-conversion-permission);
+accepted-to-Job lifecycle boundaries are defined in
+[Proposal accepted → unscheduled Job handoff](../WORKFLOW_LIFECYCLES.md#proposal-accepted--unscheduled-job-handoff).
+The service verifies project/customer/address consistency, copies the immutable
+approval snapshot (including decimal-price strings), and uses a transaction
+advisory lock before its existence check. A unique nullable proposal-source
+index enforces one Job even under concurrency. Duplicate submissions return the
+existing job and do not duplicate activity. The generic manual job path
+continues to work. Proposal-derived jobs cannot change their project,
+customer, or address through normal Job updates.
+
+The additive `20261028151000_accepted_proposal_job_handoff` migration and
+nonproduction RLS, retry, and browser evidence are release prerequisites;
+nothing in this unmerged slice deploys the migration or dispatches a crew.
+
+## Approved baseline in Job workspace (PR #810)
+
+The manager-only `/projects/[id]/jobs/[jobId]` handoff page reads `GET /api/v1/jobs/:jobId` under the existing tenant/RLS boundary and verifies the job belongs to the route's project. Its read-only display renders the frozen accepted proposal scope, price, exclusions, assumptions, terms and payment milestones without re-pricing from Costbook. The approved-proposal conversion form opens this page after creating/reusing the Job; standalone Jobs display a truthful no-baseline state. Scheduling and dispatch are still separate.
+
+
+### Commercial snapshot data minimization (PR #810)
+
+The accepted scope remains the executable Job description. The frozen commercial baseline is carried separately in `acceptedBaselineJson`; see [accepted proposal job snapshot read permissions](../RBAC_MATRIX.md#accepted-proposal-job-snapshot-read-permissions) for the access rule.
+
+## Accepted-scope validation repair — 2026-10-30
+
+Conversion now validates the proposal's recorded scope before creating a new
+Job. See [accepted Job scope integrity](../WORKFLOW_LIFECYCLES.md#accepted-job-scope-integrity)
+for the lifecycle rule and [API validation](../API_REFERENCE.md#accepted-scope-conversion-validation--2026-10-30)
+for failure and retry behavior. No schema change is needed.

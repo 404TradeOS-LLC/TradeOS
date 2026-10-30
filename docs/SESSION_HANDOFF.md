@@ -14,27 +14,53 @@ related_docs:
 
 # Session Handoff
 
-## Proposed protected staging Job migration runner — 2026-10-30
+## Accepted-scope repair and #810 review status — 2026-10-30
 
-- `NEW_WORK_REQUIRED` for infrastructure only; feature implementation remains
-  `EXISTING_WORK_FOUND` in #810. No open/recent PR implements a trusted-main,
-  checksum-pinned feature SQL apply path. Branch `fix/staging-job-handoff-migration`
-  starts at main `d1d64137c2912225b8f42ae1895c5786a20643b9` in isolated worktree
-  `/workspace/scratch/332cdaafbc27/TradeOS-job-migration`. Sprint ID NONE.
-- Allowed: new manual staging workflow/runner/tests, root test registration,
-  workflow owner docs. Forbidden: feature schema/API/web files, production
-  workflow, protected settings/secrets, live apply. This PR does not supersede
-  #810 or #833 and carries no feature migration file.
-- Fresh live read-only evidence: all 66 staging names/checksums match main;
-  only the Job handoff would be pending. Both Job RLS flags are true.
-- Validation: 181 governance tests, 40 documentation tests, ownership, Node
-  syntax, actionlint 1.7.7 and whitespace passed. Live evidence passed the full
-  66-name/checksum comparison. Isolated PGlite SQL rehearsal passed; full
-  hosted Prisma execution and Ruby workflow policy remain unverified locally.
-- Next five: review infrastructure exact-head CI; merge only with migration
-  authority/review satisfied; run protected preflight at the reviewed source
-  SHA; approve and execute staging apply with verified postflight; deploy
-  matching API/web and capture #810 authenticated acceptance.
+- EXISTING_WORK_FOUND, Sprint ID NONE. Founder directed #810 undrafted; GitHub
+  confirmed ready for review at7506e46f with auto-merge disabled. Release
+  acceptance remains gated. #837 API-only staging source starts at5d5d9c6f.
+- #837's review found missing accepted scope was copied from mutable Project
+  scope. Three regressions fail against source7506e46f. The bounded fix rejects
+  new null/empty/whitespace accepted scope with409 after the existing-Job lookup,
+  preserving idempotent retries. No migration, permission or deployment change.
+- Scope: Job service, service tests and API/RBAC/lifecycle/current/module docs.
+  Apply the same fix to both existing branches. No new feature PR or workflow.
+- Both pre-repair heads passed required CI; #810 had no unresolved threads;
+  #837 has one validated review thread. New-head CI/review required after push.
+- Staging remains52117b65; its67 completed migrations include Job handoff.
+  Binding attestation is blocked by connector403 and sensitive Preview values
+  withheld from the old CLI attestation. Do not repeat that unchanged run.
+- Next five: validate/push fix on #810; carry it to #837; reconcile new-head CI
+  and the validated review thread; restore supported protected binding proof;
+  stage API then web and collect step-9 evidence before release review.
+
+- Fresh validation:44 Job tests,40 docs tests,181 governance tests, API
+  typecheck, docs ownership and whitespace pass. Three regression cases failed
+  against the pre-fix source. Hosted final-head checks remain required.
+
+## Historical continuity
+
+## PR #810 staging continuation — 2026-10-30
+
+- `EXISTING_WORK_FOUND`, Sprint ID NONE. Continue existing feature branch
+  `feat/accepted-proposal-job-handoff-20261028`; reconcile source head
+  `84e3cccbc93f2c3c6d6c9910b9a4c58c2a9e256c` with main
+  `0944b4f7f78d0bb7911f356b78e7d25386360648` (merged infrastructure PR #836).
+- #836 is MERGED, not merely auto-merge-enabled. Its trusted-main staging
+  runner is installed. Required checks, workflow lint/security and the final
+  NULL-source compatibility guard passed before merge; protected execution
+  remains separate. No schema migration, deployment or acceptance ran here.
+- Scope: branch currency and protected read-only preflight. Preserve feature
+  schema/API/web behavior, staging approval, exact source-SHA and checksum gates.
+  No direct database writes, production changes or credential-policy changes.
+- Latest direct staging proof: all 66 completed names/checksums match the prior
+  main inventory, zero unfinished; Job migration and columns/index absent,
+  jobs RLS enabled+forced. Recheck through the installed runner before apply.
+- Next five: verify updated feature exact-head CI; run protected staging
+  preflight from main with that source SHA; obtain exact staging apply approval;
+  verify migration/schema and matching API then web deployments; retain
+  authenticated step-9 evidence and complete final-head release review.
+
 
 ## Estimate quick-create partial-failure recovery — 2026-10-29
 

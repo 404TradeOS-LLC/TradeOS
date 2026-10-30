@@ -71,6 +71,30 @@ duplicate delivery/activity history or overwrite the winning project side
 effect. The current `billing.read` read boundary and `documents.manage`
 mutation boundary remain unchanged.
 
+## Accepted proposal → field job (step 9)
+
+The organization-scoped `POST /api/v1/jobs/from-proposal/:proposalId` converts
+an **accepted** proposal to a single, **unscheduled** Job. The request accepts
+only a customer-owned `serviceAddressId`; all other job and commercial fields
+come from the accepted proposal and its project. Access and denial rules are defined in the [Step 9 proposal-to-job conversion permission](../RBAC_MATRIX.md#step-9-proposal-to-job-conversion-permission) and [workflow lifecycle](../WORKFLOW_LIFECYCLES.md).
+
+The job stores a unique nullable `sourceProposalId` and
+`acceptedBaselineJson` copied at conversion time, including approved scope,
+assumptions, exclusions, estimate reference, monetary decimal **strings**,
+payment milestones and terms. The original proposal remains immutable.
+A transaction-scoped proposal lock plus a unique index prevents concurrent
+double jobs; retry returns the existing job without duplicating activities.
+The job's service address is chosen deliberately by a manager. Crew assignment,
+scheduling, signed contract, and invoicing are not implied by acceptance.
+
+The entry point is the accepted proposal's **Create field job from accepted
+proposal** action; it uses the existing address chooser and the Dispatch link.
+The additive migration `20261028151000_accepted_proposal_job_handoff`
+must be applied in authorized nonproduction before executing this API.
+There is no production migration execution in this PR.
+See the [staging review packet](../operations/accepted-proposal-job-staging.md)
+for the protected apply dependency, evidence capture and ordered rollout.
+
 ## Emitted activity events
 
 - proposal send, view, accept, decline, and resend actions write delivery history and activity-oriented metadata
@@ -97,6 +121,7 @@ absent.
 ## Tests
 
 - `app/tests/proposals.service.test.ts`
+- `app/tests/jobs.service.test.ts` — accepted-proposal conversion, idempotency, unauthorized roles, tenant scope and address ownership
 - `app/tests/proposalsInvoicesContractsMigration.test.ts`
 - `app/tests/proposal-delivery.migration.test.ts`
 - `app/tests/proposals.athena-events-integration.test.ts`
@@ -152,3 +177,4 @@ This is presentation of the existing `createFromEstimate`/`createFromProject` ru
 `createProposalAction` returns a validation/API error state or redirects on success. Because a returned error is a fulfilled React form action, the native uncontrolled-field reset previously discarded contractor edits. The creation form now prevents that reset; no explicit Reset control exists and successful creation still redirects. Text fields, scope/assumptions/exclusions/terms, payment fields and line-detail checkbox survive failures, and the returned error is a focused alert with submit next in keyboard order. No local storage, new request payload, validation or lifecycle policy is introduced.
 
 `tests/playwright/proposal-failure-retention.spec.ts` is an opt-in non-production matrix using `TRADEOS_PROPOSAL_RETENTION_PATH` and optional `TRADEOS_PROPOSAL_RETENTION_STATE` with existing safe target guards. An incomplete payment row deliberately reaches the real server action's validation before its backend create call; two failures at each of four widths preserve edits and focus. Local props are explicitly synthetic. Successful creation, database persistence and authenticated negative permission evidence remain separate.
+

@@ -1031,7 +1031,7 @@ export interface ProposalDraftPreview {
 }
 
 export function getProposal(token: string, id: string) {
-  return apiFetch<Proposal>(`/api/v1/proposals/${id}`, { token }).then((proposal) => ({
+  return apiFetch<Proposal>(`/api/v1/proposals/${encodeURIComponent(id)}`, { token }).then((proposal) => ({
     ...proposal,
     status: normalizeStatus(proposal.status, legacyProposalStatusMap, proposalStatuses, "draft"),
   }));
@@ -1365,6 +1365,8 @@ export interface FieldJobDetail extends DispatchJob {
     completedAt: string | null;
     notes: string | null;
   }>;
+  sourceProposalId?: string | null;
+  acceptedBaselineJson?: unknown;
   description: string;
   jobType: string;
   arrivalWindowStart: string | null;

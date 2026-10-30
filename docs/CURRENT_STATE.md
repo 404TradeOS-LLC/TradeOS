@@ -63,6 +63,18 @@ related_code:
 
 # TradeOS Current State
 
+## Step 9 staging reconciliation — 2026-10-30
+
+At inspected PR #810 head `f96231c11f49c7eb05748927f6be6623edc264cc`,
+repository and migration-safety CI passed and the branch was current with main.
+Live staging has 66 completed migrations and zero unfinished; the Job handoff
+migration, both columns and unique index remain absent. Earlier 46/63 ledger
+counts below are historical. A read-only capture and proposed migration-first
+rollout are in [the staging review packet](operations/accepted-proposal-job-staging.md).
+The existing apply workflow is main-only; a migration extraction would also
+queue the protected production workflow. No extraction, workflow change,
+protected apply or authenticated step-9 PASS is claimed by this update.
+
 ## Estimate quick-create partial-failure recovery — implementation branch, 2026-10-29
 
 The Today and Universal Create estimate path saves a Project before posting a
@@ -1585,6 +1597,21 @@ queue dismissal, automatic retry, financial change or production migration.
 This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
+## Step 9 accepted-proposal field handoff — PR #810 (unmerged)
+
+A proposed, separate branch closes the missing accepted Proposal → tracked Job
+link: a manager selects the customer's ServiceAddress; the backend creates
+one unscheduled Job, preserves accepted proposal scope and price as an immutable
+JSON baseline and returns the existing job on retries. The workflow remains
+behind an additive DB migration, exact-head CI, authorized staging and
+authenticated end-to-end evidence. **This is not shipped or production
+certified**, and it does not automatically assign a crew, sign a contract,
+create invoices or change accepted prices. See `docs/modules/jobs-and-scheduling.md`.
+
+### Step 9 approved Job display (PR #810, proposed)
+
+The unmerged accepted-proposal handoff branch also adds a manager-only Job approval-baseline detail page, linked from the successful conversion, with source proposal provenance and immutable scope/price/terms. It remains unshipped pending exact-head CI, staging migration, and authenticated browser evidence.
+
 ### Pending P0 staging migration-history reconciliation — 2026-10-28
 
 PR for issue #811 proposes a protected, staging-only reconciliation of the already-executed invoice expand migration. Direct evidence: Supabase migration history stores the exact executable SQL used by the tracked Prisma file (comments differ); staging has 46 applied Prisma migrations, 0 unfinished, and 42 invoice rows with matching old/new monetary values. The workflow is **not merged or executed** by this documentation change. The later invoice contract migration remains blocked pending proof all legacy writers are retired. No production migration or staging schema deployment is certified.
@@ -1602,3 +1629,14 @@ The client retains its UUID across server-action errors. A full reload seeds a n
 The staging-only Supabase Team & Time table migrations were formerly missing from repository migration history. This branch adds tracked Prisma equivalents `20261030004500_team_time_foundation` and `20261030005500_team_time_integrity` before `20261030010000_force_team_time_rls`; missing tables now FAIL the FORCE migration instead of marking a no-op applied. Existing tables are preserved and no anon/authenticated access grants or tenant policies are added. Deployed staging Edge Function v6 is the source baseline for a not-yet-deployed paginated candidate at `supabase/functions/team-time/index.ts`, tested with synthetic authenticated caller/membership/job/shift requests and 201-shift/oversized-workspace regressions.
 
 Crucial boundary: the live Edge Function uses a server-side Supabase **service-role** key (BYPASSRLS). FORCE does not change that and is not sufficient for service-role tenant isolation. Explicit organization, membership, assignment and shift checks are the actual function authorization gates; new tests verify denial paths. Staging currently has ENABLED but not FORCED RLS and zero policies. All migrations and function snapshot are source-only pending exact-head CI, review and protected staging approval. Production Team & Time remains disabled; no runtime deployment is claimed.
+
+## Accepted-scope fallback repair — 2026-10-30
+
+#837 review identified a mutable Project scope fallback in the shared #810 Job
+conversion source. Three regression cases reproduced it for null, empty and
+whitespace proposal scope. The bounded repair rejects those new conversions
+with HTTP 409 and preserves existing-Job retries; it changes no schema, roles,
+workflow or deployment settings. New-head hosted checks remain required.
+The founder directed #810 ready for review; staging binding attestation,
+API-first #837 promotion, matching web deployment, authenticated step-9 and
+release review still gate release. Undrafting does not certify acceptance.
