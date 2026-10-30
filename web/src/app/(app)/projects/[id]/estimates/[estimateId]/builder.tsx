@@ -7,6 +7,7 @@ import { clientFetch } from "@/lib/clientApi";
 import { PageHeader } from "@/components/shared/page-header";
 import { ContextualAthenaPanel } from "@/components/estimate-assist/contextual-athena-panel";
 import { assessCostItemMapping, type StarterCatalogComponent, type StarterCatalogTemplate } from "@/components/costbook/assembly-catalog-model";
+import { MappingResolveChecklist } from "@/components/costbook/mapping-resolve-checklist";
 import type { CostItemCatalogRecord } from "@/components/costbook/cost-item-catalog-actions";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -1104,6 +1105,12 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
                   setError(null);
                   void queryClient.invalidateQueries({ queryKey: ["item-search"] });
                 }}
+                onKeepDraft={() => {
+                  setSelected(null);
+                  setQuery("");
+                  setError(null);
+                  searchInputRef.current?.focus();
+                }}
               />
             ) : null}
           </div>
@@ -1197,13 +1204,19 @@ function StarterAssemblySetup({
   template,
   quantity,
   onInstalled,
+  onKeepDraft,
 }: {
   template: StarterCatalogTemplate;
   quantity: string;
   onInstalled: (assembly: { id: string; name: string; code: string; unitOfMeasure: string; description?: string | null }) => void;
+  onKeepDraft: () => void;
 }) {
   const [mappings, setMappings] = useState<Record<string, CostItemCatalogRecord>>({});
   const [error, setError] = useState<string | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
   const mappedIds = template.components.map((component) => mappings[component.key]?.id ?? "");
   const mappingComplete = mappedIds.every(Boolean);
   const duplicateMapping = mappingComplete && new Set(mappedIds).size !== mappedIds.length;
@@ -1262,8 +1275,9 @@ function StarterAssemblySetup({
   const outputQuantity = Number(quantity) > 0 ? Number(quantity) : 0;
 
   return (
-    <div className="space-y-4 rounded-lg border border-warning/40 bg-warning/10 p-3">
+    <section aria-label="Resolve required assembly mapping" className="space-y-4 rounded-lg border border-warning/40 bg-warning/10 p-3">
       <div>
+        <h3 ref={headingRef} tabIndex={-1} className="font-medium text-foreground">Resolve required assembly mapping</h3>
         <p className="font-medium text-foreground">{evidenceBlocked ? "Research evidence pending — installation blocked." : "Setup required before this assembly can be priced or added."}</p>
         {evidenceBlocked ? <p role="alert" className="mt-1 text-sm text-warning">{template.blockingReasons?.join("; ")}</p> : null}
         <p className="mt-1 text-sm text-muted-foreground">
@@ -1295,7 +1309,16 @@ function StarterAssemblySetup({
         })}
       </div>
 
-      <div className="grid gap-3 rounded-lg border border-border/70 bg-background/75 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+      <MappingResolveChecklist
+        mappedCount={mappedIds.filter(Boolean).length}
+        totalCount={template.components.length}
+        incompatibleLabel={incompatibleComponent?.label ?? null}
+        incompatibleReasons={incompatibleComponent && mappings[incompatibleComponent.key] ? assessCostItemMapping(incompatibleComponent, mappings[incompatibleComponent.key]).reasons : []}
+        allMappedItemsActive={Object.values(mappings).every((item) => item.isActive)}
+        duplicateMapping={duplicateMapping}
+      />
+
+      <div className="grid gap-3 rounded-lg border border-border/70 bg-background/75 p-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Pre-install cost preview</p>
           {!mappingComplete ? (
@@ -1334,12 +1357,25 @@ function StarterAssemblySetup({
             </div>
           ) : null}
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
         <Button
           type="button"
+          className="min-h-11"
           onClick={() => install.mutate()}
           disabled={install.isPending || evidenceBlocked || !mappingComplete || duplicateMapping || Boolean(incompatibleComponent) || !previewReady}
         >
-          {install.isPending ? "Installing…" : "Install assembly"}
+          {install.isPending ? "Resolving…" : "Resolve Cost item mappings"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-11"
+          onClick={onKeepDraft}
+          disabled={install.isPending}
+        >
+          Keep draft unchanged
         </Button>
       </div>
 
@@ -1354,7 +1390,7 @@ function StarterAssemblySetup({
         <p className="mt-1">Installation creates the tenant assembly only. Review its resolved cost, then use the separate Add action to write the estimate line.</p>
       </div>
       {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
-    </div>
+    </section>
   );
 }
 
