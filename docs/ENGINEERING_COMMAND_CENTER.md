@@ -465,3 +465,7 @@ Deploy workflow pooler support — 2026-10-29: `.github/workflows/deploy-staging
 ## P0 canonical staging smoke identity — 2026-10-30
 
 For beta browser acceptance, `.github/workflows/staging-orchestrator.yml` passes the verified nonproduction `TradeOS Beta Smoke` organization UUID `9814bd72-626a-42f4-8871-cd755cb9d685` to `.github/workflows/beta-evidence.yml`. The bootstrap checks the authenticated Settings API `orgId`, never editable Settings DOM text; missing or mismatched tenant identity is a hard failure. Run 40962013890 failed this identity stage after successful migration/deployment preflights; no four-viewport PASS is claimed. Confirm the configured smoke identity's membership before rerunning evidence.
+
+## Team & Time RLS hardening review — 2026-10-30
+
+The three untracked-origin `team_time_*` tables in staging are enabled but non-FORCED, owned by a BYPASSRLS administrator, and currently have no recorded row policies. `20261030010000_force_team_time_rls` is a proposed additive Prisma migration that only enables/forces RLS when those tables already exist and skips absent tables with a NOTICE. It never grants access or invents tenancy policies; isolated PostgreSQL integration tests verify missing, present, repeat, and rollback paths. Do not deploy to staging or production before exact-head checks, review, and the protected migration boundary. Separately prove role compatibility before requiring hard FORCE posture in the staging orchestrator.
