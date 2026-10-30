@@ -349,6 +349,7 @@ test("a storage state path whose parent does not exist yet is still checked", as
 // ---------------------------------------------------------------------------
 
 const workflow = read(".github/workflows/beta-evidence.yml");
+const stagingOrchestrator = read(".github/workflows/staging-orchestrator.yml");
 const capture = read("app/scripts/beta-evidence/capture-evidence.mjs");
 const runner = read("app/scripts/beta-evidence/run.mjs");
 const validator = read("app/scripts/beta-evidence/validate-artifacts.mjs");
@@ -597,6 +598,13 @@ test("smoke tenant verification requires canonical authenticated Settings identi
   ), /label is required/);
   assert.match(authSetup, /assertAuthenticatedSmokeTenant\(await response\.json\(\), expectedOrg, expectedOrgId\)/);
   assert.doesNotMatch(authSetup, /settingsText\.includes\(expectedOrg\)/);
+});
+
+test("staging beta evidence pins the canonical smoke UUID and forwards it to the authenticator", () => {
+  assert.match(stagingOrchestrator, /smoke_org_id:\s+9814bd72-626a-42f4-8871-cd755cb9d685/);
+  assert.match(workflow, /smoke_org_id:\s+[\s\S]*?type: string/);
+  assert.match(workflow, /BETA_SMOKE_ORG_ID: \$\{\{ inputs\.smoke_org_id \}\}/);
+  assert.match(authSetup, /expectedOrgId = process\.env\.BETA_SMOKE_ORG_ID/);
 });
 
 test("the tenant assertion cannot be skipped and mutation consent is never implicit", () => {
