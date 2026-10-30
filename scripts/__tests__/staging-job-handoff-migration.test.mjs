@@ -14,7 +14,7 @@ const applied = () => ({ ...pending(), ledger: [ledgerRow(), ledgerRow(migration
   columns: [{ name: "source_proposal_id", type: "text", nullable: true, default: null },
     { name: "accepted_baseline_json", type: "jsonb", nullable: true, default: null }],
   indexes: [{ unique: true, valid: true, ready: true, keys: "source_proposal_id", predicate: null,
-    expressions: null, keyCount: 1, totalCount: 1 }] });
+    expressions: null, keyCount: 1, totalCount: 1, nullsNotDistinct: false }] });
 
 test("requires full SHA, trusted main, known mode and exact apply approval", () => {
   validateRequest(request);
@@ -74,7 +74,7 @@ test("refuses partial schema, weakened RLS, wrong types/defaults and invalid or 
     assert.throws(() => validateEvidence(inventory, evidence));
   }
   for (const patch of [{ unique: false }, { valid: false }, { ready: false }, { keys: "other" },
-    { predicate: "source_proposal_id IS NOT NULL" }, { expressions: "lower(source_proposal_id)" }, { keyCount: 2 }, { totalCount: 2 }]) {
+    { predicate: "source_proposal_id IS NOT NULL" }, { expressions: "lower(source_proposal_id)" }, { keyCount: 2 }, { totalCount: 2 }, { nullsNotDistinct: true }]) {
     const evidence = applied(); evidence.indexes[0] = { ...evidence.indexes[0], ...patch };
     assert.throws(() => validateEvidence(inventory, evidence));
   }

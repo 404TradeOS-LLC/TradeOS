@@ -76,7 +76,7 @@ export function validateEvidence(inventory, evidence, { requireApplied = false }
     const [index] = evidence.indexes;
     if (evidence.indexes.length !== 1 || index.unique !== true || index.valid !== true || index.ready !== true ||
         index.keys !== "source_proposal_id" || index.predicate !== null || index.expressions !== null ||
-        index.keyCount !== 1 || index.totalCount !== 1) throw Error("Job unique index drift");
+        index.keyCount !== 1 || index.totalCount !== 1 || index.nullsNotDistinct !== false) throw Error("Job unique index drift");
   }
   return { targetApplied, completed: applied.size, missing };
 }
@@ -98,7 +98,8 @@ SELECT json_build_object(
    WHERE table_schema='public' AND table_name='jobs' AND column_name IN ('source_proposal_id','accepted_baseline_json')),
  'indexes', (SELECT coalesce(json_agg(json_build_object('unique',i.indisunique,'valid',i.indisvalid,'ready',i.indisready,
    'keys',pg_get_indexdef(i.indexrelid,1,true),'predicate',pg_get_expr(i.indpred,i.indrelid),
-   'expressions',pg_get_expr(i.indexprs,i.indrelid),'keyCount',i.indnkeyatts,'totalCount',i.indnatts)), '[]'::json)
+   'expressions',pg_get_expr(i.indexprs,i.indrelid),'keyCount',i.indnkeyatts,'totalCount',i.indnatts,
+   'nullsNotDistinct',i.indnullsnotdistinct)), '[]'::json)
    FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid
    WHERE i.indrelid='public.jobs'::regclass AND c.relname='jobs_source_proposal_id_key'),
  'rls', (SELECT relrowsecurity FROM pg_class WHERE oid='public.jobs'::regclass),
