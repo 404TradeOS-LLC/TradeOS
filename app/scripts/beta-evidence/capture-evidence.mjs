@@ -7,6 +7,7 @@
 // screenshots are never resized to fake a smaller viewport.
 
 import { openEstimateCustomEntry } from "./lib/estimate-entry.mjs";
+import { createdCustomerIdFromUrl } from "./lib/customer-detail-url.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright";
@@ -438,8 +439,10 @@ try {
   await page.locator('[name="name"]').fill(customerName);
   await page.locator('[name="email"]').fill(customerEmail);
   await page.getByRole("button", { name: "Create customer" }).click();
-  await page.waitForURL(/\/customers\/[^/?]+(?:\?|$)/, { timeout: 60_000 });
-  const customerId = /\/customers\/([^/?]+)/.exec(page.url())?.[1];
+  // A regex that accepts /customers/new can falsely pass *before* the server
+  // action navigates to the saved Customer. Wait for a real UUID detail route.
+  await page.waitForURL((url) => createdCustomerIdFromUrl(url) !== null, { timeout: 60_000 });
+  const customerId = createdCustomerIdFromUrl(page.url());
   assertBusiness("created customer resolves an id", Boolean(customerId), `url was ${page.url()}`);
 
   if (scenario === "s052") {
