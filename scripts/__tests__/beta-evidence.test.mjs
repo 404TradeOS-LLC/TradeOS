@@ -224,6 +224,14 @@ test("artifact validation reports a viewport that produced nothing", () => {
   assert.ok(result.failures.some((failure) => failure.code === "VIEWPORT_UNREPRESENTED" && failure.file === "390"));
 });
 
+test("project workspace navigation asserts the committed route before waiting for app idleness", () => {
+  const source = read("app/scripts/beta-evidence/capture-evidence.mjs");
+  assert.match(
+    source,
+    /await projectLink\.click\(\);\s*await page\.waitForURL\(\s*new RegExp\(`\/projects\/\$\{projectId\}\(\?:\$\|\[\/\?\]\)`\),\s*\{\s*timeout: 60_000,\s*waitUntil: "commit",\s*\}\s*\);\s*await page\.waitForLoadState\("networkidle"\);/,
+  );
+});
+
 test("screenshot truth check rejects login, error, 404, empty, and stuck-loading pages", () => {
   assert.equal(assessScreenshotTruth({ pathname: "/dashboard", bodyText: "Dashboard", checkpoint: "01" }).ok, true);
   assert.equal(assessScreenshotTruth({ pathname: "/login", bodyText: "Sign in", checkpoint: "01" }).ok, false);
