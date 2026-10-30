@@ -1,5 +1,5 @@
-// Source-controlled snapshot of deployed nonproduction team-time Edge Function v6.
-// Verify source hash against Supabase project before changing or deploying.
+// Source-controlled candidate derived from deployed staging Edge Function v6.
+// The new bounded pagination is NOT deployed; verify against live v6 before release.
 // The service-role key bypasses PostgreSQL RLS; all user/org/job checks in this
 // function are therefore mandatory. Do NOT deploy to production by copying
 // this file without an independent security, secrets, and CI review.
