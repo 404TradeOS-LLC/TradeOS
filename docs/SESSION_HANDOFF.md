@@ -14,23 +14,27 @@ related_docs:
 
 # Session Handoff
 
-## PR #810 staging dependency review — 2026-10-30
+## PR #810 staging continuation — 2026-10-30
 
-- `EXISTING_WORK_FOUND`, Sprint ID NONE: continue existing branch
-  `feat/accepted-proposal-job-handoff-20261028` from `f96231c11f49c7eb05748927f6be6623edc264cc`;
-  no competing migration PR. Main inspected at `d1d64137c2912225b8f42ae1895c5786a20643b9`.
-- Scope: read-only migration capture SQL and rollout/recovery documentation.
-  No workflow, migration bytes, auth/RLS, API/web behavior or production changes.
-- Live staging: 66 completed, zero unfinished; Job handoff absent with zero new
-  columns/index. Source head passed repository/migration checks; final-head
-  checks and release review must be revalidated after this documentation commit.
-- Main-only apply cannot deploy the feature migration. A main extraction also
-  queues production migration approval. Review the exact path in
-  `docs/operations/accepted-proposal-job-staging.md` before execution.
-- Next five: review the migration split/exact-source route and production queue
-  implications; verify exact-source rehearsal/checks; obtain protected staging
-  apply approval; verify schema/ledger and matching API then web deployments;
-  capture authenticated step-9 evidence and final-head release review.
+- `EXISTING_WORK_FOUND`, Sprint ID NONE. Continue existing feature branch
+  `feat/accepted-proposal-job-handoff-20261028`; reconcile source head
+  `84e3cccbc93f2c3c6d6c9910b9a4c58c2a9e256c` with main
+  `0944b4f7f78d0bb7911f356b78e7d25386360648` (merged infrastructure PR #836).
+- #836 is MERGED, not merely auto-merge-enabled. Its trusted-main staging
+  runner is installed. Required checks, workflow lint/security and the final
+  NULL-source compatibility guard passed before merge; protected execution
+  remains separate. No schema migration, deployment or acceptance ran here.
+- Scope: branch currency and protected read-only preflight. Preserve feature
+  schema/API/web behavior, staging approval, exact source-SHA and checksum gates.
+  No direct database writes, production changes or credential-policy changes.
+- Latest direct staging proof: all 66 completed names/checksums match the prior
+  main inventory, zero unfinished; Job migration and columns/index absent,
+  jobs RLS enabled+forced. Recheck through the installed runner before apply.
+- Next five: verify updated feature exact-head CI; run protected staging
+  preflight from main with that source SHA; obtain exact staging apply approval;
+  verify migration/schema and matching API then web deployments; retain
+  authenticated step-9 evidence and complete final-head release review.
+
 
 ## Estimate quick-create partial-failure recovery — 2026-10-29
 

@@ -54,6 +54,16 @@ related_code:
 
 # TradeOS Documentation
 
+## Proposed staging Job migration runner — PR #810 dependency
+
+The proposed `.github/workflows/staging-job-handoff-migration.yml` installs a
+manual preflight/apply path for the checksum-pinned Job handoff SQL from a
+reviewed source SHA without merging feature code or changing production.
+See [the operator plan](operations/staging-job-handoff-runner.md). This is
+source-only infrastructure until reviewed/merged and separately approved for
+staging execution; #810 acceptance remains open.
+
+
 The main-only [staging migration workflow](../.github/workflows/deploy-staging-migrations.yml) now checks for a known collision between Prisma's invoice expand migration and pre-existing Supabase-side schema changes **before** applying pending migrations. A failure indicates required ledger/schema reconciliation, not permission to retry or mark migrations applied without verified DDL. See [the deployment guide](DEPLOYMENT_GUIDE.md) and [the environment audit](research/github-environment-audit-2026-10-23.md).
 
 

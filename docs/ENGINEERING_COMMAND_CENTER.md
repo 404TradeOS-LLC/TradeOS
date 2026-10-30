@@ -43,6 +43,20 @@ related_code:
 
 # TradeOS Engineering Command Center
 
+## PR #810 staging dependency — proposed protected runner, 2026-10-30
+
+Main-only apply cannot consume the draft feature migration. A separate
+infrastructure-only PR proposes `staging-job-handoff-migration.yml`: trusted main
+tooling, exact SQL checksum, manual preflight by default, protected staging
+source-SHA approval plus typed apply confirmation, no feature-code execution
+under credentials. This branch changes no Prisma migration or production
+workflow and does not queue production migrations by its path changes.
+Live read-only inventory matches all 66 completed staging migration names and
+checksums; only the Job handoff is pending against main plus the reviewed SQL.
+Jobs RLS is enabled and forced. No apply or step-9 browser PASS is claimed.
+See [the operator plan](operations/staging-job-handoff-runner.md).
+
+
 ## Staging invoice schema and ledger collision preflight — 2026-10-27
 
 The staging migration workflow refuses to run tracked Prisma migrations if invoice selling-price columns already exist but the corresponding Prisma migration is absent from the ledger, or if a recorded expand migration is missing expected columns. An untracked Supabase-side expansion was verified in staging; do not bypass the fail-closed preflight. Reconcile the historical expand migration against the staging schema and both migration ledgers, then separately review the destructive contract phase and old Preview writers before allowing it to drop legacy invoice fields. This safeguard makes no database mutation and does not certify staging readiness.
