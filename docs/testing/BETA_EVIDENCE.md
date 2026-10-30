@@ -32,6 +32,24 @@ artifacts, and security validation — all passing in one run.
 
 ## Architecture
 
+### Saved Customer identity and navigation race (2026-10-30 UTC)
+
+Staging orchestrator run 41007794872 authenticated successfully and created a
+Customer (`POST /api/v1/customers` returned HTTP 201), but the browser capture
+mistook `/customers/new` for a successful detail URL because its old broad
+path regex matched `new`. It then attempted Project creation with customer ID
+`new` and timed out looking for the linked Customer. The corrected capture
+waits for `/customers/<uuid>` before reading the server-created identity,
+checks that the Project form carries that exact Customer ID without changing
+selection, and verifies the persisted Project matches. A generic Customer
+selector and a hidden server-resolved Customer context both remain valid only
+when the ID agrees; S052 additionally requires its stricter resolved context.
+
+This is a focused harness correction. It does not certify the staging browser
+run, change live CRM behavior, or authorize production changes. Re-run the
+protected canonical four-viewport evidence to prove the next checkpoint.
+
+
 ### Progressive Items entry compatibility (2026-10-17 UTC)
 
 After selecting Items, the canonical runner opens the Custom item disclosure before filling its existing synthetic lines. The shared `openEstimateCustomEntry` interaction is also exercised by the four-width isolated Items browser regression, retains an already-open panel, and supports older workbenches whose editor is directly visible. This only reconciles UI navigation; record writes, expected saved amounts, auth/data-plane guards and mutation opt-in remain unchanged. The isolated test is not a successful full authenticated Beta Evidence run.

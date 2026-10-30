@@ -224,6 +224,22 @@ test("artifact validation reports a viewport that produced nothing", () => {
   assert.ok(result.failures.some((failure) => failure.code === "VIEWPORT_UNREPRESENTED" && failure.file === "390"));
 });
 
+test("project save accepts the projects list or a direct workspace navigation", () => {
+  const source = read("app/scripts/beta-evidence/capture-evidence.mjs");
+  assert.ok(
+    source.includes(
+      "await page.waitForURL(/\\/projects(?:\\?|$|\\/(?!new(?:$|[/?]))[^/?]+(?:$|[/?]))/, { timeout: 60_000 });",
+    ),
+    "post-save wait must accept the projects list or a direct workspace URL, never /projects/new",
+  );
+  assert.match(source, /const directProjectId = \/\\\/projects\\\/\(\[\^\/\?]\+\)\/\.exec\(postSavePath\)\?\.\[1\];/);
+  assert.match(source, /if \(directProjectId && directProjectId !== "new"\) \{/);
+  assert.match(
+    source,
+    /await projectLink\.click\(\);\s*await page\.waitForURL\(\s*new RegExp\(`\/projects\/\$\{projectId\}\(\?:\$\|\[\/\?\]\)`\),\s*\{\s*timeout: 60_000,\s*waitUntil: "commit",\s*\}\s*\);\s*\}\s*await page\.waitForLoadState\("networkidle"\);/,
+  );
+});
+
 test("screenshot truth check rejects login, error, 404, empty, and stuck-loading pages", () => {
   assert.equal(assessScreenshotTruth({ pathname: "/dashboard", bodyText: "Dashboard", checkpoint: "01" }).ok, true);
   assert.equal(assessScreenshotTruth({ pathname: "/login", bodyText: "Sign in", checkpoint: "01" }).ok, false);
@@ -385,7 +401,8 @@ test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit r
   assert.ok(capture.includes('`/projects/new?customerId=${encodeURIComponent(customerId)}`'));
   assert.ok(capture.includes('page.locator(\'form [name="customerId"]\')'));
   assert.match(capture, /customerLinkType === "customer-context"/);
-  assert.match(capture, /element\.tagName === "SELECT"[\s\S]*\? "customer-selector"/);
+  assert.match(capture, /element\.tagName === "SELECT"\s*\? "customer-selector"/);
+  assert.match(capture, /element\.tagName === "INPUT" && element\.type === "hidden"\s*\? "customer-context"/);
   assert.match(capture, /linkedCustomerId === customerId/);
   assert.match(capture, /project creation carries the exact server-created customer/);
   assert.match(capture, /S052 uses the resolved customer-context form/);

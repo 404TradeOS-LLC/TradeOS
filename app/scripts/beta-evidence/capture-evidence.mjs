@@ -564,14 +564,29 @@ try {
 
   await page.locator('[name="simpleScope"]').fill(scope);
   await page.getByRole("button", { name: "Create project" }).click();
-  await page.waitForURL(/\/projects(?:\?|$)/, { timeout: 60_000 });
+  // After save the app may land on the projects list or navigate directly
+  // to the new project workspace (run 41031687987 proved the direct landing:
+  // the list-only wait timed out while the browser already sat on the
+  // workspace URL). Accept either target, then resolve the project id from
+  // whichever one we landed on. /projects/new must never count as a project.
+  await page.waitForURL(/\/projects(?:\?|$|\/(?!new(?:$|[/?]))[^/?]+(?:$|[/?]))/, { timeout: 60_000 });
 
-  const projectLink = page.locator('a[href^="/projects/"]').filter({ hasText: projectName }).first();
-  const projectHref = await projectLink.getAttribute("href");
-  const projectId = projectHref ? /\/projects\/([^/?]+)/.exec(projectHref)?.[1] : undefined;
-  assertBusiness("project link resolves an id", Boolean(projectId), `href was ${projectHref ?? "missing"}`);
-  await projectLink.click();
-  await page.waitForURL(new RegExp(`/projects/${projectId}(?:$|[/?])`), { timeout: 60_000 });
+  const postSavePath = new URL(page.url()).pathname;
+  const directProjectId = /\/projects\/([^/?]+)/.exec(postSavePath)?.[1];
+  let projectId;
+  if (directProjectId && directProjectId !== "new") {
+    projectId = directProjectId;
+  } else {
+    const projectLink = page.locator('a[href^="/projects/"]').filter({ hasText: projectName }).first();
+    const projectHref = await projectLink.getAttribute("href");
+    projectId = projectHref ? /\/projects\/([^/?]+)/.exec(projectHref)?.[1] : undefined;
+    assertBusiness("project link resolves an id", Boolean(projectId), `href was ${projectHref ?? "missing"}`);
+    await projectLink.click();
+    await page.waitForURL(new RegExp(`/projects/${projectId}(?:$|[/?])`), {
+      timeout: 60_000,
+      waitUntil: "commit",
+    });
+  }
   await page.waitForLoadState("networkidle");
   assertBusiness("project workspace resolves an id", new URL(page.url()).pathname === `/projects/${projectId}`, `url was ${page.url()}`);
 
