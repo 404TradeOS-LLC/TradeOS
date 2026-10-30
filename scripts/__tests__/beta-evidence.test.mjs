@@ -33,6 +33,8 @@ import {
   validateEvidenceSet,
 } from "../../app/scripts/beta-evidence/lib/evidence-artifacts.mjs";
 
+import { assertAuthenticatedSmokeTenant } from "../../app/scripts/beta-evidence/lib/tenant-identity.mjs";
+
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
 
@@ -347,6 +349,7 @@ test("a storage state path whose parent does not exist yet is still checked", as
 // ---------------------------------------------------------------------------
 
 const workflow = read(".github/workflows/beta-evidence.yml");
+const stagingOrchestrator = read(".github/workflows/staging-orchestrator.yml");
 const capture = read("app/scripts/beta-evidence/capture-evidence.mjs");
 const runner = read("app/scripts/beta-evidence/run.mjs");
 const validator = read("app/scripts/beta-evidence/validate-artifacts.mjs");
@@ -568,6 +571,40 @@ test("the documented secret names map to the runtime names the scripts read", ()
       `${name} is documented outside the secrets table, so it will not render as a table row`,
     );
   }
+});
+
+test("smoke tenant verification requires canonical authenticated Settings identity", () => {
+  const orgId = "9814bd72-626a-42f4-8871-cd755cb9d685";
+  const otherId = "00000000-0000-4000-8000-000000000001";
+  const good = { orgId, settings: { companyName: "TradeOS Beta Smoke" } };
+  assert.equal(assertAuthenticatedSmokeTenant(good, "TradeOS Beta Smoke"), orgId);
+  assert.equal(assertAuthenticatedSmokeTenant(
+    { orgId, settings: { companyName: "Custom brand" } },
+    "TradeOS Beta Smoke", orgId,
+  ), orgId);
+  assert.throws(() => assertAuthenticatedSmokeTenant(
+    { orgId: otherId, settings: { companyName: "TradeOS Beta Smoke" } },
+    "TradeOS Beta Smoke", orgId,
+  ), /organization ID does not match/);
+  assert.throws(() => assertAuthenticatedSmokeTenant(
+    { orgId: otherId, settings: { companyName: "Other Organization" } },
+    "TradeOS Beta Smoke",
+  ), /organization name does not match/);
+  assert.throws(() => assertAuthenticatedSmokeTenant(
+    { settings: { companyName: "TradeOS Beta Smoke" } }, "TradeOS Beta Smoke",
+  ), /valid organization identity/);
+  assert.throws(() => assertAuthenticatedSmokeTenant(
+    { orgId, settings: { companyName: "Other Organization" } }, "",
+  ), /label is required/);
+  assert.match(authSetup, /assertAuthenticatedSmokeTenant\(await response\.json\(\), expectedOrg, expectedOrgId\)/);
+  assert.doesNotMatch(authSetup, /settingsText\.includes\(expectedOrg\)/);
+});
+
+test("staging beta evidence pins the canonical smoke UUID and forwards it to the authenticator", () => {
+  assert.match(stagingOrchestrator, /smoke_org_id:\s+9814bd72-626a-42f4-8871-cd755cb9d685/);
+  assert.match(workflow, /smoke_org_id:\s+[\s\S]*?type: string/);
+  assert.match(workflow, /BETA_SMOKE_ORG_ID: \$\{\{ inputs\.smoke_org_id \}\}/);
+  assert.match(authSetup, /expectedOrgId = process\.env\.BETA_SMOKE_ORG_ID/);
 });
 
 test("the tenant assertion cannot be skipped and mutation consent is never implicit", () => {

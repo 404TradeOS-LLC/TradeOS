@@ -26,7 +26,6 @@ related_code:
   - scripts/__tests__/pr-body-check.test.mjs
   - .github/workflows/docs-consistency.yml
   - .github/workflows/reconcile-production-migration.yml
-  - .github/workflows/staging-orchestrator.yml
   - .github/workflows/reconcile-staging-invoice-expand.yml
   - .github/workflows/verify-repository.yml
   - .github/workflows/deploy-migrations.yml
@@ -433,3 +432,6 @@ The manual, reviewer-gated `.github/workflows/reconcile-staging-invoice-expand.y
 
 The ordinary protected staging migration workflow also fails closed before the invoice contract/drop-legacy migration unless the exact main commit has an independently reviewed `STAGING_INVOICE_WRITERS_RETIRED_SHA` Environment variable and the dispatch supplies `APPROVE_INVOICE_CONTRACT`. The two workflows share one non-cancelling staging migration concurrency group.
 
+### P0 staging beta-evidence smoke identity (2026-10-30)
+
+The [staging orchestrator](../.github/workflows/staging-orchestrator.yml) now passes a verified synthetic smoke organization UUID into [Beta Evidence](../.github/workflows/beta-evidence.yml). Authenticated evidence validates the backend Settings `orgId` (or the exact backend Settings name when no canonical UUID is supplied), rather than treating rendered branding as tenant proof. This is a fail-closed verification repair; staging four-width acceptance remains pending a successful hosted run.
