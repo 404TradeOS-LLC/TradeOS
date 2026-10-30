@@ -703,3 +703,7 @@ The existing `deploy-staging-migrations.yml` must not apply the destructive invo
 ## Staging browser-evidence tenant identity gate — 2026-10-30
 
 The protected staging orchestrator provides a known synthetic nonproduction organization UUID to the reusable beta-evidence workflow. `auth-setup.mjs` must match that UUID to `GET /api/proxy/settings` before writing browser storage state or starting captures. For previews without a reviewed expected UUID, it must match a valid authenticated `orgId` and the exact server-returned company name. Do not use editable page text, skip isolation, or bypass the smoke membership check to obtain a green run. This source change does not authorize a migration, production access, or release certification.
+
+## Pending Team & Time FORCE RLS migration — 2026-10-30
+
+The tracked Prisma migration `20261030010000_force_team_time_rls` has conditional DDL for the independently introduced Team & Time tables only. It cannot create tables, policies, grants, or access tokens; absent tables are a logged no-op so isolated Prisma-only databases remain valid. Tests must exercise its actual SQL in a rolled-back disposable PostgreSQL schema, including a second execution. A database with no Team & Time policies must remain closed to non-bypass roles; forcing RLS alone is **not** an implicit grant of team-time functionality. This migration is pending reviewed staging execution, not proof of current production or staging FORCE state.
