@@ -571,7 +571,10 @@ try {
   const projectId = projectHref ? /\/projects\/([^/?]+)/.exec(projectHref)?.[1] : undefined;
   assertBusiness("project link resolves an id", Boolean(projectId), `href was ${projectHref ?? "missing"}`);
   await projectLink.click();
-  await page.waitForURL(new RegExp(`/projects/${projectId}(?:$|[/?])`), { timeout: 60_000 });
+  await page.waitForURL(new RegExp(`/projects/${projectId}(?:$|[/?])`), {
+    timeout: 60_000,
+    waitUntil: "commit",
+  });
   await page.waitForLoadState("networkidle");
   assertBusiness("project workspace resolves an id", new URL(page.url()).pathname === `/projects/${projectId}`, `url was ${page.url()}`);
 
