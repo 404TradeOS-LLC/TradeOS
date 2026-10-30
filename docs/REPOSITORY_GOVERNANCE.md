@@ -51,6 +51,20 @@ related_code:
 
 # Repository Governance
 
+## Proposed staging Job handoff migration source boundary — 2026-10-30
+
+The manual `staging-job-handoff-migration.yml` must run trusted main code inside
+the existing staging Environment and migration concurrency group. Only the
+checksum-pinned Job SQL is read from the source SHA; no feature checkout,
+dependency, schema or script executes with the database secret. Preflight is
+the default. Apply additionally requires the protected staging variable
+`STAGING_JOB_HANDOFF_APPROVED_SHA` to equal the full input SHA and the typed
+`APPLY_STAGING_JOB_HANDOFF` confirmation. Environment approval remains mandatory.
+The full ledger names/checksums and jobs RLS/schema are checked before and after
+apply; unrelated pending migrations fail closed. The workflow is proposed, not
+executed or approved by this documentation. See the
+[operator plan](operations/staging-job-handoff-runner.md).
+
 ## Staging migration schema-ledger preflight — 2026-10-27
 
 The protected, manual `.github/workflows/deploy-staging-migrations.yml` must fail before any Prisma migration if the historical invoice expand columns already exist but `20260902193000_rename_invoice_line_price_columns` is not recorded as applied, or if an applied expand migration's expected columns are missing. This guards against a dual-tool migration history collision observed in Supabase Staging. The safe response is to reconcile the schema and both ledgers with reviewed evidence; do not delete a ledger entry, stamp a migration as applied, or proceed to the invoice contract phase without confirming that older Preview writers are retired. The workflow remains staging-only, `main`-restricted and under the existing Environment approval gate.

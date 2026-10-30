@@ -1,0 +1,83 @@
+name: Review or apply staging Job handoff migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "Reviewed full source SHA containing the Job handoff migration"
+        required: true
+        type: string
+      mode:
+        description: "Preflight performs reads only; apply requires protected SHA approval"
+        required: true
+        default: preflight
+        type: choice
+        options: [preflight, apply]
+      confirmation:
+        description: "Apply only: type APPLY_STAGING_JOB_HANDOFF"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-migrations-staging
+  cancel-in-progress: false
+
+jobs:
+  job-handoff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+    steps:
+      - name: Require trusted main workflow
+        env:
+          WORKFLOW_REF: ${{ github.ref }}
+        run: test "$WORKFLOW_REF" = refs/heads/main
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Validate request before fetching source
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          MIGRATION_MODE: ${{ inputs.mode }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          APPROVED_SOURCE_SHA: ${{ vars.STAGING_JOB_HANDOFF_APPROVED_SHA }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { validateRequest } from './scripts/staging-job-handoff-migration.mjs';
+          validateRequest({ sourceSha: process.env.SOURCE_SHA, mode: process.env.MIGRATION_MODE,
+            confirmation: process.env.CONFIRMATION, approvedSha: process.env.APPROVED_SOURCE_SHA,
+            ref: process.env.GITHUB_REF });
+          NODE
+
+      - name: Fetch source object as data only
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: git fetch --no-tags origin "$SOURCE_SHA"
+
+      - name: Install trusted main dependencies and PostgreSQL client
+        run: |
+          npm ci --prefix app --ignore-scripts
+          npm run --prefix app prisma:generate
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Verify evidence and optionally apply only reviewed Job SQL
+        env:
+          STAGING_DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          MIGRATION_MODE: ${{ inputs.mode }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          APPROVED_SOURCE_SHA: ${{ vars.STAGING_JOB_HANDOFF_APPROVED_SHA }}
+        run: node scripts/staging-job-handoff-migration.mjs

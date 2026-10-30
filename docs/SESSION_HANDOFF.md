@@ -14,6 +14,28 @@ related_docs:
 
 # Session Handoff
 
+## Proposed protected staging Job migration runner — 2026-10-30
+
+- `NEW_WORK_REQUIRED` for infrastructure only; feature implementation remains
+  `EXISTING_WORK_FOUND` in #810. No open/recent PR implements a trusted-main,
+  checksum-pinned feature SQL apply path. Branch `fix/staging-job-handoff-migration`
+  starts at main `d1d64137c2912225b8f42ae1895c5786a20643b9` in isolated worktree
+  `/workspace/scratch/332cdaafbc27/TradeOS-job-migration`. Sprint ID NONE.
+- Allowed: new manual staging workflow/runner/tests, root test registration,
+  workflow owner docs. Forbidden: feature schema/API/web files, production
+  workflow, protected settings/secrets, live apply. This PR does not supersede
+  #810 or #833 and carries no feature migration file.
+- Fresh live read-only evidence: all 66 staging names/checksums match main;
+  only the Job handoff would be pending. Both Job RLS flags are true.
+- Validation: 181 governance tests, 40 documentation tests, ownership, Node
+  syntax, actionlint 1.7.7 and whitespace passed. Live evidence passed the full
+  66-name/checksum comparison. Isolated PGlite SQL rehearsal passed; full
+  hosted Prisma execution and Ruby workflow policy remain unverified locally.
+- Next five: review infrastructure exact-head CI; merge only with migration
+  authority/review satisfied; run protected preflight at the reviewed source
+  SHA; approve and execute staging apply with verified postflight; deploy
+  matching API/web and capture #810 authenticated acceptance.
+
 ## Estimate quick-create partial-failure recovery — 2026-10-29
 
 - `NEW_WORK_REQUIRED` for the existing `/projects/new?intent=estimate` action;
