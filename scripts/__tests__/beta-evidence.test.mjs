@@ -385,7 +385,8 @@ test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit r
   assert.ok(capture.includes('`/projects/new?customerId=${encodeURIComponent(customerId)}`'));
   assert.ok(capture.includes('page.locator(\'form [name="customerId"]\')'));
   assert.match(capture, /customerLinkType === "customer-context"/);
-  assert.match(capture, /element\.tagName === "SELECT"[\s\S]*\? "customer-selector"/);
+  assert.match(capture, /element\.tagName === "SELECT"\s*\? "customer-selector"/);
+  assert.match(capture, /element\.tagName === "INPUT" && element\.type === "hidden"\s*\? "customer-context"/);
   assert.match(capture, /linkedCustomerId === customerId/);
   assert.match(capture, /project creation carries the exact server-created customer/);
   assert.match(capture, /S052 uses the resolved customer-context form/);
