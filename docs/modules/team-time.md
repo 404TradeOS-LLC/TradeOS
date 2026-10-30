@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-25
+last_verified: 2026-10-30
 source_of_truth: false
 related_docs:
   - docs/CURRENT_STATE.md
@@ -43,5 +43,6 @@ Team & Time records job-based work hours for W-2 employees and subcontractors. T
 - The interface displays server-recorded timestamps; it does not prove the worker was physically at a job site.
 - Worker identity requires an existing active Supabase Auth account linked to a TradeOS user and organization membership. Local-only application sessions cannot authenticate directly to this Edge Function.
 - The live signed-in workflow still needs a dedicated staging worker, assigned staging job, configured staging deployment, and phone-to-office verification. Isolated request tests do not count as that live verification.
-- Staging verification on 2026-09-25 confirmed the `team-time` Edge Function is active at version 4 with JWT verification enabled, and migrations `20260924145928` (`team_time_foundation`) and `20260924150458` (`team_time_integrity`) are applied. The staging Team & Time tables currently have no profiles or shifts, and there are no active jobs or assignments.
-- The deployed Edge Function and migration source are not currently present in this repository. Add and review their source-controlled equivalents before treating this as a reproducible backend or enabling the feature in Production. Production requires the function and tables to be deployed and verified in the matching project.
+- Staging verification on 2026-10-30 confirms deployed `team-time` Edge Function **version 6** with JWT verification enabled. The original Supabase migrations `20260924145928` (`team_time_foundation`) and `20260924150458` (`team_time_integrity`) are recorded as applied. Repository source at `supabase/functions/team-time/index.ts` is a staging v6 snapshot; new tracked Prisma equivalents are `20261030004500_team_time_foundation` and `20261030005500_team_time_integrity`, followed by `20261030010000_force_team_time_rls`.
+- **Authorization boundary:** the Edge Function authenticates the requester and explicitly checks organization membership and job assignment; its server-side PostgREST client uses a secret service-role key and therefore bypasses RLS even when FORCE is set. Source-level adversarial tests in `app/tests/team-time-edge-auth.test.ts` exercise the deployed-equivalent access path. FORCE hardens table-owner posture, not service-role tenant isolation.
+- Staging's three Team & Time tables were RLS-enabled but not FORCED on 2026-10-30. The three Prisma migration equivalents and enhanced tests are **proposed source changes**, not evidence that protected staging or production migration deployment occurred. Production activation remains forbidden until separate function, database, role, identity and environment acceptance.
