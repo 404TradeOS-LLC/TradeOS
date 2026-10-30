@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import vm from "node:vm";
 import ts from "typescript";
 
-// Exercise the actual source-controlled copy of deployed staging v6 without
+// Exercise the source-controlled staging v6-derived candidate without
 // live credentials or network. DB calls use a fake BYPASSRLS service key, so
 // all denials below must come from the function's authorization logic.
 const edgeSource = readFileSync(
@@ -16,12 +16,12 @@ const userB = "20000000-0000-4000-8000-000000000021";
 const jobA = "10000000-0000-4000-8000-000000000081";
 const shiftB = "20000000-0000-4000-8000-000000000112";
 
-type Call = { table: string; method: string; orgFilter: string | null; key: string | null };
+type Call = { table: string; method: string; orgFilter: string | null; key: string | null; offset: string | null };
 function harness({
   actorId = userA, role = "technician", membershipOrg = orgA,
-  assigned = false,
+  assigned = false, shiftsCount = 0,
 }: {
-  actorId?: string; role?: string; membershipOrg?: string; assigned?: boolean;
+  actorId?: string; role?: string; membershipOrg?: string; assigned?: boolean; shiftsCount?: number;
 } = {}) {
   let handle: ((request: Request) => Promise<Response>) | undefined;
   const calls: Call[] = [];
@@ -31,7 +31,7 @@ function harness({
     if (!u.pathname.startsWith("/rest/v1/")) throw new Error("Unexpected upstream path");
     const table = u.pathname.slice("/rest/v1/".length);
     const h = new Headers(init.headers);
-    calls.push({ table, method: init.method ?? "GET", orgFilter: u.searchParams.get("org_id"), key: h.get("apikey") });
+    calls.push({ table, method: init.method ?? "GET", orgFilter: u.searchParams.get("org_id"), key: h.get("apikey"), offset: u.searchParams.get("offset") });
     if (table === "users") return Response.json([{ id: actorId, auth_subject: actorId, full_name: "Test Worker", is_active: true }]);
     if (table === "organization_memberships") {
       const wantedOrg = u.searchParams.get("org_id");
@@ -43,7 +43,16 @@ function harness({
     if (table === "team_time_profiles") return Response.json([{org_id: membershipOrg, user_id: actorId, active: true, worker_type:"employee"}]);
     if (table === "jobs") return Response.json([{id: jobA, org_id: membershipOrg, title:"Assigned Job"}]);
     if (table === "job_assignments") return Response.json(assigned ? [{ id: "10000000-0000-4000-8000-000000000099", user_id: actorId }] : []);
-    if (table === "team_time_shifts") return Response.json([]);
+    if (table === "team_time_shifts") {
+      const offset = Number(u.searchParams.get("offset") ?? "0");
+      const limit = Number(u.searchParams.get("limit") ?? "200");
+      const remaining = Math.max(0, shiftsCount - offset);
+      return Response.json(Array.from({length: Math.min(limit,remaining)}, (_,i) => ({
+        id: `shift-${offset + i}`, org_id: membershipOrg,
+        worker_user_id: actorId, job_id: jobA, status: "pending",
+        started_at: "2026-10-30T10:00:00Z", ended_at: "2026-10-30T11:00:00Z",
+      })));
+    }
     if (table === "organizations") return Response.json([{ id: membershipOrg, name:"Test Org" }]);
     return Response.json([]);
   };
@@ -106,6 +115,26 @@ test("rejects a non-supervisor's profile configuration and approval", async () =
   expect(profile.status).toBe(403);
   expect(approve.status).toBe(403);
   expect(h.calls.some(c => c.method!=="GET")).toBe(false);
+});
+
+test("supervisor bootstrap pages beyond 100 shifts without dropping pending approvals or export rows", async () => {
+  const h = harness({role:"manager",shiftsCount:201});
+  const r = await h.request({action:"bootstrap",orgId:orgA});
+  expect(r.status).toBe(200);
+  const payload = r.payload as {shifts: unknown[]};
+  expect(payload.shifts).toHaveLength(201);
+  const pages=h.calls.filter(c=>c.table==="team_time_shifts");
+  expect(pages.map(p=>p.offset)).toEqual(["0","200"]);
+  expect(pages.every(p=>p.orgFilter===`eq.${orgA}`)).toBe(true);
+  expect(pages.every(p=>p.key==="test-bypass-role")).toBe(true);
+});
+
+test("oversized workspace fails explicitly rather than exporting a partial 10000-row subset", async () => {
+  const h = harness({role:"manager",shiftsCount:10001});
+  const r = await h.request({action:"bootstrap",orgId:orgA});
+  expect(r.status).toBe(503);
+  expect((r.payload as {error:string}).error).toMatch(/too many time records/i);
+  expect(h.calls.some(c=>c.table==="team_time_shifts"&&c.offset==="10000")).toBe(true);
 });
 
 test("rejects absent bearer token before any privileged database read", async () => {
