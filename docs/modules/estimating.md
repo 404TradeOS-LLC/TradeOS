@@ -89,7 +89,10 @@ Changing text clears the old mapping under the existing contract. Debouncing,
 in-flight or failed searches suppress stale options and active descendants;
 loading is announced as status and failure remains an alert. Keyboard selection
 stages a mapping only: current-cost preview, Install, then reviewed Estimate Add
-retain their existing gates. Tests in
+retain their existing gates. Selecting a starter recipe opens the dedicated
+"Resolve required assembly mapping" screen, which renders the same pickers plus
+a "Before you continue" checklist and the explicit "Resolve Cost item mappings"
+and "Keep draft unchanged" actions; Install then Add remain separate. Tests in
 `tests/components/starter-mapping-keyboard.spec.ts` mount the real production
 picker/assessment with synthetic transport and a native Input fixture. This
 component evidence is separate from full-app authenticated certification.

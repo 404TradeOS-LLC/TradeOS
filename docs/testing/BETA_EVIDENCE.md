@@ -541,3 +541,9 @@ The RC authentication lifecycle smoke scopes credential-error alerts to the logi
 form. A page-wide alert can be Next.js's route announcement after successful
 navigation and must not be interpreted as a rejected login. Dashboard URL,
 refresh persistence, logout, and protected-route denial still remain required.
+
+### Canonical Customer → Project evidence selector recovery (2026-10-30)
+
+Staging orchestrator run [41007794872](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/41007794872) proved an authenticated shell, current database ledger, matching Vercel deployments, and staging SHA, but then failed at the **1440px** capture on `input[type="hidden"][name="customerId"]` with a 30-second timeout. The source Project form supports a hidden `customerId` when a tenant-scoped Customer context is resolved and a `select[name="customerId"]` when it is not; the capture harness assumed only the first state.
+
+The evidence capture now reads the exact Customer ID from either valid form control, **without selecting or altering the linked Customer**. A missing control, unexpected type, empty ID or mismatch fails immediately. It subsequently fetches `/api/proxy/projects/:id` and requires the persisted `customerId` to equal the server-created Customer, for every canonical viewport. The `s052` scenario retains its stricter requirement for the resolved hidden customer context, plus saved ServiceAddress checks and reload persistence. This is a test-harness fix, not a waiver of Customer/Project tenant isolation or proof of hosted browser success. The protected staging workflow must rerun at one exact SHA for actual 1440/1024/768/390 artifacts.
