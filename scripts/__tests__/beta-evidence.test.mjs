@@ -224,11 +224,19 @@ test("artifact validation reports a viewport that produced nothing", () => {
   assert.ok(result.failures.some((failure) => failure.code === "VIEWPORT_UNREPRESENTED" && failure.file === "390"));
 });
 
-test("project workspace navigation asserts the committed route before waiting for app idleness", () => {
+test("project save accepts the projects list or a direct workspace navigation", () => {
   const source = read("app/scripts/beta-evidence/capture-evidence.mjs");
+  assert.ok(
+    source.includes(
+      "await page.waitForURL(/\\/projects(?:\\?|$|\\/(?!new(?:$|[/?]))[^/?]+(?:$|[/?]))/, { timeout: 60_000 });",
+    ),
+    "post-save wait must accept the projects list or a direct workspace URL, never /projects/new",
+  );
+  assert.match(source, /const directProjectId = \/\\\/projects\\\/\(\[\^\/\?]\+\)\/\.exec\(postSavePath\)\?\.\[1\];/);
+  assert.match(source, /if \(directProjectId && directProjectId !== "new"\) \{/);
   assert.match(
     source,
-    /await projectLink\.click\(\);\s*await page\.waitForURL\(\s*new RegExp\(`\/projects\/\$\{projectId\}\(\?:\$\|\[\/\?\]\)`\),\s*\{\s*timeout: 60_000,\s*waitUntil: "commit",\s*\}\s*\);\s*await page\.waitForLoadState\("networkidle"\);/,
+    /await projectLink\.click\(\);\s*await page\.waitForURL\(\s*new RegExp\(`\/projects\/\$\{projectId\}\(\?:\$\|\[\/\?\]\)`\),\s*\{\s*timeout: 60_000,\s*waitUntil: "commit",\s*\}\s*\);\s*\}\s*await page\.waitForLoadState\("networkidle"\);/,
   );
 });
 
