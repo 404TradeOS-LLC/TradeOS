@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { isSoftwareRendererName } from "./entry-state";
+import { isSoftwareRendererName, readRendererName } from "./entry-state";
 import { createLogoParts } from "./cinema-geometry";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { markSource, wordSource } from "./logo-sources";
@@ -41,17 +41,8 @@ export function createCinema(
   // timer, so the intro overstays its scheduled duration. Skipping the
   // environment map there keeps the intro on schedule; the scene lights
   // still shade the metal. Hardware renderers keep the full environment.
-  const rendererName = (() => {
-    try {
-      const info = context.getExtension("WEBGL_debug_renderer_info");
-      return info
-        ? String(context.getParameter(info.UNMASKED_RENDERER_WEBGL))
-        : "";
-    } catch {
-      return "";
-    }
-  })();
-  const softwareRenderer = isSoftwareRendererName(rendererName);
+  // An unavailable renderer name counts as software (see entry-state).
+  const softwareRenderer = isSoftwareRendererName(readRendererName(context));
   const pmrem = softwareRenderer ? null : new THREE.PMREMGenerator(renderer);
   const room = softwareRenderer ? null : new RoomEnvironment();
   const env = pmrem && room ? pmrem.fromScene(room, 0.04) : null;
