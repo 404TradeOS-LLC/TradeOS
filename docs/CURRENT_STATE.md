@@ -63,6 +63,18 @@ related_code:
 
 # TradeOS Current State
 
+## Step 9 staging reconciliation — 2026-10-30
+
+At inspected PR #810 head `f96231c11f49c7eb05748927f6be6623edc264cc`,
+repository and migration-safety CI passed and the branch was current with main.
+Live staging has 66 completed migrations and zero unfinished; the Job handoff
+migration, both columns and unique index remain absent. Earlier 46/63 ledger
+counts below are historical. A read-only capture and proposed migration-first
+rollout are in [the staging review packet](operations/accepted-proposal-job-staging.md).
+The existing apply workflow is main-only; a migration extraction would also
+queue the protected production workflow. No extraction, workflow change,
+protected apply or authenticated step-9 PASS is claimed by this update.
+
 ## Estimate quick-create partial-failure recovery — implementation branch, 2026-10-29
 
 The Today and Universal Create estimate path saves a Project before posting a

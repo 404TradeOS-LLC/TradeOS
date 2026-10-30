@@ -92,6 +92,8 @@ proposal** action; it uses the existing address chooser and the Dispatch link.
 The additive migration `20261028151000_accepted_proposal_job_handoff`
 must be applied in authorized nonproduction before executing this API.
 There is no production migration execution in this PR.
+See the [staging review packet](../operations/accepted-proposal-job-staging.md)
+for the protected apply dependency, evidence capture and ordered rollout.
 
 ## Emitted activity events
 
