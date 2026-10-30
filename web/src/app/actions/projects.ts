@@ -51,11 +51,18 @@ export async function createProjectAction(_prev: FormActionState, formData: Form
   revalidatePath("/projects");
 
   if (createIntent === "estimate") {
-    const estimate = await apiFetch<Estimate>("/api/v1/estimates", {
-      method: "POST",
-      token: token ?? undefined,
-      body: JSON.stringify({ projectId }),
-    });
+    let estimate: Estimate;
+    try {
+      estimate = await apiFetch<Estimate>("/api/v1/estimates", {
+        method: "POST",
+        token: token ?? undefined,
+        body: JSON.stringify({ projectId }),
+      });
+    } catch {
+      // The Project is already saved. A retry of this form would create a
+      // duplicate, and the Estimate POST may have committed despite the error.
+      redirect(`/projects/${projectId}?estimateStart=review`);
+    }
     revalidatePath(`/projects/${projectId}`);
     redirect(`/projects/${projectId}/estimates/${estimate.id}`);
   }

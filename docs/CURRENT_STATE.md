@@ -63,6 +63,18 @@ related_code:
 
 # TradeOS Current State
 
+## Estimate quick-create partial-failure recovery — implementation branch, 2026-10-29
+
+The Today and Universal Create estimate path saves a Project before posting a
+draft Estimate. On `fix/estimate-create-saved-project-recovery`, a failed or
+ambiguous Estimate POST redirects to the saved Project with an explicit notice
+to inspect its Estimates before starting another. The form is not submitted a
+second time, so the recovery does not create another Project automatically.
+Successful Estimate creation still opens the existing Estimate Workspace.
+This bounded frontend change does not add backend idempotency, infer whether an
+ambiguous POST committed, or certify an authenticated browser journey. Merge
+and deployment remain subject to current-head checks and repository review.
+
 ## Cinematic sign-in entry — implementation branch, 2026-10-24
 
 Founder-approved entry presentation is implemented on `feat/cinematic-entry`
