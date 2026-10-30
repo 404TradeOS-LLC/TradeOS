@@ -15,37 +15,88 @@ const userA = "10000000-0000-4000-8000-000000000011";
 const userB = "20000000-0000-4000-8000-000000000021";
 const jobA = "10000000-0000-4000-8000-000000000081";
 const shiftB = "20000000-0000-4000-8000-000000000112";
+const rosterRoles = ["owner", "admin", "manager", "dispatcher", "technician"];
+const rosterMemberId = (i: number) => `30000000-0000-4000-8000-${String(i).padStart(12, "0")}`;
 
 type Call = { table: string; method: string; orgFilter: string | null; key: string | null; offset: string | null; query: string };
 function harness({
   actorId = userA, role = "technician", membershipOrg = orgA,
-  assigned = false, shiftsCount = 0, assignmentDeclined = false, distinctJobs = 0, modernKeys = false,
+  assigned = false, shiftsCount = 0, assignmentDeclined = false, distinctJobs = 0, modernKeys = false, rosterSize = 0,
 }: {
-  actorId?: string; role?: string; membershipOrg?: string; assigned?: boolean; shiftsCount?: number; assignmentDeclined?: boolean; distinctJobs?: number; modernKeys?: boolean;
+  actorId?: string; role?: string; membershipOrg?: string; assigned?: boolean; shiftsCount?: number; assignmentDeclined?: boolean; distinctJobs?: number; modernKeys?: boolean; rosterSize?: number;
 } = {}) {
   // Fixture job IDs the bootstrap can discover through assignments/shifts.
   // Distinct valid UUIDs so the jobs in-list filter is meaningful.
   const fixtureJobIds = distinctJobs > 0
     ? Array.from({length: distinctJobs}, (_, i) => `10000000-0000-4000-8000-${String(i).padStart(12, "0")}`)
     : [jobA];
+  const rosterMembers = Array.from({length: rosterSize}, (_, i) => ({
+    user_id: rosterMemberId(i),
+    role: rosterRoles[i % rosterRoles.length],
+    org_id: membershipOrg,
+    status: "active",
+  }));
+  const rosterProfiles = Array.from({length: rosterSize}, (_, i) => ({
+    org_id: membershipOrg,
+    user_id: rosterMemberId(i),
+    active: i % 5 !== 4,
+    worker_type: i % 2 === 0 ? "employee" : "subcontractor",
+  }));
   let handle: ((request: Request) => Promise<Response>) | undefined;
   const calls: Call[] = [];
+  const authCalls: { key: string | null }[] = [];
   const transport = async (input: URL | string, init: RequestInit = {}): Promise<Response> => {
     const u = new URL(String(input));
-    if (u.pathname === "/auth/v1/user") return Response.json({ id: actorId });
+    if (u.pathname === "/auth/v1/user") {
+      authCalls.push({ key: new Headers(init.headers).get("apikey") });
+      return Response.json({ id: actorId });
+    }
     if (!u.pathname.startsWith("/rest/v1/")) throw new Error("Unexpected upstream path");
     const table = u.pathname.slice("/rest/v1/".length);
     const h = new Headers(init.headers);
     calls.push({ table, method: init.method ?? "GET", orgFilter: u.searchParams.get("org_id"), key: h.get("apikey"), offset: u.searchParams.get("offset"), query: u.search });
-    if (table === "users") return Response.json([{ id: actorId, auth_subject: actorId, full_name: "Test Worker", is_active: true }]);
+    if (table === "users") {
+      const wanted = u.searchParams.get("id");
+      if (wanted && wanted.startsWith("in.(") && wanted.endsWith(")")) {
+        const ids = wanted.slice(4, -1).split(",").filter(Boolean);
+        const rows = ids.map((id) => {
+          const idx = rosterMembers.findIndex((m) => m.user_id === id);
+          return idx >= 0
+            ? { id, full_name: `Member ${idx}`, is_active: true }
+            : { id, full_name: "Test Worker", is_active: true };
+        });
+        const offset = Number(u.searchParams.get("offset") ?? "0");
+        const limit = Number(u.searchParams.get("limit") ?? "200");
+        return Response.json(rows.slice(offset, offset + limit));
+      }
+      return Response.json([{ id: actorId, auth_subject: actorId, full_name: "Test Worker", is_active: true }]);
+    }
     if (table === "organization_memberships") {
       const wantedOrg = u.searchParams.get("org_id");
       if (wantedOrg && wantedOrg !== `eq.${membershipOrg}`) return Response.json([]);
       const wantedUser = u.searchParams.get("user_id");
-      if (wantedUser && wantedUser !== `eq.${actorId}`) return Response.json([]);
+      if (wantedUser) {
+        if (wantedUser !== `eq.${actorId}`) return Response.json([]);
+        return Response.json([{ org_id: membershipOrg, role, user_id: actorId, status: "active" }]);
+      }
+      // Roster read (no user filter): paginate the roster fixture when set.
+      if (rosterSize > 0) {
+        const offset = Number(u.searchParams.get("offset") ?? "0");
+        const limit = Number(u.searchParams.get("limit") ?? "200");
+        return Response.json(rosterMembers.slice(offset, offset + limit));
+      }
       return Response.json([{ org_id: membershipOrg, role, user_id: actorId, status: "active" }]);
     }
-    if (table === "team_time_profiles") return Response.json([{org_id: membershipOrg, user_id: actorId, active: true, worker_type:"employee"}]);
+    if (table === "team_time_profiles") {
+      const wantedUser = u.searchParams.get("user_id");
+      if (wantedUser) return Response.json([{org_id: membershipOrg, user_id: actorId, active: true, worker_type:"employee"}]);
+      if (rosterSize > 0) {
+        const offset = Number(u.searchParams.get("offset") ?? "0");
+        const limit = Number(u.searchParams.get("limit") ?? "200");
+        return Response.json(rosterProfiles.slice(offset, offset + limit));
+      }
+      return Response.json([{org_id: membershipOrg, user_id: actorId, active: true, worker_type:"employee"}]);
+    }
     if (table === "jobs") {
       // Honor the id=in.(...) filter like real PostgREST: only matching rows
       // come back, so a test cannot pass while requesting one job and
@@ -110,7 +161,7 @@ function harness({
     }));
     return { status: res.status, payload: await res.json() };
   };
-  return { request, calls };
+  return { request, calls, authCalls };
 }
 
 test("rejects a valid user's cross-organization selection before any Team & Time table read", async () => {
@@ -193,6 +244,27 @@ test("modern Supabase key maps are read as values, not environment names", async
   const restCalls = h.calls.filter(c => c.key !== null);
   expect(restCalls.length).toBeGreaterThan(0);
   expect(restCalls.every(c => c.key === "test-modern-secret")).toBe(true);
+  expect(h.authCalls).toHaveLength(1);
+  expect(h.authCalls.every(a => a.key === "test-modern-publishable")).toBe(true);
+});
+
+test("supervisor bootstrap returns the full multi-page roster", async () => {
+  const h = harness({role:"manager", rosterSize: 250});
+  const r = await h.request({action:"bootstrap",orgId:orgA});
+  expect(r.status).toBe(200);
+  const payload = r.payload as {workers: {id:string,name:string,role:string,workerType:string,active:boolean}[]};
+  expect(payload.workers).toHaveLength(250);
+  const byId = new Map(payload.workers.map(w => [w.id, w]));
+  for (let i = 0; i < 250; i++) {
+    const w = byId.get(rosterMemberId(i));
+    expect(w).toBeDefined();
+    expect(w?.name).toBe(`Member ${i}`);
+    expect(w?.role).toBe(rosterRoles[i % rosterRoles.length]);
+    expect(w?.workerType).toBe(i % 2 === 0 ? "employee" : "subcontractor");
+    expect(w?.active).toBe(i % 5 !== 4);
+  }
+  const rosterReads = h.calls.filter(c => c.table === "organization_memberships" && !c.query.includes("user_id="));
+  expect(rosterReads.map(p => p.offset)).toEqual(["0", "200"]);
 });
 
 test("oversized workspace fails explicitly rather than exporting a partial 10000-row subset", async () => {
