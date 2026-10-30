@@ -298,6 +298,10 @@ export class JobsService {
       });
       if (previous) return this.hydrateJobDTO(tx, input.orgId, previous);
 
+      if (!proposal.scopeOfWork?.trim()) {
+        throw new ApiError(409, "The accepted proposal must include a scope of work before creating a field job");
+      }
+
       if (!proposal.project.customerId) {
         throw new ApiError(409, "Attach a customer to this project before creating a field job");
       }
@@ -329,7 +333,7 @@ export class JobsService {
         customerId: proposal.project.customerId,
         serviceAddressId: input.serviceAddressId,
         title: proposal.project.name,
-        description: proposal.scopeOfWork ?? proposal.project.simpleScope ?? "",
+        description: proposal.scopeOfWork,
         jobType: proposal.project.jobType?.trim() || "Project work",
         sourceProposalId: proposal.id,
         acceptedBaselineJson,

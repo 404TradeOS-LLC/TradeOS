@@ -242,3 +242,9 @@ the reviewed migration and staging tests before deployment.
 ### Accepted proposal job snapshot read permissions (PR #810)
 
 Managers (owner/admin/dispatcher) can read the accepted commercial baseline through scoped Job detail. Assigned technicians continue to receive their job scope, location, and lifecycle data but have `acceptedBaselineJson` redacted in the Job detail response; the manager-only approved-baseline route does not grant technicians commercial access. No cross-tenant access or role elevation is permitted.
+
+## Conversion scope prerequisite — 2026-10-30
+
+The existing conversion roles and tenant checks are unchanged. Manager authority
+does not permit replacing missing accepted scope with mutable Project scope;
+see [accepted Job scope integrity](WORKFLOW_LIFECYCLES.md#accepted-job-scope-integrity).

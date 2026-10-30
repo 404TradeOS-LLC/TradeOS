@@ -1629,3 +1629,14 @@ The client retains its UUID across server-action errors. A full reload seeds a n
 The staging-only Supabase Team & Time table migrations were formerly missing from repository migration history. This branch adds tracked Prisma equivalents `20261030004500_team_time_foundation` and `20261030005500_team_time_integrity` before `20261030010000_force_team_time_rls`; missing tables now FAIL the FORCE migration instead of marking a no-op applied. Existing tables are preserved and no anon/authenticated access grants or tenant policies are added. Deployed staging Edge Function v6 is the source baseline for a not-yet-deployed paginated candidate at `supabase/functions/team-time/index.ts`, tested with synthetic authenticated caller/membership/job/shift requests and 201-shift/oversized-workspace regressions.
 
 Crucial boundary: the live Edge Function uses a server-side Supabase **service-role** key (BYPASSRLS). FORCE does not change that and is not sufficient for service-role tenant isolation. Explicit organization, membership, assignment and shift checks are the actual function authorization gates; new tests verify denial paths. Staging currently has ENABLED but not FORCED RLS and zero policies. All migrations and function snapshot are source-only pending exact-head CI, review and protected staging approval. Production Team & Time remains disabled; no runtime deployment is claimed.
+
+## Accepted-scope fallback repair — 2026-10-30
+
+#837 review identified a mutable Project scope fallback in the shared #810 Job
+conversion source. Three regression cases reproduced it for null, empty and
+whitespace proposal scope. The bounded repair rejects those new conversions
+with HTTP 409 and preserves existing-Job retries; it changes no schema, roles,
+workflow or deployment settings. New-head hosted checks remain required.
+The founder directed #810 ready for review; staging binding attestation,
+API-first #837 promotion, matching web deployment, authenticated step-9 and
+release review still gate release. Undrafting does not certify acceptance.

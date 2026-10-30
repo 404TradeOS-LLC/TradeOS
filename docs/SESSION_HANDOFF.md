@@ -14,6 +14,32 @@ related_docs:
 
 # Session Handoff
 
+## Accepted-scope repair and #810 review status — 2026-10-30
+
+- EXISTING_WORK_FOUND, Sprint ID NONE. Founder directed #810 undrafted; GitHub
+  confirmed ready for review at7506e46f with auto-merge disabled. Release
+  acceptance remains gated. #837 API-only staging source starts at5d5d9c6f.
+- #837's review found missing accepted scope was copied from mutable Project
+  scope. Three regressions fail against source7506e46f. The bounded fix rejects
+  new null/empty/whitespace accepted scope with409 after the existing-Job lookup,
+  preserving idempotent retries. No migration, permission or deployment change.
+- Scope: Job service, service tests and API/RBAC/lifecycle/current/module docs.
+  Apply the same fix to both existing branches. No new feature PR or workflow.
+- Both pre-repair heads passed required CI; #810 had no unresolved threads;
+  #837 has one validated review thread. New-head CI/review required after push.
+- Staging remains52117b65; its67 completed migrations include Job handoff.
+  Binding attestation is blocked by connector403 and sensitive Preview values
+  withheld from the old CLI attestation. Do not repeat that unchanged run.
+- Next five: validate/push fix on #810; carry it to #837; reconcile new-head CI
+  and the validated review thread; restore supported protected binding proof;
+  stage API then web and collect step-9 evidence before release review.
+
+- Fresh validation:44 Job tests,40 docs tests,181 governance tests, API
+  typecheck, docs ownership and whitespace pass. Three regression cases failed
+  against the pre-fix source. Hosted final-head checks remain required.
+
+## Historical continuity
+
 ## PR #810 staging continuation — 2026-10-30
 
 - `EXISTING_WORK_FOUND`, Sprint ID NONE. Continue existing feature branch
