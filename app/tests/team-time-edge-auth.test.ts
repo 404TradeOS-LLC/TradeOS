@@ -14,7 +14,6 @@ const orgB = "20000000-0000-4000-8000-000000000002";
 const userA = "10000000-0000-4000-8000-000000000011";
 const userB = "20000000-0000-4000-8000-000000000021";
 const jobA = "10000000-0000-4000-8000-000000000081";
-const jobB = "20000000-0000-4000-8000-000000000082";
 const shiftB = "20000000-0000-4000-8000-000000000112";
 
 type Call = { table: string; method: string; orgFilter: string | null; key: string | null };
