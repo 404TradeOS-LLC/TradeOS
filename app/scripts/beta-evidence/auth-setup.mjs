@@ -14,6 +14,7 @@ import { chromium } from "playwright";
 import { assertApprovedRcUrl } from "./lib/rc-target.mjs";
 import { assertStorageStatePathOutsideRepo } from "./lib/storage-state-path.mjs";
 import { assertCostbookEvidenceIdentity } from "./lib/costbook-identity.mjs";
+import { assertAuthenticatedSmokeTenant } from "./lib/tenant-identity.mjs";
 
 const baseUrlInput = process.env.BETA_RC_BASE_URL_RESOLVED;
 const email = process.env.BETA_SMOKE_EMAIL;
@@ -161,34 +162,19 @@ try {
         waitUntil: "networkidle",
         timeout: 60_000,
       });
-      const settingsText = (await page.locator("body").innerText()).trim();
       const status = settingsResponse?.status() ?? 0;
       if (status >= 400) {
         throw new Error(`Settings route returned HTTP ${status} while asserting tenant identity.`);
       }
-      if (expectedOrgId) {
-        const settings = await context.request.get(new URL("/api/proxy/settings", parsedBaseUrl).toString());
-        if (settings.status() !== 200 || (await settings.json()).orgId !== expectedOrgId) {
-          throw new Error("Authenticated settings API did not match the expected canonical smoke organization ID.");
-        }
-      } else {
-        // The Settings page keeps the organization label in the editable
-        // companyName field; it is not guaranteed to be visible in body text
-        // until the user opens the relevant panel. Read the rendered field value
-        // as the tenant signal too, while retaining the visible-text fallback
-        // for deployments that expose the label in their shell or preview cards.
-        const companyName = await page
-          .locator('input[id$="-companyName-input"]')
-          .first()
-          .inputValue()
-          .catch(() => "");
-        if (!settingsText.includes(expectedOrg) && companyName !== expectedOrg) {
-          throw new Error(
-            `Authenticated session is not scoped to the expected smoke tenant "${expectedOrg}". ` +
-              "Refusing to capture evidence against an unexpected organization.",
-          );
-        }
+      // Settings page branding may be hidden, lazy-loaded or customized.
+      // Only the request-authenticated API response can prove tenant identity.
+      const response = await context.request.get(
+        new URL("/api/proxy/settings", parsedBaseUrl).toString(),
+      );
+      if (response.status() !== 200) {
+        throw new Error(`Authenticated Settings identity endpoint returned HTTP ${response.status()}.`);
       }
+      assertAuthenticatedSmokeTenant(await response.json(), expectedOrg, expectedOrgId);
       }
     record("session is scoped to the expected smoke tenant", true);
   }
