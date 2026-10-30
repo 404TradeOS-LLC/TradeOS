@@ -125,6 +125,11 @@ test("withheld api secrets are runtime-inferred only when runtime is healthy", a
   assert.deepEqual(unhealthy.runtimeInferred, []);
 });
 
+test("a malformed database url is a mismatch, never runtime-inferred", async () => {
+  const result = await attestWithRuntime("api", { ...api(), DATABASE_URL: "not-a-postgresql-url" }, stubFetch());
+  assert.deepEqual(result.errors, ["DATABASE_URL"]);
+  assert.deepEqual(result.runtimeInferred, []);
+});
 test("a wrong env value is never excused by healthy runtime", async () => {
   const result = await attestWithRuntime("api", { ...api(), SUPABASE_URL: `https://${PROD_REF}.supabase.co` }, stubFetch());
   assert.deepEqual(result.errors, ["SUPABASE_URL"]);

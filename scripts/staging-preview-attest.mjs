@@ -51,10 +51,10 @@ export function attestEnvDetail(kind, env) {
     if (!env.DATABASE_URL) fail("DATABASE_URL", "missing");
     else {
       let db;
-      try { db = new URL(env.DATABASE_URL); } catch { fail("DATABASE_URL", "missing"); }
+      try { db = new URL(env.DATABASE_URL); } catch { fail("DATABASE_URL", "mismatch"); }
       if (db) {
         let username = "";
-        try { username = decodeURIComponent(db.username); } catch { fail("DATABASE_URL", "missing"); }
+        try { username = decodeURIComponent(db.username); } catch { fail("DATABASE_URL", "mismatch"); }
         const direct = db.hostname === `db.${STAGING_REF}.supabase.co`;
         const pooler = /(^|\.)pooler\.supabase\.com$/.test(db.hostname) &&
           username.endsWith(`.${STAGING_REF}`);
@@ -74,7 +74,7 @@ export function attestEnvDetail(kind, env) {
     if (!env.BACKEND_API_URL) fail("BACKEND_API_URL", "missing");
     else {
       let backend;
-      try { backend = new URL(env.BACKEND_API_URL); } catch { fail("BACKEND_API_URL", "missing"); }
+      try { backend = new URL(env.BACKEND_API_URL); } catch { fail("BACKEND_API_URL", "mismatch"); }
       if (backend && (backend.origin !== STAGING_API_ORIGIN || backend.username || backend.password ||
         (backend.pathname !== "/" && backend.pathname !== "") || backend.search || backend.hash)) {
         fail("BACKEND_API_URL", "mismatch");
