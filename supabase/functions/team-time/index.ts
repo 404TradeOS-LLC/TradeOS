@@ -33,11 +33,11 @@ async function db(table:string,params:Record<string,string>={},method='GET',payl
 // Pagination is scoped by the already-verified organization and user filters.
 // Never truncate approvals/exports to an arbitrary first page. Fail explicitly
 // at a hard resource limit instead of returning a misleading partial result.
-async function allRows(table:string,params:Record<string,string>,maxRows=10000){
+async function allRows<T>(table:string,params:Record<string,string>,maxRows=10000):Promise<T[]>{ 
  const pageSize=200
- const all:unknown[]=[]
+ const all:T[]=[]
  for(let offset=0;offset<=maxRows;offset+=pageSize){
-  const page=await db(table,{...params,limit:String(pageSize),offset:String(offset)})
+  const page=await db(table,{...params,limit:String(pageSize),offset:String(offset)}) as T[]
   if(!Array.isArray(page))throw new HttpError(503,'Team & Time could not load the complete records.')
   all.push(...page)
   if(all.length>maxRows)throw new HttpError(503,'Too many time records to display or export. Narrow this workspace before continuing.')
@@ -91,8 +91,8 @@ async function bootstrap(req:Request,user:{id:string,full_name:string},orgId:unk
  if(!selected)return reply(req,{organizations,selectOrganization:true})
  const org=selected.org_id,supervisor=SUPERVISORS.has(selected.role)
  const ownProfile=(await db('team_time_profiles',{select:'user_id,worker_type,active',org_id:`eq.${org}`,user_id:`eq.${user.id}`,limit:'1'}))[0]||null
- const assignments=await allRows('job_assignments',{select:'job_id',org_id:`eq.${org}`,user_id:`eq.${user.id}`,removed_at:'is.null',order:'id.asc'})
- const shifts=await allRows('team_time_shifts',{select:'id,org_id,worker_user_id,worker_type,job_id,started_at,ended_at,break_started_at,break_minutes,note,status,corrected_at,correction_reason,reviewed_at,reviewed_by_id,updated_at',org_id:`eq.${org}`,...(supervisor?{}:{worker_user_id:`eq.${user.id}`}),order:'started_at.desc,id.desc'})
+ const assignments=await allRows<{job_id:string}>('job_assignments',{select:'job_id',org_id:`eq.${org}`,user_id:`eq.${user.id}`,removed_at:'is.null',order:'id.asc'})
+ const shifts=await allRows<{job_id:string}>('team_time_shifts',{select:'id,org_id,worker_user_id,worker_type,job_id,started_at,ended_at,break_started_at,break_minutes,note,status,corrected_at,correction_reason,reviewed_at,reviewed_by_id,updated_at',org_id:`eq.${org}`,...(supervisor?{}:{worker_user_id:`eq.${user.id}`}),order:'started_at.desc,id.desc'})
  const jobIds=[...new Set([...assignments.map((a:{job_id:string})=>a.job_id),...shifts.map((s:{job_id:string})=>s.job_id)])].filter(validId)
  const jobs=jobIds.length?await db('jobs',{select:'id,title,scheduled_start,scheduled_end',org_id:`eq.${org}`,id:`in.(${jobIds.join(',')})`,archived_at:'is.null',limit:'100'}):[]
  let workers=[]
