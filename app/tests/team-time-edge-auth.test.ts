@@ -19,10 +19,15 @@ const shiftB = "20000000-0000-4000-8000-000000000112";
 type Call = { table: string; method: string; orgFilter: string | null; key: string | null; offset: string | null; query: string };
 function harness({
   actorId = userA, role = "technician", membershipOrg = orgA,
-  assigned = false, shiftsCount = 0, assignmentDeclined = false, jobsCount = 1,
+  assigned = false, shiftsCount = 0, assignmentDeclined = false, distinctJobs = 0, modernKeys = false,
 }: {
-  actorId?: string; role?: string; membershipOrg?: string; assigned?: boolean; shiftsCount?: number; assignmentDeclined?: boolean; jobsCount?: number;
+  actorId?: string; role?: string; membershipOrg?: string; assigned?: boolean; shiftsCount?: number; assignmentDeclined?: boolean; distinctJobs?: number; modernKeys?: boolean;
 } = {}) {
+  // Fixture job IDs the bootstrap can discover through assignments/shifts.
+  // Distinct valid UUIDs so the jobs in-list filter is meaningful.
+  const fixtureJobIds = distinctJobs > 0
+    ? Array.from({length: distinctJobs}, (_, i) => `10000000-0000-4000-8000-${String(i).padStart(12, "0")}`)
+    : [jobA];
   let handle: ((request: Request) => Promise<Response>) | undefined;
   const calls: Call[] = [];
   const transport = async (input: URL | string, init: RequestInit = {}): Promise<Response> => {
@@ -42,17 +47,26 @@ function harness({
     }
     if (table === "team_time_profiles") return Response.json([{org_id: membershipOrg, user_id: actorId, active: true, worker_type:"employee"}]);
     if (table === "jobs") {
-      if (jobsCount <= 1) return Response.json([{id: jobA, org_id: membershipOrg, title:"Assigned Job"}]);
+      // Honor the id=in.(...) filter like real PostgREST: only matching rows
+      // come back, so a test cannot pass while requesting one job and
+      // receiving hundreds.
+      const wanted = u.searchParams.get("id");
+      const wantedIds = wanted && wanted.startsWith("in.(") && wanted.endsWith(")")
+        ? new Set(wanted.slice(4, -1).split(",").filter(Boolean))
+        : null;
+      const rows = fixtureJobIds
+        .filter((id) => !wantedIds || wantedIds.has(id))
+        .map((id) => ({ id, org_id: membershipOrg, title: id === jobA ? "Assigned Job" : `Job ${id}` }));
       const offset = Number(u.searchParams.get("offset") ?? "0");
       const limit = Number(u.searchParams.get("limit") ?? "200");
-      const remaining = Math.max(0, jobsCount - offset);
-      return Response.json(Array.from({length: Math.min(limit, remaining)}, (_, i) => ({
-        id: `job-${offset + i}`, org_id: membershipOrg, title: `Job ${offset + i}`,
-      })));
+      return Response.json(rows.slice(offset, offset + limit));
     }
     if (table === "job_assignments") {
       if (assignmentDeclined) return Response.json(u.searchParams.get("declined_at") === "is.null" ? [] : [{ id: "10000000-0000-4000-8000-000000000099", user_id: actorId, job_id: jobA }]);
-      return Response.json(assigned ? [{ id: "10000000-0000-4000-8000-000000000099", user_id: actorId, job_id: jobA }] : []);
+      const rows = assigned ? fixtureJobIds.map((jobId, i) => ({ id: `assignment-${i}`, user_id: actorId, job_id: jobId })) : [];
+      const offset = Number(u.searchParams.get("offset") ?? "0");
+      const limit = Number(u.searchParams.get("limit") ?? "200");
+      return Response.json(rows.slice(offset, offset + limit));
     }
     if (table === "team_time_shifts") {
       const offset = Number(u.searchParams.get("offset") ?? "0");
@@ -60,7 +74,7 @@ function harness({
       const remaining = Math.max(0, shiftsCount - offset);
       return Response.json(Array.from({length: Math.min(limit,remaining)}, (_,i) => ({
         id: `shift-${offset + i}`, org_id: membershipOrg,
-        worker_user_id: actorId, job_id: jobA, status: "pending",
+        worker_user_id: actorId, job_id: fixtureJobIds[0], status: "pending",
         started_at: "2026-10-30T10:00:00Z", ended_at: "2026-10-30T11:00:00Z",
       })));
     }
@@ -77,6 +91,10 @@ function harness({
         SUPABASE_URL: "https://staging.supabase.co",
         SUPABASE_ANON_KEY: "test-publishable",
         SUPABASE_SERVICE_ROLE_KEY: "test-bypass-role",
+        ...(modernKeys ? {
+          SUPABASE_PUBLISHABLE_KEYS: '{"default":"test-modern-publishable"}',
+          SUPABASE_SECRET_KEYS: '{"default":"test-modern-secret"}',
+        } : {}),
       } as Record<string, string>)[name] ?? "" },
       serve: (fn: (request: Request) => Promise<Response>) => { handle = fn; },
     },
@@ -149,13 +167,32 @@ test("clock_in denies a declined assignment whose row still exists", async () =>
 });
 
 test("bootstrap pages job metadata beyond the old 100-row page", async () => {
-  const h = harness({role:"manager", assigned: true, jobsCount: 250});
+  const h = harness({role:"manager", assigned: true, distinctJobs: 250});
   const r = await h.request({action:"bootstrap",orgId:orgA});
   expect(r.status).toBe(200);
   const payload = r.payload as {jobs: unknown[]};
   expect(payload.jobs).toHaveLength(250);
-  const pages = h.calls.filter(c => c.table==="jobs");
-  expect(pages.map(p => p.offset)).toEqual(["0","200"]);
+  const jobCalls = h.calls.filter(c => c.table==="jobs");
+  // Job IDs travel in bounded chunks, never one giant in-list.
+  expect(jobCalls).toHaveLength(3);
+  const chunkSizes = jobCalls.map(c => {
+    const id = new URLSearchParams(c.query).get("id") ?? "";
+    return id.startsWith("in.(") ? id.slice(4, -1).split(",").filter(Boolean).length : 0;
+  });
+  expect(chunkSizes.every(n => n > 0 && n <= 100)).toBe(true);
+  expect(chunkSizes.reduce((a, b) => a + b, 0)).toBe(250);
+  expect(jobCalls.every(c => c.key==="test-bypass-role")).toBe(true);
+});
+
+test("modern Supabase key maps are read as values, not environment names", async () => {
+  const h = harness({modernKeys: true});
+  const r = await h.request({action:"bootstrap",orgId:orgA});
+  expect(r.status).toBe(200);
+  // The publishable key feeds only the unrecorded /auth/v1/user call; the
+  // secret key on every recorded REST call exercises the same key() path.
+  const restCalls = h.calls.filter(c => c.key !== null);
+  expect(restCalls.length).toBeGreaterThan(0);
+  expect(restCalls.every(c => c.key === "test-modern-secret")).toBe(true);
 });
 
 test("oversized workspace fails explicitly rather than exporting a partial 10000-row subset", async () => {

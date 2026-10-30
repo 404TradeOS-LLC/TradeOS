@@ -18,11 +18,13 @@ function key(kind:'secret'|'publishable'){
  const modern=Deno.env.get(kind==='secret'?'SUPABASE_SECRET_KEYS':'SUPABASE_PUBLISHABLE_KEYS')
  if(modern){
   const parsed=JSON.parse(modern)
-  const name=parsed.default||Object.values(parsed)[0]
-  // Supabase supplies an environment variable name in this map, not the key itself.
-  if(typeof name==='string')return Deno.env.get(name)||''
+  // Supabase supplies a name -> key-value map (e.g. {"default":"sb_secret_..."}); use the value directly.
+  const candidate=parsed&&typeof parsed==='object'&&!Array.isArray(parsed)?(parsed.default||Object.values(parsed)[0]):undefined
+  if(typeof candidate==='string'&&candidate)return candidate
  }
- return Deno.env.get(kind==='secret'?'SUPABASE_SERVICE_ROLE_KEY':'SUPABASE_ANON_KEY')||''
+ const legacy=Deno.env.get(kind==='secret'?'SUPABASE_SERVICE_ROLE_KEY':'SUPABASE_ANON_KEY')
+ if(!legacy)throw new Error(`Supabase ${kind} key is not configured`)
+ return legacy
 }
 function url(table:string,params:Record<string,string>){const u=new URL(`/rest/v1/${table}`,Deno.env.get('SUPABASE_URL'));for(const [k,v] of Object.entries(params))u.searchParams.set(k,v);return u}
 async function db(table:string,params:Record<string,string>={},method='GET',payload?:unknown){
@@ -94,9 +96,23 @@ async function bootstrap(req:Request,user:{id:string,full_name:string},orgId:unk
  const assignments=await allRows<{job_id:string}>('job_assignments',{select:'job_id',org_id:`eq.${org}`,user_id:`eq.${user.id}`,removed_at:'is.null',declined_at:'is.null',order:'id.asc'})
  const shifts=await allRows<{job_id:string}>('team_time_shifts',{select:'id,org_id,worker_user_id,worker_type,job_id,started_at,ended_at,break_started_at,break_minutes,note,status,corrected_at,correction_reason,reviewed_at,reviewed_by_id,updated_at',org_id:`eq.${org}`,...(supervisor?{}:{worker_user_id:`eq.${user.id}`}),order:'started_at.desc,id.desc'})
  const jobIds=[...new Set([...assignments.map((a:{job_id:string})=>a.job_id),...shifts.map((s:{job_id:string})=>s.job_id)])].filter(validId)
- const jobs=jobIds.length?await allRows('jobs',{select:'id,title,scheduled_start,scheduled_end',org_id:`eq.${org}`,id:`in.(${jobIds.join(',')})`,archived_at:'is.null'}):[]
- let workers=[]
- if(supervisor){const memberships=await db('organization_memberships',{select:'user_id,role',org_id:`eq.${org}`,status:'eq.active',limit:'100'});const ids=memberships.map((m:{user_id:string})=>m.user_id).filter(validId);const names=ids.length?await db('users',{select:'id,full_name',id:`in.(${ids.join(',')})`,is_active:'eq.true',limit:'100'}):[];const profiles=await db('team_time_profiles',{select:'user_id,worker_type,active',org_id:`eq.${org}`,limit:'100'});workers=names.map((n:{id:string,full_name:string})=>({id:n.id,name:n.full_name,role:memberships.find((m:{user_id:string})=>m.user_id===n.id)?.role,workerType:profiles.find((p:{user_id:string})=>p.user_id===n.id)?.worker_type||null,active:profiles.find((p:{user_id:string})=>p.user_id===n.id)?.active??false}))}
+ const jobs:unknown[]=[]
+ for(let i=0;i<jobIds.length;i+=100){
+  const chunk=jobIds.slice(i,i+100)
+  jobs.push(...await allRows('jobs',{select:'id,title,scheduled_start,scheduled_end',org_id:`eq.${org}`,id:`in.(${chunk.join(',')})`,archived_at:'is.null',order:'id.asc'}))
+ }
+ let workers:{id:string,name:string,role:string|undefined,workerType:string|null,active:boolean}[]=[]
+ if(supervisor){
+  const rosterMemberships=await allRows<{user_id:string,role:string}>('organization_memberships',{select:'user_id,role',org_id:`eq.${org}`,status:'eq.active',order:'user_id.asc'})
+  const ids=rosterMemberships.map((m:{user_id:string})=>m.user_id).filter(validId)
+  const names:{id:string,full_name:string}[]=[]
+  for(let i=0;i<ids.length;i+=100){
+   const chunk=ids.slice(i,i+100)
+   names.push(...await allRows<{id:string,full_name:string}>('users',{select:'id,full_name',id:`in.(${chunk.join(',')})`,is_active:'eq.true',order:'id.asc'}))
+  }
+  const profiles=await allRows<{user_id:string,worker_type:string,active:boolean}>('team_time_profiles',{select:'user_id,worker_type,active',org_id:`eq.${org}`,order:'user_id.asc'})
+  workers=names.map((n:{id:string,full_name:string})=>({id:n.id,name:n.full_name,role:rosterMemberships.find((m:{user_id:string})=>m.user_id===n.id)?.role,workerType:profiles.find((p:{user_id:string})=>p.user_id===n.id)?.worker_type||null,active:profiles.find((p:{user_id:string})=>p.user_id===n.id)?.active??false}))
+ }
  return reply(req,{orgId:org,role:selected.role,user:{id:user.id,name:user.full_name},workerType:ownProfile?.active?ownProfile.worker_type:null,supervisor,jobs,assignedJobIds:assignments.map((a:{job_id:string})=>a.job_id),shifts,workers,organizations})
 }
 async function mutate(req:Request,body:Record<string,unknown>,user:{id:string}){
