@@ -14,6 +14,17 @@ related_docs:
 
 # Session Handoff
 
+## Active bounded mission — Estimate full-review scope continuity, 2026-10-31
+
+- Sprint ID: NONE. `NEW_WORK_REQUIRED` after inspecting main `6a19766f3865262c37ddc37c7f8794363d45e3f0`, four open PRs (#837/#830/#810/#775), relevant branches and prior #751/#569/#542. None owns the current scope handoff defect; the historical `feat/figma-to-code-completion` branch is absent.
+- Repository: `404TradeOS-LLC/TradeOS`; exact fetched source snapshot `/workspace/scratch/5c7f3e9dcd3e/tradeos-review-snapshot`, no authenticated local Git checkout/upstream/worktree. The connected GitHub API is the publication path. No local full-repository status or test result is invented.
+- Branch: `feat/figma-to-code-completion`, based on that exact main. Scope is builder/contextual navigation, authorized full-review saved-scope loading, bounded helper/tests and owned docs. Backend, schema/migration, auth/RLS policy, financial calculations, secrets/environments and production operations are excluded.
+- Implemented: await existing Project scope-save acknowledgement before both review entries; retain scope on failure, block duplicate entry and late navigation; load saved scope only for the authorized Project/Estimate pair; keep initial suggestions and structured draft empty. Key builder state by record IDs. No URL/local-storage scope transfer or automatic generation.
+- Validation: 9 behavioral tests plus 15 existing Estimate mobile/source contracts passed (24 total) under Node 24.22.1. React hook/disabled-state/serialization review completed. Full repository web suite, lint, TypeScript/build and browser/authenticated evidence cannot execute from this dependency-free snapshot and remain hosted exact-head gates. Do not mark this flow Ready for Dev or production-ready from these tests.
+- Figma full-review entry/generation/failure targets and 40 matching-width links are inspected; the live implementation gap remains open until the PR is reviewed, merged and browser-verified. Existing scope/freshness, saved-line identity and financial continuity gates remain separate.
+- Next five: verify exact-head CI and repair findings; execute dirty/clean/save-failure/current-record browser cases; prove full-review reload and Project/Estimate mismatch denial; verify acknowledged Add/Apply saved-line identity; reconcile the deck and Proposal price fixtures before certification.
+
+
 ## Proposed protected staging Job migration runner — 2026-10-30
 
 - `NEW_WORK_REQUIRED` for infrastructure only; feature implementation remains

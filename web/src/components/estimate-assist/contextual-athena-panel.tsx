@@ -36,6 +36,8 @@ export function ContextualAthenaPanel({
   isDraft,
   headingId = "contextual-athena-heading",
   onAdded,
+  onOpenFullReview,
+  fullReviewPending = false,
 }: {
   estimateId: string;
   scopeOfWork: string;
@@ -43,6 +45,8 @@ export function ContextualAthenaPanel({
   isDraft: boolean;
   headingId?: string;
   onAdded?: () => void;
+  onOpenFullReview?: () => void;
+  fullReviewPending?: boolean;
 }) {
   const [suggestions, setSuggestions] = useState<ContextualSuggestion[]>([]);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -164,9 +168,15 @@ export function ContextualAthenaPanel({
         </div>
       ) : null}
 
-      <Link href={`/projects/${projectId}/estimates/${estimateId}/assist`} className="mt-3 inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
-        Open full review workspace →
-      </Link>
+      {onOpenFullReview ? (
+        <Button type="button" variant="link" className="mt-3 h-auto min-h-11 justify-start whitespace-normal p-0 text-left" onClick={onOpenFullReview} disabled={fullReviewPending || addingId !== null}>
+          {fullReviewPending ? "Saving scope…" : "Open full review workspace →"}
+        </Button>
+      ) : (
+        <Link href={`/projects/${projectId}/estimates/${estimateId}/assist`} className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-primary underline-offset-4 hover:underline">
+          Open full review workspace →
+        </Link>
+      )}
     </section>
   );
 }

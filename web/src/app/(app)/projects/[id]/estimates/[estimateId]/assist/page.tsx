@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { AIEstimateAssist } from "@/components/estimate-assist/ai-estimate-assist";
 import { buttonVariants } from "@/components/ui/button";
-import { getKnowledgeStats, getKnowledgeTrades } from "@/lib/api";
+import { getKnowledgeStats, getKnowledgeTrades, getProject } from "@/lib/api";
+import { savedScopeForEstimateReview } from "@/lib/estimate-review-navigation";
 import { getSessionToken } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +14,9 @@ export default async function AIEstimateAssistPage({
 }) {
   const { id, estimateId } = await params;
   const token = await getSessionToken();
-  const initialScope = "";
+  const project = await getProject(token ?? "", id);
+  const initialScope = savedScopeForEstimateReview(project, id, estimateId);
+  if (initialScope === null) notFound();
   const [knowledgeStats, knowledgeTrades] = token
     ? await Promise.all([
         // Both are supplementary context for the assist panel (it already
