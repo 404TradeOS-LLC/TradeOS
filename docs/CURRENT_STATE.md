@@ -116,14 +116,18 @@ there; hardware renderers keep the full reflective environment. Approved
 4s/2.5s timing, Skip/Escape, focus restoration, and the reduced-motion
 bypass are unchanged.
 
-Local validation: 513 frontend unit tests, lint, TypeScript and the production
-build pass; production dependency audit reports zero vulnerabilities. The real
-entry component was visually inspected in an isolated browser harness with
-synthetic transport. This does not certify successful authentication, deployed
-behavior, Lighthouse scores, or actual GPU rendering. Six new component-browser
-specimens cover responsive forms, timed/keyboard entry and GPU/storage failure;
-local execution is blocked before launch by a missing Chromium binary after
-the official download returned an invalid archive. Hosted checks passed on this PR head; review and deployment verification remain separate gates.
+Historical Chromium download block: the earlier local component-browser run
+was blocked before launch by a missing Chromium binary after the official
+download returned an invalid archive. That limitation is resolved for this PR:
+the cached Chromium headless shell was reused, and the current PR head reports
+553 frontend unit tests and 47 Playwright component tests passing, with lint,
+TypeScript, production build, dependency audit, and docs checks passing.
+
+The real entry component was visually inspected in an isolated browser harness
+with synthetic transport. This does not certify successful authentication,
+deployed behavior, Lighthouse scores, or actual GPU rendering. Review and
+deployment verification remain separate gates.
+
 ## Field authorization evidence — PR #702
 
 The Field page now has executable denied-role tests, alongside its static
