@@ -284,7 +284,7 @@ export function AIEstimateAssist({
         })),
       }),
       isCurrent: isCurrentReview,
-      send: (snapshot) => clientFetch<ApplySuggestionsResponse>(`/estimates/${snapshot.estimateId}/ai-estimator/apply`, {
+      send: (snapshot) => clientFetch<ApplySuggestionsResponse>(`/estimates/${estimateId}/ai-estimator/apply`, {
         method: "POST",
         body: snapshot.body,
       }),
@@ -339,7 +339,7 @@ export function AIEstimateAssist({
           <CardContent className="space-y-4">
             <Textarea
               value={scopeOfWork}
-              onChange={(event) => { if (!applySession.current.isLocked) setScopeOfWork(event.target.value); }}
+              onChange={(event) => { if (!applySession.current.isLocked && !generationInFlight.current) setScopeOfWork(event.target.value); }}
               aria-label="Scope of work"
               placeholder="Describe the work, materials, constraints, access, demolition, finish details, and anything field notes already confirmed..."
               className="min-h-40 resize-y bg-background/80 text-base"
@@ -350,7 +350,7 @@ export function AIEstimateAssist({
                 <button
                   key={prompt}
                   type="button"
-                  onClick={() => { if (!applySession.current.isLocked) setScopeOfWork(prompt); }}
+                  onClick={() => { if (!applySession.current.isLocked && !generationInFlight.current) setScopeOfWork(prompt); }}
                   className="rounded-full border border-border/70 bg-background px-3 py-1.5 text-left text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
                 >
                   {prompt}
