@@ -104,7 +104,7 @@ for(const width of [390,768,1024,1440]){
     await page.screenshot({path:testInfo.outputPath(`apply-unconfirmed-${width}.png`),fullPage:true,animations:'disabled'});
 
     const retry=page.getByRole('button',{name:'Retry unchanged review',exact:true});
-    await retry.focus();
+    await expect(retry).toBeFocused();
     await retry.press('Space');
     await expect.poll(()=>page.evaluate(()=>window.applyRequests.length)).toBe(2);
     expect(await page.evaluate(()=>window.applyRequests[1])).toEqual(first);

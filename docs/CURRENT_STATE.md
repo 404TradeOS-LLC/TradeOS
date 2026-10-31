@@ -65,7 +65,7 @@ related_code:
 
 ## Frozen Apply recovery — 2026-10-31
 
-The existing full-review client now serializes one Apply request before sending it. Pending entry blocks duplicate writes, Scope/suggestion edits and regeneration. An unconfirmed response retains that exact request body; only explicit Retry unchanged review sends it again. The review remains locked and offers Check saved Items until an acknowledged response. Acknowledgement unlocks review; editing a suggestion clears the prior summary. Draft generation and Apply cannot overlap.
+The existing full-review client now serializes one Apply request before sending it. Pending entry blocks duplicate writes, Scope/suggestion edits and regeneration. An unconfirmed response retains that exact request body; only explicit Retry unchanged review sends it again. The review remains locked and offers Check saved Items until an acknowledged response. Acknowledgement unlocks review; editing a suggestion clears the prior summary. Failure restores the initiating button's keyboard focus only if the user has not focused another control. Draft generation and Apply cannot overlap.
 
 The review page is keyed by Project/Estimate. Completion callbacks check the active record context, suppressing late success/failure after navigation. The existing authenticated client proxy, Apply route, signed-review-token payload and Estimate Engine remain authoritative. No new idempotency endpoint, schema, auth/RLS, price calculation, dependency or automatic retry was introduced. Check saved Items remains available for an acknowledged result; response counts are not certified saved-line identity.
 

@@ -199,6 +199,8 @@ export function AIEstimateAssist({
   const [applyState, setApplyState] = useState<"idle" | "pending" | "unconfirmed">("idle");
   const [applyError, setApplyError] = useState<string | null>(null);
   const applySession = useRef(createEstimateApplySession<ApplySuggestionsResponse>());
+  const applyButton = useRef<HTMLButtonElement>(null);
+  const restoreApplyFocus = useRef(false);
   const generationInFlight = useRef(false);
   const reviewContext = useRef<{ projectId: string; estimateId: string } | null>(null);
 
@@ -206,6 +208,13 @@ export function AIEstimateAssist({
     reviewContext.current = { projectId, estimateId };
     return () => { reviewContext.current = null; };
   }, [projectId, estimateId]);
+
+  useEffect(() => {
+    if (applyState !== "unconfirmed" || !restoreApplyFocus.current) return;
+    restoreApplyFocus.current = false;
+    // Restore keyboard recovery only if the user has not focused another control.
+    if (document.activeElement === document.body) applyButton.current?.focus();
+  }, [applyState]);
 
   const isCurrentReview = () => reviewContext.current?.projectId === projectId && reviewContext.current?.estimateId === estimateId;
 
@@ -289,6 +298,7 @@ export function AIEstimateAssist({
         body: snapshot.body,
       }),
       onPending: () => {
+        restoreApplyFocus.current = document.activeElement === applyButton.current;
         setApplyState("pending");
         setApplyError(null);
         setApplySummary(null);
@@ -486,7 +496,7 @@ export function AIEstimateAssist({
               <SummaryTile label="Last generated" value={lastGeneratedAt ?? "Ready"} />
             </div>
 
-            <Button type="button" className="min-h-11 w-full" onClick={applyAcceptedSuggestions} disabled={applyState === "pending" || regenerateSuggestions.isPending || !acceptedReadyToApply}>
+            <Button ref={applyButton} type="button" className="min-h-11 w-full" onClick={applyAcceptedSuggestions} disabled={applyState === "pending" || regenerateSuggestions.isPending || !acceptedReadyToApply}>
               {applyState === "pending" ? "Applying accepted suggestions…" : applyState === "unconfirmed" ? "Retry unchanged review" : `Add ${reviewStats.acceptedReadyCount} accepted suggestion${reviewStats.acceptedReadyCount === 1 ? "" : "s"} to estimate`}
             </Button>
 
