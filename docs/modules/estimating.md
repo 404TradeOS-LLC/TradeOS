@@ -14,6 +14,11 @@ related_code:
 
 # Estimating
 
+## Frozen Apply recovery — 2026-10-31
+
+See [AI Estimate Assist](ai-estimate-assist.md#frozen-apply-recovery--2026-10-31) for the owning request-snapshot, rejection and retry contract. Estimate Engine writes and financial calculations are unchanged.
+
+
 ## Estimate full-review scope continuity — 2026-10-31
 
 The builder's header and contextual Athena review entry now share one guarded navigation path. Dirty draft scope is saved through the existing Project PATCH before navigation; failed saves retain the editor and never navigate, duplicate entry is blocked, and leaving the record suppresses late navigation. Unchanged scope and finalized estimates do not gain a new write. The builder is keyed by Project/Estimate so record changes start fresh local draft state.
