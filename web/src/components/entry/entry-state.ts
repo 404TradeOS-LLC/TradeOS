@@ -13,7 +13,7 @@ export const ENTRY_TIMING = { first: 4000, returning: 2500 } as const;
 // software contexts).
 export function isSoftwareRendererName(renderer: string): boolean {
   if (!renderer.trim()) return true;
-  return /swiftshader|llvmpipe|software|basic render driver/i.test(renderer);
+  return /swiftshader|llvmpipe|softpipe|software|basic render driver/i.test(renderer);
 }
 // Minimal structural type for reading the unmasked renderer name, so the
 // lookup itself is unit-testable without a real WebGL context.
