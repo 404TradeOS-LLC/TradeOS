@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { isSoftwareRendererName, readRendererName } from "./entry-state";
 import { createLogoParts } from "./cinema-geometry";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { markSource, wordSource } from "./logo-sources";
@@ -35,12 +36,19 @@ export function createCinema(
   host.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const room = new RoomEnvironment();
-  const env = pmrem.fromScene(room, 0.04);
-  scene.environment = env.texture;
-  room.dispose();
-  pmrem.dispose();
+  // Software rasterizers make the PMREM environment pass pathologically
+  // slow: its deferred cost blocks the main thread past the intro exit
+  // timer, so the intro overstays its scheduled duration. Skipping the
+  // environment map there keeps the intro on schedule; the scene lights
+  // still shade the metal. Hardware renderers keep the full environment.
+  // An unavailable renderer name counts as software (see entry-state).
+  const softwareRenderer = isSoftwareRendererName(readRendererName(context));
+  const pmrem = softwareRenderer ? null : new THREE.PMREMGenerator(renderer);
+  const room = softwareRenderer ? null : new RoomEnvironment();
+  const env = pmrem && room ? pmrem.fromScene(room, 0.04) : null;
+  if (env) scene.environment = env.texture;
+  room?.dispose();
+  pmrem?.dispose();
   const root = new THREE.Group();
   scene.add(root);
   const resources: (THREE.BufferGeometry | THREE.Material)[] = [];
@@ -238,7 +246,7 @@ export function createCinema(
     observer.disconnect();
     renderer.domElement.removeEventListener("webglcontextlost", lost);
     resources.forEach((r) => r.dispose());
-    env.dispose();
+    env?.dispose();
     renderer.dispose();
     renderer.forceContextLoss();
     renderer.domElement.remove();
