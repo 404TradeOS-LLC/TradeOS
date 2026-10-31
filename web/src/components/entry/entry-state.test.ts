@@ -51,6 +51,7 @@ test("blocked storage never blocks entry and greetings cycle without repeats", (
 test("software rasterizers are detected so the intro skips the environment pass", () => {
   assert.equal(isSoftwareRendererName("Google SwiftShader"), true);
   assert.equal(isSoftwareRendererName("llvmpipe (LLVM 15.0.7, 256 bits)"), true);
+  assert.equal(isSoftwareRendererName("Mesa/X.org -- softpipe"), true);
   assert.equal(isSoftwareRendererName("Mesa Software Renderer"), true);
   assert.equal(
     isSoftwareRendererName(
