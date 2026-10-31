@@ -12,7 +12,6 @@ let directory: string;
 test.beforeAll(async () => {
   // Real Builder, editor, contextual panel and navigation helper. Only router
   // and transport are synthetic; no session, backend or durable write exists.
-  const ts = webRequire('typescript');
   directory = mkdtempSync(join(tmpdir(), 'tradeos-review-continuity-'));
   writeFileSync(join(directory, 'router.ts'), `
     export const useRouter=()=>({push:(href)=>window.reviewNavigations.push(href)});
