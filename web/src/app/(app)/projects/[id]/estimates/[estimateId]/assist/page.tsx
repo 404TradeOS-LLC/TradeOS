@@ -47,6 +47,7 @@ export default async function AIEstimateAssistPage({
       </div>
 
       <AIEstimateAssist
+        key={`${id}:${estimateId}`}
         projectId={id}
         estimateId={estimateId}
         initialScopeOfWork={initialScope}
@@ -59,3 +60,4 @@ export default async function AIEstimateAssistPage({
     </div>
   );
 }
+

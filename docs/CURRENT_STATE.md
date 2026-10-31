@@ -63,6 +63,15 @@ related_code:
 
 # TradeOS Current State
 
+## Frozen Apply recovery — 2026-10-31
+
+The existing full-review client now serializes one Apply request before sending it. Pending entry blocks duplicate writes, Scope/suggestion edits and regeneration. An unconfirmed response retains that exact request body; only explicit Retry unchanged review sends it again. The review remains locked and offers Check saved Items until an acknowledged response. Acknowledgement unlocks review; editing a suggestion clears the prior summary. Draft generation and Apply cannot overlap.
+
+The review page is keyed by Project/Estimate. Completion callbacks check the active record context, suppressing late success/failure after navigation. The existing authenticated client proxy, Apply route, signed-review-token payload and Estimate Engine remain authoritative. No new idempotency endpoint, schema, auth/RLS, price calculation, dependency or automatic retry was introduced. Check saved Items remains available for an acknowledged result; response counts are not certified saved-line identity.
+
+This implements the bounded recovery contract recorded on the existing Figma S053 states at 390/768/1024/1440. Local Node checks: 8 new behavioral cases plus 15 existing Estimate mobile/source contracts passed (23 total), covering immutable request bytes, in-flight duplication, failure/unchanged retry, cross-record refusal, obsolete entry and late responses. Four production-component browser cases are added for all widths using synthetic transport/Next Link; hosted execution is pending. Full local web dependencies and authenticated Git checkout are unavailable, so full tests/lint/build and browser checks remain exact-head CI gates. No full visual-parity, authenticated persistence/tenant, deployment, full-workflow Design Complete or Ready for Dev claim. Saved-line read reconciliation, footing persistence and financial fixture continuity remain open.
+
+
 ## Estimate full-review scope continuity — 2026-10-31
 
 The builder's header and contextual Athena review entry now share one guarded navigation path. Dirty draft scope is saved through the existing Project PATCH before navigation; failed saves retain the editor and never navigate, duplicate entry is blocked, and leaving the record suppresses late navigation. Unchanged scope and finalized estimates do not gain a new write. The builder is keyed by Project/Estimate so record changes start fresh local draft state.
