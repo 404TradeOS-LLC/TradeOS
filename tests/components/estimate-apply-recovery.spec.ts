@@ -17,12 +17,14 @@ test.beforeAll(async () => {
     export default function Link({href,children,...props}){return <a href={typeof href==='string'?href:href.pathname} {...props}>{children}</a>;}
   `);
   writeFileSync(join(directory, 'transport.ts'), `
+    export class ClientApiError extends Error {constructor(message,status){super(message);this.status=status;}}
     export const clientFetch=(url,options)=>{
       if(url.endsWith('/ai-estimator/apply')){
         window.applyRequests.push({url,body:options.body});
         return new Promise((resolve,reject)=>{
           window.acknowledgeApply=()=>resolve({applied:[{draftLineItemId:'reviewed-line',lineItemId:'synthetic-saved-line',quantity:2}],skipped:[]});
           window.failApply=()=>reject(new Error('Synthetic response lost'));
+          window.rejectApply=()=>reject(new ClientApiError('Synthetic validation failed',400));
         });
       }
       if(url.endsWith('/ai-estimator/draft')){
@@ -116,6 +118,23 @@ for(const width of [390,768,1024,1440]){
 
     await page.getByRole('button',{name:'Add 1 accepted suggestion to estimate',exact:true}).click();
     await expect.poll(()=>page.evaluate(()=>window.applyRequests.length)).toBe(3);
+    await page.evaluate(()=>window.rejectApply());
+    await expect(page.getByRole('alert')).toContainText('Apply was rejected');
+    await expect(page.getByRole('alert')).not.toContainText('Apply was not confirmed');
+    await expect(quantity).toBeEnabled();
+    await expect(scope).toBeEnabled();
+    await page.screenshot({path:testInfo.outputPath(`apply-rejected-${width}.png`),fullPage:true,animations:'disabled'});
+    await page.getByRole('textbox',{name:'Estimate description',exact:true}).fill('Corrected reviewed deck framing');
+    await quantity.fill('4');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await page.getByRole('button',{name:'Add 1 accepted suggestion to estimate',exact:true}).click();
+    await expect.poll(()=>page.evaluate(()=>window.applyRequests.length)).toBe(4);
+    expect(JSON.parse(await page.evaluate(()=>window.applyRequests[3].body)).lineItems[0]).toMatchObject({quantity:4,description:'Corrected reviewed deck framing'});
+    await page.evaluate(()=>window.acknowledgeApply());
+    await expect(quantity).toBeEnabled();
+    await quantity.fill('5');
+    await page.getByRole('button',{name:'Add 1 accepted suggestion to estimate',exact:true}).click();
+    await expect.poll(()=>page.evaluate(()=>window.applyRequests.length)).toBe(5);
     await page.evaluate(()=>window.changeApplyRecord());
     await expect(quantity).toHaveValue('1');
     await page.evaluate(()=>window.acknowledgeApply());
@@ -129,7 +148,7 @@ for(const width of [390,768,1024,1440]){
     await expect.poll(()=>page.evaluate(()=>window.generationRequests.length)).toBe(1);
     await expect(page.getByRole('button',{name:'Add 1 accepted suggestion to estimate',exact:true})).toBeDisabled();
     await expect(scope).toBeDisabled();
-    expect(await page.evaluate(()=>window.applyRequests.length)).toBe(3);
+    expect(await page.evaluate(()=>window.applyRequests.length)).toBe(5);
     await page.evaluate(()=>window.finishGeneration());
     await expect(scope).toBeEnabled();
   });

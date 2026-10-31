@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createEstimateApplySession, snapshotEstimateApply } from "./estimate-apply-session.ts";
+import { createEstimateApplySession, isDefinitiveEstimateApplyStatus, snapshotEstimateApply } from "./estimate-apply-session.ts";
 
 function fixture() {
   const events: string[] = [];
@@ -109,4 +109,37 @@ test("an acknowledged review permits a new reviewed payload instead of replaying
   await session.apply(attempt);
   assert.notEqual(bodies[0], bodies[1]);
   assert.equal(bodies[1], next.body);
+});
+
+test("a definitive validation rejection unlocks the review and permits a corrected request", async () => {
+  const { attempt, events } = fixture();
+  const session = createEstimateApplySession<string>();
+  const rejection = Object.assign(new Error("Validation failed"), { status: 400 });
+  attempt.send = async () => { throw rejection; };
+  const classified = { ...attempt, isDefinitiveRejection: (error: unknown) => error === rejection };
+  assert.equal(await session.apply(classified), false);
+  assert.equal(session.isLocked, false);
+  const corrected = snapshotEstimateApply("project-a", "estimate-a", { lineItems: [{ quantity: 3, description: "Corrected work" }] });
+  const sent: string[] = [];
+  assert.equal(await session.apply({ ...classified, snapshot: corrected, send: async (snapshot) => { sent.push(snapshot.body); return "corrected acknowledgement"; } }), true);
+  assert.deepEqual(sent, [corrected.body]);
+  assert.deepEqual(events, ["pending", "Error: Validation failed", "pending", "corrected acknowledgement"]);
+});
+
+test("only known refusal statuses are definitive; authentication, timeout, rate limits and unknown outcomes retain identity", () => {
+  for (const status of [400, 403, 404, 409]) assert.equal(isDefinitiveEstimateApplyStatus(status), true);
+  for (const status of [200, 401, 408, 429, 499, 500, 502, 503]) assert.equal(isDefinitiveEstimateApplyStatus(status), false);
+});
+
+test("a rejection after a lost response does not certify the original write as absent", async () => {
+  const { attempt } = fixture();
+  const session = createEstimateApplySession<string>();
+  attempt.send = async () => { throw new Error("Original response lost"); };
+  await session.apply(attempt);
+  const original = attempt.snapshot.body;
+  attempt.snapshot = snapshotEstimateApply("project-a", "estimate-a", { lineItems: [{ quantity: 99 }] });
+  const bodies: string[] = [];
+  await session.apply({ ...attempt, isDefinitiveRejection: () => true, send: async (snapshot) => { bodies.push(snapshot.body); throw new Error("Later refusal"); } });
+  assert.equal(session.isLocked, true);
+  assert.deepEqual(bodies, [original]);
 });

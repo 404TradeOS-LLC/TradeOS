@@ -33,8 +33,8 @@ import type {
   KnowledgeStats,
   KnowledgeTrade,
 } from "@/lib/api";
-import { clientFetch } from "@/lib/clientApi";
-import { createEstimateApplySession, snapshotEstimateApply } from "@/lib/estimate-apply-session";
+import { clientFetch, ClientApiError } from "@/lib/clientApi";
+import { createEstimateApplySession, isDefinitiveEstimateApplyStatus, snapshotEstimateApply } from "@/lib/estimate-apply-session";
 
 type SuggestionStatus = "pending" | "accepted" | "rejected";
 
@@ -196,7 +196,7 @@ export function AIEstimateAssist({
     initialStructuredDraft || initialSuggestions.length > 0 ? "Loaded from Athena review" : null
   );
   const [applySummary, setApplySummary] = useState<ApplySuggestionsResponse | null>(null);
-  const [applyState, setApplyState] = useState<"idle" | "pending" | "unconfirmed">("idle");
+  const [applyState, setApplyState] = useState<"idle" | "pending" | "unconfirmed" | "rejected">("idle");
   const [applyError, setApplyError] = useState<string | null>(null);
   const applySession = useRef(createEstimateApplySession<ApplySuggestionsResponse>());
   const applyButton = useRef<HTMLButtonElement>(null);
@@ -210,7 +210,7 @@ export function AIEstimateAssist({
   }, [projectId, estimateId]);
 
   useEffect(() => {
-    if (applyState !== "unconfirmed" || !restoreApplyFocus.current) return;
+    if ((applyState !== "unconfirmed" && applyState !== "rejected") || !restoreApplyFocus.current) return;
     restoreApplyFocus.current = false;
     // Restore keyboard recovery only if the user has not focused another control.
     if (document.activeElement === document.body) applyButton.current?.focus();
@@ -256,6 +256,8 @@ export function AIEstimateAssist({
       setScopeOfWork(payload.scopeOfWork);
       setLastGeneratedAt(new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
       setApplySummary(null);
+      setApplyError(null);
+      setApplyState("idle");
     },
     onSettled: () => { generationInFlight.current = false; },
   });
@@ -293,6 +295,7 @@ export function AIEstimateAssist({
         })),
       }),
       isCurrent: isCurrentReview,
+      isDefinitiveRejection: (error) => error instanceof ClientApiError && isDefinitiveEstimateApplyStatus(error.status),
       send: (snapshot) => clientFetch<ApplySuggestionsResponse>(`/estimates/${estimateId}/ai-estimator/apply`, {
         method: "POST",
         body: snapshot.body,
@@ -309,19 +312,21 @@ export function AIEstimateAssist({
       },
       onError: (error) => {
         setApplyError(error instanceof Error ? error.message : "Unable to confirm the Apply response.");
-        setApplyState("unconfirmed");
+        setApplyState(applySession.current.isLocked ? "unconfirmed" : "rejected");
       },
     });
   };
 
   const updateSuggestion = (id: string, updater: (current: SuggestionDraft) => SuggestionDraft) => {
     if (applySession.current.isLocked || generationInFlight.current) return;
+    setApplyError(null);
+    setApplyState("idle");
     setApplySummary(null);
     setSuggestions((current) => current.map((suggestion) => (suggestion.id === id ? updater(suggestion) : suggestion)));
   };
 
   const acceptedReadyToApply = suggestions.some((suggestion) => suggestion.status === "accepted" && suggestion.selectedTarget && suggestion.originalTargetId === suggestion.selectedTarget.id && suggestion.originalTargetKind === suggestion.selectedTarget.kind);
-  const reviewLocked = applyState !== "idle" || regenerateSuggestions.isPending;
+  const reviewLocked = applyState === "pending" || applyState === "unconfirmed" || regenerateSuggestions.isPending;
 
   const runReview = () => {
     if (applySession.current.isLocked || generationInFlight.current) return;
@@ -500,9 +505,11 @@ export function AIEstimateAssist({
               {applyState === "pending" ? "Applying accepted suggestions…" : applyState === "unconfirmed" ? "Retry unchanged review" : `Add ${reviewStats.acceptedReadyCount} accepted suggestion${reviewStats.acceptedReadyCount === 1 ? "" : "s"} to estimate`}
             </Button>
 
-            {applyState === "unconfirmed" ? (
+            {applyState === "unconfirmed" || applyState === "rejected" ? (
               <p className="text-sm text-destructive" role="alert">
-                {applyError} Apply was not confirmed. Keep this review unchanged when retrying. Check Items before editing.
+                {applyError}{applyState === "unconfirmed"
+                  ? " Apply was not confirmed. Keep this review unchanged when retrying. Check Items before editing."
+                  : " Apply was rejected. Correct the review and try again."}
               </p>
             ) : null}
 
