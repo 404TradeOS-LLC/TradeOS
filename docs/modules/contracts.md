@@ -12,6 +12,10 @@ related_code:
 
 # Contracts
 
+## Contract PDF logo byte rendering
+
+The PDFKit contract renderer supports an optional bounded trusted PNG/JPEG logo byte buffer. It does not fetch arbitrary logo URLs. The existing organization company-name, colors, signature fields, and workflow remain unchanged. Production asset retrieval is not yet wired; missing bytes preserve text-only branding pending #870.
+
 ## Purpose
 
 Own contract creation from accepted proposals, signature capture, voiding rules, document generation, and event history.

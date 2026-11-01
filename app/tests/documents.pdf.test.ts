@@ -32,6 +32,33 @@ const brand: DocumentFrameBrand = {
   showInsuranceSummary: true,
 };
 
+describe("trusted contractor raster image in PDF headers", () => {
+  const safePng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGPYX2ONFTEMLQkAqeRdgcrsUtEAAAAASUVORK5CYII=", "base64");
+  it("embeds an approved PNG in an invoice without removing the company name", async () => {
+    const pdf = await renderInvoicePdf({
+      invoiceNumber: 21, type: "full", status: "draft",
+      amount: 100, subtotal: 100, taxPct: 0, taxAmount: 0, paidAmount: 0, balanceDue: 100,
+      dueDate: null, createdAt: new Date("2026-10-01T12:00:00.000Z"), percentComplete: null,
+      project: { name: "Test Job", siteAddress: null, customer: null }, lineItems: [],
+    }, { brand, logoImage: safePng });
+    expect(pdf.toString("latin1")).toContain("/Subtype /Image");
+    expect(extractPdfText(pdf)).toContain("Canonical Builders");
+  });
+  it("embeds a safe PNG in a contract and falls back for an untrusted payload", async () => {
+    const contract = {
+      status: "draft", termsText: "Contract terms", contractAmount: 100,
+      scopeOfWork: "Scope", signerName: null, signedAt: null,
+      createdAt: new Date("2026-10-01T12:00:00.000Z"),
+      project: { name: "Test Job", siteAddress: null, customer: null },
+    };
+    const included = await renderContractPdf(contract, { brand, logoImage: safePng });
+    const rejected = await renderContractPdf(contract, { brand, logoImage: Buffer.from("<svg/>") });
+    expect(included.toString("latin1")).toContain("/Subtype /Image");
+    expect(rejected.toString("latin1")).not.toContain("/Subtype /Image");
+    expect(extractPdfText(rejected)).toContain("Canonical Builders");
+  });
+});
+
 describe("branded PDF renderers", () => {
   it("returns a valid branded invoice PDF without changing invoice semantics", async () => {
     const pdf = await renderInvoicePdf(
