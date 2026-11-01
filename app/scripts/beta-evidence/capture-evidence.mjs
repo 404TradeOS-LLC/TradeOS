@@ -730,9 +730,11 @@ try {
   await page.getByLabel("Overhead %").fill("10");
   await page.getByLabel("Tax %").fill("7");
   await page.getByRole("button", { name: "Save overhead / tax" }).click();
-  // Let the save settle so the checkpoint captures committed pricing rather
-  // than a mid-submit frame.
-  await page.waitForLoadState("networkidle");
+  // Wait for the save to land and refetch: the Athena aside's saved total
+  // moves to the priced total. A bare networkidle wait can resolve before
+  // the mutation POST/refetch starts, leaving checkpoint 04 on a pre-save
+  // frame (saved total still $5,100.00).
+  await page.getByText("$5,920.89", { exact: true }).first().waitFor({ timeout: 60_000 });
   await checkpoint("04", "estimate-pricing");
 
   // ---- 05 save / reload persistence -------------------------------------
@@ -751,11 +753,22 @@ try {
   // share is 4037.50/5100, so tax = 5610 * 0.7916667 * 0.07 = 310.89 and the
   // customer-facing total is 5920.89. These are the numbers the estimate engine
   // must produce, not merely numbers that happen to be on screen.
+  // The builder renders totalPrice (the Athena aside's "Saved estimate
+  // total") but never renders taxAmount as visible text, so the tax half of
+  // this check cannot come from body text: it comes from the authoritative
+  // API instead, the same pattern this script already uses for line costs
+  // above. The figures checked are unchanged.
   const reloadedPricingText = await page.locator("body").innerText();
+  const reloadedEstimate = await readEstimateDetail(estimateId);
   assertBusiness(
-    "pre-markup tax and total match the shipped formula",
-    reloadedPricingText.includes("$310.89") && reloadedPricingText.includes("$5,920.89"),
-    "expected the rendered tax $310.89 and total $5,920.89 after reload",
+    "pre-markup total matches the shipped formula",
+    reloadedPricingText.includes("$5,920.89"),
+    "expected the rendered total $5,920.89 after reload",
+  );
+  assertBusiness(
+    "pre-markup tax matches the shipped formula",
+    Math.abs(Number(reloadedEstimate.taxAmount) - 310.89) < 0.005,
+    `expected API taxAmount 310.89, got ${reloadedEstimate.taxAmount}`,
   );
   await checkpoint("05", "estimate-reloaded");
 
