@@ -37,10 +37,10 @@ export function resolveProjectCreateIntent(value?: string | null): ProjectCreate
   return projectCreateIntents.includes(value as ProjectCreateIntent) ? (value as ProjectCreateIntent) : null;
 }
 
-export type NewProjectCreateIntent = "estimate" | "job";
+export type NewProjectCreateIntent = "estimate" | "job" | "task";
 
 export function resolveNewProjectCreateIntent(value?: string | null): NewProjectCreateIntent | null {
-  if (value === "estimate") return "estimate";
+  if (value === "estimate" || value === "task") return value;
   return resolveProjectCreateIntent(value) === "job" ? "job" : null;
 }
 
