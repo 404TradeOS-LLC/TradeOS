@@ -63,6 +63,10 @@ related_code:
 
 # TradeOS Current State
 
+## Contractor-brand-only proposal PDF headers — implementation pending review
+
+Proposal PDF generation already resolves the authenticated organization's Brand Studio values. The proposed repair removes the unconditional large TradeOS label from both proposal PDF header variants; the opt-in `showPoweredByTradeOS` footer remains unchanged. Jest regression coverage exercises an actual PDF buffer for both white-label and opt-in states. No customer/tenant identity, proposal financial content, estimate totals, authentication or API contract changes. GitHub exact-head CI and visual PDF acceptance remain required. Existing PDFKit invoice/contract/proposal headers display the organization name and colors but do not yet embed the uploaded logo image; secure image handling remains a separate scoped follow-up.
+
 ## TradeOS Android install icon extension — dependent implementation branch
 
 A follow-up branch based on PR #843 adds 192x192 and 512x512 PNG route handlers plus a 512x512 maskable icon with a smaller safe-area mark. The web manifest points to these routes and retains the existing iPhone Apple icon. Assets are generated from the canonical entry mark. These changes are not deployed; exact-head build, route image responses, and real Android install behavior remain unverified. This branch depends on the parent branding PR and must not be merged independently before its base is integrated.
