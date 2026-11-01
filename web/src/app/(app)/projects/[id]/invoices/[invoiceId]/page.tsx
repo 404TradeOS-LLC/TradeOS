@@ -58,6 +58,9 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   // Keep this list in exact lockstep with the backend billing.write role grant.
   // page.test.ts intentionally fails if either side changes independently.
   const canRecordPayment = ["owner", "admin", "dispatcher", "estimator"].includes(settings.currentRole);
+  // The edit surface uses the same billing.write grant: the backend 403s any
+  // other role, so the link is offered only to roles that can complete it.
+  const canEditInvoice = ["owner", "admin", "dispatcher", "estimator"].includes(settings.currentRole);
   const timeline = buildInvoiceTimeline(invoice);
   const displayStatus = getInvoiceDisplayStatus(invoice);
   const paymentCount = invoice.payments.length;
@@ -225,6 +228,12 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                     <input type="hidden" name="projectId" value={projectId} />
                     <Button type="submit" className="w-full">Send invoice</Button>
                   </form>
+                ) : null}
+
+                {isDraft && canEditInvoice ? (
+                  <Link href={`/projects/${projectId}/invoices/${invoice.id}/edit`} className={buttonVariants({ variant: "outline", className: "w-full" })}>
+                    Edit invoice
+                  </Link>
                 ) : null}
 
                 {canShowPaymentEntry ? (
