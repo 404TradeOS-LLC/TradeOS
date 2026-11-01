@@ -1643,3 +1643,7 @@ Crucial boundary: the live Edge Function uses a server-side Supabase **service-r
 ## Project WorkspaceHeader convergence — PR #844
 
 PR #844 (`feat/figma-workspace-header`) proposes a responsive visual convergence of the existing project detail header with Figma master file `xImUa9CYUjx3Cb3zTrkfnY`, node `15:32`. It keeps project-specific status, current metadata, existing actions and back navigation; it introduces no shared universal header, data behavior, or persistence. The PR is open and this change is not merged or deployed.
+
+## Project edit page wiring — PR pending (2026-10-31)
+
+A staging acceptance test (2026-10-31) proved the project overview exposed no way to edit a project: the existing `EditProjectForm` (name, job type, site address, simple scope) was imported nowhere, so the established update path (`updateProjectAction` → PATCH `/api/v1/projects/:id`, requiring `crm.write` and tenant scope) was unreachable from the UI. This change wires it up without new backend work: a new `/projects/[id]/edit` page renders the existing form behind the shared `PageHeader` with breadcrumbs back to the project, an "Edit project" link appears in the lead overview header action row and in the workspace header actions, both gated on the existing write-role set (owner/admin/dispatcher/estimator) as a presentation gate only — the API independently enforces `crm.write` and tenant scope. Project status editing is intentionally out of scope; status changes keep their existing transition action. No migration, no invoice-form change.

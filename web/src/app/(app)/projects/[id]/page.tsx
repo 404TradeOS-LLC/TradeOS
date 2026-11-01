@@ -23,6 +23,9 @@ export default async function ProjectDetailPage({
     getProjectTaskAssignees(token ?? "", id).catch(() => ({ canAssign: false, members: [] })),
   ]);
   const activeTab = resolveProjectWorkspaceTab(resolvedSearchParams.tab);
+  // Presentation gate only; the PATCH /api/v1/projects/:id endpoint and the
+  // updateProjectAction independently require crm.write and tenant scope.
+  const canEditProject = ["owner", "admin", "dispatcher", "estimator"].includes(settings.currentRole);
   const estimateStartNotice = resolvedSearchParams.estimateStart === "review" ? (
     <p role="alert" className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-foreground">
       Project saved. The estimate request could not be confirmed. Check this Project’s estimates before starting another one.
@@ -46,12 +49,16 @@ export default async function ProjectDetailPage({
           estimates={project.estimates}
           siteVisits={project.siteVisits}
           projectFiles={project.projectFiles}
+          canEditProject={canEditProject}
         />
       </div>
     );
   }
 
   const actions = [
+    ...(canEditProject
+      ? [{ href: `/projects/${project.id}/edit`, label: "Edit project", variant: "secondary" as const }]
+      : []),
     ...(JOB_MANAGER_ROLES.has(settings.currentRole)
       ? [{ href: `/projects/${project.id}/jobs/new`, label: "Create job" }]
       : []),
