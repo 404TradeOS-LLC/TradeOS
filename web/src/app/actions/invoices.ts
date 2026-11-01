@@ -5,50 +5,11 @@ import { revalidatePath } from "next/cache";
 import { apiFetch, ApiClientError, Invoice } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { FormActionState } from "./customers";
-
-type ManualInvoiceLine = {
-  description: string;
-  quantity: number;
-  unitOfMeasure: string;
-  unitPrice: number;
-  lineTotal?: number;
-};
-
-function roundCurrency(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-// Mirrors the estimate path in app/modules/invoices/service.ts
-// (resolveLineItems): a progress invoice scales quantities by
-// percentComplete/100 and scales the total with them. Manual lines get the
-// same treatment so a progress invoice never persists full-priced lines
-// marked partially complete. Line totals are rounded to cents with the
-// rounding residual carried on the largest line, so the lines sum exactly
-// to the invoice total. Full invoices and invalid percentages pass through
-// untouched (the backend remains the backstop for percent validation).
-function scaleManualLinesForProgress(lines: ManualInvoiceLine[], type: string, percentComplete: string): ManualInvoiceLine[] {
-  if (type !== "progress") return lines;
-  const scale = Number(percentComplete) / 100;
-  if (!Number.isFinite(scale) || scale <= 0 || scale > 1) return lines;
-  const scaled = lines.map((line) => {
-    const quantity = line.quantity * scale;
-    return { ...line, quantity, lineTotal: roundCurrency(quantity * line.unitPrice) };
-  });
-  const amount = roundCurrency(scaled.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0));
-  const roundedTotal = roundCurrency(scaled.reduce((sum, line) => sum + (line.lineTotal ?? 0), 0));
-  const residual = roundCurrency(amount - roundedTotal);
-  if (residual !== 0) {
-    let largestIndex = 0;
-    scaled.forEach((line, index) => {
-      if ((line.lineTotal ?? 0) > (scaled[largestIndex].lineTotal ?? 0)) largestIndex = index;
-    });
-    scaled[largestIndex] = {
-      ...scaled[largestIndex],
-      lineTotal: roundCurrency((scaled[largestIndex].lineTotal ?? 0) + residual),
-    };
-  }
-  return scaled;
-}
+import {
+  parseManualLineItems,
+  scaleManualLinesForProgress,
+  type ManualInvoiceLine,
+} from "./manual-invoice-lines";
 
 export async function createInvoiceAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
   const token = await getSessionToken();
@@ -64,30 +25,14 @@ export async function createInvoiceAction(_prev: FormActionState, formData: Form
   // With no estimate selected, the invoice is built from manually entered
   // line items. The backend already accepts direct lineItems without an
   // estimateId (it throws only when both are absent), so the estimate path
-  // below is unchanged and this branch only adds the manual path.
+  // below is unchanged and this branch only adds the manual path. The
+  // parsing itself lives in manual-invoice-lines.ts, where it is executed
+  // directly by tests instead of only shape-pinned here.
   let lineItems: ManualInvoiceLine[] | undefined;
   if (!estimateId) {
-    const lineCount = Number(String(formData.get("lineCount") ?? "0"));
-    if (!Number.isFinite(lineCount) || lineCount > 100) return { error: "Add at least one line item for a manual invoice." };
-    const parsed: ManualInvoiceLine[] = [];
-    for (let index = 0; index < lineCount; index += 1) {
-      const description = String(formData.get(`lineDescription${index}`) ?? "").trim();
-      const quantityRaw = String(formData.get(`lineQuantity${index}`) ?? "").trim();
-      const unitPriceRaw = String(formData.get(`lineUnitPrice${index}`) ?? "").trim();
-      if (!description && !quantityRaw && !unitPriceRaw) continue;
-      const quantity = Number(quantityRaw);
-      const unitPrice = Number(unitPriceRaw);
-      // A blank unit price must not convert via Number("") to 0 and slip
-      // through as a silent zero-priced line. An explicit "0" stays allowed:
-      // unitPriceRaw "0" is truthy, so only a genuinely blank price is
-      // rejected here.
-      if (!description || !unitPriceRaw || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0) {
-        return { error: "Enter a description, a quantity greater than zero, and a unit price of zero or more for each line item." };
-      }
-      parsed.push({ description, quantity, unitOfMeasure: "each", unitPrice });
-    }
-    if (parsed.length === 0) return { error: "Add at least one line item for a manual invoice." };
-    lineItems = scaleManualLinesForProgress(parsed, type, percentComplete);
+    const parsed = parseManualLineItems(formData);
+    if ("error" in parsed) return { error: parsed.error };
+    lineItems = scaleManualLinesForProgress(parsed.lines, type, percentComplete);
   }
 
   let invoice: Invoice;
