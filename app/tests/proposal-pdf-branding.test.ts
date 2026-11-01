@@ -1,0 +1,65 @@
+import { inflateSync } from "node:zlib";
+
+const mockPrisma = { estimate: { findFirst: jest.fn() } };
+const mockGetDocumentBrand = jest.fn();
+
+jest.mock("../db/client", () => ({ prisma: mockPrisma }));
+jest.mock("../modules/documents/branding", () => ({ getDocumentBrand: mockGetDocumentBrand }));
+
+import { ProposalGeneratorService } from "../modules/proposal-generator/service";
+
+const brand = {
+  companyName: "Canonical Builders",
+  tagline: "Built to last",
+  logoUrl: null,
+  colors: { primary: "#202225", secondary: "#ffffff", accent: "#C98460" },
+  typography: { style: "Professional", headingFontFamily: "Helvetica", bodyFontFamily: "Helvetica", accentFontFamily: "Helvetica" },
+  websiteUrl: "", phone: "", email: "", addressLine1: "", addressLine2: "", city: "", state: "", postalCode: "",
+  licenseNumber: "", insuranceSummary: "", bondingSummary: "", serviceAreas: [], certifications: [],
+  showPoweredByTradeOS: false, showLicenseNumber: false, showInsuranceSummary: false,
+};
+
+function pdfText(pdf: Buffer): string {
+  const chunks: string[] = [];
+  let start = 0;
+  while ((start = pdf.indexOf("stream", start)) !== -1) {
+    const dataStart = pdf.indexOf(0x0a, start) + 1;
+    const end = pdf.indexOf("endstream", dataStart);
+    if (dataStart <= 0 || end < 0) break;
+    const data = pdf.subarray(dataStart, end).subarray(0, -1);
+    try {
+      const decoded = inflateSync(data).toString("latin1");
+      for (const m of decoded.matchAll(/\\[([^\\]]*)\\]\\s*TJ/g)) {
+        chunks.push(Array.from(m[1].matchAll(/<([0-9a-f]+)>/gi), (hex) => Buffer.from(hex[1], "hex").toString("latin1")).join(""));
+      }
+    } catch {}
+    start = end + 9;
+  }
+  return chunks.join("\\n");
+}
+
+describe("Proposal PDF organization branding", () => {
+  beforeEach(() => {
+    mockGetDocumentBrand.mockResolvedValue(brand);
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      version: 1, totalPrice: 3000, createdAt: new Date("2026-10-01T12:00:00Z"),
+      project: { name: "Kitchen", siteAddress: null, customer: { name: "Client", email: null }, organization: { name: "Canonical Builders" } },
+      lineItems: [{ description: "Cabinet prep", quantity: 1, unitOfMeasure: "job", lineCost: 3000 }],
+    });
+  });
+  afterEach(() => jest.clearAllMocks());
+
+  it("keeps customer-facing proposal headers contractor-branded without forced platform advertising", async () => {
+    const doc = await new ProposalGeneratorService().generateProposal({ estimateId: "est-1", orgId: "org-1", finalPrice: 3000 });
+    const text = pdfText(doc.buffer);
+    expect(text).toContain("Canonical Builders");
+    expect(text).not.toContain("TRADEOS");
+    expect(text).not.toContain("Powered by TradeOS");
+  });
+
+  it("respects the explicit powered-by setting in the proposal footer", async () => {
+    mockGetDocumentBrand.mockResolvedValue({ ...brand, showPoweredByTradeOS: true });
+    const doc = await new ProposalGeneratorService().generateProposal({ estimateId: "est-1", orgId: "org-1", finalPrice: 3000 });
+    expect(pdfText(doc.buffer)).toContain("Powered by TradeOS");
+  });
+});
