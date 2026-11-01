@@ -14,13 +14,17 @@ related_code:
 
 # API Reference
 
+## PDF logo internal private storage bridge
+
+No new API endpoints or client parameters. Existing authenticated PDF download routes now attempt to load the organization-owned `logoUrl` asset from private `SettingsAssetUpload` storage when the backend has protected `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Requests without trusted org context, absent credentials, nonmatching storage paths, bad MIME/dimensions or download errors retain the original text-only PDF. Credentials must not enter browser bundles, logs or documentation. Existing authorization and tenant-scoped query contracts are unchanged.
+
 ## PDF logo rendering internal contract
 
-PDFKit invoice, contract, and proposal functions gained optional internal `logoImage?: Buffer | null` input. It is NOT an HTTP request parameter and must never be populated from client-submitted bytes without org-scoped authorization. PNG/JPEG metadata and dimensions are bounded and invalid formats fail to text-only company branding. No externally visible route, request, response, or tenant permission contract is changed. Private Storage byte wiring remains issue #870.
+PDFKit invoice, contract, and proposal functions gained optional internal `logoImage?: Buffer | null` input. It is NOT an HTTP request parameter and must never be populated from client-submitted bytes without org-scoped authorization. PNG/JPEG metadata and dimensions are bounded and invalid formats fail to text-only company branding. No externally visible route, request, response, or tenant permission contract is changed. Private Storage byte wiring is implemented in PR #873; issue #870 remains open for protected staging credentials and tenant PDF acceptance.
 
 ## Proposal PDF presentation-only brand correction — PR #868
 
-Existing proposal PDF generation endpoints and request/response contracts are unchanged. Generated PDF headers use the authenticated organization's Brand Studio name and colors, and no longer print an unconditional platform TRADEOS wordmark. The optional `showPoweredByTradeOS` footer remains under existing organization document settings. No new parameters, authorization changes, or new endpoints are introduced. PDF attachment/body and tenant-specific logo embedding are unchanged; uploaded logos are not yet rendered in PDFKit outputs.
+Existing proposal PDF generation endpoints and request/response contracts are unchanged. Generated PDF headers use the authenticated organization's Brand Studio name and colors, and no longer print an unconditional platform TRADEOS wordmark. The optional `showPoweredByTradeOS` footer remains under existing organization document settings. No new parameters, authorization changes, or new endpoints are introduced. PDF attachment/body and tenant-specific logo embedding are unchanged; PDFKit supports bounded logo image bytes, but staging has no current logo record and protected backend credentials remain unverified.
 
 ## Openings/appliance assembly API addendum (PR #774, pending)
 

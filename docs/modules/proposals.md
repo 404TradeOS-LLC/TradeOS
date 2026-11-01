@@ -11,15 +11,19 @@ related_code:
   - web/src/app/(app)/projects/[id]/proposals
 ---
 
-## Contractor-brand proposal PDF header — implementation branch
+## Contractor-brand proposal PDF header — merged PR #868
 
-Proposed PDF fix removes the unconditional `TRADEOS` header label from both estimate-backed and project proposal PDFs. Brand Studio organization name/colors and the controlled `showPoweredByTradeOS` footer remain authoritative. Regression tests inspect PDF output with the setting disabled and enabled. Actual uploaded organization logos are not yet embedded in PDFKit outputs; safe rendering/asset handling needs separate implementation and verification.
+Proposed PDF fix removes the unconditional `TRADEOS` header label from both estimate-backed and project proposal PDFs. Brand Studio organization name/colors and the controlled `showPoweredByTradeOS` footer remain authoritative. Regression tests inspect PDF output with the setting disabled and enabled. The PDFKit renderer supports trusted image bytes and PR #873 implements private Storage retrieval. Live uploaded-logo rendering remains pending staged acceptance.
 
 # Proposals
 
+## Contractor proposal PDF logo from authenticated private storage
+
+A proposed internal loader optionally supplies the authenticated organization's current private logo PNG/JPEG bytes to both estimate-backed and project-backed PDF generators. This does not add a request parameter or change proposal amounts, states or permissions. Missing/malformed images retain company-name text and existing optional platform footer. Real tenant PDF visual acceptance remains required.
+
 ## Optional validated logo bytes for proposal PDF headers
 
-Estimate-backed and project-backed PDF renderers accept optional validated PNG/JPEG byte input from a future authenticated tenant-owned storage bridge. The source-facing service still uses organization branding and does not fetch external URLs. Missing bytes preserve text-only branding and the controlled `showPoweredByTradeOS` footer. API contract, proposal pricing, and state transitions are unchanged. Issue #870 owns the remaining secure loader.
+Estimate-backed and project-backed PDF renderers accept optional validated PNG/JPEG byte input from the implemented authenticated tenant-owned Storage loader. The source-facing service now attempts private organization-scoped Storage retrieval with protected backend credentials and does not fetch arbitrary external URLs. Missing bytes preserve text-only branding and the controlled `showPoweredByTradeOS` footer. API contract, proposal pricing, and state transitions are unchanged. Issue #870 owns remaining staging credential and customer-PDF visual acceptance.
 
 
 # Proposals

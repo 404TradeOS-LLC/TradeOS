@@ -63,19 +63,23 @@ related_code:
 
 # TradeOS Current State
 
-## PDFKit trusted-logo byte rendering — implementation pending review
+## Authenticated private contractor-logo loading for PDFs — pending release
 
-A new no-network PDF rendering helper validates bounded PNG/JPEG bytes (1 MiB, 2048px max edge, 2 MP max area) and draws them in invoice, contract, and proposal header slots. Malformed/unsafe inputs fall back to the contractor's company-name text. Tests cover image embedding and rejected payloads. **Not wired to production asset retrieval:** Brand Studio's private SettingsAssetUpload record is managed by the web server, while backend PDF generation receives a URL. No public, arbitrary-URL, or privileged Storage download is added; authenticated per-organization byte loading, hosted acceptance, and visual PDF review remain open under issue #870.
+A proposed backend service reads the active `SettingsAssetUpload` row for the already-authenticated organization and only the `logoUrl` slot. It rejects cross-tenant paths and MIME mismatches before a bounded, no-redirect Supabase Storage download from the private `project-files` bucket. Only PNG/JPEG bytes within 1 MiB and PDFKit pixel limits reach invoice/contract/proposal renderers. Missing credentials or unsafe images produce the existing company-name PDF rather than errors. Backend `SUPABASE_SERVICE_ROLE_KEY` must be provisioned as a protected server-only secret by the environment owner; metadata access is still subject to existing request-scoped RLS. No production secret was read or provisioned and no actual customer PDF acceptance is claimed. Issue #870 remains open until authenticated staging visual verification, environment provenance and output checks pass.
 
-## Contractor-brand-only proposal PDF headers — implementation pending review
+## PDFKit trusted-logo byte rendering — merged primitive; storage bridge pending acceptance
 
-Proposal PDF generation already resolves the authenticated organization's Brand Studio values. The proposed repair removes the unconditional large TradeOS label from both proposal PDF header variants; the opt-in `showPoweredByTradeOS` footer remains unchanged. Jest regression coverage exercises an actual PDF buffer for both white-label and opt-in states. No customer/tenant identity, proposal financial content, estimate totals, authentication or API contract changes. GitHub exact-head CI and visual PDF acceptance remain required. Existing PDFKit invoice/contract/proposal headers display the organization name and colors but do not yet embed the uploaded logo image; secure image handling remains a separate scoped follow-up.
+A new no-network PDF rendering helper validates bounded PNG/JPEG bytes (1 MiB, 2048px max edge, 2 MP max area) and draws them in invoice, contract, and proposal header slots. Malformed/unsafe inputs fall back to the contractor's company-name text. Tests cover image embedding and rejected payloads. PR #873 implements the organization-scoped private Storage byte reader, enabled only with protected backend credentials. No public bucket or arbitrary URL fetch is added. Staging credential provenance, seeded same-tenant image, cross-tenant tests, and PDF visual acceptance remain open under issue #870.
 
-## Next.js starter-asset cleanup — implementation pending review
+## Contractor-brand-only proposal PDF headers — merged PR #868
+
+Proposal PDF generation already resolves the authenticated organization's Brand Studio values. The proposed repair removes the unconditional large TradeOS label from both proposal PDF header variants; the opt-in `showPoweredByTradeOS` footer remains unchanged. Jest regression coverage exercises an actual PDF buffer for both white-label and opt-in states. No customer/tenant identity, proposal financial content, estimate totals, authentication or API contract changes. GitHub exact-head CI and visual PDF acceptance remain required. The renderer supports bounded logo bytes and PR #873 adds the org-scoped loader. Live uploaded-image appearance remains unverified because staging has no active logo asset.
+
+## Next.js starter-asset cleanup — merged PR #869
 
 The proposed brand cleanup deletes only the five unused starter SVGs under `web/public/`: `vercel.svg`, `next.svg`, `file.svg`, `globe.svg` and `window.svg`. A repository code search found no references to these filenames in application source; canonical TradeOS entry SVGs, browser/iPhone icon routes, Android icon routes, and the manifest are preserved. This is not a removal of the Vercel hosting integration or Vercel Speed Insights. Exact-head CI, deployed route regression checks, and review remain release gates. No production deletion or deployment is claimed.
 
-## Transactional email platform branding — implementation branch
+## Transactional email platform branding — merged PR #847
 
 Security, team invitation and customer portal access email HTML now uses one graphite/copper TradeOS platform shell, while existing copy, one-time URLs, expiration notices, plain-text alternatives and delivery idempotency remain unchanged. Customer document branding remains organization-specific and is not modified. Unit coverage for the shell is added; hosted tests, email-client rendering and provider-delivery checks remain separate gates. No deployment or delivery certification is claimed.
 
