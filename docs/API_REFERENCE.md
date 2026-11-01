@@ -831,6 +831,11 @@ BrandDocumentSettings for the server-derived organization. Company identity,
 contact details, safe colors, and configured trust-signal visibility are
 presentation inputs only; caller-supplied company names cannot override
 persisted organization branding when authenticated context is available.
+Download filenames in the `Content-Disposition` header are sanitized to
+printable ASCII (`sanitizeDownloadFilename`): project names containing
+non-Latin-1 characters (for example an em-dash) previously made Node reject
+the header value after rendering and surface as a 500; the rendered PDF,
+routes, and permissions are unchanged.
 
 ## Costbook continuation API additions
 
