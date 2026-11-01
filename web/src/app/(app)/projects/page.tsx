@@ -48,7 +48,7 @@ export default async function ProjectsPage({
         Create the project first
       </Link>
     ) : intent === "task" ? (
-      <Link href="/projects/new" className={buttonVariants()}>
+      <Link href="/projects/new?intent=task" className={buttonVariants()}>
         Create a project for tasks
       </Link>
     ) : (
@@ -65,7 +65,7 @@ export default async function ProjectsPage({
         : intent === "job"
           ? "A field Job belongs to a Project and Customer. Create that Project first, then TradeOS will continue directly into Job creation."
           : intent === "task"
-            ? "Tasks belong to a Project. Create a Project, then open its Tasks tab to add the work that needs doing."
+            ? "Tasks belong to a Project. Create a Project, then TradeOS will open its task form without creating a Task automatically."
           : "Create the first Project so TradeOS can carry the work from field intake through estimating, proposal, contract, invoicing, and closeout.";
 
   return (
