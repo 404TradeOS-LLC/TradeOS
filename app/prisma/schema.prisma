@@ -1114,6 +1114,8 @@ model Job {
   customerId               String   @map("customer_id")
   serviceAddressId         String   @map("service_address_id")
   jobNumber                String   @map("job_number")
+  sourceProposalId         String?  @unique @map("source_proposal_id")
+  acceptedBaselineJson     Json?    @map("accepted_baseline_json")
   title                    String
   description              String   @default("")
   jobType                  String   @map("job_type")
