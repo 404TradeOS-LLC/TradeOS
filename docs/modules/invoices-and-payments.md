@@ -18,6 +18,10 @@ related_code:
 
 # Invoices and Payments
 
+## Organization logo in invoice PDFs
+
+The internal invoice PDF service optionally loads the active logo asset belonging to its authenticated organization using private Storage metadata and validated bytes. It does not change invoices, prices, payment records or client-facing API contracts. Missing or disallowed logo files preserve text-only organization identity. Production PDF output needs authenticated staging verification and a server-only key.
+
 ## Invoice PDF logo byte rendering
 
 The PDFKit invoice renderer supports an optional validated trusted PNG/JPEG image byte buffer without changing financial totals, invoice status or payment semantics. The source must come from an authenticated organization's private asset storage, not an arbitrary URL. Production byte retrieval is not yet connected; text-only company branding remains the fallback until issue #870 is completed.
