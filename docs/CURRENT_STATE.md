@@ -1639,3 +1639,8 @@ workflow or deployment settings. New-head hosted checks remain required.
 The founder directed #810 ready for review; staging binding attestation,
 API-first #837 promotion, matching web deployment, authenticated step-9 and
 release review still gate release. Undrafting does not certify acceptance.
+
+### Manual invoice creation without an estimate — 2026-10-31 (unmerged branch)
+
+The 2026-10-31 staging acceptance test proved the new-invoice UI could not create an invoice without a finalized estimate: the form's Estimate select was `required` (browser native validation: "Please select an item in the list.") and `createInvoiceAction` returned "Select an estimate to bill against." when `estimateId` was empty. The backend already accepted direct `lineItems` without an `estimateId` (controller `createSchema` leaves both optional; the service throws only when both are absent), so no backend, migration, or schema change was needed. The web fix makes the Estimate select optional ("No estimate — manual invoice") and, when no estimate is selected, renders a manual line-item editor (description, quantity, unit price; unit of measure defaults to "each") whose rows the server action validates (at least one complete line, quantity greater than zero, unit price zero or more, max 100 lines) before posting `lineItems` with no `estimateId`. The bill-against-estimate path, including accepted-proposal pricing and progress-invoice percent-complete validation, is unchanged. This is a web-only change; it does not create any customer, job, or invoice record by itself and is not evidence of deployment.
+

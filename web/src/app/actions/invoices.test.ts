@@ -17,6 +17,56 @@ function readInvoicesActionsSource(): string {
   return fs.readFileSync(path.join(here, "invoices.ts"), "utf8");
 }
 
+function readCreateInvoiceActionSource(): string {
+  const source = readInvoicesActionsSource();
+  const start = source.indexOf("export async function createInvoiceAction");
+  assert.notEqual(start, -1, "expected createInvoiceAction to exist");
+  const next = source.indexOf("export async function ", start + 1);
+  return source.slice(start, next === -1 ? undefined : next);
+}
+
+test("createInvoiceAction no longer requires an estimate before calling the API", () => {
+  const fnSource = readCreateInvoiceActionSource();
+  assert.ok(!fnSource.includes("Select an estimate to bill against."), "the estimate-required guard must be gone");
+});
+
+test("createInvoiceAction builds manual line items from indexed form fields when no estimate is selected", () => {
+  const fnSource = readCreateInvoiceActionSource();
+  const apiCallIndex = fnSource.indexOf("apiFetch");
+  assert.notEqual(apiCallIndex, -1, "expected a call to apiFetch");
+  for (const field of ["lineCount", "lineDescription", "lineQuantity", "lineUnitPrice"]) {
+    const fieldIndex = fnSource.indexOf(field);
+    assert.notEqual(fieldIndex, -1, `expected the manual ${field} form field to be parsed`);
+    assert.ok(fieldIndex < apiCallIndex, `the ${field} parsing must run before the API call`);
+  }
+  assert.match(fnSource, /lineItems,/);
+  assert.match(fnSource, /estimateId:\s*estimateId \|\| undefined/);
+});
+
+test("createInvoiceAction requires at least one valid manual line item when no estimate is selected", () => {
+  const fnSource = readCreateInvoiceActionSource();
+  const apiCallIndex = fnSource.indexOf("apiFetch");
+  const guardIndex = fnSource.indexOf("Add at least one line item for a manual invoice.");
+  assert.notEqual(guardIndex, -1, "expected a manual line-item required guard");
+  assert.ok(guardIndex < apiCallIndex, "the line-item guard must run before the API call");
+});
+
+test("createInvoiceAction validates manual line quantity and unit price before calling the API", () => {
+  const fnSource = readCreateInvoiceActionSource();
+  const apiCallIndex = fnSource.indexOf("apiFetch");
+  const guardIndex = fnSource.indexOf("Enter a description, a quantity greater than zero, and a unit price of zero or more for each line item.");
+  assert.notEqual(guardIndex, -1, "expected a manual line-item validation guard");
+  assert.ok(guardIndex < apiCallIndex, "the line-item validation must run before the API call");
+  assert.match(fnSource, /quantity <= 0/);
+  assert.match(fnSource, /unitPrice < 0/);
+});
+
+test("createInvoiceAction keeps the bill-against-estimate path intact", () => {
+  const fnSource = readCreateInvoiceActionSource();
+  assert.match(fnSource, /proposalId:\s*estimateId && proposalId \? proposalId : undefined/);
+  assert.match(fnSource, /Enter a percent complete for a progress invoice\./);
+});
+
 function readRecordInvoicePaymentActionSource(): string {
   const source = readInvoicesActionsSource();
   const start = source.indexOf("export async function recordInvoicePaymentAction");
@@ -28,7 +78,7 @@ function readRecordInvoicePaymentActionSource(): string {
 test("recordInvoicePaymentAction rejects a non-positive or missing amount before calling the API", () => {
   const fnSource = readRecordInvoicePaymentActionSource();
   const guardIndex = fnSource.indexOf("if (!Number.isFinite(amount) || amount <= 0)");
-  const apiCallIndex = fnSource.indexOf("apiFetch(");
+  const apiCallIndex = fnSource.indexOf("apiFetch");
   assert.notEqual(guardIndex, -1, "expected an amount > 0 guard");
   assert.notEqual(apiCallIndex, -1, "expected a call to apiFetch");
   assert.ok(guardIndex < apiCallIndex, "the amount guard must run before the API call");
@@ -36,7 +86,7 @@ test("recordInvoicePaymentAction rejects a non-positive or missing amount before
 
 test("recordInvoicePaymentAction requires a payment date and a method before calling the API", () => {
   const fnSource = readRecordInvoicePaymentActionSource();
-  const apiCallIndex = fnSource.indexOf("apiFetch(");
+  const apiCallIndex = fnSource.indexOf("apiFetch");
 
   const dateGuardIndex = fnSource.indexOf("if (!paymentDate)");
   const methodGuardIndex = fnSource.indexOf("if (!method)");
@@ -67,7 +117,7 @@ test("recordInvoicePaymentAction surfaces the backend's ApiClientError message i
 
 test("recordInvoicePaymentAction revalidates and redirects back to the invoice detail page only after a successful payment", () => {
   const fnSource = readRecordInvoicePaymentActionSource();
-  const apiCallIndex = fnSource.indexOf("apiFetch(");
+  const apiCallIndex = fnSource.indexOf("apiFetch");
   const afterApiCall = fnSource.slice(apiCallIndex);
 
   // revalidatePath/redirect must appear after the try/catch, not inside it,
