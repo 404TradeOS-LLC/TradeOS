@@ -1,11 +1,11 @@
-import assert from "node:assert/strict";
-import test from "node:test";
 import { renderTradeOsEmail } from "../modules/email/brand";
 
-test("email brand shell preserves escaped content and uses canonical branding", () => {
-  const html = renderTradeOsEmail("<p>Secure &amp; private</p>");
-  assert.match(html, /TradeOS/);
-  assert.match(html, /BUILT FOR WHAT YOU BUILD/);
-  assert.match(html, /<p>Secure &amp; private<\/p>/);
-  assert.match(html, /#202225/);
+describe("TradeOS transactional email branding", () => {
+  it("preserves escaped content and uses the platform's canonical brand", () => {
+    const html = renderTradeOsEmail("<p>Secure &amp; private</p>");
+    expect(html).toContain("TradeOS");
+    expect(html).toContain("BUILT FOR WHAT YOU BUILD");
+    expect(html).toContain("<p>Secure &amp; private</p>");
+    expect(html).toContain("#202225");
+  });
 });
