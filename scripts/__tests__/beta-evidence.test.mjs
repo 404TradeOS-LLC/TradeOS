@@ -483,6 +483,14 @@ test("post-markup rendered total settles on Review before it is asserted", () =>
   assert.ok(reviewNav < settle && settle < totalAssert, "expected the settle wait between the markup Review navigation and the post-markup total assertion");
   assert.match(markupBlock.slice(settle, totalAssert), /\$7,105\.07/);
   assert.doesNotMatch(markupBlock.slice(reviewNav, settle), /innerText\(\)/);
+  // The ordering check alone would still pass if the wait lost its
+  // `await` (the following read would then race the refetch again), so
+  // pin the awaited call itself.
+  assert.match(
+    markupBlock.slice(reviewNav, settle + "waitForFunction".length),
+    /await\s+page\.waitForFunction/,
+    "expected the settle wait to be awaited",
+  );
 });
 
 test("beta capture waits for the persisted Customer UUID rather than matching /customers/new", () => {
