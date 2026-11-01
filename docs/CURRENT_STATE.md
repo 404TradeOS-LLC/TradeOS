@@ -63,6 +63,10 @@ related_code:
 
 # TradeOS Current State
 
+## TradeOS Android install icon extension — dependent implementation branch
+
+A follow-up branch based on PR #843 adds 192x192 and 512x512 PNG route handlers plus a 512x512 maskable icon with a smaller safe-area mark. The web manifest points to these routes and retains the existing iPhone Apple icon. Assets are generated from the canonical entry mark. These changes are not deployed; exact-head build, route image responses, and real Android install behavior remain unverified. This branch depends on the parent branding PR and must not be merged independently before its base is integrated.
+
 ## TradeOS browser and installed-app branding — PR #843, 2026-10-31
 
 The proposed frontend change replaces the generic dashboard-header chevron with the existing cinematic-entry TradeOS vector mark. It adds Next.js metadata icon routes (`/icon` and `/apple-icon`) and a web manifest (`/manifest.webmanifest`) using graphite/copper branding. The default `web/src/app/favicon.ico` has been deleted to avoid overriding the TradeOS icon in browser tabs. No backend, tenant permissions, financial data, or schema changes are included.
