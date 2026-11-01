@@ -91,6 +91,7 @@ try {
 }
 let failure = null;
 let failureDiagnostics = null;
+let failureBodyText = null;
 let context;
 let page;
 
@@ -791,6 +792,18 @@ try {
   // stays a rendered-text check on Review, where the Estimate total row
   // renders at every width.
   await navigateEstimateStage("Review");
+  // The builder learns about the markup save only via the mutation's
+  // onSuccess -> invalidate -> async React Query refetch + re-render, and
+  // stage navigation only awaits aria-current, not the refetched data. A
+  // bare innerText read here races that refetch and sees the stale
+  // pre-markup snapshot ($5,920.89). Settle on the visible rendered text
+  // first: innerText excludes hidden elements, and Review is the visible
+  // stage at this point, so this cannot pin the hidden-match hazard that
+  // the old getByText(...).first() waits hit.
+  await page.waitForFunction(
+    () => document.body.innerText.includes("$7,105.07"),
+    { timeout: 30_000 },
+  );
   const markedUpPricingText = await page.locator("body").innerText();
   assertBusiness(
     "post-markup total matches the shipped formula",
@@ -877,6 +890,15 @@ try {
   );
 } catch (error) {
   failure = error;
+  // Snapshot the visible body text while the page still exists, so a
+  // business-assertion failure is directly observable in the report
+  // instead of inferred from mechanism. Guarded and time-bounded: the
+  // page may already be gone for early failures.
+  try {
+    if (page) failureBodyText = await page.locator("body").innerText({ timeout: 5_000 });
+  } catch {
+    // Page unavailable; the assertion detail carries the failure.
+  }
 } finally {
   if (context) await context.close();
   await browser.close();
@@ -895,6 +917,7 @@ try {
         consoleErrors,
         failedRequests,
         failureDiagnostics,
+        failureBodyText,
         result: failure ? "FAIL" : "PASS",
         error: failure instanceof Error ? failure.message : null,
       },
@@ -913,6 +936,11 @@ if (failure) {
   if (failureDiagnostics) {
     console.error(
       `::error::estimate entry diagnostics: ${JSON.stringify(failureDiagnostics)}`,
+    );
+  }
+  if (failureBodyText) {
+    console.error(
+      `::error::visible body text at failure: ${failureBodyText.slice(0, 2000)}`,
     );
   }
   process.exit(1);
