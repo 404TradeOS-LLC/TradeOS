@@ -63,6 +63,12 @@ related_code:
 
 # TradeOS Current State
 
+## TradeOS browser and installed-app branding — PR #843, 2026-10-31
+
+The proposed frontend change replaces the generic dashboard-header chevron with the existing cinematic-entry TradeOS vector mark. It adds Next.js metadata icon routes (`/icon` and `/apple-icon`) and a web manifest (`/manifest.webmanifest`) using graphite/copper branding. The default `web/src/app/favicon.ico` has been deleted to avoid overriding the TradeOS icon in browser tabs. No backend, tenant permissions, financial data, or schema changes are included.
+
+This is proposed code, not deployed or certified behavior. Required final-head frontend lint/typecheck/build and repository checks, deployed browser favicon rendering, and iPhone Safari Add to Home Screen validation remain release gates. Existing iOS shortcuts may cache an old icon and require recreation. Android maskable icon assets, social preview metadata/artwork, and document/email brand consistency remain separate follow-up work.
+
 ## Frozen Apply recovery — 2026-10-31
 
 Full review now retains one Apply payload across an unconfirmed response, blocks concurrent edits/generation and ignores obsolete-record callbacks. A first-attempt known server refusal permits correction; a later refusal cannot erase uncertainty from an earlier lost response. See [AI Estimate Assist](modules/ai-estimate-assist.md#frozen-apply-recovery--2026-10-31) for the owning contract and verification boundaries. Saved-line identity, authenticated acceptance and financial fixture continuity remain separate gates; no full-workflow or deployment certification is claimed.
