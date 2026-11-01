@@ -75,3 +75,11 @@ test("the payment form is gated on billing.write, positive balance, and an eligi
   assert.match(source, /const canShowPaymentEntry =\s*canRecordPayment &&\s*hasOpenBalance &&\s*\(invoice\.status === "sent" \|\| invoice\.status === "overdue"\);/);
   assert.match(source, /canShowPaymentEntry \? \(\s*<RecordPaymentForm/);
 });
+
+test("the invoice detail page offers an edit link only for drafts to billing.write roles", () => {
+  const source = readPageSource();
+  assert.match(source, /const canEditInvoice = \["owner", "admin", "dispatcher", "estimator"\]\.includes\(settings\.currentRole\);/);
+  assert.match(source, /isDraft && canEditInvoice \? \(/);
+  assert.match(source, /\/invoices\/\$\{invoice\.id\}\/edit/);
+  assert.match(source, /Edit invoice/);
+});

@@ -15,6 +15,10 @@ const mockPrisma = {
     findFirst: jest.fn(),
     update: jest.fn(),
   },
+  invoiceLineItem: {
+    deleteMany: jest.fn(),
+    createMany: jest.fn(),
+  },
   invoiceDelivery: {
     create: jest.fn(),
   },
@@ -597,6 +601,157 @@ describe("InvoicesService", () => {
       status: "overdue",
       paidAmount: 400,
       balanceDue: 600,
+    });
+  });
+
+  describe("update", () => {
+    function draftRow(overrides: Record<string, unknown> = {}) {
+      return {
+        id: "invoice-1",
+        projectId: "project-1",
+        estimateId: null,
+        proposalId: null,
+        invoiceNumber: 1,
+        type: "full",
+        status: "draft",
+        percentComplete: null,
+        amount: 150,
+        subtotal: 150,
+        taxPct: 0,
+        taxAmount: 0,
+        dueDate: null,
+        sentAt: null,
+        paidAt: null,
+        createdAt: new Date(),
+        project: { orgId: "org-1", customer: { email: "billing@example.com" } },
+        deliveries: [],
+        ...overrides,
+      };
+    }
+
+    function updatedRow(overrides: Record<string, unknown> = {}) {
+      return {
+        ...draftRow(),
+        lineItems: [],
+        payments: [],
+        deliveries: [],
+        ...overrides,
+      };
+    }
+
+    it("replaces lines and recomputes the total when a manual full draft is edited", async () => {
+      mockPrisma.invoice.findFirst
+        .mockResolvedValueOnce(draftRow())
+        .mockResolvedValueOnce(
+          updatedRow({
+            amount: 200,
+            subtotal: 200,
+            dueDate: new Date("2026-12-01"),
+            lineItems: [{ id: "li-2", description: "Revised scope", quantity: 1, unitOfMeasure: "each", unitPrice: 200, lineTotal: 200, sortOrder: 0 }],
+          })
+        );
+      mockPrisma.invoice.update.mockResolvedValue({});
+
+      const invoice = await new InvoicesService().update({
+        id: "invoice-1",
+        orgId: "org-1",
+        actorUserId: "user-1",
+        actorRole: "admin",
+        lineItems: [{ description: "Revised scope", quantity: 1, unitOfMeasure: "each", unitPrice: 200 }],
+        dueDate: "2026-12-01",
+      });
+
+      expect(mockPrisma.invoiceLineItem.deleteMany).toHaveBeenCalledWith({ where: { invoiceId: "invoice-1" } });
+      expect(mockPrisma.invoiceLineItem.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({ description: "Revised scope", quantity: 1, unitPrice: 200, lineTotal: 200, sortOrder: 0 }),
+        ],
+      });
+      expect(mockPrisma.invoice.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "invoice-1" }, data: expect.objectContaining({ amount: 200, subtotal: 200, taxPct: 0, taxAmount: 0 }) })
+      );
+      expect(mockPrisma.invoiceDelivery.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ eventType: "invoice.updated", actorUserId: "user-1" }) })
+      );
+      expect(invoice.amount).toBe(200);
+    });
+
+    it("rejects editing an invoice that has left draft", async () => {
+      mockPrisma.invoice.findFirst.mockResolvedValue(draftRow({ status: "sent" }));
+
+      await expect(
+        new InvoicesService().update({ id: "invoice-1", orgId: "org-1", actorRole: "admin", dueDate: "2026-12-01" })
+      ).rejects.toThrow("leaves draft");
+      expect(mockPrisma.invoiceLineItem.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it("rejects line replacement on an estimate-linked draft", async () => {
+      mockPrisma.invoice.findFirst.mockResolvedValue(draftRow({ estimateId: "estimate-1" }));
+
+      await expect(
+        new InvoicesService().update({
+          id: "invoice-1",
+          orgId: "org-1",
+          actorRole: "admin",
+          lineItems: [{ description: "Changed", quantity: 1, unitOfMeasure: "each", unitPrice: 10 }],
+        })
+      ).rejects.toThrow("priced from an estimate");
+    });
+
+    it("rejects line replacement on a progress draft", async () => {
+      mockPrisma.invoice.findFirst.mockResolvedValue(draftRow({ type: "progress", percentComplete: 25 }));
+
+      await expect(
+        new InvoicesService().update({
+          id: "invoice-1",
+          orgId: "org-1",
+          actorRole: "admin",
+          lineItems: [{ description: "Changed", quantity: 1, unitOfMeasure: "each", unitPrice: 10 }],
+        })
+      ).rejects.toThrow("progress invoice");
+    });
+
+    it("edits only the due date when no lines are supplied", async () => {
+      mockPrisma.invoice.findFirst
+        .mockResolvedValueOnce(draftRow())
+        .mockResolvedValueOnce(updatedRow({ dueDate: new Date("2026-12-15") }));
+      mockPrisma.invoice.update.mockResolvedValue({});
+
+      const invoice = await new InvoicesService().update({ id: "invoice-1", orgId: "org-1", actorRole: "admin", dueDate: "2026-12-15" });
+
+      expect(mockPrisma.invoiceLineItem.deleteMany).not.toHaveBeenCalled();
+      expect(mockPrisma.invoiceLineItem.createMany).not.toHaveBeenCalled();
+      expect(mockPrisma.invoice.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.not.objectContaining({ amount: expect.anything() }) })
+      );
+      expect(invoice.amount).toBe(150);
+    });
+
+    it("clears the due date when null is supplied", async () => {
+      mockPrisma.invoice.findFirst
+        .mockResolvedValueOnce(draftRow({ dueDate: new Date("2026-12-01") }))
+        .mockResolvedValueOnce(updatedRow({ dueDate: null }));
+      mockPrisma.invoice.update.mockResolvedValue({});
+
+      await new InvoicesService().update({ id: "invoice-1", orgId: "org-1", actorRole: "admin", dueDate: null });
+
+      expect(mockPrisma.invoice.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ dueDate: null }) }));
+    });
+
+    it("rejects an update that changes nothing", async () => {
+      mockPrisma.invoice.findFirst.mockResolvedValue(draftRow());
+
+      await expect(new InvoicesService().update({ id: "invoice-1", orgId: "org-1", actorRole: "admin" })).rejects.toThrow(
+        "Nothing to update"
+      );
+      expect(mockPrisma.invoice.update).not.toHaveBeenCalled();
+      expect(mockPrisma.invoiceDelivery.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects invoice updates for roles without billing.write", async () => {
+      await expect(
+        new InvoicesService().update({ id: "invoice-1", orgId: "org-1", actorRole: "technician", dueDate: "2026-12-01" })
+      ).rejects.toThrow("manage invoices");
     });
   });
 });
