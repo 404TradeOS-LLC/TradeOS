@@ -36,6 +36,11 @@ const createSchema = z.object({
   lineItems: z.array(lineItemSchema).optional(),
 });
 
+const updateSchema = z.object({
+  lineItems: z.array(lineItemSchema).min(1).optional(),
+  dueDate: z.string().nullable().optional(),
+});
+
 export const invoicesController = {
   async listByProject(req: Request, res: Response) {
     requirePermissions(req, ["billing.read"]);
@@ -66,6 +71,13 @@ export const invoicesController = {
   async create(req: Request, res: Response) {
     const auth = requireAuthContext(req);
     res.status(201).json(await service.create({ ...createSchema.parse(req.body), orgId: requireOrgId(req), actorUserId: auth.userId, actorRole: auth.role }));
+  },
+  async update(req: Request, res: Response) {
+    const auth = requireAuthContext(req);
+    const body = updateSchema.parse(req.body);
+    res.json(
+      await service.update({ id: req.params.id, orgId: requireOrgId(req), actorUserId: auth.userId, actorRole: auth.role, ...body })
+    );
   },
   async getPdf(req: Request, res: Response) {
     requirePermissions(req, ["billing.read"]);

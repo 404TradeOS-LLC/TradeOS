@@ -48,6 +48,7 @@ Own invoice creation, send and pay state changes, voiding, line items, delivery 
 - `GET /api/v1/invoices` — organization-scoped work-queue read (see below)
 - `GET /api/v1/invoices/:id` — organization-scoped invoice detail with recorded payment history and server-derived `paidAmount`/`balanceDue`
 - `POST /api/v1/invoices/:id/void` — voids a non-paid invoice; persistence uses the database-compatible raw status `void`, while normalized UI/activity semantics remain canonical `voided`
+- `PATCH /api/v1/invoices/:id` — draft-only invoice edit (`InvoicesService.update`): replaces line items and recomputes the total for manual (estimate-less) full drafts, or edits only the due date for progress and estimate-linked drafts; requires `billing.write` and organization scope, 409 otherwise
 - `/api/v1/invoices/:id/payments`
 - `GET /api/v1/payments/current-week` — read-only organization-scoped ledger of `recorded` Payment rows in the current organization week, with invoice/project/customer context and organization-timezone-aware boundaries
 
@@ -111,6 +112,7 @@ Invoice DTOs and queue items derive `overdue` from a non-terminal sent/viewed/pa
 
 - `/projects/[id]/invoices/new`
 - `/projects/[id]/invoices/[invoiceId]` — canonical contractor Invoice workspace
+- `/projects/[id]/invoices/[invoiceId]/edit` — draft-only invoice edit: full line editing for manual full drafts, due-date-only editing with an explanatory note for progress and estimate-linked drafts; the detail page offers the link only for drafts to `billing.write` roles
 - `/dashboard/revenue-this-week` — transaction-level weekly payment ledger; each row links back to its invoice
 - `/portal/invoices/[invoiceId]`
 - `/customer-portal/invoices/[invoiceId]`
@@ -146,6 +148,7 @@ payment reconciliation, and organization/RLS boundaries are unchanged.
 ## Tests
 
 - `app/tests/invoices.service.test.ts`
+- `app/tests/invoices.controller.update.test.ts` — PATCH update authorization, payload forwarding, and validation
 - `app/tests/crm.service.test.ts` — payment validation, recorded-payment aggregation, partial-payment derivation, and payment-triggered paid reconciliation
 - `app/tests/invoices.void.test.ts` — regression coverage for raw `void` persistence plus canonical `invoice.voided` delivery/activity metadata
 - `app/tests/payments.service.test.ts`

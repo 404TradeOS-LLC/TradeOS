@@ -155,6 +155,37 @@ test("recordInvoicePaymentAction posts to the invoice payments endpoint with the
   assert.match(fnSource, /notes:\s*notes\s*\|\|\s*undefined/);
 });
 
+function readUpdateInvoiceActionSource(): string {
+  const source = readInvoicesActionsSource();
+  const start = source.indexOf("export async function updateInvoiceAction");
+  assert.notEqual(start, -1, "expected updateInvoiceAction to exist");
+  const next = source.indexOf("export async function ", start + 1);
+  return source.slice(start, next === -1 ? undefined : next);
+}
+
+test("updateInvoiceAction parses manual lines only in lines mode and PATCHes the invoice", () => {
+  const fnSource = readUpdateInvoiceActionSource();
+  assert.match(fnSource, /if \(editMode === "lines"\) \{/);
+  assert.match(fnSource, /parseManualLineItems\(formData\)/);
+  assert.match(fnSource, /apiFetch\(`\/api\/v1\/invoices\/\$\{invoiceId\}`/);
+  assert.match(fnSource, /method:\s*"PATCH"/);
+});
+
+test("updateInvoiceAction sends a blank due date as null so it can be cleared", () => {
+  const fnSource = readUpdateInvoiceActionSource();
+  assert.match(fnSource, /dueDate:\s*dueDate \|\| null/);
+});
+
+test("updateInvoiceAction revalidates and redirects back to the invoice detail page only after a successful edit", () => {
+  const fnSource = readUpdateInvoiceActionSource();
+  const apiCallIndex = fnSource.indexOf("apiFetch");
+  const afterApiCall = fnSource.slice(apiCallIndex);
+  const catchCloseIndex = afterApiCall.indexOf("}\n\n  revalidatePath");
+  assert.notEqual(catchCloseIndex, -1, "expected revalidatePath to run after the try/catch block, not inside it");
+  assert.match(afterApiCall, /revalidatePath\(`\/projects\/\$\{projectId\}\/invoices\/\$\{invoiceId\}`\)/);
+  assert.match(afterApiCall, /redirect\(`\/projects\/\$\{projectId\}\/invoices\/\$\{invoiceId\}`\)/);
+});
+
 test("recordInvoicePaymentAction surfaces the backend's ApiClientError message instead of a generic failure", () => {
   const fnSource = readRecordInvoicePaymentActionSource();
   const catchIndex = fnSource.indexOf("} catch (err) {");
