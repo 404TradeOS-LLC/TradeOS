@@ -11,6 +11,13 @@ related_code:
   - web/src/app/(app)/projects/[id]/proposals
 ---
 
+## Contractor-brand proposal PDF header — implementation branch
+
+Proposed PDF fix removes the unconditional `TRADEOS` header label from both estimate-backed and project proposal PDFs. Brand Studio organization name/colors and the controlled `showPoweredByTradeOS` footer remain authoritative. Regression tests inspect PDF output with the setting disabled and enabled. Actual uploaded organization logos are not yet embedded in PDFKit outputs; safe rendering/asset handling needs separate implementation and verification.
+
+# Proposals
+
+
 # Proposals
 
 ## Purpose

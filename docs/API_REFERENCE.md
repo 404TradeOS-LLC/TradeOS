@@ -14,6 +14,10 @@ related_code:
 
 # API Reference
 
+## Proposal PDF presentation-only brand correction — PR #868
+
+Existing proposal PDF generation endpoints and request/response contracts are unchanged. Generated PDF headers use the authenticated organization's Brand Studio name and colors, and no longer print an unconditional platform TRADEOS wordmark. The optional `showPoweredByTradeOS` footer remains under existing organization document settings. No new parameters, authorization changes, or new endpoints are introduced. PDF attachment/body and tenant-specific logo embedding are unchanged; uploaded logos are not yet rendered in PDFKit outputs.
+
 ## Openings/appliance assembly API addendum (PR #774, pending)
 
 The unchanged `GET /api/v1/{costbook/}assemblies/starter-catalog`

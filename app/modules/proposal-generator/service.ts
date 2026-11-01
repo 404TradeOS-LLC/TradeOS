@@ -208,7 +208,6 @@ function drawHeader(doc: any, brand: DocumentFrameBrand, title: string) {
     width: 250,
   });
   if (brand.tagline) doc.fillColor("white").fontSize(10).text(brand.tagline, right - 180, 58, { width: 160, align: "right" });
-  doc.fillColor(brand.colors.accent).fontSize(20).font("Helvetica-Bold").text("TRADEOS", right - 170, 84, { width: 150, align: "right" });
   doc.fillColor(BRAND.ink).font("Helvetica");
   doc.y = 146;
 }
