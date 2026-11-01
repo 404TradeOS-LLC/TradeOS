@@ -7,6 +7,7 @@
 // screenshots are never resized to fake a smaller viewport.
 
 import { openEstimateCustomEntry } from "./lib/estimate-entry.mjs";
+import { waitForEstimateTotal } from "./lib/estimate-total-poll.mjs";
 import { createdCustomerIdFromUrl } from "./lib/customer-detail-url.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -730,9 +731,19 @@ try {
   await page.getByLabel("Overhead %").fill("10");
   await page.getByLabel("Tax %").fill("7");
   await page.getByRole("button", { name: "Save overhead / tax" }).click();
-  // Let the save settle so the checkpoint captures committed pricing rather
-  // than a mid-submit frame.
-  await page.waitForLoadState("networkidle");
+  // Wait for the save to land: poll the authoritative estimate detail for
+  // the priced total. A text wait cannot serve as the settle signal here:
+  // the Review section renders totalPrice earlier in DOM order than the
+  // Athena aside, and it is hidden while Price is active, so a
+  // getByText(...).first() visible-wait pins the hidden match and times out
+  // even after the save lands. A bare networkidle wait is no better — it
+  // can resolve before the mutation POST/refetch starts.
+  const pricedEstimate = await waitForEstimateTotal(page, estimateId, 5920.89);
+  assertBusiness(
+    "overhead / tax save lands the priced total",
+    Math.abs(Number(pricedEstimate?.totalPrice) - 5920.89) < 0.005,
+    `expected totalPrice 5920.89, got ${pricedEstimate?.totalPrice}`,
+  );
   await checkpoint("04", "estimate-pricing");
 
   // ---- 05 save / reload persistence -------------------------------------
@@ -751,24 +762,60 @@ try {
   // share is 4037.50/5100, so tax = 5610 * 0.7916667 * 0.07 = 310.89 and the
   // customer-facing total is 5920.89. These are the numbers the estimate engine
   // must produce, not merely numbers that happen to be on screen.
-  const reloadedPricingText = await page.locator("body").innerText();
+  // The total half stays a rendered-text check, but it must be read on
+  // Review: while Price is active the total is only rendered in the Athena
+  // aside (visible at lg+ only) and the hidden Review section, so at
+  // 390/768px no visible node carries it on the Price stage. Review's
+  // Estimate total row renders at every width. The tax half comes from the
+  // authoritative API instead, the same pattern this script already uses
+  // for line costs above. The figures checked are unchanged.
+  const reloadedEstimate = await readEstimateDetail(estimateId);
   assertBusiness(
-    "pre-markup tax and total match the shipped formula",
-    reloadedPricingText.includes("$310.89") && reloadedPricingText.includes("$5,920.89"),
-    "expected the rendered tax $310.89 and total $5,920.89 after reload",
+    "pre-markup tax matches the shipped formula",
+    Math.abs(Number(reloadedEstimate.taxAmount) - 310.89) < 0.005,
+    `expected API taxAmount 310.89, got ${reloadedEstimate.taxAmount}`,
   );
+  await navigateEstimateStage("Review");
+  const reviewPricingText = await page.locator("body").innerText();
+  assertBusiness(
+    "pre-markup total matches the shipped formula",
+    reviewPricingText.includes("$5,920.89"),
+    "expected the rendered total $5,920.89 after reload",
+  );
+  await navigateEstimateStage("Price");
   await checkpoint("05", "estimate-reloaded");
 
   // ---- 06 markup + finalize ---------------------------------------------
   await page.getByRole("button", { name: "Markup %" }).click();
   await page.getByLabel("Percentage").fill("20");
   await page.getByRole("button", { name: "Apply" }).click();
-  await page.getByText("$7,105.07", { exact: true }).first().waitFor({ timeout: 60_000 });
+  // Same hidden-match hazard as the settle-wait above: the Review
+  // section's total renders before the aside in DOM order and is hidden
+  // while Price is active, so a getByText(...).first() visible-wait can
+  // never succeed here. Poll the API for the marked-up total instead.
+  const markedUpEstimate = await waitForEstimateTotal(page, estimateId, 7105.07);
+  assertBusiness(
+    "markup apply lands the marked-up total",
+    Math.abs(Number(markedUpEstimate?.totalPrice) - 7105.07) < 0.005,
+    `expected totalPrice 7105.07, got ${markedUpEstimate?.totalPrice}`,
+  );
+  // The pre-tax half cannot come from visible text at 390/768px on the
+  // builder this run targets: the header Sell price row is hidden below lg
+  // and Review renders the total only. It comes from the authoritative API
+  // — the same pattern as the step-05 tax half — while the total half
+  // stays a rendered-text check on Review, where the Estimate total row
+  // renders at every width.
+  await navigateEstimateStage("Review");
   const markedUpPricingText = await page.locator("body").innerText();
   assertBusiness(
-    "post-markup pricing matches the shipped formula",
-    markedUpPricingText.includes("$6,732.00") && markedUpPricingText.includes("$7,105.07"),
-    "expected the rendered pre-tax $6,732.00 and total $7,105.07 after markup",
+    "post-markup total matches the shipped formula",
+    markedUpPricingText.includes("$7,105.07"),
+    "expected the rendered total $7,105.07 after markup",
+  );
+  assertBusiness(
+    "post-markup pre-tax matches the shipped formula",
+    Math.abs(Number(markedUpEstimate?.preTaxTotalPrice) - 6732.00) < 0.005,
+    `expected API preTaxTotalPrice 6732.00, got ${markedUpEstimate?.preTaxTotalPrice}`,
   );
 
   await navigateEstimateStage("Review");
