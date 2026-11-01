@@ -72,6 +72,11 @@ export async function createProjectAction(_prev: FormActionState, formData: Form
     redirect(buildProjectIntentDestination(projectId, "job"));
   }
 
+  if (createIntent === "task") {
+    revalidatePath(`/projects/${projectId}`);
+    redirect(buildProjectIntentDestination(projectId, "task"));
+  }
+
   revalidatePath(`/projects/${projectId}`);
   redirect(`/projects/${projectId}`);
 }
