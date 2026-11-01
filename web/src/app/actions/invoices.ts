@@ -15,8 +15,32 @@ export async function createInvoiceAction(_prev: FormActionState, formData: Form
   const percentComplete = String(formData.get("percentComplete") ?? "").trim();
   const dueDate = String(formData.get("dueDate") ?? "").trim();
 
-  if (!estimateId) return { error: "Select an estimate to bill against." };
   if (type === "progress" && !percentComplete) return { error: "Enter a percent complete for a progress invoice." };
+
+  // With no estimate selected, the invoice is built from manually entered
+  // line items. The backend already accepts direct lineItems without an
+  // estimateId (it throws only when both are absent), so the estimate path
+  // below is unchanged and this branch only adds the manual path.
+  let lineItems: Array<{ description: string; quantity: number; unitOfMeasure: string; unitPrice: number }> | undefined;
+  if (!estimateId) {
+    const lineCount = Number(String(formData.get("lineCount") ?? "0"));
+    if (!Number.isFinite(lineCount) || lineCount > 100) return { error: "Add at least one line item for a manual invoice." };
+    const parsed: Array<{ description: string; quantity: number; unitOfMeasure: string; unitPrice: number }> = [];
+    for (let index = 0; index < lineCount; index += 1) {
+      const description = String(formData.get(`lineDescription${index}`) ?? "").trim();
+      const quantityRaw = String(formData.get(`lineQuantity${index}`) ?? "").trim();
+      const unitPriceRaw = String(formData.get(`lineUnitPrice${index}`) ?? "").trim();
+      if (!description && !quantityRaw && !unitPriceRaw) continue;
+      const quantity = Number(quantityRaw);
+      const unitPrice = Number(unitPriceRaw);
+      if (!description || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0) {
+        return { error: "Enter a description, a quantity greater than zero, and a unit price of zero or more for each line item." };
+      }
+      parsed.push({ description, quantity, unitOfMeasure: "each", unitPrice });
+    }
+    if (parsed.length === 0) return { error: "Add at least one line item for a manual invoice." };
+    lineItems = parsed;
+  }
 
   let invoice: Invoice;
   try {
@@ -25,11 +49,12 @@ export async function createInvoiceAction(_prev: FormActionState, formData: Form
       token: token ?? undefined,
       body: JSON.stringify({
         projectId,
-        estimateId,
-        proposalId: proposalId || undefined,
+        estimateId: estimateId || undefined,
+        proposalId: estimateId && proposalId ? proposalId : undefined,
         type,
         percentComplete: type === "progress" ? Number(percentComplete) : undefined,
         dueDate: dueDate || undefined,
+        lineItems,
       }),
     });
   } catch (err) {
