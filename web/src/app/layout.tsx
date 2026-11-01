@@ -7,6 +7,8 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 export const metadata: Metadata = {
   title: "TradeOS",
   description: "TradeOS helps contractors manage projects, estimating, documents, and field operations in one workflow.",
+  openGraph: { title: "TradeOS", description: "Built for what you build.", type: "website", images: [{ url: "/opengraph-image", width: 1200, height: 630 }] },
+  twitter: { card: "summary_large_image", title: "TradeOS", description: "Built for what you build.", images: ["/opengraph-image"] },
 };
 
 export default function RootLayout({
