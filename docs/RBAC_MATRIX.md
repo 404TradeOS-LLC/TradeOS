@@ -78,6 +78,7 @@ S008 changes estimate lifecycle normalization only. It does not change estimate 
 - no role bypasses RLS
 - cross-organization reads and writes are denied by session-scoped RLS
 - customer portal sessions are scoped to one organization and customer; they can read only that customer's shared project documents and can write only the exact pending contract-sign transition
+- PDF download filename sanitization changes no permission: invoice, contract, and proposal PDF reads still require `billing.read`, and portal PDF reads remain portal-session-scoped; only the `Content-Disposition` filename is folded to printable ASCII so non-Latin-1 project names cannot break the header
 - issuing and emailing a customer portal access link remains a staff-only `documents.manage` action; delivery is a server-side side effect and grants no additional staff or portal permission
 - request headers cannot select or impersonate a tenant
 - S018 authentication hardening preserves these role boundaries. ADR-010 adds a separate non-staff customer portal principal; it is not a canonical staff role, cannot reach staff routes, and does not expand the staff permission matrix.

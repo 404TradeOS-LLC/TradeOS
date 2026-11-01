@@ -4,6 +4,7 @@ import { CustomerPortalRequest } from "../middleware/customerPortal";
 import { requireAuthContext, requireOrgId, requirePermissions } from "../requestContext";
 import { ApiError } from "../middleware/errorHandler";
 import { CustomerPortalService } from "../../modules/customer-portal/service";
+import { sanitizeDownloadFilename } from "../../modules/documents/format";
 
 const service = new CustomerPortalService();
 
@@ -89,6 +90,6 @@ function requirePortal(req: CustomerPortalRequest) {
 
 function sendPdf(res: Response, document: { buffer: Buffer; contentType: string; filename: string }): void {
   res.setHeader("Content-Type", document.contentType);
-  res.setHeader("Content-Disposition", `inline; filename="${document.filename}"`);
+  res.setHeader("Content-Disposition", `inline; filename="${sanitizeDownloadFilename(document.filename)}"`);
   res.send(document.buffer);
 }
