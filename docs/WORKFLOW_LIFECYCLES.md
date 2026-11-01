@@ -18,6 +18,10 @@ related_code:
 
 # Workflow Lifecycles
 
+## Proposal customer-document presentation — PR #868
+
+The accepted estimate to proposal to signature and invoice lifecycle is unchanged. The customer-facing PDF header now avoids forced TradeOS platform labeling so the organization's branding and explicit `showPoweredByTradeOS` preference remain authoritative. Proposal state transitions, pricing, expiry, permission checks, storage and delivery behavior are unaffected. Real tenant PDF visual acceptance and uploaded-logo embedding remain separate follow-up work.
+
 This file defines canonical display states and the current compatibility layer for persisted values.
 
 ## Current operational relationship
