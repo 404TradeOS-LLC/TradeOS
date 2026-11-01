@@ -87,6 +87,7 @@ Special constraints:
 - team invites are currently limited to `dispatcher` and `technician`
 - transactional delivery requires `RESEND_API_KEY`, a verified `EMAIL_FROM`, and `APP_BASE_URL`; the API key remains server-only and email failures never expose tokens to callers
 - customer-portal email GETs never redeem the one-time value; the web stores it briefly in an HttpOnly, path-scoped pending cookie, removes it from the visible URL, and requires an exact-origin POST from the confirmation screen
+- customer-portal PDF downloads sanitize the `Content-Disposition` filename to printable ASCII (`sanitizeDownloadFilename`); portal session scoping and permissions are unchanged — the sanitization only prevents Node from rejecting the header when a project name contains non-Latin-1 characters such as an em-dash
 
 ## Transactional email delivery
 

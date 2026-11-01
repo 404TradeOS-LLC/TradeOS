@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { ProposalGeneratorService } from "../../modules/proposal-generator/service";
+import { sanitizeDownloadFilename } from "../../modules/documents/format";
 import { requireOrgId } from "../requestContext";
 
 const service = new ProposalGeneratorService();
@@ -15,7 +16,7 @@ export const proposalGeneratorController = {
     const body = schema.parse(req.body ?? {});
     const doc = await service.generateProposal({ estimateId: req.params.id, orgId: requireOrgId(req), ...body });
     res.setHeader("Content-Type", doc.contentType);
-    res.setHeader("Content-Disposition", `attachment; filename="${doc.filename}"`);
+    res.setHeader("Content-Disposition", `attachment; filename="${sanitizeDownloadFilename(doc.filename)}"`);
     res.send(doc.buffer);
   },
 };

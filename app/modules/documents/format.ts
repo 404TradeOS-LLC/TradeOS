@@ -23,6 +23,18 @@ export function formatDocumentStatus(value: string | null | undefined): string {
   return status ? status.replace(/\b\w/g, (character) => character.toUpperCase()) : "Status unavailable";
 }
 
+/**
+ * Sanitize a user-supplied download filename for a Content-Disposition header.
+ * Node rejects non-Latin-1 characters in header values (ERR_INVALID_CHAR), so
+ * a project name containing an em-dash, curly quote, or emoji would make a
+ * PDF download throw after rendering and surface as a 500. Replace every
+ * character outside printable ASCII with "-" so the header is always valid.
+ * Whitespace collapsing and casing stay with the filename builders.
+ */
+export function sanitizeDownloadFilename(filename: string): string {
+  return filename.replace(/[^\x20-\x7E]/g, "-");
+}
+
 function toFiniteNumber(value: unknown): number | null {
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) ? number : null;

@@ -69,6 +69,8 @@ permissions, fallbacks, and route shapes remain intact.
 
 - Fixed a production defect (found via static audit after a matching bug crashed `PATCH /api/v1/settings` in production, see [settings-and-operations.md](settings-and-operations.md)): `updateProfile`, `createAsset`, and `updateDocumentSettings` called `prisma.$transaction(...)` directly on the request-scoped `prisma` proxy, which throws inside any real authenticated request because `databaseSession` middleware already runs the request inside a `Prisma.TransactionClient` that has no `$transaction` method. All three now use the existing `runInDatabaseTransaction()` helper, matching the convention already used elsewhere (`jobs`, `athena-events`, `athena-memory`, `costbook`). No route contract, permission, or schema change.
 
+- Document download filenames are sanitized for the `Content-Disposition` header: `sanitizeDownloadFilename` (`app/modules/documents/format.ts`) replaces every character outside printable ASCII with `-`, applied by the invoice, contract, proposal, proposal-generator, and customer-portal PDF controllers before `setHeader`. This fixes a production 500: a project name containing an em-dash (for example "Condo Two — Renovation & Punch List") made Node reject the header value (`ERR_INVALID_CHAR`) after the PDF had rendered successfully. Rendering, branding, routes, permissions, and schema are unchanged; only the header filename is ASCII-folded.
+
 ## Tests
 
 - `app/tests/brand-studio.service.test.ts`
