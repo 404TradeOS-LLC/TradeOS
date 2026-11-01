@@ -31,8 +31,8 @@ describe("authenticated organization PDF logo retrieval", () => {
   it("downloads only active same-organization logo metadata from the private bucket", async () => {
     await expect(loadOrganizationPdfLogo(orgId)).resolves.toEqual(png);
     expect(mockPrisma.settingsAssetUpload.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { orgId_assetKey: { orgId, assetKey: "logoUrl" } } }));
-    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(`https://example.supabase.co/storage/v1/object/authenticated/project-files/${path}`);
+    const [url, options] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    expect(url.toString()).toBe(`https://example.supabase.co/storage/v1/object/authenticated/project-files/${path}`);
     expect(options.redirect).toBe("error");
     expect(options.headers).toEqual(expect.objectContaining({ Authorization: "Bearer test-server-secret" }));
   });
