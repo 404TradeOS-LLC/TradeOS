@@ -14,6 +14,7 @@ interface LeadOverviewProps {
   estimates: Estimate[];
   siteVisits: SiteVisit[];
   projectFiles: ProjectFile[];
+  canEditProject: boolean;
 }
 
 function truthyEntries(value: Record<string, unknown> | null) {
@@ -47,7 +48,7 @@ function ProgressStep({ label, complete, active }: { label: string; complete?: b
   );
 }
 
-export function LeadOverview({ project, customer, estimates, siteVisits, projectFiles }: LeadOverviewProps) {
+export function LeadOverview({ project, customer, estimates, siteVisits, projectFiles, canEditProject }: LeadOverviewProps) {
   const latestVisit = siteVisits[0] ?? null;
   const readyToEstimate = Boolean(latestVisit && estimates.length === 0);
   const photoCount = projectFiles.filter((file) => file.fileType === "photo").length;
@@ -78,6 +79,11 @@ export function LeadOverview({ project, customer, estimates, siteVisits, project
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {canEditProject ? (
+              <Link href={`/projects/${project.id}/edit`} className={buttonVariants({ variant: "outline" })}>
+                Edit project
+              </Link>
+            ) : null}
             {customer?.phone ? (
               <a href={`tel:${customer.phone}`} className={buttonVariants({ variant: "outline" })}>
                 <Phone className="size-4" aria-hidden="true" />
