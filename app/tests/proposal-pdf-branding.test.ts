@@ -29,13 +29,13 @@ function pdfText(pdf: Buffer): string {
     const data = pdf.subarray(dataStart, end).subarray(0, -1);
     try {
       const decoded = inflateSync(data).toString("latin1");
-      for (const m of decoded.matchAll(/\\[([^\\]]*)\\]\\s*TJ/g)) {
+      for (const m of decoded.matchAll(/\[([^\]]*)\]\s*TJ/g)) {
         chunks.push(Array.from(m[1].matchAll(/<([0-9a-f]+)>/gi), (hex) => Buffer.from(hex[1], "hex").toString("latin1")).join(""));
       }
     } catch {}
     start = end + 9;
   }
-  return chunks.join("\\n");
+  return chunks.join("\n");
 }
 
 describe("Proposal PDF organization branding", () => {
