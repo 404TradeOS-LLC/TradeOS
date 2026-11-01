@@ -8,6 +8,7 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   CalendarPlus,
+  ChevronRight,
   Clock3,
   ClipboardPlus,
   ListChecks,
