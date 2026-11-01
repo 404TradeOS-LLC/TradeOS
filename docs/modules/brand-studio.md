@@ -17,9 +17,9 @@ related_code:
 
 The backend PDF reader uses only organization-scoped current `SettingsAssetUpload(orgId, logoUrl)` metadata, the private `project-files` bucket, and a server-only Supabase credential. Arbitrary BrandAsset URLs and untrusted request-body image bytes are excluded. It checks bucket, generated name and organization prefix, expected MIME, size, actual signature/dimensions, no redirects and bounded read. The existing text company name remains on any failure. This is a protected runtime dependency requiring reviewed environment configuration and tenant PDF validation before production acceptance.
 
-## Trusted logo bytes in PDF renderers — pending integration
+## Trusted logo bytes in PDF renderers — bridge implemented; staging acceptance pending
 
-PDFKit supports bounded PNG/JPEG image byte input only, not direct URL fetching. This proposed primitive does not read Brand Studio storage by itself or loosen organization scoping. The authoritative active upload remains the private `SettingsAssetUpload` record and only an authenticated storage owner may provide bytes to the renderer. Until that bridge is implemented, generated customer PDFs continue showing organization name/colors and may lack the image logo. Issue #870 remains open for the byte bridge and staging validation.
+PDFKit supports bounded PNG/JPEG image byte input only, not direct URL fetching. This proposed primitive does not read Brand Studio storage by itself or loosen organization scoping. The authoritative active upload remains the private `SettingsAssetUpload` record and only an authenticated storage owner may provide bytes to the renderer. PR #873 implements the private organization-scoped Storage loader; it still requires a protected staging-only backend key and uploaded same-tenant test logo. Without either, PDFs retain text-only branding. Issue #870 remains open for staging and visual validation.
 
 ## Purpose
 

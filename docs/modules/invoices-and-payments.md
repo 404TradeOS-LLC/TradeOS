@@ -24,7 +24,7 @@ The internal invoice PDF service optionally loads the active logo asset belongin
 
 ## Invoice PDF logo byte rendering
 
-The PDFKit invoice renderer supports an optional validated trusted PNG/JPEG image byte buffer without changing financial totals, invoice status or payment semantics. The source must come from an authenticated organization's private asset storage, not an arbitrary URL. Production byte retrieval is not yet connected; text-only company branding remains the fallback until issue #870 is completed.
+The PDFKit invoice renderer supports an optional validated trusted PNG/JPEG image byte buffer without changing financial totals, invoice status or payment semantics. The source must come from an authenticated organization's private asset storage, not an arbitrary URL. PR #873 implements private organization-scoped Storage retrieval. Until protected staging credentials and a current uploaded logo are available, text-only branding remains the fallback under issue #870.
 
 ## Purpose
 

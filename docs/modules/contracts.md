@@ -18,7 +18,7 @@ Contract PDF generation may include the authenticated organization's current val
 
 ## Contract PDF logo byte rendering
 
-The PDFKit contract renderer supports an optional bounded trusted PNG/JPEG logo byte buffer. It does not fetch arbitrary logo URLs. The existing organization company-name, colors, signature fields, and workflow remain unchanged. Production asset retrieval is not yet wired; missing bytes preserve text-only branding pending #870.
+The PDFKit contract renderer supports an optional bounded trusted PNG/JPEG logo byte buffer. It does not fetch arbitrary logo URLs. The existing organization company-name, colors, signature fields, and workflow remain unchanged. PR #873 implements the organization-scoped private Storage loader. Protected staging credentials and a seeded logo asset are still needed for real PDF acceptance; missing bytes preserve text-only branding pending #870.
 
 ## Purpose
 
