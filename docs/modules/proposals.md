@@ -17,6 +17,10 @@ Proposed PDF fix removes the unconditional `TRADEOS` header label from both esti
 
 # Proposals
 
+## Contractor proposal PDF logo from authenticated private storage
+
+A proposed internal loader optionally supplies the authenticated organization's current private logo PNG/JPEG bytes to both estimate-backed and project-backed PDF generators. This does not add a request parameter or change proposal amounts, states or permissions. Missing/malformed images retain company-name text and existing optional platform footer. Real tenant PDF visual acceptance remains required.
+
 ## Optional validated logo bytes for proposal PDF headers
 
 Estimate-backed and project-backed PDF renderers accept optional validated PNG/JPEG byte input from a future authenticated tenant-owned storage bridge. The source-facing service still uses organization branding and does not fetch external URLs. Missing bytes preserve text-only branding and the controlled `showPoweredByTradeOS` footer. API contract, proposal pricing, and state transitions are unchanged. Issue #870 owns the remaining secure loader.
