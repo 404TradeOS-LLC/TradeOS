@@ -8,7 +8,6 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   CalendarPlus,
-  ChevronRight,
   Clock3,
   ClipboardPlus,
   ListChecks,
@@ -28,6 +27,7 @@ import { logoutAction } from "@/app/actions/auth";
 import { CommandPaletteTrigger } from "@/components/shared/global-command-palette";
 import { KeyboardShortcutsOverlay } from "@/components/shared/keyboard-shortcuts-overlay";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { MetalLogo } from "@/components/entry/metal-logo";
 import { WhatsNewPopover } from "@/components/shared/whats-new-popover";
 import { Button } from "@/components/ui/button";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
@@ -352,8 +352,8 @@ export function AppNav({
         <div className="flex min-h-16 items-center justify-between gap-3 py-3">
           <div className="flex min-w-0 items-center gap-3">
             <Link href="/dashboard" className="flex min-w-0 items-center gap-3 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-(--elev-1)">
-                <ChevronRight className="size-4" aria-hidden="true" />
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#202225] p-2 shadow-(--elev-1)">
+                <MetalLogo variant="mark" className="size-full" />
               </span>
               <div className="min-w-0">
                 <div className="truncate font-heading text-[1rem] font-semibold leading-none text-foreground">TradeOS</div>
