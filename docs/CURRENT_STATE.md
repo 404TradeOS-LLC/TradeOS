@@ -63,6 +63,10 @@ related_code:
 
 # TradeOS Current State
 
+## Next.js starter-asset cleanup — implementation pending review
+
+The proposed brand cleanup deletes only the five unused starter SVGs under `web/public/`: `vercel.svg`, `next.svg`, `file.svg`, `globe.svg` and `window.svg`. A repository code search found no references to these filenames in application source; canonical TradeOS entry SVGs, browser/iPhone icon routes, Android icon routes, and the manifest are preserved. This is not a removal of the Vercel hosting integration or Vercel Speed Insights. Exact-head CI, deployed route regression checks, and review remain release gates. No production deletion or deployment is claimed.
+
 ## Transactional email platform branding — implementation branch
 
 Security, team invitation and customer portal access email HTML now uses one graphite/copper TradeOS platform shell, while existing copy, one-time URLs, expiration notices, plain-text alternatives and delivery idempotency remain unchanged. Customer document branding remains organization-specific and is not modified. Unit coverage for the shell is added; hosted tests, email-client rendering and provider-delivery checks remain separate gates. No deployment or delivery certification is claimed.
