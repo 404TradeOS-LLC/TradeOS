@@ -318,7 +318,7 @@ function EstimateStageFlow({
   scopeSaveSuccess: boolean;
   scopeSaveError: string | null;
   estimate: EstimateDetail;
-  runningTotals: { totalPrice: number; marginPct: number; lineItemCount: number };
+  runningTotals: { totalPrice: number; preTaxTotalPrice: number; taxAmount: number; marginPct: number; lineItemCount: number };
   estimateId: string;
   isDraft: boolean;
   activeStage: EstimateStage;
@@ -480,7 +480,15 @@ function EstimateStageFlow({
               ))}
             </div>
             <div className="border-t border-border py-4">
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">Pre-tax total</span>
+                <span className="font-mono tabular-nums">{formatCurrency(runningTotals.preTaxTotalPrice)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">Tax</span>
+                <span className="font-mono tabular-nums">{formatCurrency(runningTotals.taxAmount)}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-4">
                 <span className="font-medium">Estimate total</span>
                 <span className="text-2xl font-semibold tabular-nums text-primary">{formatCurrency(runningTotals.totalPrice)}</span>
               </div>
@@ -1760,6 +1768,18 @@ function PricingPanel({
           <div className="mt-2 flex items-center justify-between gap-3">
             <span className="text-muted-foreground">Current markup</span>
             <span className="font-medium">{formatPercent(currentMarkupPct)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3 border-t border-border/70 pt-2">
+            <span className="text-muted-foreground">Pre-tax total</span>
+            <span className="font-medium">{formatCurrency(preTaxTotalPrice)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="text-muted-foreground">Tax{estimate.taxPct ? ` (${estimate.taxPct}%)` : ""}</span>
+            <span className="font-medium">{formatCurrency(estimate.taxAmount ?? 0)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="text-muted-foreground">Customer total</span>
+            <span className="font-medium">{formatCurrency(estimate.totalPrice)}</span>
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
