@@ -90,6 +90,10 @@ component tests use synthetic transport and do not certify real authentication.
 - **`StatusBadge`** (`status-badge.tsx`) — wraps `Badge` with `capitalize` and turns
   `snake_case` statuses into readable text (`in_progress` → `In progress`). Use this instead of
   a raw `Badge` whenever you're rendering a backend status enum.
+- **`AttentionItem`** (`components/dashboard/attention-item.tsx`) — responsive Needs You row
+  with explicit severity text, source/assignee metadata, and an action callback. Map persisted
+  Today priority `urgent` → Urgent, `high` → Needs action, and `medium` → Review; do not infer
+  alerts from unavailable source data or replace its source-workspace action with a new mutation.
 - **`AppNav`** (`app-nav.tsx`) — shared navigation with desktop sections, the
   mobile Control Dock (Today, Dispatch, Create, Work, More), and the command-palette
   trigger. This is the only nav owner — don't add a second one.
