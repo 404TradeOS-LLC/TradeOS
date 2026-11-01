@@ -134,6 +134,7 @@ instead of copy-pasting a third time.
 
 ## Responsiveness & accessibility
 
+- `PageHeader` breadcrumb and back links retain a visible focus ring in both themes; a text-color change alone is not a sufficient keyboard indicator.
 - Every interactive row/link should be reachable via `focus-visible` (see `ListRowLink`'s
   `focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50`) — don't rely on
   `:hover` alone.
