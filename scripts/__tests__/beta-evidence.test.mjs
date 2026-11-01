@@ -467,6 +467,32 @@ test("canonical beta evidence verifies persisted Costbook-independent line costs
   assert.match(capture, /BETA_ALLOW_MUTATIONS=true is required/);
 });
 
+test("post-markup rendered total settles on Review before it is asserted", () => {
+  // Regression guard for the run-41289571105 failure: the markup save is
+  // learned by the builder only via mutation onSuccess -> invalidate ->
+  // async React Query refetch, and stage navigation awaits aria-current,
+  // not the refetched data. A bare innerText read after navigating to
+  // Review races that refetch and sees the stale pre-markup snapshot.
+  // The rendered-text check must therefore wait for the marked-up total
+  // to appear in visible text before the assertion reads it.
+  const markupBlock = capture.slice(capture.indexOf('"markup apply lands the marked-up total"'));
+  const reviewNav = markupBlock.indexOf('navigateEstimateStage("Review")');
+  const totalAssert = markupBlock.indexOf('"post-markup total matches the shipped formula"');
+  const settle = markupBlock.indexOf("waitForFunction", reviewNav);
+  assert.ok(reviewNav !== -1 && settle !== -1 && totalAssert !== -1, "expected the markup Review navigation, settle wait, and total assertion");
+  assert.ok(reviewNav < settle && settle < totalAssert, "expected the settle wait between the markup Review navigation and the post-markup total assertion");
+  assert.match(markupBlock.slice(settle, totalAssert), /\$7,105\.07/);
+  assert.doesNotMatch(markupBlock.slice(reviewNav, settle), /innerText\(\)/);
+  // The ordering check alone would still pass if the wait lost its
+  // `await` (the following read would then race the refetch again), so
+  // pin the awaited call itself.
+  assert.match(
+    markupBlock.slice(reviewNav, settle + "waitForFunction".length),
+    /await\s+page\.waitForFunction/,
+    "expected the settle wait to be awaited",
+  );
+});
+
 test("beta capture waits for the persisted Customer UUID rather than matching /customers/new", () => {
   const uuid = "1643d999-509c-4742-8d68-46c6a9129d55";
   const origin = "https://tradeos-costbook-web-git-staging-billykshowalters.vercel.app";
