@@ -6,7 +6,7 @@ const mockGetDocumentBrand = jest.fn();
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
 jest.mock("../modules/documents/branding", () => ({ getDocumentBrand: mockGetDocumentBrand }));
 
-import { ProposalGeneratorService } from "../modules/proposal-generator/service";
+import { ProposalGeneratorService, renderEstimateProposalPdf } from "../modules/proposal-generator/service";
 
 const brand = {
   companyName: "Canonical Builders",
@@ -37,6 +37,30 @@ function pdfText(pdf: Buffer): string {
   }
   return chunks.join("\n");
 }
+
+describe("Trusted proposal logo bytes", () => {
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGPYX2ONFTEMLQkAqeRdgcrsUtEAAAAASUVORK5CYII=", "base64");
+  const estimate = {
+    version: 1, totalPrice: 3000, createdAt: new Date("2026-10-01T12:00:00Z"),
+    project: { name: "Kitchen", siteAddress: null, customer: { name: "Client", email: null }, organization: { name: "Canonical Builders", phone: null, email: null, address: null } },
+    lineItems: [{ description: "Cabinet prep", quantity: 1, unitOfMeasure: "job", lineCost: 3000 }],
+  };
+  const args = {
+    brand, showLineItemDetail: false, termsAndConditions: "Terms", finalPrice: 3000,
+  };
+
+  it("embeds bounded image bytes in the contractor-branded PDF", async () => {
+    const pdf = await renderEstimateProposalPdf(estimate, { ...args, logoImage: png });
+    expect(pdf.toString("latin1")).toContain("/Subtype /Image");
+    expect(pdfText(pdf)).toContain("Canonical Builders");
+  });
+
+  it("omits invalid image bytes and preserves the fallback company name", async () => {
+    const pdf = await renderEstimateProposalPdf(estimate, { ...args, logoImage: Buffer.from("http://evil.example.com") });
+    expect(pdf.toString("latin1")).not.toContain("/Subtype /Image");
+    expect(pdfText(pdf)).toContain("Canonical Builders");
+  });
+});
 
 describe("Proposal PDF organization branding", () => {
   beforeEach(() => {

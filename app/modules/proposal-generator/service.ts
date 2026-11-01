@@ -1,4 +1,5 @@
 import PDFDocument from "pdfkit";
+import { drawValidatedPdfLogo } from "../documents/pdf-logo";
 import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { getDocumentBrand } from "../documents/branding";
@@ -108,9 +109,9 @@ interface ProposalWithRelations {
   };
 }
 
-function renderEstimateProposalPdf(
+export function renderEstimateProposalPdf(
   estimate: EstimateWithRelations,
-  opts: { brand: DocumentFrameBrand; showLineItemDetail: boolean; termsAndConditions: string; scopeOfWork?: string; assumptions?: string; exclusions?: string; timeline?: string; priceLow?: number | null; priceHigh?: number | null; finalPrice?: number | null; paymentScheduleJson?: unknown }
+  opts: { brand: DocumentFrameBrand; showLineItemDetail: boolean; termsAndConditions: string; scopeOfWork?: string; assumptions?: string; exclusions?: string; timeline?: string; priceLow?: number | null; priceHigh?: number | null; finalPrice?: number | null; paymentScheduleJson?: unknown; logoImage?: Buffer | null }
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 46, size: "LETTER" });
@@ -123,7 +124,7 @@ function renderEstimateProposalPdf(
       ? estimate.lineItems.map((li) => `${li.description} — ${formatDocumentNumber(li.quantity)} ${li.unitOfMeasure}`).join("\n")
       : estimate.lineItems.map((li) => `• ${li.description}`).join("\n");
 
-    drawHeader(doc, opts.brand, "Client Proposal");
+    drawHeader(doc, opts.brand, "Client Proposal", opts.logoImage);
     writeContactRail(doc, opts.brand);
     drawProjectMetaGrid(doc, {
       customerName: estimate.project.customer?.name ?? "Customer",
@@ -161,7 +162,7 @@ function formatPriceRange(low: number | null | undefined, high: number | null | 
   return `${formatCurrency(Math.min(lowValue, highValue))}–${formatCurrency(Math.max(lowValue, highValue))}`;
 }
 
-function renderProjectProposalPdf(proposal: ProposalWithRelations, brand: DocumentFrameBrand): Promise<Buffer> {
+export function renderProjectProposalPdf(proposal: ProposalWithRelations, brand: DocumentFrameBrand, logoImage?: Buffer | null): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 46, size: "LETTER" });
     const chunks: Buffer[] = [];
@@ -169,7 +170,7 @@ function renderProjectProposalPdf(proposal: ProposalWithRelations, brand: Docume
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    drawHeader(doc, brand, "Client Proposal Draft");
+    drawHeader(doc, brand, "Client Proposal Draft", logoImage);
     writeContactRail(doc, brand);
     drawProjectMetaGrid(doc, {
       customerName: proposal.project.customer?.name ?? "Customer",
@@ -197,7 +198,7 @@ function renderProjectProposalPdf(proposal: ProposalWithRelations, brand: Docume
   });
 }
 
-function drawHeader(doc: any, brand: DocumentFrameBrand, title: string) {
+function drawHeader(doc: any, brand: DocumentFrameBrand, title: string, logoImage?: Buffer | null) {
   const { left, right } = bounds(doc);
   doc.save();
   doc.roundedRect(left, 34, right - left, 88, 20).fill(brand.colors.primary);
@@ -207,7 +208,8 @@ function drawHeader(doc: any, brand: DocumentFrameBrand, title: string) {
     characterSpacing: 1.4,
     width: 250,
   });
-  if (brand.tagline) doc.fillColor("white").fontSize(10).text(brand.tagline, right - 180, 58, { width: 160, align: "right" });
+  const hasLogo = drawValidatedPdfLogo(doc, logoImage, { x: right - 83, y: 49, width: 52, height: 52 });
+  if (!hasLogo && brand.tagline) doc.fillColor("white").fontSize(10).text(brand.tagline, right - 180, 58, { width: 160, align: "right" });
   doc.fillColor(BRAND.ink).font("Helvetica");
   doc.y = 146;
 }

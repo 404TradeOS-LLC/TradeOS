@@ -18,6 +18,10 @@ related_code:
 
 # Invoices and Payments
 
+## Invoice PDF logo byte rendering
+
+The PDFKit invoice renderer supports an optional validated trusted PNG/JPEG image byte buffer without changing financial totals, invoice status or payment semantics. The source must come from an authenticated organization's private asset storage, not an arbitrary URL. Production byte retrieval is not yet connected; text-only company branding remains the fallback until issue #870 is completed.
+
 ## Purpose
 
 Own invoice creation, send and pay state changes, voiding, line items, delivery history, payment recording/reconciliation, invoice financial composition, and read-only payment-ledger reporting.

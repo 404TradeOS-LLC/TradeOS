@@ -63,6 +63,10 @@ related_code:
 
 # TradeOS Current State
 
+## PDFKit trusted-logo byte rendering — implementation pending review
+
+A new no-network PDF rendering helper validates bounded PNG/JPEG bytes (1 MiB, 2048px max edge, 2 MP max area) and draws them in invoice, contract, and proposal header slots. Malformed/unsafe inputs fall back to the contractor's company-name text. Tests cover image embedding and rejected payloads. **Not wired to production asset retrieval:** Brand Studio's private SettingsAssetUpload record is managed by the web server, while backend PDF generation receives a URL. No public, arbitrary-URL, or privileged Storage download is added; authenticated per-organization byte loading, hosted acceptance, and visual PDF review remain open under issue #870.
+
 ## Contractor-brand-only proposal PDF headers — implementation pending review
 
 Proposal PDF generation already resolves the authenticated organization's Brand Studio values. The proposed repair removes the unconditional large TradeOS label from both proposal PDF header variants; the opt-in `showPoweredByTradeOS` footer remains unchanged. Jest regression coverage exercises an actual PDF buffer for both white-label and opt-in states. No customer/tenant identity, proposal financial content, estimate totals, authentication or API contract changes. GitHub exact-head CI and visual PDF acceptance remain required. Existing PDFKit invoice/contract/proposal headers display the organization name and colors but do not yet embed the uploaded logo image; secure image handling remains a separate scoped follow-up.

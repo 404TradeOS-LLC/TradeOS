@@ -18,6 +18,10 @@ related_code:
 
 # Workflow Lifecycles
 
+## Tenant PDF logo rendering lifecycle boundary
+
+Trusted logo rendering is a presentation-only PDFKit option. Estimate/proposal/contract/invoice states, invoices, approvals, prices, signatures and delivery lifecycles are unchanged. The web app's current private SettingsAssetUpload remains authoritative for real tenant logo bytes; the backend currently cannot retrieve those bytes. Missing asset bytes leave the company-name header intact; a separate reviewed storage bridge is required under #870.
+
 ## Proposal customer-document presentation — PR #868
 
 The accepted estimate to proposal to signature and invoice lifecycle is unchanged. The customer-facing PDF header now avoids forced TradeOS platform labeling so the organization's branding and explicit `showPoweredByTradeOS` preference remain authoritative. Proposal state transitions, pricing, expiry, permission checks, storage and delivery behavior are unaffected. Real tenant PDF visual acceptance and uploaded-logo embedding remain separate follow-up work.
