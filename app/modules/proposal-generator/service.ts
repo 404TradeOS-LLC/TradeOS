@@ -198,7 +198,7 @@ export function renderProjectProposalPdf(proposal: ProposalWithRelations, brand:
   });
 }
 
-function drawHeader(doc: PDFDocument, brand: DocumentFrameBrand, title: string, logoImage?: Buffer | null) {
+function drawHeader(doc: any, brand: DocumentFrameBrand, title: string, logoImage?: Buffer | null) {
   const { left, right } = bounds(doc);
   doc.save();
   doc.roundedRect(left, 34, right - left, 88, 20).fill(brand.colors.primary);
