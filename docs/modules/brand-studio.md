@@ -13,6 +13,10 @@ related_code:
 
 # Brand Studio
 
+## Trusted logo bytes in PDF renderers — pending integration
+
+PDFKit supports bounded PNG/JPEG image byte input only, not direct URL fetching. This proposed primitive does not read Brand Studio storage by itself or loosen organization scoping. The authoritative active upload remains the private `SettingsAssetUpload` record and only an authenticated storage owner may provide bytes to the renderer. Until that bridge is implemented, generated customer PDFs continue showing organization name/colors and may lack the image logo. Issue #870 remains open for the byte bridge and staging validation.
+
 ## Purpose
 
 Own organization-scoped branding data and shared document-frame presentation settings used across proposals, contracts, and invoices.
