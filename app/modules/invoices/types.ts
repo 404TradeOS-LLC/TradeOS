@@ -49,6 +49,17 @@ export interface CreateInvoiceInput {
   lineItems?: InvoiceLineItemInput[];
 }
 
+export interface UpdateInvoiceInput {
+  id: string;
+  orgId: string;
+  actorUserId?: string;
+  actorRole?: string;
+  /** Replacement line items. Only allowed for manual (estimate-less) full invoices; omitted for due-date-only edits. */
+  lineItems?: InvoiceLineItemInput[];
+  /** Undefined leaves the due date unchanged; null clears it. */
+  dueDate?: string | null;
+}
+
 export interface InvoiceLineItemDTO {
   id: string;
   description: string;

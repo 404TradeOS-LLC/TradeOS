@@ -16,6 +16,7 @@ import {
   InvoiceLineItemInput,
   InvoiceQueueFilters,
   InvoiceQueueItemDTO,
+  UpdateInvoiceInput,
 } from "./types";
 import { calculateInvoiceFinancials, toInvoicePaymentDTO } from "./presentation";
 
@@ -79,6 +80,81 @@ export class InvoicesService {
         type: row.type,
         amount,
       },
+    });
+    return this.getById(row.id, input.orgId);
+  }
+
+  /**
+   * Draft-only invoice edit. Line replacement is restricted to manual
+   * (estimate-less) full invoices: estimate-derived lines are an allocation
+   * of the estimate's persisted sell total, so hand-editing them would
+   * silently break the estimate/invoice reconciliation; progress lines are
+   * already scaled by percentComplete, and the unscaled base is not stored,
+   * so there is nothing correct to re-scale from. Progress and
+   * estimate-linked drafts support due-date-only edits. All writes run
+   * through the request-scoped RLS transaction, exactly like create().
+   */
+  async update(input: UpdateInvoiceInput): Promise<InvoiceDTO & { lineItems: InvoiceLineItemDTO[] }> {
+    assertInvoiceWriteAccess(input.actorRole);
+    const row = await this.findOrThrow(input.id, input.orgId);
+    if (row.status !== "draft") throw new ApiError(409, `Invoice ${input.id} cannot be edited once it leaves draft`);
+    const newLines = input.lineItems;
+    if (newLines === undefined && input.dueDate === undefined) {
+      throw new ApiError(400, "Nothing to update on this invoice");
+    }
+    if (newLines !== undefined) {
+      if (row.estimateId) {
+        throw new ApiError(409, `Invoice ${input.id} is priced from an estimate and its lines cannot be edited directly`);
+      }
+      if (row.type === "progress") {
+        throw new ApiError(409, `Invoice ${input.id} is a progress invoice and its scaled lines cannot be edited directly`);
+      }
+      if (newLines.length === 0) throw new ApiError(400, "Invoice requires at least one line item");
+    }
+
+    const previousAmount = Number(row.amount);
+    let amount = previousAmount;
+    let subtotal = Number(row.subtotal);
+    let taxPct = Number(row.taxPct);
+    let taxAmount = Number(row.taxAmount);
+    if (newLines !== undefined) {
+      // Same direct-line pricing as create(): no estimate, no tax.
+      amount = roundCurrency(newLines.reduce((sum, li) => sum + (li.lineTotal ?? li.quantity * li.unitPrice), 0));
+      taxPct = 0;
+      taxAmount = 0;
+      subtotal = amount;
+      await prisma.invoiceLineItem.deleteMany({ where: { invoiceId: row.id } });
+      await prisma.invoiceLineItem.createMany({
+        data: newLines.map((li, index) => ({
+          invoiceId: row.id,
+          description: li.description,
+          quantity: li.quantity,
+          unitOfMeasure: li.unitOfMeasure,
+          unitPrice: li.unitPrice,
+          lineTotal: li.lineTotal ?? roundCurrency(li.quantity * li.unitPrice),
+          sortOrder: index,
+        })),
+      });
+    }
+
+    const data: { amount?: number; subtotal?: number; taxPct?: number; taxAmount?: number; dueDate?: Date | null } = {};
+    if (newLines !== undefined) {
+      data.amount = amount;
+      data.subtotal = subtotal;
+      data.taxPct = taxPct;
+      data.taxAmount = taxAmount;
+    }
+    if (input.dueDate !== undefined) data.dueDate = input.dueDate ? new Date(input.dueDate) : null;
+    if (Object.keys(data).length > 0) {
+      await prisma.invoice.update({ where: { id: row.id }, data });
+    }
+    await this.recordDeliveryEvent({
+      orgId: input.orgId ?? row.project.orgId ?? undefined,
+      invoiceId: row.id,
+      projectId: row.projectId,
+      actorUserId: input.actorUserId,
+      eventType: "invoice.updated",
+      metadata: { previousAmount, newAmount: amount, invoiceNumber: row.invoiceNumber },
     });
     return this.getById(row.id, input.orgId);
   }
