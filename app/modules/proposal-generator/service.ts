@@ -3,6 +3,7 @@ import { drawValidatedPdfLogo } from "../documents/pdf-logo";
 import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { getDocumentBrand } from "../documents/branding";
+import { loadOrganizationPdfLogo } from "../documents/pdf-logo-storage";
 import type { DocumentFrameBrand } from "../documents/frame";
 import { formatDocumentCurrency, formatDocumentDate, formatDocumentNumber } from "../documents/format";
 import { GenerateProjectProposalInput, GenerateProposalInput, ProposalDocument } from "./types";
@@ -31,8 +32,10 @@ export class ProposalGeneratorService {
     if (!estimate) throw new ApiError(404, `Estimate ${input.estimateId} not found`);
 
     const brand = await getDocumentBrand(input.orgId, input.companyName ?? estimate.project.organization?.name ?? "Your Company Name");
+    const logoImage = await loadOrganizationPdfLogo(input.orgId);
     const buffer = await renderEstimateProposalPdf(estimate, {
       brand,
+      logoImage,
       showLineItemDetail: input.showLineItemDetail ?? false,
       termsAndConditions: input.termsAndConditions ?? DEFAULT_TERMS,
       scopeOfWork: input.scopeOfWork,
@@ -67,7 +70,8 @@ export class ProposalGeneratorService {
     if (!proposal) throw new ApiError(404, `Proposal ${input.proposalId} not found`);
 
     const brand = await getDocumentBrand(input.orgId, proposal.companyName ?? proposal.project.organization?.name ?? "Your Company Name");
-    const buffer = await renderProjectProposalPdf(proposal, brand);
+    const logoImage = await loadOrganizationPdfLogo(input.orgId);
+    const buffer = await renderProjectProposalPdf(proposal, brand, logoImage);
     return {
       buffer,
       filename: `proposal-${proposal.project.name.replace(/\s+/g, "-").toLowerCase()}-draft.pdf`,

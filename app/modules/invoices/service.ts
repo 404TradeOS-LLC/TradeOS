@@ -5,6 +5,7 @@ import { ActivityTimelineService } from "../intelligence/service";
 import { hasPermission, legacyInvoiceStatusMap, normalizeEstimateStatus, normalizeInvoiceStatus, normalizeProposalStatus } from "../../domain/contracts";
 import { renderInvoicePdf } from "./pdf";
 import { getDocumentBrand } from "../documents/branding";
+import { loadOrganizationPdfLogo } from "../documents/pdf-logo-storage";
 import { clampQueueLimit, decodeUpdatedAtCursor, encodeUpdatedAtCursor, QueuePage } from "../shared/pagination";
 import { expandCanonicalStatusFilter } from "../shared/statusFilter";
 import {
@@ -296,6 +297,7 @@ export class InvoicesService {
     if (!row) throw new ApiError(404, `Invoice ${id} not found`);
 
     const brand = await getDocumentBrand(orgId, row.project.organization?.name ?? "Your Company Name");
+    const logoImage = await loadOrganizationPdfLogo(orgId);
     const financials = calculateInvoiceFinancials(row.amount, row.status, row.payments);
     const buffer = await renderInvoicePdf(
       {
@@ -320,7 +322,7 @@ export class InvoicesService {
         paidAmount: financials.paidAmount,
         balanceDue: financials.balanceDue,
       },
-      { brand }
+      { brand, logoImage }
     );
 
     return {
