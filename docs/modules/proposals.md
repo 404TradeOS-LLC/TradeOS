@@ -17,6 +17,9 @@ Proposed PDF fix removes the unconditional `TRADEOS` header label from both esti
 
 # Proposals
 
+
+# Proposals
+
 ## Purpose
 
 Own proposal drafting, sending, viewing, acceptance or decline handling, PDF generation, and delivery history.
