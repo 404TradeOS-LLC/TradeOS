@@ -1,5 +1,3 @@
-import type PDFDocument from "pdfkit";
-
 /**
  * PDFKit image boundary for bytes obtained through an authenticated tenant-owned
  * storage lookup. This module performs NO network requests and never interprets
@@ -52,7 +50,7 @@ export function validatePdfLogoBytes(bytes: Buffer | null | undefined): Buffer |
 
 /** Returns false and preserves the text-only PDF when decoding fails. */
 export function drawValidatedPdfLogo(
-  doc: PDFDocument,
+  doc: { image: (source: Buffer, x: number, y: number, options: { fit: [number, number]; align: "center"; valign: "center" }) => unknown },
   image: Buffer | null | undefined,
   box: PdfLogoBox
 ): boolean {
