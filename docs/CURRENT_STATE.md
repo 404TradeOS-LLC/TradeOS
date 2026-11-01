@@ -63,6 +63,10 @@ related_code:
 
 # TradeOS Current State
 
+## Authenticated private contractor-logo loading for PDFs — pending release
+
+A proposed backend service reads the active `SettingsAssetUpload` row for the already-authenticated organization and only the `logoUrl` slot. It rejects cross-tenant paths and MIME mismatches before a bounded, no-redirect Supabase Storage download from the private `project-files` bucket. Only PNG/JPEG bytes within 1 MiB and PDFKit pixel limits reach invoice/contract/proposal renderers. Missing credentials or unsafe images produce the existing company-name PDF rather than errors. Backend `SUPABASE_SERVICE_ROLE_KEY` must be provisioned as a protected server-only secret by the environment owner; metadata access is still subject to existing request-scoped RLS. No production secret was read or provisioned and no actual customer PDF acceptance is claimed. Issue #870 remains open until authenticated staging visual verification, environment provenance and output checks pass.
+
 ## PDFKit trusted-logo byte rendering — implementation pending review
 
 A new no-network PDF rendering helper validates bounded PNG/JPEG bytes (1 MiB, 2048px max edge, 2 MP max area) and draws them in invoice, contract, and proposal header slots. Malformed/unsafe inputs fall back to the contractor's company-name text. Tests cover image embedding and rejected payloads. **Not wired to production asset retrieval:** Brand Studio's private SettingsAssetUpload record is managed by the web server, while backend PDF generation receives a URL. No public, arbitrary-URL, or privileged Storage download is added; authenticated per-organization byte loading, hosted acceptance, and visual PDF review remain open under issue #870.
