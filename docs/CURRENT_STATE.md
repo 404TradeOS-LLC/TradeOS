@@ -67,6 +67,10 @@ related_code:
 
 Proposal PDF generation already resolves the authenticated organization's Brand Studio values. The proposed repair removes the unconditional large TradeOS label from both proposal PDF header variants; the opt-in `showPoweredByTradeOS` footer remains unchanged. Jest regression coverage exercises an actual PDF buffer for both white-label and opt-in states. No customer/tenant identity, proposal financial content, estimate totals, authentication or API contract changes. GitHub exact-head CI and visual PDF acceptance remain required. Existing PDFKit invoice/contract/proposal headers display the organization name and colors but do not yet embed the uploaded logo image; secure image handling remains a separate scoped follow-up.
 
+## Next.js starter-asset cleanup — implementation pending review
+
+The proposed brand cleanup deletes only the five unused starter SVGs under `web/public/`: `vercel.svg`, `next.svg`, `file.svg`, `globe.svg` and `window.svg`. A repository code search found no references to these filenames in application source; canonical TradeOS entry SVGs, browser/iPhone icon routes, Android icon routes, and the manifest are preserved. This is not a removal of the Vercel hosting integration or Vercel Speed Insights. Exact-head CI, deployed route regression checks, and review remain release gates. No production deletion or deployment is claimed.
+
 ## Transactional email platform branding — implementation branch
 
 Security, team invitation and customer portal access email HTML now uses one graphite/copper TradeOS platform shell, while existing copy, one-time URLs, expiration notices, plain-text alternatives and delivery idempotency remain unchanged. Customer document branding remains organization-specific and is not modified. Unit coverage for the shell is added; hosted tests, email-client rendering and provider-delivery checks remain separate gates. No deployment or delivery certification is claimed.
