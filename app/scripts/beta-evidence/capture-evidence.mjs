@@ -89,6 +89,7 @@ try {
   );
 }
 let failure = null;
+let failureDiagnostics = null;
 let context;
 let page;
 
@@ -142,8 +143,16 @@ async function checkpoint(sequence, name, { optional = false } = {}) {
 
 async function navigateEstimateStage(stage) {
   const navigation = page.getByRole("navigation", { name: "Estimate stages" });
-  // Older desktop workbenches expose all sections; focused mobile stages do not.
-  if ((await navigation.count()) === 0 || !(await navigation.isVisible())) {
+  // The builder is a client component with an async query: while it loads it
+  // renders only "Loading estimate…" — no stage nav at all. An instant probe
+  // mistakes that transient absence for a nav-less workbench and returns
+  // without switching stages, leaving the editor hidden behind two closed
+  // disclosures. Wait for the nav to appear before deciding; only a genuine
+  // timeout falls through to the legacy nav-less-workbench path.
+  try {
+    await navigation.waitFor({ state: "visible", timeout: 30_000 });
+  } catch {
+    // Older desktop workbenches expose all sections; focused mobile stages do not.
     assertBusiness("mobile estimate stage navigation exists", viewport.width >= 1024, `Missing at ${viewport.name}px`);
     return;
   }
@@ -160,6 +169,40 @@ async function navigateEstimateStage(stage) {
     `Estimate stage ${stage} becomes current after navigation`,
     (await button.getAttribute("aria-current")) === "step",
   );
+}
+
+// Best-effort DOM-only snapshot for the Items-entry race site: URL, stage
+// nav presence, which stage (if any) is current, disclosure button state,
+// and editor visibility. Reads attributes and text only — never cookies,
+// storage, tokens, or page content beyond these controls.
+async function captureEstimateEntryDiagnostics() {
+  try {
+    const nav = page.getByRole("navigation", { name: "Estimate stages" });
+    const action = page.getByRole("button", { name: "Custom item", exact: true });
+    const editor = page.getByLabel("Custom line item", { exact: true });
+    const domState = await page.evaluate(() => {
+      const current = document.querySelector('nav[aria-label="Estimate stages"] button[aria-current="step"]');
+      const editorEl = document.querySelector("#custom-description");
+      return {
+        currentStageButton: current?.textContent?.trim() ?? null,
+        loadingEstimateVisible: document.body?.innerText?.includes("Loading estimate…") ?? false,
+        editorDoublyHidden: Boolean(editorEl?.closest("[hidden]")),
+      };
+    });
+    return {
+      url: page.url(),
+      navCount: await nav.count(),
+      navVisible: await nav.isVisible().catch(() => false),
+      buttonCount: await action.count(),
+      buttonVisible: await action.isVisible().catch(() => false),
+      buttonExpanded: await action.getAttribute("aria-expanded").catch(() => null),
+      editorCount: await editor.count(),
+      editorVisible: await editor.isVisible().catch(() => false),
+      ...domState,
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function readProposalDetail(proposalId) {
@@ -636,8 +679,22 @@ try {
     });
   }
 
-  await navigateEstimateStage("Items");
-  const custom = await openEstimateCustomEntry(page);
+  // The Items entry is the known readiness-race site: if it fails, capture
+  // the discriminating DOM state (never credentials or storage material)
+  // into the report before surfacing the error.
+  let custom;
+  try {
+    await navigateEstimateStage("Items");
+    custom = await openEstimateCustomEntry(page);
+  } catch (error) {
+    failureDiagnostics = await captureEstimateEntryDiagnostics();
+    try {
+      await page.screenshot({ path: path.join(screenshotDir, "estimate-entry-failure.png"), fullPage: false });
+    } catch {
+      // A failed diagnostic screenshot must not mask the original error.
+    }
+    throw error;
+  }
   await custom.fill("Remove glued-down linoleum");
   await page.locator("#custom-quantity").fill("850");
   await page.locator("#custom-unit-cost").fill("1.25");
@@ -805,6 +862,7 @@ try {
         assertions,
         consoleErrors,
         failedRequests,
+        failureDiagnostics,
         result: failure ? "FAIL" : "PASS",
         error: failure instanceof Error ? failure.message : null,
       },
@@ -820,6 +878,11 @@ if (failure) {
   console.error(
     `::error::last successful checkpoint: ${lastCheckpoint ? `${lastCheckpoint.sequence}-${lastCheckpoint.name}` : "none"}`,
   );
+  if (failureDiagnostics) {
+    console.error(
+      `::error::estimate entry diagnostics: ${JSON.stringify(failureDiagnostics)}`,
+    );
+  }
   process.exit(1);
 }
 console.log(`Viewport ${viewport.name}px PASS — ${checkpoints.length} checkpoints captured`);
