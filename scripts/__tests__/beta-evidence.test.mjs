@@ -666,10 +666,14 @@ test("evidence capture fails closed without explicit mutation consent", () => {
 });
 
 test("evidence capture asserts business meaning, not just DOM presence", () => {
-  // The shipped estimate formula's outputs, not incidental copy.
-  for (const total of ["\\$310\\.89", "\\$5,920\\.89", "\\$6,732\\.00", "\\$7,105\\.07"]) {
+  // The shipped estimate formula's outputs, not incidental copy. The
+  // customer-facing totals are asserted against rendered text; the tax
+  // figure is asserted against the authoritative estimate API because the
+  // builder never renders taxAmount as visible text.
+  for (const total of ["\\$5,920\\.89", "\\$6,732\\.00", "\\$7,105\\.07"]) {
     assert.match(capture, new RegExp(total));
   }
+  assert.match(capture, /taxAmount\) - 310\.89/);
   assert.match(capture, /overhead persists across reload/);
   assert.match(capture, /tax rate persists across reload/);
   assert.match(capture, /proposal carries the finalized estimate value/);
