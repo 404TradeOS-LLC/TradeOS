@@ -68,3 +68,14 @@ test("forced Universal Create intents remain preserved", async () => {
   assert.ok(actions.includes('if (createIntent === "job")'));
   assert.ok(actions.includes('buildProjectIntentDestination(projectId, "job")'));
 });
+
+
+test("Task intent continues through new Project creation without automatically creating a Task", async () => {
+  const { page, form, actions } = await sources();
+  assert.ok(page.includes('resolveNewProjectCreateIntent(intent)'));
+  assert.ok(form.includes('name="intent" value={createIntent}'));
+  assert.ok(form.includes('createIntent === "task" ? "Create & add task"'));
+  assert.ok(actions.includes('if (createIntent === "task")'));
+  assert.ok(actions.includes('buildProjectIntentDestination(projectId, "task")'));
+  assert.equal(actions.includes('POST", token, body: JSON.stringify({ projectId, title'), false);
+});
