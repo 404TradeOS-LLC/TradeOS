@@ -802,6 +802,7 @@ try {
   // the old getByText(...).first() waits hit.
   await page.waitForFunction(
     () => document.body.innerText.includes("$7,105.07"),
+    undefined,
     { timeout: 30_000 },
   );
   const markedUpPricingText = await page.locator("body").innerText();
