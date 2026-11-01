@@ -141,7 +141,7 @@ Existing PR #795 is extended to repair the dependency audit blocking Today 2.0 P
 
 ## Today AttentionItem component proposal — 2026-11-01
 
-PR #841 (`feat/today-attention-item-figma-align`) extracts the existing Today Needs You row into a reusable, responsive `AttentionItem` component, mapping persisted priority to Info, Action, and Urgent presentation while preserving the existing source data and open-item action. Figma source: master file `xImUa9CYUjx3Cb3zTrkfnY`, node `16:42`. This is proposed code only; it has not been merged or deployed. Figma Code Connect metadata inspection is blocked by the connected seat's access level. See [Figma traceability](design/CORE_WORKFLOW_FIGMA_CODE_TRACEABILITY.md).
+PR #841 (`feat/today-attention-item-figma-align`) merged as `335841c0357d75da982e397e6f43d2bc3f2bbbf8`. It extracts the existing Today Needs You row into a reusable, responsive `AttentionItem` component, mapping persisted priority to Info, Action, and Urgent presentation while preserving the existing source data and open-item action. Figma source: master file `xImUa9CYUjx3Cb3zTrkfnY`, node `16:42`. Vercel production deployment `dpl_3usxyViVgRZNwGHUHWsrB963gvcN` is READY on `app.404tradeos.com`. Figma Code Connect metadata inspection is blocked by the connected seat's access level. See [Figma traceability](design/CORE_WORKFLOW_FIGMA_CODE_TRACEABILITY.md).
 
 
 
