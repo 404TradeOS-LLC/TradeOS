@@ -67,6 +67,38 @@ test("createInvoiceAction keeps the bill-against-estimate path intact", () => {
   assert.match(fnSource, /Enter a percent complete for a progress invoice\./);
 });
 
+function readScaleManualLinesForProgressSource(): string {
+  const source = readInvoicesActionsSource();
+  const start = source.indexOf("function scaleManualLinesForProgress");
+  assert.notEqual(start, -1, "expected scaleManualLinesForProgress to exist");
+  const next = source.indexOf("export async function ", start + 1);
+  return source.slice(start, next === -1 ? undefined : next);
+}
+
+test("createInvoiceAction rejects a blank manual unit price instead of converting it to zero", () => {
+  const fnSource = readCreateInvoiceActionSource();
+  const apiCallIndex = fnSource.indexOf("apiFetch");
+  const blankPriceIndex = fnSource.indexOf("!unitPriceRaw");
+  assert.notEqual(blankPriceIndex, -1, "expected a blank unit price guard in the manual line validation");
+  assert.ok(blankPriceIndex < apiCallIndex, "the blank-price guard must run before the API call");
+  // An explicit zero stays allowed: the guard rejects blank input, not a zero price.
+  assert.ok(!fnSource.includes("unitPrice <= 0"), "an explicit zero unit price must remain allowed");
+  assert.match(fnSource, /a unit price of zero or more/);
+});
+
+test("createInvoiceAction scales manual line quantities and totals by percent complete for progress invoices", () => {
+  const fnSource = readCreateInvoiceActionSource();
+  const apiCallIndex = fnSource.indexOf("apiFetch");
+  const scaleIndex = fnSource.indexOf("scaleManualLinesForProgress(parsed, type, percentComplete)");
+  assert.notEqual(scaleIndex, -1, "expected manual lines to pass through progress scaling");
+  assert.ok(scaleIndex < apiCallIndex, "progress scaling must run before the API call");
+  const helperSource = readScaleManualLinesForProgressSource();
+  assert.match(helperSource, /type !== "progress"/);
+  assert.match(helperSource, /Number\(percentComplete\) \/ 100/);
+  assert.match(helperSource, /quantity \* scale/);
+  assert.match(helperSource, /lineTotal: roundCurrency\(quantity \* line\.unitPrice\)/);
+});
+
 function readRecordInvoicePaymentActionSource(): string {
   const source = readInvoicesActionsSource();
   const start = source.indexOf("export async function recordInvoicePaymentAction");
