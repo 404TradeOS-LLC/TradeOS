@@ -6,10 +6,12 @@ const headerUrl = new URL("./page-header.tsx", import.meta.url);
 
 test("PageHeader ancestor and back navigation links expose a visible keyboard focus ring", async () => {
   const source = await readFile(headerUrl, "utf8");
-  const links = [...source.matchAll(/<Link\\b[\\s\\S]*?<\\/Link>/g)].map(match => match[0]);
-  assert.equal(links.length, 2, "both breadcrumb and back links must remain keyboard accessible");
+  const links = source.split("\\n").filter(line =>
+    line.includes('className="') && line.includes("outline-none") && line.includes("focus-visible:text-foreground")
+  );
+  assert.equal(links.length, 2, "breadcrumb and back links must both retain a focus indicator");
   for (const link of links) {
-    assert.match(link, /focus-visible:ring-3/, "keyboard focus must not rely on text-color change alone");
-    assert.match(link, /focus-visible:ring-ring\\/50/);
+    assert.ok(link.includes("focus-visible:ring-3"), "focus must not rely only on text color");
+    assert.ok(link.includes("focus-visible:ring-ring/50"));
   }
 });
