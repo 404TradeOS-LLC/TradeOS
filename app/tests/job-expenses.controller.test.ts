@@ -56,6 +56,20 @@ describe("expensesController", () => {
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
+  it("accepts an explicit customer payer and rejects unknown payer values", async () => {
+    create.mockResolvedValue({ id: EXPENSE });
+    const res = responseDouble();
+    await expensesController.create(baseReq({
+      body: { amountCents: 4000, category: "material", incurredOn: "2026-11-01", paymentResponsibility: "customer" },
+    }), res);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ paymentResponsibility: "customer" }));
+    create.mockClear();
+    await expect(expensesController.create(baseReq({
+      body: { amountCents: 4000, category: "material", incurredOn: "2026-11-01", paymentResponsibility: "someone_else" },
+    }), res)).rejects.toThrow();
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("rejects a zero amount and a non-calendar incurred date", async () => {
     const res = responseDouble();
     await expect(
