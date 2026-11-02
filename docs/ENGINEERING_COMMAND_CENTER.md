@@ -487,3 +487,9 @@ PR #827 adds `20261030004500_team_time_foundation` and `20261030005500_team_time
 ## P0 Customer → Project staging evidence repair — 2026-10-30
 
 Hosted staging run 41007794872 reached 1440px authenticated capture but failed because `capture-evidence.mjs` expected only the hidden Customer ID, while the Project creation form can also render the general selected-Customer control. The bounded harness repair accepts either legitimate form state **only when its value exactly matches the newly created Customer ID**, then requires the Project API to persist that same ID. S052 still requires resolved hidden context for ServiceAddress continuity. This change alone does not constitute four-viewport PASS and does not alter runtime auth, RLS, or production schema.
+
+## Staging Job Expense migration dependency for PR #904 — November 2026
+
+**Delivery sequence:** already-merged staging API source (#837) → read-only Job Expense inventory preflight → independently reviewed, GitHub Environment-approved staging-only Expense migration apply → 68/68 postflight parity → review/promote web handoff #904 → exact-SHA runtime and authenticated Step 9 tenant/concurrency/rollback/four-width acceptance → final PR #810 release review.
+
+Use [the one-purpose protected workflow](../.github/workflows/staging-job-expenses-migration.yml) and [runbook](operations/staging-job-expenses-runner.md). Ordinary \`main\` migration deployment is **not** interchangeable with this workflow: current main excludes the historical Job handoff migration already applied on staging. The Job Expense SQL remains unchanged and is the only pending staging migration permitted by the runner. Do not repeat the handoff migration, bypass Environment reviewers, manually stamp the ledger or expose production secrets. Source PR checks alone are not live acceptance; preserve protected run IDs, exact SHA, schema and RLS postflight, and auth/browser evidence separately.
