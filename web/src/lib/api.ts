@@ -1421,6 +1421,7 @@ export interface JobExpense {
   jobId: string;
   orgId: string;
   amountCents: number;
+  paymentResponsibility: "contractor" | "customer";
   category: JobExpenseCategory;
   vendor: string;
   receiptNote: string;
@@ -1435,6 +1436,7 @@ export interface JobCostSummary {
   projectId: string;
   expenseCount: number;
   actualCents: number;
+  customerPaidCents: number;
   byCategoryCents: Record<string, number>;
   estimatedCents: number | null;
   estimateId: string | null;
