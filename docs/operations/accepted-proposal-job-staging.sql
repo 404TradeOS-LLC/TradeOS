@@ -26,5 +26,8 @@ WHERE ix.indrelid = 'public.jobs'::regclass
 SELECT relrowsecurity, relforcerowsecurity
 FROM pg_class WHERE oid = 'public.jobs'::regclass;
 
+-- Reject an RLS-filtered count; this does not bypass any policy.
+-- If the evidence role cannot see all Jobs, PostgreSQL raises an error.
+SET LOCAL row_security = off;
 SELECT count(*) AS existing_job_count FROM public.jobs;
 COMMIT;
