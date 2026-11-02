@@ -115,9 +115,15 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
       preview: buildLocalBrandPreview(persistedProfile, current.documentSettings, current.assets),
     }));
     setSettings((current) => {
-      const profile = url
+      const updatedFields = url
         ? applyBrandStudioUpload(current.profile, assetKey, url)
         : clearBrandStudioUpload(current.profile, assetKey);
+      const profile = {
+        ...updatedFields,
+        id: persistedProfile.id,
+        createdAt: persistedProfile.createdAt,
+        updatedAt: persistedProfile.updatedAt,
+      };
       return {
         ...current,
         profile,
