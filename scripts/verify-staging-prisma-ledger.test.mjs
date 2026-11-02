@@ -87,3 +87,14 @@ test("read-only evidence checks forced RLS and payer CHECK", () => {
   assert.match(evidenceSql, /job_expenses_payment_responsibility_check/);
   assert.doesNotMatch(evidenceSql, /\b(?:INSERT|UPDATE|DELETE|ALTER|DROP|CREATE)\s+(?:TABLE|INTO|FROM|CONSTRAINT)\b/i);
 });
+
+test("read-only ledger evidence pins the catalog search path against shadow functions", () => {
+  assert.match(evidenceSql, /BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;\s*SET LOCAL search_path = pg_catalog;/);
+});
+test("staging transaction pooler accepts the known pgbouncer=true hint only", () => {
+  const base = "postgresql://postgres.qfbgdkbamfaasmtjfyru:pass@aws-0-us-east-2.pooler.supabase.com:6543/postgres";
+  const safe = stagingUrl(base + "?pgbouncer=true");
+  assert.equal(safe.searchParams.get("pgbouncer"), "true");
+  assert.throws(() => stagingUrl(base + "?pgbouncer=false"), /parameter/i);
+  assert.throws(() => stagingUrl(base + "?pgbouncer=true&pgbouncer=true"), /parameter/i);
+});
