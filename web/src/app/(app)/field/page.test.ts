@@ -35,6 +35,7 @@ async function renderDeniedPage(token: string | null, role: string) {
       if (specifier === "@/components/field/field-job-actions") return { FieldJobActions: unusedComponent };
       if (specifier === "@/components/field/field-task-status-editor") return { FieldTaskStatusEditor: unusedComponent };
       if (specifier === "@/components/field/field-note-form") return { FieldNoteForm: unusedComponent };
+      if (specifier === "@/components/field/job-expense-section") return { JobExpenseSection: unusedComponent };
       if (specifier === "@/components/shared/status-badge") return { StatusBadge: unusedComponent };
       if (specifier === "@/lib/document-workflow" || specifier === "@/lib/field-workspace") {
         return new Proxy({}, { get: (_target, name) => () => { throw new Error(`Denied page reached ${String(name)}`); } });

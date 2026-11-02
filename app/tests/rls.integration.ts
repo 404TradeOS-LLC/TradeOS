@@ -1306,6 +1306,50 @@ describe("live organization row-level security", () => {
     expect(hiddenUnassignedJob).toBeNull();
   });
 
+  it("scopes job expenses through the job join at the database boundary", async () => {
+    // jobA belongs to orgA with technicianUser assigned; jobB belongs to orgB.
+    const expenseA = randomUUID();
+    const expenseB = randomUUID();
+    try {
+      await adminClient.jobExpense.createMany({
+        data: [
+          { id: expenseA, orgId: orgA, jobId: jobA, amountCents: 1999, category: "material", vendor: "Org A vendor", receiptNote: "", incurredOn: new Date("2026-11-01T00:00:00.000Z"), createdById: adminUser },
+          { id: expenseB, orgId: orgB, jobId: jobB, amountCents: 5000, category: "labor", vendor: "Org B vendor", receiptNote: "", incurredOn: new Date("2026-11-01T00:00:00.000Z"), createdById: otherUser },
+        ],
+      });
+
+      const adminVisible = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().jobExpense.findMany({ orderBy: { createdAt: "asc" } })
+      );
+      expect(adminVisible.map((row) => row.id)).toEqual([expenseA]);
+
+      const technicianVisible = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().jobExpense.findMany()
+      );
+      expect(technicianVisible.map((row) => row.id)).toEqual([expenseA]);
+
+      const otherOrgHidden = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().jobExpense.findUnique({ where: { id: expenseA } })
+      );
+      expect(otherOrgHidden).toBeNull();
+
+      const unassignedHidden = await inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().jobExpense.findUnique({ where: { id: expenseA } })
+      );
+      expect(unassignedHidden).toBeNull();
+
+      await expect(
+        inSession(technicianUser, orgA, "technician", async () =>
+          currentTransaction().jobExpense.create({
+            data: { id: randomUUID(), orgId: orgA, jobId: jobB, amountCents: 100, category: "other", vendor: "", receiptNote: "", incurredOn: new Date("2026-11-01T00:00:00.000Z"), createdById: technicianUser },
+          })
+        ),
+      ).rejects.toThrow();
+    } finally {
+      await adminClient.jobExpense.deleteMany({ where: { id: { in: [expenseA, expenseB] } } });
+    }
+  });
+
   it("denies an unassigned same-organization technician job reads and completion at the database boundary", async () => {
     const unassignedJob = randomUUID();
     const assignedTechnician = randomUUID();

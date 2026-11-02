@@ -1,0 +1,26 @@
+import fs from "node:fs";
+import path from "node:path";
+
+describe("job expenses migration", () => {
+  it("adds the job_expenses table, cents-exact constraint, indexes, and forced job-join RLS", () => {
+    const migration = fs.readFileSync(
+      path.join(__dirname, "../prisma/migrations/20261102020000_add_job_expenses/migration.sql"),
+      "utf8",
+    );
+
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS public.job_expenses");
+    expect(migration).toContain("amount_cents integer NOT NULL CONSTRAINT job_expenses_amount_cents_check CHECK (amount_cents > 0)");
+    expect(migration).toContain("job_expenses_category_check CHECK (category IN ('labor', 'material', 'equipment', 'disposal', 'subcontractor', 'other'))");
+    expect(migration).toContain("job_expenses_org_job_idx");
+    expect(migration).toContain("job_expenses_job_incurred_idx");
+    expect(migration).toContain("ALTER TABLE public.job_expenses ENABLE ROW LEVEL SECURITY");
+    expect(migration).toContain("ALTER TABLE public.job_expenses FORCE ROW LEVEL SECURITY");
+    expect(migration).toContain("CREATE POLICY job_expenses_select_policy ON public.job_expenses");
+    expect(migration).toContain("CREATE POLICY job_expenses_insert_policy ON public.job_expenses");
+    expect(migration).toContain("CREATE POLICY job_expenses_update_policy ON public.job_expenses");
+    expect(migration).toContain("CREATE POLICY job_expenses_delete_policy ON public.job_expenses");
+    expect(migration).toContain("j.org_id = (SELECT current_app_org_id())");
+    expect(migration).not.toContain("ALTER TABLE jobs");
+    expect(migration).not.toContain("DROP TABLE");
+  });
+});
