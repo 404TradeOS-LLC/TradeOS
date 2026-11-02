@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import {
   buildExpenseReceiptPath, isExpenseReceiptPath,
   validateExpenseReceiptBytes,
@@ -29,4 +30,9 @@ test("rejects mismatched formats and executable files", () => {
   assert.throws(() => validateExpenseReceiptBytes("receipt.pdf", "application/pdf", new Uint8Array([1,2,3,4,5,6])), /content/);
   assert.throws(() => validateExpenseReceiptBytes("receipt.html", "text/html", new Uint8Array([37,80,68,70,45])), /JPEG/);
   assert.throws(() => validateExpenseReceiptBytes("receipt.jpg", "application/pdf", new Uint8Array([37,80,68,70,45])), /extension/);
+});
+
+test("Next server-action body limit permits a full receipt plus multipart overhead", () => {
+  const config = readFileSync(new URL("../../next.config.ts", import.meta.url), "utf8");
+  assert.match(config, /bodySizeLimit:\\s*["']7mb["']/);
 });
