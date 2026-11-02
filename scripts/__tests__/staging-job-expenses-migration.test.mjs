@@ -23,6 +23,7 @@ const after = () => ({
       "incurred_on","created_by_id","created_at","updated_at"],
     indexes: ["job_expenses_pkey","job_expenses_org_job_idx","job_expenses_job_incurred_idx"],
     policies: ["job_expenses_select_policy","job_expenses_insert_policy","job_expenses_update_policy","job_expenses_delete_policy"],
+    constraints: ["job_expenses_pkey","job_expenses_amount_cents_check","job_expenses_category_check","job_expenses_vendor_check","job_expenses_receipt_note_check"],
     appRoleGrants: ["SELECT","INSERT","UPDATE","DELETE"] },
 });
 const request = { ref: "refs/heads/main", sourceSha, mode: "apply",
