@@ -1,0 +1,106 @@
+name: Review or apply staging Job Expense migration
+
+# One-purpose, main-trusted, staging-only Prisma migration runner.
+# Source SQL is read as checksum-pinned data; trusted main's CLI runs.
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "Reviewed full staging SHA with Job Expense SQL"
+        required: true
+        type: string
+      mode:
+        description: "Preflight is read-only; apply needs separate protected approval"
+        required: true
+        default: preflight
+        type: choice
+        options: [preflight, apply]
+      confirmation:
+        description: "Apply only: type APPLY_STAGING_JOB_EXPENSES"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-migrations-staging
+  cancel-in-progress: false
+
+jobs:
+  expenses:
+    name: Staging Job Expense migration preflight or approved apply
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Refuse anything other than trusted main
+        env:
+          WORKFLOW_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          test "$WORKFLOW_REF" = "refs/heads/main" || {
+            echo "::error::Dispatch this staging-only migration runner from main."
+            exit 1
+          }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Verify exact SHA approval and source binding (no secret access)
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          MIGRATION_MODE: ${{ inputs.mode }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          APPROVED_SOURCE_SHA: ${{ vars.STAGING_JOB_EXPENSES_APPROVED_SHA }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { validateRequest } from './scripts/staging-job-expenses-migration.mjs';
+          validateRequest({
+            ref: process.env.GITHUB_REF,
+            sourceSha: process.env.SOURCE_SHA,
+            mode: process.env.MIGRATION_MODE,
+            approvedSha: process.env.APPROVED_SOURCE_SHA,
+            confirmation: process.env.CONFIRMATION
+          });
+          NODE
+          staging_head="$(gh api "repos/${GITHUB_REPOSITORY}/branches/staging" --jq '.commit.sha')"
+          test "$SOURCE_SHA" = "$staging_head" || {
+            echo "::error::Source SHA differs from the staging head; refusing database access."
+            exit 1
+          }
+          echo "Reviewed source matches current staging head."
+
+      - name: Fetch source commit as SQL data only
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: git fetch --no-tags origin "$SOURCE_SHA"
+
+      - name: Install trusted main dependencies and PostgreSQL client
+        run: |
+          set -euo pipefail
+          npm ci --prefix app --ignore-scripts
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Protected read-only evidence or exact-source approved apply
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          MIGRATION_MODE: ${{ inputs.mode }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          APPROVED_SOURCE_SHA: ${{ vars.STAGING_JOB_EXPENSES_APPROVED_SHA }}
+          STAGING_DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
+          STAGING_APP_DB_ROLE_NAME: ${{ vars.STAGING_APP_DB_ROLE_NAME }}
+          APP_DB_ROLE_PASSWORD: ${{ secrets.STAGING_APP_DB_ROLE_PASSWORD }}
+        run: node scripts/staging-job-expenses-migration.mjs
