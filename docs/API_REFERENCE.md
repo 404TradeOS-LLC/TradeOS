@@ -14,6 +14,10 @@ related_code:
 
 # API Reference
 
+## PDF logo internal private storage bridge — staging promotion of PR #871 and PR #873
+
+No new API endpoints or client parameters. Existing authenticated PDF download routes now attempt to load the organization-owned `logoUrl` asset from private `SettingsAssetUpload` storage when the backend has protected `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. PDFKit invoice, contract, and proposal functions take an optional internal `logoImage?: Buffer | null` input; it is NOT an HTTP request parameter and must never be populated from client-submitted bytes without org-scoped authorization. PNG/JPEG bytes are bounded (1 MiB, 2048px max edge, 2 MP max area) and invalid formats fall back to text-only company branding. Requests without trusted org context, absent credentials, nonmatching storage paths, bad MIME/dimensions, or download errors retain the original text-only PDF. Credentials must not enter browser bundles, logs, or documentation. Existing authorization and tenant-scoped query contracts are unchanged. Issue #870 remains open until authenticated staging visual verification with a seeded same-tenant logo and protected staging credential provenance pass. This staging promotion does not include PR #868, so the staging proposal PDF header still carries the pre-#868 platform label until #868 itself is promoted.
+
 ## Openings/appliance assembly API addendum (PR #774, pending)
 
 The unchanged `GET /api/v1/{costbook/}assemblies/starter-catalog`

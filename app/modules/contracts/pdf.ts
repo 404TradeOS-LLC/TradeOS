@@ -1,4 +1,5 @@
 import PDFDocument from "pdfkit";
+import { drawValidatedPdfLogo } from "../documents/pdf-logo";
 import type { DocumentFrameBrand } from "../documents/frame";
 import { formatDocumentCurrency, formatDocumentDate } from "../documents/format";
 
@@ -15,7 +16,7 @@ interface ContractForPdf {
   project: { name: string; siteAddress: string | null; customer: { name: string } | null };
 }
 
-export function renderContractPdf(contract: ContractForPdf, opts: { brand: DocumentFrameBrand }): Promise<Buffer> {
+export function renderContractPdf(contract: ContractForPdf, opts: { brand: DocumentFrameBrand; logoImage?: Buffer | null }): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50 });
     const chunks: Buffer[] = [];
@@ -28,6 +29,7 @@ export function renderContractPdf(contract: ContractForPdf, opts: { brand: Docum
     doc.save();
     doc.roundedRect(50, 38, doc.page.width - 100, 74, 14).fill(brand.colors.primary);
     doc.restore();
+    drawValidatedPdfLogo(doc, opts.logoImage, { x: doc.page.width - 116, y: 49, width: 50, height: 50 });
     const headerForeground = getHeaderForeground(brand.colors.primary);
     doc.fillColor(headerForeground).fontSize(20).text(brand.companyName, 66, 54, { width: 300 });
     if (brand.tagline) doc.fontSize(9).text(brand.tagline, 66, 80, { width: 300 });
