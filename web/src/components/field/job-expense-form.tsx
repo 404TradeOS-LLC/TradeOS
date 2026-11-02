@@ -13,7 +13,7 @@ export function JobExpenseForm({
 }: { jobId: string; defaultIncurredOn: string; idempotencyKey: string }) {
   const [state, action, pending] = useActionState(addJobExpenseAction, undefined satisfies JobExpenseActionState);
   return (
-    <form action={action} className="grid gap-3" encType="multipart/form-data">
+    <form action={action} className="grid gap-3">
       <input type="hidden" name="jobId" value={jobId} />
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
       <div className="grid gap-3 sm:grid-cols-2">
