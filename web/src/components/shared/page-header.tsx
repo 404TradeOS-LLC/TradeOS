@@ -35,7 +35,7 @@ export function PageHeader({ title, description, backHref, backLabel = "Back", b
             <span key={`${crumb.label}-${index}`} className="flex items-center gap-1">
               {index > 0 ? <ChevronRight aria-hidden="true" className="size-3.5 shrink-0" /> : null}
               {crumb.href ? (
-                <Link href={crumb.href} className="truncate outline-none transition-colors hover:text-foreground focus-visible:text-foreground">
+                <Link href={crumb.href} className="truncate rounded-sm outline-none transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
                   {crumb.label}
                 </Link>
               ) : (
@@ -49,7 +49,7 @@ export function PageHeader({ title, description, backHref, backLabel = "Back", b
       ) : backHref ? (
         <Link
           href={backHref}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:text-foreground"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground rounded-sm outline-none transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <ArrowLeft aria-hidden="true" className="size-4" />
           {backLabel}
