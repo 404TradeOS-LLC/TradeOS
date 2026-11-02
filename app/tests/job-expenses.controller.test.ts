@@ -133,6 +133,11 @@ describe("expensesController", () => {
         receiptContentType: "text/html", receiptSizeBytes: 2048 },
     }), res)).rejects.toThrow();
     expect(attachReceipt).not.toHaveBeenCalled();
+    await expect(expensesController.attachReceipt(baseReq({
+      body: { receiptStoragePath, receiptFileName: "oversized.pdf",
+        receiptContentType: "application/pdf", receiptSizeBytes: 4 * 1024 * 1024 + 1 },
+    }), res)).rejects.toThrow();
+    expect(attachReceipt).not.toHaveBeenCalled();
   });
 
   it("reads the audit log scoped to the URL job", async () => {
