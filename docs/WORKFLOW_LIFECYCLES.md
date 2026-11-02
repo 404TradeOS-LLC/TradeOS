@@ -18,6 +18,10 @@ related_code:
 
 # Workflow Lifecycles
 
+## PDF logo loading does not change commercial state — staging promotion of PR #871 and PR #873
+
+Invoice, contract, and proposal PDF generation may add the authenticated organization's stored PNG/JPEG logo after bounded private Storage validation. This affects only document display and retains all estimate/proposal/contract/invoice workflow states, pricing, acceptance, signatures, payment, and authorization behavior. Invalid or missing images fall back safely to the company-name header, and no external URL is accessed. Staging acceptance (seeded same-tenant logo, protected staging credential provenance, visual PDF inspection) remains open under issue #870.
+
 This file defines canonical display states and the current compatibility layer for persisted values.
 
 ## Current operational relationship

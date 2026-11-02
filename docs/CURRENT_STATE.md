@@ -63,6 +63,10 @@ related_code:
 
 # TradeOS Current State
 
+## Authenticated private contractor-logo loading for PDFs — staging promotion, pending acceptance
+
+Staging now carries the main-branch implementation from PR #871 (bounded no-network PDFKit logo validation and rendering in invoice, contract, and proposal headers) and PR #873 (organization-scoped private Supabase Storage loader bound to the authenticated org's current `SettingsAssetUpload(orgId, logoUrl)` record, private `project-files` bucket only, PNG/JPEG only, 1 MiB / 2048px / 2 MP bounds, no redirects, 4s timeout, company-name fallback on any failure). No arbitrary URL is fetched and no secret, signed URL, or storage path is returned to callers or logged. Remaining release evidence under issue #870: protected staging-only `SUPABASE_SERVICE_ROLE_KEY` provenance, a seeded same-tenant logo upload through the Brand Studio workflow, authenticated staging invoice/proposal/contract PDF generation, and visual PDF inspection. No production rollout without that safe asset path. Note: this promotion does not include PR #868, so the staging proposal header still carries the pre-#868 platform label until #868 itself is promoted.
+
 ## Job handoff API-only staging promotion — 2026-10-30
 
 Draft PR #810 remains the canonical feature PR at source
