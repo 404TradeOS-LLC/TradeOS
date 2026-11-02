@@ -5,6 +5,7 @@ const mockDb = {
   jobExpense: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), createMany: jest.fn(), upsert: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn() },
   jobExpenseEvent: { create: jest.fn(), findMany: jest.fn() },
   estimate: { findFirst: jest.fn() },
+  $queryRaw: jest.fn(),
 };
 
 (mockDb as any).$transaction = jest.fn(async (callback: (transaction: typeof mockDb) => Promise<unknown>) => callback(mockDb));
@@ -123,6 +124,43 @@ describe("JobExpensesService", () => {
     expect(summary.customerPaidCents).toBe(4000);
     expect(summary.byCategoryCents).toEqual({ material: 1300 });
     expect(summary.expenseCount).toBe(2);
+  });
+
+  it("records the locked, freshly reread state before a concurrent update", async () => {
+    const stale = expenseRow({ amountCents: 1900 });
+    const fresh = expenseRow({ amountCents: 2500 });
+    mockDb.jobExpense.findFirst.mockResolvedValueOnce(stale).mockResolvedValueOnce(fresh);
+    mockDb.jobExpense.update.mockResolvedValue(expenseRow({ amountCents: 3000 }));
+
+    await service.update({ id: "expense-1", orgId: ORG, amountCents: 3000 });
+
+    expect(mockDb.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(mockDb.jobExpenseEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        eventType: "updated",
+        payloadJson: expect.objectContaining({
+          before: expect.objectContaining({ amountCents: 2500 }),
+          after: expect.objectContaining({ amountCents: 3000 }),
+        }),
+      }),
+    });
+  });
+
+  it("records a freshly locked snapshot before voiding an expense", async () => {
+    const stale = expenseRow({ amountCents: 1900 });
+    const fresh = expenseRow({ amountCents: 2500 });
+    mockDb.jobExpense.findFirst.mockResolvedValueOnce(stale).mockResolvedValueOnce(fresh);
+    mockDb.jobExpense.update.mockResolvedValue(expenseRow({ amountCents: 2500, voidedAt: new Date(), voidedById: ACTOR }));
+
+    await service.remove("expense-1", ORG, JOB, ACTOR);
+
+    expect(mockDb.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(mockDb.jobExpenseEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        eventType: "voided",
+        payloadJson: expect.objectContaining({ before: expect.objectContaining({ amountCents: 2500 }) }),
+      }),
+    });
   });
 
   it("returns 404 when the job belongs to another org", async () => {
