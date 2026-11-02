@@ -8,8 +8,8 @@ import { CustomerDirectory } from "@/components/customers/customer-directory";
 
 export default async function CustomersPage() {
   const token = await getSessionToken();
-  // A list failure degrades to an empty list plus a fallback banner below
-  // instead of failing the page outright; the success path is unchanged.
+  // A failed read shows recovery copy and must not render an empty CustomerDirectory,
+  // which would misrepresent unavailable data as a truly empty customer list.
   const { customers, settings, customersFailed } = token
     ? await loadCustomersPageData(token, { listCustomers, getOrganizationSettings })
     : { customers: [], settings: null, customersFailed: false };
@@ -33,7 +33,7 @@ export default async function CustomersPage() {
         </div>
       ) : null}
 
-      <CustomerDirectory customers={customers} />
+      {!customersFailed ? <CustomerDirectory customers={customers} /> : null}
     </div>
   );
 }
