@@ -25,7 +25,11 @@ async function loadRoute(input: { token: string | null; expense?: Record<string,
     ...(input.expense ?? {}),
   };
   class FakeApiClientError extends Error {
-    constructor(message: string, public status: number) { super(message); }
+    status: number;
+    constructor(message: string, status: number) {
+      super(message);
+      this.status = status;
+    }
   }
   vm.runInNewContext(compiled, {
     exports, Response, Request, Blob, encodeURIComponent,
