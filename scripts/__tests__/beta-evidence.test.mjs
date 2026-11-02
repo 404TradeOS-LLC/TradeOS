@@ -490,7 +490,7 @@ test("finalize ready wait is scoped to the Estimate workflow region", () => {
   assert.ok(regionWait !== -1 && regionWait < checkpoint06, "expected a region-scoped wait in the finalize step");
   assert.match(
     finalizeBlock.slice(regionWait, checkpoint06),
-    /\.getByText\("ready", \{ exact: true \}\)\.waitFor/,
+    /^getByRole\("region", \{ name: "Estimate workflow" \}\)\s*\.getByText\("ready", \{ exact: true \}\)\.waitFor/,
     "expected the finalize ready wait to be scoped to the Estimate workflow region",
   );
   assert.doesNotMatch(
