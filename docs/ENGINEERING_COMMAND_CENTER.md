@@ -487,3 +487,7 @@ PR #827 adds `20261030004500_team_time_foundation` and `20261030005500_team_time
 ## P0 Customer → Project staging evidence repair — 2026-10-30
 
 Hosted staging run 41007794872 reached 1440px authenticated capture but failed because `capture-evidence.mjs` expected only the hidden Customer ID, while the Project creation form can also render the general selected-Customer control. The bounded harness repair accepts either legitimate form state **only when its value exactly matches the newly created Customer ID**, then requires the Project API to persist that same ID. S052 still requires resolved hidden context for ServiceAddress continuity. This change alone does not constitute four-viewport PASS and does not alter runtime auth, RLS, or production schema.
+
+### Protected staging expense baseline ledger guard (2026-11-02)
+
+The existing staging-only `Deploy staging database migrations` workflow now has a *read-only* exact-name and checksum preflight before its reviewed Prisma apply and a matching postflight. This acknowledges only the separately reviewed and checksum-pinned Job handoff staging migration, rejects all other unknown or pending migrations, and checks forced Job Expense RLS and four policy names. See `docs/operations/staging-expense-baseline-preflight.md`. Keep main-only dispatch, environment reviewer, staging identity and concurrency intact. This update does not authorize actual migration, payer CHECK validation, production changes or acceptance claims.
