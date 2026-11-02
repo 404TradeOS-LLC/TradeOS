@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
-import { expenseName, expenseHash, handoffName, handoffHash, validateRequest, validateProof, performMigration, verifySourceSql } from "../staging-job-expenses-migration.mjs";
+import { expenseName, expenseHash, handoffName, handoffHash, validateRequest, validateProof, validateSourceInventory, performMigration, verifySourceSql } from "../staging-job-expenses-migration.mjs";
 
 const sourceSha = "a".repeat(40);
 const baseName = "20260623143000_init_schema";
@@ -42,6 +42,16 @@ test("reviewed migration identities and source hashes are pinned", () => {
   assert.equal(expenseHash, "c6599040d635a5aa69ae8b5b01a2f29014617a751b822ea015395ea9231743a1");
   assert.equal(handoffHash, "3db2c92bf2ae533b47ba976ab09ae814c7974a161c219d61fc6dc31f07aed293");
   assert.throws(() => verifySourceSql("ALTER TABLE public.jobs DROP COLUMN id;", "DROP TABLE public.job_expenses;"));
+});
+
+
+test("refuses unapproved staging migration inventory changes before touching DB", () => {
+  const source = { ...hashes };
+  assert.deepEqual(validateSourceInventory(hashes, source), { count: 3 });
+  assert.throws(() => validateSourceInventory(hashes, { ...source, "20990101000000_unreviewed": "a".repeat(64) }), /inventory/i);
+  assert.throws(() => validateSourceInventory(hashes, { ...source, [baseName]: "d".repeat(64) }), /inventory/i);
+  const missing = { ...source }; delete missing[handoffName];
+  assert.throws(() => validateSourceInventory(hashes, missing), /inventory/i);
 });
 
 test("only missing expense is accepted, and prior handoff must remain fully verified", () => {
