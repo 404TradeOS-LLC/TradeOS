@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import type { ChangeEvent, DragEvent } from "react";
+import { removeSettingsAssetAction, uploadSettingsAssetAction } from "@/app/actions/settings";
 import { AlertCircle, CheckCircle2, ImagePlus, LoaderCircle, Palette, ShieldCheck, Sparkles, SwatchBook, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +12,14 @@ import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
 import { clientFetch } from "@/lib/clientApi";
+import { validateSettingsAssetUpload } from "@/lib/settingsAssetUpload";
+import {
+  applyBrandStudioUpload,
+  brandStudioUploadSlots,
+  clearBrandStudioUpload,
+  isOwnedBrandAssetUrl,
+  type BrandStudioUploadKey,
+} from "@/lib/brand-studio-upload";
 import {
   buildLocalBrandPreview,
   defaultBrandAssetDraft,
@@ -44,6 +54,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
   const [statusTone, setStatusTone] = useState<"success" | "error" | "info">("info");
   const [isSaving, setIsSaving] = useState(false);
   const [isAssetSaving, setIsAssetSaving] = useState(false);
+  const [busyBrandAssetKey, setBusyBrandAssetKey] = useState<BrandStudioUploadKey | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const dirty = JSON.stringify(settings) !== JSON.stringify(savedSettings);
@@ -83,6 +94,119 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
       setStatusMessage(error instanceof Error ? error.message : "Unable to save Brand Studio right now.");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+
+  // Private bytes already live in the SettingsAssetUpload lifecycle. After the
+  // file action succeeds, persist its same-org proxy into the canonical Brand
+  // Studio profile instead of creating a second upload store.
+  async function persistBrandAssetProfile(assetKey: BrandStudioUploadKey, url: string | null) {
+    const nextSavedProfile = url
+      ? applyBrandStudioUpload(savedSettings.profile, assetKey, url)
+      : clearBrandStudioUpload(savedSettings.profile, assetKey);
+    const persistedProfile = await clientFetch<BrandStudioSettingsBundle["profile"]>("/brand-studio/profile", {
+      method: "PUT",
+      body: JSON.stringify(nextSavedProfile),
+    });
+    setSavedSettings((current) => ({
+      ...current,
+      profile: persistedProfile,
+      preview: buildLocalBrandPreview(persistedProfile, current.documentSettings, current.assets),
+    }));
+    setSettings((current) => {
+      const profile = url
+        ? applyBrandStudioUpload(current.profile, assetKey, url)
+        : clearBrandStudioUpload(current.profile, assetKey);
+      return {
+        ...current,
+        profile,
+        preview: buildLocalBrandPreview(profile, current.documentSettings, current.assets),
+      };
+    });
+  }
+
+  async function uploadBrandFile(assetKey: BrandStudioUploadKey, file: File) {
+    if (busyBrandAssetKey || isSaving) return;
+    setStatusMessage(null);
+    const invalid = validateSettingsAssetUpload({ assetKey, file: { size: file.size, type: file.type } });
+    if (invalid) {
+      setStatusTone("error");
+      setStatusMessage(invalid);
+      return;
+    }
+    setBusyBrandAssetKey(assetKey);
+    try {
+      const form = new FormData();
+      form.set("file", file);
+      form.set("assetKey", assetKey);
+      const uploaded = await uploadSettingsAssetAction(form);
+      if (!uploaded.url) throw new Error(uploaded.error ?? "Unable to upload image.");
+      if (!isOwnedBrandAssetUrl(uploaded.url, settings.profile.organizationId, assetKey)) {
+        throw new Error("Upload returned an unexpected brand asset URL.");
+      }
+      // Keep the proxy visible even if the second (canonical profile) write
+      // fails; Save Brand Studio can then retry that write explicitly.
+      setSettings((current) => {
+        const profile = applyBrandStudioUpload(current.profile, assetKey, uploaded.url!);
+        return { ...current, profile, preview: buildLocalBrandPreview(profile, current.documentSettings, current.assets) };
+      });
+      try {
+        await persistBrandAssetProfile(assetKey, uploaded.url);
+        setStatusTone("success");
+        setStatusMessage(`${file.name} uploaded and saved to Brand Studio.`);
+      } catch {
+        setStatusTone("error");
+        setStatusMessage("Image uploaded, but the brand profile could not be saved. Use Save Brand Studio to finish applying it.");
+      }
+    } catch (error) {
+      setStatusTone("error");
+      setStatusMessage(error instanceof Error ? error.message : "Unable to upload image.");
+    } finally {
+      setBusyBrandAssetKey(null);
+    }
+  }
+
+  async function handleBrandFileInput(assetKey: BrandStudioUploadKey, event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (file) await uploadBrandFile(assetKey, file);
+  }
+
+  async function handleBrandDrop(assetKey: BrandStudioUploadKey, event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const file = event.dataTransfer.files?.[0];
+    if (file) await uploadBrandFile(assetKey, file);
+  }
+
+  async function removeBrandFile(assetKey: BrandStudioUploadKey, url: string) {
+    if (busyBrandAssetKey || isSaving) return;
+    setBusyBrandAssetKey(assetKey);
+    setStatusMessage(null);
+    try {
+      // Only delete private bytes for the exact current org + slot.
+      // External image URLs are profile values, not owned Storage objects.
+      if (isOwnedBrandAssetUrl(url, settings.profile.organizationId, assetKey)) {
+        const result = await removeSettingsAssetAction(assetKey);
+        if (!result.ok) throw new Error(result.error ?? "Unable to remove image.");
+      }
+      setSettings((current) => {
+        const profile = clearBrandStudioUpload(current.profile, assetKey);
+        return { ...current, profile, preview: buildLocalBrandPreview(profile, current.documentSettings, current.assets) };
+      });
+      try {
+        await persistBrandAssetProfile(assetKey, null);
+        setStatusTone("success");
+        setStatusMessage("Brand image removed.");
+      } catch {
+        setStatusTone("error");
+        setStatusMessage("Image removal started, but the brand profile could not be saved. Use Save Brand Studio to finish.");
+      }
+    } catch (error) {
+      setStatusTone("error");
+      setStatusMessage(error instanceof Error ? error.message : "Unable to remove image.");
+    } finally {
+      setBusyBrandAssetKey(null);
     }
   }
 
@@ -170,7 +294,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
                 </a>
               ))}
             </nav>
-            <Button type="button" onClick={saveAll} disabled={isSaving}>
+            <Button type="button" onClick={saveAll} disabled={isSaving || busyBrandAssetKey !== null}>
               {isSaving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
               Save Brand Studio
             </Button>
@@ -268,14 +392,68 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
               <CardDescription>Primary source assets plus backend-derived favicon, monochrome, and print-safe variants.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
+              <p className="text-sm text-muted-foreground">
+                Choose an image from your phone or computer, or drop a file onto a slot. PNG, JPG, WebP, GIF, and ICO up to 6 MB. SVG requires safe conversion first.
+              </p>
               <div className="grid gap-4 md:grid-cols-2">
-                <TextField label="Primary logo URL" value={settings.profile.logoUrl} onChange={(value) => updateProfile("logoUrl", value)} />
-                <TextField label="Dark logo URL" value={settings.profile.logoDarkUrl} onChange={(value) => updateProfile("logoDarkUrl", value)} />
-                <TextField label="Light logo URL" value={settings.profile.logoLightUrl} onChange={(value) => updateProfile("logoLightUrl", value)} />
-                <TextField label="Icon URL" value={settings.profile.iconUrl} onChange={(value) => updateProfile("iconUrl", value)} />
-                <TextField label="Watermark URL" value={settings.profile.watermarkUrl} onChange={(value) => updateProfile("watermarkUrl", value)} />
-                <TextField label="Cover image URL" value={settings.profile.coverImageUrl} onChange={(value) => updateProfile("coverImageUrl", value)} />
+                {brandStudioUploadSlots.map((slot) => {
+                  const url = settings.profile[slot.profileField];
+                  const busy = busyBrandAssetKey !== null || isSaving;
+                  const inputId = `brand-upload-${slot.assetKey}`;
+                  return (
+                    <div
+                      key={slot.assetKey}
+                      className="space-y-3 rounded-xl border border-border/70 bg-background p-4"
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => void handleBrandDrop(slot.assetKey, event)}
+                    >
+                      <Label htmlFor={inputId}>{slot.label}</Label>
+                      <div className="flex h-28 items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-muted/25">
+                        {url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={url} alt={`${slot.label} preview`} className="max-h-full max-w-full object-contain" loading="lazy" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
+                            <ImagePlus className="h-6 w-6" />
+                            No image uploaded
+                          </div>
+                        )}
+                      </div>
+                      <Input
+                        id={inputId}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif,image/x-icon"
+                        aria-label={`Choose ${slot.label} image`}
+                        disabled={busy}
+                        onChange={(event) => void handleBrandFileInput(slot.assetKey, event)}
+                      />
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-xs text-muted-foreground">{busyBrandAssetKey === slot.assetKey ? "Uploading…" : url ? "Image configured" : "PNG, JPG, WebP"}</span>
+                        {url ? (
+                          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void removeBrandFile(slot.assetKey, url)}>
+                            Remove
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+              <details className="rounded-xl border border-border/70 p-4">
+                <summary className="cursor-pointer text-sm font-medium">Use image URL (advanced)</summary>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Optional external image links. Light logo and cover artwork currently require a URL until additional secure upload slots are added.
+                  Changes made here take effect when you select Save Brand Studio.
+                </p>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <TextField label="Primary logo URL" value={settings.profile.logoUrl} onChange={(value) => updateProfile("logoUrl", value)} />
+                  <TextField label="Dark logo URL" value={settings.profile.logoDarkUrl} onChange={(value) => updateProfile("logoDarkUrl", value)} />
+                  <TextField label="Light logo URL" value={settings.profile.logoLightUrl} onChange={(value) => updateProfile("logoLightUrl", value)} />
+                  <TextField label="Icon URL" value={settings.profile.iconUrl} onChange={(value) => updateProfile("iconUrl", value)} />
+                  <TextField label="Watermark URL" value={settings.profile.watermarkUrl} onChange={(value) => updateProfile("watermarkUrl", value)} />
+                  <TextField label="Cover image URL" value={settings.profile.coverImageUrl} onChange={(value) => updateProfile("coverImageUrl", value)} />
+                </div>
+              </details>
 
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {livePreview.derivedLogoVariants.map((variant) => (
