@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { evaluateLedger, baselineMigration, reviewedStagingJobHandoff } from "./verify-staging-prisma-ledger.mjs";
+import { evaluateLedger, baselineMigration, reviewedStagingJobHandoff, reviewedStagingPayer } from "./verify-staging-prisma-ledger.mjs";
 
 const main = { prior_migration: "a".repeat(64), [baselineMigration]: "b".repeat(64) };
 const applied = (name, checksum) => ({ name, checksum, finished: true, rolled_back: false });
@@ -48,3 +48,20 @@ test("all four expense policies must exist", () =>
 test("untracked payer column is rejected", () =>
   assert.throws(() => evaluateLedger(main,[prior,historicalJob,baseline],{...present,payerColumn:true},"postflight"),/untracked payer/i));
 test("unknown phase rejected", () => assert.throws(() => evaluateLedger(main,[prior,historicalJob],absent,"whatever"),/phase/i));
+
+test("separately reviewed staged payer migration requires matching checksum and CHECK", () => {
+  const payer = applied(reviewedStagingPayer.name, reviewedStagingPayer.checksum);
+  const result = evaluateLedger(main, [prior, historicalJob, baseline, payer],
+    {...present, payerColumn:true, payerConstraint:"not_validated"}, "postflight");
+  assert.equal(result.expensePayerApplied, true);
+});
+test("staged payer with missing CHECK is refused", () => {
+  const payer = applied(reviewedStagingPayer.name, reviewedStagingPayer.checksum);
+  assert.throws(() => evaluateLedger(main, [prior, historicalJob, baseline, payer],
+    {...present, payerColumn:true, payerConstraint:"absent"}, "postflight"), /payer.*constraint/i);
+});
+test("pending payer tracked on main is not deployed by baseline-only procedure", () => {
+  const inventory = {...main, [reviewedStagingPayer.name]:reviewedStagingPayer.checksum};
+  assert.throws(() => evaluateLedger(inventory,[prior,historicalJob,baseline],
+    present,"preflight"),/unrelated pending/i);
+});
