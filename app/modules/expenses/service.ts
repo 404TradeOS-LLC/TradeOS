@@ -4,10 +4,12 @@ import { prisma } from "../../db/client";
 import {
   CreateJobExpenseInput,
   ExpenseCategory,
+  ExpensePaymentResponsibility,
   JobCostSummaryDTO,
   JobExpenseDTO,
   UpdateJobExpenseInput,
   expenseCategories,
+  expensePaymentResponsibilities,
 } from "./types";
 
 type JobExpenseRow = {
@@ -15,6 +17,7 @@ type JobExpenseRow = {
   jobId: string;
   orgId: string;
   amountCents: number;
+  paymentResponsibility: string;
   category: string;
   vendor: string;
   receiptNote: string;
@@ -25,6 +28,7 @@ type JobExpenseRow = {
 };
 
 const CATEGORY_SET = new Set<string>(expenseCategories);
+const PAYMENT_RESPONSIBILITY_SET = new Set<string>(expensePaymentResponsibilities);
 
 function toDTO(row: JobExpenseRow): JobExpenseDTO {
   return {
@@ -32,6 +36,7 @@ function toDTO(row: JobExpenseRow): JobExpenseDTO {
     jobId: row.jobId,
     orgId: row.orgId,
     amountCents: row.amountCents,
+    paymentResponsibility: (row.paymentResponsibility ?? "contractor") as ExpensePaymentResponsibility,
     category: row.category as ExpenseCategory,
     vendor: row.vendor,
     receiptNote: row.receiptNote,
@@ -54,6 +59,13 @@ function assertValidCategory(category: unknown): ExpenseCategory {
     throw new ApiError(400, `category must be one of: ${expenseCategories.join(", ")}`);
   }
   return category as ExpenseCategory;
+}
+
+function assertValidPaymentResponsibility(value: unknown): ExpensePaymentResponsibility {
+  if (typeof value !== "string" || !PAYMENT_RESPONSIBILITY_SET.has(value)) {
+    throw new ApiError(400, "paymentResponsibility must be contractor or customer");
+  }
+  return value as ExpensePaymentResponsibility;
 }
 
 function normalizeText(value: string | undefined, maxLength: number, field: string): string {
@@ -112,6 +124,7 @@ export class JobExpensesService {
   async create(input: CreateJobExpenseInput): Promise<JobExpenseDTO> {
     const amountCents = assertValidAmountCents(input.amountCents);
     const category = assertValidCategory(input.category);
+    const paymentResponsibility = assertValidPaymentResponsibility(input.paymentResponsibility ?? "contractor");
     const vendor = normalizeText(input.vendor, 200, "vendor");
     const receiptNote = normalizeText(input.receiptNote, 2000, "receiptNote");
     const incurredOn = assertValidDate(input.incurredOn, "incurredOn");
@@ -121,6 +134,7 @@ export class JobExpensesService {
         orgId: input.orgId,
         jobId: job.id,
         amountCents,
+        paymentResponsibility,
         category,
         vendor,
         receiptNote,
@@ -135,6 +149,7 @@ export class JobExpensesService {
     await this.findExpenseOrThrow(input.id, input.orgId);
     const data: {
       amountCents?: number;
+      paymentResponsibility?: ExpensePaymentResponsibility;
       category?: ExpenseCategory;
       vendor?: string;
       receiptNote?: string;
@@ -142,6 +157,7 @@ export class JobExpensesService {
     } = {};
     if (input.amountCents !== undefined) data.amountCents = assertValidAmountCents(input.amountCents);
     if (input.category !== undefined) data.category = assertValidCategory(input.category);
+    if (input.paymentResponsibility !== undefined) data.paymentResponsibility = assertValidPaymentResponsibility(input.paymentResponsibility);
     if (input.vendor !== undefined) data.vendor = normalizeText(input.vendor, 200, "vendor");
     if (input.receiptNote !== undefined) data.receiptNote = normalizeText(input.receiptNote, 2000, "receiptNote");
     if (input.incurredOn !== undefined) data.incurredOn = assertValidDate(input.incurredOn, "incurredOn");
@@ -172,7 +188,13 @@ export class JobExpensesService {
     ]);
     const byCategoryCents: Record<string, number> = {};
     let actualCents = 0;
+    let customerPaidCents = 0;
     for (const row of rows as JobExpenseRow[]) {
+      // Existing records predate this field and are contractor-paid by default.
+      if (row.paymentResponsibility === "customer") {
+        customerPaidCents += row.amountCents;
+        continue;
+      }
       actualCents += row.amountCents;
       byCategoryCents[row.category] = (byCategoryCents[row.category] ?? 0) + row.amountCents;
     }
@@ -182,6 +204,7 @@ export class JobExpensesService {
       projectId: job.projectId,
       expenseCount: rows.length,
       actualCents,
+      customerPaidCents,
       byCategoryCents,
       estimatedCents,
       estimateId: latestEstimate ? latestEstimate.id : null,
