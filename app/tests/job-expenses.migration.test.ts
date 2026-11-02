@@ -37,6 +37,29 @@ describe("job expenses migration", () => {
     expect(migration).not.toContain("DROP TABLE");
   });
 
+  it("keeps Prisma index names and audit foreign-key relations aligned with migration SQL", () => {
+    const schema = fs.readFileSync(path.join(__dirname, "../prisma/schema.prisma"), "utf8");
+    const expenses = schema.slice(schema.indexOf("model JobExpense {"), schema.indexOf("model JobAssignment {"));
+    const jobModel = schema.slice(schema.indexOf("model Job {"), schema.indexOf("model JobEquipment {"));
+    const orgModel = schema.slice(schema.indexOf("model Organization {"), schema.indexOf("model OrganizationMembership {"));
+    const userModel = schema.slice(schema.indexOf("model AppUser {"), schema.indexOf("model Organization {"));
+    for (const value of [
+      '@@unique([orgId, jobId, idempotencyKey], map: "job_expenses_org_job_idempotency_key_idx")',
+      '@@index([orgId, jobId], map: "job_expenses_org_job_idx")',
+      '@@index([orgId, jobId, voidedAt], map: "job_expenses_org_job_voided_idx")',
+      '@@index([jobId, incurredOn(sort: Desc)], map: "job_expenses_job_incurred_idx")',
+      '@@index([orgId, jobId, expenseId, createdAt], map: "job_expense_events_org_job_expense_created_idx")',
+      'voidedBy AppUser? @relation("JobExpenseVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)',
+      'organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)',
+      'job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)',
+      'actorUser AppUser @relation("JobExpenseEventActor", fields: [actorUserId], references: [id], onDelete: Restrict)',
+    ]) expect(expenses).toContain(value);
+    expect(jobModel).toContain("expenseEvents JobExpenseEvent[]");
+    expect(orgModel).toContain("jobExpenseEvents JobExpenseEvent[]");
+    expect(userModel).toContain("voidedJobExpenses JobExpense[]");
+    expect(userModel).toContain("createdJobExpenseEvents JobExpenseEvent[]");
+  });
+
   it("adds the job_expenses table, cents-exact constraint, indexes, and forced job-join RLS", () => {
     const migration = fs.readFileSync(
       path.join(__dirname, "../prisma/migrations/20261102020000_add_job_expenses/migration.sql"),
