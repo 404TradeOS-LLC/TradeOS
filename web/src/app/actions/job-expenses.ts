@@ -67,7 +67,7 @@ export async function addJobExpenseAction(_previous: JobExpenseActionState, form
   let bytes: Uint8Array | null = null;
   let receiptMetadata: ReturnType<typeof validateExpenseReceiptBytes> | null = null;
   if (receipt) {
-    if (receipt.size > MAX_EXPENSE_RECEIPT_BYTES) return { error: "Receipts must be 6 MB or smaller." };
+    if (receipt.size > MAX_EXPENSE_RECEIPT_BYTES) return { error: "Receipts must be 4 MB or smaller." };
     try {
       bytes = new Uint8Array(await receipt.arrayBuffer());
       receiptMetadata = validateExpenseReceiptBytes(receipt.name, receipt.type, bytes);
