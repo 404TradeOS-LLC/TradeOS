@@ -1,4 +1,4 @@
-export const MAX_EXPENSE_RECEIPT_BYTES = 6 * 1024 * 1024;
+export const MAX_EXPENSE_RECEIPT_BYTES = 4 * 1024 * 1024;
 export const EXPENSE_RECEIPT_BUCKET = "project-files";
 
 export type ExpenseReceiptMime = "image/png" | "image/jpeg" | "application/pdf";
@@ -17,7 +17,7 @@ export function validateExpenseReceiptBytes(
 ): { fileName: string; contentType: ExpenseReceiptMime; sizeBytes: number } {
   if (!isExpenseReceiptMime(contentType)) throw new Error("Receipt must be JPEG, PNG, or PDF.");
   if (bytes.length < 5 || bytes.length > MAX_EXPENSE_RECEIPT_BYTES) {
-    throw new Error("Receipt must be a nonempty file no larger than 6 MB.");
+    throw new Error("Receipt must be a nonempty file no larger than 4 MB.");
   }
   const name = fileName.trim().replace(/[\\/\r\n]/g, "-").slice(0, 200);
   if (!name) throw new Error("Receipt must have a filename.");
