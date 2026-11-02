@@ -1756,3 +1756,8 @@ Existing `PageHeader` breadcrumb/back links now expose a visible semantic focus 
 ### CRM and Customers bounded loading — 2026-11-02 (replacement for draft PR #883)
 
 CRM overview reads five existing organization-scoped sources with one default 20-second `AbortSignal.timeout`, passed through the existing `apiFetch` clients. Each read settles independently so an unavailable source produces the existing per-source warning while other data remains usable. The Customers page uses the same existing warning style and does **not** mount `CustomerDirectory` when its customer list request fails; unavailable data must not appear as a genuine empty directory. A controllable AbortSignal in the loader enables a deterministic test of a pending request that rejects on timeout; no new data source, API authorization or page navigation was introduced. This patch supersedes stale draft #883 on fresh main. Its new head requires complete CI, review and authenticated application acceptance before release.
+
+
+### New Project → Task continuity release reconciliation — 2026-11-02
+
+The existing Universal Create → Task flow preserves `intent=task` through new Project creation and redirects the contractor to that Project's existing Tasks form. It does **not** create a Task automatically. The implementation and associated source-contract regression tests from PR #893 have been carried forward unchanged onto the latest main-based release branch after #894 merged; newer CRM and shared-navigation code is preserved. Exact-head hosted verification, branch currency, review and authenticated responsive acceptance must still be proven on the new PR. No schema, API or production action is part of this fix.

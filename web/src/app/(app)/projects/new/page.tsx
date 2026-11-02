@@ -31,6 +31,8 @@ export default async function NewProjectPage({
             ? "Carry the existing Customer and a saved service address into a new Project without creating a second relationship model."
             : focusScope
               ? "Start with plain-language scope. TradeOS will carry it into the estimate workflow."
+              : createIntent === "task"
+                ? "Create this Project, then continue directly into its existing task form."
               : "Give the job a clear name now so site notes, estimates, and invoices stay easy to find later."
         }
         backHref={customerContext ? `/customers/${customerContext.id}` : "/projects"}
