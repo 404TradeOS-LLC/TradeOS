@@ -91,6 +91,7 @@ jobs:
         run: |
           set -euo pipefail
           npm ci --prefix app --ignore-scripts
+          npm run --prefix app prisma:generate
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends postgresql-client
 
