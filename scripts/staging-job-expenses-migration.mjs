@@ -79,6 +79,17 @@ export function validateProof(inventory, evidence, { requireApplied = false } = 
     missing: targetApplied ? [] : [expenseName] };
 }
 
+export function validateSourceInventory(trustedInventory, sourceInventory) {
+  const trustedNames = Object.keys(trustedInventory).sort();
+  const sourceNames = Object.keys(sourceInventory).sort();
+  if (trustedNames.length !== sourceNames.length ||
+      trustedNames.some((name, index) => name !== sourceNames[index] ||
+        trustedInventory[name] !== sourceInventory[name])) {
+    throw Error("Staging source migration inventory differs from the reviewed trusted inventory");
+  }
+  return { count: trustedNames.length };
+}
+
 export function performMigration(mode, inventory, before, deploy, captureAfter) {
   if (!["preflight", "apply"].includes(mode)) throw Error("Unknown migration mode");
   const initial = validateProof(inventory, before);
@@ -162,6 +173,27 @@ export function main(env = process.env) {
     throw Error("Trusted main Job handoff SQL differs from applied historical checksum");
   }
   inventory[handoffName] = handoffHash;
+
+  // Verify ALL staging-source migration names and SQL hashes, not just the
+  // two feature blobs. No feature-branch code or dependencies are executed.
+  // Prevent an unrelated staging migration from silently bypassing preflight.
+  const prefix = "app/prisma/migrations/";
+  const sourcePaths = run("git",
+    ["ls-tree", "-r", "--name-only", env.SOURCE_SHA, prefix],
+    { cwd: root, env: trustedEnv }).trim().split("\n").filter(Boolean);
+  const sourceInventory = {};
+  for (const sourcePath of sourcePaths) {
+    if (sourcePath === prefix + "migration_lock.toml") continue;
+    const match = /^app\/prisma\/migrations\/([0-9]{14}_[a-z0-9_]+)\/migration\.sql$/.exec(sourcePath);
+    if (!match || Object.hasOwn(sourceInventory, match[1])) {
+      throw Error("Unexpected or duplicate staging migration source file");
+    }
+    const sql = run("git", ["show", env.SOURCE_SHA + ":" + sourcePath],
+      { cwd: root, env: trustedEnv });
+    sourceInventory[match[1]] = hash(sql);
+  }
+  validateSourceInventory(inventory, sourceInventory);
+
   const pgEnv = { ...trustedEnv, PGHOST: url.hostname, PGPORT: url.port,
     PGDATABASE: "postgres", PGUSER: decodeURIComponent(url.username),
     PGPASSWORD: decodeURIComponent(url.password), PGSSLMODE: "require", PGCONNECT_TIMEOUT: "15" };
