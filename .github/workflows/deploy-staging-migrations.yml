@@ -194,6 +194,14 @@ jobs:
             exit 1
           fi
 
+      - name: Preflight approved staging ledger and expense baseline
+        working-directory: .
+        env:
+          LEDGER_PHASE: preflight
+        run: |
+          node --test scripts/verify-staging-prisma-ledger.test.mjs
+          node scripts/verify-staging-prisma-ledger.mjs
+
       - name: Deploy tracked Prisma migrations and provision app role
         run: |
           set -euo pipefail
@@ -224,24 +232,8 @@ jobs:
           export DATABASE_ADMIN_URL
           bash scripts/deploy-migrations.sh
 
-      - name: Verify Prisma migration ledger
-        run: |
-          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
-          expected="$(find prisma/migrations -mindepth 2 -maxdepth 2 -type f -name migration.sql | wc -l | tr -d ' ')"
-          applied="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
-            SELECT count(*)
-            FROM public._prisma_migrations
-            WHERE finished_at IS NOT NULL
-              AND rolled_back_at IS NULL
-          ")"
-          unfinished="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
-            SELECT count(*)
-            FROM public._prisma_migrations
-            WHERE finished_at IS NULL
-              AND rolled_back_at IS NULL
-          ")"
-          if [ "$applied" != "$expected" ] || [ "$unfinished" != "0" ]; then
-            echo "::error::Prisma ledger verification failed: expected=$expected applied=$applied unfinished=$unfinished."
-            exit 1
-          fi
-          echo "Verified $applied applied migrations; no unfinished migrations. A historical rolled-back row does not fail this check: a recovered migration is re-applied as a separate row."
+      - name: Verify applied migration names, checksums and expense RLS
+        working-directory: .
+        env:
+          LEDGER_PHASE: postflight
+        run: node scripts/verify-staging-prisma-ledger.mjs
