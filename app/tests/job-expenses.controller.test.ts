@@ -70,6 +70,25 @@ describe("expensesController", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it("validates a UUID idempotency key on create", async () => {
+    create.mockResolvedValue({ id: EXPENSE });
+    const res = responseDouble();
+    await expensesController.create(baseReq({
+      body: {
+        amountCents: 2500, currency: "USD", description: "Paint",
+        category: "material", incurredOn: "2026-11-02",
+        idempotencyKey: "11111111-1111-4111-8111-111111111111",
+      },
+    }), res);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      idempotencyKey: "11111111-1111-4111-8111-111111111111",
+      currency: "USD", description: "Paint",
+    }));
+    await expect(expensesController.create(baseReq({
+      body: { amountCents: 2500, category: "material", incurredOn: "2026-11-02", idempotencyKey: "bad" },
+    }), res)).rejects.toThrow();
+  });
+
   it("rejects a zero amount and a non-calendar incurred date", async () => {
     const res = responseDouble();
     await expect(
