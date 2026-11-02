@@ -14,53 +14,60 @@ related_docs:
 
 # Session Handoff
 
-## Accepted-scope repair and #810 review status — 2026-10-30
+## Accepted-proposal handoff #810 — branch reconciliation, 2026-11-02
 
-- EXISTING_WORK_FOUND, Sprint ID NONE. Founder directed #810 undrafted; GitHub
-  confirmed ready for review at7506e46f with auto-merge disabled. Release
-  acceptance remains gated. #837 API-only staging source starts at5d5d9c6f.
-- #837's review found missing accepted scope was copied from mutable Project
-  scope. Three regressions fail against source7506e46f. The bounded fix rejects
-  new null/empty/whitespace accepted scope with409 after the existing-Job lookup,
-  preserving idempotent retries. No migration, permission or deployment change.
-- Scope: Job service, service tests and API/RBAC/lifecycle/current/module docs.
-  Apply the same fix to both existing branches. No new feature PR or workflow.
-- Both pre-repair heads passed required CI; #810 had no unresolved threads;
-  #837 has one validated review thread. New-head CI/review required after push.
-- Staging remains52117b65; its67 completed migrations include Job handoff.
-  Binding attestation is blocked by connector403 and sensitive Preview values
-  withheld from the old CLI attestation. Do not repeat that unchanged run.
-- Next five: validate/push fix on #810; carry it to #837; reconcile new-head CI
-  and the validated review thread; restore supported protected binding proof;
-  stage API then web and collect step-9 evidence before release review.
+- The feature is open for review but not release-certified. Three CodeRabbit findings were repaired; GitHub reports zero unresolved review threads. New-head hosted CI and current-main currency require verification.
+- Staging's accepted-proposal migration was previously applied exactly once; the staging backend feature came via merged PR #837. New staged web source is prepared in draft PR #904; it has not been merged or accepted.
+- Run 41106407474 succeeded for protected, secret-safe binding isolation. It does not substitute for authenticated tenant or service-key provenance evidence.
+- The separate Job Expenses migration remains missing from staging's applied 67 of 68 source inventory. Do not repeat the handoff migration to repair that difference.
+- Next: reconcile exact-head checks, separately reviewed staging inventory parity, coherent staging web/API deployment, authenticated Step 9 tenant/concurrency/rollback and four-width evidence, then final release review. No production action.
 
-- Fresh validation:44 Job tests,40 docs tests,181 governance tests, API
-  typecheck, docs ownership and whitespace pass. Three regression cases failed
-  against the pre-fix source. Hosted final-head checks remain required.
 
-## Historical continuity
+## Active bounded mission — Frozen Estimate Apply recovery, 2026-10-31
 
-## PR #810 staging continuation — 2026-10-30
+- Sprint ID: NONE; classification NEW_WORK_REQUIRED. Main `ed97db6b908f3113bd319eab7875e8003d3e3e43`, tree `48ab6d6ccd7a64f69f225515cc5d755ee42cde68`. Four open PRs (#837/#830/#810/#775) do not own this fix. The old named feature branch was absent. The older estimate-review recovery branch has identical Assist source and later Proposal-only recovery changes; current Assist history #569/#542 and merged #839 do not freeze Apply.
+- Branch: `feat/figma-to-code-completion`, created from exact main after reconciliation. Local path `/workspace/scratch/5c7f3e9dcd3e/tradeos-apply-snapshot` is a fetched source snapshot, not an authenticated Git checkout; no local upstream/worktree or full-repository cleanliness result is invented. Publication uses the connected GitHub API and exact base tree.
+- Scope: existing Assist client/page, bounded request-session helper/unit tests, responsive real-component browser cases and owned docs. Backend, schema, auth/RLS/RBAC, pricing/financial calculations, dependencies, secrets/environments, deployment and other active missions are excluded.
+- Implemented on branch: one serialized request body; synchronous duplicate lock; review/generation lock during pending and unconfirmed Apply; explicit identical-body retry; saved-Items navigation; acknowledgement unlock; nonintrusive keyboard recovery focus; summary invalidation on suggestion edits; record-keyed remount and late callback suppression. No automatic retry, scope in URL/storage or invented status endpoint.
+- Verified locally: 11 helper behavioral cases plus 15 existing Estimate mobile/source contracts passed (26 total). Four real-component browser cases at 390/768/1024/1440 cover pending/failed locked review, exact retry, acknowledgement, generation exclusion and obsolete-record response suppression; all passed at code head `3f570e7` in [Verify repository 41234398010](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/41234398010), along with 569 web tests, 55 browser/component cases, 189 PostgreSQL integration tests and lint/build/type checking. Four unconfirmed-state screenshots were inspected (artifact 13054428374, expires November 7). React hook/accessibility/serialization checklist reviewed. Full local web suite/lint/build cannot run without dependencies.
+- Review follow-through: reproduced definitive 400 rejection locking with a failing test, then distinguished first-attempt known refusals (400/403/404/409) from unknown/transient responses. A prior unconfirmed response remains retained even after a later refusal; no blanket 4xx inference or permission change. Expanded browser cases verify unlocked correction and a newly serialized corrected payload. The owning Assist module holds the contract; estimating/current-state docs link to it.
+- Figma's eight existing recovery/result layouts and twenty selected connections were inspected in the prior design pass. These are design/prototype evidence, not authenticated or persisted-line proof. This implementation does not certify the whole Estimate workflow.
+- Next five: finish exact-head CI/browser cases and scoped review repairs; prove acknowledged saved-line identity and safe recovery; verify authenticated reload and tenant/record denial; resolve footing-answer persistence; reconcile deck and Estimate→Proposal financial snapshots.
 
-- `EXISTING_WORK_FOUND`, Sprint ID NONE. Continue existing feature branch
-  `feat/accepted-proposal-job-handoff-20261028`; reconcile source head
-  `84e3cccbc93f2c3c6d6c9910b9a4c58c2a9e256c` with main
-  `0944b4f7f78d0bb7911f356b78e7d25386360648` (merged infrastructure PR #836).
-- #836 is MERGED, not merely auto-merge-enabled. Its trusted-main staging
-  runner is installed. Required checks, workflow lint/security and the final
-  NULL-source compatibility guard passed before merge; protected execution
-  remains separate. No schema migration, deployment or acceptance ran here.
-- Scope: branch currency and protected read-only preflight. Preserve feature
-  schema/API/web behavior, staging approval, exact source-SHA and checksum gates.
-  No direct database writes, production changes or credential-policy changes.
-- Latest direct staging proof: all 66 completed names/checksums match the prior
-  main inventory, zero unfinished; Job migration and columns/index absent,
-  jobs RLS enabled+forced. Recheck through the installed runner before apply.
-- Next five: verify updated feature exact-head CI; run protected staging
-  preflight from main with that source SHA; obtain exact staging apply approval;
-  verify migration/schema and matching API then web deployments; retain
-  authenticated step-9 evidence and complete final-head release review.
 
+## Active bounded mission — Estimate full-review scope continuity, 2026-10-31
+
+- Sprint ID: NONE. `NEW_WORK_REQUIRED` after inspecting main `6a19766f3865262c37ddc37c7f8794363d45e3f0`, four open PRs (#837/#830/#810/#775), relevant branches and prior #751/#569/#542. None owns the current scope handoff defect; the historical `feat/figma-to-code-completion` branch is absent.
+- Repository: `404TradeOS-LLC/TradeOS`; exact fetched source snapshot `/workspace/scratch/5c7f3e9dcd3e/tradeos-review-snapshot`, no authenticated local Git checkout/upstream/worktree. The connected GitHub API is the publication path. No local full-repository status or test result is invented.
+- Branch: `feat/figma-to-code-completion`, based on that exact main. Scope is builder/contextual navigation, authorized full-review saved-scope loading, bounded helper/tests and owned docs. Backend, schema/migration, auth/RLS policy, financial calculations, secrets/environments and production operations are excluded.
+- Implemented: await existing Project scope-save acknowledgement before both review entries; retain scope on failure, block duplicate entry and late navigation; load saved scope only for the authorized Project/Estimate pair; keep initial suggestions and structured draft empty. Key builder state by record IDs. No URL/local-storage scope transfer or automatic generation.
+- Validation: 9 behavioral tests plus 15 existing Estimate mobile/source contracts passed (24 total) under Node 24.22.1. React hook/disabled-state/serialization review completed. Full repository web suite, lint, TypeScript/build and browser/authenticated evidence cannot execute from this dependency-free snapshot and remain hosted exact-head gates. Do not mark this flow Ready for Dev or production-ready from these tests.
+- Initial head 73702f3 passed hosted web lint/build, 561 web tests, 47 existing component cases, docs and 189 PostgreSQL integration tests. Code head `6c8056e` passed [Verify repository 41218673255](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/41218673255): 561 web tests, 51 component cases, web lint/build/type checking and 189 PostgreSQL integration tests. Four new real-Builder cases exercise both entry controls, acknowledgement/failure/retry and obsolete-record suppression at 390/768/1024/1440; their retained failure screenshots were inspected. The unused fixture variable reported by code-quality review was removed and that thread resolved. Final-head checks remain a merge gate; CodeRabbit is temporarily rate-limited, not an approval.
+- Figma full-review entry/generation/failure targets and 40 matching-width links are inspected; the live implementation gap remains open until the PR is reviewed, merged and browser-verified. Existing scope/freshness, saved-line identity and financial continuity gates remain separate.
+- Next five: verify final-head checks/review and normal merge gates; prove authenticated full-review reload and Project/Estimate mismatch denial; verify acknowledged Add/Apply saved-line identity and retry; specify remaining structured footing-answer persistence without inventing a contract; reconcile deck and Proposal financial fixtures before certification.
+
+
+## Proposed protected staging Job migration runner — 2026-10-30
+
+- `NEW_WORK_REQUIRED` for infrastructure only; feature implementation remains
+  `EXISTING_WORK_FOUND` in #810. No open/recent PR implements a trusted-main,
+  checksum-pinned feature SQL apply path. Branch `fix/staging-job-handoff-migration`
+  starts at main `d1d64137c2912225b8f42ae1895c5786a20643b9` in isolated worktree
+  `/workspace/scratch/332cdaafbc27/TradeOS-job-migration`. Sprint ID NONE.
+- Allowed: new manual staging workflow/runner/tests, root test registration,
+  workflow owner docs. Forbidden: feature schema/API/web files, production
+  workflow, protected settings/secrets, live apply. This PR does not supersede
+  #810 or #833 and carries no feature migration file.
+- Fresh live read-only evidence: all 66 staging names/checksums match main;
+  only the Job handoff would be pending. Both Job RLS flags are true.
+- Validation: 181 governance tests, 40 documentation tests, ownership, Node
+  syntax, actionlint 1.7.7 and whitespace passed. Live evidence passed the full
+  66-name/checksum comparison. Isolated PGlite SQL rehearsal passed; full
+  hosted Prisma execution and Ruby workflow policy remain unverified locally.
+- Next five: review infrastructure exact-head CI; merge only with migration
+  authority/review satisfied; run protected preflight at the reviewed source
+  SHA; approve and execute staging apply with verified postflight; deploy
+  matching API/web and capture #810 authenticated acceptance.
 
 ## Estimate quick-create partial-failure recovery — 2026-10-29
 

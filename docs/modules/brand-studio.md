@@ -13,6 +13,14 @@ related_code:
 
 # Brand Studio
 
+## Private SettingsAssetUpload to PDFKit logo bridge — pending acceptance
+
+The backend PDF reader uses only organization-scoped current `SettingsAssetUpload(orgId, logoUrl)` metadata, the private `project-files` bucket, and a server-only Supabase credential. Arbitrary BrandAsset URLs and untrusted request-body image bytes are excluded. It checks bucket, generated name and organization prefix, expected MIME, size, actual signature/dimensions, no redirects and bounded read. The existing text company name remains on any failure. This is a protected runtime dependency requiring reviewed environment configuration and tenant PDF validation before production acceptance.
+
+## Trusted logo bytes in PDF renderers — bridge implemented; staging acceptance pending
+
+PDFKit supports bounded PNG/JPEG image byte input only, not direct URL fetching. This proposed primitive does not read Brand Studio storage by itself or loosen organization scoping. The authoritative active upload remains the private `SettingsAssetUpload` record and only an authenticated storage owner may provide bytes to the renderer. PR #873 implements the private organization-scoped Storage loader; it still requires a protected staging-only backend key and uploaded same-tenant test logo. Without either, PDFs retain text-only branding. Issue #870 remains open for staging and visual validation.
+
 ## Purpose
 
 Own organization-scoped branding data and shared document-frame presentation settings used across proposals, contracts, and invoices.
@@ -68,6 +76,8 @@ are adopted lazily and non-destructively, and existing organization scoping,
 permissions, fallbacks, and route shapes remain intact.
 
 - Fixed a production defect (found via static audit after a matching bug crashed `PATCH /api/v1/settings` in production, see [settings-and-operations.md](settings-and-operations.md)): `updateProfile`, `createAsset`, and `updateDocumentSettings` called `prisma.$transaction(...)` directly on the request-scoped `prisma` proxy, which throws inside any real authenticated request because `databaseSession` middleware already runs the request inside a `Prisma.TransactionClient` that has no `$transaction` method. All three now use the existing `runInDatabaseTransaction()` helper, matching the convention already used elsewhere (`jobs`, `athena-events`, `athena-memory`, `costbook`). No route contract, permission, or schema change.
+
+- Document download filenames are sanitized for the `Content-Disposition` header: `sanitizeDownloadFilename` (`app/modules/documents/format.ts`) replaces every character outside printable ASCII with `-`, applied by the invoice, contract, proposal, proposal-generator, and customer-portal PDF controllers before `setHeader`. This fixes a production 500: a project name containing an em-dash (for example "Condo Two — Renovation & Punch List") made Node reject the header value (`ERR_INVALID_CHAR`) after the PDF had rendered successfully. Rendering, branding, routes, permissions, and schema are unchanged; only the header filename is ASCII-folded.
 
 ## Tests
 

@@ -450,6 +450,81 @@ test("canonical beta evidence verifies persisted Costbook-independent line costs
   assert.match(capture, /BETA_ALLOW_MUTATIONS=true is required/);
 });
 
+test("post-markup rendered total settles on Review before it is asserted", () => {
+  // Regression guard for the run-41289571105 failure: the markup save is
+  // learned by the builder only via mutation onSuccess -> invalidate ->
+  // async React Query refetch, and stage navigation awaits aria-current,
+  // not the refetched data. A bare innerText read after navigating to
+  // Review races that refetch and sees the stale pre-markup snapshot.
+  // The rendered-text check must therefore wait for the marked-up total
+  // to appear in visible text before the assertion reads it.
+  const markupBlock = capture.slice(capture.indexOf('"markup apply lands the marked-up total"'));
+  const reviewNav = markupBlock.indexOf('navigateEstimateStage("Review")');
+  const totalAssert = markupBlock.indexOf('"post-markup total matches the shipped formula"');
+  const settle = markupBlock.indexOf("waitForFunction", reviewNav);
+  assert.ok(reviewNav !== -1 && settle !== -1 && totalAssert !== -1, "expected the markup Review navigation, settle wait, and total assertion");
+  assert.ok(reviewNav < settle && settle < totalAssert, "expected the settle wait between the markup Review navigation and the post-markup total assertion");
+  assert.match(markupBlock.slice(settle, totalAssert), /\$7,105\.07/);
+  assert.doesNotMatch(markupBlock.slice(reviewNav, settle), /innerText\(\)/);
+  // The ordering check alone would still pass if the wait lost its
+  // `await` (the following read would then race the refetch again), so
+  // pin the awaited call itself.
+  assert.match(
+    markupBlock.slice(reviewNav, settle + "waitForFunction".length),
+    /await\s+page\.waitForFunction/,
+    "expected the settle wait to be awaited",
+  );
+});
+
+test("finalize ready wait is scoped to the Estimate workflow region", () => {
+  // Regression guard for the run-41359082129 failure: the builder renders
+  // the estimate status badge twice (page-header actions row + Review-stage
+  // "Internal estimate review" panel), so a bare getByText("ready") wait
+  // after Finalize estimate trips Playwright strict mode. The wait must be
+  // scoped to the Estimate workflow region, which selects the Review-stage
+  // badge adjacent to the finalize flow.
+  const finalizeBlock = capture.slice(capture.indexOf('getByRole("button", { name: "Finalize estimate" })'));
+  const checkpoint06 = finalizeBlock.indexOf('await checkpoint("06"');
+  assert.ok(checkpoint06 !== -1, "expected the finalize step to end at checkpoint 06");
+  const regionWait = finalizeBlock.indexOf('getByRole("region", { name: "Estimate workflow" })');
+  assert.ok(regionWait !== -1 && regionWait < checkpoint06, "expected a region-scoped wait in the finalize step");
+  assert.match(
+    finalizeBlock.slice(regionWait, checkpoint06),
+    /^getByRole\("region", \{ name: "Estimate workflow" \}\)\s*\.getByText\("ready", \{ exact: true \}\)\.waitFor/,
+    "expected the finalize ready wait to be scoped to the Estimate workflow region",
+  );
+  assert.doesNotMatch(
+    finalizeBlock.slice(0, checkpoint06),
+    /await page\.getByText\("ready"/,
+    "expected no bare ready wait in the finalize step",
+  );
+});
+
+test("invoice total read is scoped to the Invoice financial summary section", () => {
+  // Regression guard for the run-41377520305 failure: the invoice page
+  // renders no bare "Total" label, and "Invoice total" renders twice
+  // (financial-summary metric + totals-block row), so a bare
+  // getByText("Total") read can never resolve and a bare
+  // getByText("Invoice total") read would trip Playwright strict mode.
+  // The read must be scoped to the Invoice financial summary section,
+  // whose MoneyMetric parent div carries the value alongside the label.
+  const invoiceBlock = capture.slice(capture.indexOf('invoice resolves an id'));
+  const checkpoint08 = invoiceBlock.indexOf('await checkpoint("08"');
+  assert.ok(checkpoint08 !== -1, "expected the invoice step to end at checkpoint 08");
+  const sectionRead = invoiceBlock.indexOf('page.locator(\'section[aria-label="Invoice financial summary"]\')');
+  assert.ok(sectionRead !== -1 && sectionRead < checkpoint08, "expected a section-scoped read in the invoice step");
+  assert.match(
+    invoiceBlock.slice(sectionRead, checkpoint08),
+    /^page\.locator\('section\[aria-label="Invoice financial summary"\]'\)\.getByText\("Invoice total", \{ exact: true \}\)\.locator\("\.\."\)\.innerText/,
+    "expected the invoice total read to be scoped to the Invoice financial summary section",
+  );
+  assert.doesNotMatch(
+    invoiceBlock.slice(0, checkpoint08),
+    /await page\.getByText\("Total"/,
+    "expected no bare Total read in the invoice step",
+  );
+});
+
 test("beta capture waits for the persisted Customer UUID rather than matching /customers/new", () => {
   const uuid = "1643d999-509c-4742-8d68-46c6a9129d55";
   const origin = "https://tradeos-costbook-web-git-staging-billykshowalters.vercel.app";
@@ -666,10 +741,17 @@ test("evidence capture fails closed without explicit mutation consent", () => {
 });
 
 test("evidence capture asserts business meaning, not just DOM presence", () => {
-  // The shipped estimate formula's outputs, not incidental copy.
-  for (const total of ["\\$310\\.89", "\\$5,920\\.89", "\\$6,732\\.00", "\\$7,105\\.07"]) {
+  // The shipped estimate formula's outputs, not incidental copy. The
+  // customer-facing totals are asserted against rendered text; the tax
+  // figure and the marked-up pre-tax figure are asserted against the
+  // authoritative estimate API because neither is visible text at every
+  // width on the builder this run targets (the tax figure has no visible
+  // row on the Price stage and the pre-tax header row is hidden below lg).
+  for (const total of ["\\$5,920\\.89", "\\$7,105\\.07"]) {
     assert.match(capture, new RegExp(total));
   }
+  assert.match(capture, /taxAmount\) - 310\.89/);
+  assert.match(capture, /preTaxTotalPrice\) - 6732\.00/);
   assert.match(capture, /overhead persists across reload/);
   assert.match(capture, /tax rate persists across reload/);
   assert.match(capture, /proposal carries the finalized estimate value/);

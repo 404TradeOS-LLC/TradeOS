@@ -3,14 +3,19 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { FieldTaskStatusEditor } from "@/components/field/field-task-status-editor";
 import { FieldJobActions } from "@/components/field/field-job-actions";
 import { FieldNoteForm } from "@/components/field/field-note-form";
+import { JobExpenseSection } from "@/components/field/job-expense-section";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
   getFieldJob,
   getDispatchSummary,
+  getJobCostSummary,
   getOrganizationSettings,
   listFieldJobs,
+  listJobExpenses,
   ApiClientError,
   type FieldJobDetail,
+  type JobCostSummary,
+  type JobExpense,
 } from "@/lib/api";
 import { formatScheduleInZone } from "@/lib/document-workflow";
 import {
@@ -67,8 +72,8 @@ export default async function FieldPage({
 
   const query = await searchParams;
   const settings = await getOrganizationSettings(token);
-  if (settings.currentRole !== "technician") {
-    return <EmptyState title="Technician workspace" description="This workspace is available to technician accounts. Open Dispatch for organization scheduling and coordination." />;
+  if (settings.currentRole !== "technician" && settings.currentRole !== "owner") {
+    return <EmptyState title="Technician workspace" description="This workspace is available to technician and owner accounts. Open Dispatch for organization scheduling and coordination." />;
   }
 
   let jobs: Awaited<ReturnType<typeof listFieldJobs>> = [];
@@ -108,6 +113,24 @@ export default async function FieldPage({
     todayJobIds: jobs.map((job) => job.id),
     listFailed: Boolean(loadError),
   });
+
+  // Job costs degrade independently: a failed expense read never blocks the
+  // rest of the job view, and the add form below still saves.
+  let jobExpenses: JobExpense[] = [];
+  let jobCostSummary: JobCostSummary | null = null;
+  let jobExpenseError: string | null = null;
+  if (selectedJob) {
+    try {
+      const [listed, rollup] = await Promise.all([
+        listJobExpenses(token, selectedJob.id),
+        getJobCostSummary(token, selectedJob.id),
+      ]);
+      jobExpenses = listed;
+      jobCostSummary = rollup;
+    } catch {
+      jobExpenseError = "Job costs couldn't load.";
+    }
+  }
   const labels = getFieldWorkspaceLabels(membership);
   const selectedOutsideToday = membership === "outside_today";
   const visibleJobs = selectedJob
@@ -311,6 +334,14 @@ export default async function FieldPage({
                 <FieldNoteForm jobId={selectedJob.id} />
               </div>
             </section>
+
+            <JobExpenseSection
+              jobId={selectedJob.id}
+              expenses={jobExpenses}
+              summary={jobCostSummary}
+              loadError={jobExpenseError}
+              defaultIncurredOn={new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date())}
+            />
           </section>
         </>
       ) : null}

@@ -191,6 +191,14 @@ for (const width of [390, 768, 1024, 1440]) {
 test("first and returning intro complete on schedule and support keyboard skip", async ({
   page,
 }) => {
+  // Deterministic timing: install Playwright's virtual clock before the
+  // page loads, so both intro exit timers run on fake time. Advancing the
+  // clock replaces the wall-clock race this test used to have (a real 4s
+  // timer against a 6s assertion window) and the init script that stretched
+  // the returning timer to 60s so Escape could be exercised. No assertion
+  // is weakened: the 4s/2.5s durations are still read from the rendered
+  // styles, and Tab, Escape, and Skip semantics are still exercised.
+  await page.clock.install();
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await open(page);
   const intro = page.getByRole("dialog", { name: "TradeOS introduction" });
@@ -198,39 +206,17 @@ test("first and returning intro complete on schedule and support keyboard skip",
   await expect(page.getByRole("button", { name: "Skip intro" })).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(page.getByRole("button", { name: "Skip intro" })).toBeFocused();
-  await expect(intro).toBeHidden({ timeout: 6000 });
+  await page.clock.runFor(4000);
+  await expect(intro).toBeHidden();
   await expect(page.getByLabel("Email address")).toBeEnabled();
-  // Capture the actual rendered duration at insertion: a slow CI reload can
-  // outlive the short returning intro before a locator assertion starts.
-  await page.addInitScript(() => {
-    // Keep the returning intro open until Escape is exercised. Without this
-    // guard, a slow reload can let the real 2.5-second timeout dismiss it first.
-    // The 2.5-second CSS animation still renders and is checked below.
-    const realSetTimeout = window.setTimeout;
-    window.setTimeout = ((
-      handler: TimerHandler,
-      duration?: number,
-      ...args: unknown[]
-    ) => Reflect.apply(
-      realSetTimeout,
-      window,
-      [handler, duration === 2500 ? 60_000 : duration, ...args],
-    )) as typeof window.setTimeout;
-    const capture = () => {
-      const node = document.querySelector('[role="dialog"][aria-label="TradeOS introduction"]');
-      if (node) {
-        (window as Window & { __returningIntroDuration?: string }).__returningIntroDuration =
-          getComputedStyle(node).animationDuration;
-      }
-    };
-    new MutationObserver(capture).observe(document, { childList: true, subtree: true });
-  });
   await page.reload();
-  await expect.poll(() => page.evaluate(() =>
-    (window as Window & { __returningIntroDuration?: string }).__returningIntroDuration
-  )).toBe("2.5s");
-  // This must be visible immediately before Escape: otherwise the timer, not
-  // the keyboard handler, might have completed the intro.
+  // The virtual clock stays installed across the reload (verified: a
+  // reloaded page's timer still answers to runFor), so the returning intro
+  // cannot dismiss itself before Escape is exercised. Never add a
+  // waitForTimeout here: it advances the fake clock and would fire the
+  // returning timer.
+  await expect(intro).toHaveCSS("animation-duration", "2.5s");
+  await expect(page.getByRole("button", { name: "Skip intro" })).toBeFocused();
   await expect(intro).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(intro).toBeHidden();

@@ -92,6 +92,19 @@ A first-class scheduled field-execution record stored in `Job`.
 - belongs to one organization, project, customer, and service address
 - is separate from the project record
 - owns assignments and links to site visits, tasks, notes, and equipment
+- owns job expenses (actual job costs, see below)
+
+## JobExpense
+
+An actual cost incurred against a job, stored in `JobExpense` (migration `20261102020000_add_job_expenses`).
+
+- belongs to one organization and one job; tenant scope is enforced through the job's organization, and cross-org access is a 404
+- amount is integer cents (`amountCents > 0`); totals are summed as integers so actuals are cents-exact
+- category reuses the estimate cost-type vocabulary (`labor`, `material`, `equipment`, `disposal`, `subcontractor`, `other`)
+- vendor and receipt note are free text (no receipt file upload, OCR, or bank sync in v1)
+- incurred date is a calendar date (`incurredOn`); the recording user is kept as `createdById`
+- row-level security is forced; visibility mirrors the job itself (office roles plus technicians assigned to the job), with organization scope inherited through the job join
+- the job cost summary compares summed actuals against the project's latest estimate version by total price; with no estimate, the estimated figure is null, never a fabricated zero
 
 ## Estimate
 

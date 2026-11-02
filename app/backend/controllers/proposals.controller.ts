@@ -4,6 +4,7 @@ import { TransactionalProposalsService } from "../../modules/athena-events/trans
 import { requireAuthContext, requireOrgId, requirePermissions } from "../requestContext";
 import { commaSeparatedEnum, strictOptionalBoolean } from "../queryParams";
 import { proposalStatuses } from "../../domain";
+import { sanitizeDownloadFilename } from "../../modules/documents/format";
 
 const service = new TransactionalProposalsService();
 
@@ -108,7 +109,7 @@ export const proposalsController = {
     const doc = await service.getPdf(req.params.id, requireOrgId(req));
     res.setHeader("Content-Type", doc.contentType);
     const disposition = req.query.disposition === "inline" ? "inline" : "attachment";
-    res.setHeader("Content-Disposition", `${disposition}; filename="${doc.filename}"`);
+    res.setHeader("Content-Disposition", `${disposition}; filename="${sanitizeDownloadFilename(doc.filename)}"`);
     res.send(doc.buffer);
   },
   async send(req: Request, res: Response) {

@@ -15,6 +15,15 @@ related_code:
 
 # AI Estimate Assist
 
+## Frozen Apply recovery — 2026-10-31
+
+Full review serializes one Apply request before sending it. Pending entry blocks duplicate writes, Scope/suggestion edits and regeneration. Transport/server faults and transient or unknown statuses retain the exact request body; only explicit Retry unchanged review sends it again. The review stays locked and offers Check saved Items. A first-attempt known refusal (HTTP 400, 403, 404 or 409) releases the snapshot for correction and displays rejection details. Authentication (401), timeout (408), rate limit (429), unknown status and invalid-success-body errors remain conservative. If an earlier response was unconfirmed, even a later known refusal cannot prove that the original write was absent, so that original snapshot remains retained.
+
+Acknowledgement unlocks review; suggestion edits clear the prior summary/error. Failure restores initiating-button keyboard focus only if the user has not focused another control. The page is keyed by Project/Estimate; current-record guards suppress obsolete callbacks. The authenticated proxy, signed-token payload, existing Apply route and Estimate Engine are unchanged. No new idempotency endpoint, schema, auth/RLS, financial calculation, dependency or automatic retry. Result counts and idempotency-skip reasons are not certified saved-line identity.
+
+Verification: the original eight helper cases and four production-component browser cases passed at code head `3f570e7` in [Verify repository 41234398010](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/41234398010), with 569 web tests, 55 browser cases, 189 PostgreSQL integration tests and lint/build/type checking. Four unconfirmed-state renders were inspected (artifact 13054428374, expires November 7). Review then reproduced a 400-rejection lock with a failing test; the correction adds first-rejection edit/reapply and earlier-unknown-history regression coverage. Local current checks: 11 helper cases plus 15 existing contracts passed (26 total). Four expanded browser cases include rejected/editable recovery and corrected-payload submission; exact-head hosted evidence is tracked in [PR #840](https://github.com/404TradeOS-LLC/TradeOS/pull/840). Synthetic transport/Next Link do not prove authenticated persistence/tenant isolation. Local full dependencies/Git checkout remain unavailable; current-head checks, review, saved-line reads, footing persistence and financial continuity remain distinct gates. No full visual parity, deployment, Design Complete or Ready for Dev claim for the entire workflow.
+
+
 ## Purpose
 
 Provide advisory estimate suggestions grounded in the tenant cost book and reviewed by a human before anything reaches the estimate.

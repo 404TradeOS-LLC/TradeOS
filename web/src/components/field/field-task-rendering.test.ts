@@ -18,7 +18,7 @@ async function renderField(tasks: Task[] | undefined) {
   const runtime: { exports: Record<string, unknown> } = { exports: {} };
   vm.runInNewContext(code, { module: runtime, exports: runtime.exports, Intl, Date, require: (name: string) => {
     if (name === "react/jsx-runtime") return require(name);
-    if (name === "@/lib/api") return { getFieldJob: async () => job, getDispatchSummary: async () => ({ todayRangeUtc: {} }), getOrganizationSettings: async () => ({ currentRole: "technician", currentUserId: "tech-a", settings: { timezone: "America/Indiana/Indianapolis" } }), listFieldJobs: async () => [job], ApiClientError: class extends Error {} };
+    if (name === "@/lib/api") return { getFieldJob: async () => job, getDispatchSummary: async () => ({ todayRangeUtc: {} }), getOrganizationSettings: async () => ({ currentRole: "technician", currentUserId: "tech-a", settings: { timezone: "America/Indiana/Indianapolis" } }), listFieldJobs: async () => [job], listJobExpenses: async () => [], getJobCostSummary: async () => null, ApiClientError: class extends Error {} };
     if (name === "@/lib/session") return { getSessionToken: async () => "test-only-token" };
     if (name === "@/lib/field-workspace") return fieldWorkspace;
     if (name === "@/lib/document-workflow") return { formatScheduleInZone: () => "Schedule" };
@@ -27,6 +27,7 @@ async function renderField(tasks: Task[] | undefined) {
     if (name === "@/components/field/field-task-status-editor") return { FieldTaskStatusEditor: () => React.createElement("button", null, "Save assigned field task") };
     if (name === "@/components/field/field-job-actions") return { FieldJobActions: () => React.createElement("p", null, "Existing job actions") };
     if (name === "@/components/field/field-note-form") return { FieldNoteForm: () => React.createElement("form", { "aria-label": "Job notes" }) };
+    if (name === "@/components/field/job-expense-section") return { JobExpenseSection: () => React.createElement("section", null, "Job costs") };
     throw new Error(`Unexpected Field page dependency: ${name}`);
   } });
   const page = runtime.exports.default as (input: { searchParams: Promise<{ job: string }> }) => Promise<React.ReactNode>;

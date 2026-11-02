@@ -35,6 +35,7 @@ async function renderDeniedPage(token: string | null, role: string) {
       if (specifier === "@/components/field/field-job-actions") return { FieldJobActions: unusedComponent };
       if (specifier === "@/components/field/field-task-status-editor") return { FieldTaskStatusEditor: unusedComponent };
       if (specifier === "@/components/field/field-note-form") return { FieldNoteForm: unusedComponent };
+      if (specifier === "@/components/field/job-expense-section") return { JobExpenseSection: unusedComponent };
       if (specifier === "@/components/shared/status-badge") return { StatusBadge: unusedComponent };
       if (specifier === "@/lib/document-workflow" || specifier === "@/lib/field-workspace") {
         return new Proxy({}, { get: (_target, name) => () => { throw new Error(`Denied page reached ${String(name)}`); } });
@@ -55,11 +56,70 @@ test("unauthenticated Field requests return before settings or any job request",
 
 // Settings returns a canonical role, not the raw persisted membership role.
 // Legacy viewer normalizes to technician; never assert that it is denied here.
-for (const role of ["owner", "admin", "manager", "dispatcher"]) {
+// Owner is admitted by the field gate (founder decision 2026-11-02); the
+// remaining roles stay denied.
+for (const role of ["admin", "manager", "dispatcher"]) {
   test(`Field role ${role || "missing"} cannot fetch jobs even with a direct job link`, async () => {
     const result = await renderDeniedPage("authenticated-token", role);
     assert.match(result.markup, /Technician workspace/);
     assert.deepEqual(result.calls, ["settings"]);
+  });
+}
+
+async function renderAllowedPage(token: string, role: string) {
+  const source = await readFile(new URL("./page.tsx", import.meta.url), "utf8");
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  const workspaceSource = await readFile(new URL("../../../lib/field-workspace.ts", import.meta.url), "utf8");
+  const workspaceCompiled = ts.transpileModule(workspaceSource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const workspaceExports: Record<string, unknown> = {};
+  vm.runInNewContext(workspaceCompiled, { exports: workspaceExports });
+  const calls: string[] = [];
+  const unusedComponent = () => null;
+  const exports: Record<string, unknown> = {};
+  vm.runInNewContext(compiled, {
+    exports,
+    require(specifier: string) {
+      if (specifier === "react/jsx-runtime") return jsxRuntime;
+      if (specifier === "@/lib/session") return { getSessionToken: async () => token };
+      if (specifier === "@/lib/api") return {
+        ApiClientError: class extends Error {},
+        getOrganizationSettings: async () => { calls.push("settings"); return { currentRole: role, settings: { timezone: "UTC" } }; },
+        getDispatchSummary: async () => { calls.push("summary"); return { todayRangeUtc: { start: "2026-11-02T00:00:00.000Z", end: "2026-11-03T00:00:00.000Z" } }; },
+        listFieldJobs: async () => { calls.push("list"); return []; },
+        getFieldJob: async () => { calls.push("detail"); throw new Error("Unexpected job detail request"); },
+        listJobExpenses: async () => [],
+        getJobCostSummary: async () => null,
+      };
+      if (specifier === "@/components/ui/empty-state") return {
+        EmptyState: ({ title }: { title: string }) => createElement("h1", null, title),
+      };
+      if (specifier === "@/components/field/field-job-actions") return { FieldJobActions: unusedComponent };
+      if (specifier === "@/components/field/field-task-status-editor") return { FieldTaskStatusEditor: unusedComponent };
+      if (specifier === "@/components/field/field-note-form") return { FieldNoteForm: unusedComponent };
+      if (specifier === "@/components/field/job-expense-section") return { JobExpenseSection: unusedComponent };
+      if (specifier === "@/components/shared/status-badge") return { StatusBadge: unusedComponent };
+      if (specifier === "@/lib/document-workflow") return { formatScheduleInZone: (value: string) => value };
+      if (specifier === "@/lib/field-workspace") return workspaceExports;
+      throw new Error(`Unexpected import: ${specifier}`);
+    },
+  });
+  const page = exports.default as (props: { searchParams: Promise<Record<string, never>> }) => Promise<ReturnType<typeof createElement>>;
+  const result = await page({ searchParams: Promise.resolve({}) });
+  return { markup: renderToStaticMarkup(result), calls };
+}
+
+// The gate admits exactly technician and owner. Both must proceed past the
+// gate into the job-list load instead of rendering the denied workspace.
+for (const role of ["technician", "owner"]) {
+  test(`Field role ${role} passes the gate and loads the job list`, async () => {
+    const result = await renderAllowedPage("authenticated-token", role);
+    assert.doesNotMatch(result.markup, /Technician workspace/);
+    assert.match(result.markup, /0 assigned jobs today/);
+    assert.deepEqual(result.calls, ["settings", "summary", "list"]);
   });
 }
 

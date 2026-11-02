@@ -14,6 +14,18 @@ related_code:
 
 # API Reference
 
+## PDF logo internal private storage bridge
+
+No new API endpoints or client parameters. Existing authenticated PDF download routes now attempt to load the organization-owned `logoUrl` asset from private `SettingsAssetUpload` storage when the backend has protected `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Requests without trusted org context, absent credentials, nonmatching storage paths, bad MIME/dimensions or download errors retain the original text-only PDF. Credentials must not enter browser bundles, logs or documentation. Existing authorization and tenant-scoped query contracts are unchanged.
+
+## PDF logo rendering internal contract
+
+PDFKit invoice, contract, and proposal functions gained optional internal `logoImage?: Buffer | null` input. It is NOT an HTTP request parameter and must never be populated from client-submitted bytes without org-scoped authorization. PNG/JPEG metadata and dimensions are bounded and invalid formats fail to text-only company branding. No externally visible route, request, response, or tenant permission contract is changed. Private Storage byte wiring is implemented in PR #873; issue #870 remains open for protected staging credentials and tenant PDF acceptance.
+
+## Proposal PDF presentation-only brand correction — PR #868
+
+Existing proposal PDF generation endpoints and request/response contracts are unchanged. Generated PDF headers use the authenticated organization's Brand Studio name and colors, and no longer print an unconditional platform TRADEOS wordmark. The optional `showPoweredByTradeOS` footer remains under existing organization document settings. No new parameters, authorization changes, or new endpoints are introduced. PDF attachment/body and tenant-specific logo embedding are unchanged; PDFKit supports bounded logo image bytes, but staging has no current logo record and protected backend credentials remain unverified.
+
 ## Openings/appliance assembly API addendum (PR #774, pending)
 
 The unchanged `GET /api/v1/{costbook/}assemblies/starter-catalog`
@@ -411,6 +423,7 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/customers`
 - `/api/v1/projects`
 - `/api/v1/jobs` (including `GET /api/v1/jobs/dispatch-summary`, a read-only org-wide dispatch-attention aggregate). Job mutations use named lifecycle routes backed by the centralized transition contract in `app/modules/jobs/lifecycle.ts`: schedule/reschedule, dispatch, travel, arrival, pause/resume, completion, cancellation, reopen, and ready-for-invoice. Completion remains `on_site -> completed`; the route surface does not expose generic arbitrary status mutation.
+- `/api/v1/jobs/:jobId/expenses` — org-scoped job-expense CRUD backed by `app/modules/expenses/service.ts` (tenant scope enforced through the job's organization; cross-org access is a 404). `GET /` lists a job's expenses newest-incurred first; `POST /` creates one (`amountCents` positive integer cents, `category` from the estimate cost-type vocabulary, optional `vendor`/`receiptNote`, `incurredOn` as `YYYY-MM-DD`); `GET /:expenseId`, `PATCH /:expenseId`, `DELETE /:expenseId` (204) act on single records. `GET /summary` returns the cents-exact actual-vs-estimate rollup: summed actuals, per-category totals, expense count, and the project's latest estimate version total (null when the project has no estimate).
   Job-number allocation and technician schedule serialization retain their existing transaction-scoped PostgreSQL advisory-lock behavior; the lock statements execute through Prisma `$executeRaw` because `pg_advisory_xact_lock()` returns `void`. This is an execution-mode correction only and does not change any route, payload, lifecycle transition, or permission.
 - `/api/v1/schedule`
 - `/api/v1/notes`
@@ -456,6 +469,8 @@ contracts do not claim that production scheduling or live failure rehearsal has
 been configured.
 
 `POST /api/v1/invoices/:id/void` keeps the canonical invoice lifecycle concept `voided`, but persists the raw status `void` because that is the value permitted by the live `invoices_status_check` constraint. Delivery/activity metadata continues to use `invoice.voided` and `newStatus: "voided"`; no schema or API-shape change is required.
+
+`PATCH /api/v1/invoices/:id` is the draft-only invoice edit boundary (`InvoicesService.update`). It requires the canonical `billing.write` permission and organization scope; a non-draft invoice receives `409`, as does any line replacement on an estimate-linked draft (its lines are an allocation of the estimate's persisted sell total) or a progress draft (its lines are already scaled by `percentComplete` and the unscaled base is not stored). A manual full draft may replace its line items, with the total recomputed from the direct lines exactly as on creation (no tax); any draft may change its due date, and `null` clears it. The edit records an `invoice.updated` delivery/activity event with the previous and new amounts. No schema or migration change is required.
 
 `POST /api/v1/invoices/:id/payments` is the authenticated payment-recording boundary used by the invoice detail form. It requires the canonical `billing.write` permission; an authenticated user without that permission receives `403` before any payment is recorded. A valid recorded payment is reconciled inside the authenticated request transaction while the target Invoice row is locked; fully covered eligible `sent` or existing raw `overdue` invoices persist `paid` and emit one transactional `invoice.paid` event. Partial payment and new overdue persistence remain derived, and persisted `paid` invoices are excluded from unpaid/partially-paid/overdue follow-up filters. The form captures amount, date, method, reference, and notes; no contractor-customer payment processor or public checkout contract is introduced.
 
@@ -829,6 +844,11 @@ BrandDocumentSettings for the server-derived organization. Company identity,
 contact details, safe colors, and configured trust-signal visibility are
 presentation inputs only; caller-supplied company names cannot override
 persisted organization branding when authenticated context is available.
+Download filenames in the `Content-Disposition` header are sanitized to
+printable ASCII (`sanitizeDownloadFilename`): project names containing
+non-Latin-1 characters (for example an em-dash) previously made Node reject
+the header value after rendering and surface as a 500; the rendered PDF,
+routes, and permissions are unchanged.
 
 ## Costbook continuation API additions
 

@@ -12,6 +12,14 @@ related_code:
 
 # Contracts
 
+## Private logo bytes in contract PDFs
+
+Contract PDF generation may include the authenticated organization's current validated private `logoUrl` PNG/JPEG from `SettingsAssetUpload` via a server-only bounded Storage lookup. No arbitrary URL is fetched; missing or invalid images retain the company name and signatures. Lifecycle/authorization unchanged; acceptance awaits staging and protected environment provenance.
+
+## Contract PDF logo byte rendering
+
+The PDFKit contract renderer supports an optional bounded trusted PNG/JPEG logo byte buffer. It does not fetch arbitrary logo URLs. The existing organization company-name, colors, signature fields, and workflow remain unchanged. PR #873 implements the organization-scoped private Storage loader. Protected staging credentials and a seeded logo asset are still needed for real PDF acceptance; missing bytes preserve text-only branding pending #870.
+
 ## Purpose
 
 Own contract creation from accepted proposals, signature capture, voiding rules, document generation, and event history.

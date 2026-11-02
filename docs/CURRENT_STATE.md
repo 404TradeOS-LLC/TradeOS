@@ -58,22 +58,105 @@ related_code:
   - web/src/lib/customer-portal-session.ts
   - web/src/lib/json-response.ts
   - web/src/lib/proxy-origin.ts
+  - app/modules/expenses
+  - app/backend/controllers/expenses.controller.ts
+  - app/backend/routes/expenses.routes.ts
+  - app/prisma/migrations/20261102020000_add_job_expenses
+  - web/src/components/field/job-expense-section.tsx
+  - web/src/components/field/job-expense-form.tsx
+  - web/src/app/actions/job-expenses.ts
+  - web/src/lib/job-expenses.ts
   - .github/workflows/verify-repository.yml
 ---
 
 # TradeOS Current State
 
-## Step 9 staging reconciliation — 2026-10-30
+## PR #810 branch currency and staging release state — 2026-11-02
 
-At inspected PR #810 head `f96231c11f49c7eb05748927f6be6623edc264cc`,
-repository and migration-safety CI passed and the branch was current with main.
-Live staging has 66 completed migrations and zero unfinished; the Job handoff
-migration, both columns and unique index remain absent. Earlier 46/63 ledger
-counts below are historical. A read-only capture and proposed migration-first
-rollout are in [the staging review packet](operations/accepted-proposal-job-staging.md).
-The existing apply workflow is main-only; a migration extraction would also
-queue the protected production workflow. No extraction, workflow change,
-protected apply or authenticated step-9 PASS is claimed by this update.
+The accepted-proposal Job handoff branch is being reconciled against current main; neither merge nor production release is authorized by this note. Staging already applied the Job provenance migration once (67 completed migrations, zero unfinished as checked); API-only source promotion #837 merged, and frontend promotion #904 remains draft. The separate Job Expenses migration is missing from the 68-file staging source inventory, so the protected staging release candidate is not migration-parity certified. Protected binding attestation run 41106407474 passed, with sensitive fields runtime-inferred, not independently secret-project-verified. Authenticated step-9 tenant, concurrency, rollback and four-viewport evidence remains outstanding; do not repeat the completed Job migration or claim acceptance.
+
+
+## Job expenses / actual job costs — implementation branch, 2026-11-02
+
+Jobs now carry actual costs. `JobExpense` (migration `20261102020000_add_job_expenses`, additive only) stores integer-cent amounts, an estimate-vocabulary category, free-text vendor and receipt note, a calendar incurred date, and the recording user. The org-scoped CRUD API lives at `/api/v1/jobs/:jobId/expenses` (`app/modules/expenses/service.ts`, controllers own Zod validation, tenant scope enforced through the job's organization with cross-org 404s), plus `GET /summary` for the cents-exact actual-vs-estimate rollup against the project's latest estimate version (null estimate figures when no estimate exists, never a fabricated zero). The field job view (`/field`) renders the rollup, the expense list, and a mobile-first add form; expense reads degrade independently so a failed cost load never blocks the rest of the job view. Forced RLS mirrors job visibility (office roles plus assigned technicians), with organization scope inherited through the job join; live RLS coverage lives in `app/tests/rls.integration.ts`. Deliberately out of v1: receipt file upload, OCR, bank sync, and global expense reports. Known limitation: the field page's pre-existing, test-enforced technician-only gate means owner-role accounts cannot reach this UI yet; the API itself is role-agnostic within the org.
+
+## Authenticated private contractor-logo loading for PDFs — pending release
+
+A proposed backend service reads the active `SettingsAssetUpload` row for the already-authenticated organization and only the `logoUrl` slot. It rejects cross-tenant paths and MIME mismatches before a bounded, no-redirect Supabase Storage download from the private `project-files` bucket. Only PNG/JPEG bytes within 1 MiB and PDFKit pixel limits reach invoice/contract/proposal renderers. Missing credentials or unsafe images produce the existing company-name PDF rather than errors. Backend `SUPABASE_SERVICE_ROLE_KEY` must be provisioned as a protected server-only secret by the environment owner; metadata access is still subject to existing request-scoped RLS. No production secret was read or provisioned and no actual customer PDF acceptance is claimed. Issue #870 remains open until authenticated staging visual verification, environment provenance and output checks pass.
+
+## PDFKit trusted-logo byte rendering — merged primitive; storage bridge pending acceptance
+
+A new no-network PDF rendering helper validates bounded PNG/JPEG bytes (1 MiB, 2048px max edge, 2 MP max area) and draws them in invoice, contract, and proposal header slots. Malformed/unsafe inputs fall back to the contractor's company-name text. Tests cover image embedding and rejected payloads. PR #873 implements the organization-scoped private Storage byte reader, enabled only with protected backend credentials. No public bucket or arbitrary URL fetch is added. Staging credential provenance, seeded same-tenant image, cross-tenant tests, and PDF visual acceptance remain open under issue #870.
+
+## Contractor-brand-only proposal PDF headers — merged PR #868
+
+Proposal PDF generation already resolves the authenticated organization's Brand Studio values. The proposed repair removes the unconditional large TradeOS label from both proposal PDF header variants; the opt-in `showPoweredByTradeOS` footer remains unchanged. Jest regression coverage exercises an actual PDF buffer for both white-label and opt-in states. No customer/tenant identity, proposal financial content, estimate totals, authentication or API contract changes. GitHub exact-head CI and visual PDF acceptance remain required. The renderer supports bounded logo bytes and PR #873 adds the org-scoped loader. Live uploaded-image appearance remains unverified because staging has no active logo asset.
+
+## Next.js starter-asset cleanup — merged PR #869
+
+The proposed brand cleanup deletes only the five unused starter SVGs under `web/public/`: `vercel.svg`, `next.svg`, `file.svg`, `globe.svg` and `window.svg`. A repository code search found no references to these filenames in application source; canonical TradeOS entry SVGs, browser/iPhone icon routes, Android icon routes, and the manifest are preserved. This is not a removal of the Vercel hosting integration or Vercel Speed Insights. Exact-head CI, deployed route regression checks, and review remain release gates. No production deletion or deployment is claimed.
+
+## Transactional email platform branding — merged PR #847
+
+Security, team invitation and customer portal access email HTML now uses one graphite/copper TradeOS platform shell, while existing copy, one-time URLs, expiration notices, plain-text alternatives and delivery idempotency remain unchanged. Customer document branding remains organization-specific and is not modified. Unit coverage for the shell is added; hosted tests, email-client rendering and provider-delivery checks remain separate gates. No deployment or delivery certification is claimed.
+
+## Platform social link preview — pending verification, 2026-10-31
+
+The proposed TradeOS root social metadata declares a 1200x630 Open Graph image and Twitter large-card preview using the canonical entry mark and "BUILT FOR WHAT YOU BUILD." branding. The image is generated by the Next.js `opengraph-image.tsx` route. Static source tests verify the route's dimensions, mark reference, and metadata wiring; hosted TypeScript/build, image rendering, external social scrapers and deployed URL visibility remain separate verification gates. This is platform branding, not customer document or tenant-brand overrides.
+
+## Platform social link preview — pending verification, 2026-10-31
+
+The proposed TradeOS root social metadata declares a 1200x630 Open Graph image and Twitter large-card preview using the canonical entry mark and "BUILT FOR WHAT YOU BUILD." branding. The image is generated by the Next.js `opengraph-image.tsx` route. Static source tests verify the route's dimensions, mark reference, and metadata wiring; hosted TypeScript/build, image rendering, external social scrapers and deployed URL visibility remain separate verification gates. This is platform branding, not customer document or tenant-brand overrides.
+
+## TradeOS Android install icon extension — dependent implementation branch
+
+A follow-up branch based on PR #843 adds 192x192 and 512x512 PNG route handlers plus a 512x512 maskable icon with a smaller safe-area mark. The web manifest points to these routes and retains the existing iPhone Apple icon. Assets are generated from the canonical entry mark. These changes are not deployed; exact-head build, route image responses, and real Android install behavior remain unverified. This branch depends on the parent branding PR and must not be merged independently before its base is integrated.
+
+## TradeOS browser and installed-app branding — PR #843, 2026-10-31
+
+The proposed frontend change replaces the generic dashboard-header chevron with the existing cinematic-entry TradeOS vector mark. It adds Next.js metadata icon routes (`/icon` and `/apple-icon`) and a web manifest (`/manifest.webmanifest`) using graphite/copper branding. The default `web/src/app/favicon.ico` has been deleted to avoid overriding the TradeOS icon in browser tabs. No backend, tenant permissions, financial data, or schema changes are included.
+
+This is proposed code, not deployed or certified behavior. Required final-head frontend lint/typecheck/build and repository checks, deployed browser favicon rendering, and iPhone Safari Add to Home Screen validation remain release gates. Existing iOS shortcuts may cache an old icon and require recreation. Android maskable icon assets, social preview metadata/artwork, and document/email brand consistency remain separate follow-up work.
+
+## Platform social link preview — pending verification, 2026-10-31
+
+The proposed TradeOS root social metadata declares a 1200x630 Open Graph image and Twitter large-card preview using the canonical entry mark and "BUILT FOR WHAT YOU BUILD." branding. The image is generated by the Next.js `opengraph-image.tsx` route. Static source tests verify the route's dimensions, mark reference, and metadata wiring; hosted TypeScript/build, image rendering, external social scrapers and deployed URL visibility remain separate verification gates. This is platform branding, not customer document or tenant-brand overrides.
+
+## Platform social link preview — pending verification, 2026-10-31
+
+The proposed TradeOS root social metadata declares a 1200x630 Open Graph image and Twitter large-card preview using the canonical entry mark and "BUILT FOR WHAT YOU BUILD." branding. The image is generated by the Next.js `opengraph-image.tsx` route. Static source tests verify the route's dimensions, mark reference, and metadata wiring; hosted TypeScript/build, image rendering, external social scrapers and deployed URL visibility remain separate verification gates. This is platform branding, not customer document or tenant-brand overrides.
+
+## TradeOS Android install icon extension — dependent implementation branch
+
+A follow-up branch based on PR #843 adds 192x192 and 512x512 PNG route handlers plus a 512x512 maskable icon with a smaller safe-area mark. The web manifest points to these routes and retains the existing iPhone Apple icon. Assets are generated from the canonical entry mark. These changes are not deployed; exact-head build, route image responses, and real Android install behavior remain unverified. This branch depends on the parent branding PR and must not be merged independently before its base is integrated.
+
+## TradeOS browser and installed-app branding — PR #843, 2026-10-31
+
+The proposed frontend change replaces the generic dashboard-header chevron with the existing cinematic-entry TradeOS vector mark. It adds Next.js metadata icon routes (`/icon` and `/apple-icon`) and a web manifest (`/manifest.webmanifest`) using graphite/copper branding. The default `web/src/app/favicon.ico` has been deleted to avoid overriding the TradeOS icon in browser tabs. No backend, tenant permissions, financial data, or schema changes are included.
+
+This is proposed code, not deployed or certified behavior. Required final-head frontend lint/typecheck/build and repository checks, deployed browser favicon rendering, and iPhone Safari Add to Home Screen validation remain release gates. Existing iOS shortcuts may cache an old icon and require recreation. Android maskable icon assets, social preview metadata/artwork, and document/email brand consistency remain separate follow-up work.
+
+## Platform social link preview — pending verification, 2026-10-31
+
+The proposed TradeOS root social metadata declares a 1200x630 Open Graph image and Twitter large-card preview using the canonical entry mark and "BUILT FOR WHAT YOU BUILD." branding. The image is generated by the Next.js `opengraph-image.tsx` route. Static source tests verify the route's dimensions, mark reference, and metadata wiring; hosted TypeScript/build, image rendering, external social scrapers and deployed URL visibility remain separate verification gates. This is platform branding, not customer document or tenant-brand overrides.
+
+## Platform social link preview — pending verification, 2026-10-31
+
+The proposed TradeOS root social metadata declares a 1200x630 Open Graph image and Twitter large-card preview using the canonical entry mark and "BUILT FOR WHAT YOU BUILD." branding. The image is generated by the Next.js `opengraph-image.tsx` route. Static source tests verify the route's dimensions, mark reference, and metadata wiring; hosted TypeScript/build, image rendering, external social scrapers and deployed URL visibility remain separate verification gates. This is platform branding, not customer document or tenant-brand overrides.
+
+## Frozen Apply recovery — 2026-10-31
+
+Full review now retains one Apply payload across an unconfirmed response, blocks concurrent edits/generation and ignores obsolete-record callbacks. A first-attempt known server refusal permits correction; a later refusal cannot erase uncertainty from an earlier lost response. See [AI Estimate Assist](modules/ai-estimate-assist.md#frozen-apply-recovery--2026-10-31) for the owning contract and verification boundaries. Saved-line identity, authenticated acceptance and financial fixture continuity remain separate gates; no full-workflow or deployment certification is claimed.
+
+
+## Estimate full-review scope continuity — 2026-10-31
+
+The builder's header and contextual Athena review entry now share one guarded navigation path. Dirty draft scope is saved through the existing Project PATCH before navigation; failed saves retain the editor and never navigate, duplicate entry is blocked, and leaving the record suppresses late navigation. Unchanged scope and finalized estimates do not gain a new write. The builder is keyed by Project/Estimate so record changes start fresh local draft state.
+
+Full review reads the authorized Project response, verifies that it owns the requested Estimate, and seeds the editor with saved `simpleScope`. Missing or mismatched pairs fail closed. It still starts without suggestions or a structured draft; generation and Add remain explicit. No scope is placed in URLs/browser storage, and no auth/RLS, schema, pricing, or backend contract changes.
+
+This implements the intent of the Figma full-review continuity targets (390 `1098:30215`, 768 `1098:30274`, 1024 `1098:30333`, 1440 `1098:30399`), not full visual parity or end-to-end readiness. Local focused validation: 9 behavioral navigation/record-pair tests plus 15 existing Estimate mobile contracts passed (24 total). Full web tests, lint, TypeScript/build, component/browser and authenticated persistence/tenant evidence remain required; this environment contains only fetched source snapshots and has no web dependencies. Initial head 73702f3 passed 561 web tests, 47 existing component cases, lint/build, docs and 189 PostgreSQL integration tests. Code head `6c8056e` then passed [Verify repository 41218673255](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/41218673255): 561 web tests, all 51 component cases (including four new real-Builder cases at 390/768/1024/1440), web lint/build/type checking and 189 PostgreSQL integration tests. The four retained failure screenshots were inspected. A subsequent cleanup only removes the unused fixture variable found by code-quality review; final-head checks remain a merge gate. Synthetic router/transport do not establish authenticated durable reload or tenant denial. No merge, deployment or completed numbered sprint is claimed.
+
 
 ## Estimate quick-create partial-failure recovery — implementation branch, 2026-10-29
 
@@ -103,14 +186,29 @@ theme changes ship. Route-local tokens and self-hosted fonts live in
 `web/src/components/entry/entry.module.css`; the canonical brand exception and
 component owners are recorded in `.stitch/DESIGN.md` and `docs/ui-guide.md`.
 
-Local validation: 513 frontend unit tests, lint, TypeScript and the production
-build pass; production dependency audit reports zero vulnerabilities. The real
-entry component was visually inspected in an isolated browser harness with
-synthetic transport. This does not certify successful authentication, deployed
-behavior, Lighthouse scores, or actual GPU rendering. Six new component-browser
-specimens cover responsive forms, timed/keyboard entry and GPU/storage failure;
-local execution is blocked before launch by a missing Chromium binary after
-the official download returned an invalid archive. Hosted checks passed on this PR head; review and deployment verification remain separate gates.
+Software-renderer guard (2026-10-30): on software rasterizers (SwiftShader,
+llvmpipe, Windows WARP via the Microsoft Basic Render Driver) the cinema
+skips the PMREM environment pass; an unknown or unavailable renderer name
+counts as software too. The pass itself is fast, but its deferred cost
+blocked the main thread past the intro exit timer in GPU-less environments,
+so the first intro overstayed its scheduled four seconds and the component
+suite's intro-timing test failed. The scene lights still shade the metal
+there; hardware renderers keep the full reflective environment. Approved
+4s/2.5s timing, Skip/Escape, focus restoration, and the reduced-motion
+bypass are unchanged.
+
+Historical Chromium download block: the earlier local component-browser run
+was blocked before launch by a missing Chromium binary after the official
+download returned an invalid archive. That limitation is resolved for this PR:
+the cached Chromium headless shell was reused, and the current PR head reports
+553 frontend unit tests and 47 Playwright component tests passing, with lint,
+TypeScript, production build, dependency audit, and docs checks passing.
+
+The real entry component was visually inspected in an isolated browser harness
+with synthetic transport. This does not certify successful authentication,
+deployed behavior, Lighthouse scores, or actual GPU rendering. Review and
+deployment verification remain separate gates.
+
 ## Field authorization evidence — PR #702
 
 The Field page now has executable denied-role tests, alongside its static
@@ -136,6 +234,10 @@ collection or enable the optional service in the Vercel project dashboard.
 ## API validation security prerequisite — 2026-10-27
 
 Existing PR #795 is extended to repair the dependency audit blocking Today 2.0 PR #798. The isolated runtime branch retains dotenv/Vercel patch updates, adds patched Zod 4.6.7 including Vercel's transitive validator, and includes body-parser 1.20.9 from #799. The previous identifier syntax contract is preserved using `z.guid()`; record and enum pipeline compatibility repairs do not alter JWT/membership, permissions, RLS, financial or supplier policy. No production change or merge is claimed. Full verification and PR-only major-upgrade review remain required; the independent moderate ip-address patch is tracked by #786. See [runtime upgrade evidence](architecture/API_VALIDATION_RUNTIME_UPGRADE.md).
+
+## Today AttentionItem component proposal — 2026-11-01
+
+PR #841 (`feat/today-attention-item-figma-align`) merged as `335841c0357d75da982e397e6f43d2bc3f2bbbf8`. It extracts the existing Today Needs You row into a reusable, responsive `AttentionItem` component, mapping persisted priority to Info, Action, and Urgent presentation while preserving the existing source data and open-item action. Figma source: master file `xImUa9CYUjx3Cb3zTrkfnY`, node `16:42`. Vercel production deployment `dpl_3usxyViVgRZNwGHUHWsrB963gvcN` is READY on `app.404tradeos.com`. Figma Code Connect metadata inspection is blocked by the connected seat's access level. See [Figma traceability](design/CORE_WORKFLOW_FIGMA_CODE_TRACEABILITY.md).
 
 
 
@@ -1641,3 +1743,52 @@ workflow or deployment settings. New-head hosted checks remain required.
 The founder directed #810 ready for review; staging binding attestation,
 API-first #837 promotion, matching web deployment, authenticated step-9 and
 release review still gate release. Undrafting does not certify acceptance.
+
+## Project WorkspaceHeader convergence — PR #844
+
+PR #844 (`feat/figma-workspace-header`) proposes a responsive visual convergence of the existing project detail header with Figma master file `xImUa9CYUjx3Cb3zTrkfnY`, node `15:32`. It keeps project-specific status, current metadata, existing actions and back navigation; it introduces no shared universal header, data behavior, or persistence. The PR is open and this change is not merged or deployed.
+
+## Project edit page wiring — PR pending (2026-10-31)
+
+A staging acceptance test (2026-10-31) proved the project overview exposed no way to edit a project: the existing `EditProjectForm` (name, job type, site address, simple scope) was imported nowhere, so the established update path (`updateProjectAction` → PATCH `/api/v1/projects/:id`, requiring `crm.write` and tenant scope) was unreachable from the UI. This change wires it up without new backend work: a new `/projects/[id]/edit` page renders the existing form behind the shared `PageHeader` with breadcrumbs back to the project, an "Edit project" link appears in the lead overview header action row and in the workspace header actions, both gated on the existing write-role set (owner/admin/dispatcher/estimator) as a presentation gate only — the API independently enforces `crm.write` and tenant scope. Project status editing is intentionally out of scope; status changes keep their existing transition action. No migration, no invoice-form change.
+
+### Manual invoice creation without an estimate — 2026-10-31 (unmerged branch)
+
+The 2026-10-31 staging acceptance test proved the new-invoice UI could not create an invoice without a finalized estimate: the form's Estimate select was `required` (browser native validation: "Please select an item in the list.") and `createInvoiceAction` returned "Select an estimate to bill against." when `estimateId` was empty. The backend already accepted direct `lineItems` without an `estimateId` (controller `createSchema` leaves both optional; the service throws only when both are absent), so no backend, migration, or schema change was needed. The web fix makes the Estimate select optional ("No estimate — manual invoice") and, when no estimate is selected, renders a manual line-item editor (description, quantity, unit price; unit of measure defaults to "each") whose rows the server action validates (at least one complete line, quantity greater than zero, unit price zero or more, max 100 lines) before posting `lineItems` with no `estimateId`. The bill-against-estimate path, including accepted-proposal pricing and progress-invoice percent-complete validation, is unchanged. This is a web-only change; it does not create any customer, job, or invoice record by itself and is not evidence of deployment.
+
+### Manual invoice findings fixes — 2026-11-01 (PR pending)
+
+Follow-up to manual invoice creation: CodeRabbit review on the staging promotion found two data-integrity gaps in `createInvoiceAction`'s manual path, both fixed server-side with no backend or schema change. A blank unit price on a manual line no longer converts via `Number("")` to 0 and persists as a silent zero-priced line; blank prices are rejected while an explicit 0 stays allowed. A manual progress invoice now scales like the estimate path (`app/modules/invoices/service.ts` `resolveLineItems`): quantities scale by `percentComplete/100`, line totals round to cents with the rounding residual on the largest line so the lines sum exactly to the invoice total, and the backend persists the supplied `lineTotal` values. Full manual invoices are unchanged in outcome. No form-side change: the manual editor has no per-line add gate to mirror, so server validation (surfaced as the form error) is the guard.
+
+### Manual invoice review-thread fixes — 2026-11-01 (PR pending)
+
+Second follow-up to manual invoice creation: CodeRabbit's re-review of the staging promotion raised two further threads, both fixed with no backend or schema change and no change to the blank-price rejection or progress-scaling behavior. First, an untouched manual row no longer fails the whole submission: the form pre-fills a fresh row's quantity with "1", so the old skip check (all three fields blank) missed it; a row is now skipped when description and unit price are both blank, regardless of quantity, since such a row carries no billable information. Second, the manual-line transformation is now testable: parsing, validation, and progress scaling moved verbatim from `createInvoiceAction` into pure `web/src/app/actions/manual-invoice-lines.ts` (no Next.js imports), executed directly by `manual-invoice-lines.test.ts` against real FormData, while the action stays thin — it delegates to `parseManualLineItems`, scales, and posts the lines with `estimateId` undefined when no estimate is selected. The bill-against-estimate path is unchanged.
+
+### Draft invoice editing — 2026-11-01 (PR pending)
+
+The 2026-11-01 staging acceptance test proved no invoice edit surface existed at all: the detail page offered only Send / PDF / Portal / Void, and `/invoices/[invoiceId]/edit` 404d. This change adds the missing surface with a minimal new backend path (no migration, no schema change): `InvoicesService.update` plus `PATCH /api/v1/invoices/:id`, requiring `billing.write` and organization scope, draft-only (409 otherwise), with an `invoice.updated` delivery/activity event. Line replacement is restricted to manual (estimate-less) full drafts, recomputing the total from the direct lines exactly as on creation; progress drafts (lines already scaled, unscaled base not stored) and estimate-linked drafts (lines are an allocation of the estimate's sell total) support due-date-only edits, with an on-screen note explaining why. The UI adds an "Edit invoice" link on the detail page (drafts only, same `billing.write` role list as the payment form) and a new `/edit` page whose form reuses the create form's indexed line fields and `parseManualLineItems` validation (blank prices rejected, untouched rows skipped); the editor markup mirrors the new-invoice form rather than extracting a shared component, because the new form's shape tests pin those fields inside `form.tsx`. Send/void/payment flows and the estimate path are unchanged.
+
+### Estimate Price-stage tax breakdown — 2026-11-01 (PR pending)
+
+The estimate engine already computed tax correctly (taxable-share allocation in `app/modules/estimate-engine/formulas.ts`, surfaced by the estimate DTO as `taxAmount` / `preTaxTotalPrice` / `totalPrice`), but the builder never rendered a tax amount anywhere: the Price panel's summary showed gross profit, margin, and markup only, and Review showed total plus margin only. This change is display-only — no engine, API, mutation, or pricing-math change. The Price stage's pricing summary now renders a Pre-tax total, Tax (with the saved tax rate, e.g. "Tax (7%)"), and Customer total row set, reading the saved estimate snapshot so pre-tax + tax = total; the Review stage's total block renders the same pre-tax / tax / total breakdown above the estimate total. The rows render unconditionally (Tax $0.00 when nothing is taxable), consistent with the existing "no line marked taxable" warning, which is unchanged.
+
+### PDF download 500 on non-Latin-1 project names — 2026-11-01 (PR pending)
+
+Opening an invoice PDF returned `{"error":"Internal server error"}` on both staging ("TEST Project — Delete Me") and production ("Condo Two — Renovation & Punch List"), reproduced on staging for an ordinary draft invoice. Root cause was not rendering, branding, auth, or tenant scope: the PDF filename is built from the project name with only whitespace collapsed, and the controller set it unsanitized in the `Content-Disposition` header. Node rejects non-Latin-1 header characters, so the em-dash (U+2014) threw `ERR_INVALID_CHAR` after rendering succeeded, and the error handler mapped it to a 500. The fix adds one shared helper, `sanitizeDownloadFilename` (`app/modules/documents/format.ts`), which replaces every character outside printable ASCII with `-`, and applies it at all five header sites: invoice, contract, proposal, proposal-generator, and customer-portal PDF controllers (the sibling sites built filenames the same whitespace-only way). No route, renderer, brand, auth, migration, or schema change; the downloaded filename is ASCII-folded (an RFC 5987 `filename*` Unicode-preserving variant is follow-up). Regression coverage: `app/tests/documents.download-filename.test.ts` pins the sanitizer and asserts Node's own header validation accepts the sanitized production and staging filenames while rejecting the raw ones.
+
+### Shared navigation keyboard state — 2026-11-02 (replacement for PR #874)
+
+Existing `PageHeader` breadcrumb/back links now expose a visible semantic focus ring, and existing `ProjectWorkspaceTabs` announces its current page with `aria-current="page"` and names its navigation region. Focus coverage is source-contract tested, with the earlier reviewed implementation rebased as a new clean-main PR because governed PR-maintenance dispatch is unavailable in this integration. Hosted exact-head checks and rendered authenticated/mobile acceptance remain separate.
+
+### CRM and Customers bounded loading — 2026-11-02 (replacement for draft PR #883)
+
+CRM overview reads five existing organization-scoped sources with one default 20-second `AbortSignal.timeout`, passed through the existing `apiFetch` clients. Each read settles independently so an unavailable source produces the existing per-source warning while other data remains usable. The Customers page uses the same existing warning style and does **not** mount `CustomerDirectory` when its customer list request fails; unavailable data must not appear as a genuine empty directory. A controllable AbortSignal in the loader enables a deterministic test of a pending request that rejects on timeout; no new data source, API authorization or page navigation was introduced. This patch supersedes stale draft #883 on fresh main. Its new head requires complete CI, review and authenticated application acceptance before release.
+
+
+### New Project → Task continuity release reconciliation — 2026-11-02
+
+The existing Universal Create → Task flow preserves `intent=task` through new Project creation and redirects the contractor to that Project's existing Tasks form. It does **not** create a Task automatically. The implementation and associated source-contract regression tests from PR #893 have been carried forward unchanged onto the latest main-based release branch after #894 merged; newer CRM and shared-navigation code is preserved. Exact-head hosted verification, branch currency, review and authenticated responsive acceptance must still be proven on the new PR. No schema, API or production action is part of this fix.
+
+### Field page gate extended to owners — 2026-11-02
+
+The `/field` page previously admitted technician-role accounts only: any other canonical role hit a "Technician workspace" empty state before any job request, so an owner-role founder account could not reach the field job view or its job-expense section even though the expense API is role-agnostic within the organization. The gate in `web/src/app/(app)/field/page.tsx` now admits exactly technician and owner; admin, dispatcher, manager, and unauthenticated requests are still denied before any job request, and no other page gate, API authorization, or RLS policy changed. The denied-state copy now reads "technician and owner accounts". Regression coverage in `web/src/app/(app)/field/page.test.ts` pins both directions: admin/manager/dispatcher still denied, technician and owner pass the gate and load the job list.

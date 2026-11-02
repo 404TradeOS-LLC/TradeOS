@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clientFetch } from "@/lib/clientApi";
 import { PageHeader } from "@/components/shared/page-header";
@@ -21,6 +22,7 @@ import type { Estimate } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { groupSavedDirectCosts } from "@/lib/estimate-direct-costs";
 import { canAddReviewedEstimateCatalogItem } from "@/lib/estimate-catalog-review";
+import { createEstimateReviewNavigator } from "@/lib/estimate-review-navigation";
 
 interface LineItem {
   id: string;
@@ -66,6 +68,15 @@ interface AssemblyPreviewData {
 
 export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const reviewNavigator = useRef(createEstimateReviewNavigator());
+  const reviewContext = useRef<{ projectId: string; estimateId: string } | null>(null);
+  const [reviewNavigationPending, setReviewNavigationPending] = useState(false);
+
+  useEffect(() => {
+    reviewContext.current = { projectId, estimateId };
+    return () => { reviewContext.current = null; };
+  }, [projectId, estimateId]);
   const estimateKey = ["estimate", estimateId];
   const [activeStage, setActiveStage] = useState<EstimateStage>("scope");
   const [scopeDraft, setScopeDraft] = useState(simpleScope ?? "");
@@ -127,6 +138,19 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
 
   const isDraft = estimate.status === "draft";
 
+  const openFullReview = () => {
+    if (saveScope.isPending) return;
+    void reviewNavigator.current({
+      scope: scopeDraft,
+      persistedScope,
+      isDraft,
+      saveScope: (scope) => saveScope.mutateAsync(scope),
+      navigate: () => router.push(`/projects/${projectId}/estimates/${estimateId}/assist`),
+      onPendingChange: setReviewNavigationPending,
+      isCurrent: () => reviewContext.current?.projectId === projectId && reviewContext.current?.estimateId === estimateId,
+    });
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
@@ -141,9 +165,9 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
             <Link href={`/projects/${projectId}/estimates/compare`} className={buttonVariants({ variant: "outline" })}>
               Compare versions
             </Link>
-            <Link href={`/projects/${projectId}/estimates/${estimateId}/assist`} className={buttonVariants({ variant: "outline" })}>
-              Athena review
-            </Link>
+            <Button type="button" variant="outline" className="min-h-11" onClick={openFullReview} disabled={reviewNavigationPending || saveScope.isPending}>
+              {reviewNavigationPending ? "Saving scope…" : "Athena review"}
+            </Button>
             {isDraft ? (
               <span className={buttonVariants({ variant: "outline" })} aria-disabled="true">
                 Finalize to create proposal
@@ -191,6 +215,8 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
             return false;
           }
         }}
+        onOpenFullReview={openFullReview}
+        fullReviewPending={reviewNavigationPending || saveScope.isPending}
         scopeDirty={scopeDraft.trim() !== persistedScope.trim()}
         scopeSavePending={saveScope.isPending}
         scopeSaveSuccess={saveScope.isSuccess}
@@ -261,6 +287,8 @@ function EstimateStageFlow({
   simpleScope,
   onScopeChange,
   onSaveScope,
+  onOpenFullReview,
+  fullReviewPending,
   scopeDirty,
   scopeSavePending,
   scopeSaveSuccess,
@@ -283,12 +311,14 @@ function EstimateStageFlow({
   simpleScope: string;
   onScopeChange: (value: string) => void;
   onSaveScope: () => Promise<boolean>;
+  onOpenFullReview: () => void;
+  fullReviewPending: boolean;
   scopeDirty: boolean;
   scopeSavePending: boolean;
   scopeSaveSuccess: boolean;
   scopeSaveError: string | null;
   estimate: EstimateDetail;
-  runningTotals: { totalPrice: number; marginPct: number; lineItemCount: number };
+  runningTotals: { totalPrice: number; preTaxTotalPrice: number; taxAmount: number; marginPct: number; lineItemCount: number };
   estimateId: string;
   isDraft: boolean;
   activeStage: EstimateStage;
@@ -450,7 +480,15 @@ function EstimateStageFlow({
               ))}
             </div>
             <div className="border-t border-border py-4">
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">Pre-tax total</span>
+                <span className="font-mono tabular-nums">{formatCurrency(runningTotals.preTaxTotalPrice)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">Tax</span>
+                <span className="font-mono tabular-nums">{formatCurrency(runningTotals.taxAmount)}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-4">
                 <span className="font-medium">Estimate total</span>
                 <span className="text-2xl font-semibold tabular-nums text-primary">{formatCurrency(runningTotals.totalPrice)}</span>
               </div>
@@ -486,6 +524,8 @@ function EstimateStageFlow({
             isDraft={isDraft}
             headingId="estimate-contextual-athena-heading"
             onAdded={onUpdated}
+            onOpenFullReview={onOpenFullReview}
+            fullReviewPending={fullReviewPending}
           />
         </aside>
       </div>
@@ -1728,6 +1768,18 @@ function PricingPanel({
           <div className="mt-2 flex items-center justify-between gap-3">
             <span className="text-muted-foreground">Current markup</span>
             <span className="font-medium">{formatPercent(currentMarkupPct)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3 border-t border-border/70 pt-2">
+            <span className="text-muted-foreground">Pre-tax total</span>
+            <span className="font-medium">{formatCurrency(preTaxTotalPrice)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="text-muted-foreground">Tax{estimate.taxPct ? ` (${estimate.taxPct}%)` : ""}</span>
+            <span className="font-medium">{formatCurrency(estimate.taxAmount ?? 0)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="text-muted-foreground">Customer total</span>
+            <span className="font-medium">{formatCurrency(estimate.totalPrice)}</span>
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
