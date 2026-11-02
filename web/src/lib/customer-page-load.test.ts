@@ -69,21 +69,30 @@ test("CRM overview load shares one signal across all five sources", async () => 
   );
 });
 
-test("CRM overview load degrades a timed-out source to a rejected result instead of hanging", async () => {
-  const results = await loadCrmPageData("token", {
-    listProjects: async () => {
-      throw timeoutError();
-    },
+test("CRM overview load aborts a pending source on the shared deadline while preserving other results", async () => {
+  const controller = new AbortController();
+  const pendingProjects = (_token: string, signal: AbortSignal) =>
+    new Promise<{ id: string }[]>((_resolve, reject) => {
+      if (signal.aborted) return reject(signal.reason);
+      signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+    });
+  const outcome = loadCrmPageData("token", {
+    listProjects: pendingProjects,
     listCustomers: async () => [{ id: "customer-1" }],
     listOrganizationProjectTasks: async () => [],
     listProposalQueue: async () => ({ items: [], nextCursor: null, total: 0 }),
     listActivityEvents: async () => [],
-  });
+  }, controller.signal);
 
-  // The page's existing per-source banner logic keys off rejected results,
-  // so a timeout must surface as rejected — never as a thrown page failure.
+  controller.abort(timeoutError());
+  const results = await outcome;
   assert.equal(results[0]?.status, "rejected");
-  assert.equal(results[1]?.status, "fulfilled");
+  if (results[0]?.status === "rejected") {
+    assert.equal(results[0].reason.name, "TimeoutError");
+  }
+  assert.deepEqual(results.slice(1).map(result => result.status), [
+    "fulfilled", "fulfilled", "fulfilled", "fulfilled",
+  ]);
 });
 
 test("CRM overview page wires the bounded loader and keeps the fallback banner", () => {
@@ -126,5 +135,5 @@ test("customers page wires the guarded loader and renders the fallback banner", 
 
   assert.match(source, /loadCustomersPageData\(token/);
   assert.match(source, /Customers are temporarily unavailable\. Try reloading the page\./);
-  assert.match(source, /<CustomerDirectory customers=\{customers\} \/>/);
+  assert.match(source, /\{!customersFailed \? <CustomerDirectory customers=\{customers\} \/> : null\}/);
 });
