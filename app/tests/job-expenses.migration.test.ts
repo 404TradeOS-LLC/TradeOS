@@ -20,6 +20,22 @@ describe("job expenses migration", () => {
     expect(schema).toContain('paymentResponsibility String   @default("contractor") @map("payment_responsibility")');
   });
 
+  it("adds immutable audit, receipt reference, idempotency, and void constraints", () => {
+    const migration = fs.readFileSync(path.join(__dirname,
+      "../prisma/migrations/20261102081500_complete_job_expenses/migration.sql"), "utf8");
+    for (const expected of [
+      "ADD COLUMN receipt_storage_path", "ADD COLUMN idempotency_key",
+      "ADD COLUMN voided_at", "ADD COLUMN currency", "ADD COLUMN description",
+      "CREATE UNIQUE INDEX job_expenses_org_job_idempotency_key_idx",
+      "CREATE TABLE public.job_expense_events",
+      "ALTER TABLE public.job_expense_events FORCE ROW LEVEL SECURITY",
+      "CREATE POLICY job_expense_events_insert_policy",
+      "CREATE POLICY job_expense_events_select_policy",
+    ]) expect(migration).toContain(expected);
+    expect(migration).not.toContain("DISABLE ROW LEVEL SECURITY");
+    expect(migration).not.toContain("DROP TABLE");
+  });
+
   it("adds the job_expenses table, cents-exact constraint, indexes, and forced job-join RLS", () => {
     const migration = fs.readFileSync(
       path.join(__dirname, "../prisma/migrations/20261102020000_add_job_expenses/migration.sql"),
