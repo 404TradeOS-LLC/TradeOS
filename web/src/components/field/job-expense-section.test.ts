@@ -21,6 +21,8 @@ function renderSection(props: Record<string, unknown>) {
     Date,
     require: (name: string) => {
       if (name === "react/jsx-runtime") return require(name);
+      if (name === "node:crypto") return { randomUUID: () => "11111111-1111-4111-8111-111111111111" };
+      if (name === "@/components/field/job-expense-row-actions") return { JobExpenseRowActions: () => React.createElement("div", null, "Expense controls") };
       if (name === "@/components/field/job-expense-form") return { JobExpenseForm: () => React.createElement("form", null, "Expense form") };
       if (name === "@/lib/job-expenses") return jobExpensesLib;
       throw new Error(`Unexpected job expense section dependency: ${name}`);
@@ -69,6 +71,26 @@ test("job costs separate customer-paid material from contractor actuals", () => 
   assert.ok(html.includes("Customer-paid"), "customer purchases must be separately totaled");
   assert.ok(html.includes("$40.00"), "customer-paid total remains visible");
   assert.ok(html.includes("Customer paid"), "expense history identifies who paid");
+});
+
+test("expense history retains voided costs and safely links receipts", () => {
+  const html = renderSection({
+    jobId: "job-1",
+    expenses: [
+      { ...expenses[0], description: "Paint", receiptStoragePath: "private/receipt.pdf", receiptFileName: "receipt.pdf",
+        voidedAt: null },
+      { ...expenses[1], amountCents: 8000, voidedAt: "2026-11-02T12:00:00.000Z",
+        voidReason: "Duplicate" },
+    ],
+    summary: { ...summary, actualCents: 2000, customerPaidCents: 0, varianceCents: 95510 },
+    loadError: null, defaultIncurredOn: "2026-11-02",
+  });
+  assert.ok(html.includes("Download receipt: receipt.pdf"));
+  assert.ok(html.includes("/api/job-expense-receipts/job-1/e1"));
+  assert.ok(html.includes("Voided"));
+  assert.ok(html.includes("Duplicate"));
+  assert.ok(html.includes("$20.00"));
+  assert.ok(html.includes("Expense controls"));
 });
 
 test("job expense section reports no estimate instead of a fabricated zero", () => {
