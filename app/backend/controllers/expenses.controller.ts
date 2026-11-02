@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { requireAuthContext, requireOrgId } from "../requestContext";
 import { JobExpensesService } from "../../modules/expenses/service";
-import { expenseCategories } from "../../modules/expenses/types";
+import { expenseCategories, expensePaymentResponsibilities } from "../../modules/expenses/types";
 
 const service = new JobExpensesService();
 
@@ -21,6 +21,7 @@ const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "incurredOn must be a Y
 const createExpenseSchema = z.object({
   amountCents: z.number().int().positive(),
   category: z.enum(expenseCategories),
+  paymentResponsibility: z.enum(expensePaymentResponsibilities).optional(),
   vendor: z.string().trim().max(200).optional(),
   receiptNote: z.string().trim().max(2000).optional(),
   incurredOn: dateOnly,
@@ -29,6 +30,7 @@ const createExpenseSchema = z.object({
 const updateExpenseSchema = z.object({
   amountCents: z.number().int().positive().optional(),
   category: z.enum(expenseCategories).optional(),
+  paymentResponsibility: z.enum(expensePaymentResponsibilities).optional(),
   vendor: z.string().trim().max(200).optional(),
   receiptNote: z.string().trim().max(2000).optional(),
   incurredOn: dateOnly.optional(),
@@ -62,6 +64,7 @@ export const expensesController = {
         actorUserId: auth.userId,
         amountCents: body.amountCents,
         category: body.category,
+        paymentResponsibility: body.paymentResponsibility,
         vendor: body.vendor,
         receiptNote: body.receiptNote,
         incurredOn: toIncurredDate(body.incurredOn),
@@ -77,6 +80,7 @@ export const expensesController = {
         orgId: requireOrgId(req),
         amountCents: body.amountCents,
         category: body.category,
+        paymentResponsibility: body.paymentResponsibility,
         vendor: body.vendor,
         receiptNote: body.receiptNote,
         incurredOn: body.incurredOn ? toIncurredDate(body.incurredOn) : undefined,
