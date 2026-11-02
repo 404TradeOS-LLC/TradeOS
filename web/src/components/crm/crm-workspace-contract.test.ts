@@ -8,14 +8,19 @@ async function readSource(path: string): Promise<string> {
 
 test("CRM composes existing organization reads instead of creating a parallel CRM store", async () => {
   const page = await readSource("../../app/(app)/crm/page.tsx");
+  const loader = await readSource("../../lib/customer-page-load.ts");
   const overview = await readSource("./crm-overview.tsx");
 
-  assert.match(page, /listProjects\(token\)/);
-  assert.match(page, /listCustomers\(token\)/);
-  assert.match(page, /listOrganizationProjectTasks\(token/);
-  assert.match(page, /listProposalQueue\(token/);
+  // The five reads still come from the existing organization APIs; they are
+  // now wired through the bounded loader (one shared timeout signal) rather
+  // than called bare, so the page degrades instead of hanging on a stall.
+  assert.match(page, /loadCrmPageData\(token/);
+  assert.match(page, /listProjects\(authToken, signal\)/);
+  assert.match(page, /listCustomers\(authToken, \{ signal \}\)/);
+  assert.match(page, /listOrganizationProjectTasks\(authToken/);
+  assert.match(page, /listProposalQueue\(authToken/);
   assert.match(page, /eventType: "site_visit\.created"/);
-  assert.match(page, /Promise\.allSettled/);
+  assert.match(loader, /Promise\.allSettled/);
   assert.match(overview, /No parallel CRM stage is stored/);
   assert.match(overview, /CRM is an operating view over Customers, Projects, Project Tasks, Site Visits, and Proposals/);
 });
