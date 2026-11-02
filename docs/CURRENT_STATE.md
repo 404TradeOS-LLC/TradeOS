@@ -58,10 +58,22 @@ related_code:
   - web/src/lib/customer-portal-session.ts
   - web/src/lib/json-response.ts
   - web/src/lib/proxy-origin.ts
+  - app/modules/expenses
+  - app/backend/controllers/expenses.controller.ts
+  - app/backend/routes/expenses.routes.ts
+  - app/prisma/migrations/20261102020000_add_job_expenses
+  - web/src/components/field/job-expense-section.tsx
+  - web/src/components/field/job-expense-form.tsx
+  - web/src/app/actions/job-expenses.ts
+  - web/src/lib/job-expenses.ts
   - .github/workflows/verify-repository.yml
 ---
 
 # TradeOS Current State
+
+## Job expenses / actual job costs — staging promotion, 2026-11-02
+
+Jobs now carry actual costs. `JobExpense` (migration `20261102020000_add_job_expenses`, additive only) stores integer-cent amounts, an estimate-vocabulary category, free-text vendor and receipt note, a calendar incurred date, and the recording user. The org-scoped CRUD API lives at `/api/v1/jobs/:jobId/expenses` (`app/modules/expenses/service.ts`, controllers own Zod validation, tenant scope enforced through the job's organization with cross-org 404s), plus `GET /summary` for the cents-exact actual-vs-estimate rollup against the project's latest estimate version (null estimate figures when no estimate exists, never a fabricated zero). The field job view (`/field`) renders the rollup, the expense list, and a mobile-first add form; expense reads degrade independently so a failed cost load never blocks the rest of the job view. Forced RLS mirrors job visibility (office roles plus assigned technicians), with organization scope inherited through the job join; live RLS coverage lives in `app/tests/rls.integration.ts`. Deliberately out of v1: receipt file upload, OCR, bank sync, and global expense reports. Known limitation: the field page's pre-existing, test-enforced technician-only gate means owner-role accounts cannot reach this UI yet; the API itself is role-agnostic within the org. Promoted from main PR #887; the migration itself is applied only through the protected migration-apply workflow on the founder's approval.
 
 ## Authenticated private contractor-logo loading for PDFs — staging promotion, pending acceptance
 

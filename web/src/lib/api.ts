@@ -1414,6 +1414,41 @@ export function getFieldJob(token: string, jobId: string) {
   return apiFetch<FieldJobDetail>(`/api/v1/jobs/${jobId}`, { token });
 }
 
+export type JobExpenseCategory = "labor" | "material" | "equipment" | "disposal" | "subcontractor" | "other";
+
+export interface JobExpense {
+  id: string;
+  jobId: string;
+  orgId: string;
+  amountCents: number;
+  category: JobExpenseCategory;
+  vendor: string;
+  receiptNote: string;
+  incurredOn: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JobCostSummary {
+  jobId: string;
+  projectId: string;
+  expenseCount: number;
+  actualCents: number;
+  byCategoryCents: Record<string, number>;
+  estimatedCents: number | null;
+  estimateId: string | null;
+  varianceCents: number | null;
+}
+
+export function listJobExpenses(token: string, jobId: string) {
+  return apiFetch<JobExpense[]>(`/api/v1/jobs/${jobId}/expenses`, { token });
+}
+
+export function getJobCostSummary(token: string, jobId: string) {
+  return apiFetch<JobCostSummary>(`/api/v1/jobs/${jobId}/expenses/summary`, { token });
+}
+
 export async function listFieldJobs(token: string, todayRange: { start: string; end: string }) {
   const scheduledTo = toInclusiveEndBoundary(todayRange.end);
   const [scheduled, unscheduled] = await Promise.all([

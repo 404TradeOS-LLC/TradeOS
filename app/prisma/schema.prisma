@@ -49,6 +49,7 @@ model Organization {
   projects       Project[]
   jobs           Job[]
   jobAssignments JobAssignment[]
+  jobExpenses    JobExpense[]
   estimates      Estimate[]
   serviceAgreements ServiceAgreement[]
   payments       Payment[]
@@ -275,6 +276,7 @@ model AppUser {
   totpCredential UserTotpCredential?
   sentInvites   OrganizationInvite[] @relation("InviteSender")
   createdJobs   Job[]                @relation("JobCreatedBy")
+  createdJobExpenses JobExpense[]   @relation("JobExpenseCreatedBy")
   completedJobs Job[]                @relation("JobCompletedBy")
   assignedProjectTasks ProjectTask[] @relation("ProjectTaskAssignee")
   assignedJobs  JobAssignment[]      @relation("JobAssignmentUser")
@@ -1146,6 +1148,7 @@ model Job {
   equipmentLinks JobEquipment[]
   tasks          ProjectTask[]
   siteVisits     SiteVisit[]
+  expenses       JobExpense[]
 
   @@unique([orgId, jobNumber])
   @@index([orgId, status])
@@ -1155,6 +1158,28 @@ model Job {
   @@index([scheduledStart])
   @@index([orgId, archivedAt])
   @@map("jobs")
+}
+
+model JobExpense {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  jobId        String   @map("job_id")
+  amountCents  Int      @map("amount_cents")
+  category     String
+  vendor       String   @default("")
+  receiptNote  String   @default("") @map("receipt_note")
+  incurredOn   DateTime @map("incurred_on")
+  createdById  String   @map("created_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  job          Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  createdBy    AppUser      @relation("JobExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([orgId, jobId])
+  @@index([jobId, incurredOn])
+  @@map("job_expenses")
 }
 
 model JobAssignment {
