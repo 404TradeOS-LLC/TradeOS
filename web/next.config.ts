@@ -13,6 +13,12 @@ const nextConfig: NextConfig = {
   // the repo root's docs-governance tooling package.
   experimental: {
     externalDir: true,
+    // A 6 MiB receipt is carried in multipart FormData along with job fields.
+    // Keep a narrow request cap above the max file size to allow framing overhead.
+    // Server actions still validate the file contents, actor and tenant scope.
+    serverActions: {
+      bodySizeLimit: "7mb",
+    },
   },
   turbopack: {
     root: path.join(__dirname, ".."),
