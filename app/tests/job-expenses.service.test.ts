@@ -2,7 +2,7 @@ import { JobExpensesService } from "../modules/expenses/service";
 
 const mockDb = {
   job: { findFirst: jest.fn() },
-  jobExpense: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn() },
+  jobExpense: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn() },
   estimate: { findFirst: jest.fn() },
 };
 
@@ -20,6 +20,16 @@ function expenseRow(overrides: Record<string, unknown> = {}) {
     category: "material",
     vendor: "ABC Supply",
     receiptNote: "Shingles",
+    currency: "USD",
+    description: "Roof repair supplies",
+    idempotencyKey: null,
+    receiptStoragePath: null,
+    receiptFileName: null,
+    receiptContentType: null,
+    receiptSizeBytes: null,
+    voidedAt: null,
+    voidedById: null,
+    voidReason: "",
     incurredOn: DAY,
     createdById: ACTOR,
     createdAt: new Date("2026-11-01T12:00:00.000Z"),
@@ -179,6 +189,73 @@ describe("JobExpensesService", () => {
     expect(summary.varianceCents).toBe(97510 - 7000);
     expect(summary.expenseCount).toBe(3);
     expect(summary.estimateId).toBe("estimate-9");
+  });
+
+  it("deduplicates an expense create using the same key and exact payload", async () => {
+    const row = expenseRow({ idempotencyKey: "11111111-1111-4111-8111-111111111111" });
+    mockDb.jobExpense.findFirst.mockResolvedValue(row);
+    const result = await service.create({
+      orgId: ORG, jobId: JOB, actorUserId: ACTOR, amountCents: 1999,
+      category: "material", vendor: "ABC Supply", receiptNote: "Shingles", incurredOn: DAY,
+      idempotencyKey: "11111111-1111-4111-8111-111111111111",
+    });
+    expect(result.id).toBe("expense-1");
+    expect(mockDb.jobExpense.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects reuse of an idempotency key with different expense data", async () => {
+    mockDb.jobExpense.findFirst.mockResolvedValue(expenseRow({
+      idempotencyKey: "11111111-1111-4111-8111-111111111111",
+    }));
+    await expect(service.create({
+      orgId: ORG, jobId: JOB, actorUserId: ACTOR,
+      amountCents: 2500, category: "material", incurredOn: DAY,
+      idempotencyKey: "11111111-1111-4111-8111-111111111111",
+    })).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it("rejects expense detail reads under another job even in the same organization", async () => {
+    mockDb.jobExpense.findFirst.mockResolvedValue(null);
+    await expect(service.getById("expense-1", ORG, "another-job")).rejects.toMatchObject({ statusCode: 404 });
+    expect(mockDb.jobExpense.findFirst).toHaveBeenCalledWith({
+      where: { id: "expense-1", orgId: ORG, jobId: "another-job" },
+    });
+  });
+
+  it("links only a receipt path under the verified job and expense namespace", async () => {
+    mockDb.jobExpense.findFirst.mockResolvedValue(expenseRow());
+    const receiptStoragePath = "job-expenses/org-1/10000000-0000-0000-0000-000000000001/expense-1/receipt-11111111-1111-4111-8111-111111111111.pdf";
+    mockDb.jobExpense.update.mockResolvedValue(expenseRow({
+      receiptStoragePath, receiptFileName: "bill.pdf", receiptContentType: "application/pdf", receiptSizeBytes: 2048,
+    }));
+    const linked = await service.attachReceipt({
+      id: "expense-1", jobId: JOB, orgId: ORG, receiptStoragePath,
+      receiptFileName: "bill.pdf", receiptContentType: "application/pdf", receiptSizeBytes: 2048,
+    });
+    expect(linked.receiptStoragePath).toBe(receiptStoragePath);
+    await expect(service.attachReceipt({
+      id: "expense-1", jobId: JOB, orgId: ORG,
+      receiptStoragePath: "job-expenses/other-org/wrong/receipt.pdf",
+      receiptFileName: "bill.pdf", receiptContentType: "application/pdf", receiptSizeBytes: 2048,
+    })).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it("soft-voids expenses with actor provenance and excludes them from actual costs", async () => {
+    mockDb.jobExpense.findFirst.mockResolvedValue(expenseRow());
+    mockDb.jobExpense.updateMany.mockResolvedValue({ count: 1 });
+    await service.remove("expense-1", ORG, JOB, ACTOR);
+    const update = mockDb.jobExpense.updateMany.mock.calls[0][0];
+    expect(update.where).toMatchObject({ id: "expense-1", orgId: ORG, jobId: JOB, voidedAt: null });
+    expect(update.data.voidedById).toBe(ACTOR);
+    expect(update.data.voidedAt).toBeInstanceOf(Date);
+    mockDb.jobExpense.findMany.mockResolvedValue([
+      expenseRow({ voidedAt: new Date(), amountCents: 2500 }),
+      expenseRow({ id: "active", amountCents: 1000 }),
+    ]);
+    mockDb.estimate.findFirst.mockResolvedValue(null);
+    const summary = await service.getJobCostSummary(JOB, ORG);
+    expect(summary.actualCents).toBe(1000);
+    expect(summary.expenseCount).toBe(1);
   });
 
   it("reports null estimate figures when the project has no estimate", async () => {
