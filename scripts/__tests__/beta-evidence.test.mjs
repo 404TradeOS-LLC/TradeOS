@@ -493,6 +493,30 @@ test("post-markup rendered total settles on Review before it is asserted", () =>
   );
 });
 
+test("finalize ready wait is scoped to the Estimate workflow region", () => {
+  // Regression guard for the run-41359082129 failure: the builder renders
+  // the estimate status badge twice (page-header actions row + Review-stage
+  // "Internal estimate review" panel), so a bare getByText("ready") wait
+  // after Finalize estimate trips Playwright strict mode. The wait must be
+  // scoped to the Estimate workflow region, which selects the Review-stage
+  // badge adjacent to the finalize flow.
+  const finalizeBlock = capture.slice(capture.indexOf('getByRole("button", { name: "Finalize estimate" })'));
+  const checkpoint06 = finalizeBlock.indexOf('await checkpoint("06"');
+  assert.ok(checkpoint06 !== -1, "expected the finalize step to end at checkpoint 06");
+  const regionWait = finalizeBlock.indexOf('getByRole("region", { name: "Estimate workflow" })');
+  assert.ok(regionWait !== -1 && regionWait < checkpoint06, "expected a region-scoped wait in the finalize step");
+  assert.match(
+    finalizeBlock.slice(regionWait, checkpoint06),
+    /^getByRole\("region", \{ name: "Estimate workflow" \}\)\s*\.getByText\("ready", \{ exact: true \}\)\.waitFor/,
+    "expected the finalize ready wait to be scoped to the Estimate workflow region",
+  );
+  assert.doesNotMatch(
+    finalizeBlock.slice(0, checkpoint06),
+    /await page\.getByText\("ready"/,
+    "expected no bare ready wait in the finalize step",
+  );
+});
+
 test("beta capture waits for the persisted Customer UUID rather than matching /customers/new", () => {
   const uuid = "1643d999-509c-4742-8d68-46c6a9129d55";
   const origin = "https://tradeos-costbook-web-git-staging-billykshowalters.vercel.app";

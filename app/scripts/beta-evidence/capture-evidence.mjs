@@ -834,7 +834,15 @@ try {
 
   await navigateEstimateStage("Review");
   await page.getByRole("button", { name: "Finalize estimate" }).click();
-  await page.getByText("ready", { exact: true }).waitFor({ timeout: 60_000 });
+  // The builder renders the estimate status badge twice (page-header
+  // actions row + Review-stage "Internal estimate review" panel), so a
+  // bare getByText("ready") wait trips Playwright strict mode. Scope the
+  // wait to the Estimate workflow region: it selects the Review-stage
+  // badge adjacent to the finalize flow, visible exactly when Review is
+  // active. Do not use .first() here — DOM order is fragile, and this
+  // script already moved away from .first() waits for the hidden-match
+  // hazard.
+  await page.getByRole("region", { name: "Estimate workflow" }).getByText("ready", { exact: true }).waitFor({ timeout: 60_000 });
   const finalizedEstimate = await readEstimateDetail(estimateId);
   assertBusiness("Estimate Engine persists finalized status and customer total",
     finalizedEstimate.status === "ready" &&
