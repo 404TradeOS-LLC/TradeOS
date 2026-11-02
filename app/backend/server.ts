@@ -45,6 +45,7 @@ import { brandStudioRouter } from "./routes/brandStudio.routes";
 import { intelligenceRouter } from "./routes/intelligence.routes";
 import { companyRouter, customerImportRouter, customersRouter as crmCustomersRouter, invoicePaymentsRouter, notesRouter } from "./routes/crm.routes";
 import { jobsRouter, scheduleRouter } from "./routes/jobs.routes";
+import { expensesRouter } from "./routes/expenses.routes";
 import { paymentsRouter } from "./routes/payments.routes";
 import { athenaRouter } from "./routes/athena.routes";
 import { athenaObservabilityRouter } from "./routes/athenaObservability.routes";
@@ -125,6 +126,7 @@ export function createServer() {
   app.use("/api/v1/projects", projectCustomerScopeRouter);
   app.use("/api/v1/projects", projectsRouter);
   app.use("/api/v1/jobs", jobsRouter);
+  app.use("/api/v1/jobs/:jobId/expenses", expensesRouter);
   app.use("/api/v1/schedule", scheduleRouter);
   app.use("/api/v1/notes", notesRouter);
   app.use("/api/v1/change-orders", changeOrdersRouter);
