@@ -2,6 +2,8 @@ import { REPO, summarize } from './policy.js';
 
 const API='https://api.github.com';
 const FETCH_LIMIT=12;
+let cached=null;
+let cachedUntil=0;
 function githubHeaders() {
   const headers={'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'tradeos-forge-readonly'};
   if (process.env.GITHUB_READ_TOKEN) headers.Authorization='Bearer '+process.env.GITHUB_READ_TOKEN;
@@ -54,18 +56,26 @@ async function item(pr) {
   });
 }
 export async function collectQueue() {
+  if (cached && Date.now()<cachedUntil) return cached;
   const list=await request('/repos/'+REPO+'/pulls?state=open&base=main&per_page='+FETCH_LIMIT);
   if (!Array.isArray(list)) throw Error('Unexpected GitHub response');
   const result=[];
-  // Bounded sequential processing avoids exhausting an anonymous API limit.
-  for (const pr of list) {
-    try {result.push(await item(pr));}
-    catch {
-      const fallback=summarize(pr);
-      result.push({...fallback,gate:'EVIDENCE_UNAVAILABLE',priority:99,action:'GitHub detail request failed; do not infer check or review readiness.'});
-    }
+  // Three-at-a-time caps both API load and execution time on the Hobby runtime.
+  for (let offset=0; offset<list.length; offset+=3) {
+    const batch=list.slice(offset,offset+3);
+    const inspected=await Promise.all(batch.map(async(pr)=>{
+      try {return await item(pr);}
+      catch {
+        const fallback=summarize(pr);
+        return {...fallback,gate:'EVIDENCE_UNAVAILABLE',priority:99,
+          action:'GitHub detail request failed; do not infer check or review readiness.'};
+      }
+    }));
+    result.push(...inspected);
   }
   result.sort((a,b)=>b.priority-a.priority || a.number-b.number);
-  return {repository:REPO,generatedAt:new Date().toISOString(),headBound:true,readOnly:true,limitedTo:FETCH_LIMIT,
+  cached={repository:REPO,generatedAt:new Date().toISOString(),headBound:true,readOnly:true,limitedTo:FETCH_LIMIT,
     truncated:list.length===FETCH_LIMIT,items:result};
+  cachedUntil=Date.now()+60_000;
+  return cached;
 }
