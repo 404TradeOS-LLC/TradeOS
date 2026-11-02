@@ -104,3 +104,13 @@ test("job expense section flags over-estimate spend and degrades on load failure
   assert.ok(html.includes("$24.90 over"));
   assert.ok(html.includes("Job costs couldn&#x27;t load."));
 });
+
+test("unavailable expense summary never invents a zero-dollar financial total", () => {
+  const html = renderSection({
+    jobId: "job-1", expenses: [], summary: null,
+    loadError: "Unable to read job costs.", defaultIncurredOn: "2026-11-02",
+  });
+  assert.ok(html.includes("Unavailable"));
+  assert.equal(html.includes("$0.00"), false);
+  assert.equal(html.includes("No expenses recorded for this job yet."), false);
+});
