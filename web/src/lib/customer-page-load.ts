@@ -29,8 +29,8 @@ type CrmLoaders<TProjects, TCustomers, TTasks, TProposals, TEvents> = {
 export async function loadCrmPageData<TProjects, TCustomers, TTasks, TProposals, TEvents>(
   token: string,
   loaders: CrmLoaders<TProjects, TCustomers, TTasks, TProposals, TEvents>,
+  signal: AbortSignal = createCrmLoadSignal(),
 ) {
-  const signal = createCrmLoadSignal();
   return Promise.allSettled([
     loaders.listProjects(token, signal),
     loaders.listCustomers(token, signal),
