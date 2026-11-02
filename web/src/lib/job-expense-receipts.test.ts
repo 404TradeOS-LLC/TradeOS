@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import {
-  buildExpenseReceiptPath, isExpenseReceiptPath,
+  buildExpenseReceiptPath, isExpenseReceiptPath, MAX_EXPENSE_RECEIPT_BYTES,
   validateExpenseReceiptBytes,
 } from "./job-expense-receipts.ts";
 
@@ -34,5 +34,13 @@ test("rejects mismatched formats and executable files", () => {
 
 test("Next server-action body limit permits a full receipt plus multipart overhead", () => {
   const config = readFileSync(new URL("../../next.config.ts", import.meta.url), "utf8");
-  assert.match(config, /bodySizeLimit:\s*["']7mb["']/);
+  assert.match(config, /bodySizeLimit:\s*["']4.25mb["']/);
+});
+
+test("receipt transport stays below hosted function request-body limits", () => {
+  assert.equal(MAX_EXPENSE_RECEIPT_BYTES, 4 * 1024 * 1024);
+  assert.throws(
+    () => validateExpenseReceiptBytes("receipt.pdf", "application/pdf", new Uint8Array(MAX_EXPENSE_RECEIPT_BYTES + 1)),
+    /4 MB/,
+  );
 });
