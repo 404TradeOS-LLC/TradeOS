@@ -86,15 +86,15 @@ test("field job load failures and archived jobs are non-actionable", () => {
   });
 });
 
-test("Project links include owner and office roles for nonarchived jobs", () => {
+test("Project Field links match the technician/owner page gate and exclude archived jobs", () => {
   const active = { id: "job 1", archivedAt: null };
   const archived = { id: "job-2", archivedAt: "2026-10-01T12:00:00.000Z" };
 
   assert.equal(getProjectFieldJobHref("technician", active), "/field?job=job%201");
   assert.equal(getProjectFieldJobHref("technician", archived), null);
-  assert.equal(getProjectFieldJobHref("dispatcher", active), "/field?job=job%201");
+  assert.equal(getProjectFieldJobHref("dispatcher", active), null);
   assert.equal(getProjectFieldJobHref("owner", active), "/field?job=job%201");
-  assert.equal(getProjectFieldJobHref("admin", active), "/field?job=job%201");
+  assert.equal(getProjectFieldJobHref("admin", active), null);
   assert.equal(getProjectFieldJobHref("owner", archived), null);
   assert.equal(getProjectFieldJobHref("unknown", active), null);
 });
