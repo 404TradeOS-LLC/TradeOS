@@ -1163,6 +1163,7 @@ model JobExpense {
   orgId        String   @map("org_id")
   jobId        String   @map("job_id")
   amountCents  Int      @map("amount_cents")
+  paymentResponsibility String   @default("contractor") @map("payment_responsibility")
   category     String
   vendor       String   @default("")
   receiptNote  String   @default("") @map("receipt_note")
