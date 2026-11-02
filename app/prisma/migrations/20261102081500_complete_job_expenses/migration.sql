@@ -22,7 +22,7 @@ ALTER TABLE public.job_expenses
     (receipt_storage_path IS NULL AND receipt_file_name IS NULL AND receipt_content_type IS NULL AND receipt_size_bytes IS NULL)
     OR (receipt_storage_path IS NOT NULL AND receipt_file_name IS NOT NULL
         AND receipt_content_type IN ('image/png', 'image/jpeg', 'application/pdf')
-        AND receipt_size_bytes BETWEEN 1 AND 6291456
+        AND receipt_size_bytes BETWEEN 1 AND 4194304
         AND char_length(receipt_storage_path) <= 500
         AND char_length(receipt_file_name) BETWEEN 1 AND 200)
   ) NOT VALID,
