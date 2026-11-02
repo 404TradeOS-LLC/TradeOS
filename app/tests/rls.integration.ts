@@ -24,6 +24,7 @@ import { CrmService } from "../modules/crm/service";
 import { ContractsService } from "../modules/contracts/service";
 import { ProjectTasksService } from "../modules/project-tasks/service";
 import { JobsService } from "../modules/jobs/service";
+import { JobExpensesService } from "../modules/expenses/service";
 import { AuthService } from "../modules/auth/service";
 import { OrganizationSettingsService } from "../modules/settings/service";
 import { FinancialSummaryService } from "../modules/intelligence/financialSummary";
@@ -1377,6 +1378,46 @@ describe("live organization row-level security", () => {
     } finally {
       await adminClient.jobExpenseEvent.deleteMany({ where: { expenseId: { in: [expenseA, expenseB] } } });
       await adminClient.jobExpense.deleteMany({ where: { id: { in: [expenseA, expenseB] } } });
+    }
+  });
+
+
+  it("serializes concurrent expense updates so each audit before state matches committed reality", async () => {
+    const expenseId = randomUUID();
+    await adminClient.jobExpense.create({
+      data: {
+        id: expenseId, orgId: orgA, jobId: jobA,
+        amountCents: 1000, category: "material", paymentResponsibility: "contractor",
+        vendor: "", receiptNote: "", incurredOn: new Date("2026-11-01T00:00:00.000Z"),
+        createdById: adminUser,
+      },
+    });
+    try {
+      const expenses = new JobExpensesService();
+      const results = await Promise.allSettled([
+        inSession(adminUser, orgA, "admin", async () =>
+          expenses.update({ id: expenseId, orgId: orgA, jobId: jobA, actorUserId: adminUser, amountCents: 2000 })
+        ),
+        inSession(technicianUser, orgA, "technician", async () =>
+          expenses.update({ id: expenseId, orgId: orgA, jobId: jobA, actorUserId: technicianUser, amountCents: 3000 })
+        ),
+      ]);
+      expect(results.every((result) => result.status === "fulfilled")).toBe(true);
+
+      const events = await adminClient.jobExpenseEvent.findMany({
+        where: { expenseId, eventType: "updated" },
+      });
+      const transitions = events.map((event) => event.payloadJson as unknown as {
+        before: { amountCents: number }; after: { amountCents: number };
+      });
+      expect(transitions).toHaveLength(2);
+      expect(transitions.map((p) => p.after.amountCents).sort((a, b) => a - b)).toEqual([2000, 3000]);
+      const first = transitions.filter((p) => p.before.amountCents === 1000);
+      expect(first).toHaveLength(1);
+      expect(transitions.filter((p) => p.before.amountCents === first[0].after.amountCents)).toHaveLength(1);
+    } finally {
+      await adminClient.jobExpenseEvent.deleteMany({ where: { expenseId } });
+      await adminClient.jobExpense.delete({ where: { id: expenseId } });
     }
   });
 
