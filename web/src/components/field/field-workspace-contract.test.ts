@@ -12,7 +12,7 @@ test("field workspace is a server-authenticated technician surface over named jo
   const proxy = await readSource("../../proxy.ts");
 
   assert.match(page, /getSessionToken/);
-  assert.match(page, /\["technician", "owner", "admin", "dispatcher"\]\.includes\(settings\.currentRole\)/);
+  assert.match(page, /settings\.currentRole !== "technician" && settings\.currentRole !== "owner"/);
   assert.match(page, /prioritizeFieldJobs\(await listFieldJobs\(token, summary\.todayRangeUtc\)\)/);
   assert.match(page, /on_site: 0,[\s\S]*traveling: 1,[\s\S]*paused: 2,[\s\S]*dispatched: 3,[\s\S]*completed: 6,[\s\S]*cancelled: 7/);
   assert.match(page, /getFieldJob\(token, selectedId\)/);
@@ -109,7 +109,7 @@ test("field job actions do not optimistically claim completion or billing handof
 test("field route never trusts a caller-provided tenant or unscoped job list", async () => {
   const page = await readSource("../../app/(app)/field/page.tsx");
   const actions = await readSource("../../app/actions/field.ts");
-  assert.match(page, /\["technician", "owner", "admin", "dispatcher"\]\.includes\(settings\.currentRole\)/);
+  assert.match(page, /settings\.currentRole !== "technician" && settings\.currentRole !== "owner"/);
   assert.match(page, /getFieldJob\(token, selectedId\)/);
   assert.match(page, /resolveFieldJobMembership/);
   assert.doesNotMatch(actions, /orgId\s*=\s*String\(formData/);
