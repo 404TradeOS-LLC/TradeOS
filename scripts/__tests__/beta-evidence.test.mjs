@@ -500,6 +500,31 @@ test("finalize ready wait is scoped to the Estimate workflow region", () => {
   );
 });
 
+test("invoice total read is scoped to the Invoice financial summary section", () => {
+  // Regression guard for the run-41377520305 failure: the invoice page
+  // renders no bare "Total" label, and "Invoice total" renders twice
+  // (financial-summary metric + totals-block row), so a bare
+  // getByText("Total") read can never resolve and a bare
+  // getByText("Invoice total") read would trip Playwright strict mode.
+  // The read must be scoped to the Invoice financial summary section,
+  // whose MoneyMetric parent div carries the value alongside the label.
+  const invoiceBlock = capture.slice(capture.indexOf('invoice resolves an id'));
+  const checkpoint08 = invoiceBlock.indexOf('await checkpoint("08"');
+  assert.ok(checkpoint08 !== -1, "expected the invoice step to end at checkpoint 08");
+  const sectionRead = invoiceBlock.indexOf('page.locator(\'section[aria-label="Invoice financial summary"]\')');
+  assert.ok(sectionRead !== -1 && sectionRead < checkpoint08, "expected a section-scoped read in the invoice step");
+  assert.match(
+    invoiceBlock.slice(sectionRead, checkpoint08),
+    /^page\.locator\('section\[aria-label="Invoice financial summary"\]'\)\.getByText\("Invoice total", \{ exact: true \}\)\.locator\("\.\."\)\.innerText/,
+    "expected the invoice total read to be scoped to the Invoice financial summary section",
+  );
+  assert.doesNotMatch(
+    invoiceBlock.slice(0, checkpoint08),
+    /await page\.getByText\("Total"/,
+    "expected no bare Total read in the invoice step",
+  );
+});
+
 test("beta capture waits for the persisted Customer UUID rather than matching /customers/new", () => {
   const uuid = "1643d999-509c-4742-8d68-46c6a9129d55";
   const origin = "https://tradeos-costbook-web-git-staging-billykshowalters.vercel.app";
