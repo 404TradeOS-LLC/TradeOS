@@ -6,5 +6,6 @@
       "path": "/api/cron",
       "schedule": "15 13 * * *"
     }
-  ]
+  ],
+  "buildCommand": "npm run check && npm test"
 }
