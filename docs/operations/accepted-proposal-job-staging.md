@@ -1,47 +1,20 @@
 # Accepted proposal to Job: staging review packet
 
-This is a proposed rollout plan for draft PR #810, not execution authority.
-Keep the feature draft until migration, matching API/web deployment, authenticated
-acceptance and final-head release review are complete. Issue #811's invoice
-history is independent evidence.
+This is a staging-only acceptance plan for PR #810, not permission to deploy or change production. The feature is ready for review but remains unmerged until protected binding proof, coherent API/web deployment, authenticated acceptance and final release review.
 
-## Reconciled source and live evidence — 2026-10-30
+## Verified staging baseline — 2026-11-02
 
-- Feature source inspected: `f96231c11f49c7eb05748927f6be6623edc264cc`,
-  branch `feat/accepted-proposal-job-handoff-20261028`, zero behind main
-  `d1d64137c2912225b8f42ae1895c5786a20643b9` at inspection.
-- Exact-head repository verification run `41029394012` and migration safety run
-  `41029393951` succeeded. Eight review threads were resolved. The approval at
-  `787c4f315cfaefbea005faee5fde888c74d1eb58` is not final-head review.
-- Live read-only staging query against Supabase `qfbgdkbamfaasmtjfyru` returned
-  66 completed migrations, zero unfinished; Job handoff migration, columns and
-  index absent. Main inventories 66 migration SQL files; the feature branch 67.
-  Counts alone do not establish matching migration names or checksums.
-- Migration: `20261028151000_accepted_proposal_job_handoff`.
-  Exact file SHA-256:
-  `3db2c92bf2ae533b47ba976ab09ae814c7974a161c219d61fc6dc31f07aed293`.
-  Preserve the existing migration bytes/name; do not stamp it as applied.
+- The protected Job migration `20261028151000_accepted_proposal_job_handoff` **already succeeded**. Read-only staging inspection shows 67 completed Prisma migrations, zero unfinished, and the Job migration applied exactly once with checksum `3db2c92bf2ae533b47ba976ab09ae814c7974a161c219d61fc6dc31f07aed293`.
+- Staging API-first promotion PR #837 merged as `ce903c3ee159fc6139f9901e1d61a09c2140330c`. This carries backend source into staging but does not establish web CTA acceptance or protected runtime binding proof.
+- Current staging head `cf6a7e3a8c5d6562249ae7614ea60dd0f68847ac` has matching READY Vercel API/web deployments and aliases; its source inventory has 68 migration SQL files because the later, separate `20261102020000_add_job_expenses` is not yet applied. Do not confuse this with the completed Job handoff migration.
+- Vercel environment metadata reads returned HTTP 403. A deployment SHA/alias match alone is insufficient to attest effective staging DATABASE_URL, SUPABASE_URL and AUTH_JWT_SECRET bindings. Require an approved protected secret-safe attestation; never print or downgrade secret values.
+- The proposal-aware web action remains absent from the inspected staging web source. A reviewed web-only promotion after API readiness is still required.
 
-## Decision required before execution
+## No repeat migration — proceed to protected postflight and deployment
 
-The normal protected staging apply workflow accepts only `main`, with no
-feature-source input. This migration is absent from main. The staging
-orchestrator reads migration status and cannot apply it. Dispatching either
-workflow as currently configured does not solve this dependency.
+The reviewed Job migration was already applied under the protected staging Environment. **Do not apply, stamp, reset, or backfill it again.** Reconcile the latest release candidate's complete tracked migration inventory with the staging ledger before another acceptance attempt. The newer expense migration must receive its own reviewed staging-only disposition; it does not reopen the completed Job migration.
 
-A migration-first extraction would need a deliberately reviewed split of #810,
-not a competing implementation. Before publishing that split, reconcile
-ownership and remove its overlap from #810 as part of the agreed dependency
-sequence. Main pushes touching migrations automatically queue the separate
-**production** migration workflow behind its production Environment gate.
-Therefore even a schema-only main merge is not an exclusively staging event.
-Do not merge the feature to unlock staging, approve production, relax the
-main-only restriction, or apply SQL through the Supabase connector as a shortcut.
-
-The reviewer must select and approve the migration-first split and its production
-queue handling, or a separately reviewed exact-source staging workflow change.
-Neither option is implemented or approved by this packet. Existing protected
-Environment approval remains required for actual staging execution.
+Protected Environment approval remains required for future protected staging actions. An HTTP 403 on Vercel environment metadata must fail closed; it is not authorization to read sensitive values, change their sensitivity, bypass an Environment reviewer, or use a different target. Preserve provenance of the approved SHA, staging Supabase project ref and both Vercel project IDs.
 
 ## Read-only preflight and postflight
 
@@ -50,38 +23,17 @@ the connection's protected provenance and staging project identity. It uses a
 read-only repeatable-read transaction and reads schema/ledger metadata and an
 aggregate Job count; it does not apply migrations or create test records.
 
-At the exact approved source SHA, inventory every migration name and SHA-256.
-Compare the full applied ledger against that inventory, including historical
-rollback rows. Before apply, the only missing completed migration must be the
-Job handoff migration; reject unexpected applied names, duplicate successful
-entries, unfinished rows, checksum differences or partial Job schema.
-Recheck if main, staging or the feature source changes.
+For the exact candidate SHA, inventory every migration name and SHA-256 and compare the full applied ledger, including historical rollback rows. The Job handoff migration must be present and successfully applied once. Reject any remaining missing or unexpected applied names, duplicate successful entries, unfinished rows, checksum differences, or partial Job schema. Recheck whenever main, staging, or the feature source changes.
 
-Before apply, both new columns and the index must be absent. Record existing
-Job count and enabled/forced jobs RLS. The migration adds nullable TEXT
-`source_proposal_id`, nullable JSONB `accepted_baseline_json`, and a unique
-index on the source proposal. It contains no row backfill, RLS change, scheduling,
-invoicing or proposal mutation. Standard index creation can block Job writes;
-review the actual table size and use an agreed staging maintenance window.
+The already-applied migration added nullable TEXT `source_proposal_id`, nullable JSONB `accepted_baseline_json`, and a unique source-proposal index. It contains no row backfill, RLS change, scheduling, invoicing or proposal mutation. Treat the previous pre-apply absence of columns/index as historical evidence, not a new condition to satisfy.
 
-After the protected apply succeeds, repeat the capture: applied migration name
-and checksum must match; both columns must have the expected types, be nullable
-and have no default; the unique source index must be valid and ready with the
-expected definition. Applied names must equal the approved source inventory,
-with zero unfinished rows and no unexpected successful duplicates. Existing Job
-count and jobs RLS must remain consistent with the preflight; investigate
-concurrent changes rather than inferring data loss from counts alone.
+Postflight must verify applied migration name and checksum; both columns with expected types, nullability and no default; and the unique index valid, ready, and correctly defined. The complete applied migration name set must equal the candidate source inventory with zero unfinished and no unexpected successful duplicates. Job count capture must fail closed if RLS would filter rows; investigate concurrent changes rather than inferring loss from count differences.
 
 ## Ordered runtime acceptance
 
-1. Apply and verify the reviewed additive migration through the approved
-   staging-only protected path. Retain run ID, source SHA, checksum and captures.
-2. Deploy the matching reviewed API before exposing the frontend action. The
-   generated Prisma client selects the new Job fields; deploying it first can
-   break ordinary Job reads against an unmigrated database.
-3. Verify both staging API/web deployment IDs, aliases, SHA and staging bindings;
-   verify API health/readiness. Hide the action by retaining the prior web build
-   until the API is ready; no runtime capability gate is claimed here.
+1. Verify the **already applied** Job migration through protected read-only postflight; retain the existing protected apply run ID, exact SQL checksum, provenance and captures. Do not reapply.
+2. Verify staging API readiness and the deployed API SHA against the reviewed Job migration. PR #837's source merge alone does not prove binding identity or readiness. Do not expose the frontend action before verifying the backend.
+3. After protected secret-safe binding proof and backend readiness, promote the missing proposal-aware web source through the reviewed staging-only lane. Verify both staging API/web deployment IDs, aliases, coherent SHA and effective staging bindings. The existing prior web build does not implement the handoff CTA.
 4. In the sanitized authenticated staging tenant, prove accepted proposal plus
    explicitly chosen customer address creates one unscheduled Job, preserves
    the approved snapshot and original proposal, and retries/concurrent requests
