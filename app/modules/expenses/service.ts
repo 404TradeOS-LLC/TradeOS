@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Prisma, PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { prisma } from "../../db/client";
 import { runInDatabaseTransaction } from "../../db/requestSession";
@@ -197,13 +197,19 @@ export class JobExpensesService {
         vendor, receiptNote, incurredOn, createdById: input.actorUserId,
         idempotencyKey,
       };
-      const row = idempotencyKey
-        ? await tx.jobExpense.upsert({
-          where: { orgId_jobId_idempotencyKey: { orgId: input.orgId, jobId: job.id, idempotencyKey } },
-          create: data, update: {},
-        })
-        : await tx.jobExpense.create({ data });
-      if (row.id !== candidateId) return assertSameSubmission(row as JobExpenseRow, expected);
+      let row;
+      if (idempotencyKey) {
+        // INSERT ... ON CONFLICT DO NOTHING is atomic even for concurrent
+        // identical submissions. A preflight read alone cannot deduplicate.
+        const inserted = await tx.jobExpense.createMany({ data: [data], skipDuplicates: true });
+        row = await tx.jobExpense.findFirst({
+          where: { orgId: input.orgId, jobId: job.id, idempotencyKey },
+        });
+        if (!row) throw new ApiError(409, "Expense retry state is unavailable");
+        if (inserted.count === 0) return assertSameSubmission(row as JobExpenseRow, expected);
+      } else {
+        row = await tx.jobExpense.create({ data });
+      }
       await tx.jobExpenseEvent.create({
         data: {
           orgId: input.orgId, jobId: job.id, expenseId: row.id,
