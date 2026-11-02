@@ -23,14 +23,12 @@ export function JobExpenseSection({
   loadError: string | null;
   defaultIncurredOn: string;
 }) {
-  const actualCents = summary?.actualCents ?? expenses
-    .filter((expense) => !expense.voidedAt && (expense.paymentResponsibility ?? "contractor") !== "customer")
-    .reduce((total, expense) => total + expense.amountCents, 0);
-  const customerPaidCents = summary?.customerPaidCents ?? expenses
-    .filter((expense) => !expense.voidedAt && expense.paymentResponsibility === "customer")
-    .reduce((total, expense) => total + expense.amountCents, 0);
+  // Only server-authoritative summaries may produce financial totals.
+  // An empty or failed expense read must never be interpreted as zero costs.
+  const actualCents = summary?.actualCents ?? null;
+  const customerPaidCents = summary?.customerPaidCents ?? null;
   const estimatedCents = summary?.estimatedCents ?? null;
-  const varianceCents = summary?.varianceCents ?? (estimatedCents === null ? null : estimatedCents - actualCents);
+  const varianceCents = summary?.varianceCents ?? null;
 
   return (
     <section className="grid gap-4 rounded-2xl border border-border/70 bg-card p-4 sm:p-5" aria-labelledby="job-costs-heading">
@@ -51,20 +49,20 @@ export function JobExpenseSection({
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-border/70 bg-background/70 p-3">
           <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Contractor-paid</dt>
-          <dd className="mt-1 text-base font-semibold sm:text-lg">{formatCentsUsd(actualCents)}</dd>
+          <dd className="mt-1 text-base font-semibold sm:text-lg">{actualCents === null ? "Unavailable" : formatCentsUsd(actualCents)}</dd>
         </div>
         <div className="rounded-xl border border-border/70 bg-background/70 p-3">
           <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Customer-paid</dt>
-          <dd className="mt-1 text-base font-semibold sm:text-lg">{formatCentsUsd(customerPaidCents)}</dd>
+          <dd className="mt-1 text-base font-semibold sm:text-lg">{customerPaidCents === null ? "Unavailable" : formatCentsUsd(customerPaidCents)}</dd>
         </div>
         <div className="rounded-xl border border-border/70 bg-background/70 p-3">
           <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Estimated</dt>
-          <dd className="mt-1 text-base font-semibold sm:text-lg">{estimatedCents === null ? "No estimate" : formatCentsUsd(estimatedCents)}</dd>
+          <dd className="mt-1 text-base font-semibold sm:text-lg">{!summary ? "Unavailable" : estimatedCents === null ? "No estimate" : formatCentsUsd(estimatedCents)}</dd>
         </div>
         <div className="rounded-xl border border-border/70 bg-background/70 p-3">
           <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Quote less costs</dt>
           <dd className="mt-1 text-base font-semibold sm:text-lg">
-            {varianceCents === null ? "—" : varianceCents < 0 ? `${formatCentsUsd(-varianceCents)} over` : formatCentsUsd(varianceCents)}
+            {!summary ? "Unavailable" : varianceCents === null ? "—" : varianceCents < 0 ? `${formatCentsUsd(-varianceCents)} over` : formatCentsUsd(varianceCents)}
           </dd>
         </div>
       </dl>
@@ -106,7 +104,7 @@ export function JobExpenseSection({
           ))}
         </ul>
       ) : (
-        <p className="rounded-xl bg-muted/30 px-3 py-3 text-sm text-muted-foreground">No expenses recorded for this job yet.</p>
+        <p className="rounded-xl bg-muted/30 px-3 py-3 text-sm text-muted-foreground">{loadError ? "Expense list unavailable." : "No expenses recorded for this job yet."}</p>
       )}
 
       <div className="border-t border-border/70 pt-4">
