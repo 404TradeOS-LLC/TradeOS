@@ -336,7 +336,7 @@ export class JobExpensesService {
         data: { orgId, jobId: existing.jobId, expenseId: id,
           actorUserId: actorUserId ?? existing.createdById,
           eventType: "voided", payloadJson: {
-            before: auditSnapshot(existing), after: auditSnapshot(row as JobExpenseRow),
+            before: auditSnapshot(current), after: auditSnapshot(row as JobExpenseRow),
           },
         },
       });
