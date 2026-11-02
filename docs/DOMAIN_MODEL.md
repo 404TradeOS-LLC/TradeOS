@@ -100,6 +100,7 @@ An actual cost incurred against a job, stored in `JobExpense` (migration `202611
 
 - belongs to one organization and one job; tenant scope is enforced through the job's organization, and cross-org access is a 404
 - amount is integer cents (`amountCents > 0`); totals are summed as integers so actuals are cents-exact
+- `paymentResponsibility` is `contractor` or `customer`, with `contractor` as the migration/default for existing records (`20261102074000_add_job_expense_payment_responsibility`); customer-paid/supplied purchases remain in the history but are excluded from contractor-paid actual totals, by-category contractor costs, and the quote-minus-cost comparison
 - category reuses the estimate cost-type vocabulary (`labor`, `material`, `equipment`, `disposal`, `subcontractor`, `other`)
 - vendor and receipt note are free text (no receipt file upload, OCR, or bank sync in v1)
 - incurred date is a calendar date (`incurredOn`); the recording user is kept as `createdById`
