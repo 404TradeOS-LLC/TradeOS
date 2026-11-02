@@ -448,3 +448,9 @@ The [staging orchestrator](../.github/workflows/staging-orchestrator.yml) now pa
 ### Team & Time schema and FORCE RLS source — 2026-10-30
 
 Before FORCE, `20261030004500_team_time_foundation` and `20261030005500_team_time_integrity` restore the staging-origin table/constraint definitions into the tracked Prisma rollout. `20261030010000_force_team_time_rls` fails closed on missing tables, and does not grant direct table access. `supabase/functions/team-time/index.ts` is a v6-derived source-controlled candidate with complete bounded shift pagination, not a staging or production deployment; `app/tests/team-time-edge-auth.test.ts` tests actual function authorization with fake privileged transport. Important: service-role requests bypass RLS despite FORCE, and enforce tenancy only through verified service checks. Protected staging migration and browser acceptance are pending.
+
+## Protected staging Job Expenses migration workflow — Issue #885
+
+For the live staging migration inventory, checksums, required approvals, commands, postflight checks, and recovery procedure, see [Protected staging Expense migrations](operations/staging-expenses-migrations.md). The manually dispatched main-only `.github/workflows/staging-expenses-migration.yml` uses `scripts/staging-expenses-migration.mjs` and its regression tests to reconcile the already-applied PR #810 Job handoff with the three pinned Issue #885 Expense SQL files.
+
+**Preflight is read-only**; apply requires exact-source-SHA approval, the protected staging reviewer and typed confirmation, followed by verified RLS/ledger postflight. It is not a substitute for matching API/web staging deployment, authenticated tenant/receipt acceptance, independent feature review, or production release approval. The broad `deploy-staging-migrations.yml` must not be used to bypass this mismatch.
