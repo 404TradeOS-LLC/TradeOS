@@ -34,5 +34,5 @@ test("rejects mismatched formats and executable files", () => {
 
 test("Next server-action body limit permits a full receipt plus multipart overhead", () => {
   const config = readFileSync(new URL("../../next.config.ts", import.meta.url), "utf8");
-  assert.match(config, /bodySizeLimit:\\s*["']7mb["']/);
+  assert.match(config, /bodySizeLimit:\s*["']7mb["']/);
 });
