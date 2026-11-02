@@ -103,5 +103,4 @@ jobs:
           APPROVED_SOURCE_SHA: ${{ vars.STAGING_JOB_EXPENSES_APPROVED_SHA }}
           STAGING_DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
           STAGING_APP_DB_ROLE_NAME: ${{ vars.STAGING_APP_DB_ROLE_NAME }}
-          APP_DB_ROLE_PASSWORD: ${{ secrets.STAGING_APP_DB_ROLE_PASSWORD }}
         run: node scripts/staging-job-expenses-migration.mjs
