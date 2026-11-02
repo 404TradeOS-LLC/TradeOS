@@ -67,7 +67,7 @@ export function JobExpenseSection({
         </div>
       </dl>
       <p className="text-xs text-muted-foreground">
-        Estimated is the project's latest quoted price, not a cost budget. Quote less costs is not profit or collected revenue.
+        Estimated reflects the latest project quote, not a cost budget. Quote less costs is not profit or collected revenue.
       </p>
 
       {expenses.length > 0 ? (
