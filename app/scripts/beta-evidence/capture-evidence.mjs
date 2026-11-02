@@ -882,7 +882,10 @@ try {
   assertBusiness("invoice resolves an id", Boolean(invoiceId), `url was ${page.url()}`);
 
   // The invoice must bill the customer-facing sell price, not the direct cost.
-  const invoiceTotalText = await page.getByText("Total", { exact: true }).locator("..").innerText();
+  // The invoice page renders no bare "Total" label, and "Invoice total"
+  // renders twice (financial-summary metric + totals-block row), so the read
+  // must be scoped to the financial summary section to select exactly one.
+  const invoiceTotalText = await page.locator('section[aria-label="Invoice financial summary"]').getByText("Invoice total", { exact: true }).locator("..").innerText();
   assertBusiness(
     "invoice bills sell price rather than direct cost",
     invoiceTotalText.includes("$7,105.07") && !invoiceTotalText.includes("$5,100.00"),
