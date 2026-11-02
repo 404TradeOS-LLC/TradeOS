@@ -1597,6 +1597,7 @@ queue dismissal, automatic retry, financial change or production migration.
 This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
+
 ## Step 9 accepted-proposal field handoff — PR #810 (unmerged)
 
 A proposed, separate branch closes the missing accepted Proposal → tracked Job
