@@ -50,6 +50,7 @@ model Organization {
   jobs           Job[]
   jobAssignments JobAssignment[]
   jobExpenses    JobExpense[]
+  jobExpenseEvents JobExpenseEvent[]
   estimates      Estimate[]
   serviceAgreements ServiceAgreement[]
   payments       Payment[]
@@ -277,6 +278,8 @@ model AppUser {
   sentInvites   OrganizationInvite[] @relation("InviteSender")
   createdJobs   Job[]                @relation("JobCreatedBy")
   createdJobExpenses JobExpense[]   @relation("JobExpenseCreatedBy")
+  voidedJobExpenses JobExpense[] @relation("JobExpenseVoidedBy")
+  createdJobExpenseEvents JobExpenseEvent[] @relation("JobExpenseEventActor")
   completedJobs Job[]                @relation("JobCompletedBy")
   assignedProjectTasks ProjectTask[] @relation("ProjectTaskAssignee")
   assignedJobs  JobAssignment[]      @relation("JobAssignmentUser")
@@ -1147,6 +1150,7 @@ model Job {
   tasks          ProjectTask[]
   siteVisits     SiteVisit[]
   expenses       JobExpense[]
+  expenseEvents JobExpenseEvent[]
 
   @@unique([orgId, jobNumber])
   @@index([orgId, status])
@@ -1185,11 +1189,13 @@ model JobExpense {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   job          Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
   createdBy    AppUser      @relation("JobExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  voidedBy AppUser? @relation("JobExpenseVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
   events       JobExpenseEvent[]
 
-  @@unique([orgId, jobId, idempotencyKey])
-  @@index([orgId, jobId, voidedAt])
-  @@index([jobId, incurredOn])
+  @@unique([orgId, jobId, idempotencyKey], map: "job_expenses_org_job_idempotency_key_idx")
+  @@index([orgId, jobId], map: "job_expenses_org_job_idx")
+  @@index([orgId, jobId, voidedAt], map: "job_expenses_org_job_voided_idx")
+  @@index([jobId, incurredOn(sort: Desc)], map: "job_expenses_job_incurred_idx")
   @@map("job_expenses")
 }
 
@@ -1206,8 +1212,11 @@ model JobExpenseEvent {
   createdAt   DateTime @default(now()) @map("created_at")
 
   expense JobExpense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  actorUser AppUser @relation("JobExpenseEventActor", fields: [actorUserId], references: [id], onDelete: Restrict)
 
-  @@index([orgId, jobId, expenseId, createdAt])
+  @@index([orgId, jobId, expenseId, createdAt], map: "job_expense_events_org_job_expense_created_idx")
   @@map("job_expense_events")
 }
 
