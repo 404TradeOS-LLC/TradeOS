@@ -5,11 +5,15 @@ import { estimateCostTypes } from "../estimate-engine/types";
 export const expenseCategories = estimateCostTypes;
 export type ExpenseCategory = (typeof expenseCategories)[number];
 
+export const expensePaymentResponsibilities = ["contractor", "customer"] as const;
+export type ExpensePaymentResponsibility = (typeof expensePaymentResponsibilities)[number];
+
 export interface JobExpenseDTO {
   id: string;
   jobId: string;
   orgId: string;
   amountCents: number;
+  paymentResponsibility: ExpensePaymentResponsibility;
   category: ExpenseCategory;
   vendor: string;
   receiptNote: string;
@@ -24,6 +28,7 @@ export interface CreateJobExpenseInput {
   jobId: string;
   actorUserId: string;
   amountCents: number;
+  paymentResponsibility?: ExpensePaymentResponsibility;
   category: ExpenseCategory;
   vendor?: string;
   receiptNote?: string;
@@ -34,6 +39,7 @@ export interface UpdateJobExpenseInput {
   id: string;
   orgId: string;
   amountCents?: number;
+  paymentResponsibility?: ExpensePaymentResponsibility;
   category?: ExpenseCategory;
   vendor?: string;
   receiptNote?: string;
@@ -45,6 +51,7 @@ export interface JobCostSummaryDTO {
   projectId: string;
   expenseCount: number;
   actualCents: number;
+  customerPaidCents: number;
   byCategoryCents: Record<string, number>;
   estimatedCents: number | null;
   estimateId: string | null;
