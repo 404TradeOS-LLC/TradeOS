@@ -54,6 +54,23 @@ test("job expense section renders actual-vs-estimate rollup, expense list, and a
   assert.equal(html.includes("No expenses recorded"), false);
 });
 
+test("job costs separate customer-paid material from contractor actuals", () => {
+  const html = renderSection({
+    jobId: "job-1",
+    expenses: [
+      { ...expenses[0], amountCents: 2500, paymentResponsibility: "contractor" },
+      { ...expenses[1], amountCents: 4000, category: "material", paymentResponsibility: "customer" },
+    ],
+    summary: { ...summary, actualCents: 2500, customerPaidCents: 4000, byCategoryCents: { material: 2500 }, varianceCents: 95010 },
+    loadError: null,
+    defaultIncurredOn: "2026-11-02",
+  });
+  assert.ok(html.includes("Contractor-paid"), "contractor cost metric must be explicitly labeled");
+  assert.ok(html.includes("Customer-paid"), "customer purchases must be separately totaled");
+  assert.ok(html.includes("$40.00"), "customer-paid total remains visible");
+  assert.ok(html.includes("Customer paid"), "expense history identifies who paid");
+});
+
 test("job expense section reports no estimate instead of a fabricated zero", () => {
   const html = renderSection({ jobId: "job-1", expenses: [], summary: { ...summary, expenseCount: 0, actualCents: 0, estimatedCents: null, estimateId: null, varianceCents: null }, loadError: null, defaultIncurredOn: "2026-11-02" });
   assert.ok(html.includes("No estimate"));
