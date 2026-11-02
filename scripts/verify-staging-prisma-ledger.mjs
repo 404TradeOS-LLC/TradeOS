@@ -78,6 +78,7 @@ export function inventoryFromMain(root) {
 }
 
 export const evidenceSql = `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SET LOCAL search_path = pg_catalog;
 SELECT json_build_object(
   'ledger', (SELECT COALESCE(json_agg(json_build_object(
     'name', migration_name, 'checksum', checksum,
@@ -109,8 +110,9 @@ export function stagingUrl(value) {
     /^[a-zA-Z_][a-zA-Z0-9_]*\.[a-z0-9]{20}$/.test(user);
   if (!["postgres:","postgresql:"].includes(url.protocol) || url.pathname !== "/postgres" || !url.password ||
     !user || !(direct || sessionPooler) || url.hash) throw Error("Unapproved staging database identity");
+  const allowedParams = { schema: "public", sslmode: "require", pgbouncer: "true" };
   for (const [key,val] of url.searchParams) {
-    if (!((key === "schema" && val === "public") || (key === "sslmode" && val === "require")) ||
+    if (!Object.hasOwn(allowedParams, key) || allowedParams[key] !== val ||
         url.searchParams.getAll(key).length !== 1) throw Error("Unapproved staging database URL parameter");
   }
   return url;
