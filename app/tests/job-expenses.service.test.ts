@@ -147,6 +147,21 @@ describe("JobExpensesService", () => {
     });
   });
 
+  it("does not create a second void event when another request voids after the initial read", async () => {
+    const live = expenseRow();
+    const alreadyVoided = expenseRow({
+      voidedAt: new Date("2026-11-02T09:00:00.000Z"),
+      voidedById: ACTOR, voidReason: "Duplicate",
+    });
+    mockDb.jobExpense.findFirst.mockResolvedValueOnce(live).mockResolvedValueOnce(alreadyVoided);
+
+    await expect(service.remove("expense-1", ORG, JOB, ACTOR)).resolves.toBeUndefined();
+
+    expect(mockDb.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(mockDb.jobExpense.update).not.toHaveBeenCalled();
+    expect(mockDb.jobExpenseEvent.create).not.toHaveBeenCalled();
+  });
+
   it("records a freshly locked snapshot before voiding an expense", async () => {
     const stale = expenseRow({ amountCents: 1900 });
     const fresh = expenseRow({ amountCents: 2500 });
