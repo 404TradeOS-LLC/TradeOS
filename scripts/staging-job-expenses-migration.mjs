@@ -38,7 +38,7 @@ export function validateProof(inventory, evidence, { requireApplied = false } = 
   if (!evidence || !Array.isArray(evidence.ledger) || !evidence.expenses) {
     throw Error("Incomplete migration evidence");
   }
-  if (evidence.helpers !== 4) throw Error("Staging request-session RLS helper drift");
+  if (evidence.helpers !== 4 || evidence.roleExists !== true) throw Error("Staging RLS helpers or restricted app role missing");
   if (inventory[expenseName] !== expenseHash || inventory[handoffName] !== handoffHash) {
     throw Error("Reviewed migration checksum missing from inventory");
   }
@@ -103,6 +103,7 @@ function evidenceSql(role) {
     " 'rls', (SELECT relrowsecurity FROM pg_class WHERE oid='public.jobs'::regclass),",
     " 'forced', (SELECT relforcerowsecurity FROM pg_class WHERE oid='public.jobs'::regclass),",
     " 'helpers', (SELECT count(*)::integer FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname IN ('current_app_org_id','current_app_can_administer','current_app_user_id','current_app_role')),",
+    " 'roleExists', (SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=" + roleLiteral + ")),",
     " 'expenses', json_build_object(",
     "  'exists', to_regclass('public.job_expenses') IS NOT NULL,",
     "  'rls', (SELECT relrowsecurity FROM pg_class WHERE oid=to_regclass('public.job_expenses')),",
@@ -136,8 +137,8 @@ export function main(env = process.env) {
     approvedSha: env.APPROVED_SOURCE_SHA, confirmation: env.CONFIRMATION });
   const url = stagingConnection(env.STAGING_DATABASE_ADMIN_URL);
   const role = env.STAGING_APP_DB_ROLE_NAME;
-  if (!/^[a-z_][a-z0-9_]*$/.test(role ?? "") || !env.APP_DB_ROLE_PASSWORD) {
-    throw Error("Staging application role/name credentials missing or invalid");
+  if (!/^[a-z_][a-z0-9_]*$/.test(role ?? "")) {
+    throw Error("Staging application role name missing or invalid");
   }
   const root = fileURLToPath(new URL("../", import.meta.url));
   const trustedEnv = { PATH: env.PATH, HOME: env.HOME, CI: "true" };
@@ -178,15 +179,14 @@ export function main(env = process.env) {
     if (!inventory[handoffName]) throw Error("Handoff identity absent");
     mkdirSync(destination, { recursive: true });
     writeFileSync(path.join(destination, "migration.sql"), handoffSql);
-    const credentials = { ...trustedEnv, DATABASE_URL: url.toString(),
-      DATABASE_ADMIN_URL: url.toString(), APP_DB_ROLE_NAME: role,
-      APP_DB_ROLE_PASSWORD: env.APP_DB_ROLE_PASSWORD };
+    const credentials = { ...trustedEnv, DATABASE_URL: url.toString(), DATABASE_ADMIN_URL: url.toString() };
     run(path.join(root, "app/node_modules/.bin/prisma"),
       ["migrate", "deploy", "--schema", "app/prisma/schema.prisma"],
       { cwd: root, env: credentials });
-    // Normal trusted-main role provisioning grants the existing app role
-    // scoped CRUD on the new table without granting anon/authenticated access.
-    run("bash", ["app/scripts/provision-app-role.sh"], { cwd: root, env: credentials });
+    // Grant precisely the newly created table to the existing restricted role.
+    // Never reset its password or alter privileges on unrelated objects.
+    const grant = "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.job_expenses TO \"" + role + "\"";
+    run("psql", ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-c", grant], { env: pgEnv });
   }, capture);
   console.log(JSON.stringify({ projectRef, expenseName, expenseHash, ...after }));
 }
