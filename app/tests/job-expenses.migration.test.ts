@@ -11,6 +11,10 @@ describe("job expenses migration", () => {
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS payment_responsibility");
     expect(migration).toContain("DEFAULT 'contractor'");
     expect(migration).toContain("CHECK (payment_responsibility IN ('contractor', 'customer'))");
+    // Constraint validation must be scheduled separately to avoid a full scan
+    // while the additive migration holds the write-blocking table lock.
+    expect(migration).toMatch(/CHECK \\(payment_responsibility IN \\('contractor', 'customer'\\)\\) NOT VALID;/);
+    expect(migration).not.toContain("VALIDATE CONSTRAINT");
     expect(migration).not.toContain("DISABLE ROW LEVEL SECURITY");
     expect(migration).not.toContain("DROP TABLE");
     expect(schema).toContain('paymentResponsibility String   @default("contractor") @map("payment_responsibility")');
