@@ -491,3 +491,5 @@ Hosted staging run 41007794872 reached 1440px authenticated capture but failed b
 ### Protected staging expense baseline ledger guard (2026-11-02)
 
 The existing staging-only `Deploy staging database migrations` workflow now has a *read-only* exact-name and checksum preflight before its reviewed Prisma apply and a matching postflight. This acknowledges only the separately reviewed and checksum-pinned Job handoff staging migration, rejects all other unknown or pending migrations, and checks forced Job Expense RLS and four policy names. See `docs/operations/staging-expense-baseline-preflight.md`. Keep main-only dispatch, environment reviewer, staging identity and concurrency intact. This update does not authorize actual migration, payer CHECK validation, production changes or acceptance claims.
+
+The guard is future-aware: it recognizes a separately staged payer migration only by reviewed exact checksum and present CHECK constraint, while refusing to execute any pending payer migration through the baseline workflow.
