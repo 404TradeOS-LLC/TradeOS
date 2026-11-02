@@ -1747,3 +1747,7 @@ Opening an invoice PDF returned `{"error":"Internal server error"}` on both stag
 ### Shared navigation keyboard state — 2026-11-02 (replacement for PR #874)
 
 Existing `PageHeader` breadcrumb/back links now expose a visible semantic focus ring, and existing `ProjectWorkspaceTabs` announces its current page with `aria-current="page"` and names its navigation region. Focus coverage is source-contract tested, with the earlier reviewed implementation rebased as a new clean-main PR because governed PR-maintenance dispatch is unavailable in this integration. Hosted exact-head checks and rendered authenticated/mobile acceptance remain separate.
+
+### CRM and Customers bounded loading — 2026-11-02 (replacement for draft PR #883)
+
+CRM overview reads five existing organization-scoped sources with one default 20-second `AbortSignal.timeout`, passed through the existing `apiFetch` clients. Each read settles independently so an unavailable source produces the existing per-source warning while other data remains usable. The Customers page uses the same existing warning style and does **not** mount `CustomerDirectory` when its customer list request fails; unavailable data must not appear as a genuine empty directory. A controllable AbortSignal in the loader enables a deterministic test of a pending request that rejects on timeout; no new data source, API authorization or page navigation was introduced. This patch supersedes stale draft #883 on fresh main. Its new head requires complete CI, review and authenticated application acceptance before release.
