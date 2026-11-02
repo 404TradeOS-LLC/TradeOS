@@ -4,9 +4,11 @@ const getJobCostSummary = jest.fn();
 const create = jest.fn();
 const update = jest.fn();
 const remove = jest.fn();
+const attachReceipt = jest.fn();
+const listAuditEvents = jest.fn();
 
 jest.mock("../modules/expenses/service", () => ({
-  JobExpensesService: jest.fn().mockImplementation(() => ({ list, getById, getJobCostSummary, create, update, remove })),
+  JobExpensesService: jest.fn().mockImplementation(() => ({ list, getById, getJobCostSummary, create, update, remove, attachReceipt, listAuditEvents })),
 }));
 
 import { expensesController } from "../backend/controllers/expenses.controller";
@@ -108,15 +110,41 @@ describe("expensesController", () => {
     await expensesController.list(baseReq(), res);
     expect(list).toHaveBeenCalledWith(JOB, "org-1");
     await expensesController.getById(baseReq(), res);
-    expect(getById).toHaveBeenCalledWith(EXPENSE, "org-1");
+    expect(getById).toHaveBeenCalledWith(EXPENSE, "org-1", JOB);
     await expensesController.getSummary(baseReq(), res);
     expect(getJobCostSummary).toHaveBeenCalledWith(JOB, "org-1");
+  });
+
+  it("links only receipt metadata under the authenticated job and expense", async () => {
+    attachReceipt.mockResolvedValue({ id: EXPENSE });
+    const res = responseDouble();
+    const receiptStoragePath = `job-expenses/org-1/${JOB}/${EXPENSE}/receipt-11111111-1111-4111-8111-111111111111.pdf`;
+    await expensesController.attachReceipt(baseReq({
+      body: { receiptStoragePath, receiptFileName: "receipt.pdf",
+        receiptContentType: "application/pdf", receiptSizeBytes: 2048 },
+    }), res);
+    expect(attachReceipt).toHaveBeenCalledWith(expect.objectContaining({
+      id: EXPENSE, jobId: JOB, orgId: "org-1", actorUserId: "user-1",
+      receiptStoragePath,
+    }));
+    attachReceipt.mockClear();
+    await expect(expensesController.attachReceipt(baseReq({
+      body: { receiptStoragePath, receiptFileName: "receipt.html",
+        receiptContentType: "text/html", receiptSizeBytes: 2048 },
+    }), res)).rejects.toThrow();
+    expect(attachReceipt).not.toHaveBeenCalled();
+  });
+
+  it("reads the audit log scoped to the URL job", async () => {
+    listAuditEvents.mockResolvedValue([]);
+    await expensesController.getAuditEvents(baseReq(), responseDouble());
+    expect(listAuditEvents).toHaveBeenCalledWith(EXPENSE, "org-1", JOB);
   });
 
   it("removes with 204 and no body", async () => {
     const res = responseDouble();
     await expensesController.remove(baseReq(), res);
-    expect(remove).toHaveBeenCalledWith(EXPENSE, "org-1");
+    expect(remove).toHaveBeenCalledWith(EXPENSE, "org-1", JOB, "user-1", undefined);
     expect(res.status).toHaveBeenCalledWith(204);
     expect(res.send).toHaveBeenCalled();
   });
