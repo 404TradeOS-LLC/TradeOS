@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { prisma } from "../../db/client";
 import { runInDatabaseTransaction } from "../../db/requestSession";
@@ -26,7 +26,7 @@ const PAYMENT_RESPONSIBILITY_SET = new Set<string>(expensePaymentResponsibilitie
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RECEIPT_FILE = /^receipt-[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:png|jpg|pdf)$/i;
 const RECEIPT_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "application/pdf": "pdf" };
-const MAX_RECEIPT_BYTES = 6 * 1024 * 1024;
+const MAX_RECEIPT_BYTES = 4 * 1024 * 1024;
 
 function toDTO(row: JobExpenseRow): JobExpenseDTO {
   return {
@@ -145,6 +145,30 @@ export class JobExpensesService {
     return row as JobExpenseRow;
   }
 
+  /**
+   * Serialize financial mutations and reread their immediately preceding state.
+   * A pre-transaction snapshot is insufficient when two requests edit/void
+   * the same expense concurrently.
+   */
+  private async lockExpenseForMutation(
+    tx: Prisma.TransactionClient, existing: JobExpenseRow,
+  ): Promise<JobExpenseRow> {
+    const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT id FROM public.job_expenses
+      WHERE id = ${existing.id}::uuid
+        AND org_id = ${existing.orgId}::uuid
+        AND job_id = ${existing.jobId}::uuid
+      FOR UPDATE
+    `);
+    if (locked.length === 0) throw new ApiError(409, "Expense is no longer available");
+    const current = await tx.jobExpense.findFirst({
+      where: { id: existing.id, orgId: existing.orgId, jobId: existing.jobId },
+    });
+    if (!current) throw new ApiError(409, "Expense is no longer available");
+    assertLive(current as JobExpenseRow);
+    return current as JobExpenseRow;
+  }
+
   async list(jobId: string, orgId: string): Promise<JobExpenseDTO[]> {
     await this.assertJobInOrg(jobId, orgId);
     const rows = await this.db.jobExpense.findMany({
@@ -238,6 +262,7 @@ export class JobExpensesService {
     if (input.incurredOn !== undefined) data.incurredOn = assertValidDate(input.incurredOn, "incurredOn");
     if (Object.keys(data).length === 0) return toDTO(existing);
     return runInDatabaseTransaction(this.db, async (tx) => {
+      const current = await this.lockExpenseForMutation(tx, existing);
       const row = await tx.jobExpense.update({
         where: { id: existing.id, orgId: input.orgId, jobId: existing.jobId, voidedAt: null },
         data,
@@ -247,7 +272,7 @@ export class JobExpensesService {
           orgId: input.orgId, jobId: existing.jobId, expenseId: existing.id,
           actorUserId: input.actorUserId ?? existing.createdById,
           eventType: "updated", payloadJson: {
-            before: auditSnapshot(existing), after: auditSnapshot(row as JobExpenseRow),
+            before: auditSnapshot(current), after: auditSnapshot(row as JobExpenseRow),
           },
         },
       });
@@ -302,6 +327,7 @@ export class JobExpensesService {
     if (existing.voidedAt) return;
     const voidReason = normalizeText(reason, 500, "voidReason");
     await runInDatabaseTransaction(this.db, async (tx) => {
+      const current = await this.lockExpenseForMutation(tx, existing);
       const row = await tx.jobExpense.update({
         where: { id, orgId, jobId: existing.jobId, voidedAt: null },
         data: { voidedAt: new Date(), voidedById: actorUserId ?? existing.createdById, voidReason },
