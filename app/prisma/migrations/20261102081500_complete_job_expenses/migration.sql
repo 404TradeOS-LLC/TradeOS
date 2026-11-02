@@ -15,9 +15,9 @@ ALTER TABLE public.job_expenses
   ADD COLUMN void_reason text NOT NULL DEFAULT '';
 
 ALTER TABLE public.job_expenses
-  ADD CONSTRAINT job_expenses_currency_check CHECK (currency = 'USD'),
-  ADD CONSTRAINT job_expenses_description_check CHECK (char_length(description) <= 2000),
-  ADD CONSTRAINT job_expenses_void_reason_check CHECK (char_length(void_reason) <= 500),
+  ADD CONSTRAINT job_expenses_currency_check CHECK (currency = 'USD') NOT VALID,
+  ADD CONSTRAINT job_expenses_description_check CHECK (char_length(description) <= 2000) NOT VALID,
+  ADD CONSTRAINT job_expenses_void_reason_check CHECK (char_length(void_reason) <= 500) NOT VALID,
   ADD CONSTRAINT job_expenses_receipt_metadata_check CHECK (
     (receipt_storage_path IS NULL AND receipt_file_name IS NULL AND receipt_content_type IS NULL AND receipt_size_bytes IS NULL)
     OR (receipt_storage_path IS NOT NULL AND receipt_file_name IS NOT NULL
@@ -25,11 +25,11 @@ ALTER TABLE public.job_expenses
         AND receipt_size_bytes BETWEEN 1 AND 6291456
         AND char_length(receipt_storage_path) <= 500
         AND char_length(receipt_file_name) BETWEEN 1 AND 200)
-  ),
+  ) NOT VALID,
   ADD CONSTRAINT job_expenses_void_consistency_check CHECK (
     (voided_at IS NULL AND voided_by_id IS NULL) OR
     (voided_at IS NOT NULL AND voided_by_id IS NOT NULL)
-  );
+  ) NOT VALID;
 
 CREATE UNIQUE INDEX job_expenses_org_job_idempotency_key_idx
   ON public.job_expenses (org_id, job_id, idempotency_key);
