@@ -179,7 +179,7 @@ export function NewProjectForm({
               </div>
             ) : (
               <Button type="submit" disabled={isPending} className="w-full md:w-auto">
-                {isPending ? "Saving…" : createIntent === "estimate" ? "Create & start estimate" : "Create project"}
+                {isPending ? "Saving…" : createIntent === "estimate" ? "Create & start estimate" : createIntent === "task" ? "Create & add task" : "Create project"}
               </Button>
             )}
 
