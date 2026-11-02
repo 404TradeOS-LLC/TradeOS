@@ -49,6 +49,7 @@ describe("JobExpensesService", () => {
     jest.resetAllMocks();
     (mockDb as any).$transaction.mockImplementation(async (callback: (transaction: typeof mockDb) => Promise<unknown>) => callback(mockDb));
     mockDb.job.findFirst.mockResolvedValue({ id: JOB, projectId: "project-1" });
+    mockDb.$queryRaw.mockResolvedValue([{ id: "expense-1" }]);
   });
 
   it("creates an expense scoped to the caller's org and job", async () => {
