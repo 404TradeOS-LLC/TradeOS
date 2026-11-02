@@ -1,4 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { JobExpenseForm } from "@/components/field/job-expense-form";
+import { JobExpenseRowActions } from "@/components/field/job-expense-row-actions";
 import type { JobCostSummary, JobExpense } from "@/lib/api";
 import { expenseCategoryLabel, formatCentsUsd } from "@/lib/job-expenses";
 
@@ -22,10 +24,10 @@ export function JobExpenseSection({
   defaultIncurredOn: string;
 }) {
   const actualCents = summary?.actualCents ?? expenses
-    .filter((expense) => (expense.paymentResponsibility ?? "contractor") !== "customer")
+    .filter((expense) => !expense.voidedAt && (expense.paymentResponsibility ?? "contractor") !== "customer")
     .reduce((total, expense) => total + expense.amountCents, 0);
   const customerPaidCents = summary?.customerPaidCents ?? expenses
-    .filter((expense) => expense.paymentResponsibility === "customer")
+    .filter((expense) => !expense.voidedAt && expense.paymentResponsibility === "customer")
     .reduce((total, expense) => total + expense.amountCents, 0);
   const estimatedCents = summary?.estimatedCents ?? null;
   const varianceCents = summary?.varianceCents ?? (estimatedCents === null ? null : estimatedCents - actualCents);
@@ -67,13 +69,13 @@ export function JobExpenseSection({
         </div>
       </dl>
       <p className="text-xs text-muted-foreground">
-        Estimated reflects the latest project quote, not a cost budget. Quote less costs is not profit or collected revenue.
+        Estimated reflects the latest project quote, not a cost budget. Quote less costs is not profit or collected revenue. Profit is unavailable until earned revenue can be attributed to this job.
       </p>
 
       {expenses.length > 0 ? (
         <ul className="grid gap-2">
           {expenses.map((expense) => (
-            <li key={expense.id} className="rounded-xl border border-border/60 p-3">
+            <li key={expense.id} className={`rounded-xl border border-border/60 p-3 ${expense.voidedAt ? "opacity-70" : ""}`}>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-sm font-medium">
                   {expenseCategoryLabel(expense.category)}
@@ -86,7 +88,20 @@ export function JobExpenseSection({
                 {" · "}
                 {expense.paymentResponsibility === "customer" ? "Customer paid" : "Contractor paid"}
               </p>
+              {expense.voidedAt ? (
+                <p className="mt-2 text-xs font-semibold text-muted-foreground">
+                  Voided — excluded from totals{expense.voidReason ? `: ${expense.voidReason}` : ""}
+                </p>
+              ) : null}
+              {expense.description ? <p className="mt-2 whitespace-pre-wrap break-words text-sm">{expense.description}</p> : null}
               {expense.receiptNote ? <p className="mt-2 whitespace-pre-wrap break-words text-sm text-muted-foreground">{expense.receiptNote}</p> : null}
+              {expense.receiptStoragePath && expense.receiptFileName ? (
+                <a className="mt-2 inline-block text-sm font-medium text-copper underline"
+                  href={`/api/job-expense-receipts/${encodeURIComponent(expense.jobId)}/${encodeURIComponent(expense.id)}`}>
+                  Download receipt: {expense.receiptFileName}
+                </a>
+              ) : null}
+              <JobExpenseRowActions expense={expense} />
             </li>
           ))}
         </ul>
@@ -95,7 +110,7 @@ export function JobExpenseSection({
       )}
 
       <div className="border-t border-border/70 pt-4">
-        <JobExpenseForm jobId={jobId} defaultIncurredOn={defaultIncurredOn} />
+        <JobExpenseForm jobId={jobId} defaultIncurredOn={defaultIncurredOn} idempotencyKey={randomUUID()} />
       </div>
     </section>
   );
