@@ -70,7 +70,7 @@ export function JobExpenseForm({
         <Input id="expense-receipt" name="receipt" type="file"
           accept="image/png,image/jpeg,application/pdf" className="min-h-11" />
         <p className="text-xs text-muted-foreground">
-          JPEG, PNG or PDF, up to 6 MB. Stored privately with the job.
+          JPEG, PNG or PDF, up to 4 MB. Stored privately with the job.
         </p>
       </div>
       {state?.error ? <p className="text-sm text-destructive" role="alert">{state.error}</p> : null}
