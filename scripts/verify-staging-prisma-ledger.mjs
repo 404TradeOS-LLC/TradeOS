@@ -13,6 +13,10 @@ export const reviewedStagingJobHandoff = Object.freeze({
   name: "20261028151000_accepted_proposal_job_handoff",
   checksum: "3db2c92bf2ae533b47ba976ab09ae814c7974a161c219d61fc6dc31f07aed293",
 });
+export const reviewedStagingPayer = Object.freeze({
+  name: "20261102074000_add_job_expense_payment_responsibility",
+  checksum: "e8e2d8cd36b9d09d662cdc71f9441ec970b1ea6bd0e755e88474a47f9674a1a3",
+});
 const requiredPolicies = [
   "job_expenses_select_policy",
   "job_expenses_insert_policy",
@@ -31,7 +35,8 @@ export function evaluateLedger(inventory, ledger, expense, phase) {
     if (!row.finished) throw Error(`Unfinished migration: ${row.name}`);
     if (applied.has(row.name)) throw Error(`Duplicate successful migration: ${row.name}`);
     const expected = Object.hasOwn(inventory, row.name) ? inventory[row.name]
-      : row.name === reviewedStagingJobHandoff.name ? reviewedStagingJobHandoff.checksum : undefined;
+      : row.name === reviewedStagingJobHandoff.name ? reviewedStagingJobHandoff.checksum
+      : row.name === reviewedStagingPayer.name ? reviewedStagingPayer.checksum : undefined;
     if (!expected) throw Error(`Unrecognized/untracked staging migration: ${row.name}`);
     if (row.checksum !== expected) throw Error(`Migration checksum mismatch: ${row.name}`);
     applied.add(row.name);
@@ -41,7 +46,14 @@ export function evaluateLedger(inventory, ledger, expense, phase) {
   if (phase === "postflight" && pending.length) throw Error("Expense baseline migration is pending after deployment");
   const isApplied = applied.has(baselineMigration);
   if (Boolean(expense.exists) !== isApplied) throw Error("Expense table/schema and migration ledger mismatch");
-  if (expense.payerColumn) throw Error("Untracked payer column; separate payer migration approval required");
+  const payerApplied = applied.has(reviewedStagingPayer.name);
+  if (payerApplied) {
+    if (!isApplied || !expense.payerColumn || !["not_validated","validated"].includes(expense.payerConstraint)) {
+      throw Error("Applied payer migration requires the expense table, payer column and CHECK constraint");
+    }
+  } else if (expense.payerColumn || (expense.payerConstraint && expense.payerConstraint !== "absent")) {
+    throw Error("Untracked payer column or constraint; separate payer migration approval required");
+  }
   if (isApplied) {
     if (expense.rls !== true || expense.forced !== true) throw Error("Expense RLS must be enabled and forced");
     const actual = new Set(expense.policies);
@@ -51,7 +63,7 @@ export function evaluateLedger(inventory, ledger, expense, phase) {
   } else if (expense.policies.length || expense.rls || expense.forced) {
     throw Error("Expense schema exists before tracked migration");
   }
-  return { applied: applied.size, pending, expenseBaselineApplied: isApplied,
+  return { applied: applied.size, pending, expenseBaselineApplied: isApplied, expensePayerApplied: payerApplied,
     stagingOnlyJobHandoff: applied.has(reviewedStagingJobHandoff.name) };
 }
 
@@ -78,7 +90,10 @@ SELECT json_build_object(
     'policies', (SELECT COALESCE(json_agg(p.polname), '[]'::json) FROM pg_policy p
       WHERE p.polrelid = to_regclass('public.job_expenses')),
     'payerColumn', EXISTS (SELECT 1 FROM information_schema.columns
-      WHERE table_schema='public' AND table_name='job_expenses' AND column_name='payment_responsibility')
+      WHERE table_schema='public' AND table_name='job_expenses' AND column_name='payment_responsibility'),
+    'payerConstraint', COALESCE((SELECT CASE WHEN c.convalidated THEN 'validated' ELSE 'not_validated' END
+      FROM pg_constraint c WHERE c.conname='job_expenses_payment_responsibility_check'
+        AND c.conrelid=to_regclass('public.job_expenses')), 'absent')
   )
 );
 COMMIT;`;
