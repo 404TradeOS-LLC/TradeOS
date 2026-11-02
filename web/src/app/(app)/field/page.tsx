@@ -72,8 +72,8 @@ export default async function FieldPage({
 
   const query = await searchParams;
   const settings = await getOrganizationSettings(token);
-  if (!["technician", "owner", "admin", "dispatcher"].includes(settings.currentRole)) {
-    return <EmptyState title="Field workspace unavailable" description="Your account does not have access to this field workspace." />;
+  if (settings.currentRole !== "technician" && settings.currentRole !== "owner") {
+    return <EmptyState title="Technician workspace" description="This workspace is available to technician and owner accounts. Open Dispatch for organization scheduling and coordination." />;
   }
 
   let jobs: Awaited<ReturnType<typeof listFieldJobs>> = [];
