@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getOrganizationSettings, listCustomers } from "@/lib/api";
+import { loadCustomersPageData } from "@/lib/customer-page-load";
 import { getSessionToken } from "@/lib/session";
 import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
@@ -7,12 +8,11 @@ import { CustomerDirectory } from "@/components/customers/customer-directory";
 
 export default async function CustomersPage() {
   const token = await getSessionToken();
-  const [customers, settings] = token
-    ? await Promise.all([
-        listCustomers(token),
-        getOrganizationSettings(token).catch(() => null),
-      ])
-    : [[], null];
+  // A list failure degrades to an empty list plus a fallback banner below
+  // instead of failing the page outright; the success path is unchanged.
+  const { customers, settings, customersFailed } = token
+    ? await loadCustomersPageData(token, { listCustomers, getOrganizationSettings })
+    : { customers: [], settings: null, customersFailed: false };
   const canWrite = settings && ["owner", "admin", "dispatcher", "estimator"].includes(settings.currentRole);
 
   return (
@@ -26,6 +26,12 @@ export default async function CustomersPage() {
           </Link>
         ) : undefined}
       />
+
+      {customersFailed ? (
+        <div className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning" role="status">
+          Customers are temporarily unavailable. Try reloading the page.
+        </div>
+      ) : null}
 
       <CustomerDirectory customers={customers} />
     </div>
