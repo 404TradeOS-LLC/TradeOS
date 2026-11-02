@@ -24,7 +24,7 @@ A successful preflight is **not** sufficient authorization for apply. After inde
 4. Separately approve the specific `staging` Environment job through its normal reviewer. Do not weaken or bypass protections.
 5. Inspect the protected run postflight before changing any staging deployments. Clear the one-time approval variable after certification.
 
-The only allowed write is the normal trusted-main Prisma `migrate deploy` of the sole pending Expense migration, followed by idempotent trusted-main application-role provisioning for the new table. The runner materializes the original reviewed Job handoff SQL into trusted main's *temporary checkout inventory* to make Prisma aware it is already applied. It must **not execute that historical migration again**, use `migrate resolve`, stamp/modify any ledger row, backfill existing Jobs, or execute source-branch code. Runtime secrets exist only in the final guarded job step and are never logged.
+The only allowed write is the normal trusted-main Prisma `migrate deploy` of the sole pending Expense migration, followed by a single idempotent GRANT of SELECT/INSERT/UPDATE/DELETE on the new table to the existing restricted app role. It does not reset a password or alter grants on other tables. The runner materializes the original reviewed Job handoff SQL into trusted main's *temporary checkout inventory* to make Prisma aware it is already applied. It must **not execute that historical migration again**, use `migrate resolve`, stamp/modify any ledger row, backfill existing Jobs, or execute source-branch code. Runtime secrets exist only in the final guarded job step and are never logged.
 
 ## Required postflight
 
