@@ -56,6 +56,22 @@ export function JobExpenseForm({ jobId, defaultIncurredOn }: { jobId: string; de
         </div>
       </div>
       <div className="grid gap-1.5">
+        <Label htmlFor="expense-payer">Who paid?</Label>
+        <select
+          id="expense-payer"
+          name="paymentResponsibility"
+          defaultValue="contractor"
+          required
+          className="min-h-11 rounded-md border border-input bg-background px-3 text-base md:text-sm"
+        >
+          <option value="contractor">I paid / business paid</option>
+          <option value="customer">Customer paid / supplied</option>
+        </select>
+        <p className="text-xs text-muted-foreground">
+          Customer-paid purchases stay in the job history but do not count against your business costs.
+        </p>
+      </div>
+      <div className="grid gap-1.5">
         <Label htmlFor="expense-note">Receipt note</Label>
         <Textarea
           id="expense-note"
