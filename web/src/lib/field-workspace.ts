@@ -60,6 +60,7 @@ export function getProjectFieldJobHref(
   role: string,
   job: { id: string; archivedAt: string | null }
 ) {
-  if (!["technician", "owner", "admin", "dispatcher"].includes(role) || job.archivedAt) return null;
+  // Keep these links aligned with the authenticated /field page role gate.
+  if (!["technician", "owner"].includes(role) || job.archivedAt) return null;
   return `/field?job=${encodeURIComponent(job.id)}`;
 }
