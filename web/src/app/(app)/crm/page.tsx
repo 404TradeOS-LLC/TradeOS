@@ -17,6 +17,7 @@ import {
   type ProposalQueueItem,
 } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
+import { loadCrmPageData } from "@/lib/customer-page-load";
 
 export const metadata: Metadata = {
   title: "CRM | TradeOS",
@@ -33,13 +34,18 @@ export default async function CrmPage() {
     return <EmptyState title="Sign in to view CRM" description="Your customer and pre-job work appear here after authentication." />;
   }
 
-  const [projectsResult, customersResult, tasksResult, proposalsResult, siteVisitsResult] = await Promise.allSettled([
-    listProjects(token),
-    listCustomers(token),
-    listOrganizationProjectTasks(token, { limit: 50, includeCompleted: false }),
-    listProposalQueue(token, { limit: 50 }),
-    listActivityEvents(token, { entityType: "project", eventType: "site_visit.created", limit: 100 }),
-  ]);
+  // All five sources share one bounded cancellation signal (see
+  // customer-page-load.ts): a hung fetch rejects after the bound and lands
+  // in the per-source fallback banner below instead of hanging the page.
+  const [projectsResult, customersResult, tasksResult, proposalsResult, siteVisitsResult] = await loadCrmPageData(token, {
+    listProjects: (authToken, signal) => listProjects(authToken, signal),
+    listCustomers: (authToken, signal) => listCustomers(authToken, { signal }),
+    listOrganizationProjectTasks: (authToken, signal) =>
+      listOrganizationProjectTasks(authToken, { limit: 50, includeCompleted: false, signal }),
+    listProposalQueue: (authToken, signal) => listProposalQueue(authToken, { limit: 50, signal }),
+    listActivityEvents: (authToken, signal) =>
+      listActivityEvents(authToken, { entityType: "project", eventType: "site_visit.created", limit: 100, signal }),
+  });
 
   const projects = resultValue<Project[]>(projectsResult, []);
   const customers = resultValue<Customer[]>(customersResult, []);
