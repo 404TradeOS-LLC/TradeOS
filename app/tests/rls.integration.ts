@@ -1318,6 +1318,35 @@ describe("live organization row-level security", () => {
         ],
       });
 
+      // Append-only audit records must inherit the exact job/organization scope.
+      const eventA = randomUUID();
+      const eventB = randomUUID();
+      await adminClient.jobExpenseEvent.createMany({
+        data: [
+          { id: eventA, orgId: orgA, jobId: jobA, expenseId: expenseA,
+            actorUserId: adminUser, eventType: "created", payloadJson: {} },
+          { id: eventB, orgId: orgB, jobId: jobB, expenseId: expenseB,
+            actorUserId: otherUser, eventType: "created", payloadJson: {} },
+        ],
+      });
+      const adminEvents = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().jobExpenseEvent.findMany()
+      );
+      expect(adminEvents.map((event) => event.id)).toContain(eventA);
+      expect(adminEvents.some((event) => event.id === eventB)).toBe(false);
+      const assignedEvents = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().jobExpenseEvent.findMany({ where: { expenseId: expenseA } })
+      );
+      expect(assignedEvents.map((event) => event.id)).toEqual([eventA]);
+      const foreignEvent = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().jobExpenseEvent.findUnique({ where: { id: eventA } })
+      );
+      expect(foreignEvent).toBeNull();
+      const unassignedEvent = await inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().jobExpenseEvent.findUnique({ where: { id: eventA } })
+      );
+      expect(unassignedEvent).toBeNull();
+
       const adminVisible = await inSession(adminUser, orgA, "admin", async () =>
         currentTransaction().jobExpense.findMany({ orderBy: { createdAt: "asc" } })
       );
@@ -1346,6 +1375,7 @@ describe("live organization row-level security", () => {
         ),
       ).rejects.toThrow();
     } finally {
+      await adminClient.jobExpenseEvent.deleteMany({ where: { expenseId: { in: [expenseA, expenseB] } } });
       await adminClient.jobExpense.deleteMany({ where: { id: { in: [expenseA, expenseB] } } });
     }
   });
