@@ -6,7 +6,7 @@ const mockGetDocumentBrand = jest.fn();
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
 jest.mock("../modules/documents/branding", () => ({ getDocumentBrand: mockGetDocumentBrand }));
 
-import { ProposalGeneratorService, renderEstimateProposalPdf } from "../modules/proposal-generator/service";
+import { renderEstimateProposalPdf } from "../modules/proposal-generator/service";
 
 const brand = {
   companyName: "Canonical Builders",
