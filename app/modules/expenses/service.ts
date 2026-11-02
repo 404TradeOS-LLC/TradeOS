@@ -151,7 +151,7 @@ export class JobExpensesService {
    * the same expense concurrently.
    */
   private async lockExpenseForMutation(
-    tx: Prisma.TransactionClient, existing: JobExpenseRow,
+    tx: Prisma.TransactionClient, existing: JobExpenseRow, allowVoided = false,
   ): Promise<JobExpenseRow> {
     const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
       SELECT id FROM public.job_expenses
@@ -165,7 +165,7 @@ export class JobExpensesService {
       where: { id: existing.id, orgId: existing.orgId, jobId: existing.jobId },
     });
     if (!current) throw new ApiError(409, "Expense is no longer available");
-    assertLive(current as JobExpenseRow);
+    if (!allowVoided) assertLive(current as JobExpenseRow);
     return current as JobExpenseRow;
   }
 
@@ -327,7 +327,8 @@ export class JobExpensesService {
     if (existing.voidedAt) return;
     const voidReason = normalizeText(reason, 500, "voidReason");
     await runInDatabaseTransaction(this.db, async (tx) => {
-      const current = await this.lockExpenseForMutation(tx, existing);
+      const current = await this.lockExpenseForMutation(tx, existing, true);
+      if (current.voidedAt) return;
       const row = await tx.jobExpense.update({
         where: { id, orgId, jobId: existing.jobId, voidedAt: null },
         data: { voidedAt: new Date(), voidedById: actorUserId ?? existing.createdById, voidReason },
