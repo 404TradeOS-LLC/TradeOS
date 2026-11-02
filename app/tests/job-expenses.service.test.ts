@@ -83,6 +83,34 @@ describe("JobExpensesService", () => {
     expect(summary.expenseCount).toBe(2);
   });
 
+  it("moves an updated contractor expense into customer totals without double-counting", async () => {
+    mockDb.jobExpense.findFirst.mockResolvedValue(
+      expenseRow({ amountCents: 4000, paymentResponsibility: "contractor" }),
+    );
+    mockDb.jobExpense.update.mockResolvedValue(
+      expenseRow({ amountCents: 4000, paymentResponsibility: "customer" }),
+    );
+    const updated = await service.update({
+      id: "expense-1", orgId: ORG, paymentResponsibility: "customer",
+    });
+    expect(mockDb.jobExpense.update).toHaveBeenCalledWith({
+      where: { id: "expense-1" },
+      data: { paymentResponsibility: "customer" },
+    });
+    expect(updated.paymentResponsibility).toBe("customer");
+
+    mockDb.jobExpense.findMany.mockResolvedValue([
+      expenseRow({ amountCents: 4000, paymentResponsibility: "customer" }),
+      expenseRow({ id: "contractor-2", amountCents: 1300, paymentResponsibility: "contractor" }),
+    ]);
+    mockDb.estimate.findFirst.mockResolvedValue(null);
+    const summary = await service.getJobCostSummary(JOB, ORG);
+    expect(summary.actualCents).toBe(1300);
+    expect(summary.customerPaidCents).toBe(4000);
+    expect(summary.byCategoryCents).toEqual({ material: 1300 });
+    expect(summary.expenseCount).toBe(2);
+  });
+
   it("returns 404 when the job belongs to another org", async () => {
     mockDb.job.findFirst.mockResolvedValue(null);
     await expect(
