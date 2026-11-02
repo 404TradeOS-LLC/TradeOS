@@ -2,6 +2,20 @@ import fs from "node:fs";
 import path from "node:path";
 
 describe("job expenses migration", () => {
+  it("adds payer responsibility without rewriting existing expense rows or weakening RLS", () => {
+    const migration = fs.readFileSync(
+      path.join(__dirname, "../prisma/migrations/20261102074000_add_job_expense_payment_responsibility/migration.sql"),
+      "utf8",
+    );
+    const schema = fs.readFileSync(path.join(__dirname, "../prisma/schema.prisma"), "utf8");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS payment_responsibility");
+    expect(migration).toContain("DEFAULT 'contractor'");
+    expect(migration).toContain("CHECK (payment_responsibility IN ('contractor', 'customer'))");
+    expect(migration).not.toContain("DISABLE ROW LEVEL SECURITY");
+    expect(migration).not.toContain("DROP TABLE");
+    expect(schema).toContain('paymentResponsibility String   @default("contractor") @map("payment_responsibility")');
+  });
+
   it("adds the job_expenses table, cents-exact constraint, indexes, and forced job-join RLS", () => {
     const migration = fs.readFileSync(
       path.join(__dirname, "../prisma/migrations/20261102020000_add_job_expenses/migration.sql"),
