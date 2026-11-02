@@ -452,3 +452,5 @@ Before FORCE, `20261030004500_team_time_foundation` and `20261030005500_team_tim
 ### Staging expense migration release gate
 
 Use [the protected expense baseline staging preflight](operations/staging-expense-baseline-preflight.md) when reconciling the staging ledger against the main Prisma migration inventory. The current known discrepancy is a separately reviewed staging-only Job handoff migration with an exact-pinned SHA-256 checksum, not a reason to bypass approval or declare staging ready. Pre/postflight verification is read-only, enforces forced RLS, and runs inside the existing protected `staging` workflow. Payer responsibility, historical CHECK validation, matching API/web deployments and authenticated acceptance remain separate.
+
+The baseline ledger helper can verify a separately approved payer migration after its own staged application, but cannot deploy a pending payer migration or perform historical CHECK validation.
