@@ -13,7 +13,7 @@ const before = () => ({
   ledger: [ledger(baseName), ledger(handoffName)],
   columns: [{ name: "source_proposal_id", type: "text", nullable: true, default: null },
     { name: "accepted_baseline_json", type: "jsonb", nullable: true, default: null }],
-  indexes: [handoffIndex], rls: true, forced: true, helpers: 4,
+  indexes: [handoffIndex], rls: true, forced: true, helpers: 4, roleExists: true,
   expenses: { exists: false, columns: [], indexes: [], policies: [], rls: null, forced: null, grants: 0, appRoleGrants: [] },
 });
 const after = () => ({
@@ -69,6 +69,8 @@ test("postflight requires FORCE RLS, four policies, indexes, no public grants an
   }
   const result = after(); result.helpers = 3;
   assert.throws(() => validateProof(hashes, result));
+  const missingRole = after(); missingRole.roleExists = false;
+  assert.throws(() => validateProof(hashes, missingRole));
 });
 
 test("preflight never writes; already-applied apply is a no-op; apply verifies postflight", () => {
@@ -95,4 +97,9 @@ test("protected workflow executes trusted main only, serializes migrations and s
   assert.ok(!src.includes("--prod"));
   assert.ok(!src.includes("environment: production"));
   assert.equal((src.match(/secrets\.STAGING_DATABASE_ADMIN_URL/g) || []).length, 1);
+  assert.ok(!src.includes("APP_DB_ROLE_PASSWORD"));
+  const runner = fs.readFileSync(new URL("../staging-job-expenses-migration.mjs", import.meta.url), "utf8");
+  assert.ok(runner.includes("GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.job_expenses"));
+  assert.ok(!runner.includes("provision-app-role.sh"));
+  assert.ok(!runner.includes("APP_DB_ROLE_PASSWORD"));
 });
