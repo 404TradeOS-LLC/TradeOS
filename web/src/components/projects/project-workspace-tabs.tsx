@@ -44,13 +44,14 @@ export function resolveProjectWorkspaceTab(value: string | undefined): ProjectWo
 export function ProjectWorkspaceTabs({ projectId, activeTab }: { projectId: string; activeTab: ProjectWorkspaceTab }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-border/70 bg-card/85 p-2">
-      <nav className="flex min-w-max gap-2">
+      <nav aria-label="Project sections" className="flex min-w-max gap-2">
         {PROJECT_WORKSPACE_TABS.map((tab) => (
           <Link
             key={tab}
             href={`/projects/${projectId}?tab=${tab}`}
+            aria-current={activeTab === tab ? "page" : undefined}
             className={cn(
-              "rounded-xl px-4 py-2 text-sm font-medium transition-colors",
+              "rounded-xl px-4 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
               activeTab === tab ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
             )}
           >

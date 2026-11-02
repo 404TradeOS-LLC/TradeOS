@@ -148,6 +148,8 @@ instead of copy-pasting a third time.
 - Test new pages at common breakpoints (~390px mobile, ~768px tablet, desktop) before calling a
   UI change done — a build/lint pass does not catch layout overflow.
 
+- `PageHeader` breadcrumb and back links use visible focus rings; `ProjectWorkspaceTabs` names its navigation, marks the active link with `aria-current="page"`, and provides keyboard focus indicators. Reuse these existing owners rather than creating another navigation abstraction.
+
 ## Known UI debt (not addressed in this pass)
 
 - `MetricCard` and `SummaryMetricCard` are near-duplicates; worth a deliberate design decision
