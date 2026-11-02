@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TradeOS Forge | Engineering Queue</title>
+<style>
+:root{color-scheme:dark;--bg:#111414;--panel:#1e2222;--line:#343a39;--copper:#d18a5a;--muted:#9ca8a5;--text:#f1f1ea}
+*{box-sizing:border-box}body{margin:0;font:15px system-ui,-apple-system,Segoe UI,Arial;background:var(--bg);color:var(--text)}
+main{max-width:1150px;margin:auto;padding:30px 20px 80px}.top{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:22px;gap:12px;flex-wrap:wrap}
+.brand{font-weight:900;font-size:20px;letter-spacing:.08em}.brand em{font-style:normal;color:var(--copper)}.tag{font-size:11px;color:var(--muted);letter-spacing:.15em}
+h1{font-size:clamp(30px,5vw,50px);line-height:1.05;margin:36px 0 10px}p{color:var(--muted);line-height:1.6;max-width:780px}
+button{cursor:pointer;background:var(--copper);color:#1b130f;border:0;border-radius:8px;padding:11px 16px;font-weight:700}
+button:disabled{opacity:.5;cursor:default}a{color:var(--copper);text-decoration:none}a:hover{text-decoration:underline}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:27px 0}
+.stat{background:var(--panel);border:1px solid var(--line);padding:20px;border-radius:10px}
+.stat strong{font-size:34px;display:block;font-variant-numeric:tabular-nums}.stat span{font-size:12px;color:var(--muted)}
+.controls{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;margin:26px 0 16px}
+#updated{font-size:12px;color:var(--muted)}.item{padding:17px;background:var(--panel);border:1px solid var(--line);border-radius:9px;margin:10px 0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px}
+.item h3{font-size:16px;margin:0 0 6px}.item p{margin:8px 0 0;font-size:13px}.meta{font-size:12px;color:var(--muted)}
+.gate{border:1px solid #72533f;color:#e7ae85;background:#342920;display:inline-block;font-size:11px;padding:5px 8px;border-radius:5px;font-weight:700}
+.right{text-align:right;display:flex;align-items:flex-end;justify-content:space-between;flex-direction:column;gap:8px}
+footer{border-top:1px solid var(--line);padding-top:20px;font-size:12px;color:var(--muted);margin-top:45px}
+#notice{color:#ffbf9e;font-size:13px}code{color:#ddcabb}
+@media(max-width:600px){.stats{grid-template-columns:1fr 1fr}.stats .stat:last-child{grid-column:1 / -1}.item{grid-template-columns:1fr}.right{text-align:left;align-items:flex-start}}
+</style></head><body><main>
+<header class="top"><div><div class="brand">TRADEOS <em>/ FORGE</em></div><div class="tag">ENGINEERING CONTROL CENTER</div></div><div class="tag">READ-ONLY WORKER · V0.1</div></header>
+<section><h1>Fix what's blocking<br>the next release.</h1><p>Live GitHub pull-request evidence, exact-head checks, and the smallest safe next engineering action. This service never merges, deploys, or changes production data.</p></section>
+<div class="stats"><div class="stat"><strong id="total">—</strong><span>PRs inspected</span></div><div class="stat"><strong id="ci">—</strong><span>Failed CI</span></div><div class="stat"><strong id="protected">—</strong><span>Protected changes</span></div></div>
+<div class="controls"><h2 style="margin:0;font-size:19px">Release queue</h2><button id="refresh">Refresh GitHub evidence</button></div><div id="updated" role="status" aria-live="polite">Loading…</div><div id="notice"></div><section id="items"></section>
+<footer>Repository: <a href="https://github.com/404TradeOS-LLC/TradeOS" target="_blank" rel="noreferrer">404TradeOS-LLC/TradeOS</a> · This diagnostic dashboard is not the canonical GitHub merge queue. Missing evidence always blocks release claims.</footer>
+</main><script type="module">
+const $=(id)=>document.getElementById(id); const btn=$('refresh');
+function el(tag,text,className){const node=document.createElement(tag);if(text!==undefined)node.textContent=String(text);if(className)node.className=className;return node}
+async function load(){
+ btn.disabled=true;$('updated').textContent='Fetching current GitHub evidence…';$('notice').textContent='';
+ try{
+  const res=await fetch('/api/queue',{cache:'no-store'});
+  const data=await res.json();if(!res.ok)throw Error(data.error||'GitHub unavailable');
+  $('total').textContent=data.items.length;
+  $('ci').textContent=data.items.filter(i=>i.ciState==='failed').length;
+  $('protected').textContent=data.items.filter(i=>i.risk==='protected').length;
+  $('updated').textContent='Checked '+new Date(data.generatedAt).toLocaleString()+' · Up to '+data.limitedTo+' PRs · '+(data.truncated?'More PRs may exist':'Returned set complete');
+  const target=$('items');target.replaceChildren();
+  if(!data.items.length)target.append(el('p','No open pull requests found.'));
+  for(const item of data.items){
+   const card=el('article',undefined,'item');const left=el('div');
+   const title=el('h3');const link=el('a','#'+item.number+' · '+item.title);
+   link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';title.append(link);left.append(title);
+   left.append(el('div','HEAD '+String(item.headSha||'unknown').slice(0,12)+' · Risk: '+item.risk+' · CI: '+item.ciState,'meta'));
+   left.append(el('p',item.action));card.append(left);
+   const right=el('div',undefined,'right');right.append(el('span',item.gate.replaceAll('_',' '),'gate'));card.append(right);target.append(card);
+  }
+ }catch(e){$('updated').textContent='Could not verify GitHub evidence';$('notice').textContent=e.message;}
+ finally{btn.disabled=false;}
+}
+btn.addEventListener('click',load);load();
+</script></body></html>
