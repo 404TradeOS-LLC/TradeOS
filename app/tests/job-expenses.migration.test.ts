@@ -42,7 +42,8 @@ describe("job expenses migration", () => {
     const expenses = schema.slice(schema.indexOf("model JobExpense {"), schema.indexOf("model JobAssignment {"));
     const jobModel = schema.slice(schema.indexOf("model Job {"), schema.indexOf("model JobEquipment {"));
     const orgModel = schema.slice(schema.indexOf("model Organization {"), schema.indexOf("model OrganizationMembership {"));
-    const userModel = schema.slice(schema.indexOf("model AppUser {"), schema.indexOf("model Organization {"));
+    const userStart = schema.indexOf("model AppUser {");
+    const userModel = schema.slice(userStart, schema.indexOf("\n}\n", userStart) + 2);
     for (const value of [
       '@@unique([orgId, jobId, idempotencyKey], map: "job_expenses_org_job_idempotency_key_idx")',
       '@@index([orgId, jobId], map: "job_expenses_org_job_idx")',
