@@ -56,6 +56,33 @@ describe("JobExpensesService", () => {
     expect(created.incurredOn).toBe("2026-11-01");
   });
 
+  it("records customer-paid expenses without treating them as contractor purchases", async () => {
+    mockDb.jobExpense.create.mockResolvedValue(expenseRow({ paymentResponsibility: "customer" }));
+    const created = await service.create({
+      orgId: ORG, jobId: JOB, actorUserId: ACTOR,
+      amountCents: 4000, category: "material", incurredOn: DAY,
+      paymentResponsibility: "customer",
+    });
+    expect(mockDb.jobExpense.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ paymentResponsibility: "customer" }),
+    }));
+    expect(created.paymentResponsibility).toBe("customer");
+  });
+
+  it("excludes customer-paid purchases from contractor actuals and variance", async () => {
+    mockDb.jobExpense.findMany.mockResolvedValue([
+      expenseRow({ id: "contractor", amountCents: 2500, category: "labor", paymentResponsibility: "contractor" }),
+      expenseRow({ id: "customer", amountCents: 4000, category: "material", paymentResponsibility: "customer" }),
+    ]);
+    mockDb.estimate.findFirst.mockResolvedValue({ id: "estimate-9", totalPrice: 100, version: 1 });
+    const summary = await service.getJobCostSummary(JOB, ORG);
+    expect(summary.actualCents).toBe(2500);
+    expect(summary.customerPaidCents).toBe(4000);
+    expect(summary.byCategoryCents).toEqual({ labor: 2500 });
+    expect(summary.varianceCents).toBe(7500);
+    expect(summary.expenseCount).toBe(2);
+  });
+
   it("returns 404 when the job belongs to another org", async () => {
     mockDb.job.findFirst.mockResolvedValue(null);
     await expect(
