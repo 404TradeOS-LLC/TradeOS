@@ -44,7 +44,7 @@ const receiptSchema = z.object({
   receiptStoragePath: z.string().min(1).max(500),
   receiptFileName: z.string().trim().min(1).max(200),
   receiptContentType: z.enum(["image/png", "image/jpeg", "application/pdf"]),
-  receiptSizeBytes: z.number().int().min(1).max(6 * 1024 * 1024),
+  receiptSizeBytes: z.number().int().min(1).max(4 * 1024 * 1024),
 }).strict();
 
 function toIncurredDate(value: string): Date {
