@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import vm from "node:vm";
 import ts from "typescript";
-import * as receipts from "@/lib/job-expense-receipts";
+import * as receipts from "../../../../../lib/job-expense-receipts.ts";
 
-const require = createRequire(import.meta.url);
 const ORG = "11111111-1111-4111-8111-111111111111";
 const JOB = "22222222-2222-4222-8222-222222222222";
 const EXPENSE = "33333333-3333-4333-8333-333333333333";
@@ -26,23 +24,20 @@ async function loadRoute(input: { token: string | null; expense?: Record<string,
     receiptFileName: "receipt.pdf", receiptSizeBytes: 6,
     ...(input.expense ?? {}),
   };
+  class FakeApiClientError extends Error {
+    constructor(message: string, public status: number) { super(message); }
+  }
   vm.runInNewContext(compiled, {
     exports, Response, Request, Blob, encodeURIComponent,
     require(specifier: string) {
       if (specifier === "@/lib/job-expense-receipts") return receipts;
       if (specifier === "@/lib/session") return { getSessionToken: async () => input.token };
       if (specifier === "@/lib/api") return {
-        ApiClientError: class ApiClientError extends Error {
-          status: number;
-          constructor(message: string, status: number) { super(message); this.status = status; }
-        },
+        ApiClientError: FakeApiClientError,
         apiFetch: async (url: string) => {
           calls.push("api:" + url);
           if (input.deny) {
-            const error = new Error("Not found") as Error & { status: number };
-            error.status = 404;
-            const ApiClientError = class extends Error { status = 404; };
-            throw new ApiClientError("Not found");
+            throw new FakeApiClientError("Not found", 404);
           }
           return fakeExpense;
         },
@@ -76,6 +71,13 @@ test("private receipt request with no session never reads API or Storage", async
   const result = await route.get();
   assert.equal(result.status, 401);
   assert.deepEqual(route.calls, []);
+});
+
+test("a denied job or cross-tenant API read never reaches privileged Storage", async () => {
+  const route = await loadRoute({ token: "auth", deny: true });
+  const result = await route.get();
+  assert.equal(result.status, 404);
+  assert.equal(route.calls.includes("storage-admin"), false);
 });
 
 test("receipt path must match authenticated expense namespace", async () => {
