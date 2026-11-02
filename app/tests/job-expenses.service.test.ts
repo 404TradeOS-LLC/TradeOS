@@ -2,7 +2,7 @@ import { JobExpensesService } from "../modules/expenses/service";
 
 const mockDb = {
   job: { findFirst: jest.fn() },
-  jobExpense: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), upsert: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn() },
+  jobExpense: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), createMany: jest.fn(), upsert: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn() },
   jobExpenseEvent: { create: jest.fn(), findMany: jest.fn() },
   estimate: { findFirst: jest.fn() },
 };
@@ -108,7 +108,7 @@ describe("JobExpensesService", () => {
       id: "expense-1", orgId: ORG, paymentResponsibility: "customer",
     });
     expect(mockDb.jobExpense.update).toHaveBeenCalledWith({
-      where: { id: "expense-1" },
+      where: { id: "expense-1", orgId: ORG, jobId: JOB, voidedAt: null },
       data: { paymentResponsibility: "customer" },
     });
     expect(updated.paymentResponsibility).toBe("customer");
@@ -207,6 +207,20 @@ describe("JobExpensesService", () => {
     });
     expect(result.id).toBe("expense-1");
     expect(mockDb.jobExpense.create).not.toHaveBeenCalled();
+  });
+
+  it("does not double-write under a concurrent duplicate submission", async () => {
+    const key = "11111111-1111-4111-8111-111111111111";
+    const existing = expenseRow({ idempotencyKey: key, description: "" });
+    mockDb.jobExpense.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(existing);
+    mockDb.jobExpense.createMany.mockResolvedValue({ count: 0 });
+    const result = await service.create({
+      orgId: ORG, jobId: JOB, actorUserId: ACTOR, amountCents: 1999,
+      category: "material", vendor: "ABC Supply", receiptNote: "Shingles",
+      incurredOn: DAY, idempotencyKey: key,
+    });
+    expect(result.id).toBe(existing.id);
+    expect(mockDb.jobExpenseEvent.create).not.toHaveBeenCalled();
   });
 
   it("rejects reuse of an idempotency key with different expense data", async () => {
