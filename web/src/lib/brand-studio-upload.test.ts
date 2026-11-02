@@ -55,3 +55,10 @@ test("Brand Studio exposes real file controls, uses the existing protected actio
   assert.match(source, /alt=\{\`\$\{slot\.label\} preview\`\}/);
   assert.match(source, /Use image URL/);
 });
+
+test("Brand Studio file uploads fit the hosted Server Action request budget", () => {
+  const config = fs.readFileSync(new URL("../../next.config.ts", import.meta.url), "utf8");
+  assert.match(config, /bodySizeLimit:\s*["']4.25mb["']/);
+  const helper = fs.readFileSync(new URL("./settingsAssetUpload.ts", import.meta.url), "utf8");
+  assert.match(helper, /MAX_SETTINGS_ASSET_UPLOAD_BYTES = 4 \* 1024 \* 1024/);
+});
