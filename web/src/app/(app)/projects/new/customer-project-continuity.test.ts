@@ -77,5 +77,9 @@ test("Task intent continues through new Project creation without automatically c
   assert.ok(form.includes('createIntent === "task" ? "Create & add task"'));
   assert.ok(actions.includes('if (createIntent === "task")'));
   assert.ok(actions.includes('buildProjectIntentDestination(projectId, "task")'));
-  assert.equal(actions.includes('POST", token, body: JSON.stringify({ projectId, title'), false);
+  const createProjectAction = actions.slice(
+    actions.indexOf("export async function createProjectAction"),
+    actions.indexOf("export async function updateProjectAction")
+  );
+  assert.ok(!createProjectAction.includes(`/api/v1/projects/${projectId}/tasks`));
 });
