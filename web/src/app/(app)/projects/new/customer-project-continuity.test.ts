@@ -81,5 +81,5 @@ test("Task intent continues through new Project creation without automatically c
     actions.indexOf("export async function createProjectAction"),
     actions.indexOf("export async function updateProjectAction")
   );
-  assert.ok(!createProjectAction.includes(`/api/v1/projects/${projectId}/tasks`));
+  assert.equal(createProjectAction.includes('/api/v1/projects/${projectId}/tasks'), false);
 });
