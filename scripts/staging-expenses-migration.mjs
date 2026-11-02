@@ -149,3 +149,116 @@ export function performMigration(mode, inventory, evidence, deploy, captureAfter
   return validateEvidence(inventory, captureAfter(), { requireApplied: true });
 }
 
+// All reads execute in one repeatable-read, read-only transaction. No row data,
+// auth secrets or arbitrary client-supplied SQL are emitted to the build log.
+export const evidenceSql = `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SELECT json_build_object(
+ 'ledger', (SELECT coalesce(json_agg(json_build_object('name',migration_name,'checksum',checksum,
+   'finished',finished_at IS NOT NULL,'rolled_back',rolled_back_at IS NOT NULL)), '[]'::json)
+   FROM public._prisma_migrations),
+ 'handoff', json_build_object(
+   'columns', (SELECT coalesce(json_agg(json_build_object('name',column_name,'type',data_type,
+     'nullable',is_nullable='YES','default',column_default)), '[]'::json)
+     FROM information_schema.columns WHERE table_schema='public' AND table_name='jobs'
+       AND column_name IN ('source_proposal_id','accepted_baseline_json')),
+   'indexes', (SELECT coalesce(json_agg(json_build_object('unique',i.indisunique,'valid',i.indisvalid,'ready',i.indisready,
+     'keys',pg_get_indexdef(i.indexrelid,1,true),'predicate',pg_get_expr(i.indpred,i.indrelid),
+     'expressions',pg_get_expr(i.indexprs,i.indrelid),'keyCount',i.indnkeyatts,'totalCount',i.indnatts,
+     'nullsNotDistinct',i.indnullsnotdistinct)), '[]'::json)
+     FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid
+     WHERE i.indrelid='public.jobs'::regclass AND c.relname='jobs_source_proposal_id_key'),
+   'rls', (SELECT relrowsecurity FROM pg_class WHERE oid='public.jobs'::regclass),
+   'forced', (SELECT relforcerowsecurity FROM pg_class WHERE oid='public.jobs'::regclass)),
+ 'receiptBucketPrivate', (SELECT count(*)=1 AND bool_and(NOT public) FROM storage.buckets WHERE id='project-files'),
+ 'expense', json_build_object(
+   'table', to_regclass('public.job_expenses') IS NOT NULL,
+   'eventsTable', to_regclass('public.job_expense_events') IS NOT NULL,
+   'rls', (SELECT relrowsecurity FROM pg_class WHERE oid=to_regclass('public.job_expenses')),
+   'forced', (SELECT relforcerowsecurity FROM pg_class WHERE oid=to_regclass('public.job_expenses')),
+   'eventRls', (SELECT relrowsecurity FROM pg_class WHERE oid=to_regclass('public.job_expense_events')),
+   'eventForced', (SELECT relforcerowsecurity FROM pg_class WHERE oid=to_regclass('public.job_expense_events')),
+   'columns', (SELECT coalesce(json_agg(column_name), '[]'::json) FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='job_expenses'),
+   'indexes', (SELECT coalesce(json_agg(c.relname), '[]'::json)
+     FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid
+     WHERE i.indrelid IN (to_regclass('public.job_expenses'),to_regclass('public.job_expense_events'))
+       AND i.indisvalid AND i.indisready),
+   'indexMetadata', (SELECT coalesce(json_agg(json_build_object('name',c.relname,'unique',i.indisunique,
+      'valid',i.indisvalid,'ready',i.indisready)), '[]'::json)
+     FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid
+     WHERE i.indrelid IN (to_regclass('public.job_expenses'),to_regclass('public.job_expense_events'))),
+   'constraints', (SELECT coalesce(json_agg(conname), '[]'::json)
+     FROM pg_constraint WHERE conrelid IN (to_regclass('public.job_expenses'),to_regclass('public.job_expense_events'))),
+   'policies', (SELECT coalesce(json_agg(json_build_object('table',tablename,'name',policyname,'command',cmd)), '[]'::json)
+     FROM pg_policies WHERE schemaname='public' AND tablename IN ('job_expenses','job_expense_events'))
+  )
+);
+COMMIT;`;
+
+function run(program, args, options = {}) {
+  const result = spawnSync(program, args, { encoding: 'utf8', timeout: 120_000,
+    maxBuffer: 4 * 1024 * 1024, ...options });
+  // Subprocess output may carry credential-bearing URLs; never print it.
+  if (result.error || result.status !== 0) throw Error(`Protected staging tool failed: ${path.basename(program)}`);
+  return result.stdout;
+}
+
+export function main(env = process.env) {
+  validateRequest({ sourceSha: env.SOURCE_SHA, approvedSha: env.APPROVED_SOURCE_SHA,
+    mode: env.MIGRATION_MODE, confirmation: env.CONFIRMATION, ref: env.GITHUB_REF });
+  const url = stagingConnection(env.STAGING_DATABASE_ADMIN_URL);
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const trustedEnv = { PATH: env.PATH, HOME: env.HOME, CI: 'true', GIT_CONFIG_NOSYSTEM: '1' };
+  const migrationRoot = path.join(root, 'app/prisma/migrations');
+  const inventory = {};
+  for (const entry of readdirSync(migrationRoot, { withFileTypes: true })) {
+    if (entry.isDirectory()) inventory[entry.name] = hash(readFileSync(path.join(migrationRoot, entry.name, 'migration.sql')));
+  }
+  if (inventory[handoffMigration.name] && inventory[handoffMigration.name] !== handoffMigration.hash) {
+    throw Error('Trusted main already has incompatible Job handoff migration');
+  }
+  if (inventory[migrationNames[0]] !== reviewedMigrations[migrationNames[0]]) {
+    throw Error('Trusted baseline migration is not the reviewed SQL');
+  }
+  inventory[handoffMigration.name] = handoffMigration.hash;
+  // Do not accept a locally modified source path or execute source PR code.
+  const sourced = {};
+  const alreadyInMain = new Set(Object.keys(inventory));
+  for (const name of migrationNames.slice(1)) {
+    const sql = run('git', ['show', `${env.SOURCE_SHA}:app/prisma/migrations/${name}/migration.sql`],
+      { cwd: root, env: trustedEnv });
+    sourced[name] = verifySourceSql(name, sql);
+    if (inventory[name] && inventory[name] !== reviewedMigrations[name]) {
+      throw Error('Trusted main contains a changed Expense migration');
+    }
+    inventory[name] = reviewedMigrations[name];
+  }
+  const pgEnv = { ...trustedEnv,
+    PGHOST: url.hostname, PGPORT: url.port, PGDATABASE: 'postgres',
+    PGUSER: decodeURIComponent(url.username), PGPASSWORD: decodeURIComponent(url.password),
+    PGSSLMODE: 'require', PGCONNECT_TIMEOUT: '15',
+  };
+  const capture = () => JSON.parse(run('psql', ['-X', '-qAt', '-v', 'ON_ERROR_STOP=1'],
+    { env: pgEnv, input: evidenceSql }));
+  const capturedBefore = capture();
+  const before = validateEvidence(inventory, capturedBefore);
+  console.log(JSON.stringify({ mode: env.MIGRATION_MODE, projectRef, sourceSha: env.SOURCE_SHA,
+    reviewedSqlHashes: reviewedMigrations, ...before }));
+  const after = performMigration(env.MIGRATION_MODE, inventory, capturedBefore, () => {
+    for (const [name, sql] of Object.entries(sourced)) {
+      if (!alreadyInMain.has(name)) {
+        const folder = path.join(migrationRoot, name);
+        mkdirSync(folder, { recursive: true });
+        writeFileSync(path.join(folder, 'migration.sql'), sql, { flag: 'wx' });
+      }
+    }
+    run(path.join(root, 'app/node_modules/.bin/prisma'), ['migrate', 'deploy', '--schema', 'app/prisma/schema.prisma'],
+      { cwd: root, env: { ...trustedEnv, DATABASE_URL: url.toString(), DATABASE_ADMIN_URL: url.toString() } });
+  }, capture);
+  console.log(JSON.stringify({ mode: env.MIGRATION_MODE, projectRef, sourceSha: env.SOURCE_SHA,
+    reviewedSqlHashes: reviewedMigrations, ...after }));
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try { main(); } catch (error) { console.error(error.message); process.exitCode = 1; }
+}
