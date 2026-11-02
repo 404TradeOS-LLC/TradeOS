@@ -2,9 +2,12 @@ import { JobExpensesService } from "../modules/expenses/service";
 
 const mockDb = {
   job: { findFirst: jest.fn() },
-  jobExpense: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn() },
+  jobExpense: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), upsert: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn() },
+  jobExpenseEvent: { create: jest.fn(), findMany: jest.fn() },
   estimate: { findFirst: jest.fn() },
 };
+
+(mockDb as any).$transaction = jest.fn(async (callback: (transaction: typeof mockDb) => Promise<unknown>) => callback(mockDb));
 
 const ORG = "org-1";
 const JOB = "10000000-0000-0000-0000-000000000001";
@@ -42,7 +45,8 @@ describe("JobExpensesService", () => {
   const service = new JobExpensesService(mockDb as any);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    (mockDb as any).$transaction.mockImplementation(async (callback: (transaction: typeof mockDb) => Promise<unknown>) => callback(mockDb));
     mockDb.job.findFirst.mockResolvedValue({ id: JOB, projectId: "project-1" });
   });
 
@@ -167,7 +171,9 @@ describe("JobExpensesService", () => {
     mockDb.jobExpense.findFirst.mockResolvedValue(expenseRow());
     mockDb.jobExpense.update.mockResolvedValue(expenseRow({ amountCents: 2500 }));
     const updated = await service.update({ id: "expense-1", orgId: ORG, amountCents: 2500 });
-    expect(mockDb.jobExpense.update).toHaveBeenCalledWith({ where: { id: "expense-1" }, data: { amountCents: 2500 } });
+    expect(mockDb.jobExpense.update).toHaveBeenCalledWith({
+      where: { id: "expense-1", orgId: ORG, jobId: JOB, voidedAt: null }, data: { amountCents: 2500 },
+    });
     expect(updated.amountCents).toBe(2500);
   });
 
@@ -193,7 +199,7 @@ describe("JobExpensesService", () => {
 
   it("deduplicates an expense create using the same key and exact payload", async () => {
     const row = expenseRow({ idempotencyKey: "11111111-1111-4111-8111-111111111111" });
-    mockDb.jobExpense.findFirst.mockResolvedValue(row);
+    mockDb.jobExpense.findFirst.mockResolvedValue({ ...row, description: "" });
     const result = await service.create({
       orgId: ORG, jobId: JOB, actorUserId: ACTOR, amountCents: 1999,
       category: "material", vendor: "ABC Supply", receiptNote: "Shingles", incurredOn: DAY,
@@ -242,9 +248,9 @@ describe("JobExpensesService", () => {
 
   it("soft-voids expenses with actor provenance and excludes them from actual costs", async () => {
     mockDb.jobExpense.findFirst.mockResolvedValue(expenseRow());
-    mockDb.jobExpense.updateMany.mockResolvedValue({ count: 1 });
+    mockDb.jobExpense.update.mockResolvedValue(expenseRow({ voidedAt: new Date(), voidedById: ACTOR }));
     await service.remove("expense-1", ORG, JOB, ACTOR);
-    const update = mockDb.jobExpense.updateMany.mock.calls[0][0];
+    const update = mockDb.jobExpense.update.mock.calls[0][0];
     expect(update.where).toMatchObject({ id: "expense-1", orgId: ORG, jobId: JOB, voidedAt: null });
     expect(update.data.voidedById).toBe(ACTOR);
     expect(update.data.voidedAt).toBeInstanceOf(Date);
