@@ -2,7 +2,7 @@ export type EvidenceState = 'verified' | 'blocked' | 'unverified';
 export type CheckState = { name: string; status: string; conclusion: string | null; url: string | null; appId?: number | null };
 export type RequiredCheckBinding = { name: string; integrationIds: number[] };
 export type PrStatus = {
-  number: number; title: string; url: string; state: string; head: string | null; base: string | null;
+  number: number; title: string; url: string; state: string; head: string | null; base: string | null; merged?: boolean | null;
   draft: boolean | null; mergeable: boolean | null; behind: number | null;
   unresolvedThreads: number | null; review: 'approved' | 'changes-requested' | 'unverified';
   checks: CheckState[]; requiredChecksKnown: boolean; requiredCheckNames: string[]; requiredChecks?: RequiredCheckBinding[]; error: string | null;
@@ -120,32 +120,53 @@ export const releaseGates: ReleaseGate[] = [
   { id:'approval',phase:'06 · Release',label:'Final independent release approval',description:'Require head-specific required checks, resolved review threads, protected staging evidence and explicit reviewer disposition. No production action.',state:'unverified',proof:null,action:'Reconcile all exact-head checks and artifact links, then obtain separate release review.' },
 ];
 
-export function evaluateChecks(pr: PrStatus): {state: EvidenceState; detail: string} {
+function evaluateCheckRows(pr: PrStatus): {state: EvidenceState; detail: string} {
   if (!pr.head || !pr.requiredChecksKnown) return {state:'unverified',detail:'Required-check policy or exact head is not established'};
   const bindings = pr.requiredChecks;
   if (bindings && bindings.length > 0) {
     for (const binding of bindings) {
-      const matches = pr.checks.filter(c=>c.name===binding.name);
-      if (matches.length===0) return {state:'blocked',detail:`Required check missing at head: ${binding.name}`};
-      // A bound check is satisfied only by a success run from a bound app; an
-      // unknown app never satisfies a bound requirement. An unbound check
-      // (empty integrationIds) accepts a success from any app.
-      const satisfied = matches.some(c=>c.status==='completed' && c.conclusion==='success' && (binding.integrationIds.length===0 || (c.appId !== undefined && c.appId !== null && binding.integrationIds.includes(c.appId))));
-      if (!satisfied) return {state:'blocked',detail: binding.integrationIds.length===0 ? `Required check incomplete or failed: ${binding.name}` : `Required check incomplete, failed, or not from a bound app: ${binding.name}`};
+      const rows = pr.checks.filter(c => c.name === binding.name &&
+        (binding.integrationIds.length === 0 || (c.appId != null && binding.integrationIds.includes(c.appId))));
+      if (rows.length === 0) return {state:'blocked',detail:`Required check missing at head or from approved GitHub App: ${binding.name}`};
+      // Unbound contexts include every source with the same name. Bound
+      // contexts consider only approved app IDs. Any pending or failing
+      // applicable result defeats a success, never the other way around.
+      if (!rows.every(c => c.status === 'completed' && c.conclusion === 'success'))
+        return {state:'blocked',detail:`Required check incomplete, failed or conflicting: ${binding.name}`};
     }
     return {state:'verified',detail:`${bindings.length} required check(s) successful at current head`};
   }
   if (pr.requiredCheckNames.length === 0) return {state:'unverified',detail:'Required-check policy or exact head is not established'};
   for (const name of pr.requiredCheckNames) {
-    const matches = pr.checks.filter(c=>c.name===name);
-    if (matches.length===0) return {state:'blocked',detail:`Required check missing at head: ${name}`};
-    if (!matches.some(c=>c.status==='completed' && c.conclusion==='success')) return {state:'blocked',detail:`Required check incomplete or failed: ${name}`};
+    const rows = pr.checks.filter(c => c.name === name);
+    if (rows.length === 0) return {state:'blocked',detail:`Required check missing at head: ${name}`};
+    if (!rows.every(c => c.status === 'completed' && c.conclusion === 'success'))
+      return {state:'blocked',detail:`Required check incomplete, failed or conflicting: ${name}`};
   }
   return {state:'verified',detail:`${pr.requiredCheckNames.length} required check(s) successful at current head`};
 }
 
+export function evaluateChecks(pr: PrStatus): {state: EvidenceState; detail: string} {
+  const observed = evaluateCheckRows(pr);
+  // A separate fetch failure (such as commit statuses or branch compare)
+  // invalidates a green source assessment, but does not conceal a known red.
+  if (pr.error && observed.state === 'verified')
+    return {state:'unverified',detail:'GitHub evidence collection incomplete or unavailable: ' + pr.error};
+  return observed;
+}
+
+export function markReviewFetchFailure(pr: PrStatus): PrStatus {
+  return {...pr, review:'unverified', error:[pr.error,'Review submissions unavailable'].filter(Boolean).join('; ')};
+}
+
+function isClosedSupersededLane(pr: PrStatus): boolean {
+  return (pr.number === 905 || pr.number === 906) && pr.state === 'closed' && pr.merged === false;
+}
+
 export function nextSafeAction(pr: PrStatus): string {
   if (pr.error) return 'Restore read-only GitHub visibility and refresh; keep every release gate blocked.';
+  if (isClosedSupersededLane(pr)) return 'Superseded migration lane closed without merge; retain #907 and its protected staging workflow. No duplicate migration action is required.';
+  if ((pr.number===905 || pr.number===906) && pr.merged===true) return 'An overlapping migration lane was merged: verify workflow conflicts and protected staging policy before any release.';
   if (pr.number===905 || pr.number===906) return 'Compare this overlapping migration path with merged #907; reconcile and close the superseded lane after review. Do not merge duplicate staging workflows.';
   if (pr.draft) return 'Keep draft; reconcile exact-head tests, review findings and staging dependency before requesting ready-for-review.';
   if (pr.behind !== null && pr.behind > 0) return 'Safely update/rebase against current main, then rerun exact-head required checks.';
@@ -162,7 +183,7 @@ export function nextSafeAction(pr: PrStatus): string {
 }
 
 export function gatePromotion(prs: PrStatus[], gates: ReleaseGate[]): { allowed: boolean; reason: string } {
-  if(prs.some(p=>p.error || p.state!=='open' || p.draft!==false || p.mergeable!==true || p.behind!==0 || p.unresolvedThreads!==0 || p.review!=='approved' || evaluateChecks(p).state!=='verified')) {
+  if(prs.some(p=>!isClosedSupersededLane(p) && (p.error || p.state!=='open' || p.merged===true || p.draft!==false || p.mergeable!==true || p.behind!==0 || p.unresolvedThreads!==0 || p.review!=='approved' || evaluateChecks(p).state!=='verified'))) {
     return {allowed:false,reason:'PR exact-head source, review, mergeability or branch gates are incomplete.'};
   }
   if(gates.length!==releaseGates.length || gates.some(g=>g.state!=='verified' || !g.proof)) {
