@@ -123,12 +123,12 @@ export function abcOAuthCookieDomain(requestHostname: string): string | undefine
 /**
  * Serializes the browser-binding Set-Cookie value. httpOnly (never readable
  * by JS), Secure, SameSite=Lax (sent on the top-level GET redirect back
- * from ABC), short Max-Age. The value is base64url and therefore
- * cookie-safe without encoding.
+ * from ABC), short Max-Age.
  */
 export function buildBrowserBindingCookie(browserBinding: string, requestHostname: string): string {
+  const encodedBinding = encodeURIComponent(browserBinding);
   const parts = [
-    `${ABC_OAUTH_BROWSER_COOKIE_NAME}=${browserBinding}`,
+    `${ABC_OAUTH_BROWSER_COOKIE_NAME}=${encodedBinding}`,
     "Path=/",
     `Max-Age=${ABC_OAUTH_BROWSER_COOKIE_MAX_AGE_SECONDS}`,
     "HttpOnly",
