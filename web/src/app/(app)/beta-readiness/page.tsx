@@ -14,7 +14,7 @@ export default async function BetaReadinessPage(){
   if(!token)notFound();
   let role:string|null=null;
   try{role=(await getOrganizationSettings(token,AbortSignal.timeout(4000))).currentRole;}
-  catch(error){if(error instanceof ApiClientError&&(error.status===401||error.status===403))notFound();return <main className="min-h-screen bg-[#111315] px-4 py-14 text-slate-200"><div className="mx-auto max-w-xl rounded-2xl border border-white/10 bg-[#1b1d20] p-6"><h1 className="text-lg font-semibold text-white">Beta readiness is temporarily unavailable</h1><p className="mt-2 text-sm leading-6 text-slate-400">Your access check could not be completed. Refresh the page to try again.</p></div></main>;}
+  catch(error){if(error instanceof ApiClientError && (error.status === 401 || error.status === 403))notFound();return <main className="min-h-screen bg-[#111315] px-4 py-14 text-slate-200"><div className="mx-auto max-w-xl rounded-2xl border border-white/10 bg-[#1b1d20] p-6"><h1 className="text-lg font-semibold text-white">Beta readiness is temporarily unavailable</h1><p className="mt-2 text-sm leading-6 text-slate-400">Your access check could not be completed. Refresh the page to try again.</p></div></main>;}
   if(role!=='owner'&&role!=='admin')notFound();
   return <BetaBoard snapshot={await getBetaSnapshot()}/>;
 }
