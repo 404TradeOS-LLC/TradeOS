@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { gatePromotion, nextSafeAction, evaluateChecks, parseRequiredCheckPolicy, commitStatusToCheck, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
+import { gatePromotion, nextSafeAction, evaluateChecks, parseRequiredCheckPolicy, commitStatusToCheck, collectLatestCommitStatuses, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
 
 const candidate: PrStatus = { number: 810, title:'Job handoff', url:'https://github.com/404TradeOS-LLC/TradeOS/pull/810', state:'open', head:'a'.repeat(40), base:'b'.repeat(40), draft:false, mergeable:true, behind:0, unresolvedThreads:0, review:'approved', checks:[{name:'CI', status:'completed', conclusion:'success', url:null}], requiredChecksKnown:true, requiredCheckNames:['CI'], error:null };
 
@@ -105,4 +105,25 @@ test('vercel staging lookup helpers keep match criteria and paging cursor', () =
   assert.equal(vercelDeploymentsNextCursor({ pagination:{} }), null);
   assert.equal(vercelDeploymentsNextCursor({ pagination:{ next:'soon' } }), null);
   assert.equal(vercelDeploymentsNextCursor(null), null);
+});
+
+test('newest commit status overrides older success across API pages', () => {
+  const seen = new Set<string>();
+  const newest = collectLatestCommitStatuses([{ context:'CI', state:'failure', target_url:null }], seen);
+  const older = collectLatestCommitStatuses([{ context:'CI', state:'success', target_url:null }], seen);
+  assert.equal(newest.length,1);
+  assert.equal(newest[0].conclusion,'failure');
+  assert.deepEqual(older,[]);
+  assert.equal(evaluateChecks({ ...candidate, checks:[...newest,...older] }).state,'blocked');
+});
+
+test('pending newest status and malformed newest status cannot resurrect old success', () => {
+  const pendingSeen = new Set<string>();
+  const pending = collectLatestCommitStatuses([{ context:'CI', state:'pending' }], pendingSeen);
+  assert.equal(pending[0].status,'queued');
+  assert.deepEqual(collectLatestCommitStatuses([{ context:'CI', state:'success' }],pendingSeen),[]);
+  assert.equal(evaluateChecks({ ...candidate, checks:pending }).state,'blocked');
+  const malformedSeen = new Set<string>();
+  assert.deepEqual(collectLatestCommitStatuses([{ context:'CI', state:'unexpected' }],malformedSeen),[]);
+  assert.deepEqual(collectLatestCommitStatuses([{ context:'CI', state:'success' }],malformedSeen),[]);
 });
