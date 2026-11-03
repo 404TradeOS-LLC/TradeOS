@@ -1,5 +1,5 @@
 import 'server-only';
-import { releaseGates, parseRequiredCheckPolicy, commitStatusToCheck, firstStagingDeployment, vercelDeploymentsNextCursor, type BetaSnapshot, type CheckState, type PrStatus, type DeploymentObservation, type RequiredCheckBinding } from './beta-control';
+import { releaseGates, parseRequiredCheckPolicy, collectLatestCommitStatuses, firstStagingDeployment, vercelDeploymentsNextCursor, type BetaSnapshot, type CheckState, type PrStatus, type DeploymentObservation, type RequiredCheckBinding } from './beta-control';
 
 const OWNER='404TradeOS-LLC';
 const REPO='TradeOS';
@@ -51,16 +51,14 @@ async function commitStatuses(head: string): Promise<CheckState[]> {
   // Rows map with appId null (see commitStatusToCheck), so a status can
   // satisfy only an unbound requirement, never a bound one.
   const rows: CheckState[] = [];
+  const seenContexts = new Set<string>();
   let next: string | null = `${API}/commits/${head}/statuses?per_page=100`;
   for (let page = 0; next && page < 10; page++) {
     const response: Response = await fetch(next, { headers: HEADERS, cache: 'no-store', signal: AbortSignal.timeout(8000) });
     if (!response.ok) throw new Error(`GitHub ${response.status} for commit statuses`);
     const data: unknown = await response.json();
     if (!Array.isArray(data)) throw new Error('Commit statuses not an array');
-    for (const item of data) {
-      const mapped = commitStatusToCheck(item);
-      if (mapped) rows.push(mapped);
-    }
+    rows.push(...collectLatestCommitStatuses(data, seenContexts));
     next = response.headers.get('link')?.match(/<([^>]+)>;\s*rel="next"/)?.[1] ?? null;
   }
   if (next) throw new Error('Commit status pagination incomplete');
@@ -74,7 +72,7 @@ async function readPR(number:number, required:{known:boolean;names:string[];bind
     const base=str(asObject(p.base).sha);
     const errors:string[]=[];
     const requests=await Promise.allSettled([
-      head ? github(`/commits/${head}/check-runs?per_page=100`) : Promise.reject(Error('No head SHA')),
+      head ? github(`/commits/${head}/check-runs?per_page=100&filter=latest`) : Promise.reject(Error('No head SHA')),
       head ? github(`/compare/main...${head}`) : Promise.reject(Error('No head SHA')),
       threadsFor(number),
       head ? commitStatuses(head) : Promise.reject(Error('No head SHA')),
