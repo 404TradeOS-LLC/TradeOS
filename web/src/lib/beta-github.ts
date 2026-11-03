@@ -58,6 +58,7 @@ async function readPR(number:number, required:{known:boolean;names:string[]}):Pr
     let checks:CheckState[]=[];
     const checkCoverage=checkResult.status==='fulfilled' &&
       Array.isArray(checkResult.value.check_runs) &&
+      typeof checkResult.value.total_count === 'number' &&
       Number.isInteger(checkResult.value.total_count) &&
       checkResult.value.total_count <= checkResult.value.check_runs.length;
     if(checkResult.status==='fulfilled') {
