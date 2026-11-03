@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { gatePromotion, nextSafeAction, evaluateChecks, parseRequiredCheckPolicy, commitStatusToCheck, collectLatestCommitStatuses, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
+import { gatePromotion, nextSafeAction, evaluateChecks, parseRequiredCheckPolicy, commitStatusToCheck, collectLatestCommitStatuses, markReviewFetchFailure, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
 
 const candidate: PrStatus = { number: 810, title:'Job handoff', url:'https://github.com/404TradeOS-LLC/TradeOS/pull/810', state:'open', head:'a'.repeat(40), base:'b'.repeat(40), draft:false, mergeable:true, behind:0, unresolvedThreads:0, review:'approved', checks:[{name:'CI', status:'completed', conclusion:'success', url:null}], requiredChecksKnown:true, requiredCheckNames:['CI'], error:null };
 
@@ -126,4 +126,53 @@ test('pending newest status and malformed newest status cannot resurrect old suc
   const malformedSeen = new Set<string>();
   assert.deepEqual(collectLatestCommitStatuses([{ context:'CI', state:'unexpected' }],malformedSeen),[]);
   assert.deepEqual(collectLatestCommitStatuses([{ context:'CI', state:'success' }],malformedSeen),[]);
+});
+
+
+test('collector failure downgrades otherwise passing exact-head CI without hiding a known failure', () => {
+  assert.equal(evaluateChecks({ ...candidate, error:'Commit status data unavailable' }).state, 'unverified');
+  assert.match(evaluateChecks({ ...candidate, error:'Commit status data unavailable' }).detail, /incomplete|unavailable/i);
+  assert.equal(evaluateChecks({ ...candidate, error:'Commit status data unavailable', checks:[{name:'CI',status:'completed',conclusion:'failure',url:null}] }).state,'blocked');
+});
+
+test('unbound requirements fail closed when same-name status disagrees with check runs', () => {
+  const boundless:PrStatus={...candidate,requiredChecks:[{name:'CI',integrationIds:[]}]};
+  const green={name:'CI',status:'completed',conclusion:'success',url:null,appId:15368};
+  const red={name:'CI',status:'completed',conclusion:'failure',url:null,appId:null};
+  const pending={name:'CI',status:'queued',conclusion:null,url:null,appId:null};
+  assert.equal(evaluateChecks({...boundless,checks:[green,red]}).state,'blocked');
+  assert.equal(evaluateChecks({...boundless,checks:[green,pending]}).state,'blocked');
+  assert.equal(evaluateChecks({...candidate,requiredChecks:undefined,checks:[green,red]}).state,'blocked');
+});
+
+test('bound requirements ignore foreign-app failures but block failures from the required app', () => {
+  const bound:PrStatus={...candidate,requiredChecks:[{name:'CI',integrationIds:[15368]}]};
+  const green={name:'CI',status:'completed',conclusion:'success',url:null,appId:15368};
+  const foreignFail={name:'CI',status:'completed',conclusion:'failure',url:null,appId:999};
+  const matchingFail={name:'CI',status:'completed',conclusion:'failure',url:null,appId:15368};
+  assert.equal(evaluateChecks({...bound,checks:[green,foreignFail]}).state,'verified');
+  assert.equal(evaluateChecks({...bound,checks:[green,matchingFail]}).state,'blocked');
+});
+
+test('closed-unmerged superseded migration lanes do not block readiness merely for being closed', () => {
+  const gates=releaseGates.map(g=>({...g,state:'verified' as const,proof:'https://github.com/404TradeOS-LLC/TradeOS/actions/runs/1'}));
+  const canonical={...candidate,merged:false};
+  const closed905={...candidate,number:905,state:'closed',merged:false};
+  const closed906={...candidate,number:906,state:'closed',merged:false};
+  const safe=gatePromotion([canonical,closed905,closed906],gates);
+  assert.equal(safe.allowed,false);
+  assert.match(safe.reason,/read.only|human.approved/i);
+  assert.match(nextSafeAction(closed905),/closed|superseded/i);
+  const conflict=gatePromotion([canonical,{...closed905,merged:true}],gates);
+  assert.match(conflict.reason,/PR exact.head|source/i);
+});
+
+test('failed review read is visible and never mistaken for missing approval', () => {
+  const failed=markReviewFetchFailure(candidate);
+  assert.match(failed.error||'',/review.*unavailable/i);
+  assert.equal(failed.review,'unverified');
+  assert.equal(evaluateChecks(failed).state,'unverified');
+  assert.match(nextSafeAction(failed),/restore.*read.only/i);
+  const second=markReviewFetchFailure({...candidate,error:'Commit status data unavailable'});
+  assert.match(second.error||'',/Commit status data unavailable.*Review.*unavailable/i);
 });
