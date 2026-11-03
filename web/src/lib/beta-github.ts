@@ -1,5 +1,5 @@
 import 'server-only';
-import { releaseGates, type BetaSnapshot, type CheckState, type PrStatus, type DeploymentObservation } from './beta-control';
+import { releaseGates, parseRequiredCheckPolicy, type BetaSnapshot, type CheckState, type PrStatus, type DeploymentObservation, type RequiredCheckBinding } from './beta-control';
 
 const OWNER='404TradeOS-LLC';
 const REPO='TradeOS';
@@ -19,14 +19,17 @@ async function github(path:string):Promise<JsonRecord> {
   if(!response.ok) throw new Error(`GitHub ${response.status} for read-only ${path.split('?')[0]}`);
   return asObject(await response.json());
 }
-async function requiredCheckNames():Promise<{known:boolean;names:string[]}> {
+// Required checks come from the main branch ruleset, not legacy branch
+// protection (which 404s: main is protected by ruleset, not a protection
+// object). The rules read needs no special scope on a public repository and
+// fails closed to unknown, never verified. No legacy fallback: a stale
+// protection object must never override the ruleset policy.
+async function requiredCheckPolicy(): Promise<{known:boolean;names:string[];bindings:RequiredCheckBinding[]}> {
   try {
-    const x=await github('/branches/main/protection/required_status_checks');
-    const names=new Set<string>();
-    for(const row of Array.isArray(x.checks)?x.checks:[]) { const context=str(asObject(row).context);if(context) names.add(context); }
-    for(const context of Array.isArray(x.contexts)?x.contexts:[]) if(typeof context==='string') names.add(context);
-    return {known:true,names:[...names]};
-  }catch{return {known:false,names:[]};}
+    const response=await fetch(`${API}/rules/branches/main`,{headers:HEADERS,cache:'no-store',signal:AbortSignal.timeout(8000)});
+    if(!response.ok) throw new Error(`GitHub ${response.status} for rules/branches/main`);
+    return parseRequiredCheckPolicy(await response.json());
+  }catch{return {known:false,names:[],bindings:[]};}
 }
 async function threadsFor(number:number):Promise<number|null> {
   if(!TOKEN) return null;
@@ -42,7 +45,7 @@ async function threadsFor(number:number):Promise<number|null> {
     return result.nodes.filter((node:unknown)=>asObject(node).isResolved!==true).length;
   }catch{return null;}
 }
-async function readPR(number:number, required:{known:boolean;names:string[]}):Promise<PrStatus> {
+async function readPR(number:number, required:{known:boolean;names:string[];bindings:RequiredCheckBinding[]}):Promise<PrStatus> {
   const url=`https://github.com/${OWNER}/${REPO}/pull/${number}`;
   try {
     const p=await github(`/pulls/${number}`);
@@ -66,7 +69,8 @@ async function readPR(number:number, required:{known:boolean;names:string[]}):Pr
       const rows=Array.isArray(data.check_runs) ? data.check_runs : [];
       checks=rows.map((item:unknown)=>{
         const c=asObject(item);
-        return {name:str(c.name)||'Unnamed check', status:str(c.status)||'unknown',conclusion:str(c.conclusion),url:str(c.html_url)};
+        const app=asObject(c.app);
+        return {name:str(c.name)||'Unnamed check', status:str(c.status)||'unknown',conclusion:str(c.conclusion),url:str(c.html_url),appId:typeof app.id==='number'&&Number.isInteger(app.id)?app.id:null};
       });
     }else {errors.push('Current-head check data unavailable');}
     let behind:number|null=null;
@@ -78,8 +82,8 @@ async function readPR(number:number, required:{known:boolean;names:string[]}):Pr
     // Check-run listing truncation cannot be certified as complete.
     return {number,title:str(p.title)||`PR #${number}`,url,state:str(p.state)||'unknown',head,base,draft:typeof p.draft==='boolean'?p.draft:null,
       mergeable:typeof p.mergeable==='boolean'?p.mergeable:null,behind,unresolvedThreads,review,checks,
-      requiredChecksKnown:required.known&&checkCoverage,requiredCheckNames:required.names,error:errors.length?errors.join('; '):null};
-  }catch(e){return {number,title:`PR #${number}`,url,state:'unknown',head:null,base:null,draft:null,mergeable:null,behind:null,unresolvedThreads:null,review:'unverified',checks:[],requiredChecksKnown:false,requiredCheckNames:[],error:e instanceof Error?e.message:'GitHub read failed'};}
+      requiredChecksKnown:required.known&&checkCoverage,requiredCheckNames:required.names,requiredChecks:required.bindings,error:errors.length?errors.join('; '):null};
+  }catch(e){return {number,title:`PR #${number}`,url,state:'unknown',head:null,base:null,draft:null,mergeable:null,behind:null,unresolvedThreads:null,review:'unverified',checks:[],requiredChecksKnown:false,requiredCheckNames:[],requiredChecks:[],error:e instanceof Error?e.message:'GitHub read failed'};}
 }
 
 // GitHub /reviews returns an array; normalize it separately from object endpoints.
@@ -127,7 +131,7 @@ async function workflowRuns():Promise<BetaSnapshot['workflowRuns']>{
 
 export async function getBetaSnapshot():Promise<BetaSnapshot> {
   const [required, reviews] = await Promise.all([
-    requiredCheckNames(),
+    requiredCheckPolicy(),
     Promise.all(PR_NUMBERS.map(async number=>{
       try{return [number,await ghArray(`/pulls/${number}/reviews?per_page=100`)] as const;}catch{return [number,null] as const;}
     }))
@@ -151,7 +155,7 @@ export async function getBetaSnapshot():Promise<BetaSnapshot> {
     }
   }
   const errors=prs.filter(p=>p.error).map(p=>`#${p.number}: ${p.error}`);
-  if(!required.known)errors.push('Required branch-check policy could not be read; merge gate unverified.');
+  if(!required.known)errors.push('Required-check policy (main ruleset) could not be read; merge gate unverified.');
   if(!TOKEN)errors.push('GitHub review threads require TRADEOS_GITHUB_READ_TOKEN; thread state unverified.');
   return {fetchedAt:new Date().toISOString(),prs,gates:releaseGates,
     deployments:{api,web,runtimeBindingIdentity:null},workflowRuns:runs,errors};

@@ -1,11 +1,40 @@
 export type EvidenceState = 'verified' | 'blocked' | 'unverified';
-export type CheckState = { name: string; status: string; conclusion: string | null; url: string | null };
+export type CheckState = { name: string; status: string; conclusion: string | null; url: string | null; appId?: number | null };
+export type RequiredCheckBinding = { name: string; integrationIds: number[] };
 export type PrStatus = {
   number: number; title: string; url: string; state: string; head: string | null; base: string | null;
   draft: boolean | null; mergeable: boolean | null; behind: number | null;
   unresolvedThreads: number | null; review: 'approved' | 'changes-requested' | 'unverified';
-  checks: CheckState[]; requiredChecksKnown: boolean; requiredCheckNames: string[]; error: string | null;
+  checks: CheckState[]; requiredChecksKnown: boolean; requiredCheckNames: string[]; requiredChecks?: RequiredCheckBinding[]; error: string | null;
 };
+
+// Parses the GET /rules/branches/main response: an array of rule entries, one
+// per rule, each carrying its ruleset id. Only required_status_checks entries
+// contribute; contexts are grouped so one context bound by several rulesets
+// accepts a success from any of its bound apps. A non-array payload is not a
+// readable policy and fails closed.
+export function parseRequiredCheckPolicy(payload: unknown): { known: boolean; names: string[]; bindings: RequiredCheckBinding[] } {
+  if (!Array.isArray(payload)) return { known: false, names: [], bindings: [] };
+  const byName = new Map<string, Set<number>>();
+  for (const entry of payload) {
+    if (!entry || typeof entry !== 'object') continue;
+    if ((entry as Record<string, unknown>).type !== 'required_status_checks') continue;
+    const params = (entry as Record<string, unknown>).parameters;
+    if (!params || typeof params !== 'object') continue;
+    const rows = (params as Record<string, unknown>).required_status_checks;
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows) {
+      if (!row || typeof row !== 'object') continue;
+      const context = (row as Record<string, unknown>).context;
+      if (typeof context !== 'string' || !context) continue;
+      if (!byName.has(context)) byName.set(context, new Set());
+      const id = (row as Record<string, unknown>).integration_id;
+      if (typeof id === 'number' && Number.isInteger(id)) byName.get(context)!.add(id);
+    }
+  }
+  const bindings = [...byName.entries()].map(([name, ids]) => ({ name, integrationIds: [...ids] }));
+  return { known: true, names: bindings.map(b => b.name), bindings };
+}
 export type ReleaseGate = { id: string; phase: string; label: string; description: string; state: EvidenceState; proof: string | null; action: string };
 export type DeploymentObservation = { sha: string | null; state: string; target: string; url: string | null; observedAt: string | null };
 export type BetaSnapshot = {
@@ -32,7 +61,21 @@ export const releaseGates: ReleaseGate[] = [
 ];
 
 export function evaluateChecks(pr: PrStatus): {state: EvidenceState; detail: string} {
-  if (!pr.head || !pr.requiredChecksKnown || pr.requiredCheckNames.length === 0) return {state:'unverified',detail:'Required-check policy or exact head is not established'};
+  if (!pr.head || !pr.requiredChecksKnown) return {state:'unverified',detail:'Required-check policy or exact head is not established'};
+  const bindings = pr.requiredChecks;
+  if (bindings && bindings.length > 0) {
+    for (const binding of bindings) {
+      const matches = pr.checks.filter(c=>c.name===binding.name);
+      if (matches.length===0) return {state:'blocked',detail:`Required check missing at head: ${binding.name}`};
+      // A bound check is satisfied only by a success run from a bound app; an
+      // unknown app never satisfies a bound requirement. An unbound check
+      // (empty integrationIds) accepts a success from any app.
+      const satisfied = matches.some(c=>c.status==='completed' && c.conclusion==='success' && (binding.integrationIds.length===0 || (c.appId !== undefined && c.appId !== null && binding.integrationIds.includes(c.appId))));
+      if (!satisfied) return {state:'blocked',detail: binding.integrationIds.length===0 ? `Required check incomplete or failed: ${binding.name}` : `Required check incomplete, failed, or not from a bound app: ${binding.name}`};
+    }
+    return {state:'verified',detail:`${bindings.length} required check(s) successful at current head`};
+  }
+  if (pr.requiredCheckNames.length === 0) return {state:'unverified',detail:'Required-check policy or exact head is not established'};
   for (const name of pr.requiredCheckNames) {
     const matches = pr.checks.filter(c=>c.name===name);
     if (matches.length===0) return {state:'blocked',detail:`Required check missing at head: ${name}`};
