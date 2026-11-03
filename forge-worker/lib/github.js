@@ -4,6 +4,8 @@ const API='https://api.github.com';
 const FETCH_LIMIT=12;
 let cached=null;
 let cachedUntil=0;
+// Test-only: clears the 60-second queue cache so tests control their own state.
+export function resetQueueCacheForTests() { cached=null; cachedUntil=0; }
 function githubHeaders() {
   const headers={'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'tradeos-forge-readonly'};
   if (process.env.GITHUB_READ_TOKEN) headers.Authorization='Bearer '+process.env.GITHUB_READ_TOKEN;
@@ -16,7 +18,7 @@ async function request(path,opts={}) {
   try {
     const response=await fetch(API+path,{...opts,headers:{...githubHeaders(),...opts.headers},signal:controller.signal});
     if (!response.ok) throw Error('GitHub returned HTTP '+response.status);
-    return response.json();
+    return await response.json();
   } finally {clearTimeout(timeout);}
 }
 async function threads(number) {
@@ -28,25 +30,31 @@ async function threads(number) {
   if (!node || node.pageInfo?.hasNextPage !== false || !Array.isArray(node.nodes)) return null;
   return node.nodes.filter(t=>!t.isResolved).length;
 }
-function reviewVerdict(reviews) {
+export function reviewVerdict(reviews) {
   if (!Array.isArray(reviews) || reviews.length>=100) return 'unknown';
   const latest=new Map();
   for (const r of reviews) {
     const id=r.user?.id;
     if (id && r.state!=='COMMENTED') latest.set(id,r.state);
   }
-  return [...latest.values()].includes('CHANGES_REQUESTED') ? 'changes_requested' : 'unverified';
+  const states=[...latest.values()];
+  if (states.includes('CHANGES_REQUESTED')) return 'changes_requested';
+  if (states.includes('APPROVED')) return 'approved';
+  return 'unverified';
 }
 async function item(pr) {
   const root='/repos/'+REPO;
-  const [filesResponse,checksResponse,reviewsResponse,unresolved] = await Promise.all([
+  // The list endpoint omits mergeable, so fetch the single-PR detail for it.
+  // A null detail value stays null (unknown) and the policy gate fails closed.
+  const [detail,filesResponse,checksResponse,reviewsResponse,unresolved] = await Promise.all([
+    request(root+'/pulls/'+pr.number),
     request(root+'/pulls/'+pr.number+'/files?per_page=100'),
     request(root+'/commits/'+encodeURIComponent(pr.head.sha)+'/check-runs?per_page=100'),
     request(root+'/pulls/'+pr.number+'/reviews?per_page=100'),
     threads(pr.number).catch(()=>null)
   ]);
   const checks=checksResponse.check_runs??[];
-  return summarize(pr,{
+  return summarize({...pr,mergeable:detail?.mergeable ?? null},{
     files:filesResponse.map(f=>f.filename),
     filesComplete:filesResponse.length<100,
     checks,

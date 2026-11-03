@@ -22,6 +22,21 @@ test('unknown reviews block any release claim',()=>{
   assert.equal(x.gate,'INSPECT_REVIEW');
   assert.notEqual(x.gate,'RELEASE_REVIEW');
 });
+test('unknown mergeability never reaches release review',()=>{
+  const x=summarize({...basic,mergeable:null},{files:['web/src/App.tsx'],filesComplete:true,checks,checksComplete:true,
+    unresolvedReviewThreads:0,reviewDecision:'approved'});
+  assert.equal(x.gate,'RECONCILE_BRANCH');
+  assert.notEqual(x.gate,'RELEASE_REVIEW');
+});
+test('unverified review evidence blocks release review',()=>{
+  const base={files:['web/src/App.tsx'],filesComplete:true,checks,checksComplete:true,unresolvedReviewThreads:0};
+  assert.equal(summarize(basic,{...base,reviewDecision:'unknown'}).gate,'INSPECT_REVIEW');
+  assert.equal(summarize(basic,{...base,reviewDecision:'unverified'}).gate,'INSPECT_REVIEW');
+  assert.equal(summarize(basic,{...base,reviewDecision:'approved'}).gate,'RELEASE_REVIEW');
+});
+test('in-progress required checks stay pending',()=>{
+  assert.equal(ciState([{...checks[0],status:'in_progress',conclusion:null},...checks.slice(1)],true),'pending');
+});
 test('protected changes require release evidence regardless of green CI',()=>{
   const x=summarize(basic,{files:['app/prisma/schema.prisma'],filesComplete:true,checks,checksComplete:true,
     unresolvedReviewThreads:0});

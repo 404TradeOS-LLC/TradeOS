@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {collectQueue} from '../lib/github.js';
+import {collectQueue,resetQueueCacheForTests,reviewVerdict} from '../lib/github.js';
 import {GET as health} from '../api/health.js';
 import {GET as queue} from '../api/queue.js';
 import {GET as cron} from '../api/cron.js';
@@ -20,11 +20,13 @@ function mockFetch(url) {
     return Promise.resolve(reply({total_count:checks.length,check_runs:checks}));
   }
   if (String(url).includes('/pulls/91/reviews')) return Promise.resolve(reply([]));
+  if (String(url).endsWith('/pulls/91')) return Promise.resolve(reply(example));
   return Promise.reject(new Error('Unexpected API path'));
 }
 
 test('worker fetches bounded exact-head evidence and fails closed on unavailable reviews',async()=>{
   const oldFetch=global.fetch,oldToken=process.env.GITHUB_READ_TOKEN;
+  fetches=[];resetQueueCacheForTests();
   delete process.env.GITHUB_READ_TOKEN;global.fetch=mockFetch;
   try{
     const data=await collectQueue();
@@ -52,11 +54,28 @@ test('health is explicit about disabled code execution and merge authority',asyn
 });
 
 test('queue handler exposes evidence without mutating repository',async()=>{
-  const response=await queue();
-  assert.equal(response.status,200);
-  const data=await response.json();
-  assert.equal(data.readOnly,true);
-  assert.equal(data.items[0].gate,'INSPECT_REVIEW');
+  const oldFetch=global.fetch,oldToken=process.env.GITHUB_READ_TOKEN;
+  fetches=[];resetQueueCacheForTests();
+  delete process.env.GITHUB_READ_TOKEN;global.fetch=mockFetch;
+  try{
+    const response=await queue();
+    assert.equal(response.status,200);
+    const data=await response.json();
+    assert.equal(data.readOnly,true);
+    assert.equal(data.items[0].gate,'INSPECT_REVIEW');
+  }finally{
+    global.fetch=oldFetch;
+    if(oldToken===undefined)delete process.env.GITHUB_READ_TOKEN;else process.env.GITHUB_READ_TOKEN=oldToken;
+  }
+});
+
+test('review verdict distinguishes approval from unverified evidence',()=>{
+  assert.equal(reviewVerdict([{user:{id:1},state:'APPROVED'}]),'approved');
+  assert.equal(reviewVerdict([{user:{id:1},state:'CHANGES_REQUESTED'},{user:{id:2},state:'APPROVED'}]),'changes_requested');
+  assert.equal(reviewVerdict([{user:{id:1},state:'COMMENTED'}]),'unverified');
+  assert.equal(reviewVerdict([]),'unverified');
+  assert.equal(reviewVerdict(null),'unknown');
+  assert.equal(reviewVerdict(new Array(100).fill({user:{id:1},state:'APPROVED'})),'unknown');
 });
 
 test('cron never runs without a secret or accepts a bad one',async()=>{

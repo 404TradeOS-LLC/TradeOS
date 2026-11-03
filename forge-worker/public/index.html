@@ -22,11 +22,12 @@ footer{border-top:1px solid var(--line);padding-top:20px;font-size:12px;color:va
 </style></head><body><main>
 <header class="top"><div><div class="brand">TRADEOS <em>/ FORGE</em></div><div class="tag">ENGINEERING CONTROL CENTER</div></div><div class="tag">READ-ONLY WORKER · V0.1</div></header>
 <section><h1>Fix what's blocking<br>the next release.</h1><p>Live GitHub pull-request evidence, exact-head checks, and the smallest safe next engineering action. This service never merges, deploys, or changes production data.</p></section>
-<div class="stats"><div class="stat"><strong id="total">—</strong><span>PRs inspected</span></div><div class="stat"><strong id="ci">—</strong><span>Failed CI</span></div><div class="stat"><strong id="protected">—</strong><span>Protected changes</span></div></div>
+<div class="stats"><div class="stat"><strong id="total">—</strong><span>PRs inspected</span></div><div class="stat"><strong id="ci">—</strong><span id="ciLabel">Failed CI</span></div><div class="stat"><strong id="protected">—</strong><span id="protectedLabel">Protected changes</span></div></div>
 <div class="controls"><h2 style="margin:0;font-size:19px">Release queue</h2><button id="refresh">Refresh GitHub evidence</button></div><div id="updated" role="status" aria-live="polite">Loading…</div><div id="notice"></div><section id="items"></section>
 <footer>Repository: <a href="https://github.com/404TradeOS-LLC/TradeOS" target="_blank" rel="noreferrer">404TradeOS-LLC/TradeOS</a> · This diagnostic dashboard is not the canonical GitHub merge queue. Missing evidence always blocks release claims.</footer>
 </main><script type="module">
 const $=(id)=>document.getElementById(id); const btn=$('refresh');
+let lastChecked='';
 function el(tag,text,className){const node=document.createElement(tag);if(text!==undefined)node.textContent=String(text);if(className)node.className=className;return node}
 async function load(){
  btn.disabled=true;$('updated').textContent='Fetching current GitHub evidence…';$('notice').textContent='';
@@ -35,8 +36,13 @@ async function load(){
   const data=await res.json();if(!res.ok)throw Error(data.error||'GitHub unavailable');
   $('total').textContent=data.items.length;
   $('ci').textContent=data.items.filter(i=>i.ciState==='failed').length;
+  const unknownCi=data.items.filter(i=>i.ciState==='unknown').length;
+  $('ciLabel').textContent=unknownCi?('Failed CI · '+unknownCi+' unknown'):'Failed CI';
   $('protected').textContent=data.items.filter(i=>i.risk==='protected').length;
-  $('updated').textContent='Checked '+new Date(data.generatedAt).toLocaleString()+' · Up to '+data.limitedTo+' PRs · '+(data.truncated?'More PRs may exist':'Returned set complete');
+  const unknownRisk=data.items.filter(i=>i.risk==='unknown').length;
+  $('protectedLabel').textContent=unknownRisk?('Protected changes · '+unknownRisk+' unknown'):'Protected changes';
+  lastChecked='Checked '+new Date(data.generatedAt).toLocaleString()+' · Up to '+data.limitedTo+' PRs · '+(data.truncated?'More PRs may exist':'Returned set complete');
+  $('updated').textContent=lastChecked;
   const target=$('items');target.replaceChildren();
   if(!data.items.length)target.append(el('p','No open pull requests found.'));
   for(const item of data.items){
@@ -47,7 +53,7 @@ async function load(){
    left.append(el('p',item.action));card.append(left);
    const right=el('div',undefined,'right');right.append(el('span',item.gate.replaceAll('_',' '),'gate'));card.append(right);target.append(card);
   }
- }catch(e){$('updated').textContent='Could not verify GitHub evidence';$('notice').textContent=e.message;}
+ }catch(e){$('updated').textContent=lastChecked?(lastChecked+' · Stale — refresh failed'):'Could not verify GitHub evidence';$('notice').textContent=e.message;}
  finally{btn.disabled=false;}
 }
 btn.addEventListener('click',load);load();

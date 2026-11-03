@@ -17,8 +17,9 @@ export function chooseNextGate(item) {
   if (item.draft) return {gate:'DRAFT_REVIEW',priority:80,action:'Finish evidence and review before marking the draft ready.'};
   if (item.unresolvedReviewThreads === null) return {gate:'INSPECT_REVIEW',priority:75,action:'Read all review threads using an authenticated, paginated GitHub connection.'};
   if (item.unresolvedReviewThreads > 0 || item.reviewDecision === 'changes_requested') return {gate:'RESOLVE_REVIEW',priority:70,action:'Repair findings and verify each thread at the exact head.'};
-  if (item.mergeable === false) return {gate:'RECONCILE_BRANCH',priority:65,action:'Inspect branch conflicts and freshness under repository governance.'};
+  if (item.mergeable !== true) return {gate:'RECONCILE_BRANCH',priority:65,action:'Confirm the branch is conflict-free and current under repository governance.'};
   if (item.risk === 'protected') return {gate:'PROTECTED_RELEASE',priority:60,action:'Obtain protected staging and authenticated acceptance evidence; this worker cannot approve release.'};
+  if (item.reviewDecision === 'unknown' || item.reviewDecision === 'unverified') return {gate:'INSPECT_REVIEW',priority:75,action:'Review approval is unverified; confirm reviewer evidence before any release claim.'};
   return {gate:'RELEASE_REVIEW',priority:50,action:'Perform final governance review using the canonical merge queue; no automatic merge authorization.'};
 }
 
