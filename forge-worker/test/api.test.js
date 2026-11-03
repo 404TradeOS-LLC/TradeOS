@@ -90,3 +90,25 @@ test('cron never runs without a secret or accepts a bad one',async()=>{
     if(original===undefined)delete process.env.CRON_SECRET;else process.env.CRON_SECRET=original;
   }
 });
+
+
+test('a moving PR head invalidates the entire inspection instead of mixing old checks and new metadata',async()=>{
+  const originalFetch=global.fetch,originalToken=process.env.GITHUB_READ_TOKEN;
+  resetQueueCacheForTests();
+  delete process.env.GITHUB_READ_TOKEN;
+  global.fetch=(url)=>{
+    if(String(url).endsWith('/pulls/91')) return Promise.resolve(reply({...example,head:{sha:'b'.repeat(40)}}));
+    return mockFetch(url);
+  };
+  try{
+    const data=await collectQueue();
+    assert.equal(data.items.length,1);
+    assert.equal(data.items[0].gate,'EVIDENCE_UNAVAILABLE');
+    assert.notEqual(data.items[0].ciState,'passed');
+  }finally{
+    global.fetch=originalFetch;
+    if(originalToken===undefined)delete process.env.GITHUB_READ_TOKEN;
+    else process.env.GITHUB_READ_TOKEN=originalToken;
+    resetQueueCacheForTests();
+  }
+});
