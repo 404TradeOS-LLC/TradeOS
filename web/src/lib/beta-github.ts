@@ -56,16 +56,18 @@ async function readPR(number:number, required:{known:boolean;names:string[]}):Pr
     ]);
     const [checkResult, compareResult, threadResult]=requests;
     let checks:CheckState[]=[];
-    let checkCoverage=true;
+    const checkCoverage=checkResult.status==='fulfilled' &&
+      Array.isArray(checkResult.value.check_runs) &&
+      Number.isInteger(checkResult.value.total_count) &&
+      checkResult.value.total_count <= checkResult.value.check_runs.length;
     if(checkResult.status==='fulfilled') {
       const data=checkResult.value;
       const rows=Array.isArray(data.check_runs) ? data.check_runs : [];
-      checkCoverage=Number(data.total_count) <= rows.length;
       checks=rows.map((item:unknown)=>{
         const c=asObject(item);
         return {name:str(c.name)||'Unnamed check', status:str(c.status)||'unknown',conclusion:str(c.conclusion),url:str(c.html_url)};
       });
-    }else {checkCoverage=false;errors.push('Current-head check data unavailable');}
+    }else {errors.push('Current-head check data unavailable');}
     let behind:number|null=null;
     if(compareResult.status==='fulfilled' && typeof compareResult.value.behind_by==='number') behind=compareResult.value.behind_by;
     else errors.push('Main branch comparison unavailable');
