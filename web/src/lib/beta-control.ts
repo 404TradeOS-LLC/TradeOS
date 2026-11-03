@@ -55,6 +55,23 @@ export function commitStatusToCheck(status: unknown): CheckState | null {
   };
 }
 
+// GitHub's commit-status list is newest-first. Consume only the first status
+// for each context, even if older successes appear on subsequent pages.
+// Reserve a context before mapping: malformed newer data must never allow a
+// stale success to satisfy a required check.
+export function collectLatestCommitStatuses(statuses: unknown[], seenContexts: Set<string>): CheckState[] {
+  const latest: CheckState[] = [];
+  for (const raw of statuses) {
+    if (!raw || typeof raw !== 'object') continue;
+    const context = (raw as Record<string, unknown>).context;
+    if (typeof context !== 'string' || !context || seenContexts.has(context)) continue;
+    seenContexts.add(context);
+    const check = commitStatusToCheck(raw);
+    if (check) latest.push(check);
+  }
+  return latest;
+}
+
 // Pure Vercel list-deployments helpers, kept here for testability (the
 // reader module is server-only and cannot be imported by node tests).
 // firstStagingDeployment mirrors the board's staging-match criteria:
