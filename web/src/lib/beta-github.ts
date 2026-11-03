@@ -1,5 +1,5 @@
 import 'server-only';
-import { releaseGates, parseRequiredCheckPolicy, collectLatestCommitStatuses, firstStagingDeployment, vercelDeploymentsNextCursor, type BetaSnapshot, type CheckState, type PrStatus, type DeploymentObservation, type RequiredCheckBinding } from './beta-control';
+import { releaseGates, parseRequiredCheckPolicy, collectLatestCommitStatuses, firstStagingDeployment, vercelDeploymentsNextCursor, type BetaSnapshot, type CheckState, type PrStatus, markReviewFetchFailure, type DeploymentObservation, type RequiredCheckBinding } from './beta-control';
 
 const OWNER='404TradeOS-LLC';
 const REPO='TradeOS';
@@ -102,10 +102,12 @@ async function readPR(number:number, required:{known:boolean;names:string[];bind
     let unresolvedThreads:number|null=null;
     if(threadResult.status==='fulfilled') unresolvedThreads=threadResult.value;
     // Check-run listing truncation cannot be certified as complete.
-    return {number,title:str(p.title)||`PR #${number}`,url,state:str(p.state)||'unknown',head,base,draft:typeof p.draft==='boolean'?p.draft:null,
+    const merged = typeof p.merged === 'boolean' ? p.merged :
+      typeof p.merged_at === 'string' ? true : p.merged_at === null ? false : null;
+    return {number,title:str(p.title)||`PR #${number}`,url,state:str(p.state)||'unknown',head,base,merged,draft:typeof p.draft==='boolean'?p.draft:null,
       mergeable:typeof p.mergeable==='boolean'?p.mergeable:null,behind,unresolvedThreads,review,checks,
       requiredChecksKnown:required.known&&checkCoverage,requiredCheckNames:required.names,requiredChecks:required.bindings,error:errors.length?errors.join('; '):null};
-  }catch(e){return {number,title:`PR #${number}`,url,state:'unknown',head:null,base:null,draft:null,mergeable:null,behind:null,unresolvedThreads:null,review:'unverified',checks:[],requiredChecksKnown:false,requiredCheckNames:[],requiredChecks:[],error:e instanceof Error?e.message:'GitHub read failed'};}
+  }catch(e){return {number,title:`PR #${number}`,url,state:'unknown',head:null,base:null,merged:null,draft:null,mergeable:null,behind:null,unresolvedThreads:null,review:'unverified',checks:[],requiredChecksKnown:false,requiredCheckNames:[],requiredChecks:[],error:e instanceof Error?e.message:'GitHub read failed'};}
 }
 
 // GitHub /reviews returns an array; normalize it separately from object endpoints.
@@ -180,6 +182,12 @@ export async function getBetaSnapshot():Promise<BetaSnapshot> {
   ]);
   for(const pr of prs){
     const rows=reviewByPr.get(pr.number);
+    if(!rows) {
+      // A failed read is not proof of no approvals. Surface the visibility
+      // failure and deny all green PR/release indicators.
+      Object.assign(pr, markReviewFetchFailure(pr));
+      continue;
+    }
     if(rows){
       const latest=new Map<string,{state:string;commit:string|null}>();
       for(const entry of rows){const r=asObject(entry);const login=str(asObject(r.user).login);const state=str(r.state);
