@@ -29,9 +29,15 @@ export function ciState(checkRuns, complete) {
   const failed = checkRuns.some(c => c.status === 'completed' && ['failure','timed_out','action_required','cancelled'].includes(c.conclusion));
   if (failed) return 'failed';
   if (REQUIRED_CHECKS.some(name=>!names.has(name))) return 'unknown';
+  // GitHub can mark a required check skipped or neutral. Neither proves
+  // the named verification actually ran, so readiness must stay unknown.
+  if (REQUIRED_CHECKS.some(name => {
+    const c = names.get(name);
+    return c.status === 'completed' && ['skipped','neutral'].includes(c.conclusion);
+  })) return 'unknown';
   return REQUIRED_CHECKS.every(name => {
     const c = names.get(name);
-    return c.status === 'completed' && ['success','skipped','neutral'].includes(c.conclusion);
+    return c.status === 'completed' && c.conclusion === 'success';
   }) ? 'passed' : 'pending';
 }
 

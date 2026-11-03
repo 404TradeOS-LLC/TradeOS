@@ -57,3 +57,9 @@ test('cron refuses missing and incorrect secrets',()=>{
   assert.equal(authorizeCron(req('Bearer wrong-secret-is-long'),'correct-secret-is-long'),false);
   assert.equal(authorizeCron(req('Bearer correct-secret-is-long'),'correct-secret-is-long'),true);
 });
+
+
+test('skipped or neutral required checks never count as a green exact-head gate',()=>{
+  assert.equal(ciState([{...checks[0],conclusion:'skipped'},...checks.slice(1)],true),'unknown');
+  assert.equal(ciState([{...checks[0],conclusion:'neutral'},...checks.slice(1)],true),'unknown');
+});

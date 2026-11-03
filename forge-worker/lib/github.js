@@ -53,6 +53,11 @@ async function item(pr) {
     request(root+'/pulls/'+pr.number+'/reviews?per_page=100'),
     threads(pr.number).catch(()=>null)
   ]);
+  // Never combine data from different head commits. An updated PR must be
+  // retried from a fresh list snapshot, not evaluated from mixed evidence.
+  if (!detail?.head?.sha || detail.head.sha !== pr.head?.sha) {
+    throw Error('Pull request head moved during evidence collection');
+  }
   const checks=checksResponse.check_runs??[];
   return summarize({...pr,mergeable:detail?.mergeable ?? null},{
     files:filesResponse.map(f=>f.filename),
