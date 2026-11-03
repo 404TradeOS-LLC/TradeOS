@@ -12,7 +12,7 @@ export function isAllowedSettingsAssetKey(key: string): key is SettingsAssetKey 
   return ALLOWED_SETTINGS_ASSET_KEY_SET.has(key);
 }
 
-export const MAX_SETTINGS_ASSET_UPLOAD_BYTES = 6 * 1024 * 1024;
+export const MAX_SETTINGS_ASSET_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 export const ALLOWED_SETTINGS_ASSET_CONTENT_TYPES = [
   "image/png",
@@ -47,7 +47,7 @@ export function validateSettingsAssetUpload({ assetKey, file }: ValidateSettings
   if (!ALLOWED_SETTINGS_ASSET_CONTENT_TYPE_SET.has(file.type)) {
     return "Brand assets must be PNG, JPEG, WebP, GIF, or ICO files.";
   }
-  if (file.size > MAX_SETTINGS_ASSET_UPLOAD_BYTES) return "Each brand asset must be 6MB or smaller.";
+  if (file.size > MAX_SETTINGS_ASSET_UPLOAD_BYTES) return "Each brand asset must be 4MB or smaller.";
   return null;
 }
 
