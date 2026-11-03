@@ -302,6 +302,14 @@ export class JobExpensesService {
       throw new ApiError(409, "This expense already has a receipt");
     }
     return runInDatabaseTransaction(this.db, async (tx) => {
+      // Re-read under the same row lock as update/void. Another request may
+      // have linked a receipt after the initial read; same-path retries are
+      // idempotent and competing receipt paths must remain conflicts.
+      const current = await this.lockExpenseForMutation(tx, existing);
+      if (current.receiptStoragePath) {
+        if (current.receiptStoragePath === input.receiptStoragePath) return toDTO(current);
+        throw new ApiError(409, "This expense already has a receipt");
+      }
       const row = await tx.jobExpense.update({
         where: { id: existing.id, orgId: input.orgId, jobId: input.jobId,
           voidedAt: null, receiptStoragePath: null },
