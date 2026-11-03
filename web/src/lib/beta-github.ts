@@ -1,0 +1,147 @@
+import 'server-only';
+import { releaseGates, type BetaSnapshot, type CheckState, type PrStatus, type DeploymentObservation } from './beta-control';
+
+const OWNER='404TradeOS-LLC';
+const REPO='TradeOS';
+const PR_NUMBERS=[810,891,905,906] as const;
+const API=`https://api.github.com/repos/${OWNER}/${REPO}`;
+const TOKEN=process.env.TRADEOS_GITHUB_READ_TOKEN;
+const HEADERS: Record<string,string> = {
+  Accept:'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28',
+  ...(TOKEN ? { Authorization:`Bearer ${TOKEN}` }: {}),
+};
+
+type JsonRecord=Record<string,unknown>;
+function asObject(value:unknown): JsonRecord {return value !== null && typeof value==='object' ? value as JsonRecord : {};}
+function str(value:unknown):string|null {return typeof value==='string' ? value : null;}
+async function github(path:string):Promise<JsonRecord> {
+  const response=await fetch(`${API}${path}`,{headers:HEADERS,cache:'no-store',signal:AbortSignal.timeout(8000)});
+  if(!response.ok) throw new Error(`GitHub ${response.status} for read-only ${path.split('?')[0]}`);
+  return asObject(await response.json());
+}
+async function requiredCheckNames():Promise<{known:boolean;names:string[]}> {
+  try {
+    const x=await github('/branches/main/protection/required_status_checks');
+    const names=new Set<string>();
+    for(const row of Array.isArray(x.checks)?x.checks:[]) { const context=str(asObject(row).context);if(context) names.add(context); }
+    for(const context of Array.isArray(x.contexts)?x.contexts:[]) if(typeof context==='string') names.add(context);
+    return {known:true,names:[...names]};
+  }catch{return {known:false,names:[]};}
+}
+async function threadsFor(number:number):Promise<number|null> {
+  if(!TOKEN) return null;
+  const query=`query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){pageInfo{hasNextPage}nodes{isResolved}}}}}`;
+  try {
+    const response=await fetch('https://api.github.com/graphql',{method:'POST',headers:{...HEADERS,'Content-Type':'application/json'},body:JSON.stringify({query,variables:{owner:OWNER,repo:REPO,number}}),cache:'no-store',signal:AbortSignal.timeout(8000)});
+    if(!response.ok) return null;
+    const body=asObject(await response.json());
+    if(Array.isArray(body.errors)&&body.errors.length) return null;
+    const connection=asObject(asObject(asObject(body.data).repository).pullRequest).reviewThreads;
+    const result=asObject(connection);
+    if(asObject(result.pageInfo).hasNextPage===true || !Array.isArray(result.nodes)) return null;
+    return result.nodes.filter((node:unknown)=>asObject(node).isResolved!==true).length;
+  }catch{return null;}
+}
+async function readPR(number:number, required:{known:boolean;names:string[]}):Promise<PrStatus> {
+  const url=`https://github.com/${OWNER}/${REPO}/pull/${number}`;
+  try {
+    const p=await github(`/pulls/${number}`);
+    const head=str(asObject(p.head).sha);
+    const base=str(asObject(p.base).sha);
+    const errors:string[]=[];
+    const requests=await Promise.allSettled([
+      head ? github(`/commits/${head}/check-runs?per_page=100`) : Promise.reject(Error('No head SHA')),
+      head ? github(`/compare/main...${head}`) : Promise.reject(Error('No head SHA')),
+      threadsFor(number),
+    ]);
+    const [checkResult, compareResult, threadResult]=requests;
+    let checks:CheckState[]=[];
+    let checkCoverage=true;
+    if(checkResult.status==='fulfilled') {
+      const data=checkResult.value;
+      const rows=Array.isArray(data.check_runs) ? data.check_runs : [];
+      checkCoverage=Number(data.total_count) <= rows.length;
+      checks=rows.map((item:unknown)=>{
+        const c=asObject(item);
+        return {name:str(c.name)||'Unnamed check', status:str(c.status)||'unknown',conclusion:str(c.conclusion),url:str(c.html_url)};
+      });
+    }else {checkCoverage=false;errors.push('Current-head check data unavailable');}
+    let behind:number|null=null;
+    if(compareResult.status==='fulfilled' && typeof compareResult.value.behind_by==='number') behind=compareResult.value.behind_by;
+    else errors.push('Main branch comparison unavailable');
+    const review:PrStatus['review']='unverified';
+    let unresolvedThreads:number|null=null;
+    if(threadResult.status==='fulfilled') unresolvedThreads=threadResult.value;
+    // Check-run listing truncation cannot be certified as complete.
+    return {number,title:str(p.title)||`PR #${number}`,url,state:str(p.state)||'unknown',head,base,draft:typeof p.draft==='boolean'?p.draft:null,
+      mergeable:typeof p.mergeable==='boolean'?p.mergeable:null,behind,unresolvedThreads,review,checks,
+      requiredChecksKnown:required.known&&checkCoverage,requiredCheckNames:required.names,error:errors.length?errors.join('; '):null};
+  }catch(e){return {number,title:`PR #${number}`,url,state:'unknown',head:null,base:null,draft:null,mergeable:null,behind:null,unresolvedThreads:null,review:'unverified',checks:[],requiredChecksKnown:false,requiredCheckNames:[],error:e instanceof Error?e.message:'GitHub read failed'};}
+}
+
+// GitHub /reviews returns an array; normalize it separately from object endpoints.
+async function ghArray(path:string):Promise<unknown[]> {
+  const response=await fetch(`${API}${path}`,{headers:HEADERS,cache:'no-store',signal:AbortSignal.timeout(8000)});
+  if(!response.ok) throw Error(`GitHub ${response.status}`);
+  const data:unknown=await response.json();
+  if(!Array.isArray(data))throw Error('Reviews not an array');
+  return data;
+}
+
+async function findVercelDeployment(projectId:string|undefined):Promise<DeploymentObservation|null> {
+  const token=process.env.TRADEOS_VERCEL_READ_TOKEN;
+  if(!token||!projectId) return null;
+  try{
+    const url=new URL('https://api.vercel.com/v6/deployments');url.searchParams.set('projectId',projectId);url.searchParams.set('limit','25');
+    if(process.env.TRADEOS_VERCEL_TEAM_ID) url.searchParams.set('teamId',process.env.TRADEOS_VERCEL_TEAM_ID);
+    const r=await fetch(url,{headers:{Authorization:`Bearer ${token}`},cache:'no-store',signal:AbortSignal.timeout(8000)});
+    if(!r.ok)return null;
+    const body=asObject(await r.json());
+    const matches=(Array.isArray(body.deployments)?body.deployments:[]).map(asObject).filter(d=>d.target!=='production');
+    const deployment=matches[0]; if(!deployment)return null;
+    return {sha:str(asObject(deployment.meta).githubCommitSha),state:str(deployment.readyState)||'unknown',target:str(deployment.target)||'preview',
+      url:typeof deployment.url==='string' && /^[a-z0-9-]+\.vercel\.app$/i.test(deployment.url)?`https://${deployment.url}`:null,
+      observedAt:typeof deployment.createdAt==='number'?new Date(deployment.createdAt).toISOString():null};
+  }catch{return null;}
+}
+
+async function workflowRuns():Promise<BetaSnapshot['workflowRuns']>{
+  try {
+    const x=await github('/actions/workflows/beta-evidence.yml/runs?per_page=10');
+    return (Array.isArray(x.workflow_runs)?x.workflow_runs:[]).map((item:unknown)=>{
+      const v=asObject(item);return {id:Number(v.id),url:str(v.html_url)||`https://github.com/${OWNER}/${REPO}/actions/workflows/beta-evidence.yml`,
+        name:str(v.name)||'Beta Evidence',conclusion:str(v.conclusion),head:str(v.head_sha),createdAt:str(v.created_at)||''};
+    }).filter(r=>Number.isInteger(r.id));
+  }catch{return [];}
+}
+
+export async function getBetaSnapshot():Promise<BetaSnapshot> {
+  const [required, reviews] = await Promise.all([
+    requiredCheckNames(),
+    Promise.all(PR_NUMBERS.map(async number=>{
+      try{return [number,await ghArray(`/pulls/${number}/reviews?per_page=100`)] as const;}catch{return [number,null] as const;}
+    }))
+  ]);
+  const reviewByPr=new Map<number,unknown[]|null>(reviews);
+  const [prs,runs,api,web]=await Promise.all([
+    Promise.all(PR_NUMBERS.map(n=>readPR(n,required))),
+    workflowRuns(),
+    findVercelDeployment(process.env.TRADEOS_VERCEL_STAGING_API_PROJECT_ID),
+    findVercelDeployment(process.env.TRADEOS_VERCEL_STAGING_WEB_PROJECT_ID),
+  ]);
+  for(const pr of prs){
+    const rows=reviewByPr.get(pr.number);
+    if(rows){
+      const latest=new Map<string,string>();
+      for(const entry of rows){const r=asObject(entry);const login=str(asObject(r.user).login);const state=str(r.state);
+        if(login&&state&&!login.endsWith('[bot]')&&!login.toLowerCase().includes('coderabbit')&&!login.toLowerCase().includes('copilot'))latest.set(login,state);
+      }
+      pr.review=[...latest.values()].includes('CHANGES_REQUESTED')?'changes-requested':([...latest.values()].includes('APPROVED')?'approved':'unverified');
+    }
+  }
+  const errors=prs.filter(p=>p.error).map(p=>`#${p.number}: ${p.error}`);
+  if(!required.known)errors.push('Required branch-check policy could not be read; merge gate unverified.');
+  if(!TOKEN)errors.push('GitHub review threads require TRADEOS_GITHUB_READ_TOKEN; thread state unverified.');
+  return {fetchedAt:new Date().toISOString(),prs,gates:releaseGates,
+    deployments:{api,web,runtimeBindingIdentity:null},workflowRuns:runs,errors};
+}
