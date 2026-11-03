@@ -314,6 +314,35 @@ describe("JobExpensesService", () => {
     })).rejects.toMatchObject({ statusCode: 400 });
   });
 
+  it("returns the already linked receipt when a concurrent identical request wins the row lock", async () => {
+    const receiptStoragePath = "job-expenses/org-1/10000000-0000-0000-0000-000000000001/expense-1/receipt-11111111-1111-4111-8111-111111111111.pdf";
+    mockDb.jobExpense.findFirst
+      .mockResolvedValueOnce(expenseRow())
+      .mockResolvedValueOnce(expenseRow({ receiptStoragePath, receiptFileName: "bill.pdf", receiptContentType: "application/pdf", receiptSizeBytes: 2048 }));
+    const linked = await service.attachReceipt({
+      id: "expense-1", jobId: JOB, orgId: ORG, receiptStoragePath,
+      receiptFileName: "bill.pdf", receiptContentType: "application/pdf", receiptSizeBytes: 2048,
+    });
+    expect(linked.receiptStoragePath).toBe(receiptStoragePath);
+    expect(mockDb.$queryRaw).toHaveBeenCalled();
+    expect(mockDb.jobExpense.update).not.toHaveBeenCalled();
+    expect(mockDb.jobExpenseEvent.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a competing receipt path detected under the expense row lock", async () => {
+    const supplied = "job-expenses/org-1/10000000-0000-0000-0000-000000000001/expense-1/receipt-11111111-1111-4111-8111-111111111111.pdf";
+    const competing = "job-expenses/org-1/10000000-0000-0000-0000-000000000001/expense-1/receipt-22222222-2222-4222-8222-222222222222.pdf";
+    mockDb.jobExpense.findFirst
+      .mockResolvedValueOnce(expenseRow())
+      .mockResolvedValueOnce(expenseRow({ receiptStoragePath: competing }));
+    await expect(service.attachReceipt({
+      id: "expense-1", jobId: JOB, orgId: ORG, receiptStoragePath: supplied,
+      receiptFileName: "bill.pdf", receiptContentType: "application/pdf", receiptSizeBytes: 2048,
+    })).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockDb.jobExpense.update).not.toHaveBeenCalled();
+    expect(mockDb.jobExpenseEvent.create).not.toHaveBeenCalled();
+  });
+
   it("soft-voids expenses with actor provenance and excludes them from actual costs", async () => {
     mockDb.jobExpense.findFirst.mockResolvedValue(expenseRow());
     mockDb.jobExpense.update.mockResolvedValue(expenseRow({ voidedAt: new Date(), voidedById: ACTOR }));
