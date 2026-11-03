@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
   // the repo root's docs-governance tooling package.
   experimental: {
     externalDir: true,
+    // Allow validated 4 MiB private brand images plus multipart framing,
+    // while staying below the hosted function request limit.
+    serverActions: { bodySizeLimit: "4.25mb" },
   },
   turbopack: {
     root: path.join(__dirname, ".."),
