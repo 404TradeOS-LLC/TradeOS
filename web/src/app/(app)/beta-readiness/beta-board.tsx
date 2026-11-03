@@ -74,5 +74,5 @@ export function BetaBoard({snapshot}:{snapshot:BetaSnapshot}){
       {snapshot.errors.length>0&&<div role="status" className="mt-6 rounded-xl border border-amber-400/20 bg-[#261e17] p-4"><p className="text-xs font-semibold uppercase tracking-widest text-amber-300">Unverified data sources</p><div className="mt-2 space-y-1">{snapshot.errors.map((e,i)=><p key={i} className="text-xs text-slate-300">{e}</p>)}</div></div>}
       <p className="mt-6 text-center text-xs text-slate-500">TradeOS Beta Control · Read-only by design · No database writes, dispatch, promotion or merge endpoints</p>
     </div>
-  </div>
+  </div>;
 }
