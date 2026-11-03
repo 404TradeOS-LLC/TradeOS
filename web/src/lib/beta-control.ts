@@ -35,6 +35,49 @@ export function parseRequiredCheckPolicy(payload: unknown): { known: boolean; na
   const bindings = [...byName.entries()].map(([name, ids]) => ({ name, integrationIds: [...ids] }));
   return { known: true, names: bindings.map(b => b.name), bindings };
 }
+
+// Maps one Statuses API entry to a CheckState, or null when malformed.
+// Commit statuses carry no app identity, so the mapped row always has
+// appId null: evaluateChecks already fails a bound requirement closed for
+// null appIds, while an unbound requirement accepts the row like any other
+// success. Callers skip nulls.
+export function commitStatusToCheck(status: unknown): CheckState | null {
+  if (!status || typeof status !== 'object') return null;
+  const row = status as Record<string, unknown>;
+  if (typeof row.context !== 'string' || !row.context) return null;
+  if (row.state !== 'pending' && row.state !== 'success' && row.state !== 'error' && row.state !== 'failure') return null;
+  return {
+    name: row.context,
+    status: row.state === 'pending' ? 'queued' : 'completed',
+    conclusion: row.state === 'success' ? 'success' : row.state === 'pending' ? null : 'failure',
+    url: typeof row.target_url === 'string' ? row.target_url : null,
+    appId: null,
+  };
+}
+
+// Pure Vercel list-deployments helpers, kept here for testability (the
+// reader module is server-only and cannot be imported by node tests).
+// firstStagingDeployment mirrors the board's staging-match criteria:
+// non-production target with a staging branch ref, first match in list
+// order (newest first). vercelDeploymentsNextCursor reads the list cursor
+// (a millisecond timestamp) or null when paging ends or is malformed.
+export function firstStagingDeployment(deployments: unknown): Record<string, unknown> | null {
+  if (!Array.isArray(deployments)) return null;
+  for (const item of deployments) {
+    if (!item || typeof item !== 'object') continue;
+    const d = item as Record<string, unknown>;
+    const meta = d.meta;
+    if (d.target !== 'production' && meta && typeof meta === 'object' && (meta as Record<string, unknown>).githubCommitRef === 'staging') return d;
+  }
+  return null;
+}
+export function vercelDeploymentsNextCursor(body: unknown): number | null {
+  if (!body || typeof body !== 'object') return null;
+  const pagination = (body as Record<string, unknown>).pagination;
+  if (!pagination || typeof pagination !== 'object') return null;
+  const next = (pagination as Record<string, unknown>).next;
+  return typeof next === 'number' && Number.isFinite(next) ? next : null;
+}
 export type ReleaseGate = { id: string; phase: string; label: string; description: string; state: EvidenceState; proof: string | null; action: string };
 export type DeploymentObservation = { sha: string | null; state: string; target: string; url: string | null; observedAt: string | null };
 export type BetaSnapshot = {

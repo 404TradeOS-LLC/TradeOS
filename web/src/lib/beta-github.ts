@@ -1,5 +1,5 @@
 import 'server-only';
-import { releaseGates, parseRequiredCheckPolicy, type BetaSnapshot, type CheckState, type PrStatus, type DeploymentObservation, type RequiredCheckBinding } from './beta-control';
+import { releaseGates, parseRequiredCheckPolicy, commitStatusToCheck, firstStagingDeployment, vercelDeploymentsNextCursor, type BetaSnapshot, type CheckState, type PrStatus, type DeploymentObservation, type RequiredCheckBinding } from './beta-control';
 
 const OWNER='404TradeOS-LLC';
 const REPO='TradeOS';
@@ -45,6 +45,27 @@ async function threadsFor(number:number):Promise<number|null> {
     return result.nodes.filter((node:unknown)=>asObject(node).isResolved!==true).length;
   }catch{return null;}
 }
+async function commitStatuses(head: string): Promise<CheckState[]> {
+  // Statuses are a separate API surface from check runs: a required context
+  // published only as a commit status is invisible to the check-runs read.
+  // Rows map with appId null (see commitStatusToCheck), so a status can
+  // satisfy only an unbound requirement, never a bound one.
+  const rows: CheckState[] = [];
+  let next: string | null = `${API}/commits/${head}/statuses?per_page=100`;
+  for (let page = 0; next && page < 10; page++) {
+    const response: Response = await fetch(next, { headers: HEADERS, cache: 'no-store', signal: AbortSignal.timeout(8000) });
+    if (!response.ok) throw new Error(`GitHub ${response.status} for commit statuses`);
+    const data: unknown = await response.json();
+    if (!Array.isArray(data)) throw new Error('Commit statuses not an array');
+    for (const item of data) {
+      const mapped = commitStatusToCheck(item);
+      if (mapped) rows.push(mapped);
+    }
+    next = response.headers.get('link')?.match(/<([^>]+)>;\s*rel="next"/)?.[1] ?? null;
+  }
+  if (next) throw new Error('Commit status pagination incomplete');
+  return rows;
+}
 async function readPR(number:number, required:{known:boolean;names:string[];bindings:RequiredCheckBinding[]}):Promise<PrStatus> {
   const url=`https://github.com/${OWNER}/${REPO}/pull/${number}`;
   try {
@@ -56,8 +77,9 @@ async function readPR(number:number, required:{known:boolean;names:string[];bind
       head ? github(`/commits/${head}/check-runs?per_page=100`) : Promise.reject(Error('No head SHA')),
       head ? github(`/compare/main...${head}`) : Promise.reject(Error('No head SHA')),
       threadsFor(number),
+      head ? commitStatuses(head) : Promise.reject(Error('No head SHA')),
     ]);
-    const [checkResult, compareResult, threadResult]=requests;
+    const [checkResult, compareResult, threadResult, statusResult]=requests;
     let checks:CheckState[]=[];
     const checkCoverage=checkResult.status==='fulfilled' &&
       Array.isArray(checkResult.value.check_runs) &&
@@ -73,6 +95,8 @@ async function readPR(number:number, required:{known:boolean;names:string[];bind
         return {name:str(c.name)||'Unnamed check', status:str(c.status)||'unknown',conclusion:str(c.conclusion),url:str(c.html_url),appId:typeof app.id==='number'&&Number.isInteger(app.id)?app.id:null};
       });
     }else {errors.push('Current-head check data unavailable');}
+    if(statusResult.status==='fulfilled') checks.push(...statusResult.value);
+    else if(head) errors.push('Commit status data unavailable');
     let behind:number|null=null;
     if(compareResult.status==='fulfilled' && typeof compareResult.value.behind_by==='number') behind=compareResult.value.behind_by;
     else errors.push('Main branch comparison unavailable');
@@ -106,16 +130,29 @@ async function findVercelDeployment(projectId:string|undefined):Promise<Deployme
   const token=process.env.TRADEOS_VERCEL_READ_TOKEN;
   if(!token||!projectId) return null;
   try{
-    const url=new URL('https://api.vercel.com/v6/deployments');url.searchParams.set('projectId',projectId);url.searchParams.set('limit','25');
-    if(process.env.TRADEOS_VERCEL_TEAM_ID) url.searchParams.set('teamId',process.env.TRADEOS_VERCEL_TEAM_ID);
-    const r=await fetch(url,{headers:{Authorization:`Bearer ${token}`},cache:'no-store',signal:AbortSignal.timeout(8000)});
-    if(!r.ok)return null;
-    const body=asObject(await r.json());
-    const matches=(Array.isArray(body.deployments)?body.deployments:[]).map(asObject).filter(d=>d.target!=='production'&&asObject(d.meta).githubCommitRef==='staging');
-    const deployment=matches[0]; if(!deployment)return null;
-    return {sha:str(asObject(deployment.meta).githubCommitSha),state:str(deployment.readyState)||'unknown',target:str(deployment.target)||'preview',
-      url:typeof deployment.url==='string' && /^[a-z0-9-]+\.vercel\.app$/i.test(deployment.url)?`https://${deployment.url}`:null,
-      observedAt:typeof deployment.createdAt==='number'?new Date(deployment.createdAt).toISOString():null};
+    // Page through deployments with a fixed bound: the first page alone can
+    // miss the latest staging deployment once more than 25 newer
+    // deployments exist. The list cursor is a millisecond timestamp passed
+    // back as `until`; stop at the first staging match, and report
+    // unavailable only after the bound is exhausted.
+    let until:number|null=null;
+    for(let page=0;page<4;page++){
+      const url=new URL('https://api.vercel.com/v6/deployments');url.searchParams.set('projectId',projectId);url.searchParams.set('limit','25');
+      if(until!==null) url.searchParams.set('until',String(until));
+      if(process.env.TRADEOS_VERCEL_TEAM_ID) url.searchParams.set('teamId',process.env.TRADEOS_VERCEL_TEAM_ID);
+      const r=await fetch(url,{headers:{Authorization:`Bearer ${token}`},cache:'no-store',signal:AbortSignal.timeout(8000)});
+      if(!r.ok)return null;
+      const body=asObject(await r.json());
+      const deployment=firstStagingDeployment(body.deployments);
+      if(deployment){
+        return {sha:str(asObject(deployment.meta).githubCommitSha),state:str(deployment.readyState)||'unknown',target:str(deployment.target)||'preview',
+          url:typeof deployment.url==='string' && /^[a-z0-9-]+\.vercel\.app$/i.test(deployment.url)?`https://${deployment.url}`:null,
+          observedAt:typeof deployment.createdAt==='number'?new Date(deployment.createdAt).toISOString():null};
+      }
+      until=vercelDeploymentsNextCursor(body);
+      if(until===null)return null;
+    }
+    return null;
   }catch{return null;}
 }
 

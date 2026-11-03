@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { gatePromotion, nextSafeAction, evaluateChecks, parseRequiredCheckPolicy, releaseGates, type PrStatus } from './beta-control.ts';
+import { gatePromotion, nextSafeAction, evaluateChecks, parseRequiredCheckPolicy, commitStatusToCheck, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
 
 const candidate: PrStatus = { number: 810, title:'Job handoff', url:'https://github.com/404TradeOS-LLC/TradeOS/pull/810', state:'open', head:'a'.repeat(40), base:'b'.repeat(40), draft:false, mergeable:true, behind:0, unresolvedThreads:0, review:'approved', checks:[{name:'CI', status:'completed', conclusion:'success', url:null}], requiredChecksKnown:true, requiredCheckNames:['CI'], error:null };
 
@@ -78,4 +78,31 @@ test('superseded infrastructure lanes must never recommend merging', () => {
 });
 test('handoff migration remains protected from replay', () => {
   assert.equal(releaseGates.some(g=>/replay/i.test(g.description) && /handoff/i.test(g.description)),true);
+});
+test('commit status maps without app identity', () => {
+  assert.deepEqual(commitStatusToCheck({ context:'CI', state:'success', target_url:'https://example.test/run/1' }), { name:'CI', status:'completed', conclusion:'success', url:'https://example.test/run/1', appId:null });
+  assert.deepEqual(commitStatusToCheck({ context:'CI', state:'pending', target_url:null }), { name:'CI', status:'queued', conclusion:null, url:null, appId:null });
+  assert.deepEqual(commitStatusToCheck({ context:'CI', state:'failure', target_url:'https://example.test/run/2' }), { name:'CI', status:'completed', conclusion:'failure', url:'https://example.test/run/2', appId:null });
+  assert.equal(commitStatusToCheck({ context:'CI', state:'weird' }), null);
+  assert.equal(commitStatusToCheck({ state:'success' }), null);
+  assert.equal(commitStatusToCheck(null), null);
+});
+test('commit status satisfies only an unbound required check', () => {
+  const statusCheck = { name:'CI', status:'completed', conclusion:'success', url:null, appId:null };
+  assert.equal(evaluateChecks({ ...candidate, requiredChecks:[{ name:'CI', integrationIds:[] }], checks:[statusCheck] }).state, 'verified');
+  assert.equal(evaluateChecks({ ...candidate, requiredChecks:[{ name:'CI', integrationIds:[15368] }], checks:[statusCheck] }).state, 'blocked');
+});
+test('vercel staging lookup helpers keep match criteria and paging cursor', () => {
+  const deployments = [
+    { target:'production', meta:{ githubCommitRef:'staging' } },
+    { target:'preview', meta:{ githubCommitRef:'main' } },
+    { target:'preview', meta:{ githubCommitRef:'staging', githubCommitSha:'abc' } },
+  ];
+  assert.deepEqual(firstStagingDeployment(deployments), deployments[2]);
+  assert.equal(firstStagingDeployment([{ target:'preview', meta:null }]), null);
+  assert.equal(firstStagingDeployment('nope'), null);
+  assert.equal(vercelDeploymentsNextCursor({ pagination:{ next: 1762000000000 } }), 1762000000000);
+  assert.equal(vercelDeploymentsNextCursor({ pagination:{} }), null);
+  assert.equal(vercelDeploymentsNextCursor({ pagination:{ next:'soon' } }), null);
+  assert.equal(vercelDeploymentsNextCursor(null), null);
 });
