@@ -55,6 +55,11 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
   const [isSaving, setIsSaving] = useState(false);
   const [isAssetSaving, setIsAssetSaving] = useState(false);
   const [busyBrandAssetKey, setBusyBrandAssetKey] = useState<BrandStudioUploadKey | null>(null);
+  // Replacing an image returns the same canonical proxy URL, so an unchanged
+  // src would leave the old bytes mounted. Bumping a slot's revision remounts
+  // its preview after a successful upload, forcing a fresh no-store request,
+  // while the persisted profile keeps the canonical URL untouched.
+  const [brandAssetPreviewRevision, setBrandAssetPreviewRevision] = useState<Partial<Record<BrandStudioUploadKey, number>>>({});
   const [isPending, startTransition] = useTransition();
 
   const dirty = JSON.stringify(settings) !== JSON.stringify(savedSettings);
@@ -157,6 +162,9 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
         const profile = applyBrandStudioUpload(current.profile, assetKey, uploaded.url!);
         return { ...current, profile, preview: buildLocalBrandPreview(profile, current.documentSettings, current.assets) };
       });
+      // The upload succeeded even if the profile write below fails, so remount
+      // the preview now: the proxy already serves the replacement bytes.
+      setBrandAssetPreviewRevision((current) => ({ ...current, [assetKey]: (current[assetKey] ?? 0) + 1 }));
       try {
         await persistBrandAssetProfile(assetKey, uploaded.url);
         setStatusTone("success");
@@ -417,7 +425,13 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
                       <div className="flex h-28 items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-muted/25">
                         {url ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={url} alt={`${slot.label} preview`} className="max-h-full max-w-full object-contain" loading="lazy" />
+                          <img
+                            key={`brand-asset-preview-${slot.assetKey}-${brandAssetPreviewRevision[slot.assetKey] ?? 0}`}
+                            src={url}
+                            alt={`${slot.label} preview`}
+                            className="max-h-full max-w-full object-contain"
+                            loading="lazy"
+                          />
                         ) : (
                           <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
                             <ImagePlus className="h-6 w-6" />

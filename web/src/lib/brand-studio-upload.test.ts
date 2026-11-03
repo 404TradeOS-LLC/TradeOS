@@ -56,6 +56,21 @@ test("Brand Studio exposes real file controls, uses the existing protected actio
   assert.match(source, /Use image URL/);
 });
 
+test("replacing an uploaded image remounts the slot preview instead of reusing the stale mounted image", () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const source = fs.readFileSync(path.join(here, "../components/brand-studio/brand-studio-console.tsx"), "utf8");
+  const uploadFn = source.indexOf("async function uploadBrandFile");
+  const nextFn = source.indexOf("async function handleBrandFileInput", uploadFn);
+  const bump = source.indexOf(
+    "setBrandAssetPreviewRevision((current) => ({ ...current, [assetKey]: (current[assetKey] ?? 0) + 1 }))",
+    uploadFn,
+  );
+  assert.ok(uploadFn >= 0, "uploadBrandFile exists");
+  assert.ok(bump > uploadFn && bump < nextFn, "upload success bumps the per-slot preview revision");
+  assert.match(source, /key=\{`brand-asset-preview-\$\{slot\.assetKey\}-\$\{brandAssetPreviewRevision\[slot\.assetKey\] \?\? 0\}`\}/);
+  assert.match(source, /src=\{url\}/);
+});
+
 test("Brand Studio file uploads fit the hosted Server Action request budget", () => {
   const config = fs.readFileSync(new URL("../../next.config.ts", import.meta.url), "utf8");
   assert.match(config, /bodySizeLimit:\s*["']4.25mb["']/);
