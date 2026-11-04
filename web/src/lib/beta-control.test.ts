@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { gatePromotion, nextSafeAction, evaluateChecks, parseRequiredCheckPolicy, commitStatusToCheck, collectLatestCommitStatuses, markReviewFetchFailure, isAuthorizedBetaOperator, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
+import { gatePromotion, nextSafeAction, evaluateChecks, parseRequiredCheckPolicy, commitStatusToCheck, collectLatestCommitStatuses, markReviewFetchFailure, isAuthorizedBetaOperator, loadAuthorizedBetaSnapshot, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
 
 const candidate: PrStatus = { number: 810, title:'Job handoff', url:'https://github.com/404TradeOS-LLC/TradeOS/pull/810', state:'open', head:'a'.repeat(40), base:'b'.repeat(40), draft:false, mergeable:true, behind:0, unresolvedThreads:0, review:'approved', checks:[{name:'CI', status:'completed', conclusion:'success', url:null}], requiredChecksKnown:true, requiredCheckNames:['CI'], error:null };
 
@@ -200,8 +200,40 @@ test('beta operator access fails closed on missing, malformed, or ambiguous depl
 });
 
 test('operator org identity matches whole UUID values, not case or substring mismatches', () => {
-  const upper=OPERATOR_ORG.toUpperCase();
-  assert.equal(isAuthorizedBetaOperator('owner', upper, OPERATOR_ORG), true);
-  assert.equal(isAuthorizedBetaOperator('admin', OPERATOR_ORG, '  '+upper+'  '), true);
-  assert.equal(isAuthorizedBetaOperator('owner', OPERATOR_ORG+'-suffix', OPERATOR_ORG), false);
+  const mixed='1f2e3d4c-5b6a-4789-8abc-def012345678';
+  const upper=mixed.toUpperCase();
+  assert.notEqual(upper, mixed, 'fixture must prove case normalization');
+  assert.equal(isAuthorizedBetaOperator('owner', upper, mixed), true);
+  assert.equal(isAuthorizedBetaOperator('admin', mixed, '  '+upper+'  '), true);
+  assert.equal(isAuthorizedBetaOperator('owner', mixed+'-suffix', mixed), false);
+});
+
+test('unauthorized operator route access denies before any platform snapshot read', async () => {
+  let snapshotCalls = 0;
+  let denialCalls = 0;
+  const getSnapshot = async () => { snapshotCalls++; return { label: 'platform-release-metadata' }; };
+  const deny = (): never => { denialCalls++; throw new Error('notFound'); };
+
+  for (const [role, orgId, configured] of [
+    ['owner', CUSTOMER_ORG, OPERATOR_ORG],
+    ['admin', CUSTOMER_ORG, OPERATOR_ORG],
+    ['technician', OPERATOR_ORG, OPERATOR_ORG],
+    ['owner', OPERATOR_ORG, undefined],
+    ['admin', OPERATOR_ORG, '*'],
+  ] as const) {
+    await assert.rejects(loadAuthorizedBetaSnapshot(role, orgId, configured, getSnapshot, deny), /notFound/);
+  }
+  assert.equal(snapshotCalls, 0, 'denied requests must never call the platform collector');
+  assert.equal(denialCalls, 5);
+});
+
+test('authorized platform-organization owner and admin reach snapshot exactly once each', async () => {
+  let snapshotCalls = 0;
+  const getSnapshot = async () => { snapshotCalls++; return { label: 'approved-read-only' }; };
+  const deny = (): never => { throw new Error('unexpected denial'); };
+  for (const role of ['owner','admin']) {
+    const result = await loadAuthorizedBetaSnapshot(role, OPERATOR_ORG, OPERATOR_ORG, getSnapshot, deny);
+    assert.deepEqual(result,{label:'approved-read-only'});
+  }
+  assert.equal(snapshotCalls, 2);
 });
