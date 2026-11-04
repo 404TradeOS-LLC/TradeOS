@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { gatePromotion, nextSafeAction, evaluateChecks, prCardStatus, isBetaReadinessOperatorRole, parseRequiredCheckPolicy, commitStatusToCheck, collectLatestCommitStatuses, markReviewFetchFailure, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
+import { gatePromotion, nextSafeAction, evaluateChecks, prCardStatus, prStatusTileLabel, isBetaReadinessOperatorRole, parseRequiredCheckPolicy, commitStatusToCheck, collectLatestCommitStatuses, markReviewFetchFailure, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
 
 const candidate: PrStatus = { number: 810, title:'Job handoff', url:'https://github.com/404TradeOS-LLC/TradeOS/pull/810', state:'open', head:'a'.repeat(40), base:'b'.repeat(40), draft:false, mergeable:true, behind:0, unresolvedThreads:0, review:'approved', checks:[{name:'CI', status:'completed', conclusion:'success', url:null}], requiredChecksKnown:true, requiredCheckNames:['CI'], error:null };
 
@@ -208,4 +208,25 @@ test('superseded lane stays actionable even when its historical CI cannot be col
   assert.equal(prCardStatus(closed), 'superseded');
   assert.match(nextSafeAction(closed), /superseded|closed without merge/i);
   assert.doesNotMatch(nextSafeAction(closed), /restore.*visibility/i);
+});
+
+
+test('closed PR status tile says disposition instead of mergeability', () => {
+  assert.equal(prStatusTileLabel('closed'), 'Disposition');
+  assert.equal(prStatusTileLabel('open'), 'Mergeability');
+  assert.equal(prStatusTileLabel('unknown'), 'Mergeability');
+});
+
+test('known required-check failure remains blocked despite another collector failure', () => {
+  const knownFailure: PrStatus = {
+    ...candidate,
+    error: 'Review submissions unavailable',
+    checks: [{name:'CI',status:'completed',conclusion:'failure',url:null}],
+  };
+  assert.equal(evaluateChecks(knownFailure).state,'blocked');
+  assert.equal(prCardStatus(knownFailure),'blocked');
+  assert.equal(prCardStatus({
+    ...knownFailure,
+    checks:[{name:'CI',status:'completed',conclusion:'success',url:null}],
+  }),'unverified');
 });
