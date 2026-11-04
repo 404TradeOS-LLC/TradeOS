@@ -56,9 +56,10 @@ test("unauthenticated Field requests return before settings or any job request",
 
 // Settings returns a canonical role, not the raw persisted membership role.
 // Legacy viewer normalizes to technician; never assert that it is denied here.
-// Owner is admitted by the field gate (founder decision 2026-11-02); the
-// remaining roles stay denied.
-for (const role of ["admin", "manager", "dispatcher"]) {
+// Owner is admitted by the field gate (founder decision 2026-11-02), and
+// admin and dispatcher are admitted by the wider gate (founder decision
+// 2026-11-03); the remaining roles stay denied.
+for (const role of ["manager"]) {
   test(`Field role ${role || "missing"} cannot fetch jobs even with a direct job link`, async () => {
     const result = await renderDeniedPage("authenticated-token", role);
     assert.match(result.markup, /Technician workspace/);
@@ -112,9 +113,10 @@ async function renderAllowedPage(token: string, role: string) {
   return { markup: renderToStaticMarkup(result), calls };
 }
 
-// The gate admits exactly technician and owner. Both must proceed past the
-// gate into the job-list load instead of rendering the denied workspace.
-for (const role of ["technician", "owner"]) {
+// The gate admits technician, owner, admin, and dispatcher. All four must
+// proceed past the gate into the job-list load instead of rendering the
+// denied workspace.
+for (const role of ["technician", "owner", "admin", "dispatcher"]) {
   test(`Field role ${role} passes the gate and loads the job list`, async () => {
     const result = await renderAllowedPage("authenticated-token", role);
     assert.doesNotMatch(result.markup, /Technician workspace/);
