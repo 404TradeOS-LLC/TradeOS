@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { gatePromotion, nextSafeAction, evaluateChecks, parseRequiredCheckPolicy, commitStatusToCheck, collectLatestCommitStatuses, markReviewFetchFailure, isAuthorizedBetaOperator, loadAuthorizedBetaSnapshot, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
 
 const candidate: PrStatus = { number: 810, title:'Job handoff', url:'https://github.com/404TradeOS-LLC/TradeOS/pull/810', state:'open', head:'a'.repeat(40), base:'b'.repeat(40), draft:false, mergeable:true, behind:0, unresolvedThreads:0, review:'approved', checks:[{name:'CI', status:'completed', conclusion:'success', url:null}], requiredChecksKnown:true, requiredCheckNames:['CI'], error:null };
@@ -236,4 +237,10 @@ test('authorized platform-organization owner and admin reach snapshot exactly on
     assert.deepEqual(result,{label:'approved-read-only'});
   }
   assert.equal(snapshotCalls, 2);
+});
+
+test('BetaReadinessPage cannot bypass the authorized collector boundary', () => {
+  const source = readFileSync(new URL('../app/(app)/beta-readiness/page.tsx', import.meta.url), 'utf8');
+  assert.match(source, /await loadAuthorizedBetaSnapshot\s*\(/);
+  assert.doesNotMatch(source, /await getBetaSnapshot\s*\(/);
 });
