@@ -69,6 +69,8 @@ test("authorized pilot can only create a draft, never merge",async()=>{
     "/repos/404TradeOS-LLC/TradeOS/pulls",
   ]);
   assert.equal(writes[0].body.tree[0].path,"docs/forge/safe.md");
+  assert.equal(writes[0].body.base_tree,"b".repeat(40));
+  assert.deepEqual(writes[1].body.parents,[mainSha]);
   assert.equal(writes[3].body.base,"main");
   assert.equal(writes[3].body.draft,true);
 });
@@ -136,4 +138,19 @@ test("write tool must retain explicit human approval",async()=>{
   const {readFileSync}=await import("node:fs");
   const text=readFileSync(new URL("../agent/tools/publish_draft_pr.ts",import.meta.url),"utf8");
   assert.match(text,/approval:\s*always\(\)/);
+});
+
+
+test("definitive rejection does not delete a branch with an existing PR",async()=>{
+  const fake=fakeServer({pullFailure:"422",matchingOpenPr:true});
+  const result=await createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl});
+  assert.equal(result.number,999);
+  assert.equal(fake.calls.filter(c=>c.method==="DELETE").length,0);
+});
+
+test("ambiguous publication failure can reconcile an already-created draft",async()=>{
+  const fake=fakeServer({pullFailure:"timeout",matchingOpenPr:true});
+  const result=await createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl});
+  assert.equal(result.draft,true);
+  assert.equal(fake.calls.filter(c=>c.method==="DELETE").length,0);
 });
