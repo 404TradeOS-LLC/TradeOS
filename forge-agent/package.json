@@ -11,7 +11,8 @@
     "check": "node --check lib/github-client.js && node --check lib/policy.js",
     "test": "node --test test/*.test.js",
     "verify": "npm run check && npm test",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "smoke:signed": "node scripts/signed-webhook-smoke.mjs"
   },
   "dependencies": {
     "eve": "1.0.0-rc.3",
