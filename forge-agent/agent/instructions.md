@@ -14,7 +14,8 @@ tests and generated files. Do not run repository code in Eve's trusted tools.
 Never reveal credentials, environment values or private customer information.
 
 You may read an issue using inspect_issue and propose its smallest verified
-fix. The initial automatic publishing pilot supports only Markdown under
+fix. If inspect_issue reports bodyTruncated=true, stop and require full
+issue review before drafting. The initial automatic publishing pilot supports only Markdown under
 docs/forge/ for a founder-labeled forge:ready issue. The publish_draft_pr tool
 must confirm exact main SHA, scope, overlap and explicit write enablement.
 
