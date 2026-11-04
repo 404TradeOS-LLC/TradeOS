@@ -36,16 +36,17 @@ export type ReceiptObjectVerification = "exists" | "missing" | "unavailable" | "
 /**
  * Verify that the exact receipt object exists in storage before its path is
  * persisted, following the same authenticated Supabase storage fetch the PDF
- * logo loader uses. Returns "skipped" when storage is not configured at all
- * (local/test environments), so verification never breaks unconfigured
- * environments; in configured deployments a missing object is a 400 and any
- * other verification failure is a 502. The path is already constrained to
+ * logo loader uses. In every environment an absent storage URL or
+ * service key is "unavailable" and must fail closed. A missing object is a 400
+ * and any other verification failure is a 502. Unit tests inject an explicit
+ * verifier rather than silently bypassing missing credentials.
+ * The path is already constrained to
  * this expense's namespace and a receipt-UUID filename before this runs.
  */
 export async function verifyReceiptObjectExists(storagePath: string): Promise<ReceiptObjectVerification> {
   const base = process.env.SUPABASE_URL?.trim();
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (!base || !secret) return "skipped";
+  if (!base || !secret) return "unavailable";
   let origin: URL;
   try {
     origin = new URL(base);
@@ -423,7 +424,9 @@ export class JobExpensesService {
     // can neither be cleared nor replaced through this API) and 404 on download.
     const verification = await this.receiptObjectExists(input.receiptStoragePath);
     if (verification === "missing") throw new ApiError(400, "Receipt object was not found in storage");
-    if (verification === "unavailable") throw new ApiError(502, "Receipt storage verification is unavailable");
+    // Only a positively verified object can be linked. In particular a
+    // legacy "skipped" result must never be interpreted as existence.
+    if (verification !== "exists") throw new ApiError(502, "Receipt storage verification is unavailable");
     return runInDatabaseTransaction(this.db, async (tx) => {
       // Re-read under the same row lock as update/void. Another request may
       // have linked a receipt after the initial read; same-path retries are
