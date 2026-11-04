@@ -14,9 +14,11 @@ const uuidPathParam = (_req: Request, _res: Response, next: NextFunction, value:
 };
 
 export const jobsRouter = Router();
+jobsRouter.param("proposalId", uuidPathParam);
 jobsRouter.param("jobId", uuidPathParam);
 jobsRouter.param("assignmentId", uuidPathParam);
 jobsRouter.post("/", asyncHandler(jobsController.create));
+jobsRouter.post("/from-proposal/:proposalId", asyncHandler(jobsController.createFromAcceptedProposal));
 jobsRouter.get("/", asyncHandler(jobsController.list));
 jobsRouter.get("/dispatch-summary", asyncHandler(jobsController.dispatchSummary));
 jobsRouter.patch("/:jobId/tasks/:taskId/status", asyncHandler(projectTasksController.updateAssignedStatus));
