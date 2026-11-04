@@ -423,7 +423,13 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/customers`
 - `/api/v1/projects`
 - `/api/v1/jobs` (including `GET /api/v1/jobs/dispatch-summary`, a read-only org-wide dispatch-attention aggregate). Job mutations use named lifecycle routes backed by the centralized transition contract in `app/modules/jobs/lifecycle.ts`: schedule/reschedule, dispatch, travel, arrival, pause/resume, completion, cancellation, reopen, and ready-for-invoice. Completion remains `on_site -> completed`; the route surface does not expose generic arbitrary status mutation.
-- `/api/v1/jobs/:jobId/expenses` — org-scoped job-expense CRUD backed by `app/modules/expenses/service.ts` (tenant scope enforced through the job's organization; cross-org access is a 404). `GET /` lists a job's expenses newest-incurred first; `POST /` creates one (`amountCents` positive integer cents, `category` from the estimate cost-type vocabulary, optional `vendor`/`receiptNote`, `incurredOn` as `YYYY-MM-DD`); `GET /:expenseId`, `PATCH /:expenseId`, `DELETE /:expenseId` (204) act on single records. `GET /summary` returns the cents-exact actual-vs-estimate rollup: summed actuals, per-category totals, expense count, and the project's latest estimate version total (null when the project has no estimate).
+- `/api/v1/jobs/:jobId/expenses` — authenticated, org/job-scoped expense endpoints. All expense IDs are additionally checked against the job in the URL (cross-job and cross-org access fails closed):
+  - `GET /`: list expenses, including soft-voided records for audit history; `GET /summary`: active contractor-paid `actualCents` and `byCategoryCents`, `customerPaidCents`, active `expenseCount`, latest project quoted `estimatedCents` and `varianceCents` (null without a quote). `profitCents` and `recognizedRevenueCents` are null because verified job-level earned revenue is unavailable.
+  - `POST /`: positive integer `amountCents` (max 2,147,483,647), optional `currency: "USD"`, `description`, category from estimate vocabulary, `paymentResponsibility: "contractor" | "customer"` (contractor default), `vendor`, `receiptNote`, `incurredOn` (`YYYY-MM-DD`), and optional UUID `idempotencyKey`. The unique (org, job, key) insert is atomic; a retry must match the original payload or returns 409.
+  - `GET /:expenseId`: job-scoped detail; `PATCH /:expenseId`: validate and update the cost fields with append-only provenance; `DELETE /:expenseId` optionally accepts `{reason}`, returns 204, and soft-voids without deleting history.
+  - `POST /:expenseId/receipt`: link exactly one private receipt using `receiptStoragePath`, `receiptFileName`, `receiptContentType` (PNG/JPEG/PDF), and `receiptSizeBytes` (max 4 MiB); path must match the authenticated org/job/expense. `GET /:expenseId/audit` lists immutable change events for that same scope.
+  - Web-only `GET /api/job-expense-receipts/:jobId/:expenseId` verifies the session through the job-scoped expense API before using private Storage, checks the exact generated namespace and size, and returns a noncached attachment. Upload occurs in a server action after successful expense authorization, with magic-byte validation. A failed upload does not roll back the saved expense; retrying the same form reuses its idempotency key.
+
   Job-number allocation and technician schedule serialization retain their existing transaction-scoped PostgreSQL advisory-lock behavior; the lock statements execute through Prisma `$executeRaw` because `pg_advisory_xact_lock()` returns `void`. This is an execution-mode correction only and does not change any route, payload, lifecycle transition, or permission.
 - `/api/v1/schedule`
 - `/api/v1/notes`
@@ -1134,3 +1140,24 @@ queue dismissal, automatic retry, financial change or production migration.
 This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
+
+## Accepted proposal → job API (PR #810, proposed)
+
+`POST /api/v1/jobs/from-proposal/:proposalId` requires an authenticated
+owner/admin/dispatcher and a UUID proposal id. JSON body is strictly
+`{"serviceAddressId":"<customer-owned-service-address-uuid>"}`; caller cannot
+supply organization, project, customer, commercial scope, pricing or status.
+The accepted proposal must belong to the caller's organization. The service
+returns a Job DTO (`sourceProposalId`, `acceptedBaselineJson` included).
+Repeated requests return the same job; draft/declined proposals and mismatched
+customer/service-address ownership fail. A successful new job is unscheduled
+and does not automatically dispatch crews or invoice. Migration
+`20261028151000_accepted_proposal_job_handoff` is required before runtime use.
+This API is proposed on an unmerged branch, not yet available on production.
+
+## Accepted-scope conversion validation — 2026-10-30
+
+`POST /api/v1/jobs/from-proposal/:proposalId` returns HTTP 409 before creating
+a new Job if the accepted proposal's `scopeOfWork` is null, empty or whitespace.
+It never fills missing accepted scope from the current Project. An existing
+source-linked Job is still returned on retry, without creating another Job.

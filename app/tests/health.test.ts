@@ -40,6 +40,11 @@ describe("production health surfaces", () => {
       { table_name: "contracts", column_name: "contract_amount" },
       { table_name: "contracts", column_name: "snapshot_json" },
       { table_name: "contracts", column_name: "signature_user_agent_reported" },
+      { table_name: "job_expenses", column_name: "payment_responsibility" },
+      { table_name: "job_expenses", column_name: "receipt_storage_path" },
+      { table_name: "job_expenses", column_name: "idempotency_key" },
+      { table_name: "job_expenses", column_name: "voided_at" },
+      { table_name: "job_expense_events", column_name: "expense_id" },
     ]);
     const payload = await checkReadiness(new Date("2026-08-12T22:00:00.000Z"));
     expect(queryRawUnsafe).toHaveBeenCalledWith("SELECT 1");
@@ -77,5 +82,31 @@ describe("production health surfaces", () => {
       "health.readiness_failed",
       expect.objectContaining({ component: "schema" }),
     );
+  });
+
+  it("fails closed when expense migration columns are missing", async () => {
+    queryRawUnsafe.mockResolvedValueOnce([{ "?column?": 1 }]);
+    queryRawUnsafe.mockResolvedValueOnce([
+      { table_name: "estimates", column_name: "tax_pct" },
+      { table_name: "estimates", column_name: "tax_amount" },
+      { table_name: "invoices", column_name: "subtotal" },
+      { table_name: "invoices", column_name: "tax_pct" },
+      { table_name: "invoices", column_name: "tax_amount" },
+      { table_name: "contracts", column_name: "contract_amount" },
+      { table_name: "contracts", column_name: "snapshot_json" },
+      { table_name: "contracts", column_name: "signature_user_agent_reported" },
+    ]);
+
+    const payload = await checkReadiness(new Date("2026-08-12T22:00:00.000Z"));
+
+    expect(payload.status).toBe("not_ready");
+    expect(payload.checks.database.status).toBe("ok");
+    expect(payload.checks.schema).toEqual(expect.objectContaining({
+      status: "error",
+      missingColumns: expect.arrayContaining([
+        "job_expenses.payment_responsibility",
+        "job_expense_events.expense_id",
+      ]),
+    }));
   });
 });

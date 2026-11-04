@@ -94,17 +94,20 @@ A first-class scheduled field-execution record stored in `Job`.
 - owns assignments and links to site visits, tasks, notes, and equipment
 - owns job expenses (actual job costs, see below)
 
-## JobExpense
+## JobExpense and JobExpenseEvent
 
-An actual cost incurred against a job, stored in `JobExpense` (migration `20261102020000_add_job_expenses`).
+`JobExpense` records actual costs against a first-class Job (migration baseline `20261102020000_add_job_expenses`, payer `20261102074000_add_job_expense_payment_responsibility`, extension `20261102081500_complete_job_expenses`).
 
-- belongs to one organization and one job; tenant scope is enforced through the job's organization, and cross-org access is a 404
-- amount is integer cents (`amountCents > 0`); totals are summed as integers so actuals are cents-exact
-- category reuses the estimate cost-type vocabulary (`labor`, `material`, `equipment`, `disposal`, `subcontractor`, `other`)
-- vendor and receipt note are free text (no receipt file upload, OCR, or bank sync in v1)
-- incurred date is a calendar date (`incurredOn`); the recording user is kept as `createdById`
-- row-level security is forced; visibility mirrors the job itself (office roles plus technicians assigned to the job), with organization scope inherited through the job join
-- the job cost summary compares summed actuals against the project's latest estimate version by total price; with no estimate, the estimated figure is null, never a fabricated zero
+- Each expense belongs to an organization, job and creator; all detail, edit, receipt and void requests verify that the record matches the authenticated URL job and organization.
+- `amountCents` is positive integer cents within a PostgreSQL integer; `currency` is `USD`. `description`, `vendor`, `receiptNote`, and a calendar date retain human context.
+- Categories reuse the estimate cost-type vocabulary. `paymentResponsibility` is `contractor` or `customer`, defaulting to contractor for historical records; customer-paid entries are tracked but excluded from contractor cost and quote comparisons.
+- Optional `idempotencyKey` is unique per (organization, job), allowing concurrent duplicate create attempts to resolve to the same row when the input matches, and conflict when it differs.
+- A single receipt is linked by private `receiptStoragePath`, `receiptFileName`, `receiptContentType` and `receiptSizeBytes`, validated against job/expense ownership. The browser never receives a service-role Storage credential.
+- `voidedAt`, `voidedById` and `voidReason` preserve a soft-void ledger. Voided records remain visible to authorized staff but do not contribute to active expense totals.
+- Append-only `JobExpenseEvent` records create, edit, receipt-link and void provenance, with forced RLS inherited from the job relationship. Expense-event UPDATE/DELETE is not allowed by policy.
+- The actual-cost summary is integer cents and uses only nonvoid contractor-paid records. The displayed quote comparison is not recognized revenue or accounting profit. `recognizedRevenueCents` and `profitCents` remain null until verified job-level revenue attribution exists.
+- New constraint validation, migrations, receipt Storage and mobile acceptance require staged verification and documented release approval; code committed to a branch is not production deployment.
+
 
 ## Estimate
 
@@ -479,3 +482,17 @@ be recorded from the final head; authored tests alone are not certification.
 The previously out-of-repository staging Team & Time schema is represented by two tracked Prisma migrations before the FORCE migration. `team_time_profiles`, `team_time_shifts` and `team_time_events` retain organization identifiers, audited shift changes and integrity constraints. Fresh databases create all three before FORCE; existing staging tables are preserved. The last migration fails closed if any expected table is missing, preventing permanently recorded no-op FORCE status.
 
 The deployed v6 Edge Function's server-only PostgREST client runs with a service-role secret, which bypasses PostgreSQL RLS even under FORCE. Therefore JWT verification, active membership, organization-bound lookups, supervisor approval checks, job assignment and shift ownership are mandatory service controls. An isolated synthetic transport test exercises denied cross-tenant, unassigned and non-supervisor calls. No direct public client grants, policy escape hatches or production activation are introduced. All code remains unshipped until protected staging review and runtime acceptance.
+
+## Proposal-derived Job source and approval baseline — PR #810 (pending)
+
+The canonical `Job` adds nullable `sourceProposalId` (unique globally) and
+nullable `acceptedBaselineJson` as an additive migration. Standalone jobs
+retain NULL values. An accepted-proposal handoff uses the existing Job
+`orgId/projectId/customerId/serviceAddressId` relations, with one job per
+source proposal and a frozen version-1 customer-approved snapshot (estimate id,
+scope, assumptions, exclusions, timeline, Decimal amounts serialized as
+strings, payment milestones, terms and accepted timestamp). It is neither a
+replacement Estimate/Proposal entity nor a costbook repricing operation.
+Tenant and ownership checks precede creation; subsequent job mutations cannot
+reparent a proposal-derived job to a different project, customer, or address.
+The change is unmerged and migration-dependent.
