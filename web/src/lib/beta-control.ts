@@ -8,6 +8,28 @@ export type PrStatus = {
   checks: CheckState[]; requiredChecksKnown: boolean; requiredCheckNames: string[]; requiredChecks?: RequiredCheckBinding[]; error: string | null;
 };
 
+// Reuse the same strict server-visible role policy in the UI's acceptance tests.
+// Unknown/case-mismatched roles never gain control-surface access.
+export function isBetaReadinessOperatorRole(role: unknown): role is 'owner' | 'admin' {
+  return role === 'owner' || role === 'admin';
+}
+
+// PR lanes that were deliberately closed without merging are resolved
+// alternatives, not active merge conflicts. Merging one of those overlapping
+// migration lanes is an unsafe conflict, not a successful release gate.
+export function prCardStatus(pr: PrStatus): string {
+  if (pr.number === 905 || pr.number === 906) {
+    if (pr.state === 'closed') return pr.merged === false ? 'superseded' : 'blocked';
+  }
+  if (pr.state === 'closed') return pr.merged === true ? 'merged' : 'blocked';
+  if (pr.error) return 'unverified';
+  if (pr.draft === true) return 'draft';
+  if (pr.mergeable === false) return 'blocked';
+  const checks = evaluateChecks(pr);
+  if (checks.state === 'verified' && (pr.review !== 'approved' || pr.unresolvedThreads !== 0)) return 'unverified';
+  return checks.state;
+}
+
 // Parses the GET /rules/branches/main response: an array of rule entries, one
 // per rule, each carrying its ruleset id. Only required_status_checks entries
 // contribute; contexts are grouped so one context bound by several rulesets
