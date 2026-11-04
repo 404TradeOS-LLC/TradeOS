@@ -48,12 +48,12 @@ The suite **skips by default**, so green general CI and the mere existence of ei
 To execute after non-production RC authorization (use secret-managed files, never commit or print storage state):
 
 ```bash
-TRADEOS_BETA_CONTROL_ACCEPTANCE=true \\
-TRADEOS_BETA_OWNER_STORAGE_STATE=/secure/test-owner.json \\
-TRADEOS_BETA_TECHNICIAN_STORAGE_STATE=/secure/test-technician.json \\
-TRADEOS_AGENT_BASE_URL=https://<approved-immutable-preview-origin>.vercel.app \\
-TRADEOS_AGENT_ENVIRONMENT=preview \\
-TRADEOS_AGENT_SANITIZED_TENANT=true \\
+TRADEOS_BETA_CONTROL_ACCEPTANCE=true \
+TRADEOS_BETA_OWNER_STORAGE_STATE=/secure/test-owner.json \
+TRADEOS_BETA_TECHNICIAN_STORAGE_STATE=/secure/test-technician.json \
+TRADEOS_AGENT_BASE_URL=https://<approved-immutable-preview-origin>.vercel.app \
+TRADEOS_AGENT_ENVIRONMENT=preview \
+TRADEOS_AGENT_SANITIZED_TENANT=true \
 npx playwright test tests/playwright/beta-readiness.spec.ts
 ```
 
