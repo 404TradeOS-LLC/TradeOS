@@ -10,6 +10,7 @@ related_code:
   - playwright.config.ts
   - tests/playwright/seed.spec.ts
   - tests/playwright/authenticated.spec.ts
+  - tests/playwright/beta-readiness.spec.ts
   - tests/playwright/evidence-links.mjs
   - tests/playwright/target.mjs
   - .github/workflows/playwright-agent-evidence.yml
@@ -96,8 +97,10 @@ Invoice detail surfaces; when a relevant list is empty, the test requires the
 product's truthful empty state instead of inventing a fixture. These checks do
 not create, edit, send, accept, sign, invoice, record payment, pay, schedule, or
 otherwise mutate contractor records. With the current checked-in suite,
-authenticated mode contributes eight tests; together with the logged-out login
-seed, the hosted Chromium run discovers nine tests.
+the general authenticated starter contributes eight tests, plus the logged-out login
+seed. The additional eight Beta Readiness role/viewport tests skip by default
+and **must never be counted as passing** without explicit non-production
+owner/technician acceptance; see [Beta Control Surface](BETA_CONTROL_SURFACE.md).
 
 Before any broader authenticated or mutating exploration, reuse the governed
 [Beta Evidence](BETA_EVIDENCE.md) fixture, non-production data-plane,
