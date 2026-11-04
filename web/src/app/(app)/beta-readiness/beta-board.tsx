@@ -3,24 +3,22 @@
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowUpRight, GitPullRequest, RefreshCw, ShieldAlert, ShieldCheck, GitBranch, Workflow, CircleDot, ChevronDown, ChevronUp, LockKeyhole } from 'lucide-react';
-import { evaluateChecks, gatePromotion, nextSafeAction, type BetaSnapshot, type ReleaseGate, type PrStatus } from '@/lib/beta-control';
+import { evaluateChecks, gatePromotion, nextSafeAction, prCardStatus, type BetaSnapshot, type ReleaseGate, type PrStatus } from '@/lib/beta-control';
 
 const GITHUB='https://github.com/404TradeOS-LLC/TradeOS';
 const WIDTHS=['1440','1024','768','390'];
 function shortSha(sha:string|null){return sha?sha.slice(0,10):'unverified';}
-function statusTone(state:string){return state==='verified'||state==='success'||state==='approved'?'text-emerald-400 bg-emerald-400/10 border-emerald-400/25':state==='blocked'||state==='failure'||state==='changes-requested'?'text-rose-300 bg-rose-400/10 border-rose-400/25':'text-amber-300 bg-amber-400/10 border-amber-400/25';}
+function statusTone(state:string){return state==='superseded'||state==='closed'?'text-slate-300 bg-slate-400/10 border-slate-400/25':state==='verified'||state==='success'||state==='approved'||state==='merged'?'text-emerald-400 bg-emerald-400/10 border-emerald-400/25':state==='blocked'||state==='failure'||state==='changes-requested'?'text-rose-300 bg-rose-400/10 border-rose-400/25':'text-amber-300 bg-amber-400/10 border-amber-400/25';}
 function Status({value}:{value:string}){return <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${statusTone(value)}`}>{value.replaceAll('-',' ')}</span>;}
 function Outbound({href,children}:{href:string;children:React.ReactNode}){return <a className="inline-flex items-center gap-1 font-medium text-[#d79b6b] hover:text-[#f4c8a4] hover:underline" href={href} target="_blank" rel="noopener noreferrer">{children}<ArrowUpRight aria-hidden="true" size={13}/></a>;}
 function Panel({title,eyebrow,children}:{title:string;eyebrow?:string;children:React.ReactNode}){return <section className="rounded-2xl border border-white/10 bg-[#1b1d20] p-5 shadow-[0_10px_40px_rgba(0,0,0,.15)] md:p-6">{eyebrow&&<p className="mb-1 text-[10px] font-bold uppercase tracking-[.22em] text-[#ce956c]">{eyebrow}</p>}<h2 className="mb-4 text-lg font-semibold tracking-tight text-white">{title}</h2>{children}</section>}
 
 function PrCard({pr,active,onChoose}:{pr:PrStatus;active:boolean;onChoose:()=>void}){
-  const checks=evaluateChecks(pr);
-  const reviewsClear=pr.review==='approved'&&pr.unresolvedThreads===0;
-  const tone=pr.draft===true?'draft':pr.mergeable===false?'blocked':checks.state==='verified'&&!reviewsClear?'unverified':checks.state;
+  const tone=prCardStatus(pr);
   return <button type="button" onClick={onChoose} className={`w-full rounded-xl border p-4 text-left transition hover:border-[#b8784c]/65 ${active?'border-[#c48a60] bg-[#2b251f]':'border-white/10 bg-[#121416]'}`} aria-pressed={active}>
     <div className="mb-2 flex items-center justify-between gap-2"><span className="font-mono text-xs text-[#ca9068]">PR #{pr.number}</span><Status value={tone}/></div>
     <p className="line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-slate-100">{pr.title}</p>
-    <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-400"><span className="font-mono">{shortSha(pr.head)}</span><span>·</span><span>{pr.draft===null?'draft unknown':pr.draft?'draft':'ready for review'}</span></div>
+    <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-400"><span className="font-mono">{shortSha(pr.head)}</span><span>·</span><span>{pr.state==='closed'?(pr.merged===false?'closed without merge':'closed'):pr.draft===null?'draft unknown':pr.draft?'draft':'ready for review'}</span></div>
   </button>
 }
 function Detail({pr}:{pr:PrStatus}){
@@ -28,7 +26,7 @@ function Detail({pr}:{pr:PrStatus}){
   return <div>
     <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-mono text-xs text-[#cf9b73]">EXACT HEAD {shortSha(pr.head)}</p><h3 className="mt-1 text-base font-semibold text-white">{pr.title}</h3></div><Outbound href={pr.url}>Open PR</Outbound></div>
     <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-      {[['Required CI',checks.state],['Reviews',pr.review],['Threads',pr.unresolvedThreads===null?'unverified':pr.unresolvedThreads===0?'verified':`${pr.unresolvedThreads} open`],['Currency',pr.behind===null?'unverified':pr.behind===0?'verified':`${pr.behind} behind`],['Draft',pr.draft===null?'unverified':pr.draft?'blocked':'verified'],['Mergeability',pr.mergeable===null?'unverified':pr.mergeable?'verified':'blocked']].map(([label,value])=><div key={label} className="rounded-lg border border-white/10 bg-black/20 px-3 py-3"><p className="mb-2 text-[11px] text-slate-400">{label}</p><Status value={value}/></div>)}
+      {[['Required CI',checks.state],['Reviews',pr.review],['Threads',pr.unresolvedThreads===null?'unverified':pr.unresolvedThreads===0?'verified':`${pr.unresolvedThreads} open`],['Currency',pr.behind===null?'unverified':pr.behind===0?'verified':`${pr.behind} behind`],['Draft',pr.draft===null?'unverified':pr.draft?'blocked':'verified'],['Mergeability',pr.state==='closed'?prCardStatus(pr):pr.mergeable===null?'unverified':pr.mergeable?'verified':'blocked']].map(([label,value])=><div key={label} className="rounded-lg border border-white/10 bg-black/20 px-3 py-3"><p className="mb-2 text-[11px] text-slate-400">{label}</p><Status value={value}/></div>)}
     </div>
     <div className="mt-5 rounded-xl border border-[#9a653e]/45 bg-[#281f19] p-4"><p className="mb-1 text-xs font-bold uppercase tracking-widest text-[#e1a778]">Smallest safe next action</p><p className="text-sm leading-6 text-slate-100">{nextSafeAction(pr)}</p></div>
     <div className="mt-5"><div className="mb-3 flex items-center justify-between"><h4 className="text-sm font-semibold text-slate-100">Exact-head check runs</h4><span className="text-xs text-slate-400">{pr.checks.length} observed</span></div>
