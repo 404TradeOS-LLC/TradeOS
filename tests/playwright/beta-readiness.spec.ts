@@ -65,6 +65,8 @@ test.describe('Beta readiness role and four-width acceptance (non-production onl
           document.documentElement.scrollWidth - document.documentElement.clientWidth
         );
         expect(overflow, 'Horizontal overflow would obscure release evidence').toBeLessThanOrEqual(1);
+        await page.getByRole('button', { name: 'Open more menu' }).click();
+        await expect(page.getByRole('link', { name: 'Beta readiness' })).toBeVisible();
       });
     }
   });
@@ -80,6 +82,9 @@ test.describe('Beta readiness role and four-width acceptance (non-production onl
         const landing = await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
         expect(landing?.status()).toBe(200);
         await expect(page).toHaveURL(/dashboard(?:[/?#]|$)/);
+        await page.getByRole('button', { name: 'Open more menu' }).click();
+        await expect(page.getByRole('link', { name: 'Beta readiness' })).toHaveCount(0);
+        await page.getByRole('button', { name: 'Close more menu' }).click();
 
         const response = await page.goto('/beta-readiness', { waitUntil: 'domcontentloaded' });
         expect(response?.status(), 'An authenticated technician must receive a server-side 404').toBe(404);
