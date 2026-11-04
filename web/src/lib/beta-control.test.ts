@@ -230,3 +230,29 @@ test('known required-check failure remains blocked despite another collector fai
     checks:[{name:'CI',status:'completed',conclusion:'success',url:null}],
   }),'unverified');
 });
+
+test('missing required evidence is unverified only when the collector failed', () => {
+  const extraRequired: PrStatus = {
+    ...candidate,
+    requiredCheckNames: ['CI', 'Security Gate'],
+    checks: [{name:'CI',status:'completed',conclusion:'success',url:null}],
+  };
+  assert.equal(prCardStatus(extraRequired), 'blocked', 'a known missing required check remains blocking');
+  assert.equal(prCardStatus({...extraRequired,error:'Commit check collection unavailable'}), 'unverified',
+    'missing evidence and a failed collector are uncertainty, not a confirmed failing check');
+
+  const observedRed: PrStatus = {
+    ...extraRequired,
+    error: 'Review submission collection unavailable',
+    checks: [{name:'CI',status:'completed',conclusion:'failure',url:null}],
+  };
+  assert.equal(prCardStatus(observedRed), 'blocked',
+    'an explicitly failing required check remains blocked despite other missing evidence');
+
+  const pending: PrStatus = {
+    ...extraRequired,
+    error: 'Commit statuses unavailable',
+    checks: [{name:'CI',status:'in_progress',conclusion:null,url:null}],
+  };
+  assert.equal(prCardStatus(pending), 'blocked', 'an observed incomplete required check remains blocking');
+});
