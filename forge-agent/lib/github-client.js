@@ -5,7 +5,7 @@ const HOST = "https://api.github.com";
 
 export async function githubRequest(path, { method = "GET", token, body, fetchImpl = fetch } = {}) {
   if (typeof path !== "string" || !path.startsWith(PREFIX + "/") ||
-    path.includes("..") || path.includes("://")) throw Error("Unscoped GitHub API request");
+    path.includes("..") || path.includes("%") || path.includes("://")) throw Error("Unscoped GitHub API request");
   const headers = {
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
@@ -23,6 +23,7 @@ export async function githubRequest(path, { method = "GET", token, body, fetchIm
     error.status = response.status;
     throw error;
   }
+  if (response.status === 204) return null;
   return response.json();
 }
 
@@ -38,6 +39,7 @@ export async function inspectIssue(number, {
     title: String(result.title ?? "").slice(0, 240),
     labels: (result.labels ?? []).map((x) => x.name),
     body: String(result.body ?? "").slice(0, 12000),
+    bodyTruncated: String(result.body ?? "").length > 12000,
     url: "https://github.com/" + REPO + "/issues/" + number,
     trust: "untrusted-issue-content",
   };
@@ -67,8 +69,9 @@ export async function createDraft(input, {
   if (!(issue.labels ?? []).some((x) => x.name === READY_LABEL)) {
     throw Error("Issue lacks forge:ready label");
   }
-  if (prs.some((x) => x.head?.ref === plan.branch ||
-    (x.body ?? "").includes("Closes #" + plan.issueNumber))) {
+  if (String(issue.body ?? "").length > 12000) throw Error("Issue body truncated; refuse draft");
+  const closing = new RegExp("\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\\s+#" + plan.issueNumber + "\\b", "i");
+  if (prs.some((x) => x.head?.ref === plan.branch || closing.test(x.body ?? ""))) {
     throw Error("Overlapping open PR detected");
   }
   const base = await api("/git/commits/" + plan.baseSha);
@@ -105,10 +108,25 @@ export async function createDraft(input, {
     },
   });
   if (!/^[a-f0-9]{40}$/.test(commit.sha ?? "")) throw Error("Commit was not confirmed");
-  await api("/git/refs", {
-    method: "POST", body: { ref: "refs/heads/" + plan.branch, sha: commit.sha },
-  });
-  const pr = await api("/pulls", {
+  // Do not reuse a branch unless its head matches the commit we just created.
+  // A prior ambiguous request may have created a PR; reconcile before retrying.
+  const branchPath = "/git/ref/heads/" + plan.branch;
+  try {
+    await api("/git/refs", {
+      method: "POST", body: { ref: "refs/heads/" + plan.branch, sha: commit.sha },
+    });
+  } catch (error) {
+    const existing = await api(branchPath).catch(() => null);
+    if (existing?.object?.sha !== commit.sha) throw error;
+  }
+  const findBranchPr = async () => {
+    const matches = await api("/pulls?head=" + encodeURIComponent(REPO.split("/")[0] + ":" + plan.branch) + "&state=open&per_page=100");
+    if (!Array.isArray(matches) || matches.length === 100) throw Error("Incomplete branch PR inventory");
+    return matches.find((x) => x.head?.sha === commit.sha && x.head?.ref === plan.branch && x.draft === true);
+  };
+  let pr;
+  try {
+    pr = await api("/pulls", {
     method: "POST",
     body: {
       base: "main", head: plan.branch, draft: true,
@@ -130,7 +148,26 @@ export async function createDraft(input, {
         "## Follow-Up Work", "Complete reviewed release gates before merging.",
       ].join("\n"),
     },
-  });
+    });
+  } catch (error) {
+    let matching;
+    try { matching = await findBranchPr(); } catch { /* preserve original error */ }
+    if (matching) pr = matching;
+    else {
+      // Only a definitive HTTP rejection permits cleanup. Ambiguous failures
+      // leave the branch untouched for manual reconciliation.
+      if (error.status) {
+        try {
+          const branch = await api(branchPath);
+          if (branch?.object?.sha === commit.sha) {
+            const open = await api("/pulls?head=" + encodeURIComponent(REPO.split("/")[0] + ":" + plan.branch) + "&state=open&per_page=100");
+            if (Array.isArray(open) && open.length === 0) await api("/git/refs/heads/" + plan.branch, { method: "DELETE" });
+          }
+        } catch { /* cleanup must not mask the original failure */ }
+      }
+      throw error;
+    }
+  }
   if (!pr.draft || !Number.isSafeInteger(pr.number) ||
     !String(pr.html_url).startsWith("https://github.com/" + REPO + "/pull/")) {
     throw Error("GitHub did not confirm a draft PR");
