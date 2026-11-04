@@ -30,7 +30,7 @@ function fakeServer({ moved=false, label=true, overlap=false, existing=false,
     else if(path.endsWith("/git/commits")) data={sha:commitSha};
     else if(path.endsWith("/git/refs")) data={ref:"refs/heads/forge/issue-910-"+mainSha.slice(0,12)};
     else if(path.endsWith("/pulls")) {
-      if(pullFailure==="422")return {ok:false,status:422,json:async()=>({message:"validation failed"})};
+      if(["422","429","500"].includes(pullFailure))return {ok:false,status:Number(pullFailure),json:async()=>({message:"simulated failure"})};
       if(pullFailure==="timeout")throw Error("connection lost");
       data={number:999,draft:true,html_url:"https://github.com/404TradeOS-LLC/TradeOS/pull/999"};
     }
@@ -153,4 +153,16 @@ test("ambiguous publication failure can reconcile an already-created draft",asyn
   const result=await createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl});
   assert.equal(result.draft,true);
   assert.equal(fake.calls.filter(c=>c.method==="DELETE").length,0);
+});
+
+
+test("transient HTTP errors never trigger branch deletion", async () => {
+  for (const pullFailure of ["429", "500"]) {
+    const fake = fakeServer({ pullFailure });
+    await assert.rejects(
+      () => createDraft(input, { enabled: true, token: "mock", fetchImpl: fake.fetchImpl }),
+      new RegExp(pullFailure)
+    );
+    assert.equal(fake.calls.filter(c => c.method === "DELETE").length, 0);
+  }
 });
