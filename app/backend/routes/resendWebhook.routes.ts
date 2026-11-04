@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { logInfo, logWarn } from "../logging";
 import { verifyResendWebhook, type ResendWebhookHeaders } from "../../modules/email/webhook";
 
@@ -12,7 +13,17 @@ const ATTENTION_EVENTS = new Set([
   "email.suppressed",
 ]);
 
-resendWebhookRouter.post("/", (req, res) => {
+// Bounded IP budget for anonymous webhook traffic. This is per-instance on
+// serverless deployments; a shared edge limiter is a separate release gate.
+const resendWebhookRateLimit = rateLimit({
+  windowMs: 60_000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many webhook requests" },
+});
+
+resendWebhookRouter.post("/", resendWebhookRateLimit, (req, res) => {
   const secret = process.env.RESEND_WEBHOOK_SECRET?.trim();
   // A missing or malformed signing secret means the endpoint is not provisioned.
   // Fail closed rather than accidentally accepting unsigned delivery notices.
