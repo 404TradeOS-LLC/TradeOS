@@ -186,8 +186,10 @@ function isClosedSupersededLane(pr: PrStatus): boolean {
 }
 
 export function nextSafeAction(pr: PrStatus): string {
-  if (pr.error) return 'Restore read-only GitHub visibility and refresh; keep every release gate blocked.';
+  // Closure/merged disposition is read from the PR itself. Historical check
+  // visibility is immaterial to a closed-unmerged, superseded release lane.
   if (isClosedSupersededLane(pr)) return 'Superseded migration lane closed without merge; retain #907 and its protected staging workflow. No duplicate migration action is required.';
+  if (pr.error) return 'Restore read-only GitHub visibility and refresh; keep every release gate blocked.';
   if ((pr.number===905 || pr.number===906) && pr.merged===true) return 'An overlapping migration lane was merged: verify workflow conflicts and protected staging policy before any release.';
   if (pr.number===905 || pr.number===906) return 'Compare this overlapping migration path with merged #907; reconcile and close the superseded lane after review. Do not merge duplicate staging workflows.';
   if (pr.draft) return 'Keep draft; reconcile exact-head tests, review findings and staging dependency before requesting ready-for-review.';
