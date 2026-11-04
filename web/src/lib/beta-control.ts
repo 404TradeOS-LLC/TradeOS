@@ -1,3 +1,21 @@
+// Platform-wide GitHub/deployment metadata belongs to the TradeOS operator,
+// not merely to every tenant whose user happens to have an owner/admin role.
+// The backend-authenticated Settings endpoint supplies the current org ID;
+// only a single explicit server-side UUID may authorize this reader.
+// Missing/invalid configuration fails closed, including in production.
+const OPERATOR_ORG_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export function isAuthorizedBetaOperator(
+  role: string | null | undefined,
+  observedOrgId: string | null | undefined,
+  configuredOrgId: string | null | undefined,
+): boolean {
+  if (role !== 'owner' && role !== 'admin') return false;
+  if (typeof observedOrgId !== 'string' || !OPERATOR_ORG_UUID.test(observedOrgId)) return false;
+  const allowed = configuredOrgId?.trim();
+  if (!allowed || !OPERATOR_ORG_UUID.test(allowed)) return false;
+  return observedOrgId.toLowerCase() === allowed.toLowerCase();
+}
+
 export type EvidenceState = 'verified' | 'blocked' | 'unverified';
 export type CheckState = { name: string; status: string; conclusion: string | null; url: string | null; appId?: number | null };
 export type RequiredCheckBinding = { name: string; integrationIds: number[] };
