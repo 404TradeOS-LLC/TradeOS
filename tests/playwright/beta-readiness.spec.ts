@@ -1,5 +1,5 @@
-import { existsSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { existsSync, realpathSync } from 'node:fs';
+import { expect, test, type Page } from '@playwright/test';
 
 // This is auxiliary, READ-ONLY role/viewport acceptance. The canonical
 // .github/workflows/beta-evidence.yml remains the only full evidence runner.
@@ -8,18 +8,50 @@ import { expect, test } from '@playwright/test';
 const enabled = process.env.TRADEOS_BETA_CONTROL_ACCEPTANCE === 'true';
 const ownerState = process.env.TRADEOS_BETA_OWNER_STORAGE_STATE;
 const technicianState = process.env.TRADEOS_BETA_TECHNICIAN_STORAGE_STATE;
+const customerOwnerState = process.env.TRADEOS_BETA_CUSTOMER_OWNER_STORAGE_STATE;
+const operatorOrgId = process.env.TRADEOS_BETA_OPERATOR_ORG_ID;
+const customerOrgId = process.env.TRADEOS_BETA_CUSTOMER_ORG_ID;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+// The proxy uses the authenticated Settings identity consumed by BetaReadinessPage.
+// Reaching /dashboard alone would not prove a different customer organization.
+async function requireSyntheticIdentity(page: Page, allowedRoles: string[], expectedOrgId?: string) {
+  const response = await page.request.get('/api/proxy/settings', { failOnStatusCode: false });
+  expect(response.status(), 'fixture must have authenticated Settings access').toBe(200);
+  const identity: unknown = await response.json();
+  const record = identity !== null && typeof identity === 'object'
+    ? identity as { orgId?: unknown; currentRole?: unknown }
+    : {};
+  expect(typeof record.currentRole === 'string' && allowedRoles.includes(record.currentRole),
+    'fixture must have the declared authenticated role').toBe(true);
+  if (expectedOrgId) {
+    expect(typeof record.orgId === 'string' && record.orgId.toLowerCase() === expectedOrgId.toLowerCase(),
+      'fixture must belong to the declared synthetic organization').toBe(true);
+  }
+}
 
 if (enabled) {
   const required = [
     ['TRADEOS_BETA_OWNER_STORAGE_STATE', ownerState],
     ['TRADEOS_BETA_TECHNICIAN_STORAGE_STATE', technicianState],
+    ['TRADEOS_BETA_CUSTOMER_OWNER_STORAGE_STATE', customerOwnerState],
+    ['TRADEOS_BETA_OPERATOR_ORG_ID', operatorOrgId],
+    ['TRADEOS_BETA_CUSTOMER_ORG_ID', customerOrgId],
     ['TRADEOS_AGENT_BASE_URL', process.env.TRADEOS_AGENT_BASE_URL],
   ] as const;
   for (const [name, value] of required) {
     if (!value) throw new Error(`Beta control acceptance cannot run without ${name}`);
   }
-  if (!ownerState || !technicianState || !existsSync(ownerState) || !existsSync(technicianState)) {
-    throw new Error('Beta control acceptance requires existing, separate synthetic owner and technician storage-state files');
+  if (!ownerState || !technicianState || !customerOwnerState ||
+      !existsSync(ownerState) || !existsSync(technicianState) || !existsSync(customerOwnerState)) {
+    throw new Error('Beta control acceptance requires three synthetic role/organization storage-state files');
+  }
+  if (new Set([ownerState, technicianState, customerOwnerState].map(path => realpathSync(path))).size !== 3) {
+    throw new Error('Beta control acceptance requires distinct authenticated synthetic sessions');
+  }
+  if (!operatorOrgId || !customerOrgId || !UUID.test(operatorOrgId) || !UUID.test(customerOrgId) ||
+      operatorOrgId.toLowerCase() === customerOrgId.toLowerCase()) {
+    throw new Error('Beta control acceptance requires distinct declared synthetic organization UUIDs');
   }
   if (!['preview', 'staging'].includes(process.env.TRADEOS_AGENT_ENVIRONMENT ?? '') ||
       process.env.TRADEOS_AGENT_SANITIZED_TENANT !== 'true') {
@@ -35,7 +67,7 @@ const viewports = [
 ] as const;
 
 test.describe('Beta readiness role and four-width acceptance (non-production only)', () => {
-  test.skip(!enabled, 'NOT CERTIFIED: requires approved synthetic owner/technician sessions and a trusted preview/staging target.');
+  test.skip(!enabled, 'NOT CERTIFIED: requires distinct operator owner, customer owner and technician sessions on approved staging.');
   // Never capture private login storage, network traces, screenshots, or
   // videos through this auxiliary suite. Canonical evidence captures are
   // governed separately by beta-evidence.yml and its artifact scrubber.
@@ -47,6 +79,9 @@ test.describe('Beta readiness role and four-width acceptance (non-production onl
     for (const viewport of viewports) {
       test(`owner can inspect a HOLD-only dashboard at ${viewport.width}px`, async ({ page }) => {
         await page.setViewportSize(viewport);
+        const landing = await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+        expect(landing?.status()).toBe(200);
+        await requireSyntheticIdentity(page, ['owner', 'admin'], operatorOrgId);
         const response = await page.goto('/beta-readiness', { waitUntil: 'domcontentloaded' });
         expect(response?.status()).toBe(200);
         await expect(page).toHaveURL(/beta-readiness(?:[/?#]|$)/);
@@ -82,6 +117,7 @@ test.describe('Beta readiness role and four-width acceptance (non-production onl
         const landing = await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
         expect(landing?.status()).toBe(200);
         await expect(page).toHaveURL(/dashboard(?:[/?#]|$)/);
+        await requireSyntheticIdentity(page, ['technician']);
         await page.getByRole('button', { name: 'Open more menu' }).click();
         await expect(page.getByRole('link', { name: 'Beta readiness' })).toHaveCount(0);
         await page.getByRole('button', { name: 'Close more menu' }).click();
@@ -90,6 +126,26 @@ test.describe('Beta readiness role and four-width acceptance (non-production onl
         expect(response?.status(), 'An authenticated technician must receive a server-side 404').toBe(404);
         await expect(page.getByRole('heading', { name: /Beta readiness control/i })).toHaveCount(0);
         await expect(page.getByRole('heading', { name: 'Beta gate matrix' })).toHaveCount(0);
+        await expect(page.getByRole('button', { name: /Refresh live/i })).toHaveCount(0);
+      });
+    }
+  });
+
+  test.describe('authenticated other-customer organization owner denied', () => {
+    test.use({ storageState: customerOwnerState ?? { cookies: [], origins: [] } });
+
+    for (const viewport of viewports) {
+      test('customer owner denied at ' + viewport.width + 'px', async ({ page }) => {
+        await page.setViewportSize(viewport);
+        const landing = await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+        expect(landing?.status(), 'customer fixture must be authenticated').toBe(200);
+        await expect(page).toHaveURL(/dashboard(?:[/?#]|$)/);
+        await requireSyntheticIdentity(page, ['owner', 'admin'], customerOrgId);
+        const response = await page.goto('/beta-readiness', { waitUntil: 'domcontentloaded' });
+        expect(response?.status(), 'other-customer owner must receive server-side denial').toBe(404);
+        await expect(page.getByRole('heading', { name: /Beta readiness control/i })).toHaveCount(0);
+        await expect(page.getByRole('heading', { name: 'Beta gate matrix' })).toHaveCount(0);
+        await expect(page.getByText('HOLD — NO PROMOTION', { exact: true })).toHaveCount(0);
         await expect(page.getByRole('button', { name: /Refresh live/i })).toHaveCount(0);
       });
     }
