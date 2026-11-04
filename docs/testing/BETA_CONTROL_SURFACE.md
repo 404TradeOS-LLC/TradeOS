@@ -1,6 +1,6 @@
 # Beta readiness control surface
 
-Path: `/beta-readiness` (TradeOS web application, authenticated owner/admin only).
+Path: `/beta-readiness` (TradeOS web application, authenticated **TradeOS operator-organization** owner/admin only).
 
 This is a **read-only observation console** around `.github/workflows/beta-evidence.yml`, not a new test runner, migration executor, deployment orchestrator, release approver, or merge bot. The existing workflow remains the sole canonical preflight/full evidence runner. The site never dispatches workflow runs, writes databases, touches production, uploads receipts, or changes PR state.
 
@@ -10,6 +10,10 @@ This is a **read-only observation console** around `.github/workflows/beta-evide
 - Live GitHub GraphQL: resolved/unresolved review threads (requires a server-side read-only token; if unavailable or paginated beyond the supported coverage, report `UNVERIFIED`).
 - Optional Vercel read-only deployment observations: recent non-production API/web commit SHAs and readiness. This is *metadata*, never proof of runtime data-plane identity. The console does not read secret values.
 - Protected staging DB ledger, checksum checks, RLS evidence, storage security, runtime effective bindings, browser screenshots, role/isolation tests, rollback and concurrency evidence are displayed `UNVERIFIED` until an authoritative, independently verified evidence integration is provided. Do not derive them from PR descriptions, green CI, or workflow names.
+
+Required fail-closed operator authorization (server-only):
+
+- `TRADEOS_BETA_OPERATOR_ORG_ID`: exactly one UUID identifying the approved TradeOS platform operator organization. This value must be independently verified against the backend-authenticated `/api/v1/settings` `orgId` and set only on approved deployments. Never use a customer organization, an array/wildcard, or a `NEXT_PUBLIC_` variable. If unset, malformed, or mismatched, the page returns 404 **before any platform snapshot is fetched**. A customer organization's owner/admin role alone is not authorization. Deployments without this value intentionally cannot expose the console; configuring it requires a separate protected operator decision. Do not put actual organization IDs in the repository or public evidence.
 
 Server-only optional environment variables:
 
@@ -28,7 +32,7 @@ If required checks or thread state cannot be fetched, release readiness fails cl
 
 ## Security model and caveats
 
-- Authenticated TradeOS session and owner/admin organization role required **server-side**. Unknown role denies access.
+- Authenticated TradeOS session, owner/admin organization role, **and exact server-configured platform operator organization ID** are required server-side before the collector runs. Missing/incorrect configuration or unknown role denies access.
 - GitHub and Vercel credentials are server-only; all browser props contain non-sensitive public metadata.
 - No API mutation routes. No GitHub dispatch, commit, merge or review writes. No production target support.
 - `gatePromotion` deliberately denies all promotion even if every observed signal turns green: human-controlled protected workflows remain outside the console.
