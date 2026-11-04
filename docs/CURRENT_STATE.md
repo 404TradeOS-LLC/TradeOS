@@ -71,6 +71,11 @@ related_code:
 
 # TradeOS Current State
 
+## PR #810 branch currency and staging release state — 2026-11-02
+
+The accepted-proposal Job handoff branch is being reconciled against current main; neither merge nor production release is authorized by this note. Staging already applied the Job provenance migration once (67 completed migrations, zero unfinished as checked); API-only source promotion #837 merged, and frontend promotion #904 remains draft. The separate Job Expenses migration is missing from the 68-file staging source inventory, so the protected staging release candidate is not migration-parity certified. Protected binding attestation run 41106407474 passed, with sensitive fields runtime-inferred, not independently secret-project-verified. Authenticated step-9 tenant, concurrency, rollback and four-viewport evidence remains outstanding; do not repeat the completed Job migration or claim acceptance.
+
+
 ## Job expenses / actual job costs — implementation branch, 2026-11-02
 
 Jobs now carry actual costs. `JobExpense` (migration `20261102020000_add_job_expenses`, additive only) stores integer-cent amounts, an estimate-vocabulary category, free-text vendor and receipt note, a calendar incurred date, and the recording user. The org-scoped CRUD API lives at `/api/v1/jobs/:jobId/expenses` (`app/modules/expenses/service.ts`, controllers own Zod validation, tenant scope enforced through the job's organization with cross-org 404s), plus `GET /summary` for the cents-exact actual-vs-estimate rollup against the project's latest estimate version (null estimate figures when no estimate exists, never a fabricated zero). The field job view (`/field`) renders the rollup, the expense list, and a mobile-first add form; expense reads degrade independently so a failed cost load never blocks the rest of the job view. Forced RLS mirrors job visibility (office roles plus assigned technicians), with organization scope inherited through the job join; live RLS coverage lives in `app/tests/rls.integration.ts`. Deliberately out of v1: receipt file upload, OCR, bank sync, and global expense reports. Known limitation: the field page's pre-existing, test-enforced technician-only gate means owner-role accounts cannot reach this UI yet; the API itself is role-agnostic within the org.
@@ -1694,6 +1699,22 @@ queue dismissal, automatic retry, financial change or production migration.
 This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
+
+## Step 9 accepted-proposal field handoff — PR #810 (unmerged)
+
+A proposed, separate branch closes the missing accepted Proposal → tracked Job
+link: a manager selects the customer's ServiceAddress; the backend creates
+one unscheduled Job, preserves accepted proposal scope and price as an immutable
+JSON baseline and returns the existing job on retries. The workflow remains
+behind an additive DB migration, exact-head CI, authorized staging and
+authenticated end-to-end evidence. **This is not shipped or production
+certified**, and it does not automatically assign a crew, sign a contract,
+create invoices or change accepted prices. See `docs/modules/jobs-and-scheduling.md`.
+
+### Step 9 approved Job display (PR #810, proposed)
+
+The unmerged accepted-proposal handoff branch also adds a manager-only Job approval-baseline detail page, linked from the successful conversion, with source proposal provenance and immutable scope/price/terms. It remains unshipped pending exact-head CI, staging migration, and authenticated browser evidence.
+
 ### Pending P0 staging migration-history reconciliation — 2026-10-28
 
 PR for issue #811 proposes a protected, staging-only reconciliation of the already-executed invoice expand migration. Direct evidence: Supabase migration history stores the exact executable SQL used by the tracked Prisma file (comments differ); staging has 46 applied Prisma migrations, 0 unfinished, and 42 invoice rows with matching old/new monetary values. The workflow is **not merged or executed** by this documentation change. The later invoice contract migration remains blocked pending proof all legacy writers are retired. No production migration or staging schema deployment is certified.
@@ -1711,6 +1732,17 @@ The client retains its UUID across server-action errors. A full reload seeds a n
 The staging-only Supabase Team & Time table migrations were formerly missing from repository migration history. This branch adds tracked Prisma equivalents `20261030004500_team_time_foundation` and `20261030005500_team_time_integrity` before `20261030010000_force_team_time_rls`; missing tables now FAIL the FORCE migration instead of marking a no-op applied. Existing tables are preserved and no anon/authenticated access grants or tenant policies are added. Deployed staging Edge Function v6 is the source baseline for a not-yet-deployed paginated candidate at `supabase/functions/team-time/index.ts`, tested with synthetic authenticated caller/membership/job/shift requests and 201-shift/oversized-workspace regressions.
 
 Crucial boundary: the live Edge Function uses a server-side Supabase **service-role** key (BYPASSRLS). FORCE does not change that and is not sufficient for service-role tenant isolation. Explicit organization, membership, assignment and shift checks are the actual function authorization gates; new tests verify denial paths. Staging currently has ENABLED but not FORCED RLS and zero policies. All migrations and function snapshot are source-only pending exact-head CI, review and protected staging approval. Production Team & Time remains disabled; no runtime deployment is claimed.
+
+## Accepted-scope fallback repair — 2026-10-30
+
+#837 review identified a mutable Project scope fallback in the shared #810 Job
+conversion source. Three regression cases reproduced it for null, empty and
+whitespace proposal scope. The bounded repair rejects those new conversions
+with HTTP 409 and preserves existing-Job retries; it changes no schema, roles,
+workflow or deployment settings. New-head hosted checks remain required.
+The founder directed #810 ready for review; staging binding attestation,
+API-first #837 promotion, matching web deployment, authenticated step-9 and
+release review still gate release. Undrafting does not certify acceptance.
 
 ## Project WorkspaceHeader convergence — PR #844
 
