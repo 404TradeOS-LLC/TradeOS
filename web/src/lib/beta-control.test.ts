@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { gatePromotion, nextSafeAction, evaluateChecks, parseRequiredCheckPolicy, commitStatusToCheck, collectLatestCommitStatuses, markReviewFetchFailure, isAuthorizedBetaOperator, loadAuthorizedBetaSnapshot, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
+import { gatePromotion, nextSafeAction, evaluateChecks, prCardStatus, isBetaReadinessOperatorRole, parseRequiredCheckPolicy, commitStatusToCheck, collectLatestCommitStatuses, markReviewFetchFailure, isAuthorizedBetaOperator, loadAuthorizedBetaSnapshot, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
 
 const candidate: PrStatus = { number: 810, title:'Job handoff', url:'https://github.com/404TradeOS-LLC/TradeOS/pull/810', state:'open', head:'a'.repeat(40), base:'b'.repeat(40), draft:false, mergeable:true, behind:0, unresolvedThreads:0, review:'approved', checks:[{name:'CI', status:'completed', conclusion:'success', url:null}], requiredChecksKnown:true, requiredCheckNames:['CI'], error:null };
 
@@ -243,4 +243,29 @@ test('BetaReadinessPage cannot bypass the authorized collector boundary', () => 
   const source = readFileSync(new URL('../app/(app)/beta-readiness/page.tsx', import.meta.url), 'utf8');
   assert.match(source, /await loadAuthorizedBetaSnapshot\s*\(/);
   assert.doesNotMatch(source, /await getBetaSnapshot\s*\(/);
+});
+
+test('beta readiness operator access is exactly owner or admin, never field or unknown roles', () => {
+  assert.equal(isBetaReadinessOperatorRole('owner'), true);
+  assert.equal(isBetaReadinessOperatorRole('admin'), true);
+  for (const role of ['technician', 'manager', 'dispatcher', 'office-manager', '', 'OWNER', 'owner ', undefined, null, 1]) {
+    assert.equal(isBetaReadinessOperatorRole(role), false, String(role));
+  }
+});
+
+test('closed superseded staging alternatives are labeled superseded, not active release failures', () => {
+  for (const number of [905, 906]) {
+    const closed: PrStatus = { ...candidate, number, state:'closed', merged:false, mergeable:false };
+    assert.equal(prCardStatus(closed), 'superseded');
+    assert.match(nextSafeAction(closed), /closed|superseded/i);
+    assert.equal(prCardStatus({ ...closed, merged:true }), 'blocked');
+  }
+});
+
+test('PR badges never go green for failed collector, unapproved reviews, or conflicting checks', () => {
+  assert.equal(prCardStatus({ ...candidate, error:'review source unavailable' }), 'unverified');
+  assert.equal(prCardStatus({ ...candidate, review:'unverified' }), 'unverified');
+  assert.equal(prCardStatus({ ...candidate, unresolvedThreads:2 }), 'unverified');
+  assert.equal(prCardStatus({ ...candidate, checks:[{name:'CI',status:'completed',conclusion:'failure',url:null}] }), 'blocked');
+  assert.equal(prCardStatus({ ...candidate, state:'closed', merged:true }), 'merged');
 });
