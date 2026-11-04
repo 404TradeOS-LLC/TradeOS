@@ -13,6 +13,7 @@ test("validates a bounded exact-head draft branch", () => {
   const result = validateDraft(valid());
   assert.equal(result.branch, "forge/issue-910-" + sha.slice(0, 12));
   assert.equal(result.files.length, 1);
+  assert.deepEqual(result.files, valid().files);
 });
 
 test("cannot accept short SHAs or branch names in place of immutable main", () => {
