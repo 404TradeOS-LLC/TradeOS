@@ -98,9 +98,11 @@ product's truthful empty state instead of inventing a fixture. These checks do
 not create, edit, send, accept, sign, invoice, record payment, pay, schedule, or
 otherwise mutate contractor records. With the current checked-in suite,
 the general authenticated starter contributes eight tests, plus the logged-out login
-seed. The additional eight Beta Readiness role/viewport tests skip by default
+seed. The additional twelve Beta Readiness role/viewport tests skip by default
 and **must never be counted as passing** without explicit non-production
-owner/technician acceptance; see [Beta Control Surface](BETA_CONTROL_SURFACE.md).
+operator-owner, customer-organization owner (denied) and technician (denied)
+acceptance at 1440/1024/768/390, with each role and organization identity
+proven by authenticated Settings. See [Beta Control Surface](BETA_CONTROL_SURFACE.md).
 
 Before any broader authenticated or mutating exploration, reuse the governed
 [Beta Evidence](BETA_EVIDENCE.md) fixture, non-production data-plane,
