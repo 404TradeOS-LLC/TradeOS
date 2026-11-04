@@ -8,11 +8,13 @@ import { evaluateChecks, gatePromotion, nextSafeAction, prCardStatus, prStatusTi
 const GITHUB='https://github.com/404TradeOS-LLC/TradeOS';
 const WIDTHS=['1440','1024','768','390'];
 function shortSha(sha:string|null){return sha?sha.slice(0,10):'unverified';}
+/** Map evidence and PR states to their visual status colors. */
 function statusTone(state:string){return state==='superseded'||state==='closed'?'text-slate-300 bg-slate-400/10 border-slate-400/25':state==='verified'||state==='success'||state==='approved'||state==='merged'?'text-emerald-400 bg-emerald-400/10 border-emerald-400/25':state==='blocked'||state==='failure'||state==='changes-requested'?'text-rose-300 bg-rose-400/10 border-rose-400/25':'text-amber-300 bg-amber-400/10 border-amber-400/25';}
 function Status({value}:{value:string}){return <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${statusTone(value)}`}>{value.replaceAll('-',' ')}</span>;}
 function Outbound({href,children}:{href:string;children:React.ReactNode}){return <a className="inline-flex items-center gap-1 font-medium text-[#d79b6b] hover:text-[#f4c8a4] hover:underline" href={href} target="_blank" rel="noopener noreferrer">{children}<ArrowUpRight aria-hidden="true" size={13}/></a>;}
 function Panel({title,eyebrow,children}:{title:string;eyebrow?:string;children:React.ReactNode}){return <section className="rounded-2xl border border-white/10 bg-[#1b1d20] p-5 shadow-[0_10px_40px_rgba(0,0,0,.15)] md:p-6">{eyebrow&&<p className="mb-1 text-[10px] font-bold uppercase tracking-[.22em] text-[#ce956c]">{eyebrow}</p>}<h2 className="mb-4 text-lg font-semibold tracking-tight text-white">{title}</h2>{children}</section>}
 
+/** Render a selectable PR summary with its current disposition or readiness. */
 function PrCard({pr,active,onChoose}:{pr:PrStatus;active:boolean;onChoose:()=>void}){
   const tone=prCardStatus(pr);
   return <button type="button" onClick={onChoose} className={`w-full rounded-xl border p-4 text-left transition hover:border-[#b8784c]/65 ${active?'border-[#c48a60] bg-[#2b251f]':'border-white/10 bg-[#121416]'}`} aria-pressed={active}>
@@ -21,6 +23,7 @@ function PrCard({pr,active,onChoose}:{pr:PrStatus;active:boolean;onChoose:()=>vo
     <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-400"><span className="font-mono">{shortSha(pr.head)}</span><span>·</span><span>{pr.state==='closed'?(pr.merged===false?'closed without merge':'closed'):pr.draft===null?'draft unknown':pr.draft?'draft':'ready for review'}</span></div>
   </button>
 }
+/** Show exact-head evidence, disposition, and the next safe action for a PR. */
 function Detail({pr}:{pr:PrStatus}){
   const checks=evaluateChecks(pr);
   return <div>

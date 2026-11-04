@@ -176,6 +176,7 @@ function NavPill({
   );
 }
 
+/** Render navigation for the current role and enabled capabilities. */
 export function AppNav({
   email,
   currentRole = null,

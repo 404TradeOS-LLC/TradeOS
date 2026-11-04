@@ -8,6 +8,7 @@ import { isBetaReadinessOperatorRole } from '@/lib/beta-control';
 export const dynamic='force-dynamic';
 export const metadata={title:'Beta readiness | TradeOS',robots:{index:false,follow:false}};
 
+/** Require an authenticated owner or admin before loading release evidence. */
 export default async function BetaReadinessPage(){
   const session=await getSession();
   if(!session)redirect('/login');

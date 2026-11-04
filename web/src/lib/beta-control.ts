@@ -8,19 +8,21 @@ export type PrStatus = {
   checks: CheckState[]; requiredChecksKnown: boolean; requiredCheckNames: string[]; requiredChecks?: RequiredCheckBinding[]; error: string | null;
 };
 
-// Reuse the same strict server-visible role policy in the UI's acceptance tests.
-// Unknown/case-mismatched roles never gain control-surface access.
+/** Allow only the exact owner and admin roles to access the control surface. */
 export function isBetaReadinessOperatorRole(role: unknown): role is 'owner' | 'admin' {
   return role === 'owner' || role === 'admin';
 }
 
-// PR lanes that were deliberately closed without merging are resolved
-// alternatives, not active merge conflicts. Merging one of those overlapping
-// migration lanes is an unsafe conflict, not a successful release gate.
+/** Label a closed PR's status as disposition and an open PR's as mergeability. */
 export function prStatusTileLabel(state: string): string {
   return state === 'closed' ? 'Disposition' : 'Mergeability';
 }
 
+/**
+ * Summarize PR disposition and evidence. Closed, unmerged #905/#906 lanes are
+ * superseded; merging either overlapping migration lane is unsafe. Known
+ * failures remain blocked even when another evidence source is unavailable.
+ */
 export function prCardStatus(pr: PrStatus): string {
   if (pr.number === 905 || pr.number === 906) {
     if (pr.state === 'closed') return pr.merged === false ? 'superseded' : 'blocked';
@@ -193,6 +195,7 @@ function isClosedSupersededLane(pr: PrStatus): boolean {
   return (pr.number === 905 || pr.number === 906) && pr.state === 'closed' && pr.merged === false;
 }
 
+/** Select the next release action from the PR's disposition and available evidence. */
 export function nextSafeAction(pr: PrStatus): string {
   // Closure/merged disposition is read from the PR itself. Historical check
   // visibility is immaterial to a closed-unmerged, superseded release lane.
