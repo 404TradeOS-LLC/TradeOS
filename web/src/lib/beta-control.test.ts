@@ -202,3 +202,10 @@ test('PR badges never go green for failed collector, unapproved reviews, or conf
   assert.equal(prCardStatus({ ...candidate, checks:[{name:'CI',status:'completed',conclusion:'failure',url:null}] }), 'blocked');
   assert.equal(prCardStatus({ ...candidate, state:'closed', merged:true }), 'merged');
 });
+
+test('superseded lane stays actionable even when its historical CI cannot be collected', () => {
+  const closed: PrStatus = { ...candidate, number:905, state:'closed', merged:false, mergeable:false, error:'commit statuses unavailable' };
+  assert.equal(prCardStatus(closed), 'superseded');
+  assert.match(nextSafeAction(closed), /superseded|closed without merge/i);
+  assert.doesNotMatch(nextSafeAction(closed), /restore.*visibility/i);
+});
