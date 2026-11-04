@@ -3,7 +3,7 @@ import { BetaBoard } from './beta-board';
 import { getSession, getSessionToken } from '@/lib/session';
 import { getOrganizationSettings, ApiClientError } from '@/lib/api';
 import { getBetaSnapshot } from '@/lib/beta-github';
-import { isAuthorizedBetaOperator } from '@/lib/beta-control';
+import { loadAuthorizedBetaSnapshot } from '@/lib/beta-control';
 
 export const dynamic='force-dynamic';
 export const metadata={title:'Beta readiness | TradeOS',robots:{index:false,follow:false}};
@@ -25,6 +25,9 @@ export default async function BetaReadinessPage(){
   }
   // Fail closed before any platform-wide GitHub or deployment reads. This is
   // server-only configuration, not a NEXT_PUBLIC_ variable or tenant setting.
-  if(!isAuthorizedBetaOperator(role,orgId,process.env.TRADEOS_BETA_OPERATOR_ORG_ID))notFound();
-  return <BetaBoard snapshot={await getBetaSnapshot()}/>;
+  const snapshot=await loadAuthorizedBetaSnapshot(
+    role, orgId, process.env.TRADEOS_BETA_OPERATOR_ORG_ID,
+    getBetaSnapshot, notFound,
+  );
+  return <BetaBoard snapshot={snapshot}/>;
 }
