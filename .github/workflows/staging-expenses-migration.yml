@@ -1,0 +1,97 @@
+name: Review or apply staging Job Expenses migrations
+
+# Staging-only, manually approved and exact-SHA bound. It never applies
+# feature-branch code; only the three checksum-pinned Expense SQL files.
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "Reviewed full PR #891 source SHA (SQL hashes must match pinned values)"
+        required: true
+        type: string
+      mode:
+        description: "Preflight reads only. Apply requires protected source approval."
+        required: true
+        default: preflight
+        type: choice
+        options: [preflight, apply]
+      confirmation:
+        description: "Apply only: type APPLY_STAGING_EXPENSES"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-migrations-staging
+  cancel-in-progress: false
+
+jobs:
+  expense-migrations:
+    name: Review or apply pinned Expense SQL in TradeOS Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    steps:
+      - name: Require trusted main workflow revision
+        shell: bash
+        env:
+          WORKFLOW_REF: ${{ github.ref }}
+        run: test "$WORKFLOW_REF" = refs/heads/main
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Verify exact source approval before fetching untrusted SQL
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          MIGRATION_MODE: ${{ inputs.mode }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          APPROVED_SOURCE_SHA: ${{ vars.STAGING_EXPENSES_APPROVED_SHA }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { validateRequest } from './scripts/staging-expenses-migration.mjs';
+          validateRequest({ sourceSha: process.env.SOURCE_SHA,
+            approvedSha: process.env.APPROVED_SOURCE_SHA,
+            mode: process.env.MIGRATION_MODE,
+            confirmation: process.env.CONFIRMATION,
+            ref: process.env.GITHUB_REF });
+          NODE
+
+      - name: Fetch reviewed source object as data only
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: git fetch --no-tags origin "$SOURCE_SHA"
+
+      - name: Test trusted staging migration policy
+        run: node --test scripts/staging-expenses-migration.test.mjs
+
+      - name: Install trusted main tools and PostgreSQL client
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --prefix app --ignore-scripts
+          npm run --prefix app prisma:generate
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Read-only preflight or reviewed protected Prisma apply
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          MIGRATION_MODE: ${{ inputs.mode }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          APPROVED_SOURCE_SHA: ${{ vars.STAGING_EXPENSES_APPROVED_SHA }}
+          STAGING_DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
+        run: node scripts/staging-expenses-migration.mjs
