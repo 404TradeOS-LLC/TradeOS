@@ -8,7 +8,7 @@ The provider uses `RESEND_API_KEY`, `EMAIL_FROM`, and an HTTPS `APP_BASE_URL`. T
 
 ## Signed delivery callback (draft pilot)
 
-The `POST /api/v1/webhooks/resend` route is mounted **before** `express.json()` and user-authenticated middleware, using a 64-KiB raw JSON body limit. It checks `svix-id`, `svix-timestamp`, and `svix-signature` with an HMAC-SHA256 signature over the exact raw bytes, a five-minute timestamp tolerance, and constant-time comparison. Every request is denied if `RESEND_WEBHOOK_SECRET` is absent or malformed. The secret is an independent server-only value, not the Resend sending API key.
+The `POST /api/v1/webhooks/resend` route is mounted **before** `express.json()` and user-authenticated middleware, using a 64-KiB raw JSON body limit. It checks `svix-id`, `svix-timestamp`, and `svix-signature` with an HMAC-SHA256 signature over the exact raw bytes, a five-minute timestamp tolerance, and constant-time comparison. Requests are IP-rate-limited to 120 per minute on each runtime instance; this is a bounded abuse defense, not a distributed edge-wide quota. Every request is denied if `RESEND_WEBHOOK_SECRET` is absent or malformed. The secret is an independent server-only value, not the Resend sending API key.
 
 The pilot only writes minimal verified event-type metadata to the structured server log and returns HTTP 200. It does **not** persist email delivery status, perform suppression, update tenant/customer records, or deduplicate repeated valid events across instances. The endpoint's lack of tenant writes avoids cross-tenant side effects; it does **not** establish end-to-end exactly-once processing.
 
