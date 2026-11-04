@@ -54,6 +54,21 @@ export function prStatusTileLabel(state: string): string {
 }
 
 /**
+ * Incomplete collector data must not masquerade as a confirmed check failure.
+ * Only a check actually observed from an applicable required context/app can
+ * remain BLOCKED when another required row is missing and collection failed.
+ */
+function hasObservedUnsuccessfulRequiredCheck(pr: PrStatus): boolean {
+  const requirements = pr.requiredChecks?.length
+    ? pr.requiredChecks
+    : pr.requiredCheckNames.map(name => ({name, integrationIds: [] as number[]}));
+  return requirements.some(({name, integrationIds}) =>
+    pr.checks.some(c => c.name === name &&
+      (integrationIds.length === 0 || (c.appId != null && integrationIds.includes(c.appId))) &&
+      (c.status !== 'completed' || c.conclusion !== 'success')));
+}
+
+/**
  * Summarize PR disposition and evidence. Closed, unmerged #905/#906 lanes are
  * superseded; merging either overlapping migration lane is unsafe. Known
  * failures remain blocked even when another evidence source is unavailable.
@@ -64,9 +79,9 @@ export function prCardStatus(pr: PrStatus): string {
   }
   if (pr.state === 'closed') return pr.merged === true ? 'merged' : 'blocked';
   if (pr.error) {
-    // A collection error cannot invalidate a confirmed failure. It can only
-    // downgrade otherwise-green or incomplete observations to unverified.
-    return evaluateChecks(pr).state === 'blocked' ? 'blocked' : 'unverified';
+    // Missing rows with an unsuccessful collector are unknown, not a known
+    // failure. An observed pending/failed required check remains blocked.
+    return hasObservedUnsuccessfulRequiredCheck(pr) ? 'blocked' : 'unverified';
   }
   if (pr.draft === true) return 'draft';
   if (pr.mergeable === false) return 'blocked';
