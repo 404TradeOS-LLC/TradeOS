@@ -56,12 +56,15 @@ npm ci
 npm run verify
 npm run build
 npm run smoke
+npm run smoke:signed
 ```
 
-Verified in Vercel Sandbox (Node 24): ten policy/API regression tests passed,
+Verified in Vercel Sandbox (Node 24): eighteen policy/API regression tests passed,
 `eve build` completed, and the compiled HTTP smoke checked that `/eve/v1/health`
 returns 200 while unauthenticated session, info and unsigned GitHub webhook
-requests return 401. The Vercel build command now executes this smoke after
+requests return 401. The separate signed GitHub ping test checks a local
+HMAC signature is accepted with 200 and a tampered signature is rejected with
+401; it does not use a real GitHub App or send a live model turn. The Vercel build command now executes this smoke after
 compilation. No real GitHub write or model inference occurred. No GitHub write or real model inference was
 performed as part of that validation.
 
