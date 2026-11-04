@@ -346,15 +346,40 @@ test("resetPasswordAction clears the recovery cookie only after a successful upd
   assert.ok(updateUserIndex < deleteCookieIndex);
 });
 
-test("requestPasswordResetAction logs the Supabase error server-side but returns a safe generic message to the client", () => {
+test("requestPasswordResetAction classifies Supabase reset failures into truthful, account-agnostic messages", () => {
   const authSource = readAuthActionsSource();
   const fnIndex = authSource.indexOf("export async function requestPasswordResetAction");
   const nextFnIndex = authSource.indexOf("export async function resetPasswordAction");
   const fnSource = authSource.slice(fnIndex, nextFnIndex);
 
-  assert.match(fnSource, /console\.error\("resetPasswordForEmail failed:", error\.message\)/);
-  assert.match(fnSource, /error: "We couldn't process that request\. Please try again\."/);
+  // Server log carries status/code so operators can distinguish a permanent
+  // configuration failure from a transient rate limit.
+  assert.match(fnSource, /console\.error\("resetPasswordForEmail failed:", \{ status, code, message: error\.message \}\)/);
+  // Rate limit: truthful wait message, not a retry-forever generic.
+  assert.match(fnSource, /status === 429/);
+  assert.match(fnSource, /\/rate limit\/i\.test\(error\.message\)/);
+  assert.match(fnSource, /Too many reset requests\. Please wait a bit and try again\./);
+  // Redirect/allowlist failure: truthful configuration message.
+  assert.match(fnSource, /\/redirect\/i\.test\(error\.message\)/);
+  assert.match(fnSource, /Password recovery is not configured correctly for this deployment\./);
+  // Anything else keeps the previous generic message, after both branches.
+  const genericIndex = fnSource.indexOf('error: "We couldn\'t process that request. Please try again."');
+  assert.notEqual(genericIndex, -1);
+  assert.ok(fnSource.indexOf("Too many reset requests.") < genericIndex);
+  assert.ok(fnSource.indexOf("not configured correctly for this deployment.") < genericIndex);
+  // No branch ever echoes the provider error (or the address's existence).
   assert.doesNotMatch(fnSource, /error:\s*error\.message/);
+});
+
+test("recoveryRedirectUrl targets the bare /auth/confirm path, which defaults next to /reset-password", () => {
+  const authSource = readAuthActionsSource();
+  const fnIndex = authSource.indexOf("function recoveryRedirectUrl");
+  const nextFnIndex = authSource.indexOf("export async function signupAction");
+  const fnSource = authSource.slice(fnIndex, nextFnIndex);
+
+  assert.match(fnSource, /url\.origin \+ "\/auth\/confirm"/);
+  assert.match(fnSource, /http:\/\/localhost:3000\/auth\/confirm"/);
+  assert.doesNotMatch(fnSource, /\?next=/);
 });
 
 test("reset-password form surfaces a 'Request a new link' path back to /forgot-password whenever the action reports a recovery error", () => {
