@@ -2,6 +2,8 @@
 
 Path: `/beta-readiness` (TradeOS web application, authenticated owner/admin only).
 
+The **More → Tools & admin** navigation includes **Beta readiness** only when the existing authenticated organization role is exactly `owner` or `admin`; unknown or technician roles never receive this link. Link visibility is convenience only and is not a substitute for the server-side authorization check on the route. The explicit opt-in browser suite checks visible owner navigation and absent technician navigation at all four widths.
+
 This is a **read-only observation console** around `.github/workflows/beta-evidence.yml`, not a new test runner, migration executor, deployment orchestrator, release approver, or merge bot. The existing workflow remains the sole canonical preflight/full evidence runner. The site never dispatches workflow runs, writes databases, touches production, uploads receipts, or changes PR state.
 
 ## Data sources
