@@ -81,6 +81,20 @@ describe("Resend signed webhook ingress", () => {
     expect(response.status).toBe(400);
   });
 
+  it("rate-limits repeated unauthenticated webhook posts", async () => {
+    process.env.RESEND_WEBHOOK_SECRET = secret;
+    const app = createServer();
+    let lastStatus = 200;
+    for (let attempt = 0; attempt < 125; attempt += 1) {
+      const response = await request(app)
+        .post("/api/v1/webhooks/resend")
+        .set("Content-Type", "application/json")
+        .send(body);
+      lastStatus = response.status;
+    }
+    expect(lastStatus).toBe(429);
+  });
+
   it("verifies a signed body and rejects malformed event envelopes", () => {
     const valid = verifyResendWebhook(Buffer.from(body), signedHeaders(body), secret);
     expect(valid.type).toBe("email.delivered");
