@@ -75,6 +75,19 @@ export async function createDraft(input, {
   if (!/^[a-f0-9]{40}$/.test(base.tree?.sha ?? "")) throw Error("Missing base tree");
   const latest = await api("/git/ref/heads/main");
   if (latest.object?.sha !== plan.baseSha) throw Error("Main moved during preflight");
+  // A docs-only pilot may ADD Markdown, never silently replace a reviewed file.
+  // Check each path against the exact base SHA before the first write request.
+  // Only GitHub's explicit 404 means that the file does not exist.
+  await Promise.all(plan.files.map(async (file) => {
+    try {
+      await api("/contents/" + file.path + "?ref=" + plan.baseSha);
+    } catch (error) {
+      if (error.status === 404) return;
+      throw error;
+    }
+    throw Error("Proposed docs/forge file already exists on main");
+  }));
+
   const tree = await api("/git/trees", {
     method: "POST",
     body: {
