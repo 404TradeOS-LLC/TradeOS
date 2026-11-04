@@ -2,6 +2,8 @@
 
 Path: `/beta-readiness` (TradeOS web application, authenticated owner/admin only).
 
+The **More → Tools & admin** navigation includes **Beta readiness** only when the existing authenticated organization role is exactly `owner` or `admin`; unknown or technician roles never receive this link. Link visibility is convenience only and is not a substitute for the server-side authorization check on the route. The explicit opt-in browser suite checks visible owner navigation and absent technician navigation at all four widths.
+
 This is a **read-only observation console** around `.github/workflows/beta-evidence.yml`, not a new test runner, migration executor, deployment orchestrator, release approver, or merge bot. The existing workflow remains the sole canonical preflight/full evidence runner. The site never dispatches workflow runs, writes databases, touches production, uploads receipts, or changes PR state.
 
 ## Data sources
@@ -38,3 +40,25 @@ If required checks or thread state cannot be fetched, release readiness fails cl
 ## Verification
 
 `cd web && npm test` (repository test command). Focused: `node --experimental-strip-types --test src/lib/beta-control.test.ts` when using Node 22 locally; Node versions in CI may strip TypeScript natively.
+
+## Non-production owner/technician viewport acceptance
+
+An additional **read-only**, opt-in browser suite is checked in at `tests/playwright/beta-readiness.spec.ts`. It validates that a signed-in owner can inspect the HOLD-only control surface, while a *separately authenticated technician* receives a server-side 404 instead of any release data. Both cases run at **1440, 1024, 768, and 390 px**. The owner case also opens the migration-evidence panel and checks for unintended horizontal overflow. No button dispatches a workflow or authorizes a merge.
+
+The suite **skips by default**, so green general CI and the mere existence of eight test definitions are **not** authenticated acceptance evidence. When `TRADEOS_BETA_CONTROL_ACCEPTANCE=true` is set, missing synthetic owner or technician storage-state files, base URL, or sanitized preview/staging identity fail the run rather than skipping or passing. Do not pass production URLs or customer accounts. The root Playwright target guard rejects unsafe hosts and requires independently attested identity for immutable Vercel preview deployments.
+
+To execute after non-production RC authorization (use secret-managed files, never commit or print storage state):
+
+```bash
+TRADEOS_BETA_CONTROL_ACCEPTANCE=true \
+TRADEOS_BETA_OWNER_STORAGE_STATE=/secure/test-owner.json \
+TRADEOS_BETA_TECHNICIAN_STORAGE_STATE=/secure/test-technician.json \
+TRADEOS_AGENT_BASE_URL=https://<approved-immutable-preview-origin>.vercel.app \
+TRADEOS_AGENT_ENVIRONMENT=preview \
+TRADEOS_AGENT_SANITIZED_TENANT=true \
+npx playwright test tests/playwright/beta-readiness.spec.ts
+```
+
+Additional deployment-attestation flags may be required by `tests/playwright/target.mjs`; set them only after obtaining the actual reviewed proof. This suite never creates session state or loads secrets from public artifacts, and it disables traces, screenshots and video to avoid leaking synthetic account cookies. Collect the four-width authoritative screenshots, artifact validation, cross-tenant evidence and protected staging runtime proofs through the **existing** `.github/workflows/beta-evidence.yml`, not through this auxiliary test. An owner session that cannot load `/beta-readiness` or a technician session that redirects to login rather than proving it is authenticated must **fail**, not count as a pass.
+
+The closed-unmerged #905 and #906 alternative migration PRs are presented as **superseded**, not active failures, while merged overlapping migration proposals remain blocking. This does not change any protected migration ledger, #907 approvals, or the final-release HOLD.

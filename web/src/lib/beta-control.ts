@@ -8,6 +8,38 @@ export type PrStatus = {
   checks: CheckState[]; requiredChecksKnown: boolean; requiredCheckNames: string[]; requiredChecks?: RequiredCheckBinding[]; error: string | null;
 };
 
+/** Allow only the exact owner and admin roles to access the control surface. */
+export function isBetaReadinessOperatorRole(role: unknown): role is 'owner' | 'admin' {
+  return role === 'owner' || role === 'admin';
+}
+
+/** Label a closed PR's status as disposition and an open PR's as mergeability. */
+export function prStatusTileLabel(state: string): string {
+  return state === 'closed' ? 'Disposition' : 'Mergeability';
+}
+
+/**
+ * Summarize PR disposition and evidence. Closed, unmerged #905/#906 lanes are
+ * superseded; merging either overlapping migration lane is unsafe. Known
+ * failures remain blocked even when another evidence source is unavailable.
+ */
+export function prCardStatus(pr: PrStatus): string {
+  if (pr.number === 905 || pr.number === 906) {
+    if (pr.state === 'closed') return pr.merged === false ? 'superseded' : 'blocked';
+  }
+  if (pr.state === 'closed') return pr.merged === true ? 'merged' : 'blocked';
+  if (pr.error) {
+    // A collection error cannot invalidate a confirmed failure. It can only
+    // downgrade otherwise-green or incomplete observations to unverified.
+    return evaluateChecks(pr).state === 'blocked' ? 'blocked' : 'unverified';
+  }
+  if (pr.draft === true) return 'draft';
+  if (pr.mergeable === false) return 'blocked';
+  const checks = evaluateChecks(pr);
+  if (checks.state === 'verified' && (pr.review !== 'approved' || pr.unresolvedThreads !== 0)) return 'unverified';
+  return checks.state;
+}
+
 // Parses the GET /rules/branches/main response: an array of rule entries, one
 // per rule, each carrying its ruleset id. Only required_status_checks entries
 // contribute; contexts are grouped so one context bound by several rulesets
@@ -163,9 +195,12 @@ function isClosedSupersededLane(pr: PrStatus): boolean {
   return (pr.number === 905 || pr.number === 906) && pr.state === 'closed' && pr.merged === false;
 }
 
+/** Select the next release action from the PR's disposition and available evidence. */
 export function nextSafeAction(pr: PrStatus): string {
-  if (pr.error) return 'Restore read-only GitHub visibility and refresh; keep every release gate blocked.';
+  // Closure/merged disposition is read from the PR itself. Historical check
+  // visibility is immaterial to a closed-unmerged, superseded release lane.
   if (isClosedSupersededLane(pr)) return 'Superseded migration lane closed without merge; retain #907 and its protected staging workflow. No duplicate migration action is required.';
+  if (pr.error) return 'Restore read-only GitHub visibility and refresh; keep every release gate blocked.';
   if ((pr.number===905 || pr.number===906) && pr.merged===true) return 'An overlapping migration lane was merged: verify workflow conflicts and protected staging policy before any release.';
   if (pr.number===905 || pr.number===906) return 'Compare this overlapping migration path with merged #907; reconcile and close the superseded lane after review. Do not merge duplicate staging workflows.';
   if (pr.draft) return 'Keep draft; reconcile exact-head tests, review findings and staging dependency before requesting ready-for-review.';

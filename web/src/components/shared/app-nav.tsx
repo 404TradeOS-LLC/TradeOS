@@ -20,6 +20,7 @@ import {
   Plus,
   Receipt,
   Settings,
+  ShieldAlert,
   Sparkles,
   UserPlus,
   Users,
@@ -35,6 +36,7 @@ import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { clientFetch } from "@/lib/clientApi";
 import { buildUniversalCreateHref, type UniversalCreateKind } from "@/lib/universal-create";
 import { canUseUniversalCreate } from "@/lib/universal-create-access";
+import { isBetaReadinessOperatorRole } from "@/lib/beta-control";
 import { cn } from "@/lib/utils";
 
 interface NavLink {
@@ -65,6 +67,15 @@ const TEAM_TIME_NAV_LINK: NavLink = {
   label: "Team & Time",
   shortLabel: "Team",
   icon: Clock3,
+};
+
+// Read-only release intelligence; direct server route continues to enforce
+// the authenticated owner/admin role. Never render this for unknown/field roles.
+const BETA_READINESS_NAV_LINK: NavLink = {
+  href: "/beta-readiness",
+  label: "Beta readiness",
+  shortLabel: "Beta",
+  icon: ShieldAlert,
 };
 
 const ATHENA_NAV_LINK: NavLink = {
@@ -165,6 +176,7 @@ function NavPill({
   );
 }
 
+/** Render navigation for the current role and enabled capabilities. */
 export function AppNav({
   email,
   currentRole = null,
@@ -191,7 +203,11 @@ export function AppNav({
   const dockMoreButtonRef = useRef<HTMLButtonElement>(null);
   const effectiveDispatchAttentionCount = clientDispatchAttentionCount ?? dispatchAttentionCount;
   const dispatchBadgeCount = Math.max(effectiveDispatchAttentionCount ?? 0, 0);
-  const secondaryLinks = teamTimeEnabled ? [...SECONDARY_NAV_LINKS, TEAM_TIME_NAV_LINK] : SECONDARY_NAV_LINKS;
+  const secondaryLinks = [
+    ...SECONDARY_NAV_LINKS,
+    ...(teamTimeEnabled ? [TEAM_TIME_NAV_LINK] : []),
+    ...(isBetaReadinessOperatorRole(currentRole) ? [BETA_READINESS_NAV_LINK] : []),
+  ];
 
   const effectiveAthenaEnabled = athenaCapabilityRetryKey
     ? clientAthenaCapability?.key === athenaCapabilityRetryKey && clientAthenaCapability.enabled
