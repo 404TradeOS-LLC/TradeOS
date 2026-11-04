@@ -9,7 +9,7 @@ const input = {
   files: [{ path: "docs/forge/safe.md", content: "# Safe\n" }],
 };
 
-function fakeServer({ moved=false, label=true, overlap=false } = {}) {
+function fakeServer({ moved=false, label=true, overlap=false, existing=false } = {}) {
   const calls=[];
   const fetchImpl=async(url,options)=>{
     const path=new URL(url).pathname+new URL(url).search;
@@ -18,6 +18,9 @@ function fakeServer({ moved=false, label=true, overlap=false } = {}) {
     if(path.endsWith("/git/ref/heads/main")) data={object:{sha:moved?"b".repeat(40):mainSha}};
     else if(path.endsWith("/issues/910")) data={number:910,state:"open",labels:label?[{name:"forge:ready"}]:[]};
     else if(path.endsWith("/pulls?state=open&per_page=100")) data=overlap?[{head:{ref:"other"},body:"Closes #910"}]:[];
+    else if(path.startsWith("/repos/404TradeOS-LLC/TradeOS/contents/docs/forge/")) {
+      return {ok:existing,status:existing?200:404,json:async()=>({sha:"f".repeat(40)})};
+    }
     else if(path.endsWith("/git/commits/"+mainSha)) data={tree:{sha:"b".repeat(40)}};
     else if(path.endsWith("/git/trees")) data={sha:"b".repeat(40)};
     else if(path.endsWith("/git/commits")) data={sha:commitSha};
@@ -72,4 +75,11 @@ test("issue inspection rejects PR objects masquerading as issue",async()=>{
   await assert.rejects(()=>inspectIssue(910,{
     fetchImpl:async()=>({ok:true,status:200,json:async()=>({number:910,pull_request:{url:"x"}})}),
   }),/identity mismatch/);
+});
+
+test("existing docs/forge file must be rejected before any write", async () => {
+  const fake = fakeServer({existing:true});
+  await assert.rejects(() => createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl}), /already exists/);
+  assert.ok(fake.calls.some(c=>c.path.includes("/contents/docs/forge/safe.md?ref="+mainSha)));
+  assert.equal(fake.calls.filter(c=>c.method!=="GET").length,0);
 });
