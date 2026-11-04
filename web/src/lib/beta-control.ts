@@ -16,6 +16,23 @@ export function isAuthorizedBetaOperator(
   return observedOrgId.toLowerCase() === allowed.toLowerCase();
 }
 
+/**
+ * Single fail-closed boundary between tenant-authenticated Settings identity
+ * and the platform-wide release collector. Denied calls never invoke the
+ * injected collector. Keeping the deny/read orchestration testable prevents
+ * a future refactor from accidentally fetching before authorization.
+ */
+export async function loadAuthorizedBetaSnapshot<T>(
+  role: string | null | undefined,
+  observedOrgId: string | null | undefined,
+  configuredOrgId: string | null | undefined,
+  getSnapshot: () => Promise<T>,
+  deny: () => never,
+): Promise<T> {
+  if (!isAuthorizedBetaOperator(role, observedOrgId, configuredOrgId)) return deny();
+  return getSnapshot();
+}
+
 export type EvidenceState = 'verified' | 'blocked' | 'unverified';
 export type CheckState = { name: string; status: string; conclusion: string | null; url: string | null; appId?: number | null };
 export type RequiredCheckBinding = { name: string; integrationIds: number[] };
