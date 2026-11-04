@@ -55,10 +55,14 @@ cd forge-agent
 npm ci
 npm run verify
 npm run build
+npm run smoke
 ```
 
-Verified in Vercel Sandbox (Node 24): nine policy/API regression tests passed,
-and `eve build` completed. No GitHub write or real model inference was
+Verified in Vercel Sandbox (Node 24): ten policy/API regression tests passed,
+`eve build` completed, and the compiled HTTP smoke checked that `/eve/v1/health`
+returns 200 while unauthenticated session, info and unsigned GitHub webhook
+requests return 401. The Vercel build command now executes this smoke after
+compilation. No real GitHub write or model inference occurred. No GitHub write or real model inference was
 performed as part of that validation.
 
 ## Deployment
