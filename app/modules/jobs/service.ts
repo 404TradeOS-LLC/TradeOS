@@ -296,7 +296,10 @@ export class JobsService {
         where: { orgId: input.orgId, sourceProposalId: proposal.id },
         include: jobDetailInclude,
       });
-      if (previous) return this.hydrateJobDTO(tx, input.orgId, previous);
+      if (previous) {
+        await this.assertJobContext(tx, input.orgId, previous.projectId, previous.customerId, input.serviceAddressId);
+        return this.hydrateJobDTO(tx, input.orgId, previous);
+      }
 
       if (!proposal.scopeOfWork?.trim()) {
         throw new ApiError(409, "The accepted proposal must include a scope of work before creating a field job");

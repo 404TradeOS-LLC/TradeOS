@@ -313,6 +313,17 @@ describe("JobsService", () => {
     expect(mockDb.job.create).not.toHaveBeenCalled();
   });
 
+  it("rejects a retry with a service address owned by another customer", async () => {
+    mockDb.proposal.findFirst.mockResolvedValue(acceptedProposal);
+    const previous = { ...scheduledJob, sourceProposalId: "proposal-1" };
+    mockDb.job.findFirst.mockResolvedValueOnce(previous);
+    mockDb.serviceAddress.findFirst.mockResolvedValue({ id: "address-1", orgId: "org-1", customerId: "other-customer" });
+    const service = new JobsService(mockDb as never);
+
+    await expect(service.createFromAcceptedProposal(conversionInput)).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockDb.job.create).not.toHaveBeenCalled();
+  });
+
   it("refuses a draft or cross-organization proposal without job creation", async () => {
     const service = new JobsService(mockDb as never);
     mockDb.proposal.findFirst.mockResolvedValueOnce({ ...acceptedProposal, status: "draft" }).mockResolvedValueOnce(null);
