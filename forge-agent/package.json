@@ -3,12 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "build": "eve build",
     "check": "node --check lib/github-client.js && node --check lib/policy.js",
     "test": "node --test test/*.test.js",
-    "verify": "npm run check && npm test"
+    "verify": "npm run check && npm test",
+    "smoke": "node scripts/smoke.mjs"
   },
-  "dependencies": { "eve": "1.0.0-rc.3", "ai": "7.0.162", "zod": "4.6.7" }
+  "dependencies": {
+    "eve": "1.0.0-rc.3",
+    "ai": "7.0.162",
+    "zod": "4.6.7"
+  }
 }
