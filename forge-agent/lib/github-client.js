@@ -120,7 +120,7 @@ export async function createDraft(input, {
     if (existing?.object?.sha !== commit.sha) throw error;
   }
   const findBranchPr = async () => {
-    const matches = await api("/pulls?head=" + encodeURIComponent(REPO.split("/")[0] + ":" + plan.branch) + "&state=open&per_page=100");
+    const matches = await api("/pulls?head=" + REPO.split("/")[0] + ":" + plan.branch + "&state=open&per_page=100");
     if (!Array.isArray(matches) || matches.length === 100) throw Error("Incomplete branch PR inventory");
     return matches.find((x) => x.head?.sha === commit.sha && x.head?.ref === plan.branch && x.draft === true);
   };
@@ -156,11 +156,12 @@ export async function createDraft(input, {
     else {
       // Only a definitive HTTP rejection permits cleanup. Ambiguous failures
       // leave the branch untouched for manual reconciliation.
-      if (error.status) {
+      if (Number.isInteger(error.status) && error.status >= 400 && error.status < 500 &&
+          ![408, 409, 429].includes(error.status)) {
         try {
           const branch = await api(branchPath);
           if (branch?.object?.sha === commit.sha) {
-            const open = await api("/pulls?head=" + encodeURIComponent(REPO.split("/")[0] + ":" + plan.branch) + "&state=open&per_page=100");
+            const open = await api("/pulls?head=" + REPO.split("/")[0] + ":" + plan.branch + "&state=open&per_page=100");
             if (Array.isArray(open) && open.length === 0) await api("/git/refs/heads/" + plan.branch, { method: "DELETE" });
           }
         } catch { /* cleanup must not mask the original failure */ }
