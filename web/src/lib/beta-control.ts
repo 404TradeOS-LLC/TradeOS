@@ -52,12 +52,20 @@ export function isBetaReadinessOperatorRole(role: unknown): role is 'owner' | 'a
 // PR lanes that were deliberately closed without merging are resolved
 // alternatives, not active merge conflicts. Merging one of those overlapping
 // migration lanes is an unsafe conflict, not a successful release gate.
+export function prStatusTileLabel(state: string): string {
+  return state === 'closed' ? 'Disposition' : 'Mergeability';
+}
+
 export function prCardStatus(pr: PrStatus): string {
   if (pr.number === 905 || pr.number === 906) {
     if (pr.state === 'closed') return pr.merged === false ? 'superseded' : 'blocked';
   }
   if (pr.state === 'closed') return pr.merged === true ? 'merged' : 'blocked';
-  if (pr.error) return 'unverified';
+  if (pr.error) {
+    // A collection error cannot invalidate a confirmed failure. It can only
+    // downgrade otherwise-green or incomplete observations to unverified.
+    return evaluateChecks(pr).state === 'blocked' ? 'blocked' : 'unverified';
+  }
   if (pr.draft === true) return 'draft';
   if (pr.mergeable === false) return 'blocked';
   const checks = evaluateChecks(pr);
