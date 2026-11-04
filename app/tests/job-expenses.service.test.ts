@@ -1,9 +1,9 @@
-import { JobExpensesService } from "../modules/expenses/service";
+import { JobExpensesService, verifyReceiptObjectExists } from "../modules/expenses/service";
 
 const mockDb = {
   job: { findFirst: jest.fn() },
   jobExpense: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), createMany: jest.fn(), upsert: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn() },
-  jobExpenseEvent: { create: jest.fn(), findMany: jest.fn() },
+  jobExpenseEvent: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn() },
   estimate: { findFirst: jest.fn() },
   $queryRaw: jest.fn(),
 };
@@ -43,7 +43,10 @@ function expenseRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe("JobExpensesService", () => {
-  const service = new JobExpensesService(mockDb as any);
+  // Receipt verification is stubbed to "exists" for the shared instance so
+  // attachReceipt tests never touch the network; dedicated cases below
+  // cover the missing/unavailable paths with their own instances.
+  const service = new JobExpensesService(mockDb as any, async () => "exists");
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -288,6 +291,97 @@ describe("JobExpensesService", () => {
     })).rejects.toMatchObject({ statusCode: 409 });
   });
 
+  it("returns the original expense on a keyed retry after the expense was edited", async () => {
+    const key = "11111111-1111-4111-8111-111111111111";
+    mockDb.jobExpense.findFirst.mockResolvedValue(expenseRow({ idempotencyKey: key, amountCents: 2500 }));
+    mockDb.jobExpenseEvent.findFirst.mockResolvedValue({
+      actorUserId: ACTOR,
+      payloadJson: {
+        after: {
+          amountCents: 1999, category: "material", paymentResponsibility: "contractor",
+          vendor: "ABC Supply", receiptNote: "Shingles", description: "Roof repair supplies",
+          incurredOn: "2026-11-01",
+        },
+      },
+    });
+    const result = await service.create({
+      orgId: ORG, jobId: JOB, actorUserId: ACTOR, amountCents: 1999,
+      category: "material", vendor: "ABC Supply", receiptNote: "Shingles",
+      description: "Roof repair supplies", incurredOn: DAY, idempotencyKey: key,
+    });
+    expect(result.id).toBe("expense-1");
+    expect(mockDb.jobExpense.create).not.toHaveBeenCalled();
+  });
+
+  it("returns the voided expense on a keyed retry with the original payload instead of conflicting", async () => {
+    const key = "11111111-1111-4111-8111-111111111111";
+    mockDb.jobExpense.findFirst.mockResolvedValue(expenseRow({
+      idempotencyKey: key, voidedAt: new Date("2026-11-02T09:00:00.000Z"),
+      voidedById: ACTOR, voidReason: "Duplicate",
+    }));
+    mockDb.jobExpenseEvent.findFirst.mockResolvedValue({
+      actorUserId: ACTOR,
+      payloadJson: {
+        after: {
+          amountCents: 1999, category: "material", paymentResponsibility: "contractor",
+          vendor: "ABC Supply", receiptNote: "Shingles", description: "Roof repair supplies",
+          incurredOn: "2026-11-01",
+        },
+      },
+    });
+    const result = await service.create({
+      orgId: ORG, jobId: JOB, actorUserId: ACTOR, amountCents: 1999,
+      category: "material", vendor: "ABC Supply", receiptNote: "Shingles",
+      description: "Roof repair supplies", incurredOn: DAY, idempotencyKey: key,
+    });
+    expect(result.id).toBe("expense-1");
+    expect(result.voidedAt).not.toBeNull();
+  });
+
+  it("rejects a keyed retry whose payload differs from the created snapshot even when current fields match", async () => {
+    const key = "11111111-1111-4111-8111-111111111111";
+    mockDb.jobExpense.findFirst.mockResolvedValue(expenseRow({ idempotencyKey: key, amountCents: 2500 }));
+    mockDb.jobExpenseEvent.findFirst.mockResolvedValue({
+      actorUserId: ACTOR,
+      payloadJson: {
+        after: {
+          amountCents: 1999, category: "material", paymentResponsibility: "contractor",
+          vendor: "ABC Supply", receiptNote: "Shingles", description: "Roof repair supplies",
+          incurredOn: "2026-11-01",
+        },
+      },
+    });
+    await expect(service.create({
+      orgId: ORG, jobId: JOB, actorUserId: ACTOR, amountCents: 2500,
+      category: "material", vendor: "ABC Supply", receiptNote: "Shingles",
+      description: "Roof repair supplies", incurredOn: DAY, idempotencyKey: key,
+    })).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it("deduplicates a concurrent retry against the created snapshot", async () => {
+    const key = "11111111-1111-4111-8111-111111111111";
+    const existing = expenseRow({ idempotencyKey: key, amountCents: 2500 });
+    mockDb.jobExpense.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(existing);
+    mockDb.jobExpense.createMany.mockResolvedValue({ count: 0 });
+    mockDb.jobExpenseEvent.findFirst.mockResolvedValue({
+      actorUserId: ACTOR,
+      payloadJson: {
+        after: {
+          amountCents: 1999, category: "material", paymentResponsibility: "contractor",
+          vendor: "ABC Supply", receiptNote: "Shingles", description: "Roof repair supplies",
+          incurredOn: "2026-11-01",
+        },
+      },
+    });
+    const result = await service.create({
+      orgId: ORG, jobId: JOB, actorUserId: ACTOR, amountCents: 1999,
+      category: "material", vendor: "ABC Supply", receiptNote: "Shingles",
+      description: "Roof repair supplies", incurredOn: DAY, idempotencyKey: key,
+    });
+    expect(result.id).toBe(existing.id);
+    expect(mockDb.jobExpenseEvent.create).not.toHaveBeenCalled();
+  });
+
   it("rejects expense detail reads under another job even in the same organization", async () => {
     mockDb.jobExpense.findFirst.mockResolvedValue(null);
     await expect(service.getById("expense-1", ORG, "another-job")).rejects.toMatchObject({ statusCode: 404 });
@@ -329,6 +423,28 @@ describe("JobExpensesService", () => {
     expect(mockDb.jobExpenseEvent.create).not.toHaveBeenCalled();
   });
 
+  it("rejects a receipt path whose storage object does not exist", async () => {
+    const verifying = new JobExpensesService(mockDb as any, async () => "missing");
+    mockDb.jobExpense.findFirst.mockResolvedValue(expenseRow());
+    await expect(verifying.attachReceipt({
+      id: "expense-1", jobId: JOB, orgId: ORG,
+      receiptStoragePath: "job-expenses/org-1/10000000-0000-0000-0000-000000000001/expense-1/receipt-11111111-1111-4111-8111-111111111111.pdf",
+      receiptFileName: "bill.pdf", receiptContentType: "application/pdf", receiptSizeBytes: 2048,
+    })).rejects.toMatchObject({ statusCode: 400 });
+    expect(mockDb.jobExpense.update).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when receipt storage verification is unavailable", async () => {
+    const verifying = new JobExpensesService(mockDb as any, async () => "unavailable");
+    mockDb.jobExpense.findFirst.mockResolvedValue(expenseRow());
+    await expect(verifying.attachReceipt({
+      id: "expense-1", jobId: JOB, orgId: ORG,
+      receiptStoragePath: "job-expenses/org-1/10000000-0000-0000-0000-000000000001/expense-1/receipt-11111111-1111-4111-8111-111111111111.pdf",
+      receiptFileName: "bill.pdf", receiptContentType: "application/pdf", receiptSizeBytes: 2048,
+    })).rejects.toMatchObject({ statusCode: 502 });
+    expect(mockDb.jobExpense.update).not.toHaveBeenCalled();
+  });
+
   it("rejects a competing receipt path detected under the expense row lock", async () => {
     const supplied = "job-expenses/org-1/10000000-0000-0000-0000-000000000001/expense-1/receipt-11111111-1111-4111-8111-111111111111.pdf";
     const competing = "job-expenses/org-1/10000000-0000-0000-0000-000000000001/expense-1/receipt-22222222-2222-4222-8222-222222222222.pdf";
@@ -366,5 +482,55 @@ describe("JobExpensesService", () => {
     mockDb.estimate.findFirst.mockResolvedValue(null);
     const summary = await service.getJobCostSummary(JOB, ORG);
     expect(summary).toMatchObject({ actualCents: 0, estimatedCents: null, varianceCents: null, estimateId: null, expenseCount: 0 });
+  });
+});
+
+describe("verifyReceiptObjectExists", () => {
+  const originalFetch = global.fetch;
+  const originalSupabaseUrl = process.env.SUPABASE_URL;
+  const originalServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const PATH = "job-expenses/org-1/10000000-0000-0000-0000-000000000001/expense-1/receipt-11111111-1111-4111-8111-111111111111.pdf";
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    if (originalSupabaseUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = originalSupabaseUrl;
+    if (originalServiceKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = originalServiceKey;
+    jest.restoreAllMocks();
+  });
+
+  it("skips verification when storage is not configured", async () => {
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    await expect(verifyReceiptObjectExists(PATH)).resolves.toBe("skipped");
+  });
+
+  it("reports a missing object on a 404 from storage", async () => {
+    process.env.SUPABASE_URL = "https://example.supabase.co";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
+    const cancel = jest.fn().mockResolvedValue(undefined);
+    global.fetch = jest.fn().mockResolvedValue({ status: 404, body: { cancel } });
+    await expect(verifyReceiptObjectExists(PATH)).resolves.toBe("missing");
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.objectContaining({ href: expect.stringContaining(`/storage/v1/object/authenticated/project-files/${PATH}`) }),
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer test-key" }) }),
+    );
+  });
+
+  it("reports an existing object on a 206 range response", async () => {
+    process.env.SUPABASE_URL = "https://example.supabase.co";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
+    const cancel = jest.fn().mockResolvedValue(undefined);
+    global.fetch = jest.fn().mockResolvedValue({ status: 206, body: { cancel } });
+    await expect(verifyReceiptObjectExists(PATH)).resolves.toBe("exists");
+  });
+
+  it("reports unavailable on a storage error status", async () => {
+    process.env.SUPABASE_URL = "https://example.supabase.co";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
+    const cancel = jest.fn().mockResolvedValue(undefined);
+    global.fetch = jest.fn().mockResolvedValue({ status: 500, body: { cancel } });
+    await expect(verifyReceiptObjectExists(PATH)).resolves.toBe("unavailable");
   });
 });

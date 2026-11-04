@@ -27,6 +27,43 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const RECEIPT_FILE = /^receipt-[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:png|jpg|pdf)$/i;
 const RECEIPT_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "application/pdf": "pdf" };
 const MAX_RECEIPT_BYTES = 4 * 1024 * 1024;
+// Receipt objects live in the same private bucket the web app uploads to.
+// This must match web/src/lib/job-expense-receipts.ts EXPENSE_RECEIPT_BUCKET.
+const RECEIPT_BUCKET = "project-files";
+
+export type ReceiptObjectVerification = "exists" | "missing" | "unavailable" | "skipped";
+
+/**
+ * Verify that the exact receipt object exists in storage before its path is
+ * persisted, following the same authenticated Supabase storage fetch the PDF
+ * logo loader uses. Returns "skipped" when storage is not configured at all
+ * (local/test environments), so verification never breaks unconfigured
+ * environments; in configured deployments a missing object is a 400 and any
+ * other verification failure is a 502. The path is already constrained to
+ * this expense's namespace and a receipt-UUID filename before this runs.
+ */
+export async function verifyReceiptObjectExists(storagePath: string): Promise<ReceiptObjectVerification> {
+  const base = process.env.SUPABASE_URL?.trim();
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!base || !secret) return "skipped";
+  let origin: URL;
+  try {
+    origin = new URL(base);
+    if (origin.protocol !== "https:" || origin.username || origin.password || origin.search ||
+        origin.hash || origin.pathname !== "/" || !origin.hostname.endsWith(".supabase.co")) return "unavailable";
+  } catch { return "unavailable"; }
+  try {
+    const resource = new URL(`/storage/v1/object/authenticated/${RECEIPT_BUCKET}/${storagePath}`, origin);
+    const response = await fetch(resource, {
+      headers: { Authorization: `Bearer ${secret}`, apikey: secret, Range: "bytes=0-0" },
+      redirect: "error", cache: "no-store", signal: AbortSignal.timeout(4000),
+    });
+    await response.body?.cancel().catch(() => {});
+    if (response.status === 200 || response.status === 206) return "exists";
+    if (response.status === 404 || response.status === 400) return "missing";
+    return "unavailable";
+  } catch { return "unavailable"; }
+}
 
 function toDTO(row: JobExpenseRow): JobExpenseDTO {
   return {
@@ -104,11 +141,13 @@ function auditSnapshot(row: JobExpenseRow) {
   };
 }
 
-function assertSameSubmission(existing: JobExpenseRow, input: {
+type SubmissionFingerprint = {
   amountCents: number; category: ExpenseCategory; paymentResponsibility: ExpensePaymentResponsibility;
   vendor: string; receiptNote: string; description: string; incurredOn: Date;
   actorUserId: string;
-}): JobExpenseDTO {
+};
+
+function assertSameSubmission(existing: JobExpenseRow, input: SubmissionFingerprint): JobExpenseDTO {
   if (existing.voidedAt ||
       existing.amountCents !== input.amountCents || existing.category !== input.category ||
       (existing.paymentResponsibility ?? "contractor") !== input.paymentResponsibility ||
@@ -121,6 +160,69 @@ function assertSameSubmission(existing: JobExpenseRow, input: {
   return toDTO(existing);
 }
 
+/** Immutable creation snapshot carried by the expense's `created` audit event. */
+type CreatedExpenseSnapshot = {
+  amountCents: number; category: string; paymentResponsibility: string;
+  vendor: string; receiptNote: string; description: string; incurredOn: string;
+};
+
+function asCreatedSnapshot(payload: unknown): CreatedExpenseSnapshot | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const after = (payload as { after?: unknown }).after;
+  if (typeof after !== "object" || after === null) return null;
+  const snapshot = after as Record<string, unknown>;
+  if (typeof snapshot.amountCents !== "number" || typeof snapshot.category !== "string" ||
+      typeof snapshot.paymentResponsibility !== "string" || typeof snapshot.vendor !== "string" ||
+      typeof snapshot.receiptNote !== "string" || typeof snapshot.description !== "string" ||
+      typeof snapshot.incurredOn !== "string") return null;
+  return {
+    amountCents: snapshot.amountCents, category: snapshot.category,
+    paymentResponsibility: snapshot.paymentResponsibility, vendor: snapshot.vendor,
+    receiptNote: snapshot.receiptNote, description: snapshot.description,
+    incurredOn: snapshot.incurredOn,
+  };
+}
+
+/**
+ * Compare a keyed retry against the immutable `created` event snapshot, not
+ * the row's current fields: an edit, receipt link, or void after creation
+ * must not turn a retry of the original submission into a 409. A matching
+ * retry returns the expense row (whose DTO reflects its current state,
+ * including a void); a mismatch still conflicts.
+ */
+function assertSameOriginalSubmission(
+  existing: JobExpenseRow, snapshot: CreatedExpenseSnapshot,
+  snapshotActorUserId: string, input: SubmissionFingerprint,
+): JobExpenseDTO {
+  if (snapshot.amountCents !== input.amountCents || snapshot.category !== input.category ||
+      (snapshot.paymentResponsibility ?? "contractor") !== input.paymentResponsibility ||
+      snapshot.vendor !== input.vendor || snapshot.receiptNote !== input.receiptNote ||
+      (snapshot.description ?? "") !== input.description ||
+      snapshot.incurredOn !== input.incurredOn.toISOString().slice(0, 10) ||
+      snapshotActorUserId !== input.actorUserId) {
+    throw new ApiError(409, "Idempotency key already belongs to a different expense");
+  }
+  return toDTO(existing);
+}
+
+/**
+ * Resolve a keyed retry: prefer the `created` event snapshot when one exists
+ * (every row created through this service records one in the same
+ * transaction); fall back to the current-field comparison for legacy rows
+ * that predate audit events.
+ */
+function assertSameSubmissionForRetry(
+  existing: JobExpenseRow,
+  createdEvent: { actorUserId: string; payloadJson: unknown } | null,
+  input: SubmissionFingerprint,
+): JobExpenseDTO {
+  if (createdEvent) {
+    const snapshot = asCreatedSnapshot(createdEvent.payloadJson);
+    if (snapshot) return assertSameOriginalSubmission(existing, snapshot, createdEvent.actorUserId, input);
+  }
+  return assertSameSubmission(existing, input);
+}
+
 /** Cents-exact decimal-to-cents conversion for currency fields (Decimal(14,2)). */
 export function decimalToCents(value: unknown): number {
   return Math.round(Number(value) * 100);
@@ -131,7 +233,10 @@ export function decimalToCents(value: unknown): number {
  * transaction, reusing the authenticated request transaction when present.
  */
 export class JobExpensesService {
-  constructor(private readonly db: PrismaClient = prisma) {}
+  constructor(
+    private readonly db: PrismaClient = prisma,
+    private readonly receiptObjectExists: (storagePath: string) => Promise<ReceiptObjectVerification> = verifyReceiptObjectExists,
+  ) {}
 
   private async assertJobInOrg(jobId: string, orgId: string): Promise<{ id: string; projectId: string }> {
     const job = await this.db.job.findFirst({ where: { id: jobId, orgId } });
@@ -211,7 +316,13 @@ export class JobExpensesService {
       const existing = await this.db.jobExpense.findFirst({
         where: { orgId: input.orgId, jobId: job.id, idempotencyKey },
       });
-      if (existing) return assertSameSubmission(existing as JobExpenseRow, expected);
+      if (existing) {
+        const createdEvent = await this.db.jobExpenseEvent.findFirst({
+          where: { expenseId: existing.id, orgId: input.orgId, jobId: job.id, eventType: "created" },
+          orderBy: { createdAt: "asc" },
+        });
+        return assertSameSubmissionForRetry(existing as JobExpenseRow, createdEvent, expected);
+      }
     }
     return runInDatabaseTransaction(this.db, async (tx) => {
       const candidateId = randomUUID();
@@ -230,7 +341,13 @@ export class JobExpensesService {
           where: { orgId: input.orgId, jobId: job.id, idempotencyKey },
         });
         if (!row) throw new ApiError(409, "Expense retry state is unavailable");
-        if (inserted.count === 0) return assertSameSubmission(row as JobExpenseRow, expected);
+        if (inserted.count === 0) {
+          const createdEvent = await tx.jobExpenseEvent.findFirst({
+            where: { expenseId: row.id, orgId: input.orgId, jobId: job.id, eventType: "created" },
+            orderBy: { createdAt: "asc" },
+          });
+          return assertSameSubmissionForRetry(row as JobExpenseRow, createdEvent, expected);
+        }
       } else {
         row = await tx.jobExpense.create({ data });
       }
@@ -301,6 +418,12 @@ export class JobExpensesService {
       if (existing.receiptStoragePath === input.receiptStoragePath) return toDTO(existing);
       throw new ApiError(409, "This expense already has a receipt");
     }
+    // Verify the object exists before persisting its path: a well-formed path
+    // with no object behind it would otherwise persist permanently (the path
+    // can neither be cleared nor replaced through this API) and 404 on download.
+    const verification = await this.receiptObjectExists(input.receiptStoragePath);
+    if (verification === "missing") throw new ApiError(400, "Receipt object was not found in storage");
+    if (verification === "unavailable") throw new ApiError(502, "Receipt storage verification is unavailable");
     return runInDatabaseTransaction(this.db, async (tx) => {
       // Re-read under the same row lock as update/void. Another request may
       // have linked a receipt after the initial read; same-path retries are
