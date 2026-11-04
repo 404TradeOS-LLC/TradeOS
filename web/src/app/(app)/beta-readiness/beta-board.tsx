@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowUpRight, GitPullRequest, RefreshCw, ShieldAlert, ShieldCheck, GitBranch, Workflow, CircleDot, ChevronDown, ChevronUp, LockKeyhole } from 'lucide-react';
-import { evaluateChecks, gatePromotion, nextSafeAction, prCardStatus, type BetaSnapshot, type ReleaseGate, type PrStatus } from '@/lib/beta-control';
+import { evaluateChecks, gatePromotion, nextSafeAction, prCardStatus, prStatusTileLabel, type BetaSnapshot, type ReleaseGate, type PrStatus } from '@/lib/beta-control';
 
 const GITHUB='https://github.com/404TradeOS-LLC/TradeOS';
 const WIDTHS=['1440','1024','768','390'];
@@ -26,7 +26,7 @@ function Detail({pr}:{pr:PrStatus}){
   return <div>
     <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-mono text-xs text-[#cf9b73]">EXACT HEAD {shortSha(pr.head)}</p><h3 className="mt-1 text-base font-semibold text-white">{pr.title}</h3></div><Outbound href={pr.url}>Open PR</Outbound></div>
     <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-      {[['Required CI',checks.state],['Reviews',pr.review],['Threads',pr.unresolvedThreads===null?'unverified':pr.unresolvedThreads===0?'verified':`${pr.unresolvedThreads} open`],['Currency',pr.behind===null?'unverified':pr.behind===0?'verified':`${pr.behind} behind`],['Draft',pr.draft===null?'unverified':pr.draft?'blocked':'verified'],['Mergeability',pr.state==='closed'?prCardStatus(pr):pr.mergeable===null?'unverified':pr.mergeable?'verified':'blocked']].map(([label,value])=><div key={label} className="rounded-lg border border-white/10 bg-black/20 px-3 py-3"><p className="mb-2 text-[11px] text-slate-400">{label}</p><Status value={value}/></div>)}
+      {[['Required CI',checks.state],['Reviews',pr.review],['Threads',pr.unresolvedThreads===null?'unverified':pr.unresolvedThreads===0?'verified':`${pr.unresolvedThreads} open`],['Currency',pr.behind===null?'unverified':pr.behind===0?'verified':`${pr.behind} behind`],['Draft',pr.draft===null?'unverified':pr.draft?'blocked':'verified'],[prStatusTileLabel(pr.state),pr.state==='closed'?prCardStatus(pr):pr.mergeable===null?'unverified':pr.mergeable?'verified':'blocked']].map(([label,value])=><div key={label} className="rounded-lg border border-white/10 bg-black/20 px-3 py-3"><p className="mb-2 text-[11px] text-slate-400">{label}</p><Status value={value}/></div>)}
     </div>
     <div className="mt-5 rounded-xl border border-[#9a653e]/45 bg-[#281f19] p-4"><p className="mb-1 text-xs font-bold uppercase tracking-widest text-[#e1a778]">Smallest safe next action</p><p className="text-sm leading-6 text-slate-100">{nextSafeAction(pr)}</p></div>
     <div className="mt-5"><div className="mb-3 flex items-center justify-between"><h4 className="text-sm font-semibold text-slate-100">Exact-head check runs</h4><span className="text-xs text-slate-400">{pr.checks.length} observed</span></div>
