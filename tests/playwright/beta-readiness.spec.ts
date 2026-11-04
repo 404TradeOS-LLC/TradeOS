@@ -49,7 +49,7 @@ test.describe('Beta readiness role and four-width acceptance (non-production onl
         await page.setViewportSize(viewport);
         const response = await page.goto('/beta-readiness', { waitUntil: 'domcontentloaded' });
         expect(response?.status()).toBe(200);
-        await expect(page).toHaveURL(/\\/beta-readiness(?:[/?#]|$)/);
+        await expect(page).toHaveURL(/beta-readiness(?:[/?#]|$)/);
         await expect(page.getByRole('heading', { name: /Beta readiness control/i })).toBeVisible();
         await expect(page.getByText('HOLD — NO PROMOTION', { exact: true })).toBeVisible();
         await expect(page.getByRole('heading', { name: 'Beta gate matrix' })).toBeVisible();
@@ -79,7 +79,7 @@ test.describe('Beta readiness role and four-width acceptance (non-production onl
         // otherwise a login redirect could falsely look like role isolation.
         const landing = await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
         expect(landing?.status()).toBe(200);
-        await expect(page).toHaveURL(/\\/dashboard(?:[/?#]|$)/);
+        await expect(page).toHaveURL(/dashboard(?:[/?#]|$)/);
 
         const response = await page.goto('/beta-readiness', { waitUntil: 'domcontentloaded' });
         expect(response?.status(), 'An authenticated technician must receive a server-side 404').toBe(404);
