@@ -35,6 +35,7 @@ import {
 
 import { assertAuthenticatedSmokeTenant } from "../../app/scripts/beta-evidence/lib/tenant-identity.mjs";
 import { createdCustomerIdFromUrl } from "../../app/scripts/beta-evidence/lib/customer-detail-url.mjs";
+import { matchesReviewedSavedLine, renderedVerifiedRowMatches, reloadEstimateAndRead } from "../../app/scripts/beta-evidence/lib/saved-line-verification.mjs";
 
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
@@ -759,6 +760,54 @@ test("evidence capture asserts business meaning, not just DOM presence", () => {
   assert.match(capture, /invoice bills sell price rather than direct cost/);
 });
 
+test("S053 saved-line evidence compares the persisted row with the reviewed request", async () => {
+  const acknowledgement = {
+    draftLineItemId: "draft-1",
+    lineItemId: "line-1",
+    description: "Deck framing",
+    quantity: 1.2346,
+  };
+  const reviewed = {
+    status: "accepted",
+    targetKind: "assembly",
+    targetId: "assembly-1",
+    description: " Deck framing ",
+    quantity: 1.23456,
+  };
+  const saved = {
+    id: "line-1",
+    assemblyId: "assembly-1",
+    costItemId: null,
+    description: "Deck framing",
+    quantity: 1.2346,
+  };
+
+  assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved }), true);
+  assert.equal(renderedVerifiedRowMatches("Deck framing\\n1.2346 LF · saved line matched the reviewed assembly", acknowledgement), true);
+  assert.equal(renderedVerifiedRowMatches("Different line\\n1.2346 LF", acknowledgement), false);
+  assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved: { ...saved, assemblyId: "other" } }), false);
+  assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved: { ...saved, description: "Other" } }), false);
+  assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved: { ...saved, quantity: 1.2345 } }), false);
+
+  // A blank reviewed label uses the backend-effective acknowledgement label,
+  // which the saved detail must preserve.
+  assert.equal(matchesReviewedSavedLine({
+    acknowledgement,
+    reviewed: { ...reviewed, description: " " },
+    saved,
+  }), true);
+
+  const calls = [];
+  const afterReload = await reloadEstimateAndRead({
+    page: { reload: async (options) => calls.push(options) },
+    estimateId: "estimate-1",
+    readEstimateDetail: async (id) => ({ id, lineItems: [saved] }),
+  });
+  assert.equal(calls.length, 1, "the exercised helper must perform a hard reload");
+  assert.deepEqual(calls[0], { waitUntil: "networkidle", timeout: 60_000 });
+  assert.equal(afterReload.id, "estimate-1");
+});
+
 test("S053 authenticated Estimate evidence reconciles saved line identity through reload", () => {
   assert.match(capture, /Saved line verification/);
   assert.match(capture, /reviewed Apply acknowledgement succeeds/);
@@ -766,7 +815,7 @@ test("S053 authenticated Estimate evidence reconciles saved line identity throug
   assert.match(capture, /acknowledgement\.skipped\.filter\(\(line\) => line\.lineItemId/);
   assert.match(capture, /matches the authenticated review/);
   assert.match(capture, /reviewed Athena saved-line IDs survive an authenticated hard reload/);
-  assert.match(capture, /keeps its acknowledged identity/);
+  assert.match(capture, /keeps reviewed identity and target/);
   assert.match(isolation, /name: "foreign estimate"/);
   assert.match(isolation, /method: "GET"/);
   assert.match(isolation, /apiRoute: `\/api\/proxy\/estimates\/\$\{foreignEstimateId\}`/);
