@@ -63,8 +63,8 @@ interface SuggestionDraft extends AIEstimateSuggestion {
 }
 
 interface ApplySuggestionsResponse {
-  applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number }>;
-  skipped: Array<{ draftLineItemId: string; status: string; reason: string; lineItemId?: string }>;
+  applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number; description: string }>;
+  skipped: Array<{ draftLineItemId: string; status: string; reason: string; lineItemId?: string; quantity?: number; description?: string }>;
   verified: VerifiedEstimateApplyLine[];
 }
 

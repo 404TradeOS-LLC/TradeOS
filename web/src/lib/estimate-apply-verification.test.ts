@@ -28,7 +28,7 @@ const savedLine = {
 test("verifies a newly applied line against the authorized Estimate read", () => {
   assert.deepEqual(
     verifyEstimateApplyAcknowledgement({
-      applied: [{ draftLineItemId: "reviewed-deck", lineItemId: "saved-line-1", quantity: 2 }],
+      applied: [{ draftLineItemId: "reviewed-deck", lineItemId: "saved-line-1", quantity: 2, description: "Reviewed deck framing" }],
       skipped: [],
     }, body, [savedLine]),
     [{
@@ -52,6 +52,8 @@ test("verifies an idempotent retry when the skip acknowledgement identifies the 
       status: "accepted",
       reason: "Matching reviewed line already exists; skipped for idempotency.",
       lineItemId: "saved-line-1",
+      quantity: 2,
+      description: "Reviewed deck framing",
     }],
   }, body, [savedLine]);
 
@@ -68,11 +70,40 @@ test("fails closed when an acknowledged saved line is absent or mismatched", () 
   );
   assert.throws(
     () => verifyEstimateApplyAcknowledgement({
-      applied: [{ draftLineItemId: "reviewed-deck", lineItemId: "saved-line-1", quantity: 2 }],
+      applied: [{ draftLineItemId: "reviewed-deck", lineItemId: "saved-line-1", quantity: 2, description: "Reviewed deck framing" }],
       skipped: [],
     }, body, [{ ...savedLine, quantity: 3 }]),
     EstimateApplyVerificationError
   );
+});
+
+test("verifies the backend's effective description and persisted quantity precision", () => {
+  const precisionBody = JSON.stringify({
+    lineItems: [{
+      draftLineItemId: "reviewed-deck",
+      status: "accepted",
+      targetKind: "assembly",
+      targetId: "assembly-deck",
+      quantity: 1.23456,
+      description: "   ",
+    }],
+  });
+  const verified = verifyEstimateApplyAcknowledgement({
+    applied: [{
+      draftLineItemId: "reviewed-deck",
+      lineItemId: "saved-line-1",
+      quantity: 1.2346,
+      description: "Deck framing assembly",
+    }],
+    skipped: [],
+  }, precisionBody, [{
+    ...savedLine,
+    description: "Deck framing assembly",
+    quantity: 1.2346,
+  }]);
+
+  assert.equal(verified[0]?.description, "Deck framing assembly");
+  assert.equal(verified[0]?.quantity, 1.2346);
 });
 
 test("does not claim rejected or unresolved review-only skips as saved lines", () => {

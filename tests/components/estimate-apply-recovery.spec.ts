@@ -25,7 +25,7 @@ test.beforeAll(async () => {
         const matching=()=>window.savedLines.find(line=>line.quantity===reviewed.quantity&&line.description===reviewed.description&&line.assemblyId===reviewed.targetId);
         const persist=()=>matching()||(()=>{const line={id:'synthetic-saved-line-'+(window.savedLines.length+1),costItemId:null,assemblyId:reviewed.targetId,description:reviewed.description,quantity:reviewed.quantity,unitOfMeasure:'assembly',unitCost:1200,lineCost:1200*reviewed.quantity,sourceKey:'ai-estimator:v1:synthetic'};window.savedLines.push(line);return line;})();
         return new Promise((resolve,reject)=>{
-          window.acknowledgeApply=()=>{const existing=matching();const saved=persist();resolve(existing?{applied:[],skipped:[{draftLineItemId:'reviewed-line',status:'accepted',reason:'Matching reviewed line already exists; skipped for idempotency.',lineItemId:saved.id}]}:{applied:[{draftLineItemId:'reviewed-line',lineItemId:saved.id,quantity:reviewed.quantity}],skipped:[]});};
+          window.acknowledgeApply=()=>{const existing=matching();const saved=persist();resolve(existing?{applied:[],skipped:[{draftLineItemId:'reviewed-line',status:'accepted',reason:'Matching reviewed line already exists; skipped for idempotency.',lineItemId:saved.id,quantity:saved.quantity,description:saved.description}]}:{applied:[{draftLineItemId:'reviewed-line',lineItemId:saved.id,quantity:saved.quantity,description:saved.description}],skipped:[]});};
           window.failApply=()=>{persist();reject(new Error('Synthetic response lost'));};
           window.rejectApply=()=>reject(new ClientApiError('Synthetic validation failed',400));
         });

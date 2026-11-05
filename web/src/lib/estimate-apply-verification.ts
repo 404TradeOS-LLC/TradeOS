@@ -1,6 +1,6 @@
 export interface EstimateApplyAcknowledgement {
-  applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number }>;
-  skipped: Array<{ draftLineItemId: string; status: string; reason: string; lineItemId?: string }>;
+  applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number; description: string }>;
+  skipped: Array<{ draftLineItemId: string; status: string; reason: string; lineItemId?: string; quantity?: number; description?: string }>;
 }
 
 export interface EstimateApplyRequestLine {
@@ -54,12 +54,21 @@ export function verifyEstimateApplyAcknowledgement(
   const requestedByDraftId = new Map(request.lineItems.map((line) => [line.draftLineItemId, line]));
   const savedById = new Map(savedLines.map((line) => [line.id, line]));
   const acknowledged = [
-    ...acknowledgement.applied.map((line) => ({ draftLineItemId: line.draftLineItemId, lineItemId: line.lineItemId })),
-    ...acknowledgement.skipped.flatMap((line) => line.lineItemId ? [{ draftLineItemId: line.draftLineItemId, lineItemId: line.lineItemId }] : []),
+    ...acknowledgement.applied.map((line) => ({
+      draftLineItemId: line.draftLineItemId,
+      lineItemId: line.lineItemId,
+      quantity: line.quantity,
+      description: line.description,
+    })),
+    ...acknowledgement.skipped.flatMap((line) =>
+      line.lineItemId && line.quantity !== undefined && line.description !== undefined
+        ? [{ draftLineItemId: line.draftLineItemId, lineItemId: line.lineItemId, quantity: line.quantity, description: line.description }]
+        : []
+    ),
   ];
   const seenSavedIds = new Set<string>();
 
-  return acknowledged.map(({ draftLineItemId, lineItemId }) => {
+  return acknowledged.map(({ draftLineItemId, lineItemId, quantity, description }) => {
     if (seenSavedIds.has(lineItemId)) {
       throw new EstimateApplyVerificationError(`Saved line ${lineItemId} was acknowledged more than once.`);
     }
@@ -77,8 +86,8 @@ export function verifyEstimateApplyAcknowledgement(
     const savedTargetId = requested.targetKind === "assembly" ? saved.assemblyId : saved.costItemId;
     if (
       savedTargetId !== requested.targetId ||
-      saved.quantity !== requested.quantity ||
-      normalizeText(saved.description) !== normalizeText(requested.description ?? "")
+      saved.quantity !== quantity ||
+      normalizeText(saved.description) !== normalizeText(description)
     ) {
       throw new EstimateApplyVerificationError(`Acknowledged line ${lineItemId} did not match the reviewed target, quantity, and description.`);
     }
