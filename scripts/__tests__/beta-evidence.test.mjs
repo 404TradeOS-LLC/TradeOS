@@ -843,7 +843,7 @@ test("tenant isolation refuses to report PASS without a probeable resource", () 
   assert.match(isolation, /refusing to report PASS/i);
   // An Estimate id alone must execute the authenticated API denial probe.
   assert.match(workflow, /A foreign customer.*BETA_RC_FOREIGN_ESTIMATE_ID/);
-  assert.match(isolation, /foreignEstimateId[\\s\\S]*route: foreignProjectId/);
+  assert.match(isolation, /foreignEstimateId[\s\S]*route: foreignProjectId/);
   assert.doesNotMatch(isolation, /foreignEstimateId && foreignProjectId/);
   assert.match(workflow, /HAS_FOREIGN_RESOURCE/);
 });
