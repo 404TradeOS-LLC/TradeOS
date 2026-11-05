@@ -269,6 +269,12 @@ async function deleteEvidenceLineItems(estimateId, lineItemIds) {
   }
 }
 
+/**
+ * Capture authenticated S053 review, apply, saved-line, and reload evidence for one Estimate.
+ * @param {string} projectId Smoke-tenant project used to create the Estimate.
+ * @param {string} estimateId Newly created Estimate id.
+ * @returns {Promise<void>} Resolves after assertions and cleanup complete.
+ */
 async function runS053Certification(projectId, estimateId) {
   const baseline = await readEstimateDetail(estimateId);
   const baselineIds = new Set(baseline.lineItems.map((item) => item.id));
