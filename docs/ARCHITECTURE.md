@@ -114,6 +114,8 @@ Database search-index changes do not alter this tenancy model. The `pg_trgm` ext
 
 Auth flows that must find a user before any org context exists (login, password reset, invite acceptance, and Supabase identity bootstrap) use a separate, narrower escape hatch instead: an `app.login_lookup` session flag, then `app.user_id` once the user is known, then `app.org_id` once their membership is known — set in that order, inside one transaction. See [modules/auth-and-tenancy.md](modules/auth-and-tenancy.md)'s Database security invariants.
 
+Provider webhooks use the same flag pattern for a different reason: a verified Resend delivery event has no user identity at all, so no tenant session exists to scope the write. The delivery-journal store (`app/db/resendDeliveryJournalStore.ts`) sets the transaction-local `app.resend_webhook` flag inside its own transaction; the forced-RLS policies on `email_delivery_messages` and `email_delivery_events` only widen writes for the duration of that transaction, and tenant reads stay org-scoped. Org attribution for an event is resolved inside the database from the journal row matched by `email_id`, never from payload claims. See [modules/resend-delivery-journal.md](modules/resend-delivery-journal.md).
+
 ## Service boundaries
 
 Business logic follows the module pattern:
