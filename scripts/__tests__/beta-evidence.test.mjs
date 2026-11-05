@@ -837,8 +837,11 @@ test("the evidence bundle is never uploaded after the credential scan rejects it
 test("tenant isolation refuses to report PASS without a probeable resource", () => {
   assert.match(isolation, /No tenant-isolation probe could be constructed/);
   assert.match(isolation, /refusing to report PASS/i);
-  // An estimate id alone is not probeable, so the workflow must not accept it.
+  // An Estimate id alone must execute the authenticated API denial probe.
   assert.match(workflow, /A foreign customer.*BETA_RC_FOREIGN_ESTIMATE_ID/);
+  assert.match(isolation, /foreignEstimateId[\\s\\S]*route: foreignProjectId/);
+  assert.doesNotMatch(isolation, /foreignEstimateId && foreignProjectId/);
+  assert.match(workflow, /HAS_FOREIGN_RESOURCE/);
 });
 
 test("the workflow declares only the expected environment and derives the actual one", () => {
