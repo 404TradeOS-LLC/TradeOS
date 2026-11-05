@@ -9,6 +9,7 @@
 import { openEstimateCustomEntry } from "./lib/estimate-entry.mjs";
 import { waitForEstimateTotal } from "./lib/estimate-total-poll.mjs";
 import { createdCustomerIdFromUrl } from "./lib/customer-detail-url.mjs";
+import { matchesReviewedSavedLine, renderedVerifiedRowMatches, reloadEstimateAndRead } from "./lib/saved-line-verification.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright";
@@ -403,23 +404,30 @@ async function runS053Certification(projectId, estimateId) {
     const afterApply = await readEstimateDetail(estimateId);
     const savedById = new Map(afterApply.lineItems.map((line) => [line.id, line]));
     const verifiedResult = page.getByRole("list", { name: "Verified saved estimate lines" });
-    const visibleVerifiedCount = await verifiedResult.locator("li").count();
+    const verifiedRows = await verifiedResult.locator("li").all();
+    const verifiedRowText = [];
+    for (const row of verifiedRows) {
+      const visible = await row.isVisible();
+      assertBusiness("each saved-line verification row is visible", visible, "a verified result row was hidden");
+      verifiedRowText.push(visible ? await row.innerText() : "");
+    }
     assertBusiness(
       "authenticated full review presents identified saved-line results",
-      identified.length > 0 && visibleVerifiedCount === identified.length,
-      `acknowledged saved ids=${identified.length}; visible verified rows=${visibleVerifiedCount}`,
+      identified.length > 0 && verifiedRowText.filter(Boolean).length === identified.length,
+      `acknowledged saved ids=${identified.length}; visible verified rows=${verifiedRowText.filter(Boolean).length}`,
     );
     for (const ack of identified) {
       const reviewed = reviewedById.get(ack.draftLineItemId);
       const saved = savedById.get(ack.lineItemId);
-      const targetMatches = reviewed?.targetKind === "assembly"
-        ? saved?.assemblyId === reviewed.targetId
-        : saved?.costItemId === reviewed?.targetId;
       assertBusiness(
         `saved line ${ack.lineItemId} matches the authenticated review`,
-        Boolean(saved) && reviewed?.status === "accepted" && targetMatches &&
-          saved.quantity === ack.quantity && saved.description === ack.description,
-        `saved id/target/description/quantity did not match review ${ack.draftLineItemId}`,
+        matchesReviewedSavedLine({ acknowledgement: ack, reviewed, saved }),
+        `saved id/target/description/quantity did not match reviewed request ${ack.draftLineItemId}`,
+      );
+      assertBusiness(
+        `saved line ${ack.lineItemId} is rendered with its description and quantity`,
+        verifiedRowText.some((text) => renderedVerifiedRowMatches(text, ack)),
+        `visible verification rows did not render description/quantity for ${ack.lineItemId}`,
       );
     }
     const added = afterApply.lineItems.filter((item) => !baselineIds.has(item.id));
@@ -439,8 +447,11 @@ async function runS053Certification(projectId, estimateId) {
       waitUntil: "networkidle",
       timeout: 60_000,
     });
-    await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
-    const afterReload = await readEstimateDetail(estimateId);
+    const afterReload = await reloadEstimateAndRead({
+      page,
+      estimateId,
+      readEstimateDetail,
+    });
     const persistedAdded = afterReload.lineItems.filter((item) => !baselineIds.has(item.id));
     const persistedById = new Map(afterReload.lineItems.map((item) => [item.id, item]));
     assertBusiness(
@@ -450,11 +461,12 @@ async function runS053Certification(projectId, estimateId) {
       `expected saved IDs ${identified.map((item) => item.lineItemId).join(",")}; found ${persistedAdded.map((item) => item.id).join(",")}`,
     );
     for (const ack of identified) {
+      const reviewed = reviewedById.get(ack.draftLineItemId);
       const saved = persistedById.get(ack.lineItemId);
       assertBusiness(
-        `reloaded saved line ${ack.lineItemId} keeps its acknowledged identity`,
-        Boolean(saved) && saved.quantity === ack.quantity && saved.description === ack.description,
-        "saved line description or persisted quantity changed after reload",
+        `reloaded saved line ${ack.lineItemId} keeps reviewed identity and target`,
+        matchesReviewedSavedLine({ acknowledgement: ack, reviewed, saved }),
+        "saved line id, reviewed target, description, or persisted quantity changed after reload",
       );
     }
   } finally {
