@@ -552,7 +552,7 @@ test("S053 evidence is opt-in and defaults do not change the canonical beta flow
 });
 
 test("S053 browser evidence cleans run-created lines even when post-apply assertions fail", () => {
-  assert.match(capture, /try \{[\s\S]*await applyButton\.click\(\)[\s\S]*\} finally \{/);
+  assert.match(capture, /try \{[\s\S]*page\.waitForResponse\([\s\S]*applyButton\.click\(\)[\s\S]*\} finally \{/);
   assert.match(capture, /filter\(\(item\) => !baselineIds\.has\(item\.id\)\)/);
   assert.match(capture, /deleteEvidenceLineItems\(estimateId, leftoverIds\)\.catch\(\(\) => \{\}\)/);
 });
@@ -571,7 +571,7 @@ test("S053 browser evidence proves review-first behavior before an explicit appl
   assert.match(capture, /Athena generation and local acceptance do not silently write estimate lines/);
   assert.match(capture, /explicit Athena apply persists at least one reviewed estimate line/);
   assert.match(capture, /pricing refreshes after the reviewed Athena apply/);
-  assert.match(capture, /reviewed Athena lines survive builder reload/);
+  assert.match(capture, /reviewed Athena saved-line IDs survive an authenticated hard reload/);
   assert.match(capture, /Documented source\|Unverified pricing\|Placeholder pricing/);
 });
 
