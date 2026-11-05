@@ -51,10 +51,15 @@ export function matchesReviewedSavedLine({ acknowledgement, reviewed, saved }) {
 export function renderedVerifiedRowMatches(renderedText, acknowledgement) {
   const quantity = normalizePersistedEvidenceQuantity(acknowledgement?.quantity);
   const description = String(acknowledgement?.description ?? "").trim();
+  const escapedQuantity = String(quantity).replace(/[.*+?^${}()|[\]\\]/g, "\\  return quantity !== null &&
+    Boolean(description) &&
+    String(renderedText).includes(description) &&
+    String(renderedText).includes(String(quantity));");
+  const quantityToken = new RegExp(`(?:^|[^0-9.])${escapedQuantity}(?=$|[^0-9.])`);
   return quantity !== null &&
     Boolean(description) &&
     String(renderedText).includes(description) &&
-    String(renderedText).includes(String(quantity));
+    quantityToken.test(String(renderedText));
 }
 
 /**
