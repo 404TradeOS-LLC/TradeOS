@@ -9,6 +9,7 @@
 import { openEstimateCustomEntry } from "./lib/estimate-entry.mjs";
 import { waitForEstimateTotal } from "./lib/estimate-total-poll.mjs";
 import { createdCustomerIdFromUrl } from "./lib/customer-detail-url.mjs";
+import { matchesReviewedSavedLine, renderedVerifiedRowMatches, reloadEstimateAndRead } from "./lib/saved-line-verification.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright";
@@ -268,6 +269,12 @@ async function deleteEvidenceLineItems(estimateId, lineItemIds) {
   }
 }
 
+/**
+ * Capture authenticated S053 review, apply, saved-line, and reload evidence for one Estimate.
+ * @param {string} projectId Smoke-tenant project used to create the Estimate.
+ * @param {string} estimateId Newly created Estimate id.
+ * @returns {Promise<void>} Resolves after assertions and cleanup complete.
+ */
 async function runS053Certification(projectId, estimateId) {
   const baseline = await readEstimateDetail(estimateId);
   const baselineIds = new Set(baseline.lineItems.map((item) => item.id));
@@ -383,10 +390,57 @@ async function runS053Certification(projectId, estimateId) {
   await checkpoint("03b", "s053-athena-review", { optional: true });
 
   try {
-    await applyButton.click();
-    await page.getByText("Latest apply result", { exact: true }).waitFor({ timeout: 60_000 });
-
+    const [applyResponse] = await Promise.all([
+      page.waitForResponse(
+        (candidate) => candidate.request().method() === "POST" &&
+          new URL(candidate.url()).pathname === `/api/proxy/estimates/${estimateId}/ai-estimator/apply`,
+        { timeout: 60_000 },
+      ),
+      applyButton.click(),
+    ]);
+    assertBusiness("reviewed Apply acknowledgement succeeds", applyResponse.ok(), `Apply returned HTTP ${applyResponse.status()}`);
+    await page.getByText("Saved line verification", { exact: true }).waitFor({ timeout: 60_000 });
+    const acknowledgement = await applyResponse.json();
+    const requestBody = applyResponse.request().postDataJSON();
+    const reviewedById = new Map(requestBody.lineItems.map((line) => [line.draftLineItemId, line]));
+    const identified = [
+      ...acknowledgement.applied,
+      ...acknowledgement.skipped.filter((line) => line.lineItemId && line.quantity !== undefined && line.description !== undefined),
+    ];
     const afterApply = await readEstimateDetail(estimateId);
+    const savedById = new Map(afterApply.lineItems.map((line) => [line.id, line]));
+    const verifiedResult = page.getByRole("list", { name: "Verified saved estimate lines" });
+    const verifiedRows = await verifiedResult.locator("li").all();
+    const verifiedRowText = [];
+    for (const row of verifiedRows) {
+      const visible = await row.isVisible();
+      assertBusiness("each saved-line verification row is visible", visible, "a verified result row was hidden");
+      verifiedRowText.push(visible ? await row.innerText() : "");
+    }
+    assertBusiness(
+      "authenticated full review presents identified saved-line results",
+      identified.length > 0 && verifiedRowText.filter(Boolean).length === identified.length,
+      `acknowledged saved ids=${identified.length}; visible verified rows=${verifiedRowText.filter(Boolean).length}`,
+    );
+    const unmatchedRowIndexes = new Set(verifiedRowText.map((_, index) => index));
+    for (const ack of identified) {
+      const reviewed = reviewedById.get(ack.draftLineItemId);
+      const saved = savedById.get(ack.lineItemId);
+      assertBusiness(
+        `saved line ${ack.lineItemId} matches the authenticated review`,
+        matchesReviewedSavedLine({ acknowledgement: ack, reviewed, saved }),
+        `saved id/target/description/quantity did not match reviewed request ${ack.draftLineItemId}`,
+      );
+      const matchingRowIndex = [...unmatchedRowIndexes].find((index) =>
+        renderedVerifiedRowMatches(verifiedRowText[index], ack),
+      );
+      assertBusiness(
+        `saved line ${ack.lineItemId} is rendered with its description and quantity`,
+        matchingRowIndex !== undefined,
+        `visible verification rows did not render description/quantity for ${ack.lineItemId}`,
+      );
+      if (matchingRowIndex !== undefined) unmatchedRowIndexes.delete(matchingRowIndex);
+    }
     const added = afterApply.lineItems.filter((item) => !baselineIds.has(item.id));
     assertBusiness(
       "explicit Athena apply persists at least one reviewed estimate line",
@@ -404,13 +458,28 @@ async function runS053Certification(projectId, estimateId) {
       waitUntil: "networkidle",
       timeout: 60_000,
     });
-    const afterReload = await readEstimateDetail(estimateId);
+    const afterReload = await reloadEstimateAndRead({
+      page,
+      estimateId,
+      readEstimateDetail,
+    });
     const persistedAdded = afterReload.lineItems.filter((item) => !baselineIds.has(item.id));
+    const persistedById = new Map(afterReload.lineItems.map((item) => [item.id, item]));
     assertBusiness(
-      "reviewed Athena lines survive builder reload",
-      persistedAdded.length === added.length && persistedAdded.length > 0,
-      `expected ${added.length} run-created lines after reload; found ${persistedAdded.length}`,
+      "reviewed Athena saved-line IDs survive an authenticated hard reload",
+      identified.every((item) => persistedById.has(item.lineItemId)) &&
+        persistedAdded.length === added.length && persistedAdded.length > 0,
+      `expected saved IDs ${identified.map((item) => item.lineItemId).join(",")}; found ${persistedAdded.map((item) => item.id).join(",")}`,
     );
+    for (const ack of identified) {
+      const reviewed = reviewedById.get(ack.draftLineItemId);
+      const saved = persistedById.get(ack.lineItemId);
+      assertBusiness(
+        `reloaded saved line ${ack.lineItemId} keeps reviewed identity and target`,
+        matchesReviewedSavedLine({ acknowledgement: ack, reviewed, saved }),
+        "saved line id, reviewed target, description, or persisted quantity changed after reload",
+      );
+    }
   } finally {
     // Preserve the original S053 failure if cleanup also has trouble. Any line
     // not present in the baseline belongs to this evidence pass and must not

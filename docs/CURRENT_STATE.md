@@ -69,11 +69,30 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Estimate authenticated acceptance — 2026-11-05
+
+The opt-in S053 Beta Evidence run now joins Apply acknowledgements to the retained review payload and authenticated organization-scoped Estimate read, requires visible verified saved-line rows, hard-reloads the builder, and checks exact acknowledged IDs, descriptions, persisted quantities and reviewed target links. The separate tenant-isolation lane requires foreign Estimate detail GET to return 403/404; S053 continues to require foreign Athena draft/apply denials. Source checks do not equal a successful deployed run: exact deployment SHA, approved non-production tenant, synthetic identity and protected operator-dispatched `mode=full` evidence remain required. No RLS or permission policy changed.
+
+
 # TradeOS Current State
 
-## Job expenses / actual job costs — implementation branch, 2026-11-02
+## Estimate Apply saved-line identity — implementation branch, 2026-11-04
 
-Jobs now carry actual costs. `JobExpense` (migration `20261102020000_add_job_expenses`, additive only) stores integer-cent amounts, an estimate-vocabulary category, free-text vendor and receipt note, a calendar incurred date, and the recording user. The org-scoped CRUD API lives at `/api/v1/jobs/:jobId/expenses` (`app/modules/expenses/service.ts`, controllers own Zod validation, tenant scope enforced through the job's organization with cross-org 404s), plus `GET /summary` for the cents-exact actual-vs-estimate rollup against the project's latest estimate version (null estimate figures when no estimate exists, never a fabricated zero). The field job view (`/field`) renders the rollup, the expense list, and a mobile-first add form; expense reads degrade independently so a failed cost load never blocks the rest of the job view. Forced RLS mirrors job visibility (office roles plus assigned technicians), with organization scope inherited through the job join; live RLS coverage lives in `app/tests/rls.integration.ts`. Deliberately out of v1: receipt file upload, OCR, bank sync, and global expense reports. Known limitation: the field page's pre-existing, test-enforced technician-only gate means owner-role accounts cannot reach this UI yet; the API itself is role-agnostic within the org.
+The rebased `feat/figma-to-code-completion` slice extends structured Apply idempotency acknowledgements with the matched saved-line ID and reconciles acknowledged lines through the existing authorized, organization-scoped Estimate detail read before showing Saved & verified. A missing read, missing line or target/quantity/description mismatch remains unconfirmed and preserves the retained request for explicit retry. Review-only skips do not count as saved, and verified saved identity does not certify current pricing evidence. See [AI Estimate Assist](modules/ai-estimate-assist.md#saved-line-identity-reconciliation--2026-10-31). This is pending exact-head CI/review/merge; deployment and full-workflow readiness are unverified.
+
+## Job expenses / actual job costs — Issue #885 implementation, pending release
+
+The first-party Job Expenses workflow is implemented in the `feat/885-expense-payment-responsibility` branch (PR #891), not verified as deployed. The baseline `20261102020000_add_job_expenses`, payer `20261102074000_add_job_expense_payment_responsibility`, and extended `20261102081500_complete_job_expenses` are additive migrations. Existing expense rows remain contractor-paid by default. The new columns provide a USD currency marker, description, unique per-job idempotency key, private receipt metadata, and void provenance. `JobExpenseEvent` preserves append-only create, update, receipt-link and void history; forced RLS and job/org joins constrain access. The migration requires reviewed staging application and live RLS evidence before production.
+
+`/api/v1/jobs/:jobId/expenses` validates cents, dates, category, payer and organization/job scope. Atomic insert-with-conflict protection prevents double-posting the same expense even during concurrent retries; reuse of a key with different values is rejected. Edits and soft voids are auditable. The dedicated `POST /:expenseId/receipt` registers a bounded, job/expense-owned storage path; `GET /:expenseId/audit` returns the history under the same scope. Private receipt uploads use the existing server-only storage client with post-auth authorization, capped size and JPEG/PNG/PDF signature checks; receipt downloads authorize the exact job and expense before retrieving from private storage.
+
+In the mobile `/field` workspace, technician, owner, admin, and dispatcher sessions pass the page gate (founder decision 2026-11-03, wider gate kept in PR #891); manager and any other role stay denied, and the project-page field link helper admits the same four roles. Authenticated job/organization authorization still applies to viewing, recording, editing, voiding, and attaching receipts. Contractor-paid actuals and customer-paid items are separate; voided items are retained but excluded from totals. The quoted estimate is displayed separately and must not be labeled actual profit. Job-specific earned revenue is not yet modeled, so the summary explicitly leaves `recognizedRevenueCents` and `profitCents` null rather than inventing profitability. Authenticated browser checks, storage credential provisioning, staging migration verification, and required exact-head CI and review gates are outstanding until confirmed.
+
+Review hardening in PR #891: a keyed create retry is compared against the immutable `created` audit-event snapshot, not the row's current fields, so an edit, receipt link, or void after creation no longer turns a retry of the original submission into a 409 (a mismatched payload still conflicts; legacy rows without a created event keep the current-field comparison). Receipt attach verifies the exact object exists in the `project-files` bucket when storage is configured (missing object → 400, verification failure → 502, unconfigured storage → check skipped, preserving prior behavior). `/ready` now also requires the expense migration columns (`job_expenses.payment_responsibility`, `receipt_storage_path`, `idempotency_key`, `voided_at`, `job_expense_events.expense_id`), so readiness stays `not_ready` until the expense migrations are applied — apply them before relying on a ready deployment for expense traffic. The branch is reconciled to current main; the shared `4.25mb` server-actions cap in `web/next.config.ts` serves both expense receipts and brand images.
+
+## PR #810 branch currency and staging release state — 2026-11-02
+
+The accepted-proposal Job handoff branch is being reconciled against current main; neither merge nor production release is authorized by this note. Staging already applied the Job provenance migration once (67 completed migrations, zero unfinished as checked); API-only source promotion #837 merged, and frontend promotion #904 remains draft. The separate Job Expenses migration is missing from the 68-file staging source inventory, so the protected staging release candidate is not migration-parity certified. Protected binding attestation run 41106407474 passed, with sensitive fields runtime-inferred, not independently secret-project-verified. Authenticated step-9 tenant, concurrency, rollback and four-viewport evidence remains outstanding; do not repeat the completed Job migration or claim acceptance.
 
 ## Authenticated private contractor-logo loading for PDFs — pending release
 
@@ -1694,6 +1713,22 @@ queue dismissal, automatic retry, financial change or production migration.
 This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
+
+## Step 9 accepted-proposal field handoff — PR #810 (unmerged)
+
+A proposed, separate branch closes the missing accepted Proposal → tracked Job
+link: a manager selects the customer's ServiceAddress; the backend creates
+one unscheduled Job, preserves accepted proposal scope and price as an immutable
+JSON baseline and returns the existing job on retries. The workflow remains
+behind an additive DB migration, exact-head CI, authorized staging and
+authenticated end-to-end evidence. **This is not shipped or production
+certified**, and it does not automatically assign a crew, sign a contract,
+create invoices or change accepted prices. See `docs/modules/jobs-and-scheduling.md`.
+
+### Step 9 approved Job display (PR #810, proposed)
+
+The unmerged accepted-proposal handoff branch also adds a manager-only Job approval-baseline detail page, linked from the successful conversion, with source proposal provenance and immutable scope/price/terms. It remains unshipped pending exact-head CI, staging migration, and authenticated browser evidence.
+
 ### Pending P0 staging migration-history reconciliation — 2026-10-28
 
 PR for issue #811 proposes a protected, staging-only reconciliation of the already-executed invoice expand migration. Direct evidence: Supabase migration history stores the exact executable SQL used by the tracked Prisma file (comments differ); staging has 46 applied Prisma migrations, 0 unfinished, and 42 invoice rows with matching old/new monetary values. The workflow is **not merged or executed** by this documentation change. The later invoice contract migration remains blocked pending proof all legacy writers are retired. No production migration or staging schema deployment is certified.
@@ -1711,6 +1746,17 @@ The client retains its UUID across server-action errors. A full reload seeds a n
 The staging-only Supabase Team & Time table migrations were formerly missing from repository migration history. This branch adds tracked Prisma equivalents `20261030004500_team_time_foundation` and `20261030005500_team_time_integrity` before `20261030010000_force_team_time_rls`; missing tables now FAIL the FORCE migration instead of marking a no-op applied. Existing tables are preserved and no anon/authenticated access grants or tenant policies are added. Deployed staging Edge Function v6 is the source baseline for a not-yet-deployed paginated candidate at `supabase/functions/team-time/index.ts`, tested with synthetic authenticated caller/membership/job/shift requests and 201-shift/oversized-workspace regressions.
 
 Crucial boundary: the live Edge Function uses a server-side Supabase **service-role** key (BYPASSRLS). FORCE does not change that and is not sufficient for service-role tenant isolation. Explicit organization, membership, assignment and shift checks are the actual function authorization gates; new tests verify denial paths. Staging currently has ENABLED but not FORCED RLS and zero policies. All migrations and function snapshot are source-only pending exact-head CI, review and protected staging approval. Production Team & Time remains disabled; no runtime deployment is claimed.
+
+## Accepted-scope fallback repair — 2026-10-30
+
+#837 review identified a mutable Project scope fallback in the shared #810 Job
+conversion source. Three regression cases reproduced it for null, empty and
+whitespace proposal scope. The bounded repair rejects those new conversions
+with HTTP 409 and preserves existing-Job retries; it changes no schema, roles,
+workflow or deployment settings. New-head hosted checks remain required.
+The founder directed #810 ready for review; staging binding attestation,
+API-first #837 promotion, matching web deployment, authenticated step-9 and
+release review still gate release. Undrafting does not certify acceptance.
 
 ## Project WorkspaceHeader convergence — PR #844
 
@@ -1761,12 +1807,13 @@ The existing Universal Create → Task flow preserves `intent=task` through new 
 
 The `/field` page previously admitted technician-role accounts only: any other canonical role hit a "Technician workspace" empty state before any job request, so an owner-role founder account could not reach the field job view or its job-expense section even though the expense API is role-agnostic within the organization. The gate in `web/src/app/(app)/field/page.tsx` now admits exactly technician and owner; admin, dispatcher, manager, and unauthenticated requests are still denied before any job request, and no other page gate, API authorization, or RLS policy changed. The denied-state copy now reads "technician and owner accounts". Regression coverage in `web/src/app/(app)/field/page.test.ts` pins both directions: admin/manager/dispatcher still denied, technician and owner pass the gate and load the job list.
 
-## Beta readiness control surface — PR #915 (unmerged)
+## Beta readiness control surface — merged PR #915; operator-isolation hardening in PR #928
 
-- Proposed owner/admin-only `/beta-readiness` route displays read-only, refreshable exact-head PR signals for #810, #891, #905 and #906 and the current staging dependency path; it links to the existing `.github/workflows/beta-evidence.yml` without dispatching or replacing it.
+- The read-only, refreshable `/beta-readiness` route merged via #915 on 2026-11-04 (merge commit `b566de4c9584444cff2f779614a179f8bf8f489d`). The route observes GitHub and Vercel metadata only; it links to `.github/workflows/beta-evidence.yml` without dispatching or replacing it.
+- **Security finding:** the merged page checks the authenticated organization's owner/admin role but not whether that organization is the authorized TradeOS platform operator. Because the collector uses platform-level GitHub/Vercel readers, customer-organization admins could otherwise see shared release metadata. PR #928 adds a server-only exact operator organization UUID allowlist before any collector call. It intentionally denies all access until `TRADEOS_BETA_OPERATOR_ORG_ID` is explicitly configured in an approved environment; the ID is never embedded in client code or documentation. **Do not regard #928 as landed until it is separately reviewed and merged.**
 - Source-level gate logic fails closed on missing required check policy, review threads, migration inventory/checksum proof, protected staging authorization, ledger/RLS/tenant validation, matching API/web deployment and runtime-binding identity, private receipt acceptance, 1440/1024/768/390 screenshots, concurrency/rollback evidence and final review. No operator toggle marks these passed.
-- Previously completed Job handoff migration is never replayed. Merged #907 is the protected staging Expense runner; #905 and #906 remain overlapping proposed alternatives that require reconciliation rather than automatic merges.
-- This is **source proposed in PR #915**, not an implemented production release or a successful authenticated browser test. Deployment metadata alone cannot prove nonproduction runtime identity; staging/production database state is unchanged by this UI PR. See `docs/testing/BETA_CONTROL_SURFACE.md`.
+- The completed Job handoff migration must never be replayed. #810 and #891 merged to `main` on 2026-11-04; #907 is the protected staging Expense runner, while #905 and #906 were closed **without merging** as superseded. As of the live 2026-11-04 read-only inspection, staging has 67 completed migrations, zero unfinished, and exactly the three Expense migrations pending. `job_expenses` and `job_expense_events` are absent; source merge is not a protected migration execution. Protected staging approval, effective API/web bindings, and authenticated owner/technician and tenant isolation remain unverified.
+- Source merge and READY production-target deployment metadata are **not** authenticated staging release acceptance. See `docs/testing/BETA_CONTROL_SURFACE.md`.
 - Review fixes on the PR branch: the PR card no longer shows a green verified tone unless reviews are approved and threads are resolved; timestamps render with a pinned locale/time zone so server and browser text match; settings errors other than 401/403 render a retryable unavailable state instead of a 404; Vercel observations filter to staging-branch deployments; PR review reads follow pagination; reviewer state ignores comment-only and pending reviews; and an approval counts only when it targets the current head. Required-check sourcing now reads the main branch ruleset (`GET /rules/branches/main`, unioned across applicable rulesets) instead of legacy branch protection, which 404s for main; required CI is verified only when a current-head success run matches both the required context and, when the ruleset binds one, the bound GitHub App id taken from the ruleset response itself (never hardcoded), and the policy read fails closed to unverified. The rules read needs no special scope on this public repository.
 - Follow-up review fixes on the PR branch: required-check reads now also collect commit statuses for the head SHA (mapped without app identity, so a status can satisfy only an unbound requirement and never a bound one), and Vercel staging lookups page through deployments with a fixed page bound instead of stopping at the first 25.
 

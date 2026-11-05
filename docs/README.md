@@ -90,7 +90,7 @@ S027's authenticated evidence workflow captures all nine Costbook routes at
 deployment identity, test-tenant, mutation, and artifact controls are described
 in [COSTBOOK_S027_READINESS.md](architecture/COSTBOOK_S027_READINESS.md).
 
-The general [Beta Evidence](testing/BETA_EVIDENCE.md) workflow now retains the existing `canonical` scenario and adds an opt-in `s053` scenario for authenticated Scope → Athena → reviewed Estimate Engine certification. The S053 scenario is evidence tooling only: it does not change product behavior and does not complete S053 until a full non-production run passes.
+The general [Beta Evidence](testing/BETA_EVIDENCE.md) workflow retains the `canonical` scenario and provides opt-in `s053` authenticated Scope → Athena → reviewed Estimate Engine certification. S053 captures the Apply acknowledgement, verifies the reviewed target and saved-line values against the authenticated Estimate read and visible rows, hard-reloads the existing builder, and checks persistence. Its foreign Estimate ID can independently drive the authenticated detail GET denial probe; a nested browser probe additionally needs a foreign Project ID. This evidence tooling does not change product behavior or complete S053 until a full exact-SHA non-production run passes with retained artifacts.
 
 This directory is the documentation entry point for implementation truth in TradeOS.
 

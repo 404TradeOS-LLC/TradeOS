@@ -1033,7 +1033,7 @@ export interface ProposalDraftPreview {
 }
 
 export function getProposal(token: string, id: string) {
-  return apiFetch<Proposal>(`/api/v1/proposals/${id}`, { token }).then((proposal) => ({
+  return apiFetch<Proposal>(`/api/v1/proposals/${encodeURIComponent(id)}`, { token }).then((proposal) => ({
     ...proposal,
     status: normalizeStatus(proposal.status, legacyProposalStatusMap, proposalStatuses, "draft"),
   }));
@@ -1369,6 +1369,8 @@ export interface FieldJobDetail extends DispatchJob {
     completedAt: string | null;
     notes: string | null;
   }>;
+  sourceProposalId?: string | null;
+  acceptedBaselineJson?: unknown;
   description: string;
   jobType: string;
   arrivalWindowStart: string | null;
@@ -1425,13 +1427,23 @@ export interface JobExpense {
   jobId: string;
   orgId: string;
   amountCents: number;
+  currency: "USD";
+  description: string;
+  paymentResponsibility: "contractor" | "customer";
   category: JobExpenseCategory;
   vendor: string;
   receiptNote: string;
+  receiptStoragePath: string | null;
+  receiptFileName: string | null;
+  receiptContentType: "image/png" | "image/jpeg" | "application/pdf" | null;
+  receiptSizeBytes: number | null;
   incurredOn: string;
   createdById: string;
   createdAt: string;
   updatedAt: string;
+  voidedAt: string | null;
+  voidedById: string | null;
+  voidReason: string;
 }
 
 export interface JobCostSummary {
@@ -1439,10 +1451,23 @@ export interface JobCostSummary {
   projectId: string;
   expenseCount: number;
   actualCents: number;
+  customerPaidCents: number;
   byCategoryCents: Record<string, number>;
   estimatedCents: number | null;
   estimateId: string | null;
   varianceCents: number | null;
+  recognizedRevenueCents: null;
+  profitCents: null;
+  profitStatus: "revenue_not_attributed_to_job";
+}
+
+export interface JobExpenseEvent {
+  id: string;
+  expenseId: string;
+  eventType: "created" | "updated" | "receipt_linked" | "voided";
+  actorUserId: string;
+  createdAt: string;
+  payload: unknown;
 }
 
 export function listJobExpenses(token: string, jobId: string) {

@@ -65,6 +65,12 @@ apply; unrelated pending migrations fail closed. The workflow is proposed, not
 executed or approved by this documentation. See the
 [operator plan](operations/staging-job-handoff-runner.md).
 
+## Beta Evidence S053 saved-line identity and tenant-denial contract — 2026-11-05
+
+The opt-in S053 path must reconcile the real Apply acknowledgement with the retained reviewed request and authorized organization-scoped Estimate detail read. A saved result is valid only when each visible UI row maps one-to-one to an acknowledged line and the reviewed target, normalized description, and four-decimal persisted quantity agree. After a hard reload of the existing Estimate builder, the same saved IDs, targets, descriptions, and quantities must still match. Unit tests exercise the identity and reload helpers; source-text assertions and CI do not certify a deployed run.
+
+S053 requires a foreign Estimate ID for authenticated API detail GET denial (403/404); that probe runs without a Project fixture. A nested browser-route observation is optional and requires the corresponding foreign Project ID. The same scenario continues to deny foreign Athena draft/apply requests. Canonical and S052 retain their Customer/Project fixture requirements. Do not weaken tenant guards or infer acceptance from a passing harness: full evidence still requires the protected operator workflow, an approved non-production target, exact deployment-SHA correlation, synthetic identities/fixtures, and retained PASS artifacts. No authentication permission, RLS, schema, or financial calculation changes are authorized by this evidence-only workflow.
+
 ## Staging migration schema-ledger preflight — 2026-10-27
 
 The protected, manual `.github/workflows/deploy-staging-migrations.yml` must fail before any Prisma migration if the historical invoice expand columns already exist but `20260902193000_rename_invoice_line_price_columns` is not recorded as applied, or if an applied expand migration's expected columns are missing. This guards against a dual-tool migration history collision observed in Supabase Staging. The safe response is to reconcile the schema and both ledgers with reviewed evidence; do not delete a ledger entry, stamp a migration as applied, or proceed to the invoice contract phase without confirming that older Preview writers are retired. The workflow remains staging-only, `main`-restricted and under the existing Environment approval gate.

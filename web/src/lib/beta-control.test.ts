@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { gatePromotion, nextSafeAction, evaluateChecks, parseRequiredCheckPolicy, commitStatusToCheck, collectLatestCommitStatuses, markReviewFetchFailure, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
+import { readFileSync } from 'node:fs';
+import { gatePromotion, nextSafeAction, evaluateChecks, parseRequiredCheckPolicy, commitStatusToCheck, collectLatestCommitStatuses, markReviewFetchFailure, isAuthorizedBetaOperator, loadAuthorizedBetaSnapshot, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
 
 const candidate: PrStatus = { number: 810, title:'Job handoff', url:'https://github.com/404TradeOS-LLC/TradeOS/pull/810', state:'open', head:'a'.repeat(40), base:'b'.repeat(40), draft:false, mergeable:true, behind:0, unresolvedThreads:0, review:'approved', checks:[{name:'CI', status:'completed', conclusion:'success', url:null}], requiredChecksKnown:true, requiredCheckNames:['CI'], error:null };
 
@@ -175,4 +176,71 @@ test('failed review read is visible and never mistaken for missing approval', ()
   assert.match(nextSafeAction(failed),/restore.*read.only/i);
   const second=markReviewFetchFailure({...candidate,error:'Commit status data unavailable'});
   assert.match(second.error||'',/Commit status data unavailable.*Review.*unavailable/i);
+});
+
+const OPERATOR_ORG='11111111-1111-4111-8111-111111111111';
+const CUSTOMER_ORG='22222222-2222-4222-8222-222222222222';
+
+test('beta platform evidence is restricted to the configured operator organization', () => {
+  for (const role of ['owner', 'admin']) {
+    assert.equal(isAuthorizedBetaOperator(role, OPERATOR_ORG, OPERATOR_ORG), true);
+    assert.equal(isAuthorizedBetaOperator(role, CUSTOMER_ORG, OPERATOR_ORG), false);
+  }
+  for (const role of ['technician', 'office_manager', 'viewer', null]) {
+    assert.equal(isAuthorizedBetaOperator(role, OPERATOR_ORG, OPERATOR_ORG), false);
+  }
+});
+
+test('beta operator access fails closed on missing, malformed, or ambiguous deployment config', () => {
+  for (const allowedOrgId of [undefined, '', ' ', '*', 'org-1', OPERATOR_ORG+','+CUSTOMER_ORG]) {
+    assert.equal(isAuthorizedBetaOperator('owner', OPERATOR_ORG, allowedOrgId), false);
+  }
+  for (const observedOrgId of [null, undefined, '', 'org-1', CUSTOMER_ORG]) {
+    assert.equal(isAuthorizedBetaOperator('admin', observedOrgId, OPERATOR_ORG), false);
+  }
+});
+
+test('operator org identity matches whole UUID values, not case or substring mismatches', () => {
+  const mixed='1f2e3d4c-5b6a-4789-8abc-def012345678';
+  const upper=mixed.toUpperCase();
+  assert.notEqual(upper, mixed, 'fixture must prove case normalization');
+  assert.equal(isAuthorizedBetaOperator('owner', upper, mixed), true);
+  assert.equal(isAuthorizedBetaOperator('admin', mixed, '  '+upper+'  '), true);
+  assert.equal(isAuthorizedBetaOperator('owner', mixed+'-suffix', mixed), false);
+});
+
+test('unauthorized operator route access denies before any platform snapshot read', async () => {
+  let snapshotCalls = 0;
+  let denialCalls = 0;
+  const getSnapshot = async () => { snapshotCalls++; return { label: 'platform-release-metadata' }; };
+  const deny = (): never => { denialCalls++; throw new Error('notFound'); };
+
+  for (const [role, orgId, configured] of [
+    ['owner', CUSTOMER_ORG, OPERATOR_ORG],
+    ['admin', CUSTOMER_ORG, OPERATOR_ORG],
+    ['technician', OPERATOR_ORG, OPERATOR_ORG],
+    ['owner', OPERATOR_ORG, undefined],
+    ['admin', OPERATOR_ORG, '*'],
+  ] as const) {
+    await assert.rejects(loadAuthorizedBetaSnapshot(role, orgId, configured, getSnapshot, deny), /notFound/);
+  }
+  assert.equal(snapshotCalls, 0, 'denied requests must never call the platform collector');
+  assert.equal(denialCalls, 5);
+});
+
+test('authorized platform-organization owner and admin reach snapshot exactly once each', async () => {
+  let snapshotCalls = 0;
+  const getSnapshot = async () => { snapshotCalls++; return { label: 'approved-read-only' }; };
+  const deny = (): never => { throw new Error('unexpected denial'); };
+  for (const role of ['owner','admin']) {
+    const result = await loadAuthorizedBetaSnapshot(role, OPERATOR_ORG, OPERATOR_ORG, getSnapshot, deny);
+    assert.deepEqual(result,{label:'approved-read-only'});
+  }
+  assert.equal(snapshotCalls, 2);
+});
+
+test('BetaReadinessPage cannot bypass the authorized collector boundary', () => {
+  const source = readFileSync(new URL('../app/(app)/beta-readiness/page.tsx', import.meta.url), 'utf8');
+  assert.match(source, /await loadAuthorizedBetaSnapshot\s*\(/);
+  assert.doesNotMatch(source, /await getBetaSnapshot\s*\(/);
 });

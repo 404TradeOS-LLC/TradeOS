@@ -15,6 +15,14 @@ related_code:
 
 # AI Estimate Assist
 
+## Saved-line identity reconciliation — 2026-10-31
+
+After the structured Apply route acknowledges a request, full review performs the existing authorized `GET /api/v1/estimates/:id` read before presenting success. Every newly applied line must be present by the acknowledged line-item ID and must match the retained reviewed target, quantity and normalized description. Idempotent source-key or existing-line skips now include the matched `lineItemId`, so a retry after an unconfirmed response can reconcile the same saved line through that read instead of treating a skip reason or count as identity proof.
+
+The client reports Saved & verified only after reconciliation. If the read fails, omits an acknowledged line or returns a mismatch, the request remains in conservative unconfirmed recovery and the review stays locked for exact-body retry. Rejected, unresolved and pending review-only skips never count as saved. The authorized Estimate route retains its existing `crm.read` permission and organization-scoped service lookup; Apply retains `billing.write`, signed review tokens, the advisory lock and Estimate Engine writes. No status endpoint, schema/RLS change, automatic retry or financial recalculation is added. Saved-line identity does not certify current pricing evidence, which remains a separate review boundary.
+
+The opt-in Beta Evidence S053 scenario is the authenticated acceptance for this boundary: after Apply it joins acknowledged saved IDs to the retained reviewed payload and authorized Estimate detail read, checks visible verified rows, hard-reloads the builder, and requires the same IDs, target links, descriptions and persisted quantities. The separate tenant-isolation lane requires foreign Estimate detail GET to return 403/404; S053 also probes foreign Athena draft/apply denial. Source checks do not certify a deployed run.\n\nFigma updates the existing acknowledged-result frames in place at 390 `1064:28688`, 768 `1064:28782`, 1024 `1073:29301` and 1440 `1065:28715`. The result explicitly separates verified saved identity from unverified pricing provenance. The layouts use the existing StatusBadge and PricingProvenance components and retain the same Items return actions.
+
 ## Frozen Apply recovery — 2026-10-31
 
 Full review serializes one Apply request before sending it. Pending entry blocks duplicate writes, Scope/suggestion edits and regeneration. Transport/server faults and transient or unknown statuses retain the exact request body; only explicit Retry unchanged review sends it again. The review stays locked and offers Check saved Items. A first-attempt known refusal (HTTP 400, 403, 404 or 409) releases the snapshot for correction and displays rejection details. Authentication (401), timeout (408), rate limit (429), unknown status and invalid-success-body errors remain conservative. If an earlier response was unconfirmed, even a later known refusal cannot prove that the original write was absent, so that original snapshot remains retained.
@@ -117,3 +125,4 @@ Route-level permission checks were added in `app/backend/controllers/aiEstimateA
 ## Validation runtime compatibility
 
 Estimate-assist generation, clarification and target IDs retain their existing UUID-shaped input contract through `z.guid()` under patched Zod 4. Scope defaults and the one-question interaction are unchanged. The upgrade adds no estimate approval, pricing mutation, regeneration or tenant access authority. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
+

@@ -180,15 +180,15 @@ export class StructuredAIEstimatorService {
   }
 
   async applyReviewedDraft(input: ApplyStructuredEstimateInput): Promise<{
-    applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number }>;
-    skipped: Array<{ draftLineItemId: string; status: string; reason: string }>;
+    applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number; description: string }>;
+    skipped: Array<{ draftLineItemId: string; status: string; reason: string; lineItemId?: string; quantity?: number; description?: string }>;
   }> {
     return runInDatabaseTransaction(basePrisma, () => this.applyReviewedDraftInTransaction(input));
   }
 
   private async applyReviewedDraftInTransaction(input: ApplyStructuredEstimateInput): Promise<{
-    applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number }>;
-    skipped: Array<{ draftLineItemId: string; status: string; reason: string }>;
+    applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number; description: string }>;
+    skipped: Array<{ draftLineItemId: string; status: string; reason: string; lineItemId?: string; quantity?: number; description?: string }>;
   }> {
     const estimate = await prisma.estimate.findFirst({ where: { id: input.estimateId, orgId: input.orgId } });
     if (!estimate) throw new ApiError(404, `Estimate ${input.estimateId} not found`);
@@ -214,8 +214,8 @@ export class StructuredAIEstimatorService {
       await lockEstimateApply(input.orgId, input.estimateId);
     }
 
-    const applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number }> = [];
-    const skipped: Array<{ draftLineItemId: string; status: string; reason: string }> = [];
+    const applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number; description: string }> = [];
+    const skipped: Array<{ draftLineItemId: string; status: string; reason: string; lineItemId?: string; quantity?: number; description?: string }> = [];
     const seenDraftLineItemIds = new Set<string>();
     const seenAcceptedLineKeys = new Set<string>();
     const pendingApplies: Array<{
@@ -295,20 +295,28 @@ export class StructuredAIEstimatorService {
       }
       seenAcceptedLineKeys.add(acceptedLineKey);
 
-      if (await this.estimateAlreadyHasReviewedSourceKey(input.estimateId, input.orgId, sourceKey)) {
+      const existingSourceLine = await this.findReviewedSourceLine(input.estimateId, input.orgId, sourceKey);
+      if (existingSourceLine) {
         skipped.push({
           draftLineItemId: lineItem.draftLineItemId,
           status: lineItem.status,
           reason: "Matching reviewed line already exists; skipped for idempotency.",
+          lineItemId: existingSourceLine.id,
+          quantity: existingSourceLine.quantity,
+          description: existingSourceLine.description,
         });
         continue;
       }
 
-      if (await this.estimateAlreadyHasReviewedLine(input.estimateId, input.orgId, lineItem.targetKind, lineItem.targetId, lineItem.quantity, description)) {
+      const existingLine = await this.findReviewedLine(input.estimateId, input.orgId, lineItem.targetKind, lineItem.targetId, lineItem.quantity, description);
+      if (existingLine) {
         skipped.push({
           draftLineItemId: lineItem.draftLineItemId,
           status: lineItem.status,
           reason: "Matching estimate line already exists; skipped for idempotency.",
+          lineItemId: existingLine.id,
+          quantity: existingLine.quantity,
+          description: existingLine.description,
         });
         continue;
       }
@@ -333,7 +341,12 @@ export class StructuredAIEstimatorService {
         ...(lineItem.targetKind === "assembly" ? { assemblyId: lineItem.targetId } : { costItemId: lineItem.targetId }),
       });
 
-      applied.push({ draftLineItemId: lineItem.draftLineItemId, lineItemId: created.id, quantity: lineItem.quantity });
+      applied.push({
+        draftLineItemId: lineItem.draftLineItemId,
+        lineItemId: created.id,
+        quantity: normalizePersistedQuantity(lineItem.quantity),
+        description: lineItem.description,
+      });
     }
 
     await this.activityService.record({
@@ -386,14 +399,14 @@ export class StructuredAIEstimatorService {
     return this.findDirectTarget(kind, targetId, orgId);
   }
 
-  private async estimateAlreadyHasReviewedLine(
+  private async findReviewedLine(
     estimateId: string,
     orgId: string,
     targetKind: AIEstimateSuggestionKind,
     targetId: string,
     quantity: number,
     description: string
-  ): Promise<boolean> {
+  ): Promise<{ id: string; quantity: number; description: string } | null> {
     const existingLine = await prisma.estimateLineItem.findFirst({
       where: {
         estimateId,
@@ -402,23 +415,31 @@ export class StructuredAIEstimatorService {
         ...(targetKind === "assembly" ? { assemblyId: targetId } : { costItemId: targetId }),
         estimate: { orgId },
       },
-      select: { id: true },
+      select: { id: true, quantity: true, description: true },
     });
 
-    return Boolean(existingLine);
+    return existingLine
+      ? { id: existingLine.id, quantity: Number(existingLine.quantity), description: existingLine.description }
+      : null;
   }
 
-  private async estimateAlreadyHasReviewedSourceKey(estimateId: string, orgId: string, sourceKey: string): Promise<boolean> {
+  private async findReviewedSourceLine(
+    estimateId: string,
+    orgId: string,
+    sourceKey: string
+  ): Promise<{ id: string; quantity: number; description: string } | null> {
     const existingLine = await prisma.estimateLineItem.findFirst({
       where: {
         estimateId,
         sourceKey,
         estimate: { orgId },
       },
-      select: { id: true },
+      select: { id: true, quantity: true, description: true },
     });
 
-    return Boolean(existingLine);
+    return existingLine
+      ? { id: existingLine.id, quantity: Number(existingLine.quantity), description: existingLine.description }
+      : null;
   }
 
   private async toDraftLineItem(
@@ -840,6 +861,10 @@ function normalizeQuantity(quantity: number) {
   return Number(quantity).toFixed(4);
 }
 
+function normalizePersistedQuantity(quantity: number) {
+  return new Prisma.Decimal(quantity).toDecimalPlaces(4).toNumber();
+}
+
 function dedupeTargets(targets: AIEstimateSuggestionTarget[]) {
   const seen = new Map<string, AIEstimateSuggestionTarget>();
   for (const target of targets) {
@@ -862,3 +887,4 @@ function dedupeQuantities(quantities: ParsedScopeQuantity[]) {
 function extractKnownWords(scope: string, words: string[]) {
   return words.filter((word) => scope.includes(word));
 }
+

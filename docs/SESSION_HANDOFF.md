@@ -12,7 +12,34 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Estimate authenticated saved-line acceptance — 2026-11-05
+
+- Branch `feat/estimate-authenticated-reload-denial`, based on main `f3449d0c532da20532f0f779bc4898bc252c9482`. This bounded slice strengthens existing opt-in S053 Beta Evidence and source-contract tests; no auth, RLS, database, pricing, secret, or deployment changes.
+- S053 captures the real Apply response and retained reviewed payload, verifies newly applied/idempotently identified lines against the authenticated organization-scoped Estimate read and visible “Saved line verification” rows, then hard-reloads the builder and checks exact same IDs, descriptions, persisted quantities and target relations.
+- The existing tenant-isolation runner sends an authenticated GET for the configured foreign Estimate and requires 403/404; S053 continues to verify foreign Athena draft/apply denial. Regression tests pin the requirements.
+- Not run against an approved non-production deployment: exact SHA correlation, dedicated synthetic identity/tenant fixtures and operator-dispatched full evidence remain required. Do not mark acceptance passed until retained artifacts report PASS.
+- Next five after this gate: run S053 in approved non-production; persist/restore footing clarification answer; reconcile the $1,670 deck discrepancy; establish Estimate $2.10→Proposal $42,680 snapshot continuity; prove deployed saved-line acceptance on exact deployment SHA.
+
+
 # Session Handoff
+
+## Active bounded mission — Estimate Apply saved-line identity, 2026-11-04
+
+- Sprint ID: NONE; classification `NEW_WORK_REQUIRED`. Repository `404TradeOS-LLC/TradeOS`; rebased exact base `b4c50d0d19cc83425f66c4eb2035a359e9bcf7fc`, tree `425ad2f0d5d9bd5cac7b5f03831252bb6a2e1004`. Open PRs #924/#923/#922/#921/#920/#918/#917/#904/#775 do not overlap the Estimate Apply client/backend contract. The named branch still pointed at its earlier base and is advanced only through an expected-head compare-and-swap after this reconciliation.
+- Branch: `feat/figma-to-code-completion`. Publication uses exact GitHub base-tree commits. Allowed scope: structured Apply acknowledgement, authorized saved-line verification, focused tests, existing acknowledged Figma result states and owned docs. Excluded: schema/migration, auth/RLS permission changes, pricing calculations, dependencies, secrets/environments and deployment.
+- Implemented in the rebased candidate: idempotent source-key and exact-line skips return their existing `lineItemId`; the client reads the authorized Estimate after POST acknowledgement and verifies saved ID, target, quantity and normalized description against the frozen request. Read failure or mismatch remains conservative/unconfirmed. Rejected/unresolved skips stay review-only. No automatic retry or new endpoint.
+- Figma: existing result roots 390 `1064:28688`, 768 `1064:28782`, 1024 `1073:29301`, 1440 `1065:28715` distinguish Saved & verified identity from unverified pricing evidence. Four renders were inspected; Inter/Space Grotesk, existing StatusBadge/PricingProvenance instances, zero UI rasters and the same Items actions are retained.
+- Focused evidence from the unchanged candidate sources: 15 pure TypeScript cases passed (11 request-session plus 4 saved-line reconciliation). Full app/web tests, lint/build, responsive production-component cases, exact-head CI, review and merge remain gates.
+- Next five: publish and verify this exact-head slice; complete authenticated full-review reload and tenant/record denial; resolve structured footing-answer persistence; reconcile the deck $1,670 discrepancy; establish Estimate-to-Proposal financial snapshot continuity.
+
+## Accepted-proposal handoff #810 — branch reconciliation, 2026-11-02
+
+- The feature is open for review but not release-certified. Three CodeRabbit findings were repaired; GitHub reports zero unresolved review threads. New-head hosted CI and current-main currency require verification.
+- Staging's accepted-proposal migration was previously applied exactly once; the staging backend feature came via merged PR #837. New staged web source is prepared in draft PR #904; it has not been merged or accepted.
+- Run 41106407474 succeeded for protected, secret-safe binding isolation. It does not substitute for authenticated tenant or service-key provenance evidence.
+- The separate Job Expenses migration remains missing from staging's applied 67 of 68 source inventory. Do not repeat the handoff migration to repair that difference.
+- Next: reconcile exact-head checks, separately reviewed staging inventory parity, coherent staging web/API deployment, authenticated Step 9 tenant/concurrency/rollback and four-width evidence, then final release review. No production action.
+
 
 ## Active bounded mission — Frozen Estimate Apply recovery, 2026-10-31
 
