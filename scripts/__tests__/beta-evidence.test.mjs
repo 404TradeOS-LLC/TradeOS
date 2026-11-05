@@ -810,6 +810,10 @@ test("S053 saved-line evidence compares the persisted row with the reviewed requ
 
 test("S053 authenticated Estimate evidence reconciles saved line identity through reload", () => {
   assert.match(capture, /Saved line verification/);
+  assert.match(capture, /row\.isVisible\(\)/);
+  assert.match(capture, /renderedVerifiedRowMatches/);
+  assert.match(capture, /matchesReviewedSavedLine/);
+  assert.match(capture, /reloadEstimateAndRead/);
   assert.match(capture, /reviewed Apply acknowledgement succeeds/);
   assert.match(capture, /acknowledgement\.applied/);
   assert.match(capture, /acknowledgement\.skipped\.filter\(\(line\) => line\.lineItemId/);
