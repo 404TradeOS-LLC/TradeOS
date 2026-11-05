@@ -63,6 +63,7 @@ const probes = [
         name: "foreign estimate",
         route: `/projects/${foreignProjectId}/estimates/${foreignEstimateId}`,
         apiRoute: `/api/proxy/estimates/${foreignEstimateId}`,
+        method: "GET",
       }
     : null,
   scenario === "s053" && foreignEstimateId
