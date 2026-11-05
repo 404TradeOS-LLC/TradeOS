@@ -26,7 +26,7 @@ export function matchesReviewedSavedLine({ acknowledgement, reviewed, saved }) {
 
   const targetMatches = reviewed.targetKind === "assembly"
     ? saved.assemblyId === reviewed.targetId
-    : reviewed.targetKind === "cost_item"
+    : reviewed.targetKind === "costItem"
       ? saved.costItemId === reviewed.targetId
       : false;
 
