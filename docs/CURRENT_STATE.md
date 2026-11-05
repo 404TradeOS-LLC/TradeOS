@@ -69,6 +69,11 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Estimate authenticated acceptance — 2026-11-05
+
+The opt-in S053 Beta Evidence run now joins Apply acknowledgements to the retained review payload and authenticated organization-scoped Estimate read, requires visible verified saved-line rows, hard-reloads the builder, and checks exact acknowledged IDs, descriptions, persisted quantities and reviewed target links. The separate tenant-isolation lane requires foreign Estimate detail GET to return 403/404; S053 continues to require foreign Athena draft/apply denials. Source checks do not equal a successful deployed run: exact deployment SHA, approved non-production tenant, synthetic identity and protected operator-dispatched `mode=full` evidence remain required. No RLS or permission policy changed.
+
+
 # TradeOS Current State
 
 ## Estimate Apply saved-line identity — implementation branch, 2026-11-04

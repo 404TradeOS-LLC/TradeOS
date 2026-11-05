@@ -35,6 +35,7 @@ import {
 
 import { assertAuthenticatedSmokeTenant } from "../../app/scripts/beta-evidence/lib/tenant-identity.mjs";
 import { createdCustomerIdFromUrl } from "../../app/scripts/beta-evidence/lib/customer-detail-url.mjs";
+import { matchesReviewedSavedLine, renderedVerifiedRowMatches, reloadEstimateAndRead } from "../../app/scripts/beta-evidence/lib/saved-line-verification.mjs";
 
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
@@ -552,7 +553,7 @@ test("S053 evidence is opt-in and defaults do not change the canonical beta flow
 });
 
 test("S053 browser evidence cleans run-created lines even when post-apply assertions fail", () => {
-  assert.match(capture, /try \{[\s\S]*await applyButton\.click\(\)[\s\S]*\} finally \{/);
+  assert.match(capture, /try \{[\s\S]*page\.waitForResponse\([\s\S]*applyButton\.click\(\)[\s\S]*\} finally \{/);
   assert.match(capture, /filter\(\(item\) => !baselineIds\.has\(item\.id\)\)/);
   assert.match(capture, /deleteEvidenceLineItems\(estimateId, leftoverIds\)\.catch\(\(\) => \{\}\)/);
 });
@@ -571,7 +572,7 @@ test("S053 browser evidence proves review-first behavior before an explicit appl
   assert.match(capture, /Athena generation and local acceptance do not silently write estimate lines/);
   assert.match(capture, /explicit Athena apply persists at least one reviewed estimate line/);
   assert.match(capture, /pricing refreshes after the reviewed Athena apply/);
-  assert.match(capture, /reviewed Athena lines survive builder reload/);
+  assert.match(capture, /reviewed Athena saved-line IDs survive an authenticated hard reload/);
   assert.match(capture, /Documented source\|Unverified pricing\|Placeholder pricing/);
 });
 
@@ -759,6 +760,79 @@ test("evidence capture asserts business meaning, not just DOM presence", () => {
   assert.match(capture, /invoice bills sell price rather than direct cost/);
 });
 
+test("S053 saved-line evidence compares the persisted row with the reviewed request", async () => {
+  const acknowledgement = {
+    draftLineItemId: "draft-1",
+    lineItemId: "line-1",
+    description: "Deck framing",
+    quantity: 1.2346,
+  };
+  const reviewed = {
+    status: "accepted",
+    targetKind: "assembly",
+    targetId: "assembly-1",
+    description: " Deck framing ",
+    quantity: 1.23456,
+  };
+  const saved = {
+    id: "line-1",
+    assemblyId: "assembly-1",
+    costItemId: null,
+    description: "Deck framing",
+    quantity: 1.2346,
+  };
+
+  assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved }), true);
+  assert.equal(matchesReviewedSavedLine({
+    acknowledgement,
+    reviewed: { ...reviewed, targetKind: "costItem", targetId: "cost-1" },
+    saved: { ...saved, assemblyId: null, costItemId: "cost-1" },
+  }), true);
+  assert.equal(renderedVerifiedRowMatches("Deck framing\\n1.2346 LF · saved line matched the reviewed assembly", acknowledgement), true);
+  assert.equal(renderedVerifiedRowMatches("Different line\\n1.2346 LF", acknowledgement), false);
+  assert.equal(renderedVerifiedRowMatches("Deck framing\\n11.2346 LF", acknowledgement), false);
+  assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved: { ...saved, assemblyId: "other" } }), false);
+  assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved: { ...saved, description: "Other" } }), false);
+  assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved: { ...saved, quantity: 1.2345 } }), false);
+
+  // A blank reviewed label uses the backend-effective acknowledgement label,
+  // which the saved detail must preserve.
+  assert.equal(matchesReviewedSavedLine({
+    acknowledgement,
+    reviewed: { ...reviewed, description: " " },
+    saved,
+  }), true);
+
+  const calls = [];
+  const afterReload = await reloadEstimateAndRead({
+    page: { reload: async (options) => calls.push(options) },
+    estimateId: "estimate-1",
+    readEstimateDetail: async (id) => ({ id, lineItems: [saved] }),
+  });
+  assert.equal(calls.length, 1, "the exercised helper must perform a hard reload");
+  assert.deepEqual(calls[0], { waitUntil: "networkidle", timeout: 60_000 });
+  assert.equal(afterReload.id, "estimate-1");
+});
+
+test("S053 authenticated Estimate evidence reconciles saved line identity through reload", () => {
+  assert.match(capture, /Saved line verification/);
+  assert.match(capture, /row\.isVisible\(\)/);
+  assert.match(capture, /renderedVerifiedRowMatches/);
+  assert.match(capture, /matchesReviewedSavedLine/);
+  assert.match(capture, /reloadEstimateAndRead/);
+  assert.match(capture, /reviewed Apply acknowledgement succeeds/);
+  assert.match(capture, /acknowledgement\.applied/);
+  assert.match(capture, /acknowledgement\.skipped\.filter\(\(line\) => line\.lineItemId/);
+  assert.match(capture, /matches the authenticated review/);
+  assert.match(capture, /reviewed Athena saved-line IDs survive an authenticated hard reload/);
+  assert.match(capture, /keeps reviewed identity and target/);
+  assert.match(isolation, /name: "foreign estimate"/);
+  assert.match(isolation, /method: "GET"/);
+  assert.match(isolation, /apiRoute: `\/api\/proxy\/estimates\/\$\{foreignEstimateId\}`/);
+  assert.match(isolation, /const deniedByApi = apiStatus === 403 \|\| apiStatus === 404/);
+  assert.match(isolation, /!deniedByApi/);
+});
+
 test("tenant isolation treats a readable foreign resource as a release blocker", () => {
   assert.match(isolation, /RELEASE BLOCKER/);
   assert.match(isolation, /deniedByStatus|deniedByRedirect|deniedByNotFoundUi/);
@@ -773,8 +847,11 @@ test("the evidence bundle is never uploaded after the credential scan rejects it
 test("tenant isolation refuses to report PASS without a probeable resource", () => {
   assert.match(isolation, /No tenant-isolation probe could be constructed/);
   assert.match(isolation, /refusing to report PASS/i);
-  // An estimate id alone is not probeable, so the workflow must not accept it.
-  assert.match(workflow, /BETA_RC_FOREIGN_PROJECT_ID or BETA_RC_FOREIGN_CUSTOMER_ID is required/);
+  // An Estimate id alone must execute the authenticated API denial probe.
+  assert.match(workflow, /A foreign customer.*BETA_RC_FOREIGN_ESTIMATE_ID/);
+  assert.match(isolation, /foreignEstimateId[\s\S]*route: foreignProjectId/);
+  assert.doesNotMatch(isolation, /foreignEstimateId && foreignProjectId/);
+  assert.match(workflow, /HAS_FOREIGN_RESOURCE/);
 });
 
 test("the workflow declares only the expected environment and derives the actual one", () => {
