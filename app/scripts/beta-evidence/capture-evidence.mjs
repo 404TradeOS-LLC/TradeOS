@@ -422,6 +422,7 @@ async function runS053Certification(projectId, estimateId) {
       identified.length > 0 && verifiedRowText.filter(Boolean).length === identified.length,
       `acknowledged saved ids=${identified.length}; visible verified rows=${verifiedRowText.filter(Boolean).length}`,
     );
+    const unmatchedRowIndexes = new Set(verifiedRowText.map((_, index) => index));
     for (const ack of identified) {
       const reviewed = reviewedById.get(ack.draftLineItemId);
       const saved = savedById.get(ack.lineItemId);
@@ -430,11 +431,15 @@ async function runS053Certification(projectId, estimateId) {
         matchesReviewedSavedLine({ acknowledgement: ack, reviewed, saved }),
         `saved id/target/description/quantity did not match reviewed request ${ack.draftLineItemId}`,
       );
+      const matchingRowIndex = [...unmatchedRowIndexes].find((index) =>
+        renderedVerifiedRowMatches(verifiedRowText[index], ack),
+      );
       assertBusiness(
         `saved line ${ack.lineItemId} is rendered with its description and quantity`,
-        verifiedRowText.some((text) => renderedVerifiedRowMatches(text, ack)),
+        matchingRowIndex !== undefined,
         `visible verification rows did not render description/quantity for ${ack.lineItemId}`,
       );
+      if (matchingRowIndex !== undefined) unmatchedRowIndexes.delete(matchingRowIndex);
     }
     const added = afterApply.lineItems.filter((item) => !baselineIds.has(item.id));
     assertBusiness(
