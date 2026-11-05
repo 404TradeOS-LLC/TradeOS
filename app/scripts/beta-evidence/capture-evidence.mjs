@@ -383,10 +383,45 @@ async function runS053Certification(projectId, estimateId) {
   await checkpoint("03b", "s053-athena-review", { optional: true });
 
   try {
-    await applyButton.click();
-    await page.getByText("Latest apply result", { exact: true }).waitFor({ timeout: 60_000 });
-
+    const [applyResponse] = await Promise.all([
+      page.waitForResponse(
+        (candidate) => candidate.request().method() === "POST" &&
+          new URL(candidate.url()).pathname === `/api/proxy/estimates/${estimateId}/ai-estimator/apply`,
+        { timeout: 60_000 },
+      ),
+      applyButton.click(),
+    ]);
+    assertBusiness("reviewed Apply acknowledgement succeeds", applyResponse.ok(), `Apply returned HTTP ${applyResponse.status()}`);
+    await page.getByText("Saved line verification", { exact: true }).waitFor({ timeout: 60_000 });
+    const acknowledgement = await applyResponse.json();
+    const requestBody = applyResponse.request().postDataJSON();
+    const reviewedById = new Map(requestBody.lineItems.map((line) => [line.draftLineItemId, line]));
+    const identified = [
+      ...acknowledgement.applied,
+      ...acknowledgement.skipped.filter((line) => line.lineItemId && line.quantity !== undefined && line.description !== undefined),
+    ];
     const afterApply = await readEstimateDetail(estimateId);
+    const savedById = new Map(afterApply.lineItems.map((line) => [line.id, line]));
+    const verifiedResult = page.getByRole("list", { name: "Verified saved estimate lines" });
+    const visibleVerifiedCount = await verifiedResult.locator("li").count();
+    assertBusiness(
+      "authenticated full review presents identified saved-line results",
+      identified.length > 0 && visibleVerifiedCount === identified.length,
+      `acknowledged saved ids=${identified.length}; visible verified rows=${visibleVerifiedCount}`,
+    );
+    for (const ack of identified) {
+      const reviewed = reviewedById.get(ack.draftLineItemId);
+      const saved = savedById.get(ack.lineItemId);
+      const targetMatches = reviewed?.targetKind === "assembly"
+        ? saved?.assemblyId === reviewed.targetId
+        : saved?.costItemId === reviewed?.targetId;
+      assertBusiness(
+        `saved line ${ack.lineItemId} matches the authenticated review`,
+        Boolean(saved) && reviewed?.status === "accepted" && targetMatches &&
+          saved.quantity === ack.quantity && saved.description === ack.description,
+        `saved id/target/description/quantity did not match review ${ack.draftLineItemId}`,
+      );
+    }
     const added = afterApply.lineItems.filter((item) => !baselineIds.has(item.id));
     assertBusiness(
       "explicit Athena apply persists at least one reviewed estimate line",
@@ -404,13 +439,24 @@ async function runS053Certification(projectId, estimateId) {
       waitUntil: "networkidle",
       timeout: 60_000,
     });
+    await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
     const afterReload = await readEstimateDetail(estimateId);
     const persistedAdded = afterReload.lineItems.filter((item) => !baselineIds.has(item.id));
+    const persistedById = new Map(afterReload.lineItems.map((item) => [item.id, item]));
     assertBusiness(
-      "reviewed Athena lines survive builder reload",
-      persistedAdded.length === added.length && persistedAdded.length > 0,
-      `expected ${added.length} run-created lines after reload; found ${persistedAdded.length}`,
+      "reviewed Athena saved-line IDs survive an authenticated hard reload",
+      identified.every((item) => persistedById.has(item.lineItemId)) &&
+        persistedAdded.length === added.length && persistedAdded.length > 0,
+      `expected saved IDs ${identified.map((item) => item.lineItemId).join(",")}; found ${persistedAdded.map((item) => item.id).join(",")}`,
     );
+    for (const ack of identified) {
+      const saved = persistedById.get(ack.lineItemId);
+      assertBusiness(
+        `reloaded saved line ${ack.lineItemId} keeps its acknowledged identity`,
+        Boolean(saved) && saved.quantity === ack.quantity && saved.description === ack.description,
+        "saved line description or persisted quantity changed after reload",
+      );
+    }
   } finally {
     // Preserve the original S053 failure if cleanup also has trouble. Any line
     // not present in the baseline belongs to this evidence pass and must not
