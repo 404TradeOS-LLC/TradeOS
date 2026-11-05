@@ -307,7 +307,7 @@ Actions → **Beta Evidence** → Run workflow.
 - `scenario: s053` adds the review-first Athena certification checks and three extra
   truth/viewport-validated checkpoints (`s053-setup-required`, `s053-athena-review`,
   and `s053-athena-applied`) at every captured viewport. It forces deployment SHA
-  correlation and requires the foreign estimate fixture for draft/apply denial.
+  correlation and requires the foreign estimate fixture for draft/apply denial. After Apply it joins acknowledged saved IDs to the retained review request and authenticated Estimate detail response, requires matching visible verified rows, hard-reloads the builder, then verifies the same IDs, target links, descriptions and persisted quantities remain. Tenant isolation separately requires foreign Estimate detail GET to return 403/404. These are implemented assertions until a protected full run passes.
 
 Runs are serialized (`concurrency: tradeos-beta-evidence`,
 `cancel-in-progress: false`) so two evidence runs cannot corrupt each other.
