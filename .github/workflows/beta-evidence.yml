@@ -192,6 +192,7 @@ jobs:
           HAS_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL != '' }}
           HAS_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD != '' }}
           HAS_DATA_PLANE_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF != '' }}
+          HAS_FOREIGN_PROJECT: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' || secrets.BETA_RC_FOREIGN_CUSTOMER_ID != '' }}
           HAS_FOREIGN_RESOURCE: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' || secrets.BETA_RC_FOREIGN_CUSTOMER_ID != '' || secrets.BETA_RC_FOREIGN_ESTIMATE_ID != '' }}
           HAS_FOREIGN_ESTIMATE: ${{ secrets.BETA_RC_FOREIGN_ESTIMATE_ID != '' }}
           HAS_S052_ADMIN_EMAIL: ${{ secrets.BETA_RC_S052_ADMIN_EMAIL != '' }}
@@ -225,7 +226,7 @@ jobs:
             echo "| S052 foreign Customer | ${HAS_FOREIGN_CUSTOMER} |"
             echo "| S052 foreign Project | ${HAS_FOREIGN_PROJECT_S052} |"
           } >> "$GITHUB_STEP_SUMMARY"
-          for flag in "$HAS_EMAIL" "$HAS_PASSWORD" "$HAS_DATA_PLANE_REF" "$HAS_FOREIGN_RESOURCE"; do
+          for flag in "$HAS_EMAIL" "$HAS_PASSWORD" "$HAS_DATA_PLANE_REF"; do
             [ "$flag" = "true" ] || missing=1
           done
           if [ "$BETA_SCENARIO" = "s052" ]; then
@@ -233,8 +234,10 @@ jobs:
               [ "$flag" = "true" ] || missing=1
             done
           fi
-          if [ "$BETA_SCENARIO" = "s053" ] && [ "$HAS_FOREIGN_ESTIMATE" != "true" ]; then
-            missing=1
+          if [ "$BETA_SCENARIO" = "s053" ]; then
+            [ "$HAS_FOREIGN_ESTIMATE" = "true" ] || missing=1
+          else
+            [ "$HAS_FOREIGN_PROJECT" = "true" ] || missing=1
           fi
           {
             echo
