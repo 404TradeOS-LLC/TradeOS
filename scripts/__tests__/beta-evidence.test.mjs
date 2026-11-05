@@ -838,7 +838,7 @@ test("tenant isolation refuses to report PASS without a probeable resource", () 
   assert.match(isolation, /No tenant-isolation probe could be constructed/);
   assert.match(isolation, /refusing to report PASS/i);
   // An estimate id alone is not probeable, so the workflow must not accept it.
-  assert.match(workflow, /BETA_RC_FOREIGN_PROJECT_ID or BETA_RC_FOREIGN_CUSTOMER_ID is required/);
+  assert.match(workflow, /A foreign customer.*BETA_RC_FOREIGN_ESTIMATE_ID/);
 });
 
 test("the workflow declares only the expected environment and derives the actual one", () => {
