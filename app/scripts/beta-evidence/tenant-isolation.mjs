@@ -56,12 +56,13 @@ const probes = [
         apiRoute: `/api/proxy/projects/${foreignProjectId}`,
       }
     : null,
-  // The browser estimate route is nested under a project, while the API detail
-  // endpoint is keyed directly by estimate id.
-  foreignEstimateId && foreignProjectId
+  // The API detail endpoint is keyed directly by estimate id. The browser
+  // route is optional because it is nested under a project; the authenticated
+  // API denial must still run when only a foreign Estimate id is configured.
+  foreignEstimateId
     ? {
         name: "foreign estimate",
-        route: `/projects/${foreignProjectId}/estimates/${foreignEstimateId}`,
+        route: foreignProjectId ? `/projects/${foreignProjectId}/estimates/${foreignEstimateId}` : null,
         apiRoute: `/api/proxy/estimates/${foreignEstimateId}`,
         method: "GET",
       }
@@ -91,8 +92,7 @@ const probes = [
 // claim tenant isolation without exercising the real resource path.
 if (probes.length === 0) {
   startupFailure(
-    "No tenant-isolation probe could be constructed. BETA_FOREIGN_ESTIMATE_ID requires BETA_FOREIGN_PROJECT_ID " +
-      "because the estimate browser route is nested under a project. Supply a foreign customer or project id.",
+    "No tenant-isolation probe could be constructed; supply a foreign customer, project, or Estimate id.",
   );
 }
 
