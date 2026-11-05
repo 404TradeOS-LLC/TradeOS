@@ -231,7 +231,7 @@ the foreign-resource ids surfaces as the tenant-isolation probe refusing to run.
 | `BETA_RC_SUPABASE_PROJECT_REF` | `BETA_RC_SUPABASE_PROJECT_REF` | secret | `resolve-rc-target.mjs` | full runs |
 | `BETA_RC_FOREIGN_PROJECT_ID` | `BETA_FOREIGN_PROJECT_ID` | secret | `tenant-isolation.mjs` | full runs (or `_CUSTOMER_ID`) |
 | `BETA_RC_FOREIGN_CUSTOMER_ID` | `BETA_FOREIGN_CUSTOMER_ID` | secret | `tenant-isolation.mjs` | full runs (or `_PROJECT_ID`) |
-| `BETA_RC_FOREIGN_ESTIMATE_ID` | `BETA_FOREIGN_ESTIMATE_ID` | secret | `tenant-isolation.mjs` | required for `s053`; optional otherwise; browser estimate probe also requires `_PROJECT_ID` |
+| `BETA_RC_FOREIGN_ESTIMATE_ID` | `BETA_FOREIGN_ESTIMATE_ID` | secret | `tenant-isolation.mjs` | required for `s053`; API detail denial does not require `_PROJECT_ID`; browser route is optional |
 | `BETA_RC_BASE_URL` (repository variable) | `BETA_RC_BASE_URL_VARIABLE` | variable | `resolve-rc-target.mjs` | optional |
 | `BETA_RC_DEPLOYMENT_URL` | `BETA_RC_DEPLOYMENT_URL` | variable | `resolve-rc-target.mjs` | optional |
 | `BETA_RC_DEPLOYMENT_SHA` | `BETA_RC_DEPLOYMENT_SHA` | variable | `resolve-rc-target.mjs` | optional |
@@ -503,7 +503,7 @@ documentation and configuration are never substitutes for a passing run.
 | `WRONG_WIDTH` | screenshot width ≠ viewport | do not resize screenshots; capture at the real viewport |
 | `Evidence bundle contains session material` | credential material reached the bundle | remove it; never relax the scan (the artifact upload is skipped when this fails) |
 | `ENV_UNDERIVABLE` | host is not a recognised TradeOS deployment | target an approved Preview or staging deployment |
-| `No tenant-isolation probe could be constructed` | only an estimate id was supplied | also supply `BETA_RC_FOREIGN_PROJECT_ID` |
+| `No tenant-isolation probe could be constructed` | no probeable foreign resource id was supplied | provide a foreign Customer or Project, or run `s053` with `BETA_RC_FOREIGN_ESTIMATE_ID` |
 | viewport shows `STALE` | a capture report is left over from an earlier run | clear the evidence directory and re-run |
 | `Overall: PARTIAL` | a targeted `--viewport` run | run the full matrix for a release gate |
 
