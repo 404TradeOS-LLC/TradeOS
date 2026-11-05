@@ -2314,12 +2314,14 @@ describe("live organization row-level security", () => {
     expect(afterArchived.overdueActionable).toBe(after.overdueActionable);
     expect(afterArchived.needsAttention).toBe(after.needsAttention);
 
-    // Read-only aggregate: a non-admin, non-dispatcher, unassigned session
-    // must not be blocked by an application-level permission check (no
-    // ApiError thrown). Note this app's jobs_select_policy RLS (see
-    // prisma/migrations/20260714120000_add_job_scheduling_engine) restricts
-    // *row visibility* on the jobs table itself to admin/owner/dispatcher or
-    // an assignee — a "viewer" role session legitimately sees zero job rows
+    // Read-only aggregate: a non-admin, unassigned session must not be
+    // blocked by an application-level permission check (no ApiError thrown).
+    // Note this app's jobs_select_policy RLS (see
+    // prisma/migrations/20260825103000_harden_declined_job_rls_visibility)
+    // restricts *row visibility* on the jobs table itself to admin/owner or
+    // an active (non-declined) assignee — dispatcher is not in the SELECT
+    // policy (it appears only in the INSERT policy), so a "viewer" role
+    // session legitimately sees zero job rows
     // (same as the pre-existing "limits technician job visibility" test
     // above proves for direct job reads), so this asserts the call succeeds
     // and returns a well-formed summary, not that it sees the same counts an

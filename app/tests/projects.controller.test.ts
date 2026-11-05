@@ -119,4 +119,23 @@ describe("projectsController customer association and scope persistence", () => 
     await expect(projectsController.update(req, { json: jest.fn() } as unknown as Response)).rejects.toMatchObject({ statusCode: 404 });
     expect(mockPrisma.project.update).not.toHaveBeenCalled();
   });
+
+  it("rejects a whitespace-only project name on create instead of persisting a blank name", async () => {
+    const { req, res } = mockReqRes("org-1", "project-1");
+    req.body = { name: "   " };
+    res.status = jest.fn().mockReturnValue(res);
+
+    await expect(projectsController.create(req, res)).rejects.toThrow("Too small");
+    expect(mockPrisma.project.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a whitespace-only project name on update", async () => {
+    const { req } = mockReqRes("org-1", "project-1");
+    req.body = { name: "   " };
+
+    await expect(projectsController.update(req, { json: jest.fn() } as unknown as Response)).rejects.toThrow(
+      "Too small"
+    );
+    expect(mockPrisma.project.update).not.toHaveBeenCalled();
+  });
 });

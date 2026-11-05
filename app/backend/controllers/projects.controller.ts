@@ -45,7 +45,7 @@ const customerUpdateSchema = z.object({
 const projectSchema = z.object({
   orgId: z.guid().optional(),
   customerId: z.guid().optional(),
-  name: z.string().min(1),
+  name: z.string().trim().min(1),
   jobType: z.string().optional(),
   siteAddress: z.string().optional(),
   simpleScope: z.string().optional(),
@@ -53,7 +53,7 @@ const projectSchema = z.object({
 });
 
 const projectUpdateSchema = z.object({
-  name: z.string().min(1).optional(),
+  name: z.string().trim().min(1).optional(),
   jobType: z.string().optional(),
   siteAddress: z.string().optional(),
   simpleScope: z.string().optional(),
