@@ -783,6 +783,11 @@ test("S053 saved-line evidence compares the persisted row with the reviewed requ
   };
 
   assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved }), true);
+  assert.equal(matchesReviewedSavedLine({
+    acknowledgement,
+    reviewed: { ...reviewed, targetKind: "costItem", targetId: "cost-1" },
+    saved: { ...saved, assemblyId: null, costItemId: "cost-1" },
+  }), true);
   assert.equal(renderedVerifiedRowMatches("Deck framing\\n1.2346 LF · saved line matched the reviewed assembly", acknowledgement), true);
   assert.equal(renderedVerifiedRowMatches("Different line\\n1.2346 LF", acknowledgement), false);
   assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved: { ...saved, assemblyId: "other" } }), false);
