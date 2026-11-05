@@ -790,6 +790,7 @@ test("S053 saved-line evidence compares the persisted row with the reviewed requ
   }), true);
   assert.equal(renderedVerifiedRowMatches("Deck framing\\n1.2346 LF · saved line matched the reviewed assembly", acknowledgement), true);
   assert.equal(renderedVerifiedRowMatches("Different line\\n1.2346 LF", acknowledgement), false);
+  assert.equal(renderedVerifiedRowMatches("Deck framing\\n11.2346 LF", acknowledgement), false);
   assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved: { ...saved, assemblyId: "other" } }), false);
   assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved: { ...saved, description: "Other" } }), false);
   assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved: { ...saved, quantity: 1.2345 } }), false);
