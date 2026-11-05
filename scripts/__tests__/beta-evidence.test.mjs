@@ -759,6 +759,21 @@ test("evidence capture asserts business meaning, not just DOM presence", () => {
   assert.match(capture, /invoice bills sell price rather than direct cost/);
 });
 
+test("S053 authenticated Estimate evidence reconciles saved line identity through reload", () => {
+  assert.match(capture, /Saved line verification/);
+  assert.match(capture, /reviewed Apply acknowledgement succeeds/);
+  assert.match(capture, /acknowledgement\.applied/);
+  assert.match(capture, /acknowledgement\.skipped\.filter\(\(line\) => line\.lineItemId/);
+  assert.match(capture, /matches the authenticated review/);
+  assert.match(capture, /reviewed Athena saved-line IDs survive an authenticated hard reload/);
+  assert.match(capture, /keeps its acknowledged identity/);
+  assert.match(isolation, /name: "foreign estimate"/);
+  assert.match(isolation, /method: "GET"/);
+  assert.match(isolation, /apiRoute: `\/api\/proxy\/estimates\/\$\{foreignEstimateId\}`/);
+  assert.match(isolation, /const deniedByApi = apiStatus === 403 \|\| apiStatus === 404/);
+  assert.match(isolation, /!deniedByApi/);
+});
+
 test("tenant isolation treats a readable foreign resource as a release blocker", () => {
   assert.match(isolation, /RELEASE BLOCKER/);
   assert.match(isolation, /deniedByStatus|deniedByRedirect|deniedByNotFoundUi/);
