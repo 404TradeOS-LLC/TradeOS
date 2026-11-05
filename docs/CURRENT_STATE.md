@@ -71,6 +71,10 @@ related_code:
 
 # TradeOS Current State
 
+## Estimate Apply saved-line identity — implementation branch, 2026-11-04
+
+The rebased `feat/figma-to-code-completion` slice extends structured Apply idempotency acknowledgements with the matched saved-line ID and reconciles acknowledged lines through the existing authorized, organization-scoped Estimate detail read before showing Saved & verified. A missing read, missing line or target/quantity/description mismatch remains unconfirmed and preserves the retained request for explicit retry. Review-only skips do not count as saved, and verified saved identity does not certify current pricing evidence. See [AI Estimate Assist](modules/ai-estimate-assist.md#saved-line-identity-reconciliation--2026-10-31). This is pending exact-head CI/review/merge; deployment and full-workflow readiness are unverified.
+
 ## Job expenses / actual job costs — Issue #885 implementation, pending release
 
 The first-party Job Expenses workflow is implemented in the `feat/885-expense-payment-responsibility` branch (PR #891), not verified as deployed. The baseline `20261102020000_add_job_expenses`, payer `20261102074000_add_job_expense_payment_responsibility`, and extended `20261102081500_complete_job_expenses` are additive migrations. Existing expense rows remain contractor-paid by default. The new columns provide a USD currency marker, description, unique per-job idempotency key, private receipt metadata, and void provenance. `JobExpenseEvent` preserves append-only create, update, receipt-link and void history; forced RLS and job/org joins constrain access. The migration requires reviewed staging application and live RLS evidence before production.

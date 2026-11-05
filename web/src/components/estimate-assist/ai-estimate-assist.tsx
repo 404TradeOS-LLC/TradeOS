@@ -35,6 +35,12 @@ import type {
 } from "@/lib/api";
 import { clientFetch, ClientApiError } from "@/lib/clientApi";
 import { createEstimateApplySession, isDefinitiveEstimateApplyStatus, snapshotEstimateApply } from "@/lib/estimate-apply-session";
+import {
+  EstimateApplyVerificationError,
+  verifyEstimateApplyAcknowledgement,
+  type SavedEstimateLineIdentity,
+  type VerifiedEstimateApplyLine,
+} from "@/lib/estimate-apply-verification";
 
 type SuggestionStatus = "pending" | "accepted" | "rejected";
 
@@ -58,7 +64,12 @@ interface SuggestionDraft extends AIEstimateSuggestion {
 
 interface ApplySuggestionsResponse {
   applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number }>;
-  skipped: Array<{ draftLineItemId: string; status: string; reason: string }>;
+  skipped: Array<{ draftLineItemId: string; status: string; reason: string; lineItemId?: string }>;
+  verified: VerifiedEstimateApplyLine[];
+}
+
+interface EstimateDetailForVerification {
+  lineItems: SavedEstimateLineIdentity[];
 }
 
 const EXAMPLE_PROMPTS = [
@@ -296,10 +307,23 @@ export function AIEstimateAssist({
       }),
       isCurrent: isCurrentReview,
       isDefinitiveRejection: (error) => error instanceof ClientApiError && isDefinitiveEstimateApplyStatus(error.status),
-      send: (snapshot) => clientFetch<ApplySuggestionsResponse>(`/estimates/${estimateId}/ai-estimator/apply`, {
-        method: "POST",
-        body: snapshot.body,
-      }),
+      send: async (snapshot) => {
+        const acknowledgement = await clientFetch<Omit<ApplySuggestionsResponse, "verified">>(`/estimates/${estimateId}/ai-estimator/apply`, {
+          method: "POST",
+          body: snapshot.body,
+        });
+        try {
+          const estimate = await clientFetch<EstimateDetailForVerification>(`/estimates/${estimateId}`);
+          return {
+            ...acknowledgement,
+            verified: verifyEstimateApplyAcknowledgement(acknowledgement, snapshot.body, estimate.lineItems),
+          };
+        } catch (error) {
+          throw error instanceof EstimateApplyVerificationError
+            ? error
+            : new EstimateApplyVerificationError("Apply was acknowledged, but the saved line could not be verified.", error);
+        }
+      },
       onPending: () => {
         restoreApplyFocus.current = document.activeElement === applyButton.current;
         setApplyState("pending");
@@ -525,11 +549,21 @@ export function AIEstimateAssist({
 
             {applySummary ? (
               <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
-                <div className="text-sm font-medium text-foreground">Latest apply result</div>
+                <div className="text-sm font-medium text-foreground">Saved line verification</div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <SummaryTile label="Applied" value={String(applySummary.applied.length)} />
-                  <SummaryTile label="Skipped" value={String(applySummary.skipped.length)} />
+                  <SummaryTile label="Saved & verified" value={String(applySummary.verified.length)} />
+                  <SummaryTile label="Review only" value={String(applySummary.skipped.filter((entry) => !entry.lineItemId).length)} />
                 </div>
+                {applySummary.verified.length > 0 ? (
+                  <ul aria-label="Verified saved estimate lines" className="mt-3 space-y-2">
+                    {applySummary.verified.map((line) => (
+                      <li key={line.lineItemId} className="rounded-lg border border-emerald-600/50 bg-emerald-50/50 px-3 py-2 text-sm dark:bg-emerald-950/20">
+                        <div className="font-medium text-foreground">{line.description}</div>
+                        <div className="text-muted-foreground">{line.quantity} {line.unitOfMeasure} · saved line matched the reviewed {line.targetKind === "assembly" ? "assembly" : "cost item"}</div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
                 {applySummary.skipped.length > 0 ? (
                   <div className="mt-3 space-y-2">
                     {applySummary.skipped.slice(0, 4).map((entry) => (
@@ -953,4 +987,5 @@ function SearchResultsList({ results, emptyLabel }: { results: KnowledgeSearchRe
 function formatQuantity(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value);
 }
+
 

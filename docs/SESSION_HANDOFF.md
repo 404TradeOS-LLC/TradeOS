@@ -14,6 +14,15 @@ related_docs:
 
 # Session Handoff
 
+## Active bounded mission — Estimate Apply saved-line identity, 2026-11-04
+
+- Sprint ID: NONE; classification `NEW_WORK_REQUIRED`. Repository `404TradeOS-LLC/TradeOS`; rebased exact base `b4c50d0d19cc83425f66c4eb2035a359e9bcf7fc`, tree `425ad2f0d5d9bd5cac7b5f03831252bb6a2e1004`. Open PRs #924/#923/#922/#921/#920/#918/#917/#904/#775 do not overlap the Estimate Apply client/backend contract. The named branch still pointed at its earlier base and is advanced only through an expected-head compare-and-swap after this reconciliation.
+- Branch: `feat/figma-to-code-completion`. Publication uses exact GitHub base-tree commits. Allowed scope: structured Apply acknowledgement, authorized saved-line verification, focused tests, existing acknowledged Figma result states and owned docs. Excluded: schema/migration, auth/RLS permission changes, pricing calculations, dependencies, secrets/environments and deployment.
+- Implemented in the rebased candidate: idempotent source-key and exact-line skips return their existing `lineItemId`; the client reads the authorized Estimate after POST acknowledgement and verifies saved ID, target, quantity and normalized description against the frozen request. Read failure or mismatch remains conservative/unconfirmed. Rejected/unresolved skips stay review-only. No automatic retry or new endpoint.
+- Figma: existing result roots 390 `1064:28688`, 768 `1064:28782`, 1024 `1073:29301`, 1440 `1065:28715` distinguish Saved & verified identity from unverified pricing evidence. Four renders were inspected; Inter/Space Grotesk, existing StatusBadge/PricingProvenance instances, zero UI rasters and the same Items actions are retained.
+- Focused evidence from the unchanged candidate sources: 15 pure TypeScript cases passed (11 request-session plus 4 saved-line reconciliation). Full app/web tests, lint/build, responsive production-component cases, exact-head CI, review and merge remain gates.
+- Next five: publish and verify this exact-head slice; complete authenticated full-review reload and tenant/record denial; resolve structured footing-answer persistence; reconcile the deck $1,670 discrepancy; establish Estimate-to-Proposal financial snapshot continuity.
+
 ## Accepted-proposal handoff #810 — branch reconciliation, 2026-11-02
 
 - The feature is open for review but not release-certified. Three CodeRabbit findings were repaired; GitHub reports zero unresolved review threads. New-head hosted CI and current-main currency require verification.
