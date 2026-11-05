@@ -14,6 +14,10 @@ related_code:
 
 # Estimating
 
+## Saved-line identity reconciliation — 2026-10-31
+
+See [AI Estimate Assist](ai-estimate-assist.md#saved-line-identity-reconciliation--2026-10-31) for the owning Apply acknowledgement and authorized read-after-write contract. Estimate Engine pricing snapshots and calculations are unchanged; this slice verifies which saved line was acknowledged, not whether its stored cost is current.
+
 ## Frozen Apply recovery — 2026-10-31
 
 See [AI Estimate Assist](ai-estimate-assist.md#frozen-apply-recovery--2026-10-31) for the owning request-snapshot, rejection and retry contract. Estimate Engine writes and financial calculations are unchanged.
@@ -239,3 +243,4 @@ Tab progression, Arrow/Enter selection, failed-preview gating, Clear retention,
 invalid quantity, retained Add errors, retry and confirmed-success reset.
 Only transport is synthetic; full-app authenticated and reload evidence is
 separate. Run with `npx playwright test --config playwright.components.config.ts`.
+

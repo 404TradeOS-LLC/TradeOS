@@ -21,9 +21,12 @@ test.beforeAll(async () => {
     export const clientFetch=(url,options)=>{
       if(url.endsWith('/ai-estimator/apply')){
         window.applyRequests.push({url,body:options.body});
+        const reviewed=JSON.parse(options.body).lineItems.find(line=>line.status==='accepted');
+        const matching=()=>window.savedLines.find(line=>line.quantity===reviewed.quantity&&line.description===reviewed.description&&line.assemblyId===reviewed.targetId);
+        const persist=()=>matching()||(()=>{const line={id:'synthetic-saved-line-'+(window.savedLines.length+1),costItemId:null,assemblyId:reviewed.targetId,description:reviewed.description,quantity:reviewed.quantity,unitOfMeasure:'assembly',unitCost:1200,lineCost:1200*reviewed.quantity,sourceKey:'ai-estimator:v1:synthetic'};window.savedLines.push(line);return line;})();
         return new Promise((resolve,reject)=>{
-          window.acknowledgeApply=()=>resolve({applied:[{draftLineItemId:'reviewed-line',lineItemId:'synthetic-saved-line',quantity:2}],skipped:[]});
-          window.failApply=()=>reject(new Error('Synthetic response lost'));
+          window.acknowledgeApply=()=>{const existing=matching();const saved=persist();resolve(existing?{applied:[],skipped:[{draftLineItemId:'reviewed-line',status:'accepted',reason:'Matching reviewed line already exists; skipped for idempotency.',lineItemId:saved.id,quantity:saved.quantity,description:saved.description}]}:{applied:[{draftLineItemId:'reviewed-line',lineItemId:saved.id,quantity:saved.quantity,description:saved.description}],skipped:[]});};
+          window.failApply=()=>{persist();reject(new Error('Synthetic response lost'));};
           window.rejectApply=()=>reject(new ClientApiError('Synthetic validation failed',400));
         });
       }
@@ -31,6 +34,7 @@ test.beforeAll(async () => {
         window.generationRequests.push({url,body:options.body});
         return new Promise(resolve=>{window.finishGeneration=()=>resolve(window.syntheticDraft);});
       }
+      if(url.includes('/estimates/')&&!options?.method){window.readRequests.push(url);return Promise.resolve({lineItems:window.savedLines});}
       if(!options?.method)return Promise.resolve([]);
       throw new Error('Unexpected synthetic write: '+url);
     };
@@ -40,7 +44,7 @@ test.beforeAll(async () => {
     import {createRoot} from 'react-dom/client';
     import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
     import {AIEstimateAssist} from '@/components/estimate-assist/ai-estimate-assist';
-    window.applyRequests=[];window.generationRequests=[];
+    window.applyRequests=[];window.generationRequests=[];window.readRequests=[];window.savedLines=[];
     window.syntheticDraft={scopeOfWork:'Synthetic reviewed deck scope',detectedTrade:'Carpentry',confidenceScore:80,
       validation:{status:'ready_for_review',missingInformation:[],warnings:[]},lineItems:[{
         draftLineItemId:'reviewed-line',targetKind:'assembly',targetId:'catalog-assembly',targetName:'Synthetic deck assembly',targetCode:'SYN-DECK',
@@ -111,10 +115,14 @@ for(const width of [390,768,1024,1440]){
     await expect.poll(()=>page.evaluate(()=>window.applyRequests.length)).toBe(2);
     expect(await page.evaluate(()=>window.applyRequests[1])).toEqual(first);
     await page.evaluate(()=>window.acknowledgeApply());
-    await expect(page.getByText('Latest apply result',{exact:true})).toBeVisible();
+    await expect(page.getByText('Saved line verification',{exact:true})).toBeVisible();
+    await expect(page.getByText('Saved & verified',{exact:true})).toBeVisible();
+    await expect(page.getByRole('list',{name:'Verified saved estimate lines'})).toContainText('Reviewed deck framing');
+    await expect(page.getByRole('list',{name:'Verified saved estimate lines'})).toContainText('2 assembly');
+    expect(await page.evaluate(()=>window.readRequests)).toEqual(['/estimates/estimate-a']);
     await expect(quantity).toBeEnabled();
     await quantity.fill('3');
-    await expect(page.getByText('Latest apply result',{exact:true})).toHaveCount(0);
+    await expect(page.getByText('Saved line verification',{exact:true})).toHaveCount(0);
 
     await page.getByRole('button',{name:'Add 1 accepted suggestion to estimate',exact:true}).click();
     await expect.poll(()=>page.evaluate(()=>window.applyRequests.length)).toBe(3);
@@ -139,7 +147,7 @@ for(const width of [390,768,1024,1440]){
     await expect(quantity).toHaveValue('1');
     await page.evaluate(()=>window.acknowledgeApply());
     await page.evaluate(()=>new Promise<void>(done=>requestAnimationFrame(()=>requestAnimationFrame(()=>done()))));
-    await expect(page.getByText('Latest apply result',{exact:true})).toHaveCount(0);
+    await expect(page.getByText('Saved line verification',{exact:true})).toHaveCount(0);
     await expect(quantity).toHaveValue('1');
 
     // Generation and Apply cannot race to replace the review under a pending write.
@@ -153,3 +161,4 @@ for(const width of [390,768,1024,1440]){
     await expect(scope).toBeEnabled();
   });
 }
+
