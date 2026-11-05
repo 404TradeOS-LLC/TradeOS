@@ -123,7 +123,7 @@ function getNextMilestone(status: string) {
     case "viewed":
       return "Follow up and close the decision";
     case "accepted":
-      return "Generate the contract";
+      return "Create the contract and hand off to a field job";
     case "declined":
       return "Revise and resend a stronger draft";
     case "expired":

@@ -5,6 +5,7 @@ import { ActivityTimelineService } from "../intelligence/service";
 import { hasPermission, normalizeContractStatus, normalizeProposalStatus } from "../../domain/contracts";
 import { renderContractPdf } from "./pdf";
 import { getDocumentBrand } from "../documents/branding";
+import { loadOrganizationPdfLogo } from "../documents/pdf-logo-storage";
 import { ContractDTO, ContractDocument, ContractEventDTO, CreateContractInput, PortalSignContractInput, SignContractInput } from "./types";
 
 const DEFAULT_TERMS =
@@ -189,6 +190,7 @@ export class ContractsService {
     if (!row) throw new ApiError(404, `Contract ${id} not found`);
 
     const brand = await getDocumentBrand(orgId, row.project.organization?.name ?? "Your Company Name");
+    const logoImage = await loadOrganizationPdfLogo(orgId);
     const snapshot = asRecord(row.snapshotJson);
     const buffer = await renderContractPdf(
       {
@@ -199,7 +201,7 @@ export class ContractsService {
             ? snapshot.scopeOfWork
             : "Legacy contract: immutable scope snapshot unavailable.",
       },
-      { brand }
+      { brand, logoImage }
     );
     return {
       buffer,

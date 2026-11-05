@@ -117,12 +117,17 @@ test("embedded assembly picker previews installed assemblies and gates unmapped 
   assert.match(builder, /onSuccess: \(\) => \{[\s\S]*onAdded\(\)/);
 });
 
-test("starter assembly setup stays inline and requires install before estimate add", async () => {
+test("starter assembly resolve screen requires install before estimate add", async () => {
   const builder = await readSource("./builder.tsx");
 
   assert.match(builder, /assessCostItemMapping/);
   assert.match(builder, /StarterAssemblySetup/);
   assert.match(builder, /StarterComponentMappingPicker/);
+  assert.match(builder, /MappingResolveChecklist/);
+  assert.match(builder, /aria-label="Resolve required assembly mapping"/);
+  assert.match(builder, /Resolve Cost item mappings/);
+  assert.match(builder, /Keep draft unchanged/);
+  assert.match(builder, /onKeepDraft/);
   assert.match(builder, /\/costbook\/cost-items\/search\?q=/);
   assert.match(builder, /\/costbook\/cost-items\/\$\{item\.id\}\/unit-cost/);
   assert.match(builder, /\/assemblies\/starter-catalog\/install/);

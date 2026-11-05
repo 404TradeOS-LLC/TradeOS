@@ -389,12 +389,12 @@ export interface ServiceAddress {
   isPrimary: boolean;
 }
 
-export function listCustomers(token: string, params: { query?: string; limit?: number } = {}) {
+export function listCustomers(token: string, params: { query?: string; limit?: number; signal?: AbortSignal } = {}) {
   const search = new URLSearchParams();
   if (params.query) search.set("query", params.query);
   if (params.limit !== undefined) search.set("limit", String(params.limit));
   const suffix = search.size > 0 ? `?${search.toString()}` : "";
-  return apiFetch<Customer[]>(`/api/v1/customers${suffix}`, { token });
+  return apiFetch<Customer[]>(`/api/v1/customers${suffix}`, { token, signal: params.signal });
 }
 
 export function getCustomer(token: string, id: string) {
@@ -465,8 +465,8 @@ export interface ProjectFile {
   createdAt: string;
 }
 
-export function listProjects(token: string) {
-  return apiFetch<Project[]>("/api/v1/projects", { token }).then((projects) =>
+export function listProjects(token: string, signal?: AbortSignal) {
+  return apiFetch<Project[]>("/api/v1/projects", { token, signal }).then((projects) =>
     projects.map((project) => ({ ...project, status: normalizeStatus(project.status, legacyProjectStatusMap, projectStatuses, "lead") }))
   );
 }
@@ -939,6 +939,7 @@ export function listOrganizationProjectTasks(
   input: {
     limit?: number;
     includeCompleted?: boolean;
+    signal?: AbortSignal;
   } = {}
 ) {
   const params = new URLSearchParams();
@@ -946,7 +947,7 @@ export function listOrganizationProjectTasks(
   if (input.includeCompleted !== undefined) params.set("includeCompleted", String(input.includeCompleted));
 
   const suffix = params.size > 0 ? `?${params.toString()}` : "";
-  return apiFetch<OrganizationProjectTask[]>(`/api/v1/projects/tasks${suffix}`, { token }).then((tasks) =>
+  return apiFetch<OrganizationProjectTask[]>(`/api/v1/projects/tasks${suffix}`, { token, signal: input.signal }).then((tasks) =>
     tasks.map((task) => ({
       ...task,
       projectStatus: normalizeStatus(task.projectStatus, legacyProjectStatusMap, projectStatuses, "lead"),
@@ -961,6 +962,7 @@ export function listActivityEvents(
     entityId?: string;
     eventType?: string;
     limit?: number;
+    signal?: AbortSignal;
   } = {}
 ) {
   const params = new URLSearchParams();
@@ -970,7 +972,7 @@ export function listActivityEvents(
   if (input.limit) params.set("limit", String(input.limit));
 
   const suffix = params.size > 0 ? `?${params.toString()}` : "";
-  return apiFetch<ActivityEvent[]>(`/api/v1/intelligence/activity${suffix}`, { token });
+  return apiFetch<ActivityEvent[]>(`/api/v1/intelligence/activity${suffix}`, { token, signal: input.signal });
 }
 
 export interface ProposalDelivery {
@@ -1031,7 +1033,7 @@ export interface ProposalDraftPreview {
 }
 
 export function getProposal(token: string, id: string) {
-  return apiFetch<Proposal>(`/api/v1/proposals/${id}`, { token }).then((proposal) => ({
+  return apiFetch<Proposal>(`/api/v1/proposals/${encodeURIComponent(id)}`, { token }).then((proposal) => ({
     ...proposal,
     status: normalizeStatus(proposal.status, legacyProposalStatusMap, proposalStatuses, "draft"),
   }));
@@ -1070,6 +1072,7 @@ export interface ProposalQueueParams {
   updatedBefore?: string;
   limit?: number;
   cursor?: string;
+  signal?: AbortSignal;
 }
 
 /**
@@ -1079,9 +1082,10 @@ export interface ProposalQueueParams {
  * @returns A paginated proposal queue with canonical proposal statuses
  */
 export function listProposalQueue(token: string, params: ProposalQueueParams = {}) {
-  const qs = buildProposalQueueSearchParams(params).toString();
+  const { signal, ...queryParams } = params;
+  const qs = buildProposalQueueSearchParams(queryParams).toString();
 
-  return apiFetch<WorkQueueResponse<ProposalQueueItem>>(`/api/v1/proposals${qs ? `?${qs}` : ""}`, { token }).then((response) => ({
+  return apiFetch<WorkQueueResponse<ProposalQueueItem>>(`/api/v1/proposals${qs ? `?${qs}` : ""}`, { token, signal }).then((response) => ({
     ...response,
     items: response.items.map((item) => ({ ...item, status: normalizeStatus(item.status, legacyProposalStatusMap, proposalStatuses, "draft") })),
   }));
@@ -1365,6 +1369,8 @@ export interface FieldJobDetail extends DispatchJob {
     completedAt: string | null;
     notes: string | null;
   }>;
+  sourceProposalId?: string | null;
+  acceptedBaselineJson?: unknown;
   description: string;
   jobType: string;
   arrivalWindowStart: string | null;
@@ -1412,6 +1418,64 @@ export interface FieldJobDetail extends DispatchJob {
 
 export function getFieldJob(token: string, jobId: string) {
   return apiFetch<FieldJobDetail>(`/api/v1/jobs/${jobId}`, { token });
+}
+
+export type JobExpenseCategory = "labor" | "material" | "equipment" | "disposal" | "subcontractor" | "other";
+
+export interface JobExpense {
+  id: string;
+  jobId: string;
+  orgId: string;
+  amountCents: number;
+  currency: "USD";
+  description: string;
+  paymentResponsibility: "contractor" | "customer";
+  category: JobExpenseCategory;
+  vendor: string;
+  receiptNote: string;
+  receiptStoragePath: string | null;
+  receiptFileName: string | null;
+  receiptContentType: "image/png" | "image/jpeg" | "application/pdf" | null;
+  receiptSizeBytes: number | null;
+  incurredOn: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  voidedAt: string | null;
+  voidedById: string | null;
+  voidReason: string;
+}
+
+export interface JobCostSummary {
+  jobId: string;
+  projectId: string;
+  expenseCount: number;
+  actualCents: number;
+  customerPaidCents: number;
+  byCategoryCents: Record<string, number>;
+  estimatedCents: number | null;
+  estimateId: string | null;
+  varianceCents: number | null;
+  recognizedRevenueCents: null;
+  profitCents: null;
+  profitStatus: "revenue_not_attributed_to_job";
+}
+
+export interface JobExpenseEvent {
+  id: string;
+  expenseId: string;
+  eventType: "created" | "updated" | "receipt_linked" | "voided";
+  actorUserId: string;
+  createdAt: string;
+  payload: unknown;
+}
+
+export function listJobExpenses(token: string, jobId: string) {
+  return apiFetch<JobExpense[]>(`/api/v1/jobs/${jobId}/expenses`, { token });
+}
+
+export function getJobCostSummary(token: string, jobId: string) {
+  return apiFetch<JobCostSummary>(`/api/v1/jobs/${jobId}/expenses/summary`, { token });
 }
 
 export async function listFieldJobs(token: string, todayRange: { start: string; end: string }) {

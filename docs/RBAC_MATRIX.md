@@ -78,6 +78,7 @@ S008 changes estimate lifecycle normalization only. It does not change estimate 
 - no role bypasses RLS
 - cross-organization reads and writes are denied by session-scoped RLS
 - customer portal sessions are scoped to one organization and customer; they can read only that customer's shared project documents and can write only the exact pending contract-sign transition
+- PDF download filename sanitization changes no permission: invoice, contract, and proposal PDF reads still require `billing.read`, and portal PDF reads remain portal-session-scoped; only the `Content-Disposition` filename is folded to printable ASCII so non-Latin-1 project names cannot break the header
 - issuing and emailing a customer portal access link remains a staff-only `documents.manage` action; delivery is a server-side side effect and grants no additional staff or portal permission
 - request headers cannot select or impersonate a tenant
 - S018 authentication hardening preserves these role boundaries. ADR-010 adds a separate non-staff customer portal principal; it is not a canonical staff role, cannot reach staff routes, and does not expand the staff permission matrix.
@@ -226,3 +227,25 @@ queue dismissal, automatic retry, financial change or production migration.
 This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
+
+## Step 9 proposal-to-job conversion permission (PR #810, unmerged)
+
+`POST /api/v1/jobs/from-proposal/:proposalId` uses the existing Job manager
+boundary (owner, admin, dispatcher) and request-authenticated `orgId`; no
+new role or permission is introduced. Technicians and customer-portal users
+cannot convert proposals. The source proposal must be accepted and scoped
+through its project to the actor's organization. The service address must
+be active, in the same organization, and owned by the linked customer.
+Existing forced RLS remains in effect; any real DB permission proof requires
+the reviewed migration and staging tests before deployment.
+
+
+### Accepted proposal job snapshot read permissions (PR #810)
+
+Managers (owner/admin/dispatcher) can read the accepted commercial baseline through scoped Job detail. Assigned technicians continue to receive their job scope, location, and lifecycle data but have `acceptedBaselineJson` redacted in the Job detail response; the manager-only approved-baseline route does not grant technicians commercial access. No cross-tenant access or role elevation is permitted.
+
+## Conversion scope prerequisite — 2026-10-30
+
+The existing conversion roles and tenant checks are unchanged. Manager authority
+does not permit replacing missing accepted scope with mutable Project scope;
+see [accepted Job scope integrity](WORKFLOW_LIFECYCLES.md#accepted-job-scope-integrity).

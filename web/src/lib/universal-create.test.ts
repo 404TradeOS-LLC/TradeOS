@@ -35,7 +35,7 @@ test("Athena create preserves current page and project context", () => {
   assert.match(href, /page=%2Fprojects%2F11111111-1111-4111-8111-111111111111/);
 });
 
-test("new-project continuation preserves estimate and job intent only", () => {
+test("new-project continuation preserves estimate, job and task intent only", () => {
   assert.equal(resolveNewProjectCreateIntent("estimate"), "estimate");
   assert.equal(resolveNewProjectCreateIntent("job"), "job");
   assert.equal(resolveNewProjectCreateIntent("invoice"), null);
@@ -53,5 +53,5 @@ test("Task create uses the existing Project selector and task form", () => {
   assert.equal(buildUniversalCreateHref("task", "/dashboard"), "/projects?intent=task");
   assert.equal(buildUniversalCreateHref("task", `/projects/${PROJECT_ID}`), `/projects/${PROJECT_ID}?tab=tasks#title`);
   assert.equal(buildProjectIntentDestination("invalid", "task"), "/projects");
-  assert.equal(resolveNewProjectCreateIntent("task"), null);
+  assert.equal(resolveNewProjectCreateIntent("task"), "task");
 });

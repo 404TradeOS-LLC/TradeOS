@@ -1,51 +1,55 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-
-const sourceUrl = new URL("./page.tsx", import.meta.url);
-
-async function readSource() {
-  return readFile(sourceUrl, "utf8");
-}
-
-test("login keeps the existing auth action while adopting the canonical entry composition", async () => {
-  const source = await readSource();
-
-  assert.match(source, /useActionState\(loginAction, undefined\)/);
+const entry = () =>
+  readFile(
+    new URL("../../components/entry/login-entry.tsx", import.meta.url),
+    "utf8",
+  );
+test("login delegates presentation to the approved entry without replacing authentication", async () => {
+  const page = await readFile(new URL("./page.tsx", import.meta.url), "utf8"),
+    source = await entry();
+  assert.match(page, /<LoginEntry/);
+  assert.match(source, /useActionState\(loginAction,\s*undefined\)/);
   assert.match(source, /action=\{formAction\}/);
-  assert.match(source, /Built for what/);
-  assert.match(source, /Welcome back\./);
-  assert.match(source, /Sign in to your workspace\./);
-  assert.match(source, /tradeos-entry-official-light\.svg/);
-  assert.doesNotMatch(source, /Card(Header|Content|Description|Title)?/);
+  assert.match(source, /Built for what you/);
+  assert.doesNotMatch(
+    source,
+    /clientFetch|apiFetch|fetch\(|router\.push|window\.location|redirect\(/,
+  );
 });
-
-test("entry uses the canonical responsive copper identity artwork", async () => {
-  const source = await readSource();
-
-  assert.match(source, /tradeos-entry-copper-identity-mobile\.svg/);
-  assert.match(source, /tradeos-entry-copper-identity-tablet\.svg/);
-  assert.match(source, /tradeos-entry-copper-identity-desktop\.svg/);
-  assert.match(source, /lg:grid-cols-\[minmax\(0,56\.7%\)_minmax\(0,43\.3%\)\]/);
-  assert.match(source, /sm:min-h-\[220px\]/);
-  assert.match(source, /lg:min-h-screen/);
-});
-
-test("login retains recovery and account creation while adding an accessible password reveal", async () => {
-  const source = await readSource();
-
+test("recovery, account creation and masked password retain their established routes and semantics", async () => {
+  const source = await entry();
   assert.match(source, /href="\/forgot-password"/);
   assert.match(source, /href="\/signup"/);
   assert.match(source, /aria-pressed=\{showPassword\}/);
-  assert.match(source, /aria-label=\{showPassword \? "Hide password" : "Show password"\}/);
-  assert.match(source, /type=\{showPassword \? "text" : "password"\}/);
+  assert.match(
+    source,
+    /showPassword\s*\?\s*"Hide password"\s*:\s*"Show password"/,
+  );
   assert.match(source, /autoComplete="current-password"/);
+  assert.match(source, /disabled=\{isPending\}/);
+  assert.match(source, /role="alert"/);
 });
-
-test("entry does not add an alternate authentication or navigation path", async () => {
-  const source = await readSource();
-
-  assert.doesNotMatch(source, /clientFetch|apiFetch|fetch\(/);
-  assert.doesNotMatch(source, /window\.location|router\.push|redirect\(/);
-  assert.doesNotMatch(source, /localStorage|sessionStorage/);
+test("the product entry contains no preview fixtures, prototype destinations or fake sign-in", async () => {
+  const source = await entry();
+  assert.doesNotMatch(
+    source,
+    /figma\.com|Design preview|Preview workspace|Simulate|scene=hero|device=mobile/,
+  );
+  assert.match(source, /noValidate/);
+  assert.match(source, /aria-invalid/);
+  assert.match(source, /aria-describedby/);
+});
+test("the intro remains bounded and never loads the renderer until mounted", async () => {
+  const source = await readFile(
+    new URL("../../components/entry/cinematic-intro.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /setTimeout\(onComplete,\s*duration\)/);
+  assert.match(source, /import\("\.\/cinema"\)/);
+  assert.match(source, /cancelled\s*=\s*true/);
+  assert.match(source, /dispose\?\.\(\)/);
+  assert.match(source, /Skip intro/);
+  assert.match(source, /e\.key\s*===\s*"Tab"/);
 });

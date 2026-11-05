@@ -4,6 +4,7 @@ import { TransactionalProposalsService } from "../../modules/athena-events/trans
 import { requireAuthContext, requireOrgId, requirePermissions } from "../requestContext";
 import { commaSeparatedEnum, strictOptionalBoolean } from "../queryParams";
 import { proposalStatuses } from "../../domain";
+import { sanitizeDownloadFilename } from "../../modules/documents/format";
 
 const service = new TransactionalProposalsService();
 
@@ -85,7 +86,19 @@ export const proposalsController = {
   },
   async create(req: Request, res: Response) {
     requirePermissions(req, ["documents.manage"]);
-    res.status(201).json(await service.create({ ...createSchema.parse(req.body), orgId: requireOrgId(req) }));
+    const input = { ...createSchema.parse(req.body), orgId: requireOrgId(req) };
+    const rawIdempotencyKey = req.headers["idempotency-key"];
+    // Keep older web bundles and external clients working during independent
+    // web/API deployments. First-party forms always send a key; unkeyed legacy
+    // creates retain the original non-idempotent behavior.
+    if (rawIdempotencyKey === undefined) {
+      res.status(201).json(await service.create(input));
+      return;
+    }
+    const idempotencyKey = z.guid().parse(rawIdempotencyKey);
+    const result = await service.createWithIdempotency(input, idempotencyKey);
+    res.setHeader("Idempotency-Replayed", result.replayed ? "true" : "false");
+    res.status(result.replayed ? 200 : 201).json(result.proposal);
   },
   async update(req: Request, res: Response) {
     requirePermissions(req, ["documents.manage"]);
@@ -96,7 +109,7 @@ export const proposalsController = {
     const doc = await service.getPdf(req.params.id, requireOrgId(req));
     res.setHeader("Content-Type", doc.contentType);
     const disposition = req.query.disposition === "inline" ? "inline" : "attachment";
-    res.setHeader("Content-Disposition", `${disposition}; filename="${doc.filename}"`);
+    res.setHeader("Content-Disposition", `${disposition}; filename="${sanitizeDownloadFilename(doc.filename)}"`);
     res.send(doc.buffer);
   },
   async send(req: Request, res: Response) {

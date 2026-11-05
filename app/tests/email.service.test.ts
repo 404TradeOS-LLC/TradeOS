@@ -55,6 +55,9 @@ describe("EmailService", () => {
     expect(body.from).toBe("TradeOS <notifications@example.com>");
     expect(body.to).toEqual(["owner@example.com"]);
     expect(body.subject).toBe("Reset your TradeOS password");
+    expect(body.html).toContain("BUILT FOR WHAT YOU BUILD.");
+    expect(body.html).toContain("Reset your password");
+    expect(body.text).not.toContain("<html");
     expect(body.text).toContain("https://app.example.com/reset-password?token=reset-token");
   });
 

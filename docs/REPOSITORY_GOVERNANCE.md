@@ -51,9 +51,31 @@ related_code:
 
 # Repository Governance
 
+## Proposed staging Job handoff migration source boundary — 2026-10-30
+
+The manual `staging-job-handoff-migration.yml` must run trusted main code inside
+the existing staging Environment and migration concurrency group. Only the
+checksum-pinned Job SQL is read from the source SHA; no feature checkout,
+dependency, schema or script executes with the database secret. Preflight is
+the default. Apply additionally requires the protected staging variable
+`STAGING_JOB_HANDOFF_APPROVED_SHA` to equal the full input SHA and the typed
+`APPLY_STAGING_JOB_HANDOFF` confirmation. Environment approval remains mandatory.
+The full ledger names/checksums and jobs RLS/schema are checked before and after
+apply; unrelated pending migrations fail closed. The workflow is proposed, not
+executed or approved by this documentation. See the
+[operator plan](operations/staging-job-handoff-runner.md).
+
+## Beta Evidence S053 saved-line identity and tenant-denial contract — 2026-11-05
+
+The opt-in S053 path must reconcile the real Apply acknowledgement with the retained reviewed request and authorized organization-scoped Estimate detail read. A saved result is valid only when each visible UI row maps one-to-one to an acknowledged line and the reviewed target, normalized description, and four-decimal persisted quantity agree. After a hard reload of the existing Estimate builder, the same saved IDs, targets, descriptions, and quantities must still match. Unit tests exercise the identity and reload helpers; source-text assertions and CI do not certify a deployed run.
+
+S053 requires a foreign Estimate ID for authenticated API detail GET denial (403/404); that probe runs without a Project fixture. A nested browser-route observation is optional and requires the corresponding foreign Project ID. The same scenario continues to deny foreign Athena draft/apply requests. Canonical and S052 retain their Customer/Project fixture requirements. Do not weaken tenant guards or infer acceptance from a passing harness: full evidence still requires the protected operator workflow, an approved non-production target, exact deployment-SHA correlation, synthetic identities/fixtures, and retained PASS artifacts. No authentication permission, RLS, schema, or financial calculation changes are authorized by this evidence-only workflow.
+
 ## Staging migration schema-ledger preflight — 2026-10-27
 
 The protected, manual `.github/workflows/deploy-staging-migrations.yml` must fail before any Prisma migration if the historical invoice expand columns already exist but `20260902193000_rename_invoice_line_price_columns` is not recorded as applied, or if an applied expand migration's expected columns are missing. This guards against a dual-tool migration history collision observed in Supabase Staging. The safe response is to reconcile the schema and both ledgers with reviewed evidence; do not delete a ledger entry, stamp a migration as applied, or proceed to the invoice contract phase without confirming that older Preview writers are retired. The workflow remains staging-only, `main`-restricted and under the existing Environment approval gate.
+
+The companion reconciliation workflow `.github/workflows/reconcile-staging-invoice-expand.yml` (also `main`-restricted, confirmation-gated, and staging-environment-approved) records an already-applied invoice expand migration with `prisma migrate resolve --applied` and makes no schema change. Its staging-identity check accepts the direct staging database host and the staging Supabase Transaction pooler host (`aws-0-us-east-2.pooler.supabase.com`), because GitHub runners cannot reach the direct host over IPv6. The pooler hostname is regional rather than project-specific, so for pooler URLs the guard additionally requires the connection username's project-ref suffix to equal the staging project ref; the staging-environment secret's provenance and the workflow's read-only staging assertions remain further safeguards. For Prisma CLI `migrate resolve`, the workflow uses direct PostgreSQL or session pooling on port 5432, converting a protected staging Transaction-pooler URL from port 6543 without altering its hostname or project-bound username.
 
 
 
@@ -666,6 +688,12 @@ ABC's API Terms do not authorize permanent catalog/database copying by default. 
 
 A separate `.github/workflows/deploy-staging-migrations.yml` workflow provides a manual staging-only migration path. It runs from `main` against the `staging` GitHub Environment, verifies the exact Supabase project ref, checks invoice backfill prerequisites, runs `app/scripts/deploy-migrations.sh`, and verifies the Prisma ledger. Configure the dedicated `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` environment secrets; Production credentials must not be reused. This workflow does not run automatically on pushes and does not replace the protected Production migration workflow.
 
+Deploy workflow pooler support — 2026-10-29: the deploy workflow's staging-identity check now accepts the direct staging host or the staging Supabase Transaction pooler host, with the same project-ref-suffixed username requirement as the reconcile workflow, because GitHub runners cannot reach the direct host over IPv6. For `prisma migrate deploy` it converts a verified Transaction-pooler URL to session mode (port 5432, pgbouncer param stripped); psql checks keep the secret as-is. Staging ledger stood at 47 applied of 61 tracked after the 2026-10-29 invoice-expand reconciliation; the remaining 14 migrations still require the writer-retirement attestation before the contract migration runs.
+
+
+## Read-only staging Preview environment attestation
+
+`.github/workflows/attest-staging-preview.yml` is a manual-only operator lane, gated to `main` and protected by the existing GitHub `staging` reviewer environment. Each of the two Vercel steps receives `VERCEL_TOKEN` only for its own invocation, with an explicit project ID and `staging` branch Preview scope. `scripts/staging-preview-attest.mjs` validates issuer, database and frontend API destination without logging secret values. It does not deploy, mutate configuration, change RLS, or access Production. Codeowner approval and hosted checks are required before enabling this workflow. Success does not waive service-role-key attestation, migration review or authenticated acceptance.
 
 ## Isolated frontend component browser verification
 
@@ -691,3 +719,23 @@ Issue #811 documents the dual-tool history collision: the staging Supabase migra
 Preconditions are deliberately exact and fail closed: staging project host/ref, fixed manual confirmation, 46 completed and 0 unfinished Prisma migrations, absence of both invoice migrations from the Prisma ledger, independent Supabase historical version and SQL payload, the full set of typed/nonnullable old and new columns, synchronization trigger/function, zero divergent invoice values, and equality of independently executed and tracked SQL after ignoring only comments and whitespace. The workflow uses Prisma's supported `migrate resolve --applied` for this preexisting change and then expects exactly 47 completed, zero unfinished and **both legacy columns still present**. This is not a replacement for `deploy-staging-migrations.yml`, which still refuses uncontrolled replay. The invoice **contract** migration drops legacy columns and is not authorized until all older writers have demonstrably retired and a separate reviewed staging migration dispatch is approved. No production environment is selected.
 
 The existing `deploy-staging-migrations.yml` must not apply the destructive invoice contract phase merely because the expand history was reconciled. While the contract is absent from Prisma history, it refuses migration deployment unless two independent signals agree: (1) the protected staging Environment variable `STAGING_INVOICE_WRITERS_RETIRED_SHA` equals `github.sha` on main, set only after verifying all old staging writer deployments and both staging aliases; and (2) the `workflow_dispatch.invoice_contract_confirmation` input equals `APPROVE_INVOICE_CONTRACT`. Staging Environment review remains mandatory. A typed input alone or a passing build is not retirement evidence.
+
+## Staging browser-evidence tenant identity gate — 2026-10-30
+
+The protected staging orchestrator provides a known synthetic nonproduction organization UUID to the reusable beta-evidence workflow. `auth-setup.mjs` must match that UUID to `GET /api/proxy/settings` before writing browser storage state or starting captures. For previews without a reviewed expected UUID, it must match a valid authenticated `orgId` and the exact server-returned company name. Do not use editable page text, skip isolation, or bypass the smoke membership check to obtain a green run. This source change does not authorize a migration, production access, or release certification.
+
+## Team & Time ordered migration and bypass-role security gate — 2026-10-30
+
+PR #827 restores reviewed-source equivalents of staging's Supabase table and integrity migrations as `20261030004500_team_time_foundation`, `20261030005500_team_time_integrity`, then `20261030010000_force_team_time_rls`. If tables are missing at FORCE, deployment raises an error instead of recording misleading history. New tables start with RLS ENABLED and no public grants. The Edge Function v6-derived candidate is captured under `supabase/functions/team-time`, with complete bounded shift pagination (not yet deployed) and server-secret PostgREST queries that use BYPASSRLS; enforcement of tenant membership, assignment, role and shift ownership stays a separate non-optional service-side boundary, tested against the source. The FORCE catalog flag alone must never be labeled effective service-role tenant isolation. Production activation is prohibited until reviewed protected staging rollout and authenticated evidence.
+
+## Canonical beta Customer continuity assertion — 2026-10-30
+
+The approved nonproduction beta capture must never quietly change the Project's Customer selection to satisfy evidence. The Customer → Project stage verifies either hidden context or selected-customer form value matches the newly created tenant-scoped Customer ID exactly, and confirms the resulting Project API persisted that ID. S052 explicitly requires hidden Customer context plus saved ServiceAddress reload. Missing/wrong Customer identity is a hard evidence failure; selector differences are not an authorization waiver. Protected staging reviewer and matching-SHA browser acceptance remain mandatory.
+
+## Issue #885 protected staging Expense migration policy — 2026-11-02
+
+`.github/workflows/staging-expenses-migration.yml` is an independently reviewed **manual staging-only** workflow. It runs only from trusted `main`, with `contents: read`, pinned checkout/setup actions, the reviewer-gated `staging` GitHub Environment and the existing serialized `deploy-migrations-staging` concurrency group. No push, unprotected source branch, or production identity may dispatch an apply.
+
+`preflight` captures the staging Prisma ledger and catalog in one repeatable-read READ ONLY transaction. It requires every shared SQL checksum to match, the exact pinned already-applied PR #810 handoff SQL and healthy Jobs RLS/index, no unfinished/duplicate/unknown ledger rows, an entirely absent or entirely valid Expense schema and private receipt Storage. The only pending migrations permitted are the three pinned Job Expense SQLs from Issue #885. `apply` additionally requires protected `STAGING_EXPENSES_APPROVED_SHA` equal to the reviewed full source SHA, the literal `APPLY_STAGING_EXPENSES` input and independent protected staging Environment approval. Only reviewed SQL bytes are fetched as **data** and run with trusted main Prisma tooling; feature PR code, migration-branch dependencies, ledger stamping, `migrate resolve`, unreviewed DDL and unapproved constraint validation are forbidden.
+
+Partial migration failures or changed inventory **fail closed** for manual review; automatic retries and production migration are prohibited. After a successful additive apply, retain exact SHA, run, checksum, RLS and schema proofs, clear the one-time approval variable, then deploy matching staging API before web and obtain authenticated owner/technician, private receipt and tenant-denial evidence before feature PR #891 may be merged or Issue #885 closed. See [operator runbook](operations/staging-expenses-migrations.md).

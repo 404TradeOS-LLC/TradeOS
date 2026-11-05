@@ -4,6 +4,7 @@ const listByProjectMock = jest.fn();
 const getByIdMock = jest.fn();
 const previewProjectDraftMock = jest.fn();
 const createMock = jest.fn();
+const createWithIdempotencyMock = jest.fn();
 const updateMock = jest.fn();
 const getPdfMock = jest.fn();
 const sendMock = jest.fn();
@@ -19,6 +20,7 @@ jest.mock("../modules/proposals/service", () => ({
     getById: getByIdMock,
     previewProjectDraft: previewProjectDraftMock,
     create: createMock,
+    createWithIdempotency: createWithIdempotencyMock,
     update: updateMock,
     getPdf: getPdfMock,
     send: sendMock,
@@ -46,6 +48,7 @@ function buildRequest(role: string) {
     params: { id: "proposal-1", projectId: "project-1" },
     query: {},
     body: {},
+    headers: { "idempotency-key": "9a8b7c6d-5e4f-4321-8abc-0123456789ab" },
     orgId: "org-1",
     auth: { userId: "user-1", orgId: "org-1", role, canonicalRole: role },
   } as unknown as Request;
@@ -54,6 +57,47 @@ function buildRequest(role: string) {
 describe("proposalsController", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+
+  it("returns 201 for a new proposal request and 200 for an idempotent replay", async () => {
+    const req = buildRequest("admin");
+    req.body = { projectId: "11111111-1111-4111-8111-111111111111" };
+    const res = buildResponse();
+    createWithIdempotencyMock
+      .mockResolvedValueOnce({ proposal: { id: "proposal-1" }, replayed: false })
+      .mockResolvedValueOnce({ proposal: { id: "proposal-1" }, replayed: true });
+
+    await proposalsController.create(req, res);
+    expect(createWithIdempotencyMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ orgId: "org-1" }),
+      "9a8b7c6d-5e4f-4321-8abc-0123456789ab"
+    );
+    expect(res.setHeader).toHaveBeenLastCalledWith("Idempotency-Replayed", "false");
+    expect(res.status).toHaveBeenLastCalledWith(201);
+
+    const replayRes = buildResponse();
+    await proposalsController.create(req, replayRes);
+    expect(replayRes.setHeader).toHaveBeenCalledWith("Idempotency-Replayed", "true");
+    expect(replayRes.status).toHaveBeenCalledWith(200);
+  });
+
+  it("preserves legacy unkeyed proposal creation during client rollout", async () => {
+    const req = buildRequest("admin");
+    req.body = { projectId: "11111111-1111-4111-8111-111111111111" };
+    delete req.headers["idempotency-key"];
+    const res = buildResponse();
+    createMock.mockResolvedValue({ id: "proposal-legacy" });
+
+    await proposalsController.create(req, res);
+
+    expect(createMock).toHaveBeenCalledWith({
+      projectId: "11111111-1111-4111-8111-111111111111",
+      orgId: "org-1",
+    });
+    expect(createWithIdempotencyMock).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(201);
   });
 
   it("rejects technician proposal sends", async () => {

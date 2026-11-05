@@ -1,0 +1,809 @@
+@font-face {
+  font-family: TradeOSEntryDisplay;
+  src: url("/entry/fonts/space-grotesk-latin-500-normal-lFbtlQH6.woff2")
+    format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: TradeOSEntryBody;
+  src: url("/entry/fonts/inter-latin-400-normal-C38fXH4l.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: TradeOSEntryBody;
+  src: url("/entry/fonts/inter-latin-500-normal-Cerq10X2.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+.root {
+  font-family: "TradeOSEntryBody", sans-serif;
+  color: var(--ivory);
+  background: var(--graphite);
+  font-synthesis: none;
+  --copper: #c98460;
+  --copper-light: #e3ad87;
+  --graphite: #0d1211;
+  --ink: #090d0c;
+  --ivory: #f5f1eb;
+  --muted: #a6ada7;
+  --border: #3b423d;
+  --danger: #ffb6a7;
+}
+.root :global(*) {
+  box-sizing: border-box;
+}
+.root :global(button),
+.root :global(input) {
+  font: inherit;
+}
+.root :global(button),
+.root :global(a),
+.root :global(input) {
+  -webkit-tap-highlight-color: transparent;
+}
+.root :global(button) {
+  cursor: pointer;
+  border: 0;
+  color: inherit;
+}
+.root :global(button:disabled) {
+  cursor: wait;
+  opacity: 0.65;
+}
+.root :global(button:focus-visible),
+.root :global(a:focus-visible),
+.root :global(input:focus-visible),
+.root :global(summary:focus-visible) {
+  outline: 2px solid var(--copper-light);
+  outline-offset: 5px;
+}
+.root :global(a) {
+  color: inherit;
+}
+.root :global(::selection) {
+  background: var(--copper);
+  color: var(--ink);
+}
+.root :global(.entry) {
+  position: relative;
+  isolation: isolate;
+  min-height: 100svh;
+  padding: 25px clamp(24px, 4vw, 70px) 0;
+  background: var(--graphite);
+  overflow: clip;
+}
+.root :global(.masthead) {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 2;
+  max-width: 1600px;
+  margin: auto;
+}
+.root :global(.header-brand) {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+}
+.root :global(.masthead img) {
+  width: 139px;
+  height: auto;
+}
+.root :global(.motion-control) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  background: none;
+  color: var(--muted);
+  font-size: 10px;
+}
+.root :global(.motion-control:hover) {
+  color: var(--copper-light);
+}
+.root :global(.scene) {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100svh - 140px);
+  padding: 35px 0 30px;
+  z-index: 1;
+}
+.root :global(.login-identity) {
+  text-align: center;
+  margin-bottom: 40px;
+}
+.root :global(.login-monogram) {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 18px;
+}
+.root :global(.mark) {
+  width: 100%;
+  height: 100%;
+  display: block;
+  fill: var(--copper);
+  stroke: var(--copper-light);
+  stroke-width: 0.6;
+  overflow: hidden;
+}
+.root :global(.light-pass) {
+  stroke: var(--ivory);
+  stroke-width: 18;
+  opacity: 0;
+  transform: translateX(-100px);
+  animation: ambient-light 12s ease-in-out infinite;
+}
+.root :global(.login-identity h1) {
+  font:
+    500 18px/1.4 "TradeOSEntryDisplay",
+    sans-serif;
+  letter-spacing: -0.025em;
+  margin: 0;
+  color: var(--ivory);
+}
+.root :global(.login-identity h1 span) {
+  color: var(--copper-light);
+}
+.root :global(.entry-panel) {
+  position: relative;
+  width: min(100%, 370px);
+  padding: 0;
+}
+.root :global(.intro) {
+  text-align: center;
+}
+.root :global(.entry-panel .eyebrow) {
+  font-size: 8px;
+  letter-spacing: 0.22em;
+  margin-bottom: 13px;
+}
+.root :global(.entry-panel .intro h2) {
+  font-size: 34px;
+}
+.root :global(.entry-panel .intro p) {
+  font-size: 13px;
+  min-height: 22px;
+}
+.root :global(.entry-panel form) {
+  margin-top: 27px;
+}
+.root :global(.entry-panel .panel-foot) {
+  justify-content: center;
+}
+.root :global(.schematics) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  stroke: var(--copper);
+  stroke-width: 1;
+}
+.root :global(.schematics path) {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+.root :global(.schematics circle) {
+  fill: var(--copper-light);
+  stroke: none;
+}
+.root :global(.login-schematics) {
+  z-index: -1;
+  opacity: 0.22;
+}
+.root :global(.login-schematics path) {
+  stroke-dasharray: 0.12 0.88;
+  animation: trace-current 17s linear infinite;
+  animation-delay: calc(var(--line, 0) * -0.9s);
+}
+.root :global(.login-schematics .circuit-spine) {
+  stroke-dasharray: none;
+  opacity: 0.4;
+  animation: none;
+}
+.root :global(.login-schematics circle) {
+  opacity: 0.6;
+}
+.root :global(.entry-footer) {
+  position: relative;
+  min-height: 66px;
+  border-top: 1px solid #c9846029;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  color: var(--muted);
+  font-size: 9px;
+  max-width: 1600px;
+  margin: auto;
+  z-index: 2;
+}
+.root :global(.footer-preview) {
+  font-size: 8px;
+  letter-spacing: 0.18em;
+}
+.root :global(.intro-film) {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: #080b0b;
+  color: var(--ivory);
+  overflow: hidden;
+  animation: film-exit var(--intro-time) linear both;
+}
+.root :global(.film-canvas) {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.root :global(.film-canvas canvas) {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.root :global(.has-webgl .film-canvas) {
+  opacity: 1;
+}
+.root :global(.film-fallback) {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.root :global(.has-webgl .film-fallback) {
+  opacity: 0;
+}
+.root :global(.film-fallback .schematics) {
+  opacity: 0.6;
+  filter: drop-shadow(0 0 4px #c9846070);
+}
+.root :global(.film-fallback .schematics path) {
+  animation: schematic-arrive calc(var(--intro-time) * 0.55) ease both;
+  animation-delay: calc(var(--line, 0) * 30ms);
+}
+.root :global(.film-logo) {
+  position: absolute;
+  inset: 9% 8% 14%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4vh;
+  animation: vector-camera var(--intro-time) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.root :global(.film-emblem) {
+  width: min(40vw, 46vh);
+  height: min(40vw, 46vh);
+  filter: drop-shadow(0 0 18px #b16e3d35);
+  animation: vector-emblem var(--intro-time) ease both;
+}
+.root :global(.film-word) {
+  width: min(76vw, 1000px);
+  height: auto;
+  animation: vector-word var(--intro-time) ease both;
+  filter: drop-shadow(0 0 12px #c9846020);
+}
+.root :global(.film-corner) {
+  position: absolute;
+  left: clamp(24px, 4vw, 70px);
+  right: clamp(24px, 4vw, 70px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 9px;
+  letter-spacing: 0.23em;
+  color: #baac9e;
+  z-index: 2;
+}
+.root :global(.film-top) {
+  top: 30px;
+}
+.root :global(.film-bottom) {
+  bottom: 28px;
+}
+.root :global(.film-bottom > span) {
+  font-size: 8px;
+  color: #8f938b;
+}
+.root :global(.skip-film) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--copper-light);
+  background: none;
+  padding: 0;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+.root :global(.film-timeline) {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #573b28;
+}
+.root :global(.film-timeline > span) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--copper-light);
+  transform-origin: left;
+  animation: intro-progress var(--intro-time) linear both;
+}
+.root :global(.film-vignette) {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1px solid #c9846022;
+  box-shadow: inset 0 0 120px 20px #0008;
+}
+.root :global(.motion-paused .schematics path),
+.root :global(.motion-paused .light-pass) {
+  animation-play-state: paused !important;
+}
+@keyframes film-exit {
+  0%,
+  84% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes schematic-arrive {
+  from {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+@keyframes vector-camera {
+  0% {
+    transform: scale(0.26) rotateY(-18deg);
+    opacity: 0.1;
+  }
+  55%,
+  78% {
+    transform: scale(1.05) rotateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 1;
+  }
+}
+@keyframes vector-emblem {
+  0%,
+  10% {
+    opacity: 0;
+  }
+  45%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes vector-word {
+  0%,
+  34% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  65%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes trace-current {
+  to {
+    stroke-dashoffset: -2;
+  }
+}
+@keyframes intro-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes ambient-light {
+  0%,
+  84% {
+    opacity: 0;
+    transform: translateX(-100px);
+  }
+  90% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(420px);
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 700px) {
+  .root :global(.entry) {
+    padding: 14px 24px 0;
+  }
+  .root :global(.masthead img) {
+    width: 120px;
+  }
+  .root :global(.motion-control) {
+    width: 44px;
+    justify-content: center;
+  }
+  .root :global(.motion-control span) {
+    display: none;
+  }
+  .root :global(.scene) {
+    min-height: calc(100svh - 124px);
+    padding: 24px 0 22px;
+  }
+  .root :global(.login-identity) {
+    margin-bottom: 30px;
+  }
+  .root :global(.login-monogram) {
+    width: 54px;
+    height: 54px;
+    margin-bottom: 12px;
+  }
+  .root :global(.login-identity h1) {
+    font-size: 16px;
+  }
+  .root :global(.entry-panel .intro h2) {
+    font-size: 31px;
+  }
+  .root :global(.entry-panel .intro p) {
+    font-size: 12px;
+  }
+  .root :global(.entry-panel .eyebrow) {
+    font-size: 8px;
+  }
+  .root :global(.entry-panel form) {
+    margin-top: 24px;
+  }
+  .root :global(.field input) {
+    font-size: 16px;
+  }
+  .root :global(.entry-panel .panel-foot) {
+    font-size: 8px;
+  }
+  .root :global(.entry-footer) {
+    min-height: 66px;
+    gap: 10px;
+    font-size: 8px;
+  }
+  .root :global(.footer-preview) {
+    display: none;
+  }
+  .root :global(.film-emblem) {
+    width: min(78vw, 40vh);
+    height: min(78vw, 40vh);
+  }
+  .root :global(.film-word) {
+    width: 89vw;
+  }
+  .root :global(.film-logo) {
+    inset: 8% 4% 15%;
+    gap: 5vh;
+  }
+  .root :global(.film-top) {
+    top: 24px;
+    font-size: 8px;
+  }
+  .root :global(.film-top span:last-child) {
+    display: none;
+  }
+  .root :global(.film-bottom) {
+    bottom: 20px;
+  }
+  .root :global(.film-bottom > span) {
+    font-size: 7px;
+  }
+  .root :global(.film-vignette) {
+    box-shadow: inset 0 0 70px 10px #0008;
+  }
+}
+@media (max-height: 750px) {
+  .root :global(.scene) {
+    padding-top: 20px;
+    padding-bottom: 18px;
+  }
+  .root :global(.login-identity) {
+    margin-bottom: 24px;
+  }
+  .root :global(.login-monogram) {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 10px;
+  }
+  .root :global(.entry-panel form) {
+    margin-top: 20px;
+  }
+  .root :global(.entry-panel .eyebrow) {
+    margin-bottom: 9px;
+  }
+  .root :global(.entry-panel .intro h2) {
+    font-size: 30px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .root :global(*),
+  .root :global(*:before),
+  .root :global(*:after) {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  .root :global(.intro-film) {
+    display: none;
+  }
+  .root :global(.login-schematics path) {
+    stroke-dasharray: none;
+    opacity: 0.2;
+  }
+}
+@media (forced-colors: active) {
+  .root {
+    scrollbar-color: auto;
+  }
+  .root :global(.field input),
+  .root :global(.primary) {
+    border: 1px solid ButtonText;
+  }
+  .root :global(.schematics) {
+    display: none;
+  }
+}
+.root :global(.eyebrow) {
+  display: block;
+  color: var(--copper-light);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+.root :global(.intro h2) {
+  font:
+    500 clamp(32px, 3vw, 43px) / 1.1 "TradeOSEntryDisplay",
+    sans-serif;
+  letter-spacing: -0.055em;
+  margin: 0 0 12px;
+}
+.root :global(.intro p) {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0;
+}
+.root :global(form) {
+  margin-top: 35px;
+}
+.root :global(.field label) {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 9px;
+  color: #d2d5cd;
+}
+.root :global(.field input) {
+  width: 100%;
+  height: 54px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--ink);
+  color: var(--ivory);
+  padding: 0 15px;
+  font-size: 15px;
+  transition: border-color 0.2s;
+}
+.root :global(.field input::placeholder) {
+  color: #939b94;
+}
+.root :global(.field input:hover) {
+  border-color: #737d73;
+}
+.root :global(.field input:focus) {
+  border-color: var(--copper-light);
+}
+.root :global(.field input[aria-invalid="true"]) {
+  border-color: var(--danger);
+}
+.root :global(.field-error) {
+  color: var(--danger);
+  min-height: 20px;
+  font-size: 11px;
+  line-height: 17px;
+  margin: 4px 0 7px;
+}
+.root :global(.password) {
+  position: relative;
+}
+.root :global(.password input) {
+  padding-right: 55px;
+}
+.root :global(.visibility) {
+  position: absolute;
+  right: 4px;
+  top: 5px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: none;
+  color: var(--muted);
+  border-radius: 3px;
+}
+.root :global(.visibility:hover) {
+  background: #2b302c;
+  color: var(--ivory);
+}
+.root :global(.recovery) {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -12px;
+  margin-bottom: 15px;
+}
+.root :global(.text-button) {
+  background: none;
+  min-height: 44px;
+  padding: 0;
+  color: #c2c8bf;
+  font-size: 11px;
+}
+.root :global(.text-button:hover) {
+  color: var(--copper-light);
+  text-decoration: underline;
+}
+.root :global(.primary) {
+  height: 54px;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 18px;
+  border-radius: 4px;
+  background: var(--copper);
+  color: var(--ink);
+  font-weight: 500;
+  font-size: 14px;
+  transition:
+    background 0.2s,
+    transform 0.2s;
+}
+.root :global(.primary:hover) {
+  background: var(--copper-light);
+}
+.root :global(.primary:active) {
+  transform: translateY(1px);
+}
+.root :global(.panel-foot) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  color: var(--muted);
+  font-size: 9px;
+}
+.root :global(.spinner) {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.root :global(.handoff-opening > .mark) {
+  animation: handoff-mark 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.root :global(.film-emblem .metal-face path) {
+  stroke-dasharray: 1;
+  animation: forge-body calc(var(--intro-time) * 0.7) ease both;
+}
+.root :global(.film-emblem .metal-depth) {
+  animation: forge-depth var(--intro-time) ease both;
+}
+@keyframes forge-body {
+  0% {
+    stroke-dashoffset: 1;
+    fill-opacity: 0;
+  }
+  45% {
+    fill-opacity: 0;
+  }
+  85%,
+  100% {
+    stroke-dashoffset: 0;
+    fill-opacity: 1;
+  }
+}
+@keyframes forge-depth {
+  0%,
+  28% {
+    opacity: 0;
+  }
+  55%,
+  100% {
+    opacity: 1;
+  }
+}
+.root :global(#sign-in-title:focus) {
+  outline: 1px solid var(--copper);
+  outline-offset: 6px;
+  border-radius: 2px;
+}
+
+.root :global(.entry-content) {
+  position: relative;
+}
+.root :global(.text-button) {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+.root :global(.primary) {
+  justify-content: space-between;
+}
+.root :global(.auth-error-slot) {
+  min-height: 20px;
+}
+.root :global(.server-error) {
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+.root :global(.signup) {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  margin: 20px 0 14px;
+}
+.root :global(.signup a) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--ivory);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.root :global(.entry-footer) {
+  justify-content: space-between;
+}
+.root :global(.entry-panel .panel-foot) {
+  font-size: 11px;
+}
+.root :global(.entry-panel .primary svg) {
+  width: 20px;
+  height: 20px;
+}
+.root :global(.field label) {
+  font-size: 13px;
+}
+.root :global(.motion-control) {
+  font-size: 11px;
+}

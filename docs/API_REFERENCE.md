@@ -14,6 +14,18 @@ related_code:
 
 # API Reference
 
+## PDF logo internal private storage bridge
+
+No new API endpoints or client parameters. Existing authenticated PDF download routes now attempt to load the organization-owned `logoUrl` asset from private `SettingsAssetUpload` storage when the backend has protected `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Requests without trusted org context, absent credentials, nonmatching storage paths, bad MIME/dimensions or download errors retain the original text-only PDF. Credentials must not enter browser bundles, logs or documentation. Existing authorization and tenant-scoped query contracts are unchanged.
+
+## PDF logo rendering internal contract
+
+PDFKit invoice, contract, and proposal functions gained optional internal `logoImage?: Buffer | null` input. It is NOT an HTTP request parameter and must never be populated from client-submitted bytes without org-scoped authorization. PNG/JPEG metadata and dimensions are bounded and invalid formats fail to text-only company branding. No externally visible route, request, response, or tenant permission contract is changed. Private Storage byte wiring is implemented in PR #873; issue #870 remains open for protected staging credentials and tenant PDF acceptance.
+
+## Proposal PDF presentation-only brand correction — PR #868
+
+Existing proposal PDF generation endpoints and request/response contracts are unchanged. Generated PDF headers use the authenticated organization's Brand Studio name and colors, and no longer print an unconditional platform TRADEOS wordmark. The optional `showPoweredByTradeOS` footer remains under existing organization document settings. No new parameters, authorization changes, or new endpoints are introduced. PDF attachment/body and tenant-specific logo embedding are unchanged; PDFKit supports bounded logo image bytes, but staging has no current logo record and protected backend credentials remain unverified.
+
 ## Openings/appliance assembly API addendum (PR #774, pending)
 
 The unchanged `GET /api/v1/{costbook/}assemblies/starter-catalog`
@@ -377,6 +389,16 @@ permission, and RLS contract while allowing parallel authenticated page-loader
 requests to queue behind the intentionally one-connection serverless Prisma
 pool instead of returning a transaction-acquisition `500` after two seconds.
 
+## Proposal draft create idempotency
+
+`POST /api/v1/proposals` accepts an `Idempotency-Key` header containing a UUID. First-party Proposal Review clients send it. Omitting the header preserves legacy creation for older/external clients during independent deployments, but provides no replay protection; malformed supplied keys fail validation.
+
+- New draft: HTTP `201`, proposal JSON, and `Idempotency-Replayed: false`.
+- Same key and canonical request body: HTTP `200`, the original proposal JSON, and `Idempotency-Replayed: true`.
+- Same key with a different body: HTTP `409`; the caller should inspect the Project's Proposals list.
+- The key is unique within the project resolved from the authenticated organization; the request fingerprint uses SHA-256 over key-order-independent JSON. The database unique index resolves simultaneous creates.
+- Invalid supplied keys fail validation before a proposal is written. Keyless legacy requests follow the original non-idempotent create behavior. This contract does not auto-retry requests or send the proposal.
+
 ## Route groups
 
 Mounted route groups from `app/backend/server.ts`:
@@ -401,6 +423,13 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/customers`
 - `/api/v1/projects`
 - `/api/v1/jobs` (including `GET /api/v1/jobs/dispatch-summary`, a read-only org-wide dispatch-attention aggregate). Job mutations use named lifecycle routes backed by the centralized transition contract in `app/modules/jobs/lifecycle.ts`: schedule/reschedule, dispatch, travel, arrival, pause/resume, completion, cancellation, reopen, and ready-for-invoice. Completion remains `on_site -> completed`; the route surface does not expose generic arbitrary status mutation.
+- `/api/v1/jobs/:jobId/expenses` — authenticated, org/job-scoped expense endpoints. All expense IDs are additionally checked against the job in the URL (cross-job and cross-org access fails closed):
+  - `GET /`: list expenses, including soft-voided records for audit history; `GET /summary`: active contractor-paid `actualCents` and `byCategoryCents`, `customerPaidCents`, active `expenseCount`, latest project quoted `estimatedCents` and `varianceCents` (null without a quote). `profitCents` and `recognizedRevenueCents` are null because verified job-level earned revenue is unavailable.
+  - `POST /`: positive integer `amountCents` (max 2,147,483,647), optional `currency: "USD"`, `description`, category from estimate vocabulary, `paymentResponsibility: "contractor" | "customer"` (contractor default), `vendor`, `receiptNote`, `incurredOn` (`YYYY-MM-DD`), and optional UUID `idempotencyKey`. The unique (org, job, key) insert is atomic; a retry must match the original payload or returns 409.
+  - `GET /:expenseId`: job-scoped detail; `PATCH /:expenseId`: validate and update the cost fields with append-only provenance; `DELETE /:expenseId` optionally accepts `{reason}`, returns 204, and soft-voids without deleting history.
+  - `POST /:expenseId/receipt`: link exactly one private receipt using `receiptStoragePath`, `receiptFileName`, `receiptContentType` (PNG/JPEG/PDF), and `receiptSizeBytes` (max 4 MiB); path must match the authenticated org/job/expense. `GET /:expenseId/audit` lists immutable change events for that same scope.
+  - Web-only `GET /api/job-expense-receipts/:jobId/:expenseId` verifies the session through the job-scoped expense API before using private Storage, checks the exact generated namespace and size, and returns a noncached attachment. Upload occurs in a server action after successful expense authorization, with magic-byte validation. A failed upload does not roll back the saved expense; retrying the same form reuses its idempotency key.
+
   Job-number allocation and technician schedule serialization retain their existing transaction-scoped PostgreSQL advisory-lock behavior; the lock statements execute through Prisma `$executeRaw` because `pg_advisory_xact_lock()` returns `void`. This is an execution-mode correction only and does not change any route, payload, lifecycle transition, or permission.
 - `/api/v1/schedule`
 - `/api/v1/notes`
@@ -447,6 +476,8 @@ been configured.
 
 `POST /api/v1/invoices/:id/void` keeps the canonical invoice lifecycle concept `voided`, but persists the raw status `void` because that is the value permitted by the live `invoices_status_check` constraint. Delivery/activity metadata continues to use `invoice.voided` and `newStatus: "voided"`; no schema or API-shape change is required.
 
+`PATCH /api/v1/invoices/:id` is the draft-only invoice edit boundary (`InvoicesService.update`). It requires the canonical `billing.write` permission and organization scope; a non-draft invoice receives `409`, as does any line replacement on an estimate-linked draft (its lines are an allocation of the estimate's persisted sell total) or a progress draft (its lines are already scaled by `percentComplete` and the unscaled base is not stored). A manual full draft may replace its line items, with the total recomputed from the direct lines exactly as on creation (no tax); any draft may change its due date, and `null` clears it. The edit records an `invoice.updated` delivery/activity event with the previous and new amounts. No schema or migration change is required.
+
 `POST /api/v1/invoices/:id/payments` is the authenticated payment-recording boundary used by the invoice detail form. It requires the canonical `billing.write` permission; an authenticated user without that permission receives `403` before any payment is recorded. A valid recorded payment is reconciled inside the authenticated request transaction while the target Invoice row is locked; fully covered eligible `sent` or existing raw `overdue` invoices persist `paid` and emit one transactional `invoice.paid` event. Partial payment and new overdue persistence remain derived, and persisted `paid` invoices are excluded from unpaid/partially-paid/overdue follow-up filters. The form captures amount, date, method, reference, and notes; no contractor-customer payment processor or public checkout contract is introduced.
 
 ### TradeOS subscription billing
@@ -479,7 +510,7 @@ AI estimating routes under `/api/v1/estimates`:
 - `POST /api/v1/estimates/:id/ai-estimator/draft`
 - `POST /api/v1/estimates/:id/ai-estimator/apply`
 
-`ai-suggestions` requires `crm.read`; `ai-suggestions/apply` requires `crm.write`. The structured AI estimator endpoints (`ai-estimator/draft`, `ai-estimator/apply`) require `billing.write` and are additionally authenticated, rate-limited, and tenant-scoped like other estimate routes. Draft generation returns reviewable line items, server-signed review tokens for resolved targets, tool-run metadata, target-resolution status, and cost breakdowns. Apply accepts reviewed line items, requires accepted lines to present a matching unexpired review token, validates accepted targets against org-scoped active cost items or assemblies, serializes concurrent apply attempts per estimate, skips duplicate or already-existing reviewed lines, and writes estimate lines only by calling the existing Estimate Engine line-item service.
+`ai-suggestions` requires `crm.read`; `ai-suggestions/apply` requires `crm.write`. The structured AI estimator endpoints (`ai-estimator/draft`, `ai-estimator/apply`) require `billing.write` and are additionally authenticated, rate-limited, and tenant-scoped like other estimate routes. Draft generation returns reviewable line items, server-signed review tokens for resolved targets, tool-run metadata, target-resolution status, and cost breakdowns. Apply accepts reviewed line items, requires accepted lines to present a matching unexpired review token, validates accepted targets against org-scoped active cost items or assemblies, serializes concurrent apply attempts per estimate, skips duplicate or already-existing reviewed lines, and writes estimate lines only by calling the existing Estimate Engine line-item service. Newly applied entries identify `draftLineItemId`, `lineItemId`, and quantity. An idempotent skip for an already-saved reviewed line also includes its matched `lineItemId`; rejected, pending, unresolved, invalid, or duplicate-payload skips do not claim a saved-line ID. The full-review client reconciles acknowledged IDs through the existing `GET /api/v1/estimates/:id` organization-scoped detail response before presenting a verified saved line.
 
 Every `/api/v1/knowledge/*` search/match result, and every `ai-suggestions`/`ai-estimator/draft` line item, now includes an additive `provenanceStatus` field (`"documented" | "unverified-legacy" | "placeholder"`). It reflects the trust state of the Knowledge Engine pricing behind the suggestion, resolved per-trade from `packages/knowledge-engine/knowledge/knowledge/trade-progress.json` — currently `"unverified-legacy"` for all 24 legacy trades and `"placeholder"` for Tree Service; no trade is `"documented"` yet. This field does not change any existing response field, pricing value, confidence score, or matched target; a caller that ignores it sees no behavior change. See [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md) and `docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.md`.
 
@@ -751,7 +782,7 @@ Promotion writes exclusively through existing Costbook services — `CostbookSer
 Settings asset storage metadata routes under `/api/v1/settings`:
 
 - `GET /api/v1/settings/assets/:assetKey` — any authenticated org member; returns the current storage bucket/path/content-type/size for one of `logoUrl`/`darkLogoUrl`/`iconUrl`/`watermarkUrl`, or 404 if nothing has been uploaded for that slot
-- `POST /api/v1/settings/assets` — requires `team.manage`/`company.manage`/`settings.manage` (same gate as `PATCH /api/v1/settings`); accepts only the private `project-files` bucket, the authenticated organization's generated brand-asset path, a supported raster image content type, and a size up to 6 MB; persists new storage metadata and returns the previous record (if any) so the caller can delete the superseded storage object
+- `POST /api/v1/settings/assets` — requires `team.manage`/`company.manage`/`settings.manage` (same gate as `PATCH /api/v1/settings`); accepts only the private `project-files` bucket, the authenticated organization's generated brand-asset path, a supported raster image content type, and a size up to 4 MiB; persists new storage metadata and returns the previous record (if any) so the caller can delete the superseded storage object
 - `DELETE /api/v1/settings/assets/:assetKey` — same permission gate; deletes the metadata record and returns it (if any) for the caller to delete the underlying storage object
 
 These endpoints never touch Supabase Storage themselves — they only read/write the application's own `settings_asset_uploads` table. The web app's server-only service_role Supabase client (never the anon/publishable key) performs the actual Storage upload/download/delete, calling these endpoints before and after to keep metadata and storage bytes consistent. See [modules/settings-and-operations.md](modules/settings-and-operations.md).
@@ -819,6 +850,11 @@ BrandDocumentSettings for the server-derived organization. Company identity,
 contact details, safe colors, and configured trust-signal visibility are
 presentation inputs only; caller-supplied company names cannot override
 persisted organization branding when authenticated context is available.
+Download filenames in the `Content-Disposition` header are sanitized to
+printable ASCII (`sanitizeDownloadFilename`): project names containing
+non-Latin-1 characters (for example an em-dash) previously made Node reject
+the header value after rendering and surface as a 500; the rendered PDF,
+routes, and permissions are unchanged.
 
 ## Costbook continuation API additions
 
@@ -1104,3 +1140,24 @@ queue dismissal, automatic retry, financial change or production migration.
 This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
+
+## Accepted proposal → job API (PR #810, proposed)
+
+`POST /api/v1/jobs/from-proposal/:proposalId` requires an authenticated
+owner/admin/dispatcher and a UUID proposal id. JSON body is strictly
+`{"serviceAddressId":"<customer-owned-service-address-uuid>"}`; caller cannot
+supply organization, project, customer, commercial scope, pricing or status.
+The accepted proposal must belong to the caller's organization. The service
+returns a Job DTO (`sourceProposalId`, `acceptedBaselineJson` included).
+Repeated requests return the same job; draft/declined proposals and mismatched
+customer/service-address ownership fail. A successful new job is unscheduled
+and does not automatically dispatch crews or invoice. Migration
+`20261028151000_accepted_proposal_job_handoff` is required before runtime use.
+This API is proposed on an unmerged branch, not yet available on production.
+
+## Accepted-scope conversion validation — 2026-10-30
+
+`POST /api/v1/jobs/from-proposal/:proposalId` returns HTTP 409 before creating
+a new Job if the accepted proposal's `scopeOfWork` is null, empty or whitespace.
+It never fills missing accepted scope from the current Project. An existing
+source-linked Job is still returned on retry, without creating another Job.

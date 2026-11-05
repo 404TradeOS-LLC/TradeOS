@@ -33,6 +33,10 @@ import {
   validateEvidenceSet,
 } from "../../app/scripts/beta-evidence/lib/evidence-artifacts.mjs";
 
+import { assertAuthenticatedSmokeTenant } from "../../app/scripts/beta-evidence/lib/tenant-identity.mjs";
+import { createdCustomerIdFromUrl } from "../../app/scripts/beta-evidence/lib/customer-detail-url.mjs";
+import { matchesReviewedSavedLine, renderedVerifiedRowMatches, reloadEstimateAndRead } from "../../app/scripts/beta-evidence/lib/saved-line-verification.mjs";
+
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
 
@@ -347,6 +351,7 @@ test("a storage state path whose parent does not exist yet is still checked", as
 // ---------------------------------------------------------------------------
 
 const workflow = read(".github/workflows/beta-evidence.yml");
+const stagingOrchestrator = read(".github/workflows/staging-orchestrator.yml");
 const capture = read("app/scripts/beta-evidence/capture-evidence.mjs");
 const runner = read("app/scripts/beta-evidence/run.mjs");
 const validator = read("app/scripts/beta-evidence/validate-artifacts.mjs");
@@ -379,9 +384,15 @@ test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit r
   assert.match(capture, /duplicate advice points to the existing customer without silently merging/);
   assert.match(capture, /customer project fields survive workspace reload/);
   assert.ok(capture.includes('`/projects/new?customerId=${encodeURIComponent(customerId)}`'));
-  assert.ok(capture.includes('input[type="hidden"][name="customerId"]'));
+  assert.ok(capture.includes('page.locator(\'form [name="customerId"]\')'));
+  assert.match(capture, /customerLinkType === "customer-context"/);
+  assert.match(capture, /element\.tagName === "SELECT"[\s\S]*\? "customer-selector"/);
+  assert.match(capture, /linkedCustomerId === customerId/);
   assert.match(capture, /project creation carries the exact server-created customer/);
-  assert.doesNotMatch(capture, /select\[name=customerId\].*selectOption/);
+  assert.match(capture, /S052 uses the resolved customer-context form/);
+  assert.match(capture, /project persists the selected customer/);
+  assert.match(capture, /beforeReload\.body\?\.customerId === customerId/);
+  assert.doesNotMatch(capture, /selectOption\(customerId\)/);
   assert.match(capture, /saved service address is carried into project creation/);
   assert.ok(capture.includes('select[name="siteAddress"]'));
   assert.ok(capture.includes('input[name="siteAddress"]'));
@@ -440,6 +451,95 @@ test("canonical beta evidence verifies persisted Costbook-independent line costs
   assert.match(capture, /BETA_ALLOW_MUTATIONS=true is required/);
 });
 
+test("post-markup rendered total settles on Review before it is asserted", () => {
+  // Regression guard for the run-41289571105 failure: the markup save is
+  // learned by the builder only via mutation onSuccess -> invalidate ->
+  // async React Query refetch, and stage navigation awaits aria-current,
+  // not the refetched data. A bare innerText read after navigating to
+  // Review races that refetch and sees the stale pre-markup snapshot.
+  // The rendered-text check must therefore wait for the marked-up total
+  // to appear in visible text before the assertion reads it.
+  const markupBlock = capture.slice(capture.indexOf('"markup apply lands the marked-up total"'));
+  const reviewNav = markupBlock.indexOf('navigateEstimateStage("Review")');
+  const totalAssert = markupBlock.indexOf('"post-markup total matches the shipped formula"');
+  const settle = markupBlock.indexOf("waitForFunction", reviewNav);
+  assert.ok(reviewNav !== -1 && settle !== -1 && totalAssert !== -1, "expected the markup Review navigation, settle wait, and total assertion");
+  assert.ok(reviewNav < settle && settle < totalAssert, "expected the settle wait between the markup Review navigation and the post-markup total assertion");
+  assert.match(markupBlock.slice(settle, totalAssert), /\$7,105\.07/);
+  assert.doesNotMatch(markupBlock.slice(reviewNav, settle), /innerText\(\)/);
+  // The ordering check alone would still pass if the wait lost its
+  // `await` (the following read would then race the refetch again), so
+  // pin the awaited call itself.
+  assert.match(
+    markupBlock.slice(reviewNav, settle + "waitForFunction".length),
+    /await\s+page\.waitForFunction/,
+    "expected the settle wait to be awaited",
+  );
+});
+
+test("finalize ready wait is scoped to the Estimate workflow region", () => {
+  // Regression guard for the run-41359082129 failure: the builder renders
+  // the estimate status badge twice (page-header actions row + Review-stage
+  // "Internal estimate review" panel), so a bare getByText("ready") wait
+  // after Finalize estimate trips Playwright strict mode. The wait must be
+  // scoped to the Estimate workflow region, which selects the Review-stage
+  // badge adjacent to the finalize flow.
+  const finalizeBlock = capture.slice(capture.indexOf('getByRole("button", { name: "Finalize estimate" })'));
+  const checkpoint06 = finalizeBlock.indexOf('await checkpoint("06"');
+  assert.ok(checkpoint06 !== -1, "expected the finalize step to end at checkpoint 06");
+  const regionWait = finalizeBlock.indexOf('getByRole("region", { name: "Estimate workflow" })');
+  assert.ok(regionWait !== -1 && regionWait < checkpoint06, "expected a region-scoped wait in the finalize step");
+  assert.match(
+    finalizeBlock.slice(regionWait, checkpoint06),
+    /^getByRole\("region", \{ name: "Estimate workflow" \}\)\s*\.getByText\("ready", \{ exact: true \}\)\.waitFor/,
+    "expected the finalize ready wait to be scoped to the Estimate workflow region",
+  );
+  assert.doesNotMatch(
+    finalizeBlock.slice(0, checkpoint06),
+    /await page\.getByText\("ready"/,
+    "expected no bare ready wait in the finalize step",
+  );
+});
+
+test("invoice total read is scoped to the Invoice financial summary section", () => {
+  // Regression guard for the run-41377520305 failure: the invoice page
+  // renders no bare "Total" label, and "Invoice total" renders twice
+  // (financial-summary metric + totals-block row), so a bare
+  // getByText("Total") read can never resolve and a bare
+  // getByText("Invoice total") read would trip Playwright strict mode.
+  // The read must be scoped to the Invoice financial summary section,
+  // whose MoneyMetric parent div carries the value alongside the label.
+  const invoiceBlock = capture.slice(capture.indexOf('invoice resolves an id'));
+  const checkpoint08 = invoiceBlock.indexOf('await checkpoint("08"');
+  assert.ok(checkpoint08 !== -1, "expected the invoice step to end at checkpoint 08");
+  const sectionRead = invoiceBlock.indexOf('page.locator(\'section[aria-label="Invoice financial summary"]\')');
+  assert.ok(sectionRead !== -1 && sectionRead < checkpoint08, "expected a section-scoped read in the invoice step");
+  assert.match(
+    invoiceBlock.slice(sectionRead, checkpoint08),
+    /^page\.locator\('section\[aria-label="Invoice financial summary"\]'\)\.getByText\("Invoice total", \{ exact: true \}\)\.locator\("\.\."\)\.innerText/,
+    "expected the invoice total read to be scoped to the Invoice financial summary section",
+  );
+  assert.doesNotMatch(
+    invoiceBlock.slice(0, checkpoint08),
+    /await page\.getByText\("Total"/,
+    "expected no bare Total read in the invoice step",
+  );
+});
+
+test("beta capture waits for the persisted Customer UUID rather than matching /customers/new", () => {
+  const uuid = "1643d999-509c-4742-8d68-46c6a9129d55";
+  const origin = "https://tradeos-costbook-web-git-staging-billykshowalters.vercel.app";
+  assert.equal(createdCustomerIdFromUrl(`${origin}/customers/new`), null);
+  assert.equal(createdCustomerIdFromUrl(`${origin}/customers`), null);
+  assert.equal(createdCustomerIdFromUrl(`${origin}/customers/not-a-uuid`), null);
+  assert.equal(createdCustomerIdFromUrl(`${origin}/customers/${uuid}/edit`), null);
+  assert.equal(createdCustomerIdFromUrl("not a URL"), null);
+  assert.equal(createdCustomerIdFromUrl(`${origin}/customers/${uuid}`), uuid);
+  assert.equal(createdCustomerIdFromUrl(`${origin}/customers/${uuid}?tab=projects`), uuid);
+  assert.match(capture, /waitForURL\(\(url\) => createdCustomerIdFromUrl\(url\) !== null/);
+  assert.match(capture, /const customerId = createdCustomerIdFromUrl\(page\.url\(\)\)/);
+});
+
 test("S053 evidence is opt-in and defaults do not change the canonical beta flow", () => {
   assert.match(workflow, /scenario:\s*[\s\S]*default: canonical[\s\S]*- canonical[\s\S]*- s052[\s\S]*- s053/);
   assert.match(workflow, /BETA_SCENARIO: \$\{\{ inputs\.scenario \}\}/);
@@ -453,7 +553,7 @@ test("S053 evidence is opt-in and defaults do not change the canonical beta flow
 });
 
 test("S053 browser evidence cleans run-created lines even when post-apply assertions fail", () => {
-  assert.match(capture, /try \{[\s\S]*await applyButton\.click\(\)[\s\S]*\} finally \{/);
+  assert.match(capture, /try \{[\s\S]*page\.waitForResponse\([\s\S]*applyButton\.click\(\)[\s\S]*\} finally \{/);
   assert.match(capture, /filter\(\(item\) => !baselineIds\.has\(item\.id\)\)/);
   assert.match(capture, /deleteEvidenceLineItems\(estimateId, leftoverIds\)\.catch\(\(\) => \{\}\)/);
 });
@@ -472,7 +572,7 @@ test("S053 browser evidence proves review-first behavior before an explicit appl
   assert.match(capture, /Athena generation and local acceptance do not silently write estimate lines/);
   assert.match(capture, /explicit Athena apply persists at least one reviewed estimate line/);
   assert.match(capture, /pricing refreshes after the reviewed Athena apply/);
-  assert.match(capture, /reviewed Athena lines survive builder reload/);
+  assert.match(capture, /reviewed Athena saved-line IDs survive an authenticated hard reload/);
   assert.match(capture, /Documented source\|Unverified pricing\|Placeholder pricing/);
 });
 
@@ -570,6 +670,40 @@ test("the documented secret names map to the runtime names the scripts read", ()
   }
 });
 
+test("smoke tenant verification requires canonical authenticated Settings identity", () => {
+  const orgId = "9814bd72-626a-42f4-8871-cd755cb9d685";
+  const otherId = "00000000-0000-4000-8000-000000000001";
+  const good = { orgId, settings: { companyName: "TradeOS Beta Smoke" } };
+  assert.equal(assertAuthenticatedSmokeTenant(good, "TradeOS Beta Smoke"), orgId);
+  assert.equal(assertAuthenticatedSmokeTenant(
+    { orgId, settings: { companyName: "Custom brand" } },
+    "TradeOS Beta Smoke", orgId,
+  ), orgId);
+  assert.throws(() => assertAuthenticatedSmokeTenant(
+    { orgId: otherId, settings: { companyName: "TradeOS Beta Smoke" } },
+    "TradeOS Beta Smoke", orgId,
+  ), /organization ID does not match/);
+  assert.throws(() => assertAuthenticatedSmokeTenant(
+    { orgId: otherId, settings: { companyName: "Other Organization" } },
+    "TradeOS Beta Smoke",
+  ), /organization name does not match/);
+  assert.throws(() => assertAuthenticatedSmokeTenant(
+    { settings: { companyName: "TradeOS Beta Smoke" } }, "TradeOS Beta Smoke",
+  ), /valid organization identity/);
+  assert.throws(() => assertAuthenticatedSmokeTenant(
+    { orgId, settings: { companyName: "Other Organization" } }, "",
+  ), /label is required/);
+  assert.match(authSetup, /assertAuthenticatedSmokeTenant\(await response\.json\(\), expectedOrg, expectedOrgId\)/);
+  assert.doesNotMatch(authSetup, /settingsText\.includes\(expectedOrg\)/);
+});
+
+test("staging beta evidence pins the canonical smoke UUID and forwards it to the authenticator", () => {
+  assert.match(stagingOrchestrator, /smoke_org_id:\s+9814bd72-626a-42f4-8871-cd755cb9d685/);
+  assert.match(workflow, /smoke_org_id:\s+[\s\S]*?type: string/);
+  assert.match(workflow, /BETA_SMOKE_ORG_ID: \$\{\{ inputs\.smoke_org_id \}\}/);
+  assert.match(authSetup, /expectedOrgId = process\.env\.BETA_SMOKE_ORG_ID/);
+});
+
 test("the tenant assertion cannot be skipped and mutation consent is never implicit", () => {
   // An unset organization label previously recorded the tenant check as passed.
   assert.match(authSetup, /BETA_SMOKE_ORG_LABEL/);
@@ -608,15 +742,95 @@ test("evidence capture fails closed without explicit mutation consent", () => {
 });
 
 test("evidence capture asserts business meaning, not just DOM presence", () => {
-  // The shipped estimate formula's outputs, not incidental copy.
-  for (const total of ["\\$310\\.89", "\\$5,920\\.89", "\\$6,732\\.00", "\\$7,105\\.07"]) {
+  // The shipped estimate formula's outputs, not incidental copy. The
+  // customer-facing totals are asserted against rendered text; the tax
+  // figure and the marked-up pre-tax figure are asserted against the
+  // authoritative estimate API because neither is visible text at every
+  // width on the builder this run targets (the tax figure has no visible
+  // row on the Price stage and the pre-tax header row is hidden below lg).
+  for (const total of ["\\$5,920\\.89", "\\$7,105\\.07"]) {
     assert.match(capture, new RegExp(total));
   }
+  assert.match(capture, /taxAmount\) - 310\.89/);
+  assert.match(capture, /preTaxTotalPrice\) - 6732\.00/);
   assert.match(capture, /overhead persists across reload/);
   assert.match(capture, /tax rate persists across reload/);
   assert.match(capture, /proposal carries the finalized estimate value/);
   assert.match(capture, /proposal does not show a placeholder price/);
   assert.match(capture, /invoice bills sell price rather than direct cost/);
+});
+
+test("S053 saved-line evidence compares the persisted row with the reviewed request", async () => {
+  const acknowledgement = {
+    draftLineItemId: "draft-1",
+    lineItemId: "line-1",
+    description: "Deck framing",
+    quantity: 1.2346,
+  };
+  const reviewed = {
+    status: "accepted",
+    targetKind: "assembly",
+    targetId: "assembly-1",
+    description: " Deck framing ",
+    quantity: 1.23456,
+  };
+  const saved = {
+    id: "line-1",
+    assemblyId: "assembly-1",
+    costItemId: null,
+    description: "Deck framing",
+    quantity: 1.2346,
+  };
+
+  assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved }), true);
+  assert.equal(matchesReviewedSavedLine({
+    acknowledgement,
+    reviewed: { ...reviewed, targetKind: "costItem", targetId: "cost-1" },
+    saved: { ...saved, assemblyId: null, costItemId: "cost-1" },
+  }), true);
+  assert.equal(renderedVerifiedRowMatches("Deck framing\\n1.2346 LF · saved line matched the reviewed assembly", acknowledgement), true);
+  assert.equal(renderedVerifiedRowMatches("Different line\\n1.2346 LF", acknowledgement), false);
+  assert.equal(renderedVerifiedRowMatches("Deck framing\\n11.2346 LF", acknowledgement), false);
+  assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved: { ...saved, assemblyId: "other" } }), false);
+  assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved: { ...saved, description: "Other" } }), false);
+  assert.equal(matchesReviewedSavedLine({ acknowledgement, reviewed, saved: { ...saved, quantity: 1.2345 } }), false);
+
+  // A blank reviewed label uses the backend-effective acknowledgement label,
+  // which the saved detail must preserve.
+  assert.equal(matchesReviewedSavedLine({
+    acknowledgement,
+    reviewed: { ...reviewed, description: " " },
+    saved,
+  }), true);
+
+  const calls = [];
+  const afterReload = await reloadEstimateAndRead({
+    page: { reload: async (options) => calls.push(options) },
+    estimateId: "estimate-1",
+    readEstimateDetail: async (id) => ({ id, lineItems: [saved] }),
+  });
+  assert.equal(calls.length, 1, "the exercised helper must perform a hard reload");
+  assert.deepEqual(calls[0], { waitUntil: "networkidle", timeout: 60_000 });
+  assert.equal(afterReload.id, "estimate-1");
+});
+
+test("S053 authenticated Estimate evidence reconciles saved line identity through reload", () => {
+  assert.match(capture, /Saved line verification/);
+  assert.match(capture, /row\.isVisible\(\)/);
+  assert.match(capture, /renderedVerifiedRowMatches/);
+  assert.match(capture, /matchesReviewedSavedLine/);
+  assert.match(capture, /reloadEstimateAndRead/);
+  assert.match(capture, /reviewed Apply acknowledgement succeeds/);
+  assert.match(capture, /acknowledgement\.applied/);
+  assert.match(capture, /acknowledgement\.skipped\.filter\(\(line\) => line\.lineItemId/);
+  assert.match(capture, /matches the authenticated review/);
+  assert.match(capture, /reviewed Athena saved-line IDs survive an authenticated hard reload/);
+  assert.match(capture, /keeps reviewed identity and target/);
+  assert.match(isolation, /name: "foreign estimate"/);
+  assert.match(isolation, /method: "GET"/);
+  assert.match(isolation, /apiRoute: `\/api\/proxy\/estimates\/\$\{foreignEstimateId\}`/);
+  assert.match(isolation, /const deniedByApi = apiStatus === 403 \|\| apiStatus === 404/);
+  assert.match(isolation, /!deniedByApi/);
 });
 
 test("tenant isolation treats a readable foreign resource as a release blocker", () => {
@@ -633,8 +847,11 @@ test("the evidence bundle is never uploaded after the credential scan rejects it
 test("tenant isolation refuses to report PASS without a probeable resource", () => {
   assert.match(isolation, /No tenant-isolation probe could be constructed/);
   assert.match(isolation, /refusing to report PASS/i);
-  // An estimate id alone is not probeable, so the workflow must not accept it.
-  assert.match(workflow, /BETA_RC_FOREIGN_PROJECT_ID or BETA_RC_FOREIGN_CUSTOMER_ID is required/);
+  // An Estimate id alone must execute the authenticated API denial probe.
+  assert.match(workflow, /A foreign customer.*BETA_RC_FOREIGN_ESTIMATE_ID/);
+  assert.match(isolation, /foreignEstimateId[\s\S]*route: foreignProjectId/);
+  assert.doesNotMatch(isolation, /foreignEstimateId && foreignProjectId/);
+  assert.match(workflow, /HAS_FOREIGN_RESOURCE/);
 });
 
 test("the workflow declares only the expected environment and derives the actual one", () => {

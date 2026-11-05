@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { ContractsService } from "../../modules/contracts/service";
+import { sanitizeDownloadFilename } from "../../modules/documents/format";
 import { requireAuthContext, requireOrgId } from "../requestContext";
 
 const service = new ContractsService();
@@ -34,7 +35,7 @@ export const contractsController = {
   async getPdf(req: Request, res: Response) {
     const doc = await service.getPdf(req.params.id, requireOrgId(req));
     res.setHeader("Content-Type", doc.contentType);
-    res.setHeader("Content-Disposition", `attachment; filename="${doc.filename}"`);
+    res.setHeader("Content-Disposition", `attachment; filename="${sanitizeDownloadFilename(doc.filename)}"`);
     res.send(doc.buffer);
   },
   async sign(req: Request, res: Response) {

@@ -18,6 +18,18 @@ related_code:
 
 # Workflow Lifecycles
 
+## PDF logo loading does not change commercial state
+
+Invoice, contract and proposal PDF generation may add the authenticated organization's stored PNG/JPEG logo after bounded private Storage validation. This affects only document display and retains all estimate/proposal/contract/invoice workflow states, pricing, acceptance, signatures, payment and authorization behavior. Invalid/missing images fall back safely, and no external URL is accessed.
+
+## Tenant PDF logo rendering lifecycle boundary
+
+Trusted logo rendering is a presentation-only PDFKit option. Estimate/proposal/contract/invoice states, invoices, approvals, prices, signatures and delivery lifecycles are unchanged. The web app's current private SettingsAssetUpload remains authoritative for real tenant logo bytes; PR #873 implements the protected backend organization-scoped loader. Missing credentials or an active same-tenant logo leave the company-name header intact, and staging acceptance remains required under #870.
+
+## Proposal customer-document presentation — PR #868
+
+The accepted estimate to proposal to signature and invoice lifecycle is unchanged. The customer-facing PDF header now avoids forced TradeOS platform labeling so the organization's branding and explicit `showPoweredByTradeOS` preference remain authoritative. Proposal state transitions, pricing, expiry, permission checks, storage and delivery behavior are unaffected. Real tenant PDF visual acceptance and uploaded-logo embedding remain separate follow-up work.
+
 This file defines canonical display states and the current compatibility layer for persisted values.
 
 ## Current operational relationship
@@ -136,6 +148,13 @@ Canonical display states:
 Current persisted values:
 
 - new service writes persist `draft`, `sent`, `viewed`, `accepted`, and canonical `declined`
+
+Draft-creation request contract:
+
+- first-party `POST /api/v1/proposals` requests send a UUID `Idempotency-Key`; older web bundles and external clients may omit it during independent deployments, in which case creation keeps legacy non-idempotent behavior
+- a replay with the same canonical request returns the same Proposal without inserting another draft; a changed request under the same key returns `409`; requests without a key do not receive this guarantee
+- this request contract prevents duplicate draft creation but does not add a proposal lifecycle state, automatic retry, customer send, or pricing transition
+
 - historical `rejected` rows remain accepted by the database constraint and are displayed canonically as `declined`
 
 Current enforced transitions:
@@ -275,6 +294,7 @@ Current enforced transitions:
 
 - `draft -> sent`
 - `sent|overdue -> paid`
+- a draft invoice may be edited: line replacement plus total recompute for manual full drafts, due-date-only edits for progress and estimate-linked drafts; non-drafts are not editable
 - a recorded-payment reconciliation may transition an eligible `sent` invoice, or an existing raw `overdue` invoice for historical compatibility, to persisted `paid` when recorded payments fully cover the invoice
 - non-paid invoices may be voided
 
@@ -417,3 +437,25 @@ queue dismissal, automatic retry, financial change or production migration.
 This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
+
+## Proposal accepted → unscheduled Job handoff (PR #810, unmerged)
+
+After a proposal reaches canonical `accepted` status, an owner/admin/dispatcher
+can explicitly create a field job with a chosen customer-owned ServiceAddress.
+This is a **new Job creation**, not another Proposal status transition.
+It preserves the accepted scope/price/terms and estimate provenance on
+`Job.acceptedBaselineJson` with unique `Job.sourceProposalId`.
+Concurrent conversion attempts serialize and retries reuse the existing job.
+The new job starts `unscheduled`, with no technician assignments, and follows
+the existing scheduling/dispatch/field lifecycle. Contract-signing,
+change-order and invoice workflows remain separate; this handoff does not
+claim authorization to start work without required contract approvals.
+Implementation and migration are pending CI and nonproduction acceptance.
+
+## Accepted Job scope integrity — 2026-10-30
+
+A new proposal-derived Job requires nonblank scope stored on the accepted
+proposal. Its executable description comes only from that accepted scope, never
+from the Project's current `simpleScope`. Missing accepted scope fails closed
+with HTTP 409; an existing conversion remains retrievable on an idempotent retry.
+The guard does not modify the accepted proposal or create replacement terms.

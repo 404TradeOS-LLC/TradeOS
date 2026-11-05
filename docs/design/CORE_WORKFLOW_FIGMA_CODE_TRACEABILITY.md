@@ -17,6 +17,7 @@ Figma engineering-spec board inspected: `[SPEC] Core Workflow Engineering Handof
 | EmptyState | `web/src/components/ui/empty-state.tsx` | IMPLEMENTED | Genuine loaded-data absence only. |
 | loading/error/restricted taxonomy | `web/src/components/ui/feedback-state.tsx` plus route boundaries | IMPLEMENTED / ROLLING OUT | Keep empty, failure, permission, degraded and not-found distinct. |
 | StatusBadge | `web/src/components/shared/status-badge.tsx` | IMPLEMENTED | Domain state first; color is not the only signal. |
+| AttentionItem (`16:42`) | `web/src/components/dashboard/attention-item.tsx` | IMPLEMENTED / VISUAL ALIGNMENT | Today maps persisted `urgent` → Urgent, `high` → Needs action, and `medium` → Review; source navigation and role-permitted record behavior remain owned by Today. |
 | RecordRow | `web/src/components/shared/list-row-link.tsx` | IMPLEMENTED / CONVERGENCE TARGET | Converge instead of duplicating. |
 | priced row | `web/src/components/shared/line-item-row.tsx` | IMPLEMENTED | Preserve owning-domain money semantics. |
 | WorkspaceHeader | `web/src/components/shared/page-header.tsx` plus record-specific headers | PARTIAL / CONVERGENCE TARGET | Do not force a new heavy header abstraction. |

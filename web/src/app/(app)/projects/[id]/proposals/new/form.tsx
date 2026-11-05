@@ -1,10 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { createProposalAction } from "@/app/actions/proposals";
 import { PaymentScheduleFields } from "@/components/proposals/payment-schedule-fields";
 import { SummaryMetricCard } from "@/components/shared/summary-metric-card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -13,17 +14,20 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Estimate, ProposalDraftPreview } from "@/lib/api";
 
 export function NewProposalForm({
+  idempotencyKey,
   projectId,
   estimates,
   draft,
   initialEstimateId,
 }: {
+  idempotencyKey: string;
   projectId: string;
   estimates: Estimate[];
   draft: ProposalDraftPreview;
   initialEstimateId?: string;
 }) {
   const [state, formAction, isPending] = useActionState(createProposalAction, undefined);
+  const canCheckProjectProposals = Boolean(state && "statusCheck" in state && state.statusCheck);
   const errorRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (!state?.error) return;
@@ -49,6 +53,7 @@ export function NewProposalForm({
           onReset={(event) => event.preventDefault()}
         >
           <input type="hidden" name="projectId" value={projectId} />
+          <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
           <div className="flex flex-col gap-2">
             <Label htmlFor="estimateId">Estimate</Label>
             <select
@@ -151,7 +156,23 @@ export function NewProposalForm({
             <Label htmlFor="termsAndConditions">Terms &amp; conditions</Label>
             <Textarea id="termsAndConditions" name="termsAndConditions" rows={4} />
           </div>
-          {state?.error && <p ref={errorRef} role="alert" tabIndex={-1} className="rounded-sm text-sm text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">{state.error}</p>}
+          {state?.error && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
+              <p ref={errorRef} role="alert" tabIndex={-1} className="text-sm text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                {state.error}
+              </p>
+              {canCheckProjectProposals && (
+                <div className="mt-3 flex flex-col items-start gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    If you cannot confirm whether the draft was created, check this Project’s proposals before trying again.
+                  </p>
+                  <Link href={`/projects/${projectId}?tab=proposals`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                    Check Project proposals
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
           <Button type="submit" disabled={isPending}>
             {isPending ? "Creating…" : "Create proposal"}
           </Button>

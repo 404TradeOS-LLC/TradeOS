@@ -67,3 +67,22 @@ Do not wire Figma examples such as receiving-photo comparison, missing-material 
 3. Verify technician assignment denial and organization boundary behavior.
 4. Reconcile each richer Figma field frame to an owning backlog/domain contract before implementation.
 5. Start S066 only when its readiness/dependency contract permits the bounded action-first slice; do not smuggle in offline/photo/change persistence.
+
+
+## Field capture implementation gate — 2026-10-09
+
+**Status: proposed contract, not a shipped photo/issue feature.** Before enabling the richer Figma capture actions, implement and review these boundaries:
+
+1. **Resource ownership:** Each attachment or issue must belong to an existing Job, organization and authorized actor. Derive organization and actor from the authenticated server session; never trust a client-supplied tenant identifier. Technician writes must be limited to assigned jobs and permitted lifecycle states. Re-check access on every read, download and mutation.
+2. **Upload contract:** Use a server-issued short-lived, job-scoped upload authorization with content type, maximum byte size and object-key constraints. Store opaque object keys and metadata, not arbitrary user-supplied public URLs. Keep storage private and validate content after upload before making it visible.
+3. **Persistence and audit:** Record the job, organization, uploader, creation time, content digest, review state and attachment/issue relationship. Prevent cross-tenant reads with the existing forced-RLS posture and add explicit denial tests. Issue/change records must not modify contractual price or scope without the governed change-order review path.
+4. **Acknowledgement and retry:** A photo/issue is submitted only after server acknowledgement; errors leave the user's local draft visible without claiming successful sync. Define idempotency and duplicate-upload handling before retry behavior. Offline queues, background sync and device encryption remain out of scope.
+5. **Evidence before release:** Add API and real-PostgreSQL/RLS tests for authorized assigned technician, unassigned technician, foreign tenant, revoked membership, malformed upload and replay. Capture authenticated 390px and desktop browser evidence including denied/failure states and verify private object access. No release label until those checks pass.
+
+### Immediate validation commands
+
+From the repository root, run the existing Field component contract tests with the web package's Node test command, then run the web typecheck and required repository checks. Follow with the governed authenticated browser and PostgreSQL/RLS evidence workflows. Static source-contract assertions do not substitute for any of those runtime checks.
+
+### Design reconciliation
+
+The Figma photo, issue, change and offline states remain **TARGET** until the above storage, access, audit, review and evidence contracts are implemented. Preserve one dominant mobile action and keep field completion separate from invoice/payment completion.

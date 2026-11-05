@@ -43,9 +43,25 @@ related_code:
 
 # TradeOS Engineering Command Center
 
+## PR #810 staging dependency — proposed protected runner, 2026-10-30
+
+Main-only apply cannot consume the draft feature migration. A separate
+infrastructure-only PR proposes `staging-job-handoff-migration.yml`: trusted main
+tooling, exact SQL checksum, manual preflight by default, protected staging
+source-SHA approval plus typed apply confirmation, no feature-code execution
+under credentials. This branch changes no Prisma migration or production
+workflow and does not queue production migrations by its path changes.
+Live read-only inventory matches all 66 completed staging migration names and
+checksums; only the Job handoff is pending against main plus the reviewed SQL.
+Jobs RLS is enabled and forced. No apply or step-9 browser PASS is claimed.
+See [the operator plan](operations/staging-job-handoff-runner.md).
+
+
 ## Staging invoice schema and ledger collision preflight — 2026-10-27
 
 The staging migration workflow refuses to run tracked Prisma migrations if invoice selling-price columns already exist but the corresponding Prisma migration is absent from the ledger, or if a recorded expand migration is missing expected columns. An untracked Supabase-side expansion was verified in staging; do not bypass the fail-closed preflight. Reconcile the historical expand migration against the staging schema and both migration ledgers, then separately review the destructive contract phase and old Preview writers before allowing it to drop legacy invoice fields. This safeguard makes no database mutation and does not certify staging readiness.
+
+Staging invoice-expand reconciliation — 2026-10-28: the `main`-restricted, confirmation-gated `.github/workflows/reconcile-staging-invoice-expand.yml` records the already-applied expand migration (`prisma migrate resolve --applied` only) after read-only assertions on the staging schema and both ledgers. Its staging-identity check accepts the direct staging host and the staging Transaction pooler host (`aws-0-us-east-2.pooler.supabase.com`), because GitHub runners cannot reach the direct host over IPv6. For pooler URLs the guard additionally requires the connection username's project-ref suffix to equal the staging project ref, since the pooler hostname alone is regional rather than project-specific. The workflow makes no schema change and leaves the remaining migrations and both legacy invoice columns untouched. The Prisma CLI history step converts a verified staging Transaction-pooler URL on port 6543 to the same project's session-mode port 5432 before `migrate resolve`; transaction pooling is never used for the Prisma history write.
 
 
 
@@ -236,7 +252,7 @@ RC smoke run #11 identified a staging deployment configuration failure before cr
 
 The first repair dispatch stopped before redeployment because Vercel CLI 59.11.2 required explicit confirmation for `env update` and no longer accepted `--yes` for `redeploy`. A later dispatch restored the branch-scoped staging Supabase URL but exposed a stale pinned deployment URL. The workflow uses `env update --value ... --yes` with pinned Vercel CLI 59.11.2. Its repair helper resolves structured deployment data for the captured staging branch SHA, verifies project/team/repository and Preview identity, redeploys by ID, and checks the replacement immutable URL for runtime SHA, database/schema readiness, and invalid Supabase token rejection after issuer initialization. It retains deployment identity on failure instead of certifying a moving alias. Regression coverage rejects stale commits, foreign targets, redirects, and failed readiness. A fresh repair dispatch and authenticated evidence remain required; this repository change does not establish current-main release certification.
 
-The `Beta Evidence` workflow is the release-candidate evidence lane. It is operator-dispatched in `preflight` or `full` mode, generates authenticated storage state at runtime instead of consuming a pre-baked storage-state secret, drives the canonical customer → project → estimate → pricing → finalize → proposal → contract → invoice workflow at 1440/1024/768/390, proves tenant isolation with a negative probe, and validates every retained screenshot against its declared viewport width before publishing artifacts. It refuses to run against production hosts, the Production alias, or `-git-main-` previews, and refuses mutating runs unless the release-candidate data plane is proven non-production. Beta evidence is UNVERIFIED until a `full` run passes; see [testing/BETA_EVIDENCE.md](testing/BETA_EVIDENCE.md).
+The `Beta Evidence` workflow is the release-candidate evidence lane. It is operator-dispatched in `preflight` or `full` mode, generates authenticated storage state at runtime instead of consuming a pre-baked storage-state secret, drives the canonical customer → project → estimate → pricing → finalize → proposal → contract → invoice workflow at 1440/1024/768/390, proves tenant isolation with negative API probes, and validates every retained screenshot against its declared viewport width before publishing artifacts. Canonical and S052 full runs require a foreign Customer or Project fixture. S053 additionally requires a foreign Estimate id; that id independently runs the authenticated Estimate-detail GET denial check (403/404), while its nested browser route is supplemental and requires a project id. S053 also denies foreign Athena draft/apply requests. It refuses production hosts, the Production alias, `-git-main-` previews, and mutating runs without proof of a non-production data plane. Beta evidence is UNVERIFIED until a `full` run passes; the harness source and CI do not substitute for retained authenticated artifacts. See [testing/BETA_EVIDENCE.md](testing/BETA_EVIDENCE.md).
 
 ## RC beta Vercel repair
 
@@ -431,6 +447,10 @@ Do not start any durable ABC Get All Items import or seven-day delta storage unt
 Staging Prisma migration execution is wired through `.github/workflows/deploy-staging-migrations.yml` on branch `ops/staging-prisma-migrations-20261018` (PR pending). It is manual-only, checks the exact TradeOS Staging Supabase host and invoice migration precondition, uses the existing Prisma deployment script, and verifies the resulting ledger. Before dispatch, configure the dedicated `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` secrets in GitHub Environment `staging`. No database migration has been run by this workflow setup.
 
 
+## Protected staging Preview binding attestation
+
+The manual, reviewer-gated `.github/workflows/attest-staging-preview.yml` workflow provides read-only effective Preview configuration checks when this connector cannot list Vercel environment metadata (403). Dispatch from `main` only, after workflow review. It accesses the existing GitHub `staging` Environment, pins both Vercel project IDs and the `staging` Git branch, and runs `scripts/staging-preview-attest.mjs` inside Vercel's in-memory `env run` scope. It verifies the staging Supabase issuer/database host and frontend staging API origin. No credentials are printed, and it cannot update envs, deploy, or migrate. A green attestation does not verify the service-role key's project provenance, staging migration ledger, matching deployments, or authenticated Today workflows; these remain separate gates.
+
 ## Isolated frontend component browser verification
 
 The existing Verify repository Web unit-test job also installs the pinned
@@ -453,3 +473,25 @@ The Docs consistency job remains required and runnable for Dependabot patch PRs.
 The reviewer-gated manual workflow `reconcile-staging-invoice-expand.yml` is the sole proposed fix for the historical Supabase/Prisma invoice expand collision. It proves SQL provenance and actual schema/data state before invoking `prisma migrate resolve --applied` **for that one already-executed migration only**. It does not call `prisma migrate deploy` or change production. Dispatch must originate from `main` with exact typed confirmation and a successful `staging` Environment approval. The normal deployment remains separate and blocked pending legacy invoice-writer retirement evidence. Record the outcome under issue #811; require 47 applied, 0 unfinished and legacy columns intact before planning the remaining migrations.
 
 For the later staging invoice contract/drop-column migration, independently verify old-writer retirement, record approved main SHA in `STAGING_INVOICE_WRITERS_RETIRED_SHA` under the protected staging Environment, and dispatch the existing migration workflow with `APPROVE_INVOICE_CONTRACT`. Both conditions are required; reconciliation alone never authorizes legacy-column removal.
+
+Deploy workflow pooler support — 2026-10-29: `.github/workflows/deploy-staging-migrations.yml` now accepts the staging Transaction pooler host in addition to the direct host, with the same project-ref-suffixed username requirement as the reconcile workflow, and converts a verified Transaction-pooler URL to session mode (port 5432) for `prisma migrate deploy`; psql checks keep the secret as-is. The invoice-expand reconciliation completed 2026-10-29 (47 applied, 0 unfinished, legacy columns intact); 14 migrations remain, and the contract migration still requires the writer-retirement attestation before dispatch.
+
+## P0 canonical staging smoke identity — 2026-10-30
+
+For beta browser acceptance, `.github/workflows/staging-orchestrator.yml` passes the verified nonproduction `TradeOS Beta Smoke` organization UUID `9814bd72-626a-42f4-8871-cd755cb9d685` to `.github/workflows/beta-evidence.yml`. The bootstrap checks the authenticated Settings API `orgId`, never editable Settings DOM text; missing or mismatched tenant identity is a hard failure. Run 40962013890 failed this identity stage after successful migration/deployment preflights; no four-viewport PASS is claimed. Confirm the configured smoke identity's membership before rerunning evidence.
+
+## Team & Time source restoration and role boundary review — 2026-10-30
+
+PR #827 adds `20261030004500_team_time_foundation` and `20261030005500_team_time_integrity` before `20261030010000_force_team_time_rls`. The FORCE migration now throws on missing tables; no later creation can silently escape enforcement because the migration was marked applied on a no-op. Source for staging Edge Function v6 is recorded under `supabase/functions/team-time/` as a **candidate** with complete bounded pagination (not yet deployed); a Jest VM harness exercises the actual source with fake bearer JWT/user memberships, org boundaries, shift lookups and assignment checks. Admin/service-role bypasses PostgreSQL RLS, so the test contract explicitly treats function authorization as mandatory instead of claiming FORCE provides service-role tenancy. Protected staging migration approval, role/policy review, authenticated staging testing and production activation remain separate gates.
+
+## P0 Customer → Project staging evidence repair — 2026-10-30
+
+Hosted staging run 41007794872 reached 1440px authenticated capture but failed because `capture-evidence.mjs` expected only the hidden Customer ID, while the Project creation form can also render the general selected-Customer control. The bounded harness repair accepts either legitimate form state **only when its value exactly matches the newly created Customer ID**, then requires the Project API to persist that same ID. S052 still requires resolved hidden context for ServiceAddress continuity. This change alone does not constitute four-viewport PASS and does not alter runtime auth, RLS, or production schema.
+
+## Issue #885 — protected staging Expense migrations (operator gate, 2026-11-02)
+
+The Expense migration release is **not** the regular broad staging migration dispatch. Staging already records the accepted-proposal Job handoff from PR #810, while `main` carries the Job Expenses baseline and PR #891 carries the payer and receipt/audit follow-ups. Read-only reconciliation found **66/66 shared migration SQL checksums matching**, an intact applied handoff schema/index with enabled+forced Jobs RLS, **67 completed/0 unfinished** staging Prisma records, and a private `project-files` receipt bucket. Expense tables do not yet exist in staging.
+
+The new main-only manual `.github/workflows/staging-expenses-migration.yml` and `scripts/staging-expenses-migration.mjs` provide an intentionally narrow, protected path for **only three pinned Expense SQL files**. Its `preflight` is read-only; `apply` requires a passing exact-source-SHA preflight, the staging Environment reviewer, exact protected `STAGING_EXPENSES_APPROVED_SHA`, and explicit `APPLY_STAGING_EXPENSES` confirmation. It runs reviewed SQL with trusted main Prisma tooling, never source-branch code or production credentials, and shares the existing staging migration concurrency group. It rejects unknown ledger entries, checksum drift, partial Expense schema, weak RLS, and unrelated pending migrations. Do not stamp or repair migration history by hand.
+
+**Sequence:** independent infrastructure PR review/merge → reviewer-approved protected preflight → separate approved staging apply → postflight proving exact inventory, forced Expense/event RLS and append-only audit → matching staging API-first/web runtime identity → authenticated owner/technician, cross-tenant and receipt browser acceptance → final feature PR review/merge. This runner does not authorize merging PR #891 or production migration. Full operator instructions: [Protected staging Expense migrations](operations/staging-expenses-migrations.md).

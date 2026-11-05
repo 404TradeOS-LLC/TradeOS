@@ -14,25 +14,33 @@ interface ProjectHeaderProps {
 
 export function ProjectHeader({ project, subtitle, actions, className }: ProjectHeaderProps) {
   return (
-    <div className={cn("rounded-xl border border-border/70 bg-card p-6", className)}>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-3">
+    <header className={cn("rounded-xl border border-border/70 bg-card p-4 sm:p-6", className)}>
+      <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between md:gap-8">
+        <div className="min-w-0 space-y-3">
           <Link href="/projects" className={buttonVariants({ variant: "ghost", size: "sm" })}>
             <ArrowLeft className="size-4" aria-hidden="true" />
             Back to projects
           </Link>
-          <StatusBadge status={project.status} />
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">{project.name}</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{subtitle}</p>
+          <div className="space-y-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+              <h1 className="min-w-0 text-2xl font-semibold tracking-tight sm:text-3xl">{project.name}</h1>
+              <StatusBadge status={project.status} />
+            </div>
+            <p className="max-w-2xl text-sm text-muted-foreground">{subtitle}</p>
           </div>
-          <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
-            <Meta label="Customer" value={project.customerId ? "Customer linked" : "Not linked yet"} />
-            <Meta label="Work type" value={project.jobType ?? "Not set"} />
-            <Meta label="Site address" value={project.siteAddress ?? "Not added yet"} />
+          <div
+            role="group"
+            aria-label="Project details"
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground"
+          >
+            <span>{project.customerId ? "Customer linked" : "No customer linked"}</span>
+            <span aria-hidden="true">·</span>
+            <span>{project.jobType ?? "Work type not set"}</span>
+            <span aria-hidden="true">·</span>
+            <span>{project.siteAddress ?? "Site address not added"}</span>
           </div>
         </div>
-        <div className="grid min-w-64 gap-3">
+        <div className="flex w-full min-w-0 flex-wrap gap-2 md:w-auto md:max-w-[45%] md:justify-end">
           {actions.map((action) => (
             <Link key={action.href} href={action.href} className={buttonVariants({ variant: action.variant })}>
               {action.label}
@@ -40,15 +48,6 @@ export function ProjectHeader({ project, subtitle, actions, className }: Project
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-function Meta({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</div>
-      <div className="mt-1 text-foreground">{value}</div>
-    </div>
+    </header>
   );
 }

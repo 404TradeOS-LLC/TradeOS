@@ -7,6 +7,9 @@
 // screenshots are never resized to fake a smaller viewport.
 
 import { openEstimateCustomEntry } from "./lib/estimate-entry.mjs";
+import { waitForEstimateTotal } from "./lib/estimate-total-poll.mjs";
+import { createdCustomerIdFromUrl } from "./lib/customer-detail-url.mjs";
+import { matchesReviewedSavedLine, renderedVerifiedRowMatches, reloadEstimateAndRead } from "./lib/saved-line-verification.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright";
@@ -88,6 +91,8 @@ try {
   );
 }
 let failure = null;
+let failureDiagnostics = null;
+let failureBodyText = null;
 let context;
 let page;
 
@@ -141,8 +146,16 @@ async function checkpoint(sequence, name, { optional = false } = {}) {
 
 async function navigateEstimateStage(stage) {
   const navigation = page.getByRole("navigation", { name: "Estimate stages" });
-  // Older desktop workbenches expose all sections; focused mobile stages do not.
-  if ((await navigation.count()) === 0 || !(await navigation.isVisible())) {
+  // The builder is a client component with an async query: while it loads it
+  // renders only "Loading estimate…" — no stage nav at all. An instant probe
+  // mistakes that transient absence for a nav-less workbench and returns
+  // without switching stages, leaving the editor hidden behind two closed
+  // disclosures. Wait for the nav to appear before deciding; only a genuine
+  // timeout falls through to the legacy nav-less-workbench path.
+  try {
+    await navigation.waitFor({ state: "visible", timeout: 30_000 });
+  } catch {
+    // Older desktop workbenches expose all sections; focused mobile stages do not.
     assertBusiness("mobile estimate stage navigation exists", viewport.width >= 1024, `Missing at ${viewport.name}px`);
     return;
   }
@@ -159,6 +172,40 @@ async function navigateEstimateStage(stage) {
     `Estimate stage ${stage} becomes current after navigation`,
     (await button.getAttribute("aria-current")) === "step",
   );
+}
+
+// Best-effort DOM-only snapshot for the Items-entry race site: URL, stage
+// nav presence, which stage (if any) is current, disclosure button state,
+// and editor visibility. Reads attributes and text only — never cookies,
+// storage, tokens, or page content beyond these controls.
+async function captureEstimateEntryDiagnostics() {
+  try {
+    const nav = page.getByRole("navigation", { name: "Estimate stages" });
+    const action = page.getByRole("button", { name: "Custom item", exact: true });
+    const editor = page.getByLabel("Custom line item", { exact: true });
+    const domState = await page.evaluate(() => {
+      const current = document.querySelector('nav[aria-label="Estimate stages"] button[aria-current="step"]');
+      const editorEl = document.querySelector("#custom-description");
+      return {
+        currentStageButton: current?.textContent?.trim() ?? null,
+        loadingEstimateVisible: document.body?.innerText?.includes("Loading estimate…") ?? false,
+        editorDoublyHidden: Boolean(editorEl?.closest("[hidden]")),
+      };
+    });
+    return {
+      url: page.url(),
+      navCount: await nav.count(),
+      navVisible: await nav.isVisible().catch(() => false),
+      buttonCount: await action.count(),
+      buttonVisible: await action.isVisible().catch(() => false),
+      buttonExpanded: await action.getAttribute("aria-expanded").catch(() => null),
+      editorCount: await editor.count(),
+      editorVisible: await editor.isVisible().catch(() => false),
+      ...domState,
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function readProposalDetail(proposalId) {
@@ -222,6 +269,12 @@ async function deleteEvidenceLineItems(estimateId, lineItemIds) {
   }
 }
 
+/**
+ * Capture authenticated S053 review, apply, saved-line, and reload evidence for one Estimate.
+ * @param {string} projectId Smoke-tenant project used to create the Estimate.
+ * @param {string} estimateId Newly created Estimate id.
+ * @returns {Promise<void>} Resolves after assertions and cleanup complete.
+ */
 async function runS053Certification(projectId, estimateId) {
   const baseline = await readEstimateDetail(estimateId);
   const baselineIds = new Set(baseline.lineItems.map((item) => item.id));
@@ -337,10 +390,57 @@ async function runS053Certification(projectId, estimateId) {
   await checkpoint("03b", "s053-athena-review", { optional: true });
 
   try {
-    await applyButton.click();
-    await page.getByText("Latest apply result", { exact: true }).waitFor({ timeout: 60_000 });
-
+    const [applyResponse] = await Promise.all([
+      page.waitForResponse(
+        (candidate) => candidate.request().method() === "POST" &&
+          new URL(candidate.url()).pathname === `/api/proxy/estimates/${estimateId}/ai-estimator/apply`,
+        { timeout: 60_000 },
+      ),
+      applyButton.click(),
+    ]);
+    assertBusiness("reviewed Apply acknowledgement succeeds", applyResponse.ok(), `Apply returned HTTP ${applyResponse.status()}`);
+    await page.getByText("Saved line verification", { exact: true }).waitFor({ timeout: 60_000 });
+    const acknowledgement = await applyResponse.json();
+    const requestBody = applyResponse.request().postDataJSON();
+    const reviewedById = new Map(requestBody.lineItems.map((line) => [line.draftLineItemId, line]));
+    const identified = [
+      ...acknowledgement.applied,
+      ...acknowledgement.skipped.filter((line) => line.lineItemId && line.quantity !== undefined && line.description !== undefined),
+    ];
     const afterApply = await readEstimateDetail(estimateId);
+    const savedById = new Map(afterApply.lineItems.map((line) => [line.id, line]));
+    const verifiedResult = page.getByRole("list", { name: "Verified saved estimate lines" });
+    const verifiedRows = await verifiedResult.locator("li").all();
+    const verifiedRowText = [];
+    for (const row of verifiedRows) {
+      const visible = await row.isVisible();
+      assertBusiness("each saved-line verification row is visible", visible, "a verified result row was hidden");
+      verifiedRowText.push(visible ? await row.innerText() : "");
+    }
+    assertBusiness(
+      "authenticated full review presents identified saved-line results",
+      identified.length > 0 && verifiedRowText.filter(Boolean).length === identified.length,
+      `acknowledged saved ids=${identified.length}; visible verified rows=${verifiedRowText.filter(Boolean).length}`,
+    );
+    const unmatchedRowIndexes = new Set(verifiedRowText.map((_, index) => index));
+    for (const ack of identified) {
+      const reviewed = reviewedById.get(ack.draftLineItemId);
+      const saved = savedById.get(ack.lineItemId);
+      assertBusiness(
+        `saved line ${ack.lineItemId} matches the authenticated review`,
+        matchesReviewedSavedLine({ acknowledgement: ack, reviewed, saved }),
+        `saved id/target/description/quantity did not match reviewed request ${ack.draftLineItemId}`,
+      );
+      const matchingRowIndex = [...unmatchedRowIndexes].find((index) =>
+        renderedVerifiedRowMatches(verifiedRowText[index], ack),
+      );
+      assertBusiness(
+        `saved line ${ack.lineItemId} is rendered with its description and quantity`,
+        matchingRowIndex !== undefined,
+        `visible verification rows did not render description/quantity for ${ack.lineItemId}`,
+      );
+      if (matchingRowIndex !== undefined) unmatchedRowIndexes.delete(matchingRowIndex);
+    }
     const added = afterApply.lineItems.filter((item) => !baselineIds.has(item.id));
     assertBusiness(
       "explicit Athena apply persists at least one reviewed estimate line",
@@ -358,13 +458,28 @@ async function runS053Certification(projectId, estimateId) {
       waitUntil: "networkidle",
       timeout: 60_000,
     });
-    const afterReload = await readEstimateDetail(estimateId);
+    const afterReload = await reloadEstimateAndRead({
+      page,
+      estimateId,
+      readEstimateDetail,
+    });
     const persistedAdded = afterReload.lineItems.filter((item) => !baselineIds.has(item.id));
+    const persistedById = new Map(afterReload.lineItems.map((item) => [item.id, item]));
     assertBusiness(
-      "reviewed Athena lines survive builder reload",
-      persistedAdded.length === added.length && persistedAdded.length > 0,
-      `expected ${added.length} run-created lines after reload; found ${persistedAdded.length}`,
+      "reviewed Athena saved-line IDs survive an authenticated hard reload",
+      identified.every((item) => persistedById.has(item.lineItemId)) &&
+        persistedAdded.length === added.length && persistedAdded.length > 0,
+      `expected saved IDs ${identified.map((item) => item.lineItemId).join(",")}; found ${persistedAdded.map((item) => item.id).join(",")}`,
     );
+    for (const ack of identified) {
+      const reviewed = reviewedById.get(ack.draftLineItemId);
+      const saved = persistedById.get(ack.lineItemId);
+      assertBusiness(
+        `reloaded saved line ${ack.lineItemId} keeps reviewed identity and target`,
+        matchesReviewedSavedLine({ acknowledgement: ack, reviewed, saved }),
+        "saved line id, reviewed target, description, or persisted quantity changed after reload",
+      );
+    }
   } finally {
     // Preserve the original S053 failure if cleanup also has trouble. Any line
     // not present in the baseline belongs to this evidence pass and must not
@@ -438,8 +553,10 @@ try {
   await page.locator('[name="name"]').fill(customerName);
   await page.locator('[name="email"]').fill(customerEmail);
   await page.getByRole("button", { name: "Create customer" }).click();
-  await page.waitForURL(/\/customers\/[^/?]+(?:\?|$)/, { timeout: 60_000 });
-  const customerId = /\/customers\/([^/?]+)/.exec(page.url())?.[1];
+  // A regex that accepts /customers/new can falsely pass *before* the server
+  // action navigates to the saved Customer. Wait for a real UUID detail route.
+  await page.waitForURL((url) => createdCustomerIdFromUrl(url) !== null, { timeout: 60_000 });
+  const customerId = createdCustomerIdFromUrl(page.url());
   assertBusiness("created customer resolves an id", Boolean(customerId), `url was ${page.url()}`);
 
   if (scenario === "s052") {
@@ -513,16 +630,35 @@ try {
     new URL(`/projects/new?customerId=${encodeURIComponent(customerId)}`, parsedBaseUrl).toString(),
     { waitUntil: "networkidle", timeout: 60_000 },
   );
-  // Exercise the canonical Customer → Project continuity path instead of
-  // depending on the generic customer-list selector. The page resolves this
-  // Customer through the tenant-scoped getCustomer() read and renders the
-  // authoritative id as a hidden field only when that context is valid.
-  const linkedCustomerId = await page.locator('input[type="hidden"][name="customerId"]').inputValue();
+  // The Project form has two legitimate states: a server-resolved Customer
+  // context uses a hidden id, and the general create form uses a selected
+  // Customer option. Both must contain the exact new Customer id. Never
+  // silently select another Customer or rely on visible branding for identity.
+  const customerLinkField = page.locator('form [name="customerId"]');
+  await customerLinkField.waitFor({ state: "attached", timeout: 15_000 });
+  const customerLinkType = await customerLinkField.evaluate((element) =>
+    element.tagName === "SELECT"
+      ? "customer-selector"
+      : element.tagName === "INPUT" && element.type === "hidden"
+        ? "customer-context"
+        : "unexpected",
+  );
+  const linkedCustomerId = await customerLinkField.inputValue({ timeout: 15_000 });
   assertBusiness(
     "project creation carries the exact server-created customer",
-    linkedCustomerId === customerId,
-    `expected customerId=${customerId}; rendered ${linkedCustomerId || "missing"}`,
+    ["customer-context", "customer-selector"].includes(customerLinkType) &&
+      linkedCustomerId === customerId,
+    `expected customerId=${customerId}; rendered=${linkedCustomerId || "missing"}; form=${customerLinkType}`,
   );
+  if (scenario === "s052") {
+    // S052 explicitly certifies the Customer context + saved ServiceAddress.
+    // A generic selector here would not establish that higher-level contract.
+    assertBusiness(
+      "S052 uses the resolved customer-context form",
+      customerLinkType === "customer-context",
+      `form=${customerLinkType}`,
+    );
+  }
   await page.locator('[name="name"]').fill(projectName);
   await page.locator('[name="jobType"]').fill("Residential condo remodel");
 
@@ -553,14 +689,18 @@ try {
   await page.waitForLoadState("networkidle");
   assertBusiness("project workspace resolves an id", new URL(page.url()).pathname === `/projects/${projectId}`, `url was ${page.url()}`);
 
+  const readProject = async () => page.evaluate(async (id) => {
+    const response = await fetch(`/api/proxy/projects/${id}`, { headers: { Accept: "application/json" } });
+    return { status: response.status, body: response.ok ? await response.json() : null };
+  }, projectId);
+  const beforeReload = await readProject();
+  assertBusiness("customer-linked project API is readable", beforeReload.status === 200, `HTTP ${beforeReload.status}`);
+  assertBusiness(
+    "project persists the selected customer",
+    beforeReload.body?.customerId === customerId,
+    `customerId=${beforeReload.body?.customerId ?? "missing"}`,
+  );
   if (scenario === "s052") {
-    const readProject = async () => page.evaluate(async (id) => {
-      const response = await fetch(`/api/proxy/projects/${id}`, { headers: { Accept: "application/json" } });
-      return { status: response.status, body: response.ok ? await response.json() : null };
-    }, projectId);
-    const beforeReload = await readProject();
-    assertBusiness("customer-linked project API is readable", beforeReload.status === 200, `HTTP ${beforeReload.status}`);
-    assertBusiness("project persists the selected customer", beforeReload.body?.customerId === customerId, `customerId=${beforeReload.body?.customerId}`);
     assertBusiness("project persists the jobsite address", beforeReload.body?.siteAddress === expectedProjectSiteAddress, `siteAddress=${beforeReload.body?.siteAddress}`);
     assertBusiness("project persists plain-language scope", beforeReload.body?.simpleScope === scope, "simpleScope did not match the submitted scope");
     await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
@@ -595,8 +735,22 @@ try {
     });
   }
 
-  await navigateEstimateStage("Items");
-  const custom = await openEstimateCustomEntry(page);
+  // The Items entry is the known readiness-race site: if it fails, capture
+  // the discriminating DOM state (never credentials or storage material)
+  // into the report before surfacing the error.
+  let custom;
+  try {
+    await navigateEstimateStage("Items");
+    custom = await openEstimateCustomEntry(page);
+  } catch (error) {
+    failureDiagnostics = await captureEstimateEntryDiagnostics();
+    try {
+      await page.screenshot({ path: path.join(screenshotDir, "estimate-entry-failure.png"), fullPage: false });
+    } catch {
+      // A failed diagnostic screenshot must not mask the original error.
+    }
+    throw error;
+  }
   await custom.fill("Remove glued-down linoleum");
   await page.locator("#custom-quantity").fill("850");
   await page.locator("#custom-unit-cost").fill("1.25");
@@ -632,9 +786,19 @@ try {
   await page.getByLabel("Overhead %").fill("10");
   await page.getByLabel("Tax %").fill("7");
   await page.getByRole("button", { name: "Save overhead / tax" }).click();
-  // Let the save settle so the checkpoint captures committed pricing rather
-  // than a mid-submit frame.
-  await page.waitForLoadState("networkidle");
+  // Wait for the save to land: poll the authoritative estimate detail for
+  // the priced total. A text wait cannot serve as the settle signal here:
+  // the Review section renders totalPrice earlier in DOM order than the
+  // Athena aside, and it is hidden while Price is active, so a
+  // getByText(...).first() visible-wait pins the hidden match and times out
+  // even after the save lands. A bare networkidle wait is no better — it
+  // can resolve before the mutation POST/refetch starts.
+  const pricedEstimate = await waitForEstimateTotal(page, estimateId, 5920.89);
+  assertBusiness(
+    "overhead / tax save lands the priced total",
+    Math.abs(Number(pricedEstimate?.totalPrice) - 5920.89) < 0.005,
+    `expected totalPrice 5920.89, got ${pricedEstimate?.totalPrice}`,
+  );
   await checkpoint("04", "estimate-pricing");
 
   // ---- 05 save / reload persistence -------------------------------------
@@ -653,29 +817,86 @@ try {
   // share is 4037.50/5100, so tax = 5610 * 0.7916667 * 0.07 = 310.89 and the
   // customer-facing total is 5920.89. These are the numbers the estimate engine
   // must produce, not merely numbers that happen to be on screen.
-  const reloadedPricingText = await page.locator("body").innerText();
+  // The total half stays a rendered-text check, but it must be read on
+  // Review: while Price is active the total is only rendered in the Athena
+  // aside (visible at lg+ only) and the hidden Review section, so at
+  // 390/768px no visible node carries it on the Price stage. Review's
+  // Estimate total row renders at every width. The tax half comes from the
+  // authoritative API instead, the same pattern this script already uses
+  // for line costs above. The figures checked are unchanged.
+  const reloadedEstimate = await readEstimateDetail(estimateId);
   assertBusiness(
-    "pre-markup tax and total match the shipped formula",
-    reloadedPricingText.includes("$310.89") && reloadedPricingText.includes("$5,920.89"),
-    "expected the rendered tax $310.89 and total $5,920.89 after reload",
+    "pre-markup tax matches the shipped formula",
+    Math.abs(Number(reloadedEstimate.taxAmount) - 310.89) < 0.005,
+    `expected API taxAmount 310.89, got ${reloadedEstimate.taxAmount}`,
   );
+  await navigateEstimateStage("Review");
+  const reviewPricingText = await page.locator("body").innerText();
+  assertBusiness(
+    "pre-markup total matches the shipped formula",
+    reviewPricingText.includes("$5,920.89"),
+    "expected the rendered total $5,920.89 after reload",
+  );
+  await navigateEstimateStage("Price");
   await checkpoint("05", "estimate-reloaded");
 
   // ---- 06 markup + finalize ---------------------------------------------
   await page.getByRole("button", { name: "Markup %" }).click();
   await page.getByLabel("Percentage").fill("20");
   await page.getByRole("button", { name: "Apply" }).click();
-  await page.getByText("$7,105.07", { exact: true }).first().waitFor({ timeout: 60_000 });
+  // Same hidden-match hazard as the settle-wait above: the Review
+  // section's total renders before the aside in DOM order and is hidden
+  // while Price is active, so a getByText(...).first() visible-wait can
+  // never succeed here. Poll the API for the marked-up total instead.
+  const markedUpEstimate = await waitForEstimateTotal(page, estimateId, 7105.07);
+  assertBusiness(
+    "markup apply lands the marked-up total",
+    Math.abs(Number(markedUpEstimate?.totalPrice) - 7105.07) < 0.005,
+    `expected totalPrice 7105.07, got ${markedUpEstimate?.totalPrice}`,
+  );
+  // The pre-tax half cannot come from visible text at 390/768px on the
+  // builder this run targets: the header Sell price row is hidden below lg
+  // and Review renders the total only. It comes from the authoritative API
+  // — the same pattern as the step-05 tax half — while the total half
+  // stays a rendered-text check on Review, where the Estimate total row
+  // renders at every width.
+  await navigateEstimateStage("Review");
+  // The builder learns about the markup save only via the mutation's
+  // onSuccess -> invalidate -> async React Query refetch + re-render, and
+  // stage navigation only awaits aria-current, not the refetched data. A
+  // bare innerText read here races that refetch and sees the stale
+  // pre-markup snapshot ($5,920.89). Settle on the visible rendered text
+  // first: innerText excludes hidden elements, and Review is the visible
+  // stage at this point, so this cannot pin the hidden-match hazard that
+  // the old getByText(...).first() waits hit.
+  await page.waitForFunction(
+    () => document.body.innerText.includes("$7,105.07"),
+    undefined,
+    { timeout: 30_000 },
+  );
   const markedUpPricingText = await page.locator("body").innerText();
   assertBusiness(
-    "post-markup pricing matches the shipped formula",
-    markedUpPricingText.includes("$6,732.00") && markedUpPricingText.includes("$7,105.07"),
-    "expected the rendered pre-tax $6,732.00 and total $7,105.07 after markup",
+    "post-markup total matches the shipped formula",
+    markedUpPricingText.includes("$7,105.07"),
+    "expected the rendered total $7,105.07 after markup",
+  );
+  assertBusiness(
+    "post-markup pre-tax matches the shipped formula",
+    Math.abs(Number(markedUpEstimate?.preTaxTotalPrice) - 6732.00) < 0.005,
+    `expected API preTaxTotalPrice 6732.00, got ${markedUpEstimate?.preTaxTotalPrice}`,
   );
 
   await navigateEstimateStage("Review");
   await page.getByRole("button", { name: "Finalize estimate" }).click();
-  await page.getByText("ready", { exact: true }).waitFor({ timeout: 60_000 });
+  // The builder renders the estimate status badge twice (page-header
+  // actions row + Review-stage "Internal estimate review" panel), so a
+  // bare getByText("ready") wait trips Playwright strict mode. Scope the
+  // wait to the Estimate workflow region: it selects the Review-stage
+  // badge adjacent to the finalize flow, visible exactly when Review is
+  // active. Do not use .first() here — DOM order is fragile, and this
+  // script already moved away from .first() waits for the hidden-match
+  // hazard.
+  await page.getByRole("region", { name: "Estimate workflow" }).getByText("ready", { exact: true }).waitFor({ timeout: 60_000 });
   const finalizedEstimate = await readEstimateDetail(estimateId);
   assertBusiness("Estimate Engine persists finalized status and customer total",
     finalizedEstimate.status === "ready" &&
@@ -730,7 +951,10 @@ try {
   assertBusiness("invoice resolves an id", Boolean(invoiceId), `url was ${page.url()}`);
 
   // The invoice must bill the customer-facing sell price, not the direct cost.
-  const invoiceTotalText = await page.getByText("Total", { exact: true }).locator("..").innerText();
+  // The invoice page renders no bare "Total" label, and "Invoice total"
+  // renders twice (financial-summary metric + totals-block row), so the read
+  // must be scoped to the financial summary section to select exactly one.
+  const invoiceTotalText = await page.locator('section[aria-label="Invoice financial summary"]').getByText("Invoice total", { exact: true }).locator("..").innerText();
   assertBusiness(
     "invoice bills sell price rather than direct cost",
     invoiceTotalText.includes("$7,105.07") && !invoiceTotalText.includes("$5,100.00"),
@@ -747,6 +971,15 @@ try {
   );
 } catch (error) {
   failure = error;
+  // Snapshot the visible body text while the page still exists, so a
+  // business-assertion failure is directly observable in the report
+  // instead of inferred from mechanism. Guarded and time-bounded: the
+  // page may already be gone for early failures.
+  try {
+    if (page) failureBodyText = await page.locator("body").innerText({ timeout: 5_000 });
+  } catch {
+    // Page unavailable; the assertion detail carries the failure.
+  }
 } finally {
   if (context) await context.close();
   await browser.close();
@@ -764,6 +997,8 @@ try {
         assertions,
         consoleErrors,
         failedRequests,
+        failureDiagnostics,
+        failureBodyText,
         result: failure ? "FAIL" : "PASS",
         error: failure instanceof Error ? failure.message : null,
       },
@@ -779,6 +1014,16 @@ if (failure) {
   console.error(
     `::error::last successful checkpoint: ${lastCheckpoint ? `${lastCheckpoint.sequence}-${lastCheckpoint.name}` : "none"}`,
   );
+  if (failureDiagnostics) {
+    console.error(
+      `::error::estimate entry diagnostics: ${JSON.stringify(failureDiagnostics)}`,
+    );
+  }
+  if (failureBodyText) {
+    console.error(
+      `::error::visible body text at failure: ${failureBodyText.slice(0, 2000)}`,
+    );
+  }
   process.exit(1);
 }
 console.log(`Viewport ${viewport.name}px PASS — ${checkpoints.length} checkpoints captured`);

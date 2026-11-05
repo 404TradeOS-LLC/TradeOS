@@ -24,6 +24,7 @@ import { CrmService } from "../modules/crm/service";
 import { ContractsService } from "../modules/contracts/service";
 import { ProjectTasksService } from "../modules/project-tasks/service";
 import { JobsService } from "../modules/jobs/service";
+import { JobExpensesService } from "../modules/expenses/service";
 import { AuthService } from "../modules/auth/service";
 import { OrganizationSettingsService } from "../modules/settings/service";
 import { FinancialSummaryService } from "../modules/intelligence/financialSummary";
@@ -1304,6 +1305,173 @@ describe("live organization row-level security", () => {
       currentTransaction().job.findUnique({ where: { id: jobA } })
     );
     expect(hiddenUnassignedJob).toBeNull();
+  });
+
+  it("scopes job expenses through the job join at the database boundary", async () => {
+    // jobA belongs to orgA with technicianUser assigned; jobB belongs to orgB.
+    const expenseA = randomUUID();
+    const expenseB = randomUUID();
+    try {
+      await adminClient.jobExpense.createMany({
+        data: [
+          { id: expenseA, orgId: orgA, jobId: jobA, amountCents: 1999, category: "material", vendor: "Org A vendor", receiptNote: "", incurredOn: new Date("2026-11-01T00:00:00.000Z"), createdById: adminUser },
+          { id: expenseB, orgId: orgB, jobId: jobB, amountCents: 5000, category: "labor", vendor: "Org B vendor", receiptNote: "", incurredOn: new Date("2026-11-01T00:00:00.000Z"), createdById: otherUser },
+        ],
+      });
+
+      // Append-only audit records must inherit the exact job/organization scope.
+      const eventA = randomUUID();
+      const eventB = randomUUID();
+      await adminClient.jobExpenseEvent.createMany({
+        data: [
+          { id: eventA, orgId: orgA, jobId: jobA, expenseId: expenseA,
+            actorUserId: adminUser, eventType: "created", payloadJson: {} },
+          { id: eventB, orgId: orgB, jobId: jobB, expenseId: expenseB,
+            actorUserId: otherUser, eventType: "created", payloadJson: {} },
+        ],
+      });
+      const adminEvents = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().jobExpenseEvent.findMany()
+      );
+      expect(adminEvents.map((event) => event.id)).toContain(eventA);
+      expect(adminEvents.some((event) => event.id === eventB)).toBe(false);
+      const assignedEvents = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().jobExpenseEvent.findMany({ where: { expenseId: expenseA } })
+      );
+      expect(assignedEvents.map((event) => event.id)).toEqual([eventA]);
+      const foreignEvent = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().jobExpenseEvent.findUnique({ where: { id: eventA } })
+      );
+      expect(foreignEvent).toBeNull();
+      const unassignedEvent = await inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().jobExpenseEvent.findUnique({ where: { id: eventA } })
+      );
+      expect(unassignedEvent).toBeNull();
+
+      const adminVisible = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().jobExpense.findMany({ orderBy: { createdAt: "asc" } })
+      );
+      expect(adminVisible.map((row) => row.id)).toEqual([expenseA]);
+
+      const technicianVisible = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().jobExpense.findMany()
+      );
+      expect(technicianVisible.map((row) => row.id)).toEqual([expenseA]);
+
+      const otherOrgHidden = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().jobExpense.findUnique({ where: { id: expenseA } })
+      );
+      expect(otherOrgHidden).toBeNull();
+
+      const unassignedHidden = await inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().jobExpense.findUnique({ where: { id: expenseA } })
+      );
+      expect(unassignedHidden).toBeNull();
+
+      await expect(
+        inSession(technicianUser, orgA, "technician", async () =>
+          currentTransaction().jobExpense.create({
+            data: { id: randomUUID(), orgId: orgA, jobId: jobB, amountCents: 100, category: "other", vendor: "", receiptNote: "", incurredOn: new Date("2026-11-01T00:00:00.000Z"), createdById: technicianUser },
+          })
+        ),
+      ).rejects.toThrow();
+    } finally {
+      await adminClient.jobExpenseEvent.deleteMany({ where: { expenseId: { in: [expenseA, expenseB] } } });
+      await adminClient.jobExpense.deleteMany({ where: { id: { in: [expenseA, expenseB] } } });
+    }
+  });
+
+
+  it("serializes concurrent expense updates so each audit before state matches committed reality", async () => {
+    const expenseId = randomUUID();
+    await adminClient.jobExpense.create({
+      data: {
+        id: expenseId, orgId: orgA, jobId: jobA,
+        amountCents: 1000, category: "material", paymentResponsibility: "contractor",
+        vendor: "", receiptNote: "", incurredOn: new Date("2026-11-01T00:00:00.000Z"),
+        createdById: adminUser,
+      },
+    });
+    try {
+      const expenses = new JobExpensesService();
+      const results = await Promise.allSettled([
+        inSession(adminUser, orgA, "admin", async () =>
+          expenses.update({ id: expenseId, orgId: orgA, jobId: jobA, actorUserId: adminUser, amountCents: 2000 })
+        ),
+        inSession(technicianUser, orgA, "technician", async () =>
+          expenses.update({ id: expenseId, orgId: orgA, jobId: jobA, actorUserId: technicianUser, amountCents: 3000 })
+        ),
+      ]);
+      expect(results.every((result) => result.status === "fulfilled")).toBe(true);
+
+      const events = await adminClient.jobExpenseEvent.findMany({
+        where: { expenseId, eventType: "updated" },
+      });
+      const transitions = events.map((event) => event.payloadJson as unknown as {
+        before: { amountCents: number }; after: { amountCents: number };
+      });
+      expect(transitions).toHaveLength(2);
+      expect(transitions.map((p) => p.after.amountCents).sort((a, b) => a - b)).toEqual([2000, 3000]);
+      const first = transitions.filter((p) => p.before.amountCents === 1000);
+      expect(first).toHaveLength(1);
+      expect(transitions.filter((p) => p.before.amountCents === first[0].after.amountCents)).toHaveLength(1);
+    } finally {
+      await adminClient.jobExpenseEvent.deleteMany({ where: { expenseId } });
+      await adminClient.jobExpense.delete({ where: { id: expenseId } });
+    }
+  });
+
+  it("denies an unassigned same-organization technician job reads and completion at the database boundary", async () => {
+    const unassignedJob = randomUUID();
+    const assignedTechnician = randomUUID();
+    const assignedMembership = randomUUID();
+    const assignedRow = randomUUID();
+    await adminClient.job.create({ data: {
+      id: unassignedJob, orgId: orgA, projectId: projectA,
+      customerId: customerA, serviceAddressId: serviceAddressA,
+      jobNumber: `UNASSIGNED-${unassignedJob}`, title: "Unassigned denial fixture",
+      jobType: "HVAC Service", status: "on_site", priority: "medium", createdById: adminUser,
+    } });
+    try {
+      await adminClient.appUser.create({ data: { id: assignedTechnician, authSubject: assignedTechnician, email: `rls-${assignedTechnician}@example.com` } });
+      await adminClient.organizationMembership.create({ data: { id: assignedMembership, orgId: orgA, userId: assignedTechnician, role: "technician", status: "active" } });
+      const hidden = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().job.findUnique({ where: { id: unassignedJob } })
+      );
+      expect(hidden).toBeNull();
+      const update = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().job.updateMany({ where: { id: unassignedJob }, data: { status: "completed" } })
+      );
+      expect(update.count).toBe(0);
+      await expect(inSession(technicianUser, orgA, "technician", async () =>
+        new JobsService().getById(orgA, unassignedJob, { userId: technicianUser, role: "technician" })
+      )).rejects.toMatchObject({ statusCode: 404 });
+      await expect(inSession(technicianUser, orgA, "technician", async () =>
+        new JobsService().complete(unassignedJob, {
+          orgId: orgA, actor: { userId: technicianUser, orgId: orgA, role: "technician" },
+        })
+      )).rejects.toMatchObject({ statusCode: 404 });
+      await adminClient.jobAssignment.create({ data: {
+        id: assignedRow, orgId: orgA, jobId: unassignedJob, userId: assignedTechnician,
+        assignmentRole: "lead", isLead: true, assignedById: adminUser,
+      } });
+      const hiddenAssignedElsewhere = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().job.findUnique({ where: { id: unassignedJob } })
+      );
+      expect(hiddenAssignedElsewhere).toBeNull();
+      const deniedAssignedElsewhere = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().job.updateMany({ where: { id: unassignedJob }, data: { status: "completed" } })
+      );
+      expect(deniedAssignedElsewhere.count).toBe(0);
+      expect((await adminClient.job.findUnique({ where: { id: unassignedJob } }))?.status).toBe("on_site");
+      expect(await adminClient.activityEvent.count({ where: { orgId: orgA, entityType: "job", entityId: unassignedJob } })).toBe(0);
+    } finally {
+      await adminClient.activityEvent.deleteMany({ where: { orgId: orgA, entityType: "job", entityId: unassignedJob } });
+      await adminClient.jobAssignment.deleteMany({ where: { id: assignedRow } });
+      await adminClient.job.delete({ where: { id: unassignedJob } });
+      await adminClient.organizationMembership.deleteMany({ where: { id: assignedMembership } });
+      await adminClient.appUser.deleteMany({ where: { id: assignedTechnician } });
+    }
   });
 
   it("denies a cross-organization Job transition before any status or activity write", async () => {

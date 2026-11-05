@@ -2,11 +2,13 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clientFetch } from "@/lib/clientApi";
 import { PageHeader } from "@/components/shared/page-header";
 import { ContextualAthenaPanel } from "@/components/estimate-assist/contextual-athena-panel";
 import { assessCostItemMapping, type StarterCatalogComponent, type StarterCatalogTemplate } from "@/components/costbook/assembly-catalog-model";
+import { MappingResolveChecklist } from "@/components/costbook/mapping-resolve-checklist";
 import type { CostItemCatalogRecord } from "@/components/costbook/cost-item-catalog-actions";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +22,7 @@ import type { Estimate } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { groupSavedDirectCosts } from "@/lib/estimate-direct-costs";
 import { canAddReviewedEstimateCatalogItem } from "@/lib/estimate-catalog-review";
+import { createEstimateReviewNavigator } from "@/lib/estimate-review-navigation";
 
 interface LineItem {
   id: string;
@@ -65,6 +68,15 @@ interface AssemblyPreviewData {
 
 export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const reviewNavigator = useRef(createEstimateReviewNavigator());
+  const reviewContext = useRef<{ projectId: string; estimateId: string } | null>(null);
+  const [reviewNavigationPending, setReviewNavigationPending] = useState(false);
+
+  useEffect(() => {
+    reviewContext.current = { projectId, estimateId };
+    return () => { reviewContext.current = null; };
+  }, [projectId, estimateId]);
   const estimateKey = ["estimate", estimateId];
   const [activeStage, setActiveStage] = useState<EstimateStage>("scope");
   const [scopeDraft, setScopeDraft] = useState(simpleScope ?? "");
@@ -126,6 +138,19 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
 
   const isDraft = estimate.status === "draft";
 
+  const openFullReview = () => {
+    if (saveScope.isPending) return;
+    void reviewNavigator.current({
+      scope: scopeDraft,
+      persistedScope,
+      isDraft,
+      saveScope: (scope) => saveScope.mutateAsync(scope),
+      navigate: () => router.push(`/projects/${projectId}/estimates/${estimateId}/assist`),
+      onPendingChange: setReviewNavigationPending,
+      isCurrent: () => reviewContext.current?.projectId === projectId && reviewContext.current?.estimateId === estimateId,
+    });
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
@@ -140,9 +165,9 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
             <Link href={`/projects/${projectId}/estimates/compare`} className={buttonVariants({ variant: "outline" })}>
               Compare versions
             </Link>
-            <Link href={`/projects/${projectId}/estimates/${estimateId}/assist`} className={buttonVariants({ variant: "outline" })}>
-              Athena review
-            </Link>
+            <Button type="button" variant="outline" className="min-h-11" onClick={openFullReview} disabled={reviewNavigationPending || saveScope.isPending}>
+              {reviewNavigationPending ? "Saving scope…" : "Athena review"}
+            </Button>
             {isDraft ? (
               <span className={buttonVariants({ variant: "outline" })} aria-disabled="true">
                 Finalize to create proposal
@@ -190,6 +215,8 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
             return false;
           }
         }}
+        onOpenFullReview={openFullReview}
+        fullReviewPending={reviewNavigationPending || saveScope.isPending}
         scopeDirty={scopeDraft.trim() !== persistedScope.trim()}
         scopeSavePending={saveScope.isPending}
         scopeSaveSuccess={saveScope.isSuccess}
@@ -260,6 +287,8 @@ function EstimateStageFlow({
   simpleScope,
   onScopeChange,
   onSaveScope,
+  onOpenFullReview,
+  fullReviewPending,
   scopeDirty,
   scopeSavePending,
   scopeSaveSuccess,
@@ -282,12 +311,14 @@ function EstimateStageFlow({
   simpleScope: string;
   onScopeChange: (value: string) => void;
   onSaveScope: () => Promise<boolean>;
+  onOpenFullReview: () => void;
+  fullReviewPending: boolean;
   scopeDirty: boolean;
   scopeSavePending: boolean;
   scopeSaveSuccess: boolean;
   scopeSaveError: string | null;
   estimate: EstimateDetail;
-  runningTotals: { totalPrice: number; marginPct: number; lineItemCount: number };
+  runningTotals: { totalPrice: number; preTaxTotalPrice: number; taxAmount: number; marginPct: number; lineItemCount: number };
   estimateId: string;
   isDraft: boolean;
   activeStage: EstimateStage;
@@ -449,7 +480,15 @@ function EstimateStageFlow({
               ))}
             </div>
             <div className="border-t border-border py-4">
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">Pre-tax total</span>
+                <span className="font-mono tabular-nums">{formatCurrency(runningTotals.preTaxTotalPrice)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">Tax</span>
+                <span className="font-mono tabular-nums">{formatCurrency(runningTotals.taxAmount)}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-4">
                 <span className="font-medium">Estimate total</span>
                 <span className="text-2xl font-semibold tabular-nums text-primary">{formatCurrency(runningTotals.totalPrice)}</span>
               </div>
@@ -485,6 +524,8 @@ function EstimateStageFlow({
             isDraft={isDraft}
             headingId="estimate-contextual-athena-heading"
             onAdded={onUpdated}
+            onOpenFullReview={onOpenFullReview}
+            fullReviewPending={fullReviewPending}
           />
         </aside>
       </div>
@@ -1104,6 +1145,12 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
                   setError(null);
                   void queryClient.invalidateQueries({ queryKey: ["item-search"] });
                 }}
+                onKeepDraft={() => {
+                  setSelected(null);
+                  setQuery("");
+                  setError(null);
+                  searchInputRef.current?.focus();
+                }}
               />
             ) : null}
           </div>
@@ -1197,13 +1244,19 @@ function StarterAssemblySetup({
   template,
   quantity,
   onInstalled,
+  onKeepDraft,
 }: {
   template: StarterCatalogTemplate;
   quantity: string;
   onInstalled: (assembly: { id: string; name: string; code: string; unitOfMeasure: string; description?: string | null }) => void;
+  onKeepDraft: () => void;
 }) {
   const [mappings, setMappings] = useState<Record<string, CostItemCatalogRecord>>({});
   const [error, setError] = useState<string | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
   const mappedIds = template.components.map((component) => mappings[component.key]?.id ?? "");
   const mappingComplete = mappedIds.every(Boolean);
   const duplicateMapping = mappingComplete && new Set(mappedIds).size !== mappedIds.length;
@@ -1262,8 +1315,9 @@ function StarterAssemblySetup({
   const outputQuantity = Number(quantity) > 0 ? Number(quantity) : 0;
 
   return (
-    <div className="space-y-4 rounded-lg border border-warning/40 bg-warning/10 p-3">
+    <section aria-label="Resolve required assembly mapping" className="space-y-4 rounded-lg border border-warning/40 bg-warning/10 p-3">
       <div>
+        <h3 ref={headingRef} tabIndex={-1} className="font-medium text-foreground">Resolve required assembly mapping</h3>
         <p className="font-medium text-foreground">{evidenceBlocked ? "Research evidence pending — installation blocked." : "Setup required before this assembly can be priced or added."}</p>
         {evidenceBlocked ? <p role="alert" className="mt-1 text-sm text-warning">{template.blockingReasons?.join("; ")}</p> : null}
         <p className="mt-1 text-sm text-muted-foreground">
@@ -1295,7 +1349,16 @@ function StarterAssemblySetup({
         })}
       </div>
 
-      <div className="grid gap-3 rounded-lg border border-border/70 bg-background/75 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+      <MappingResolveChecklist
+        mappedCount={mappedIds.filter(Boolean).length}
+        totalCount={template.components.length}
+        incompatibleLabel={incompatibleComponent?.label ?? null}
+        incompatibleReasons={incompatibleComponent && mappings[incompatibleComponent.key] ? assessCostItemMapping(incompatibleComponent, mappings[incompatibleComponent.key]).reasons : []}
+        allMappedItemsActive={Object.values(mappings).every((item) => item.isActive)}
+        duplicateMapping={duplicateMapping}
+      />
+
+      <div className="grid gap-3 rounded-lg border border-border/70 bg-background/75 p-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Pre-install cost preview</p>
           {!mappingComplete ? (
@@ -1334,12 +1397,25 @@ function StarterAssemblySetup({
             </div>
           ) : null}
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
         <Button
           type="button"
+          className="min-h-11"
           onClick={() => install.mutate()}
           disabled={install.isPending || evidenceBlocked || !mappingComplete || duplicateMapping || Boolean(incompatibleComponent) || !previewReady}
         >
-          {install.isPending ? "Installing…" : "Install assembly"}
+          {install.isPending ? "Resolving…" : "Resolve Cost item mappings"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-11"
+          onClick={onKeepDraft}
+          disabled={install.isPending}
+        >
+          Keep draft unchanged
         </Button>
       </div>
 
@@ -1354,7 +1430,7 @@ function StarterAssemblySetup({
         <p className="mt-1">Installation creates the tenant assembly only. Review its resolved cost, then use the separate Add action to write the estimate line.</p>
       </div>
       {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
-    </div>
+    </section>
   );
 }
 
@@ -1692,6 +1768,18 @@ function PricingPanel({
           <div className="mt-2 flex items-center justify-between gap-3">
             <span className="text-muted-foreground">Current markup</span>
             <span className="font-medium">{formatPercent(currentMarkupPct)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3 border-t border-border/70 pt-2">
+            <span className="text-muted-foreground">Pre-tax total</span>
+            <span className="font-medium">{formatCurrency(preTaxTotalPrice)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="text-muted-foreground">Tax{estimate.taxPct ? ` (${estimate.taxPct}%)` : ""}</span>
+            <span className="font-medium">{formatCurrency(estimate.taxAmount ?? 0)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="text-muted-foreground">Customer total</span>
+            <span className="font-medium">{formatCurrency(estimate.totalPrice)}</span>
           </div>
         </div>
         <p className="text-xs text-muted-foreground">

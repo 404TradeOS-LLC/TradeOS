@@ -19,7 +19,7 @@ const recordAssetUploadSchema = z.object({
 
 const stringField = z.string().trim();
 
-const organizationSettingsSchema = z.object({
+export const organizationSettingsSchema = z.object({
   companyName: stringField.min(1).max(160),
   timezone: stringField.min(1).max(120),
   currency: stringField.min(1).max(16),
@@ -27,7 +27,7 @@ const organizationSettingsSchema = z.object({
   language: stringField.min(1).max(32),
   dateFormat: stringField.min(1).max(32),
   theme: stringField.min(1).max(32),
-  accentColor: stringField.min(1).max(32),
+  accentColor: stringField.max(32),
   address: stringField.max(500),
   phone: stringField.max(64),
   website: stringField.max(240),
