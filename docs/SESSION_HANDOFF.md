@@ -1,3 +1,11 @@
+## Estimate authenticated saved-line acceptance — 2026-11-05
+
+- Branch `feat/estimate-authenticated-reload-denial`, based on main `f3449d0c532da20532f0f779bc4898bc252c9482`. This bounded slice strengthens existing opt-in S053 Beta Evidence and source-contract tests; no auth, RLS, database, pricing, secret, or deployment changes.
+- S053 captures the real Apply response and retained reviewed payload, verifies newly applied/idempotently identified lines against the authenticated organization-scoped Estimate read and visible “Saved line verification” rows, then hard-reloads the builder and checks exact same IDs, descriptions, persisted quantities and target relations.
+- The existing tenant-isolation runner sends an authenticated GET for the configured foreign Estimate and requires 403/404; S053 continues to verify foreign Athena draft/apply denial. Regression tests pin the requirements.
+- Not run against an approved non-production deployment: exact SHA correlation, dedicated synthetic identity/tenant fixtures and operator-dispatched full evidence remain required. Do not mark acceptance passed until retained artifacts report PASS.
+- Next five after this gate: run S053 in approved non-production; persist/restore footing clarification answer; reconcile the $1,670 deck discrepancy; establish Estimate $2.10→Proposal $42,680 snapshot continuity; prove deployed saved-line acceptance on exact deployment SHA.
+
 ---
 status: current
 owner: platform
