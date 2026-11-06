@@ -121,10 +121,10 @@ test("review regression: encoded traversal cannot escape GitHub repository",asyn
   assert.equal(fake.calls.length,0);
 });
 
-test("review regression: a definitively rejected draft cleans only its orphan branch",async()=>{
+test("review regression: a definitively rejected draft preserves its branch for reconciliation",async()=>{
   const fake=fakeServer({pullFailure:"422"});
   await assert.rejects(()=>createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl}),/422/);
-  assert.equal(fake.calls.filter(c=>c.method==="DELETE").length,1);
+  assert.equal(fake.calls.filter(c=>c.method==="DELETE").length,0);
   assert.ok(fake.calls.some(c=>c.path.includes("/pulls?head=")));
 });
 
