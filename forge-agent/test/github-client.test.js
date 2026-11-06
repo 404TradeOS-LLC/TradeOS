@@ -10,7 +10,7 @@ const input = {
 };
 
 function fakeServer({ moved=false, label=true, overlap=false, existing=false,
-  overlapText=null, longBody=false, pullFailure=null, matchingOpenPr=false } = {}) {
+  overlapText=null, longBody=false, pullFailure=null, matchingOpenPr=false, wrongBase=false } = {}) {
   const calls=[];
   const fetchImpl=async(url,options)=>{
     const path=new URL(url).pathname+new URL(url).search;
@@ -19,7 +19,7 @@ function fakeServer({ moved=false, label=true, overlap=false, existing=false,
     if(path.endsWith("/git/ref/heads/main")) data={object:{sha:moved?"b".repeat(40):mainSha}};
     else if(path.endsWith("/issues/910")) data={number:910,state:"open",body:longBody?"x".repeat(12001):"# brief",labels:label?[{name:"forge:ready"}]:[]};
     else if(path.endsWith("/pulls?state=open&per_page=100")) data=(overlap||overlapText)?[{head:{ref:"other"},body:overlapText??"Closes #910"}]:[];
-    else if(path.includes("/pulls?head=")) data=matchingOpenPr?[{number:999,draft:true,html_url:"https://github.com/404TradeOS-LLC/TradeOS/pull/999",head:{ref:"forge/issue-910-"+mainSha.slice(0,12),sha:commitSha}}]:[];
+    else if(path.includes("/pulls?head=")) data=matchingOpenPr?[{number:999,draft:true,html_url:"https://github.com/404TradeOS-LLC/TradeOS/pull/999",head:{ref:"forge/issue-910-"+mainSha.slice(0,12),sha:commitSha},base:{ref:wrongBase?"staging":"main"}}]:[];
     else if(path.includes("/git/ref/heads/forge/")) data={ref:"refs/heads/forge/issue-910-"+mainSha.slice(0,12),object:{sha:commitSha}};
     else if(path.includes("/git/refs/heads/forge/")) return {ok:true,status:204,json:async()=>{throw Error("204 has no body")}};
     else if(path.startsWith("/repos/404TradeOS-LLC/TradeOS/contents/docs/forge/")) {
@@ -165,4 +165,25 @@ test("transient HTTP errors never trigger branch deletion", async () => {
     );
     assert.equal(fake.calls.filter(c => c.method === "DELETE").length, 0);
   }
+});
+
+
+test("qualified and colon-separated closing references prevent duplicate drafts",async()=>{
+  for(const overlapText of ["Fixes 404TradeOS-LLC/TradeOS#910","Closes: #910","Resolves: 404TradeOS-LLC/TradeOS#910"]){
+    const fake=fakeServer({overlapText});
+    await assert.rejects(()=>createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl}),/Overlapping/);
+    assert.equal(fake.calls.filter(c=>c.method!=="GET").length,0);
+  }
+});
+
+test("a draft targeting another base cannot reconcile an ambiguous publication",async()=>{
+  const fake=fakeServer({pullFailure:"timeout",matchingOpenPr:true,wrongBase:true});
+  await assert.rejects(()=>createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl}),/connection lost/);
+  assert.equal(fake.calls.filter(c=>c.method==="DELETE").length,0);
+});
+
+test("definitive rejection preserves the branch when PR inventory is empty",async()=>{
+  const fake=fakeServer({pullFailure:"422"});
+  await assert.rejects(()=>createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl}),/422/);
+  assert.equal(fake.calls.filter(c=>c.method==="DELETE").length,0);
 });
