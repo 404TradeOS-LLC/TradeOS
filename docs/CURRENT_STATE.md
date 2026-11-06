@@ -81,6 +81,10 @@ The opt-in S053 Beta Evidence run now joins Apply acknowledgements to the retain
 
 # TradeOS Current State
 
+## Invited PDF beta evidence — local candidate, 2026-11-06
+
+Founder selected a free 1–3-business beta ending at contractor-delivered Proposal PDFs with reviewed AI assist included. A local `beta_pdf` scenario extends the existing evidence runner without changing application APIs, schema, permissions, pricing or existing scenario defaults. It adds authenticated PDF transport/receipt retention, Proposal reload checks and foreign PDF denial, and requires exact SHA/current-run artifacts. S053 assertion-name drift is repaired. This is unmerged source, not deployed acceptance. Clarification persistence, documented deck/Estimate→Proposal discrepancies, environment/RLS/recovery proof and onboarding gates remain HOLD in [the beta runbook](operations/INVITED_BETA.md).
+
 ## Estimate Apply saved-line identity — implementation branch, 2026-11-04
 
 The rebased `feat/figma-to-code-completion` slice extends structured Apply idempotency acknowledgements with the matched saved-line ID and reconciles acknowledged lines through the existing authorized, organization-scoped Estimate detail read before showing Saved & verified. A missing read, missing line or target/quantity/description mismatch remains unconfirmed and preserves the retained request for explicit retry. Review-only skips do not count as saved, and verified saved identity does not certify current pricing evidence. See [AI Estimate Assist](modules/ai-estimate-assist.md#saved-line-identity-reconciliation--2026-10-31). This is pending exact-head CI/review/merge; deployment and full-workflow readiness are unverified.

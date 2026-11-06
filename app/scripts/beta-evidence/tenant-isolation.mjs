@@ -17,6 +17,7 @@ const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
 const foreignCustomerId = process.env.BETA_FOREIGN_CUSTOMER_ID;
 const foreignProjectId = process.env.BETA_FOREIGN_PROJECT_ID;
 const foreignEstimateId = process.env.BETA_FOREIGN_ESTIMATE_ID;
+const foreignProposalId = process.env.BETA_FOREIGN_PROPOSAL_ID;
 const scenario = process.env.BETA_SCENARIO || "canonical";
 
 function startupFailure(message) {
@@ -67,7 +68,7 @@ const probes = [
         method: "GET",
       }
     : null,
-  scenario === "s053" && foreignEstimateId
+  (scenario === "s053" || scenario === "beta_pdf") && foreignEstimateId
     ? {
         name: "foreign S053 Athena draft",
         route: null,
@@ -76,7 +77,7 @@ const probes = [
         body: { scopeOfWork: "Replace a standard electrical panel." },
       }
     : null,
-  scenario === "s053" && foreignEstimateId
+  (scenario === "s053" || scenario === "beta_pdf") && foreignEstimateId
     ? {
         name: "foreign S053 Athena apply",
         route: null,
@@ -84,6 +85,9 @@ const probes = [
         method: "POST",
         body: { lineItems: [] },
       }
+    : null,
+  scenario === "beta_pdf" && foreignProposalId
+    ? { name: "foreign proposal PDF", route: null, apiRoute: `/api/documents/proposals/${foreignProposalId}/pdf`, method: "GET" }
     : null,
 ].filter(Boolean);
 
@@ -182,6 +186,7 @@ try {
     path.join(outDir, "tenant-isolation-report.json"),
     `${JSON.stringify(
       {
+        runId: process.env.BETA_RUN_ID ?? null,
         generatedAt: new Date().toISOString(),
         baseUrl: parsedBaseUrl.origin,
         probes: results,

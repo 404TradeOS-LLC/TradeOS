@@ -51,6 +51,10 @@ related_code:
 
 # Repository Governance
 
+## Invited PDF beta evidence boundary — 2026-11-06
+
+The opt-in `beta_pdf` scenario uses the existing Beta Evidence workflow, concurrency, synthetic identities, nonproduction guards and credential scan. Exact SHA correlation is mandatory; foreign Customer/Project/Estimate/Athena and Proposal PDF denials are required. Retained PDF bytes must match the current run's receipt and saved Proposal identity at all four widths; a single-width result remains PARTIAL. It does not execute downstream Send/Accept/Contract/Invoice operations or grant release approval. Authentication, target and isolation reports now carry run identity; stale reports cannot certify this scenario. The narrower founder-approved cohort scope does not mark numbered sprints complete or waive protected schema/security/deployment/recovery gates. See [the runbook](operations/INVITED_BETA.md).
+
 ## Proposed staging Job handoff migration source boundary — 2026-10-30
 
 The manual `staging-job-handoff-migration.yml` must run trusted main code inside

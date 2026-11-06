@@ -29,7 +29,7 @@ if (hasFlag("help")) {
       "",
       "Options:",
       "  --viewport=<1440|1024|768|390>  Capture a single viewport instead of all four",
-      "  --scenario=<canonical|s052|s053> Run the normal beta flow or a bounded sprint certification scenario",
+      "  --scenario=<canonical|s052|s053|beta_pdf> Run the normal beta flow or a bounded sprint certification scenario",
       "  --allow-mutations               Consent to creating records in the RC tenant (required to capture)",
       "  --headed                        Run the browser headed (local debugging)",
       "  --skip-isolation                Skip the tenant-isolation probe",
@@ -63,8 +63,8 @@ const viewports = requestedViewport
   : VIEWPORTS;
 
 const scenario = flagValue("scenario") || process.env.BETA_SCENARIO || "canonical";
-if (!["canonical", "s052", "s053"].includes(scenario)) {
-  console.error(`--scenario must be canonical, s052, or s053; received "${scenario}".`);
+if (!["canonical", "s052", "s053", "beta_pdf"].includes(scenario)) {
+  console.error(`--scenario must be canonical, s052, s053, or beta_pdf; received "${scenario}".`);
   process.exit(2);
 }
 
@@ -84,7 +84,7 @@ const baseEnv = {
   BETA_EVIDENCE_DIR: evidenceDir,
   BETA_ALLOW_MUTATIONS: String(allowMutations),
   BETA_SCENARIO: scenario,
-  BETA_REQUIRE_SHA_CORRELATION: ["s052", "s053"].includes(scenario) ? "true" : (process.env.BETA_REQUIRE_SHA_CORRELATION ?? "false"),
+  BETA_REQUIRE_SHA_CORRELATION: ["s052", "s053", "beta_pdf"].includes(scenario) ? "true" : (process.env.BETA_REQUIRE_SHA_CORRELATION ?? "false"),
   BETA_STARTED_AT: process.env.BETA_STARTED_AT ?? new Date().toISOString(),
   ...(hasFlag("headed") ? { PWDEBUG: "0", BETA_HEADED: "true" } : {}),
 };

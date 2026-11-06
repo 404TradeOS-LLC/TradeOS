@@ -12,6 +12,17 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Invited beta PDF evidence — local implementation, 2026-11-06
+
+- Sprint ID: NONE; bounded slice of founder-approved beta implementation. Repository `/workspace/TradeOS`, clean base `376a089b57a21e9c39d3eb0172411f95b9ff7380`; linked worktree `/workspace/TradeOS-beta`, branch `feat/invited-beta-pdf-evidence`, inherited upstream `origin/main`. No other local worktrees or unexplained changes at startup.
+- Classification: NEW_WORK_REQUIRED for the opt-in PDF-ending evidence scenario and cohort runbook. Live open PRs #931/#924/#923/#922/#921/#920/#918/#904/#775 and recent #929/#930 were reconciled; saved-line fixes are already landed, email/readiness/staging lanes remain separate. No branch was deleted or competing PR created.
+- Implemented `beta_pdf` in existing workflow/runner/capture/isolation/validator: reuses S053 review/Apply/reload plus manual financial fixture through Proposal, authenticates PDF download, retains bytes/hash/Proposal/run receipt, checks Proposal reload, requires foreign Customer/Project/Estimate/Athena/PDF denials, stops before downstream mutations. Canonical/S052/S053 defaults remain. Existing S053 assertion-name mismatch is repaired.
+- Added behavioral PDF transport tests, actual artifact-validator positive/negative fixtures, and execution of the workflow's preflight/full shell gates with synthetic environment values. No real browser/deployment PASS is claimed from these tests. New operator fixture: `BETA_RC_FOREIGN_PROPOSAL_ID` → runtime `BETA_FOREIGN_PROPOSAL_ID`.
+- Allowed paths: existing Beta Evidence scripts/workflow, focused tests/root test registration and owner docs. No product schema, pricing, auth/RLS policy, secret, dependency, production or deployment changes. Source is prepared for one draft PR; no merge, deployment or hosted-CI pass is claimed.
+- See [Invited beta operations](operations/INVITED_BETA.md) for cohort scope, remaining gates, onboarding, support and incident/recovery procedures. HOLD remains mandatory until actual environment/security/financial/recovery evidence passes.
+- Verification: app unit tests 331 suites / 3,037 tests and one snapshot passed; app lint/typecheck and build passed; 247 repository tests, 40 documentation tests and final 69 focused evidence tests passed; docs ownership, connection matrix (10 journeys / 52 actions), script syntax and whitespace passed. Live PostgreSQL integration, authenticated staging/browser/PDF visual evidence and hosted exact-head CI remain unrun.
+- Next safe actions: review this candidate; finish source checks; publish through normal reviewed PR controls when authorized; provision synthetic foreign Proposal fixture and exact-source isolated target through the existing protected operator workflow; run full `beta_pdf` plus S052 role evidence. Obtain staging reproduction IDs/inputs for the two documented pricing discrepancies before changing calculations. Implement the footing clarification contract in a separately bounded domain slice; do not simulate it or mark it complete here.
+
 ## Estimate authenticated saved-line acceptance — 2026-11-05
 
 - Branch `feat/estimate-authenticated-reload-denial`, based on main `f3449d0c532da20532f0f779bc4898bc252c9482`. This bounded slice strengthens existing opt-in S053 Beta Evidence and source-contract tests; no auth, RLS, database, pricing, secret, or deployment changes.

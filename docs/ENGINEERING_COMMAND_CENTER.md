@@ -43,6 +43,10 @@ related_code:
 
 # TradeOS Engineering Command Center
 
+## Invited beta mission — 2026-11-06
+
+Founder-approved first cohort is 1–3 businesses, free, real work, readiness-gated: Customer → Project → manual/reviewed-AI Estimate → Proposal → contractor-delivered PDF. [Invited beta operations](operations/INVITED_BETA.md) owns the gate register and onboarding/incident sequence. The candidate `beta_pdf` scenario reuses Beta Evidence, exact SHA guards and four widths without requiring contract/invoice execution. Existing full-release sprint gates are unchanged; clarification, disputed pricing, shared security/environment parity and actual recovery remain blockers. Source checks do not certify launch.
+
 ## PR #810 staging dependency — proposed protected runner, 2026-10-30
 
 Main-only apply cannot consume the draft feature migration. A separate

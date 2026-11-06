@@ -72,6 +72,7 @@ async function main() {
   }
 
   const target = {
+    runId: process.env.BETA_RUN_ID ?? null,
     resolvedAt: new Date().toISOString(),
     baseUrl: parsed.origin,
     resolutionSource: source,

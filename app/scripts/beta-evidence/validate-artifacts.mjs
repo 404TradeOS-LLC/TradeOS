@@ -5,6 +5,7 @@
 // every screenshot off disk, checks it is a non-empty PNG, and verifies its
 // intrinsic pixel width matches the viewport it claims to represent.
 
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
@@ -103,7 +104,44 @@ const isolationResult = isolation?.result === "PASS" ? "PASS" : "FAIL";
 const artifactResult = validation.ok ? "PASS" : "FAIL";
 
 const scenarioFailures = [];
-if (scenario === "s053") {
+if (!["canonical", "s052", "s053", "beta_pdf"].includes(scenario)) scenarioFailures.push("unknown evidence scenario");
+if (scenario === "beta_pdf") {
+  for (const [name, report] of [["target", target], ["authentication", auth], ["tenant isolation", isolation]]) {
+    if (!expectedRunId || report?.runId !== expectedRunId) scenarioFailures.push(`${name}: stale or missing run identity`);
+  }
+  for (const name of ["foreign customer", "foreign project", "foreign estimate", "foreign proposal PDF"]) {
+    if (!(isolation?.probes ?? []).some((probe) => probe.name === name && probe.passed === true)) scenarioFailures.push(`missing tenant denial: ${name}`);
+  }
+  for (const viewport of viewports) {
+    const report = viewportReports[viewport.name];
+    if (report?.scenario !== scenario) scenarioFailures.push(`${viewport.name}: wrong scenario report`);
+    if (report?.checkpoints?.some((entry) => entry.name === "downstream-state")) scenarioFailures.push(`${viewport.name}: unexpected downstream workflow evidence`);
+    for (const name of [
+      "saved direct line costs match the authoritative Estimate Engine snapshots",
+      "Estimate Engine persists finalized status and customer total",
+      "proposal snapshots selected finalized Estimate identity and exact fixed total",
+      "proposal PDF downloads through authenticated document route",
+      "proposal financial snapshot survives reload",
+      "no browser console errors were recorded",
+      "no network requests failed",
+    ]) {
+      if (!report?.assertions?.some((entry) => entry.name === name && entry.passed === true)) scenarioFailures.push(`${viewport.name}: missing ${name}`);
+    }
+    const receipt = await readJsonIfPresent(path.join(outDir, viewport.name, "proposal-pdf.json"));
+    const records = await readJsonIfPresent(path.join(outDir, viewport.name, "workflow-records.json"));
+    try {
+      const buffer = await fs.readFile(path.join(outDir, viewport.name, "proposal.pdf"));
+      if (!expectedRunId || receipt?.runId !== expectedRunId || records?.runId !== expectedRunId ||
+          !records?.proposalId || receipt?.proposalId !== records.proposalId ||
+          records.contractId != null || records.invoiceId != null ||
+          receipt?.bytes !== buffer.length || receipt?.sha256 !== createHash("sha256").update(buffer).digest("hex") ||
+          buffer.subarray(0, 5).toString("ascii") !== "%PDF-" || !buffer.subarray(-1024).includes("%%EOF")) {
+        scenarioFailures.push(`${viewport.name}: invalid or stale proposal PDF evidence`);
+      }
+    } catch { scenarioFailures.push(`${viewport.name}: missing proposal PDF evidence`); }
+  }
+}
+if (scenario === "s053" || scenario === "beta_pdf") {
   if (target?.shaCorrelated !== true) {
     scenarioFailures.push("deployment identity: S053 certification requires exact SHA correlation");
   }
@@ -148,7 +186,7 @@ if (scenario === "s053") {
       "Athena generation and local acceptance do not silently write estimate lines",
       "explicit Athena apply persists at least one reviewed estimate line",
       "pricing refreshes after the reviewed Athena apply",
-      "reviewed Athena lines survive builder reload",
+      "reviewed Athena saved-line IDs survive an authenticated hard reload",
     ]) {
       if (!assertionNames.has(requiredAssertion)) {
         scenarioFailures.push(`${viewport.name}: missing passing assertion "${requiredAssertion}"`);
@@ -276,6 +314,9 @@ const metadata = {
   runId: process.env.GITHUB_RUN_ID ?? null,
   smokeTenant: process.env.BETA_SMOKE_TENANT_LABEL ?? null,
   scenario,
+  evidenceRunId: expectedRunId,
+  evidenceScope: scenario === "beta_pdf" ? "customer-project-ai-estimate-proposal-pdf" : "full-contractor-workflow",
+  releaseApproval: "NOT_GRANTED",
   viewports: viewports.map((viewport) => viewport.width),
   fullViewportMatrix: isFullMatrix,
   staleViewports,

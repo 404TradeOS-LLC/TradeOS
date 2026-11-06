@@ -35,6 +35,7 @@ on:
           - canonical
           - s052
           - s053
+          - beta_pdf
       rc_base_url:
         description: Approved non-production RC base URL (tradeos-costbook-web-*.vercel.app)
         required: false
@@ -136,7 +137,7 @@ jobs:
       BETA_SMOKE_ORG_LABEL: ${{ inputs.smoke_tenant_label }}
       BETA_SMOKE_ORG_ID: ${{ inputs.smoke_org_id }}
       BETA_EXPECTED_SHA: ${{ inputs.expected_sha }}
-      BETA_REQUIRE_SHA_CORRELATION: ${{ inputs.scenario == 's052' || inputs.scenario == 's053' || inputs.require_sha_correlation }}
+      BETA_REQUIRE_SHA_CORRELATION: ${{ inputs.scenario == 's052' || inputs.scenario == 's053' || inputs.scenario == 'beta_pdf' || inputs.require_sha_correlation }}
       BETA_RC_DEPLOYMENT_URL: ${{ vars.BETA_RC_DEPLOYMENT_URL }}
       BETA_RC_DEPLOYMENT_SHA: ${{ vars.BETA_RC_DEPLOYMENT_SHA }}
       BETA_RC_SUPABASE_PROJECT_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF }}
@@ -146,6 +147,7 @@ jobs:
       BETA_S052_ADMIN_PASSWORD: ${{ secrets.BETA_RC_S052_ADMIN_PASSWORD }}
       BETA_S052_INACTIVE_EMAIL: ${{ secrets.BETA_RC_S052_INACTIVE_EMAIL }}
       BETA_S052_INACTIVE_PASSWORD: ${{ secrets.BETA_RC_S052_INACTIVE_PASSWORD }}
+      BETA_FOREIGN_PROPOSAL_ID: ${{ secrets.BETA_RC_FOREIGN_PROPOSAL_ID }}
       BETA_FOREIGN_CUSTOMER_ID: ${{ secrets.BETA_RC_FOREIGN_CUSTOMER_ID }}
       BETA_FOREIGN_PROJECT_ID: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID }}
       BETA_FOREIGN_ESTIMATE_ID: ${{ secrets.BETA_RC_FOREIGN_ESTIMATE_ID }}
@@ -195,6 +197,7 @@ jobs:
           HAS_FOREIGN_PROJECT: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' || secrets.BETA_RC_FOREIGN_CUSTOMER_ID != '' }}
           HAS_FOREIGN_RESOURCE: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' || secrets.BETA_RC_FOREIGN_CUSTOMER_ID != '' || secrets.BETA_RC_FOREIGN_ESTIMATE_ID != '' }}
           HAS_FOREIGN_ESTIMATE: ${{ secrets.BETA_RC_FOREIGN_ESTIMATE_ID != '' }}
+          HAS_FOREIGN_PROPOSAL: ${{ secrets.BETA_RC_FOREIGN_PROPOSAL_ID != '' }}
           HAS_S052_ADMIN_EMAIL: ${{ secrets.BETA_RC_S052_ADMIN_EMAIL != '' }}
           HAS_S052_ADMIN_PASSWORD: ${{ secrets.BETA_RC_S052_ADMIN_PASSWORD != '' }}
           HAS_S052_INACTIVE_EMAIL: ${{ secrets.BETA_RC_S052_INACTIVE_EMAIL != '' }}
@@ -223,6 +226,7 @@ jobs:
             echo "| BETA_RC_S052_INACTIVE_PASSWORD | ${HAS_S052_INACTIVE_PASSWORD} |"
             echo "| S052 admin identity | $([ "${HAS_S052_ADMIN_EMAIL}" = "true" ] && [ "${HAS_S052_ADMIN_PASSWORD}" = "true" ] && echo true || echo false) |"
             echo "| S052 inactive identity | $([ "${HAS_S052_INACTIVE_EMAIL}" = "true" ] && [ "${HAS_S052_INACTIVE_PASSWORD}" = "true" ] && echo true || echo false) |"
+            echo "| Beta PDF foreign Proposal | ${HAS_FOREIGN_PROPOSAL} |"
             echo "| S052 foreign Customer | ${HAS_FOREIGN_CUSTOMER} |"
             echo "| S052 foreign Project | ${HAS_FOREIGN_PROJECT_S052} |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -238,6 +242,11 @@ jobs:
             [ "$HAS_FOREIGN_ESTIMATE" = "true" ] || missing=1
           else
             [ "$HAS_FOREIGN_PROJECT" = "true" ] || missing=1
+          fi
+          if [ "$BETA_SCENARIO" = "beta_pdf" ]; then
+            for flag in "$HAS_FOREIGN_CUSTOMER" "$HAS_FOREIGN_PROJECT_S052" "$HAS_FOREIGN_ESTIMATE" "$HAS_FOREIGN_PROPOSAL"; do
+              [ "$flag" = "true" ] || missing=1
+            done
           fi
           {
             echo
@@ -288,6 +297,14 @@ jobs:
           if [ "$BETA_SCENARIO" = "s053" ] && [ -z "${BETA_FOREIGN_ESTIMATE_ID}" ]; then
             echo "::error::BETA_RC_FOREIGN_ESTIMATE_ID is required for the s053 scenario so a foreign Athena draft request can be denied explicitly."
             fail=1
+          fi
+          if [ "$BETA_SCENARIO" = "beta_pdf" ]; then
+            for name in BETA_FOREIGN_CUSTOMER_ID BETA_FOREIGN_PROJECT_ID BETA_FOREIGN_ESTIMATE_ID BETA_FOREIGN_PROPOSAL_ID; do
+              if [ -z "${!name}" ]; then
+                echo "::error::$name is required for beta_pdf tenant-denial evidence."
+                fail=1
+              fi
+            done
           fi
           exit "$fail"
 

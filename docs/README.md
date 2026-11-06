@@ -54,6 +54,10 @@ related_code:
 
 # TradeOS Documentation
 
+## Invited beta readiness
+
+[Invited beta operations](operations/INVITED_BETA.md) records the founder-approved free 1–3-business Estimate→Proposal/PDF scope, remaining blockers, evidence procedure, onboarding and stop criteria. The existing [Beta Evidence](testing/BETA_EVIDENCE.md) workflow gains an opt-in `beta_pdf` scenario; it is source support, not release approval or a passed deployed run.
+
 ## Proposed staging Job migration runner — PR #810 dependency
 
 The proposed `.github/workflows/staging-job-handoff-migration.yml` installs a
