@@ -12,6 +12,14 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## PR #933 findings repair — current bounded mission
+
+- EXISTING_WORK_FOUND: continue clean branch/worktree `feat/invited-beta-pdf-evidence` at `/workspace/TradeOS-beta`; original PR head `300b30bf831297b21845c717844ef19c3467c767`, main `376a089b57a21e9c39d3eb0172411f95b9ff7380`. Live PR identity and remote fetch verified. User explicitly requested fixing both reviewed findings.
+- Foreign Proposal denial now requires dedicated synthetic owner/admin login, pinned distinct organization membership and exact owner-scoped Proposal reads before/after the smoke denial. No foreign session persistence or credential-bearing error output. Artifact validation requires fixture proof; workflow preflight/full checks and capture startup require the new foreign-owner inputs.
+- Verification for the repair: 261 repository tests, 33 focused ownership/PDF/validator tests, 40 docs tests, 331 backend suites / 3,037 tests and one snapshot passed. Backend lint/typecheck/build, script syntax, documentation ownership and whitespace checks passed. Hosted exact-head checks remain pending after push.
+- Runbook now explicitly requires retained passing PDF renderer tests on the exact release SHA. No product APIs, auth/RLS policy, schema, migrations, dependencies, production settings or deployments are changed.
+- Added regressions for deleted/missing fixtures, expired owner session, wrong/same tenant, role denial, mismatched Proposal, readable PDF, redirect and deletion during probe; current full checks and publication are recorded in PR #933. Live protected staging execution remains blocked on provisioned dedicated synthetic foreign-owner inputs and a matching approved deployment, not claimed passed.
+
 ## Invited beta PDF evidence — local implementation, 2026-11-06
 
 - Sprint ID: NONE; bounded slice of founder-approved beta implementation. Repository `/workspace/TradeOS`, clean base `376a089b57a21e9c39d3eb0172411f95b9ff7380`; linked worktree `/workspace/TradeOS-beta`, branch `feat/invited-beta-pdf-evidence`, inherited upstream `origin/main`. No other local worktrees or unexplained changes at startup.

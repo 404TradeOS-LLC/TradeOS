@@ -43,6 +43,7 @@ if (hasFlag("help")) {
       "  BETA_SMOKE_ORG_LABEL          Organization the session must belong to",
       "  BETA_RC_SUPABASE_PROJECT_REF  Non-production Supabase project ref (mutating runs)",
       "  BETA_STORAGE_STATE_PATH       Path OUTSIDE the repository for session state",
+      "  beta_pdf only: BETA_FOREIGN_OWNER_EMAIL / _PASSWORD / _ORG_ID and BETA_FOREIGN_PROPOSAL_ID",
       "  S052 only: BETA_S052_ADMIN_EMAIL / _PASSWORD and BETA_S052_INACTIVE_EMAIL / _PASSWORD",
       "",
       "See docs/testing/BETA_EVIDENCE.md for the full contract.",

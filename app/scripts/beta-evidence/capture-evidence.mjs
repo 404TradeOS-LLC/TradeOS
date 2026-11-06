@@ -41,7 +41,10 @@ if (!storageState) startupFailure("BETA_STORAGE_STATE_PATH is required. Run auth
 if (!runId) startupFailure("BETA_RUN_ID is required so synthetic records can be correlated with this run.");
 if (!["canonical", "s052", "s053", "beta_pdf"].includes(scenario)) startupFailure(`BETA_SCENARIO must be canonical, s052, s053, or beta_pdf; received "${scenario}".`);
 if (scenario === "beta_pdf") {
-  for (const name of ["BETA_FOREIGN_CUSTOMER_ID", "BETA_FOREIGN_PROJECT_ID", "BETA_FOREIGN_ESTIMATE_ID", "BETA_FOREIGN_PROPOSAL_ID"]) {
+  for (const name of ["BETA_FOREIGN_OWNER_EMAIL", "BETA_FOREIGN_OWNER_PASSWORD", "BETA_FOREIGN_OWNER_ORG_ID"]) {
+    if (!process.env[name]?.trim()) startupFailure(`${name} is required before beta_pdf capture.`);
+  }
+  for (const name of ["BETA_FOREIGN_CUSTOMER_ID", "BETA_FOREIGN_PROJECT_ID", "BETA_FOREIGN_ESTIMATE_ID", "BETA_FOREIGN_PROPOSAL_ID", "BETA_FOREIGN_OWNER_ORG_ID"]) {
     if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(process.env[name] ?? "")) startupFailure(`${name} must identify a known foreign resource before beta_pdf capture.`);
   }
 }

@@ -33,7 +33,7 @@ async function fixture() {
   const write = (name, value) => fs.writeFile(path.join(dir, name), JSON.stringify(value));
   await write("rc-target.json", { runId, shaCorrelated: true });
   await write("auth-setup-report.json", { runId, result: "PASS" });
-  await write("tenant-isolation-report.json", { runId, result: "PASS", probes: ["foreign customer", "foreign project", "foreign estimate", "foreign proposal PDF", "foreign S053 Athena draft", "foreign S053 Athena apply"].map(name => ({ name, passed: true })) });
+  await write("tenant-isolation-report.json", { runId, result: "PASS", probes: ["foreign customer", "foreign project", "foreign estimate", "foreign proposal PDF", "foreign S053 Athena draft", "foreign S053 Athena apply"].map(name => ({ name, passed: true, ...(name === "foreign proposal PDF" ? { fixtureProof: { fixtureVerified: true, passed: true, proposalId, smokeOrgId: "11111111-1111-4111-8111-111111111111", ownerOrgId: "22222222-2222-4222-8222-222222222222", apiStatus: 404 } } : {}) })) });
   for (const viewport of VIEWPORTS) {
     await fs.mkdir(path.join(dir, viewport.name, "screenshots"), { recursive: true });
     const checkpoints = [...CHECKPOINTS.filter(c => c.required), ...extra.map(([sequence, name]) => ({ sequence, name }))];
@@ -63,6 +63,11 @@ for (const [name, mutate, expected] of [
   ["stale PDF receipt", async ({ write }) => write("390/proposal-pdf.json", { runId: "old" }), 1],
   ["tampered PDF bytes", async ({ dir }) => fs.appendFile(path.join(dir, "390/proposal.pdf"), "changed"), 1],
   ["foreign PDF denial missing", async ({ write }) => write("tenant-isolation-report.json", { runId, result: "PASS", probes: [] }), 1],
+  ["foreign PDF denial without fixture ownership proof", async ({ dir, write }) => {
+    const report = JSON.parse(await fs.readFile(path.join(dir, "tenant-isolation-report.json")));
+    delete report.probes.find(p => p.name === "foreign proposal PDF").fixtureProof;
+    await write("tenant-isolation-report.json", report);
+  }, 1],
   ["wrong scenario report", async ({ write }) => write("390/capture-report.json", { result: "PASS", runId, scenario: "canonical" }), 1],
   ["missing financial continuity assertion", async ({ write }) => write("390/capture-report.json", { runId, scenario: "beta_pdf", result: "PASS", assertions: assertions.filter(name => !name.startsWith("proposal snapshots")).map(name => ({ name, passed: true })) }), 1],
   ["downstream mutation", async ({ write }) => write("390/workflow-records.json", { runId, proposalId, contractId: "unexpected" }), 1],
@@ -103,13 +108,13 @@ test("workflow preflight and full gates reject each missing beta_pdf fixture", a
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "tradeos-beta-gates-"));
   try {
     const flags = Object.fromEntries(Object.keys(preflight.env).map(key => [key, "true"]));
-    for (const missing of [null, "BETA_FOREIGN_CUSTOMER_ID", "BETA_FOREIGN_PROJECT_ID", "BETA_FOREIGN_ESTIMATE_ID", "BETA_FOREIGN_PROPOSAL_ID"]) {
-      const flagsByFixture = { BETA_FOREIGN_CUSTOMER_ID: "HAS_FOREIGN_CUSTOMER", BETA_FOREIGN_PROJECT_ID: "HAS_FOREIGN_PROJECT_S052", BETA_FOREIGN_ESTIMATE_ID: "HAS_FOREIGN_ESTIMATE", BETA_FOREIGN_PROPOSAL_ID: "HAS_FOREIGN_PROPOSAL" };
+    for (const missing of [null, "BETA_FOREIGN_CUSTOMER_ID", "BETA_FOREIGN_PROJECT_ID", "BETA_FOREIGN_ESTIMATE_ID", "BETA_FOREIGN_PROPOSAL_ID", "BETA_FOREIGN_OWNER_EMAIL", "BETA_FOREIGN_OWNER_PASSWORD", "BETA_FOREIGN_OWNER_ORG_ID"]) {
+      const flagsByFixture = { BETA_FOREIGN_CUSTOMER_ID: "HAS_FOREIGN_CUSTOMER", BETA_FOREIGN_PROJECT_ID: "HAS_FOREIGN_PROJECT_S052", BETA_FOREIGN_ESTIMATE_ID: "HAS_FOREIGN_ESTIMATE", BETA_FOREIGN_PROPOSAL_ID: "HAS_FOREIGN_PROPOSAL", BETA_FOREIGN_OWNER_EMAIL: "HAS_FOREIGN_OWNER_EMAIL", BETA_FOREIGN_OWNER_PASSWORD: "HAS_FOREIGN_OWNER_PASSWORD", BETA_FOREIGN_OWNER_ORG_ID: "HAS_FOREIGN_OWNER_ORG" };
       const summary = path.join(dir, "summary.md");
       await fs.writeFile(summary, "");
       const env = { ...process.env, ...flags, BETA_SCENARIO: "beta_pdf", GITHUB_STEP_SUMMARY: summary,
         BETA_RC_BASE_URL_RESOLVED: "https://tradeos-costbook-web-fixture.vercel.app", BETA_SMOKE_EMAIL: "synthetic@example.invalid", BETA_SMOKE_PASSWORD: "synthetic", BETA_RC_SUPABASE_PROJECT_REF: "synthetic",
-        BETA_FOREIGN_CUSTOMER_ID: proposalId, BETA_FOREIGN_PROJECT_ID: proposalId, BETA_FOREIGN_ESTIMATE_ID: proposalId, BETA_FOREIGN_PROPOSAL_ID: proposalId };
+        BETA_FOREIGN_CUSTOMER_ID: proposalId, BETA_FOREIGN_PROJECT_ID: proposalId, BETA_FOREIGN_ESTIMATE_ID: proposalId, BETA_FOREIGN_PROPOSAL_ID: proposalId, BETA_FOREIGN_OWNER_EMAIL: "foreign@example.invalid", BETA_FOREIGN_OWNER_PASSWORD: "synthetic", BETA_FOREIGN_OWNER_ORG_ID: proposalId };
       if (missing) { env[missing] = ""; env[flagsByFixture[missing]] = "false"; }
       const readiness = spawnSync("bash", ["-c", preflight.run], { env, encoding: "utf8" });
       assert.equal(readiness.status, 0, readiness.stderr);

@@ -147,6 +147,9 @@ jobs:
       BETA_S052_ADMIN_PASSWORD: ${{ secrets.BETA_RC_S052_ADMIN_PASSWORD }}
       BETA_S052_INACTIVE_EMAIL: ${{ secrets.BETA_RC_S052_INACTIVE_EMAIL }}
       BETA_S052_INACTIVE_PASSWORD: ${{ secrets.BETA_RC_S052_INACTIVE_PASSWORD }}
+      BETA_FOREIGN_OWNER_EMAIL: ${{ secrets.BETA_RC_FOREIGN_OWNER_EMAIL }}
+      BETA_FOREIGN_OWNER_PASSWORD: ${{ secrets.BETA_RC_FOREIGN_OWNER_PASSWORD }}
+      BETA_FOREIGN_OWNER_ORG_ID: ${{ secrets.BETA_RC_FOREIGN_OWNER_ORG_ID }}
       BETA_FOREIGN_PROPOSAL_ID: ${{ secrets.BETA_RC_FOREIGN_PROPOSAL_ID }}
       BETA_FOREIGN_CUSTOMER_ID: ${{ secrets.BETA_RC_FOREIGN_CUSTOMER_ID }}
       BETA_FOREIGN_PROJECT_ID: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID }}
@@ -197,6 +200,9 @@ jobs:
           HAS_FOREIGN_PROJECT: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' || secrets.BETA_RC_FOREIGN_CUSTOMER_ID != '' }}
           HAS_FOREIGN_RESOURCE: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' || secrets.BETA_RC_FOREIGN_CUSTOMER_ID != '' || secrets.BETA_RC_FOREIGN_ESTIMATE_ID != '' }}
           HAS_FOREIGN_ESTIMATE: ${{ secrets.BETA_RC_FOREIGN_ESTIMATE_ID != '' }}
+          HAS_FOREIGN_OWNER_EMAIL: ${{ secrets.BETA_RC_FOREIGN_OWNER_EMAIL != '' }}
+          HAS_FOREIGN_OWNER_PASSWORD: ${{ secrets.BETA_RC_FOREIGN_OWNER_PASSWORD != '' }}
+          HAS_FOREIGN_OWNER_ORG: ${{ secrets.BETA_RC_FOREIGN_OWNER_ORG_ID != '' }}
           HAS_FOREIGN_PROPOSAL: ${{ secrets.BETA_RC_FOREIGN_PROPOSAL_ID != '' }}
           HAS_S052_ADMIN_EMAIL: ${{ secrets.BETA_RC_S052_ADMIN_EMAIL != '' }}
           HAS_S052_ADMIN_PASSWORD: ${{ secrets.BETA_RC_S052_ADMIN_PASSWORD != '' }}
@@ -226,6 +232,9 @@ jobs:
             echo "| BETA_RC_S052_INACTIVE_PASSWORD | ${HAS_S052_INACTIVE_PASSWORD} |"
             echo "| S052 admin identity | $([ "${HAS_S052_ADMIN_EMAIL}" = "true" ] && [ "${HAS_S052_ADMIN_PASSWORD}" = "true" ] && echo true || echo false) |"
             echo "| S052 inactive identity | $([ "${HAS_S052_INACTIVE_EMAIL}" = "true" ] && [ "${HAS_S052_INACTIVE_PASSWORD}" = "true" ] && echo true || echo false) |"
+            echo "| Beta PDF foreign owner email | ${HAS_FOREIGN_OWNER_EMAIL} |"
+            echo "| Beta PDF foreign owner password | ${HAS_FOREIGN_OWNER_PASSWORD} |"
+            echo "| Beta PDF foreign owner organization | ${HAS_FOREIGN_OWNER_ORG} |"
             echo "| Beta PDF foreign Proposal | ${HAS_FOREIGN_PROPOSAL} |"
             echo "| S052 foreign Customer | ${HAS_FOREIGN_CUSTOMER} |"
             echo "| S052 foreign Project | ${HAS_FOREIGN_PROJECT_S052} |"
@@ -244,7 +253,7 @@ jobs:
             [ "$HAS_FOREIGN_PROJECT" = "true" ] || missing=1
           fi
           if [ "$BETA_SCENARIO" = "beta_pdf" ]; then
-            for flag in "$HAS_FOREIGN_CUSTOMER" "$HAS_FOREIGN_PROJECT_S052" "$HAS_FOREIGN_ESTIMATE" "$HAS_FOREIGN_PROPOSAL"; do
+            for flag in "$HAS_FOREIGN_CUSTOMER" "$HAS_FOREIGN_PROJECT_S052" "$HAS_FOREIGN_ESTIMATE" "$HAS_FOREIGN_PROPOSAL" "$HAS_FOREIGN_OWNER_EMAIL" "$HAS_FOREIGN_OWNER_PASSWORD" "$HAS_FOREIGN_OWNER_ORG"; do
               [ "$flag" = "true" ] || missing=1
             done
           fi
@@ -299,7 +308,7 @@ jobs:
             fail=1
           fi
           if [ "$BETA_SCENARIO" = "beta_pdf" ]; then
-            for name in BETA_FOREIGN_CUSTOMER_ID BETA_FOREIGN_PROJECT_ID BETA_FOREIGN_ESTIMATE_ID BETA_FOREIGN_PROPOSAL_ID; do
+            for name in BETA_FOREIGN_CUSTOMER_ID BETA_FOREIGN_PROJECT_ID BETA_FOREIGN_ESTIMATE_ID BETA_FOREIGN_PROPOSAL_ID BETA_FOREIGN_OWNER_EMAIL BETA_FOREIGN_OWNER_PASSWORD BETA_FOREIGN_OWNER_ORG_ID; do
               if [ -z "${!name}" ]; then
                 echo "::error::$name is required for beta_pdf tenant-denial evidence."
                 fail=1
