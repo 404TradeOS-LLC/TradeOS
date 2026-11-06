@@ -12,7 +12,48 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## PR #933 auto-merge follow-through
+
+User requested auto-merge. Existing checks were green, but a new unresolved validator thread showed fixture proof could be detached from the passing denial entry. Reproduced three failures, repaired same-probe PASS plus optional route/status consistency, and added matching/compact-report compatibility coverage. Continue this PR only; no product or deployment change. Enable normal GitHub auto-merge after publishing and resolving the verified repair; never bypass checks or merge a draft.
+
+## PR #933 findings repair — current bounded mission
+
+- EXISTING_WORK_FOUND: continue clean branch/worktree `feat/invited-beta-pdf-evidence` at `/workspace/TradeOS-beta`; original PR head `300b30bf831297b21845c717844ef19c3467c767`, main `376a089b57a21e9c39d3eb0172411f95b9ff7380`. Live PR identity and remote fetch verified. User explicitly requested fixing both reviewed findings.
+- Foreign Proposal denial now requires dedicated synthetic owner/admin login, pinned distinct organization membership and exact owner-scoped Proposal reads before/after the smoke denial. No foreign session persistence or credential-bearing error output. Artifact validation requires fixture proof; workflow preflight/full checks and capture startup require the new foreign-owner inputs.
+- Verification for the repair: 261 repository tests, 33 focused ownership/PDF/validator tests, 40 docs tests, 331 backend suites / 3,037 tests and one snapshot passed. Backend lint/typecheck/build, script syntax, documentation ownership and whitespace checks passed. Hosted exact-head checks remain pending after push.
+- Runbook now explicitly requires retained passing PDF renderer tests on the exact release SHA. No product APIs, auth/RLS policy, schema, migrations, dependencies, production settings or deployments are changed.
+- Added regressions for deleted/missing fixtures, expired owner session, wrong/same tenant, role denial, mismatched Proposal, readable PDF, redirect and deletion during probe; current full checks and publication are recorded in PR #933. Live protected staging execution remains blocked on provisioned dedicated synthetic foreign-owner inputs and a matching approved deployment, not claimed passed.
+
+## Invited beta PDF evidence — local implementation, 2026-11-06
+
+- Sprint ID: NONE; bounded slice of founder-approved beta implementation. Repository `/workspace/TradeOS`, clean base `376a089b57a21e9c39d3eb0172411f95b9ff7380`; linked worktree `/workspace/TradeOS-beta`, branch `feat/invited-beta-pdf-evidence`, inherited upstream `origin/main`. No other local worktrees or unexplained changes at startup.
+- Classification: NEW_WORK_REQUIRED for the opt-in PDF-ending evidence scenario and cohort runbook. Live open PRs #931/#924/#923/#922/#921/#920/#918/#904/#775 and recent #929/#930 were reconciled; saved-line fixes are already landed, email/readiness/staging lanes remain separate. No branch was deleted or competing PR created.
+- Implemented `beta_pdf` in existing workflow/runner/capture/isolation/validator: reuses S053 review/Apply/reload plus manual financial fixture through Proposal, authenticates PDF download, retains bytes/hash/Proposal/run receipt, checks Proposal reload, requires foreign Customer/Project/Estimate/Athena/PDF denials, stops before downstream mutations. Canonical/S052/S053 defaults remain. Existing S053 assertion-name mismatch is repaired.
+- Added behavioral PDF transport tests, actual artifact-validator positive/negative fixtures, and execution of the workflow's preflight/full shell gates with synthetic environment values. No real browser/deployment PASS is claimed from these tests. New operator fixture: `BETA_RC_FOREIGN_PROPOSAL_ID` → runtime `BETA_FOREIGN_PROPOSAL_ID`.
+- Allowed paths: existing Beta Evidence scripts/workflow, focused tests/root test registration and owner docs. No product schema, pricing, auth/RLS policy, secret, dependency, production or deployment changes. Code commit `db3cc95f26a20033fee2528cc00400a76fd6ce9f` is pushed in draft [PR #933](https://github.com/404TradeOS-LLC/TradeOS/pull/933), tracking `origin/feat/invited-beta-pdf-evidence`. No merge, deployment or hosted-CI pass is claimed.
+- See [Invited beta operations](operations/INVITED_BETA.md) for cohort scope, remaining gates, onboarding, support and incident/recovery procedures. HOLD remains mandatory until actual environment/security/financial/recovery evidence passes.
+- Verification: app unit tests 331 suites / 3,037 tests and one snapshot passed; app lint/typecheck and build passed; 248 repository tests, 40 documentation tests and final 69 focused evidence tests passed; docs ownership, connection matrix (10 journeys / 52 actions), script syntax and whitespace passed. Live PostgreSQL integration, authenticated staging/browser/PDF visual evidence and hosted exact-head CI remain unrun.
+- Next safe actions: review draft PR #933 and its exact-head CI; retain HOLD until protected evidence and independent review pass; provision synthetic foreign Proposal fixture and exact-source isolated target through the existing protected operator workflow; run full `beta_pdf` plus S052 role evidence. Obtain staging reproduction IDs/inputs for the two documented pricing discrepancies before changing calculations. Implement the footing clarification contract in a separately bounded domain slice; do not simulate it or mark it complete here.
+
+## Estimate authenticated saved-line acceptance — 2026-11-05
+
+- Branch `feat/estimate-authenticated-reload-denial`, based on main `f3449d0c532da20532f0f779bc4898bc252c9482`. This bounded slice strengthens existing opt-in S053 Beta Evidence and source-contract tests; no auth, RLS, database, pricing, secret, or deployment changes.
+- S053 captures the real Apply response and retained reviewed payload, verifies newly applied/idempotently identified lines against the authenticated organization-scoped Estimate read and visible “Saved line verification” rows, then hard-reloads the builder and checks exact same IDs, descriptions, persisted quantities and target relations.
+- The existing tenant-isolation runner sends an authenticated GET for the configured foreign Estimate and requires 403/404; S053 continues to verify foreign Athena draft/apply denial. Regression tests pin the requirements.
+- Not run against an approved non-production deployment: exact SHA correlation, dedicated synthetic identity/tenant fixtures and operator-dispatched full evidence remain required. Do not mark acceptance passed until retained artifacts report PASS.
+- Next five after this gate: run S053 in approved non-production; persist/restore footing clarification answer; reconcile the $1,670 deck discrepancy; establish Estimate $2.10→Proposal $42,680 snapshot continuity; prove deployed saved-line acceptance on exact deployment SHA.
+
+
 # Session Handoff
+
+## Active bounded mission — Estimate Apply saved-line identity, 2026-11-04
+
+- Sprint ID: NONE; classification `NEW_WORK_REQUIRED`. Repository `404TradeOS-LLC/TradeOS`; rebased exact base `b4c50d0d19cc83425f66c4eb2035a359e9bcf7fc`, tree `425ad2f0d5d9bd5cac7b5f03831252bb6a2e1004`. Open PRs #924/#923/#922/#921/#920/#918/#917/#904/#775 do not overlap the Estimate Apply client/backend contract. The named branch still pointed at its earlier base and is advanced only through an expected-head compare-and-swap after this reconciliation.
+- Branch: `feat/figma-to-code-completion`. Publication uses exact GitHub base-tree commits. Allowed scope: structured Apply acknowledgement, authorized saved-line verification, focused tests, existing acknowledged Figma result states and owned docs. Excluded: schema/migration, auth/RLS permission changes, pricing calculations, dependencies, secrets/environments and deployment.
+- Implemented in the rebased candidate: idempotent source-key and exact-line skips return their existing `lineItemId`; the client reads the authorized Estimate after POST acknowledgement and verifies saved ID, target, quantity and normalized description against the frozen request. Read failure or mismatch remains conservative/unconfirmed. Rejected/unresolved skips stay review-only. No automatic retry or new endpoint.
+- Figma: existing result roots 390 `1064:28688`, 768 `1064:28782`, 1024 `1073:29301`, 1440 `1065:28715` distinguish Saved & verified identity from unverified pricing evidence. Four renders were inspected; Inter/Space Grotesk, existing StatusBadge/PricingProvenance instances, zero UI rasters and the same Items actions are retained.
+- Focused evidence from the unchanged candidate sources: 15 pure TypeScript cases passed (11 request-session plus 4 saved-line reconciliation). Full app/web tests, lint/build, responsive production-component cases, exact-head CI, review and merge remain gates.
+- Next five: publish and verify this exact-head slice; complete authenticated full-review reload and tenant/record denial; resolve structured footing-answer persistence; reconcile the deck $1,670 discrepancy; establish Estimate-to-Proposal financial snapshot continuity.
 
 ## Accepted-proposal handoff #810 — branch reconciliation, 2026-11-02
 

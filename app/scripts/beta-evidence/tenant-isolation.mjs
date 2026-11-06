@@ -6,6 +6,7 @@
 // backend correctly denied the resource with 403/404. The browser page remains
 // a secondary UX signal, but API denial is required for PASS.
 
+import { verifyForeignProposalIsolation } from "./lib/foreign-proposal.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright";
@@ -17,6 +18,10 @@ const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
 const foreignCustomerId = process.env.BETA_FOREIGN_CUSTOMER_ID;
 const foreignProjectId = process.env.BETA_FOREIGN_PROJECT_ID;
 const foreignEstimateId = process.env.BETA_FOREIGN_ESTIMATE_ID;
+const foreignProposalId = process.env.BETA_FOREIGN_PROPOSAL_ID;
+const foreignOwnerEmail = process.env.BETA_FOREIGN_OWNER_EMAIL;
+const foreignOwnerPassword = process.env.BETA_FOREIGN_OWNER_PASSWORD;
+const foreignOwnerOrgId = process.env.BETA_FOREIGN_OWNER_ORG_ID;
 const scenario = process.env.BETA_SCENARIO || "canonical";
 
 function startupFailure(message) {
@@ -31,6 +36,10 @@ if (!foreignProjectId && !foreignCustomerId && !foreignEstimateId) {
     "At least one of BETA_FOREIGN_CUSTOMER_ID, BETA_FOREIGN_PROJECT_ID, or BETA_FOREIGN_ESTIMATE_ID is required. " +
       "Tenant isolation cannot be proven without a known foreign resource identifier.",
   );
+}
+
+if (scenario === "beta_pdf" && (!foreignOwnerEmail || !foreignOwnerPassword || !foreignOwnerOrgId || !foreignProposalId)) {
+  startupFailure("beta_pdf requires dedicated foreign owner credentials, organization UUID and Proposal fixture.");
 }
 
 let parsedBaseUrl;
@@ -56,16 +65,18 @@ const probes = [
         apiRoute: `/api/proxy/projects/${foreignProjectId}`,
       }
     : null,
-  // The browser estimate route is nested under a project, while the API detail
-  // endpoint is keyed directly by estimate id.
-  foreignEstimateId && foreignProjectId
+  // The API detail endpoint is keyed directly by estimate id. The browser
+  // route is optional because it is nested under a project; the authenticated
+  // API denial must still run when only a foreign Estimate id is configured.
+  foreignEstimateId
     ? {
         name: "foreign estimate",
-        route: `/projects/${foreignProjectId}/estimates/${foreignEstimateId}`,
+        route: foreignProjectId ? `/projects/${foreignProjectId}/estimates/${foreignEstimateId}` : null,
         apiRoute: `/api/proxy/estimates/${foreignEstimateId}`,
+        method: "GET",
       }
     : null,
-  scenario === "s053" && foreignEstimateId
+  (scenario === "s053" || scenario === "beta_pdf") && foreignEstimateId
     ? {
         name: "foreign S053 Athena draft",
         route: null,
@@ -74,7 +85,7 @@ const probes = [
         body: { scopeOfWork: "Replace a standard electrical panel." },
       }
     : null,
-  scenario === "s053" && foreignEstimateId
+  (scenario === "s053" || scenario === "beta_pdf") && foreignEstimateId
     ? {
         name: "foreign S053 Athena apply",
         route: null,
@@ -83,6 +94,9 @@ const probes = [
         body: { lineItems: [] },
       }
     : null,
+  scenario === "beta_pdf" && foreignProposalId
+    ? { name: "foreign proposal PDF", route: null, apiRoute: `/api/documents/proposals/${foreignProposalId}/pdf`, method: "GET" }
+    : null,
 ].filter(Boolean);
 
 // A configuration that supplies only BETA_FOREIGN_ESTIMATE_ID satisfies the
@@ -90,8 +104,7 @@ const probes = [
 // claim tenant isolation without exercising the real resource path.
 if (probes.length === 0) {
   startupFailure(
-    "No tenant-isolation probe could be constructed. BETA_FOREIGN_ESTIMATE_ID requires BETA_FOREIGN_PROJECT_ID " +
-      "because the estimate browser route is nested under a project. Supply a foreign customer or project id.",
+    "No tenant-isolation probe could be constructed; supply a foreign customer, project, or Estimate id.",
   );
 }
 
@@ -110,11 +123,33 @@ let failure = null;
 try {
   const context = await browser.newContext({ storageState, viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
+  let foreignContext;
+  if (scenario === "beta_pdf") {
+    // Separate in-memory session; never persist or upload the foreign cookies.
+    foreignContext = await browser.newContext();
+    const foreignPage = await foreignContext.newPage();
+    try {
+      await foreignPage.goto(new URL("/login", parsedBaseUrl).href, { waitUntil: "networkidle", timeout: 60_000 });
+      if (new URL(foreignPage.url()).origin !== parsedBaseUrl.origin) throw new Error("Foreign login left the approved RC origin.");
+      await foreignPage.locator('[name="email"]').fill(foreignOwnerEmail);
+      await foreignPage.locator('[name="password"]').fill(foreignOwnerPassword);
+      await foreignPage.getByRole("button", { name: "Sign in" }).click();
+      await foreignPage.waitForURL(url => url.origin === parsedBaseUrl.origin && url.pathname === "/dashboard", { timeout: 60_000 });
+    } catch {
+      // Playwright locator errors can include fill arguments. Never publish
+      // a login failure containing the dedicated foreign account password.
+      throw new Error("Foreign fixture owner login failed; verify the dedicated nonproduction identity.");
+    }
+  }
 
   for (const probe of probes) {
     // Primary security assertion: the authenticated proxy/backend must deny the
     // foreign resource. A successful 2xx here is an actual cross-tenant leak.
-    const apiResponse = await context.request.fetch(new URL(probe.apiRoute, parsedBaseUrl).toString(), {
+    const fixtureProof = probe.name === "foreign proposal PDF"
+      ? await verifyForeignProposalIsolation({ baseUrl: parsedBaseUrl.origin, proposalId: foreignProposalId,
+          expectedOwnerOrgId: foreignOwnerOrgId, smokeRequest: context.request, ownerRequest: foreignContext.request })
+      : null;
+    const apiResponse = fixtureProof ? { status: () => fixtureProof.apiStatus } : await context.request.fetch(new URL(probe.apiRoute, parsedBaseUrl).toString(), {
       method: probe.method ?? "GET",
       ...(probe.body ? { data: probe.body } : {}),
       timeout: 60_000,
@@ -157,6 +192,7 @@ try {
       deniedByRedirect,
       deniedByNotFoundUi,
       passed: deniedByApi,
+      ...(fixtureProof ? { fixtureProof } : {}),
     };
     results.push(result);
 
@@ -172,6 +208,7 @@ try {
     throw new Error("Tenant isolation executed no probes; refusing to report PASS.");
   }
 
+  if (foreignContext) await foreignContext.close();
   await context.close();
 } catch (error) {
   failure = error;
@@ -181,6 +218,7 @@ try {
     path.join(outDir, "tenant-isolation-report.json"),
     `${JSON.stringify(
       {
+        runId: process.env.BETA_RUN_ID ?? null,
         generatedAt: new Date().toISOString(),
         baseUrl: parsedBaseUrl.origin,
         probes: results,

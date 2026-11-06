@@ -30,9 +30,14 @@ export class InvoicesService {
     if (!project) throw new ApiError(404, `Project ${input.projectId} not found`);
 
     const type = input.type ?? "full";
-    if (type === "progress" && (input.percentComplete == null || input.percentComplete <= 0 || input.percentComplete > 100)) {
+    if (
+      type === "progress" &&
+      (input.percentComplete == null || !Number.isFinite(input.percentComplete) || input.percentComplete <= 0 || input.percentComplete > 100)
+    ) {
       throw new ApiError(400, "percentComplete (0-100] is required for progress invoices");
     }
+    assertFiniteLineItems(input.lineItems);
+    const dueDate = toValidDueDate(input.dueDate);
 
     const pricingProposal = await this.resolvePricingProposal(input);
     const pricing = await this.resolveLineItems(input, type, pricingProposal?.finalPrice);
@@ -57,7 +62,7 @@ export class InvoicesService {
         subtotal,
         taxPct: pricing.taxPct,
         taxAmount,
-        dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
+        dueDate,
         lineItems: {
           create: lineItems.map((li, index) => ({
             description: li.description,
@@ -112,6 +117,7 @@ export class InvoicesService {
       }
       if (newLines.length === 0) throw new ApiError(400, "Invoice requires at least one line item");
     }
+    assertFiniteLineItems(newLines);
 
     const previousAmount = Number(row.amount);
     let amount = previousAmount;
@@ -145,7 +151,7 @@ export class InvoicesService {
       data.taxPct = taxPct;
       data.taxAmount = taxAmount;
     }
-    if (input.dueDate !== undefined) data.dueDate = input.dueDate ? new Date(input.dueDate) : null;
+    if (input.dueDate !== undefined) data.dueDate = toValidDueDate(input.dueDate) ?? null;
     if (Object.keys(data).length > 0) {
       await prisma.invoice.update({ where: { id: row.id }, data });
     }
@@ -401,6 +407,7 @@ export class InvoicesService {
     assertInvoiceWriteAccess(actorRole);
     const row = await this.findOrThrow(id, orgId);
     if (row.status === "paid") throw new ApiError(409, `Invoice ${id} has already been paid and cannot be voided`);
+    if (row.status === "void") throw new ApiError(409, `Invoice ${id} has already been voided`);
     const updated = await prisma.invoice.update({ where: { id }, data: { status: "void" } });
     await this.recordDeliveryEvent({
       orgId: orgId ?? row.project.orgId ?? undefined,
@@ -564,6 +571,34 @@ interface InvoicePricing {
 
 function roundCurrency(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+// The HTTP controller's zod schemas reject NaN, but the service is also
+// called in-process (tests, future Athena tools), where a NaN percentComplete
+// or line quantity would otherwise pass every comparison (`NaN <= 0` and
+// `NaN > 100` are both false) and persist NaN amounts — Postgres `numeric`
+// accepts NaN, so the corrupt row would poison all downstream math.
+function assertFiniteLineItems(lineItems: InvoiceLineItemInput[] | undefined): void {
+  if (!lineItems) return;
+  for (const lineItem of lineItems) {
+    if (
+      !Number.isFinite(lineItem.quantity) ||
+      !Number.isFinite(lineItem.unitPrice) ||
+      (lineItem.lineTotal !== undefined && !Number.isFinite(lineItem.lineTotal))
+    ) {
+      throw new ApiError(400, "Invoice line items must have finite quantity, unit price, and line total");
+    }
+  }
+}
+
+// `new Date("garbage")` is Invalid Date, which Prisma rejects with a
+// PrismaClientValidationError that the error handler maps to a generic 500.
+// Reject unparseable due dates here so callers get a 400 instead.
+function toValidDueDate(value: string | null | undefined): Date | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new ApiError(400, "dueDate must be a valid date");
+  return date;
 }
 
 function roundUnitCost(value: number): number {
