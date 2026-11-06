@@ -153,6 +153,8 @@ describe("Resend delivery journal", () => {
     // wiring mistake can never turn an unverified payload into a write.
     const malformed = [
       verifiedEvent({ svixId: "" }),
+      verifiedEvent({ createdAt: "not-a-date" }),
+      verifiedEvent({ createdAt: "x".repeat(65) }),
       verifiedEvent({ type: "not an event type!" }),
       verifiedEvent({ data: "email.delivered" as unknown as Record<string, unknown> }),
       verifiedEvent({ rawPayload: Buffer.alloc(0) }),

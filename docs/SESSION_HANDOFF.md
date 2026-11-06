@@ -12,6 +12,15 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## GitHub issue queue — #927 existing PR #931
+
+- User requested working through GitHub issues. PR #933 is merged as `b3a16b58`; 12 open issues and existing PRs were reconciled. EXISTING_WORK_FOUND for #927 in draft PR #931; use `/workspace/TradeOS-email`, branch `feat/resend-delivery-journal-927`, original head `e517a84376f2f4bf7eebb8319247e4881bdcb791`. Current main was merged normally to preserve the original lane, without force push.
+- Reproduced out-of-order delivery-status regression in three actual PostgreSQL adapter tests: delivered was replaced by delayed sent/bounce callbacks, including concurrent timezone-offset events. Repair locks known-message rows, validates/normalizes occurrence dates, and prevents older known events from replacing current status. All events and suppression candidates are retained. No schema/RLS, pool, sender, credentials, webhook registration or deployment changes.
+- Suspected shared-pool deadlock was not established on normal auth routes (delivery is scheduled after response), so no pool architecture change was made.
+- Disposable PostgreSQL 16 container `tradeos-issue927-db`, loopback port 55433, hosts only synthetic test data. Tracked migrations and restricted app-role provisioning were rehearsed there; local psql compatibility wrapper is outside the repo. No staging/production database was touched.
+- Verification: 332 backend suites / 3,054 unit tests / one snapshot; 26 PostgreSQL suites / 196 integration tests; 265 repository tests; 40 documentation tests; typecheck/lint and production build all passed. All 71 tracked migrations plus restricted-role provisioning succeeded on the disposable database. Catalog model/browse tests: 12 passed. #872 was reverified live and its title/status updated; four already-merged #518 checklist items were reconciled without closing either issue.
+- #927 remains open until ingress integration, protected staging and signed end-to-end callback acceptance pass. #925/#759/#811 need environment evidence; #719/#735/#711 need provider/operator gates; #910 retains existing Forge lanes; #870 needs deployed logo acceptance; #518/#606 are multi-slice tracking issues. Do not close issues from merged-source claims alone.
+
 ## PR #933 auto-merge follow-through
 
 User requested auto-merge. Existing checks were green, but a new unresolved validator thread showed fixture proof could be detached from the passing denial entry. Reproduced three failures, repaired same-probe PASS plus optional route/status consistency, and added matching/compact-report compatibility coverage. Continue this PR only; no product or deployment change. Enable normal GitHub auto-merge after publishing and resolving the verified repair; never bypass checks or merge a draft.

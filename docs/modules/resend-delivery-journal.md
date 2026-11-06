@@ -128,3 +128,9 @@ proven end to end. Production registration needs separate approval.
 - Stored metadata is intentionally minimal (`eventType`, `createdAt`);
   bounce/complaint reasons are not persisted. The payload digest lets a
   future tool re-verify an event against provider records.
+
+## Provider event ordering — issue #927 repair
+
+Callbacks for an existing provider message take its journal-row lock before inserting the inbox event. Delivery status changes only when no later known delivery event is already recorded, using provider occurrence time rather than callback arrival time. Incoming dates must be parseable and bounded; stored `createdAt` is normalized to UTC. Equal occurrence times retain arrival-order behavior. Unknown event types do not advance delivery state. Every unique event is retained and bounce/complaint candidates remain sticky even when their occurrence predates the current status. No new column, migration or RLS policy is required.
+
+`app/tests/resend.delivery-journal.integration.ts` exercises the actual restricted-role SQL adapter against disposable PostgreSQL: stale sent/bounce events, concurrent offset timestamps, genuine progression, unknown events and duplicate delivery. The prior adapter failed all three initial ordering cases; the repair passes them. This is local database evidence, not protected staging or webhook-activation acceptance.

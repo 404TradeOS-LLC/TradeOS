@@ -1165,3 +1165,5 @@ This API is proposed on an unmerged branch, not yet available on production.
 a new Job if the accepted proposal's `scopeOfWork` is null, empty or whitespace.
 It never fills missing accepted scope from the current Project. An existing
 source-linked Job is still returned on retry, without creating another Job.
+
+Resend delivery journal (draft PR #931): internal verified-event processing now validates/normalizes provider occurrence timestamps and prevents older callbacks from overwriting newer delivery status. This creates no public endpoint and does not activate the separate #923 webhook pilot.
