@@ -88,6 +88,23 @@ for (const [name, mutate, expected] of [
     finally { await fs.rm(f.dir, { recursive: true, force: true }); }
   });
 }
+for (const [name, mutate, expected] of [
+  ["matching denial route and status", probe => { probe.apiRoute = `/api/documents/proposals/${proposalId}/pdf`; probe.apiStatus = 404; }, 0],
+  ["mismatched denial route", probe => { probe.apiRoute = "/api/documents/proposals/22222222-2222-4222-8222-222222222222/pdf"; }, 1],
+  ["mismatched denial status", probe => { probe.apiStatus = 403; }, 1],
+  ["proof and PASS split between probes", (probe, probes) => { probe.passed = false; probes.push({ name: probe.name, passed: true }); }, 1],
+]) {
+  test(`PDF fixture proof binding: ${name}`, async () => {
+    const f = await fixture();
+    try {
+      const report = JSON.parse(await fs.readFile(path.join(f.dir, "tenant-isolation-report.json")));
+      mutate(report.probes.find(probe => probe.name === "foreign proposal PDF"), report.probes);
+      await f.write("tenant-isolation-report.json", report);
+      const result = validate(f.dir);
+      assert.equal(result.status, expected, result.stdout + result.stderr);
+    } finally { await fs.rm(f.dir, { recursive: true, force: true }); }
+  });
+}
 test("one viewport is PARTIAL, never release PASS", async () => {
   const f = await fixture();
   try {

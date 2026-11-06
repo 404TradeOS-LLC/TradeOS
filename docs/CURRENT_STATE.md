@@ -1837,3 +1837,5 @@ Staging /forgot-password returned "We couldn't process that request. Please try 
 ## PR #933 review repair — foreign Proposal proof
 
 The PDF isolation check now requires an authenticated dedicated owner/admin in a pinned distinct synthetic organization and successful exact Proposal reads surrounding the smoke-account denial. Missing or deleted records cannot certify isolation from a 404. The evidence validator requires the ownership proof, workflow preflight/full checks include the new fixture credentials, and the cohort runbook explicitly requires retained PDF renderer results for the release SHA. This is evidence tooling only; live staging acceptance remains unverified.
+
+PR #933 follow-up: fixture proof must belong to the same passing foreign-PDF probe; when route/status fields are present, they must match that proof’s Proposal ID and HTTP status. Legacy compact reports may omit those fields. Split proof/PASS entries and mismatched routes/statuses fail validation.

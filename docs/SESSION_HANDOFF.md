@@ -12,6 +12,10 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## PR #933 auto-merge follow-through
+
+User requested auto-merge. Existing checks were green, but a new unresolved validator thread showed fixture proof could be detached from the passing denial entry. Reproduced three failures, repaired same-probe PASS plus optional route/status consistency, and added matching/compact-report compatibility coverage. Continue this PR only; no product or deployment change. Enable normal GitHub auto-merge after publishing and resolving the verified repair; never bypass checks or merge a draft.
+
 ## PR #933 findings repair — current bounded mission
 
 - EXISTING_WORK_FOUND: continue clean branch/worktree `feat/invited-beta-pdf-evidence` at `/workspace/TradeOS-beta`; original PR head `300b30bf831297b21845c717844ef19c3467c767`, main `376a089b57a21e9c39d3eb0172411f95b9ff7380`. Live PR identity and remote fetch verified. User explicitly requested fixing both reviewed findings.

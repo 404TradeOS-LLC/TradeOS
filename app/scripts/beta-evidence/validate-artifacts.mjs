@@ -112,9 +112,12 @@ if (scenario === "beta_pdf") {
   for (const name of ["foreign customer", "foreign project", "foreign estimate", "foreign proposal PDF"]) {
     if (!(isolation?.probes ?? []).some((probe) => probe.name === name && probe.passed === true)) scenarioFailures.push(`missing tenant denial: ${name}`);
   }
-  const proof = isolation?.probes?.find(probe => probe.name === "foreign proposal PDF")?.fixtureProof;
+  const pdfProbe = isolation?.probes?.find(probe => probe.name === "foreign proposal PDF");
+  const proof = pdfProbe?.fixtureProof;
   const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
-  if (proof?.fixtureVerified !== true || proof?.passed !== true ||
+  if (pdfProbe?.passed !== true || proof?.fixtureVerified !== true || proof?.passed !== true ||
+      (pdfProbe?.apiRoute !== undefined && pdfProbe.apiRoute !== `/api/documents/proposals/${proof?.proposalId}/pdf`) ||
+      (pdfProbe?.apiStatus !== undefined && pdfProbe.apiStatus !== proof?.apiStatus) ||
       !uuid.test(proof?.proposalId ?? "") || !uuid.test(proof?.smokeOrgId ?? "") || !uuid.test(proof?.ownerOrgId ?? "") ||
       proof.ownerOrgId.toLowerCase() === proof.smokeOrgId.toLowerCase() || ![403, 404].includes(proof?.apiStatus)) {
     scenarioFailures.push("foreign Proposal fixture existence and distinct tenant ownership were not proven");
