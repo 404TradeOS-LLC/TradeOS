@@ -70,7 +70,7 @@ export async function createDraft(input, {
     throw Error("Issue lacks forge:ready label");
   }
   if (String(issue.body ?? "").length > 12000) throw Error("Issue body truncated; refuse draft");
-  const closing = new RegExp("\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\\s+#" + plan.issueNumber + "\\b", "i");
+  const closing = new RegExp("\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\\s+(?:" + REPO + ")?#" + plan.issueNumber + "\\b", "i");
   if (prs.some((x) => x.head?.ref === plan.branch || closing.test(x.body ?? ""))) {
     throw Error("Overlapping open PR detected");
   }
@@ -122,7 +122,7 @@ export async function createDraft(input, {
   const findBranchPr = async () => {
     const matches = await api("/pulls?head=" + REPO.split("/")[0] + ":" + plan.branch + "&state=open&per_page=100");
     if (!Array.isArray(matches) || matches.length === 100) throw Error("Incomplete branch PR inventory");
-    return matches.find((x) => x.head?.sha === commit.sha && x.head?.ref === plan.branch && x.draft === true);
+    return matches.find((x) => x.head?.sha === commit.sha && x.head?.ref === plan.branch && x.base?.ref === "main" && x.draft === true);
   };
   let pr;
   try {
@@ -154,19 +154,7 @@ export async function createDraft(input, {
     try { matching = await findBranchPr(); } catch { /* preserve original error */ }
     if (matching) pr = matching;
     else {
-      // Only a definitive HTTP rejection permits cleanup. Ambiguous failures
-      // leave the branch untouched for manual reconciliation.
-      if (Number.isInteger(error.status) && error.status >= 400 && error.status < 500 &&
-          ![408, 409, 429].includes(error.status)) {
-        try {
-          const branch = await api(branchPath);
-          if (branch?.object?.sha === commit.sha) {
-            const open = await api("/pulls?head=" + REPO.split("/")[0] + ":" + plan.branch + "&state=open&per_page=100");
-            if (Array.isArray(open) && open.length === 0) await api("/git/refs/heads/" + plan.branch, { method: "DELETE" });
-          }
-        } catch { /* cleanup must not mask the original failure */ }
-      }
-      throw error;
+      // Never delete a branch after publication failure: another request may have\n      // opened a PR between the inventory read and deletion. Preserve for review.\n      throw error;
     }
   }
   if (!pr.draft || !Number.isSafeInteger(pr.number) ||
