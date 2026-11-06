@@ -1885,3 +1885,5 @@ No invoice lifecycle, payment, or sending behavior changes.
 This code/contract update is **not** evidence of a deployed staging retest.
 The producer → accepted proposal → job → draft invoice browser path requires a
 fresh authenticated nonproduction acceptance run after deployment.
+
+PR #931 / issue #927: provider-time delivery-status ordering is repaired in the existing draft branch. Known-message callbacks lock the journal row; older callbacks cannot replace newer status, while append-only events and sticky suppression candidates are preserved. Bounded parseable provider dates normalize to UTC. No schema/RLS change; tests use disposable PostgreSQL only. Route integration, protected staging application and signed callback proof remain open.

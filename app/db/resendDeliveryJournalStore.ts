@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { basePrisma } from "./client";
 import { getDatabaseTransactionMaxWait } from "./requestSession";
-import type { DeliveryJournalStore } from "../modules/email/deliveryJournal";
+import { KNOWN_RESEND_DELIVERY_EVENTS, type DeliveryJournalStore } from "../modules/email/deliveryJournal";
 
 /**
  * Durable Prisma adapter for the Resend delivery journal (issue #927).
@@ -69,6 +69,17 @@ export function createPrismaResendDeliveryJournalStore(
             Prisma.sql`select set_config('app.resend_webhook', 'true', true)`,
           );
 
+          // Serialize known-message callbacks before inserting their inbox
+          // rows. A later transaction then sees the earlier committed event
+          // when choosing the current status, regardless of arrival order.
+          if (input.providerMessageId) {
+            await transaction.$queryRaw(Prisma.sql`
+              select provider_message_id from email_delivery_messages
+              where provider_message_id = ${input.providerMessageId}
+              for update
+            `);
+          }
+
           // Org attribution is resolved here, inside the database, from the
           // outbound journal row — never from caller-supplied or
           // payload-supplied org claims.
@@ -123,7 +134,12 @@ export function createPrismaResendDeliveryJournalStore(
               const updated = await transaction.$executeRaw(
                 Prisma.sql`
                   update email_delivery_messages
-                  set status = ${input.nextStatus},
+                  set status = case when not exists (
+                      select 1 from email_delivery_events
+                      where provider_message_id = ${input.providerMessageId}
+                        and event_type in (${Prisma.join([...KNOWN_RESEND_DELIVERY_EVENTS])})
+                        and (metadata ->> 'createdAt')::timestamptz > ${input.metadata.createdAt as string}::timestamptz
+                    ) then ${input.nextStatus} else status end,
                     suppression_candidate = suppression_candidate or ${input.markSuppressionCandidate},
                     updated_at = now()
                   where provider_message_id = ${input.providerMessageId}

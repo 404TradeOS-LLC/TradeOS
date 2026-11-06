@@ -189,7 +189,7 @@ export async function processVerifiedResendDeliveryEvent(
   const payloadDigest = hashPayload(event.rawPayload);
   // Allowlisted metadata only. Never copy payload fields (org claims,
   // recipient addresses, bounce reasons, raw data) into the stored row.
-  const metadata = { eventType: event.type, createdAt: event.createdAt };
+  const metadata = { eventType: event.type, createdAt: new Date(event.createdAt).toISOString() };
   const known = KNOWN_EVENT_TYPES.has(event.type);
   const nextStatus = known ? DELIVERY_STATUS_BY_EVENT[event.type as KnownResendDeliveryEventType] : null;
 
@@ -232,6 +232,8 @@ function isValidVerifiedEvent(event: VerifiedResendDeliveryEvent): boolean {
     EVENT_TYPE_PATTERN.test(event.type) &&
     typeof event.createdAt === "string" &&
     event.createdAt.length >= 1 &&
+    event.createdAt.length <= 64 &&
+    Number.isFinite(Date.parse(event.createdAt)) &&
     Boolean(event.data) &&
     typeof event.data === "object" &&
     !Array.isArray(event.data) &&
