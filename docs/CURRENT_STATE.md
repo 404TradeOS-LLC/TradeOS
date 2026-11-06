@@ -81,6 +81,10 @@ The opt-in S053 Beta Evidence run now joins Apply acknowledgements to the retain
 
 # TradeOS Current State
 
+## Invited PDF beta evidence — local candidate, 2026-11-06
+
+Founder selected a free 1–3-business beta ending at contractor-delivered Proposal PDFs with reviewed AI assist included. A local `beta_pdf` scenario extends the existing evidence runner without changing application APIs, schema, permissions, pricing or existing scenario defaults. It adds authenticated PDF transport/receipt retention, Proposal reload checks and foreign PDF denial, and requires exact SHA/current-run artifacts. S053 assertion-name drift is repaired. This is unmerged source, not deployed acceptance. Clarification persistence, documented deck/Estimate→Proposal discrepancies, environment/RLS/recovery proof and onboarding gates remain HOLD in [the beta runbook](operations/INVITED_BETA.md).
+
 ## Estimate Apply saved-line identity — implementation branch, 2026-11-04
 
 The rebased `feat/figma-to-code-completion` slice extends structured Apply idempotency acknowledgements with the matched saved-line ID and reconciles acknowledged lines through the existing authorized, organization-scoped Estimate detail read before showing Saved & verified. A missing read, missing line or target/quantity/description mismatch remains unconfirmed and preserves the retained request for explicit retry. Review-only skips do not count as saved, and verified saved identity does not certify current pricing evidence. See [AI Estimate Assist](modules/ai-estimate-assist.md#saved-line-identity-reconciliation--2026-10-31). This is pending exact-head CI/review/merge; deployment and full-workflow readiness are unverified.
@@ -1829,3 +1833,9 @@ Brand Studio's four existing Settings-backed brand asset slots now accept a loca
 ### Staging password-reset request failures now return truthful errors — 2026-11-03 (PR pending)
 
 Staging /forgot-password returned "We couldn't process that request. Please try again." for every submit (reproduced in-browser 2026-10-31) with no reset email arriving, while the server log captured only the provider message. The request action collapsed every Supabase failure into that one generic message, and its redirect URL carried a `?next=/reset-password` query the /auth/confirm route does not need (it defaults `next` to /reset-password and only allows that path). The fix: the recovery redirect is now the bare /auth/confirm path, the server log records the provider status and code, and the client message is classified — rate-limit failures say to wait and retry, redirect/allowlist failures say recovery is misconfigured for the deployment, and anything else keeps the previous generic message. No message confirms whether an address has an account, and no provider error text is echoed to the client. Staging follow-up (not proven locally): confirm the staging Supabase project's Auth redirect allowlist contains the staging web origin, redeploy, and submit a live reset for the staging test account.
+
+## PR #933 review repair — foreign Proposal proof
+
+The PDF isolation check now requires an authenticated dedicated owner/admin in a pinned distinct synthetic organization and successful exact Proposal reads surrounding the smoke-account denial. Missing or deleted records cannot certify isolation from a 404. The evidence validator requires the ownership proof, workflow preflight/full checks include the new fixture credentials, and the cohort runbook explicitly requires retained PDF renderer results for the release SHA. This is evidence tooling only; live staging acceptance remains unverified.
+
+PR #933 follow-up: fixture proof must belong to the same passing foreign-PDF probe; when route/status fields are present, they must match that proof’s Proposal ID and HTTP status. Legacy compact reports may omit those fields. Split proof/PASS entries and mismatched routes/statuses fail validation.

@@ -54,6 +54,10 @@ related_code:
 
 # TradeOS Documentation
 
+## Invited beta readiness
+
+[Invited beta operations](operations/INVITED_BETA.md) records the founder-approved free 1–3-business Estimate→Proposal/PDF scope, remaining blockers, evidence procedure, onboarding and stop criteria. The existing [Beta Evidence](testing/BETA_EVIDENCE.md) workflow gains an opt-in `beta_pdf` scenario; it is source support, not release approval or a passed deployed run.
+
 ## Proposed staging Job migration runner — PR #810 dependency
 
 The proposed `.github/workflows/staging-job-handoff-migration.yml` installs a
@@ -454,3 +458,7 @@ Before FORCE, `20261030004500_team_time_foundation` and `20261030005500_team_tim
 For the live staging migration inventory, checksums, required approvals, commands, postflight checks, and recovery procedure, see [Protected staging Expense migrations](operations/staging-expenses-migrations.md). The manually dispatched main-only `.github/workflows/staging-expenses-migration.yml` uses `scripts/staging-expenses-migration.mjs` and its regression tests to reconcile the already-applied PR #810 Job handoff with the three pinned Issue #885 Expense SQL files.
 
 **Preflight is read-only**; apply requires exact-source-SHA approval, the protected staging reviewer and typed confirmation, followed by verified RLS/ledger postflight. It is not a substitute for matching API/web staging deployment, authenticated tenant/receipt acceptance, independent feature review, or production release approval. The broad `deploy-staging-migrations.yml` must not be used to bypass this mismatch.
+
+## PDF beta review repair
+
+The [Beta Evidence reference](testing/BETA_EVIDENCE.md) now documents dedicated foreign-owner synthetic fixtures and verified Proposal existence before accepting PDF denial. The [cohort runbook](operations/INVITED_BETA.md) requires exact-release PDF renderer results as well as visual acceptance. These source changes do not provision accounts or authorize release.
