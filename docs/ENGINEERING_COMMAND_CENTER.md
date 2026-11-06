@@ -43,6 +43,10 @@ related_code:
 
 # TradeOS Engineering Command Center
 
+## Invited beta mission — 2026-11-06
+
+Founder-approved first cohort is 1–3 businesses, free, real work, readiness-gated: Customer → Project → manual/reviewed-AI Estimate → Proposal → contractor-delivered PDF. [Invited beta operations](operations/INVITED_BETA.md) owns the gate register and onboarding/incident sequence. The candidate `beta_pdf` scenario reuses Beta Evidence, exact SHA guards and four widths without requiring contract/invoice execution. Existing full-release sprint gates are unchanged; clarification, disputed pricing, shared security/environment parity and actual recovery remain blockers. Source checks do not certify launch.
+
 ## PR #810 staging dependency — proposed protected runner, 2026-10-30
 
 Main-only apply cannot consume the draft feature migration. A separate
@@ -495,3 +499,7 @@ The Expense migration release is **not** the regular broad staging migration dis
 The new main-only manual `.github/workflows/staging-expenses-migration.yml` and `scripts/staging-expenses-migration.mjs` provide an intentionally narrow, protected path for **only three pinned Expense SQL files**. Its `preflight` is read-only; `apply` requires a passing exact-source-SHA preflight, the staging Environment reviewer, exact protected `STAGING_EXPENSES_APPROVED_SHA`, and explicit `APPLY_STAGING_EXPENSES` confirmation. It runs reviewed SQL with trusted main Prisma tooling, never source-branch code or production credentials, and shares the existing staging migration concurrency group. It rejects unknown ledger entries, checksum drift, partial Expense schema, weak RLS, and unrelated pending migrations. Do not stamp or repair migration history by hand.
 
 **Sequence:** independent infrastructure PR review/merge → reviewer-approved protected preflight → separate approved staging apply → postflight proving exact inventory, forced Expense/event RLS and append-only audit → matching staging API-first/web runtime identity → authenticated owner/technician, cross-tenant and receipt browser acceptance → final feature PR review/merge. This runner does not authorize merging PR #891 or production migration. Full operator instructions: [Protected staging Expense migrations](operations/staging-expenses-migrations.md).
+
+## PR #933 review repairs
+
+Keep the existing PR/branch for the PDF beta evidence lane. Its foreign Proposal probe must prove owner/admin access in a pinned separate synthetic tenant before and after the smoke-account denial; absent proof remains FAIL. Dedicated foreign-owner secrets are prerequisites, not provisioned by this source repair. Exact-release PDF renderer CI results must be retained before the cohort decision. No product authorization, schema, migration, deployment or release state changes.

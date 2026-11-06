@@ -74,7 +74,16 @@ related_code:
 The opt-in S053 Beta Evidence run now joins Apply acknowledgements to the retained review payload and authenticated organization-scoped Estimate read, requires visible verified saved-line rows, hard-reloads the builder, and checks exact acknowledged IDs, descriptions, persisted quantities and reviewed target links. The separate tenant-isolation lane requires foreign Estimate detail GET to return 403/404; S053 continues to require foreign Athena draft/apply denials. Source checks do not equal a successful deployed run: exact deployment SHA, approved non-production tenant, synthetic identity and protected operator-dispatched `mode=full` evidence remain required. No RLS or permission policy changed.
 
 
+## Invoice finite-value and void guards — 2026-11-05
+
+`InvoicesService` now rejects non-finite invoice inputs at the service layer: a progress invoice requires a finite `percentComplete` in (0, 100], manual line items require finite `quantity`, `unitPrice`, and `lineTotal`, and `dueDate` must parse as a valid date (400, not 500). The HTTP controller already rejected non-numeric strings; the service guard closes the in-process path, where NaN passes every range comparison and Postgres `numeric` would persist it. Voiding an already-void invoice now returns 409 instead of recording a duplicate void event. Project create/update also reject whitespace-only names. This is pending exact-head CI/review/merge; no schema, RLS, or permission policy changed (the `jobs_select_policy` RLS test comment was corrected to admin/owner-or-active-assignee only — comment-only, dispatcher was never in the SELECT policy).
+
+
 # TradeOS Current State
+
+## Invited PDF beta evidence — local candidate, 2026-11-06
+
+Founder selected a free 1–3-business beta ending at contractor-delivered Proposal PDFs with reviewed AI assist included. A local `beta_pdf` scenario extends the existing evidence runner without changing application APIs, schema, permissions, pricing or existing scenario defaults. It adds authenticated PDF transport/receipt retention, Proposal reload checks and foreign PDF denial, and requires exact SHA/current-run artifacts. S053 assertion-name drift is repaired. This is unmerged source, not deployed acceptance. Clarification persistence, documented deck/Estimate→Proposal discrepancies, environment/RLS/recovery proof and onboarding gates remain HOLD in [the beta runbook](operations/INVITED_BETA.md).
 
 ## Estimate Apply saved-line identity — implementation branch, 2026-11-04
 
@@ -1828,3 +1837,9 @@ Brand Studio's four existing Settings-backed brand asset slots now accept a loca
 ### Staging password-reset request failures now return truthful errors — 2026-11-03 (PR pending)
 
 Staging /forgot-password returned "We couldn't process that request. Please try again." for every submit (reproduced in-browser 2026-10-31) with no reset email arriving, while the server log captured only the provider message. The request action collapsed every Supabase failure into that one generic message, and its redirect URL carried a `?next=/reset-password` query the /auth/confirm route does not need (it defaults `next` to /reset-password and only allows that path). The fix: the recovery redirect is now the bare /auth/confirm path, the server log records the provider status and code, and the client message is classified — rate-limit failures say to wait and retry, redirect/allowlist failures say recovery is misconfigured for the deployment, and anything else keeps the previous generic message. No message confirms whether an address has an account, and no provider error text is echoed to the client. Staging follow-up (not proven locally): confirm the staging Supabase project's Auth redirect allowlist contains the staging web origin, redeploy, and submit a live reset for the staging test account.
+
+## PR #933 review repair — foreign Proposal proof
+
+The PDF isolation check now requires an authenticated dedicated owner/admin in a pinned distinct synthetic organization and successful exact Proposal reads surrounding the smoke-account denial. Missing or deleted records cannot certify isolation from a 404. The evidence validator requires the ownership proof, workflow preflight/full checks include the new fixture credentials, and the cohort runbook explicitly requires retained PDF renderer results for the release SHA. This is evidence tooling only; live staging acceptance remains unverified.
+
+PR #933 follow-up: fixture proof must belong to the same passing foreign-PDF probe; when route/status fields are present, they must match that proof’s Proposal ID and HTTP status. Legacy compact reports may omit those fields. Split proof/PASS entries and mismatched routes/statuses fail validation.

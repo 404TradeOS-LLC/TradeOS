@@ -6,6 +6,7 @@
 // so each viewport renders in a genuinely separate browser context. Desktop
 // screenshots are never resized to fake a smaller viewport.
 
+import { verifyProposalPdfDownload } from "./lib/proposal-pdf.mjs";
 import { openEstimateCustomEntry } from "./lib/estimate-entry.mjs";
 import { waitForEstimateTotal } from "./lib/estimate-total-poll.mjs";
 import { createdCustomerIdFromUrl } from "./lib/customer-detail-url.mjs";
@@ -38,7 +39,15 @@ function startupFailure(message) {
 if (!baseUrlInput) startupFailure("BETA_RC_BASE_URL_RESOLVED is required. Run resolve-rc-target.mjs first.");
 if (!storageState) startupFailure("BETA_STORAGE_STATE_PATH is required. Run auth-setup.mjs first.");
 if (!runId) startupFailure("BETA_RUN_ID is required so synthetic records can be correlated with this run.");
-if (!["canonical", "s052", "s053"].includes(scenario)) startupFailure(`BETA_SCENARIO must be canonical, s052, or s053; received "${scenario}".`);
+if (!["canonical", "s052", "s053", "beta_pdf"].includes(scenario)) startupFailure(`BETA_SCENARIO must be canonical, s052, s053, or beta_pdf; received "${scenario}".`);
+if (scenario === "beta_pdf") {
+  for (const name of ["BETA_FOREIGN_OWNER_EMAIL", "BETA_FOREIGN_OWNER_PASSWORD", "BETA_FOREIGN_OWNER_ORG_ID"]) {
+    if (!process.env[name]?.trim()) startupFailure(`${name} is required before beta_pdf capture.`);
+  }
+  for (const name of ["BETA_FOREIGN_CUSTOMER_ID", "BETA_FOREIGN_PROJECT_ID", "BETA_FOREIGN_ESTIMATE_ID", "BETA_FOREIGN_PROPOSAL_ID", "BETA_FOREIGN_OWNER_ORG_ID"]) {
+    if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(process.env[name] ?? "")) startupFailure(`${name} must identify a known foreign resource before beta_pdf capture.`);
+  }
+}
 if (!allowMutations) {
   startupFailure(
     "BETA_ALLOW_MUTATIONS=true is required. The canonical workflow creates records and must never run unintentionally.",
@@ -728,7 +737,7 @@ try {
   const estimateId = /\/estimates\/([^/?]+)/.exec(page.url())?.[1];
   assertBusiness("estimate resolves an id", Boolean(estimateId), `url was ${page.url()}`);
 
-  if (scenario === "s053") {
+  if (scenario === "s053" || scenario === "beta_pdf") {
     await runS053Certification(projectId, estimateId);
     await page.goto(new URL(`/projects/${projectId}/estimates/${estimateId}`, parsedBaseUrl).toString(), {
       waitUntil: "networkidle", timeout: 60_000,
@@ -930,37 +939,53 @@ try {
   );
   await checkpoint("07", "proposal");
 
-  // ---- 08 downstream: contract + invoice --------------------------------
-  await page.getByRole("button", { name: "Send to customer" }).click();
-  await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/${proposalId}$`), { timeout: 60_000 });
-  await page.getByRole("button", { name: "Mark accepted" }).click();
-  await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/${proposalId}$`), { timeout: 60_000 });
-  await page.getByRole("button", { name: "Create contract" }).click();
-  await page.waitForURL(new RegExp(`/projects/${projectId}/contracts/[^/]+$`), { timeout: 60_000 });
-  const contractId = /\/contracts\/([^/?]+)/.exec(page.url())?.[1];
-  assertBusiness("contract resolves an id", Boolean(contractId), `url was ${page.url()}`);
+  let contractId = null;
+  let invoiceId = null;
+  if (scenario === "beta_pdf") {
+    const pdfHref = await page.getByRole("link", { name: "Download PDF", exact: true }).getAttribute("href");
+    assertBusiness("proposal exposes the saved document download", pdfHref === `/api/documents/proposals/${proposalId}/pdf`);
+    const pdf = await verifyProposalPdfDownload({ request: context.request, baseUrl: parsedBaseUrl.origin, proposalId });
+    await fs.writeFile(path.join(outDir, viewport.name, "proposal.pdf"), pdf.buffer);
+    await fs.writeFile(path.join(outDir, viewport.name, "proposal-pdf.json"), `${JSON.stringify({ runId, proposalId, bytes: pdf.bytes, sha256: pdf.sha256 }, null, 2)}\n`);
+    assertBusiness("proposal PDF downloads through authenticated document route", pdf.bytes > 0);
+    await page.reload({ waitUntil: "networkidle" });
+    const reloadedProposal = await readProposalDetail(proposalId);
+    assertBusiness("proposal financial snapshot survives reload",
+      reloadedProposal.estimateId === estimateId && Number(reloadedProposal.finalPrice) === Number(savedProposal.finalPrice));
+  } else {
+    // ---- 08 downstream: contract + invoice --------------------------------
+    await page.getByRole("button", { name: "Send to customer" }).click();
+    await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/${proposalId}$`), { timeout: 60_000 });
+    await page.getByRole("button", { name: "Mark accepted" }).click();
+    await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/${proposalId}$`), { timeout: 60_000 });
+    await page.getByRole("button", { name: "Create contract" }).click();
+    await page.waitForURL(new RegExp(`/projects/${projectId}/contracts/[^/]+$`), { timeout: 60_000 });
+    contractId = /\/contracts\/([^/?]+)/.exec(page.url())?.[1];
+    assertBusiness("contract resolves an id", Boolean(contractId), `url was ${page.url()}`);
 
-  await page.goto(new URL(`/projects/${projectId}/invoices/new`, parsedBaseUrl).toString(), {
-    waitUntil: "networkidle",
-    timeout: 60_000,
-  });
-  await page.locator("select[name=estimateId]").selectOption(estimateId);
-  await page.getByRole("button", { name: "Create invoice" }).click();
-  await page.waitForURL(new RegExp(`/projects/${projectId}/invoices/[^/]+$`), { timeout: 60_000 });
-  const invoiceId = /\/invoices\/([^/?]+)/.exec(page.url())?.[1];
-  assertBusiness("invoice resolves an id", Boolean(invoiceId), `url was ${page.url()}`);
+    await page.goto(new URL(`/projects/${projectId}/invoices/new`, parsedBaseUrl).toString(), {
+      waitUntil: "networkidle",
+      timeout: 60_000,
+    });
+    await page.locator("select[name=estimateId]").selectOption(estimateId);
+    await page.getByRole("button", { name: "Create invoice" }).click();
+    await page.waitForURL(new RegExp(`/projects/${projectId}/invoices/[^/]+$`), { timeout: 60_000 });
+    invoiceId = /\/invoices\/([^/?]+)/.exec(page.url())?.[1];
+    assertBusiness("invoice resolves an id", Boolean(invoiceId), `url was ${page.url()}`);
 
-  // The invoice must bill the customer-facing sell price, not the direct cost.
-  // The invoice page renders no bare "Total" label, and "Invoice total"
-  // renders twice (financial-summary metric + totals-block row), so the read
-  // must be scoped to the financial summary section to select exactly one.
-  const invoiceTotalText = await page.locator('section[aria-label="Invoice financial summary"]').getByText("Invoice total", { exact: true }).locator("..").innerText();
-  assertBusiness(
-    "invoice bills sell price rather than direct cost",
-    invoiceTotalText.includes("$7,105.07") && !invoiceTotalText.includes("$5,100.00"),
-    `expected the invoice Total row to show the sell price $7,105.07; rendered row was ${invoiceTotalText}`,
-  );
-  await checkpoint("08", "downstream-state", { optional: true });
+    // The invoice must bill the customer-facing sell price, not the direct cost.
+    // The invoice page renders no bare "Total" label, and "Invoice total"
+    // renders twice (financial-summary metric + totals-block row), so the read
+    // must be scoped to the financial summary section to select exactly one.
+    const invoiceTotalText = await page.locator('section[aria-label="Invoice financial summary"]').getByText("Invoice total", { exact: true }).locator("..").innerText();
+    assertBusiness(
+      "invoice bills sell price rather than direct cost",
+      invoiceTotalText.includes("$7,105.07") && !invoiceTotalText.includes("$5,100.00"),
+      `expected the invoice Total row to show the sell price $7,105.07; rendered row was ${invoiceTotalText}`,
+    );
+    await checkpoint("08", "downstream-state", { optional: true });
+
+  }
 
   assertBusiness("no browser console errors were recorded", consoleErrors.length === 0, consoleErrors.slice(0, 3).join(" | "));
   assertBusiness("no network requests failed", failedRequests.length === 0, failedRequests.slice(0, 3).join(" | "));
