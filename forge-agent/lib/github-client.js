@@ -154,7 +154,9 @@ export async function createDraft(input, {
     try { matching = await findBranchPr(); } catch { /* preserve original error */ }
     if (matching) pr = matching;
     else {
-      // Never delete a branch after publication failure: another request may have\n      // opened a PR between the inventory read and deletion. Preserve for review.\n      throw error;
+      // Never delete a branch after publication failure: another request may have
+      // opened a PR between the inventory read and deletion. Preserve for review.
+      throw error;
     }
   }
   if (!pr.draft || !Number.isSafeInteger(pr.number) ||
