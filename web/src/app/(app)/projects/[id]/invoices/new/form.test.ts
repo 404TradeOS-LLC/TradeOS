@@ -46,7 +46,7 @@ test("invoice creation and editing allow typed due dates instead of browser-only
   const here = path.dirname(fileURLToPath(import.meta.url));
   const editForm = fs.readFileSync(path.join(here, "../[invoiceId]/edit/form.tsx"), "utf8");
   for (const source of [newForm, editForm]) {
-    assert.match(source, /name="dueDate" type="text" inputMode="numeric"/);
+    assert.match(source, /name="dueDate" type="text" inputMode="text"/);
     assert.match(source, /MM\/DD\/YYYY or YYYY-MM-DD/);
     assert.doesNotMatch(source, /name="dueDate" type="date"/);
   }
