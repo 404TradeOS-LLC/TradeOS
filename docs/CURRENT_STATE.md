@@ -1839,3 +1839,24 @@ Staging /forgot-password returned "We couldn't process that request. Please try 
 The PDF isolation check now requires an authenticated dedicated owner/admin in a pinned distinct synthetic organization and successful exact Proposal reads surrounding the smoke-account denial. Missing or deleted records cannot certify isolation from a 404. The evidence validator requires the ownership proof, workflow preflight/full checks include the new fixture credentials, and the cohort runbook explicitly requires retained PDF renderer results for the release SHA. This is evidence tooling only; live staging acceptance remains unverified.
 
 PR #933 follow-up: fixture proof must belong to the same passing foreign-PDF probe; when route/status fields are present, they must match that proof’s Proposal ID and HTTP status. Legacy compact reports may omit those fields. Split proof/PASS entries and mismatched routes/statuses fail validation.
+
+## Contractor walkthrough form repairs — 2026-11-06
+
+The six-step synthetic staging walkthrough exposed two form usability defects. The
+project-to-job form previously passed a single full `project.siteAddress`
+string into the Street field and left City/State/ZIP blank. The job form now
+splits only unambiguous comma- or newline-separated US addresses into their
+structured fields; ambiguous free-form values are retained in Street and
+explicitly flagged for human confirmation rather than guessed. Existing
+customer service-address selection and its tenancy/API guards are unchanged.
+
+The new- and edit-invoice Due date controls previously depended on browser-native
+`type=date` interactions that do not accept ordinary keyboard typing reliably
+across clients. Both now accept typed `MM/DD/YYYY` or `YYYY-MM-DD`, normalize
+valid calendar dates to ISO `YYYY-MM-DD` before sending to the backend, reject
+invalid dates in the server action, and preserve blank/clearable due dates.
+No invoice lifecycle, payment, or sending behavior changes.
+
+This code/contract update is **not** evidence of a deployed staging retest.
+The producer → accepted proposal → job → draft invoice browser path requires a
+fresh authenticated nonproduction acceptance run after deployment.
