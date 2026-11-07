@@ -11,6 +11,7 @@ const sendMock = jest.fn();
 const resendMock = jest.fn();
 const markViewedMock = jest.fn();
 const acceptMock = jest.fn();
+const acceptOfflineMock = jest.fn();
 const rejectMock = jest.fn();
 const duplicateMock = jest.fn();
 
@@ -27,6 +28,7 @@ jest.mock("../modules/proposals/service", () => ({
     resend: resendMock,
     markViewed: markViewedMock,
     accept: acceptMock,
+    acceptOffline: acceptOfflineMock,
     reject: rejectMock,
     duplicate: duplicateMock,
   })),
@@ -98,6 +100,35 @@ describe("proposalsController", () => {
     });
     expect(createWithIdempotencyMock).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it("requires manager document permission before recording offline acceptance", async () => {
+    const req = buildRequest("technician");
+    req.body = { channel: "in_person", note: "Customer approved the proposal here.", confirmed: true };
+    await expect(proposalsController.acceptOffline(req, buildResponse())).rejects.toMatchObject({ statusCode: 403 });
+    expect(acceptOfflineMock).not.toHaveBeenCalled();
+  });
+
+  it("validates confirmation, channel, and note then records an actor-scoped offline acceptance", async () => {
+    const req = buildRequest("owner");
+    const res = buildResponse();
+    req.body = { channel: "phone", note: "Customer approved the quoted scope over a recorded call.", confirmed: true };
+    acceptOfflineMock.mockResolvedValue({ id: "proposal-1", status: "accepted" });
+    await proposalsController.acceptOffline(req, res);
+    expect(acceptOfflineMock).toHaveBeenCalledWith("proposal-1", {
+      channel: "phone", note: "Customer approved the quoted scope over a recorded call.",
+    }, "org-1", "user-1");
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ status: "accepted" }));
+
+    for (const badBody of [
+      { channel: "phone", note: "Customer approved the quoted scope over a recorded call.", confirmed: false },
+      { channel: "email", note: "Customer approved the quoted scope over a recorded call.", confirmed: true },
+      { channel: "in_person", note: "", confirmed: true },
+    ]) {
+      req.body = badBody;
+      await expect(proposalsController.acceptOffline(req, res)).rejects.toThrow();
+    }
+    expect(acceptOfflineMock).toHaveBeenCalledTimes(1);
   });
 
   it("rejects technician proposal sends", async () => {
