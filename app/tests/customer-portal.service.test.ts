@@ -217,6 +217,29 @@ describe("CustomerPortalService", () => {
     await expect(service.getInvoice(context, "invoice-a")).rejects.toThrow("not found");
   });
 
+  it("does not expose internal offline acceptance notes in customer-portal proposal responses", async () => {
+    const service = new CustomerPortalService() as any;
+    const staffNote = "Customer called staff privately; internal approval case ID 123";
+    const accepted = {
+      id: "proposal-a", status: "accepted", deliveries: [
+        { id: "event-1", eventType: "proposal.accepted", metadata: {
+          source: "staff_recorded_offline", acceptanceNote: staffNote, acceptanceChannel: "phone",
+        } },
+        { id: "event-2", eventType: "proposal.viewed", metadata: { previousStatus: "sent" } },
+      ],
+    };
+    service.proposals = { getById: jest.fn().mockResolvedValue(accepted) };
+    mockPrisma.proposal.findFirst.mockResolvedValue({ id: "proposal-a", status: "accepted" });
+
+    const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
+    const response = await service.getProposal(context, "proposal-a");
+
+    expect(JSON.stringify(response)).not.toContain(staffNote);
+    expect(response.deliveries[0].metadata).toEqual({ source: "staff_recorded_offline" });
+    expect(response.deliveries[1].metadata).toEqual({ previousStatus: "sent" });
+    expect(accepted.deliveries[0].metadata.acceptanceNote).toBe(staffNote); // keep internal record untouched
+  });
+
   it("denies expired and revoked sessions before loading customer records", async () => {
     mockTransaction.customerPortalSession.findFirst.mockResolvedValue(null);
     await expect(new CustomerPortalService().resolveSession("F".repeat(43))).rejects.toThrow("invalid or expired");
