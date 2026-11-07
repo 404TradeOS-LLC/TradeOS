@@ -748,3 +748,16 @@ Partial migration failures or changed inventory **fail closed** for manual revie
 ## Foreign Proposal isolation proof — PR #933
 
 The existing Beta Evidence workflow gains three `BETA_RC_FOREIGN_OWNER_*` prerequisites (EMAIL, PASSWORD, ORG_ID) for `beta_pdf` only. The foreign identity must be a dedicated synthetic nonproduction owner/admin in the pinned distinct tenant; its session is in memory, never written to artifacts. Successful owner-scoped Proposal reads must surround the smoke PDF denial, and the validator requires that proof rather than accepting a bare 404. Preflight/full gates require the credentials, and credential-handling failures must be redacted. These are evidence inputs only and grant no new product permissions or deployment authority.
+
+## Protected staging parity conflict guard — PR #938 (unreleased)
+
+The source-to-staging parity proposal remains a **draft**. Its reviewed
+base is the current `staging` branch, not production. Resolution must
+preserve the staging-only verified database-pooler project identity checks and
+session-mode read-only Prisma status, together with the newer source's smoke
+organization identity and exact-SHA evidence controls. The workflow's
+`push: staging` trigger may initiate staging infrastructure: a PR branch
+commit is not authorization to merge or deploy. Do not choose blanket
+`ours`/`theirs`, replay applied Job/Expense Prisma migrations, weaken
+tenant/RLS checks or bypass staging approvals. Exact-head CI, reviewed 51-file
+overlap, matching API/web SHA and protected staging gates remain required.
