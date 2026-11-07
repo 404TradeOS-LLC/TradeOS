@@ -238,3 +238,15 @@ offline acceptance journal entries on both proposal detail and project
 summary views; only the source marker is retained for accurate timeline text.
 Internal authorized staff retain the full audit record. This branch is
 unreleased pending exact-head CI, review and protected staging acceptance.
+
+## Internal offline proposal approval versus customer portal projections
+
+The proposed `POST /api/v1/proposals/:id/accept-offline` uses the existing authenticated,
+request-scoped organization tenant and permission boundary; it is not a customer-portal route.
+It records a staff-authorized acceptance in the existing ProposalDelivery/activity journal,
+without creating a send event or an e-signature. The journal is internal evidence: customer
+portal `getProject` and `getProposal` explicitly redact the staff-only acceptance note,
+approval channel, actor user ID, recipient address and any other internal metadata while
+preserving only a harmless `staff_recorded_offline` source marker for a truthful timeline.
+RLS and portal customer/tenant document checks remain mandatory. This is proposed branch
+behavior until protected staging acceptance and merge are complete.
