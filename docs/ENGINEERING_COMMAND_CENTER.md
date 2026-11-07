@@ -503,3 +503,28 @@ The new main-only manual `.github/workflows/staging-expenses-migration.yml` and 
 ## PR #933 review repairs
 
 Keep the existing PR/branch for the PDF beta evidence lane. Its foreign Proposal probe must prove owner/admin access in a pinned separate synthetic tenant before and after the smoke-account denial; absent proof remains FAIL. Dedicated foreign-owner secrets are prerequisites, not provisioned by this source repair. Exact-release PDF renderer CI results must be retained before the cohort decision. No product authorization, schema, migration, deployment or release state changes.
+
+## Draft PR #938 staging parity conflict repair — 2026-11-06
+
+Staging's `_prisma_migrations` has 70 applied entries and 70/70 exact
+`main` SQL SHA-256 checksum matches. The protected Expense preflight
+[42155369898](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/42155369898)
+and apply/postflight
+[42162043042](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/42162043042)
+already completed: do not repeat Job handoff or Expense migration execution.
+The staging Git source still contains 68 migrations versus 70 on `main`,
+and PR #938 is draft and conflicted.
+
+Three-way review of merge base `1829a64b`, staging `a012ad01`, and
+PR source `d5c83c90` found 73 common identical changed files, 51
+divergent changed files, 145 source-only changed files and zero staging-only
+file paths. The draft PR branch has two **test-first** conflict repairs:
+Project-save acceptance retains both list and direct workspace navigation
+without treating `/projects/new` as success; the staging orchestrator retains
+strict canonical direct/pooler identity and session-mode Prisma migrate
+status while preserving current smoke tenant wiring. These are **source
+changes**, not tested staging runtime or deployment evidence. Full merge
+resolution, exact-head CI, security review and protected staging runtime
+acceptance remain pending. Six Expense CHECK constraints are intentionally
+`NOT VALID`; 0 existing rows/violations were seen read-only, and any
+historical constraint validation needs separate protected approval.
