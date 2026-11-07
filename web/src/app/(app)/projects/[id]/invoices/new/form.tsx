@@ -154,7 +154,7 @@ export function NewInvoiceForm({ projectId, estimates, proposals }: { projectId:
           )}
           <div className="flex flex-col gap-2">
             <Label htmlFor="dueDate">Due date</Label>
-            <Input id="dueDate" name="dueDate" type="text" inputMode="numeric" autoComplete="off" placeholder="MM/DD/YYYY or YYYY-MM-DD" aria-describedby="dueDate-hint" />
+            <Input id="dueDate" name="dueDate" type="text" inputMode="text" autoComplete="off" placeholder="MM/DD/YYYY or YYYY-MM-DD" aria-describedby="dueDate-hint" />
             <p id="dueDate-hint" className="text-xs text-muted-foreground">Optional. Type MM/DD/YYYY or YYYY-MM-DD.</p>
           </div>
           {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
