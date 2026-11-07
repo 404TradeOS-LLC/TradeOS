@@ -360,6 +360,10 @@ bounded authenticated smoke using the existing Beta smoke identity: fresh
 runtime storage state is created outside the repository, the expected smoke
 organization is verified, and read-only checks cover **Today**, **Customers**,
 **Projects**, **Estimates**, **Proposals**, **Contracts**, and **Invoices**.
+Optional inputs (`estimate_stage_path`, `spec_file`, `use_test_org`) let a
+dispatch target a single estimate spec against a seeded draft route using the
+TEST Org staging test account (`TEST_STAGING_EMAIL`/`TEST_STAGING_PASSWORD`)
+instead of the Beta smoke identity.
 When sanitized records exist, the suite follows their real hrefs to Customer,
 Project, Estimate, Proposal, Contract, and Invoice detail surfaces; otherwise
 it requires truthful empty states. Authenticated trace capture is disabled and

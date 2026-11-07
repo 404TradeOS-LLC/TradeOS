@@ -140,7 +140,11 @@ only the existing `BETA_RC_SMOKE_EMAIL` and `BETA_RC_SMOKE_PASSWORD` GitHub
 secrets inside the prerequisite/authentication steps that need them, verifies
 the configured smoke organization through the existing `auth-setup.mjs`
 contract, writes storage state only under the runner temp directory, and removes
-it before artifact upload. The uploaded evidence may contain the redacted auth
+it before artifact upload. When the `use_test_org` input is set, the same
+prerequisite/authentication steps consume `TEST_STAGING_EMAIL` and
+`TEST_STAGING_PASSWORD` instead, and `estimate_stage_path` plus `spec_file` can
+target a single estimate spec (for example the §19 stage-navigation spec)
+against a seeded draft route. The uploaded evidence may contain the redacted auth
 bootstrap report, but never the session file or an authenticated Playwright
 trace.
 

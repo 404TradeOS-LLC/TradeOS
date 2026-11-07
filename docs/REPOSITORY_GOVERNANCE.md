@@ -598,7 +598,11 @@ against a validated non-production TradeOS Preview/Staging origin with explicit
 sanitized-tenant confirmation. The default authenticated mode reuses only the
 existing Beta smoke identity, verifies the expected smoke organization through
 the established runtime-auth bootstrap, stores browser session state under the
-runner temp directory, and removes that state before artifact upload.
+runner temp directory, and removes that state before artifact upload. Optional
+inputs (`estimate_stage_path`, `spec_file`, `use_test_org`) let a dispatch run
+a single estimate spec against a seeded draft route as the TEST Org staging
+test account (`TEST_STAGING_EMAIL`/`TEST_STAGING_PASSWORD`) instead of the Beta
+smoke identity.
 
 Authenticated checks in this lane are intentionally read-only: they verify the
 canonical **Today**, **Customers**, **Projects**, **Estimates**, **Proposals**,
