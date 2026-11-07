@@ -137,7 +137,7 @@ GETs therefore cannot spend the invitation.
 
 The authenticated internal Proposal DTO may include a staff-supplied note recording an
 in-person/phone/signed-copy approval. Customer-portal project summaries and proposal
-detail redact **all private metadata** on events tagged
+detail redact **all private metadata and internal actor/recipient identifiers** on events tagged
 `source: staff_recorded_offline`, retaining only the source marker needed to
 show the correct timeline label. The internal journal remains intact for
 authorized staff; the portal neither displays the staff note nor implies that
