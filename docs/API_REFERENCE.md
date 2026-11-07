@@ -1198,3 +1198,16 @@ Refresh rotation records the replacement refresh-row UUID in `replaced_by_id`, w
 ### Administrative member upsert
 
 `POST /api/v1/admin/organizations/:id/members` retains its existing request and response shapes. The service verifies the active administrator membership before provisioning a new application user under forced RLS. Adding an existing identity from another organization attaches a membership without changing its global email, name or active flag. User/membership/audit writes are atomic; denied actor or organization checks do not enable provisioning. See [the shared administrative provisioning boundary](ARCHITECTURE.md#administrative-membership-provisioning-boundary).
+## Staff-recorded offline acceptance — proposed
+
+`POST /api/v1/proposals/:id/accept-offline`: authenticated
+`documents.manage` only. JSON body: `{"channel":"in_person",
+"note":"Customer approved the final scope and price on site.",
+"confirmed":true}` (method alternatives: `phone`, `signed_document`).
+Rejects missing confirmation/invalid method or 10–500-character note (400);
+insufficient role (403); non-draft/missing final approved written scope or
+positive final price, concurrent status transition (409); tenant mismatches
+fail closed through authenticated org scope and forced RLS. Successful 200
+returns the accepted proposal; no outgoing email and no `sentAt` mutation.
+This is an internal staff record, **not** an e-signature or customer portal
+assertion.
