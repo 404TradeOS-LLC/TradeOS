@@ -1163,3 +1163,17 @@ This API is proposed on an unmerged branch, not yet available on production.
 a new Job if the accepted proposal's `scopeOfWork` is null, empty or whitespace.
 It never fills missing accepted scope from the current Project. An existing
 source-linked Job is still returned on retry, without creating another Job.
+
+## Staff-recorded offline acceptance — proposed
+
+`POST /api/v1/proposals/:id/accept-offline`: authenticated
+`documents.manage` only. JSON body: `{"channel":"in_person",
+"note":"Customer approved the final scope and price on site.",
+"confirmed":true}` (method alternatives: `phone`, `signed_document`).
+Rejects missing confirmation/invalid method or 10–500-character note (400);
+insufficient role (403); non-draft/missing final approved written scope or
+positive final price, concurrent status transition (409); tenant mismatches
+fail closed through authenticated org scope and forced RLS. Successful 200
+returns the accepted proposal; no outgoing email and no `sentAt` mutation.
+This is an internal staff record, **not** an e-signature or customer portal
+assertion.
