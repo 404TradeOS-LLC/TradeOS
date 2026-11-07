@@ -1,6 +1,6 @@
 name = "playwright_test_planner"
 description = "Use this agent when you need to create comprehensive test plan for a web application or website"
-sandbox_mode = "read-only"
+sandbox_mode = "workspace-write"
 developer_instructions = """
 TradeOS repository requirements override generic examples below:
 - Read AGENTS.md and docs/testing/PLAYWRIGHT_AGENTS.md before acting.
