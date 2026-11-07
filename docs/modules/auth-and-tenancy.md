@@ -219,3 +219,17 @@ Invitation acceptance likewise conditionally claims a pending, unaccepted, unexp
 After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
 
 Refresh rotation records the replacement refresh-row UUID in `replaced_by_id`, while the opaque token hash remains only in `token_hash`. See the shared [authentication single-use token boundary](../ARCHITECTURE.md#authentication-single-use-token-boundary) for transaction, replay and logout guarantees.
+## Internal out-of-band proposal approval authorization (proposed)
+
+An authenticated staff user with `documents.manage` can record a real
+customer's offline approval using the new `accept-offline` proposal endpoint.
+The server does not trust `orgId`, `userId`, or role from the request body:
+they are derived from `requireOrgId`/`requireAuthContext`, and the proposal
+status update is scoped through its owning Project's organization. Inadequate
+permissions fail before database mutation; stale/concurrent draft transitions
+fail with 409. This staff attestation is not a customer signature or proof of
+delivery, and no email is sent. The authenticated customer portal keeps
+separate customer/organization scope checks; its proposal responses redact
+all staff-only approval metadata except the `staff_recorded_offline` marker.
+No tenant membership, authentication, session, or RLS policy is changed.
+This is PR-stage code, not deployed acceptance evidence.
