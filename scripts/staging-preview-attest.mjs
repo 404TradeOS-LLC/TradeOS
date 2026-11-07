@@ -100,6 +100,11 @@ export function attestStagingPreview(kind, env) {
 // origin are non-sensitive, so absence from the pull means they are unset.
 // BACKEND_API_URL is not excusable either: it is non-sensitive, so absence
 // from the pull means it is unset, and no runtime fetch observes its value.
+// The excuse below additionally requires the live /ready payload to
+// identify the staging data plane (projectRef === STAGING_REF): healthy
+// connectivity alone cannot prove the deployment talks to staging rather
+// than production, so a /ready without that identity leaves every missing
+// binding unexcused.
 const RUNTIME_EXCUSABLE = {
   api: new Set(["SUPABASE_URL", "AUTH_JWT_SECRET", "DATABASE_URL"]),
   web: new Set(["SUPABASE_SERVICE_ROLE_KEY"]),
@@ -111,7 +116,27 @@ async function fetchJson(fetchImpl, url) {
   return res.json();
 }
 
-export async function attestStagingRuntime(kind, fetchImpl = globalThis.fetch) {
+// Sentinel distinguishing "no /ready payload supplied" from "the supplied
+// payload is undefined because the fetch failed": attestWithRuntime fetches
+// /ready once and shares it, so a second fetch cannot fail transiently
+// after the first proved the staging project.
+const READY_NOT_FETCHED = Symbol("ready-not-fetched");
+
+// The data-plane identity the live /ready payload reports for its database
+// check. Undefined when the fetch fails or the deployment predates the
+// projectRef field; never a proof on its own, only the gate for excusing
+// missing bindings (see attestWithRuntime).
+export async function attestStagingDataPlane(fetchImpl = globalThis.fetch, readyPayload = READY_NOT_FETCHED) {
+  try {
+    const ready = readyPayload === READY_NOT_FETCHED ? await fetchJson(fetchImpl, `${STAGING_API_ORIGIN}/ready`) : readyPayload;
+    const ref = ready?.checks?.database?.projectRef;
+    return typeof ref === "string" && ref.length > 0 ? ref : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function attestStagingRuntime(kind, fetchImpl = globalThis.fetch, readyPayload = READY_NOT_FETCHED) {
   const errors = [];
   try {
     const health = await fetchJson(fetchImpl, `${STAGING_API_ORIGIN}/health`);
@@ -120,7 +145,7 @@ export async function attestStagingRuntime(kind, fetchImpl = globalThis.fetch) {
     errors.push("API_HEALTH");
   }
   try {
-    const ready = await fetchJson(fetchImpl, `${STAGING_API_ORIGIN}/ready`);
+    const ready = readyPayload === READY_NOT_FETCHED ? await fetchJson(fetchImpl, `${STAGING_API_ORIGIN}/ready`) : readyPayload;
     if (ready?.status !== "ready" || ready?.checks?.database?.status !== "ok") errors.push("API_READINESS");
   } catch {
     errors.push("API_READINESS");
@@ -145,12 +170,23 @@ export async function attestWithRuntime(kind, env, fetchImpl = globalThis.fetch)
   const details = attestEnvDetail(kind, env);
   const mismatches = details.filter((d) => d.reason === "mismatch").map((d) => d.field);
   const missing = details.filter((d) => d.reason === "missing");
-  const runtimeErrors = await attestStagingRuntime(kind, fetchImpl);
+  // Fetch /ready once and share it between the readiness check and the
+  // data-plane gate: if the first response proves the staging project
+  // but a second request fails, withheld bindings would stay unverified
+  // on a transient error. A failed fetch leaves both checks failed-closed.
+  let sharedReady;
+  try {
+    sharedReady = await fetchJson(fetchImpl, `${STAGING_API_ORIGIN}/ready`);
+  } catch {
+    sharedReady = undefined;
+  }
+  const runtimeErrors = await attestStagingRuntime(kind, fetchImpl, sharedReady);
+  const dataPlaneRef = await attestStagingDataPlane(fetchImpl, sharedReady);
   const excusable = RUNTIME_EXCUSABLE[kind] ?? new Set();
   const runtimeInferred = [];
   const unexcused = [];
   for (const d of missing) {
-    if (runtimeErrors.length === 0 && excusable.has(d.field)) runtimeInferred.push(d.field);
+    if (runtimeErrors.length === 0 && dataPlaneRef === STAGING_REF && excusable.has(d.field)) runtimeInferred.push(d.field);
     else unexcused.push(d.field);
   }
   const errors = [...new Set([...mismatches, ...unexcused, ...runtimeErrors])];
@@ -175,6 +211,6 @@ if (calledAsScript) {
     console.error(`Staging Preview isolation NOT verified for ${kind === "web" ? "web" : "API"}: ${errors.join(", ")}. No secret values emitted.`);
     process.exitCode = 1;
   } else {
-    console.log(`Staging Preview ${kind} bindings pass database/origin checks; env-verified: ${envVerified.join(", ") || "none"}; runtime-inferred: ${runtimeInferred.join(", ") || "none"}; secret-project provenance and authenticated acceptance remain separately required.`);
+    console.log(`Staging Preview ${kind} bindings pass database/origin checks; env-verified: ${envVerified.join(", ") || "none"}; runtime-inferred: ${runtimeInferred.join(", ") || "none"}; authenticated acceptance remains separately required.`);
   }
 }

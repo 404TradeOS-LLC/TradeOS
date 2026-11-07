@@ -22,31 +22,57 @@ related_code:
 
 Run Codex from the TradeOS repository root. The checked-in planner, generator
 and healer definitions use the root Playwright configuration and installed
-`@playwright/test` 1.63.0. There is no Autonoma account or token requirement.
+`@playwright/test` 1.64.1. There is no Autonoma account or token requirement.
 
 ## Setup and commands
 
 ```bash
 npm ci
 npx playwright install --with-deps chromium
+npx playwright install firefox
 npm run test:e2e:guards
 npm run test:e2e:list
 ```
 
+Firefox is the interactive Playwright MCP agent browser (see
+`playwright.mcp.config.ts`); install it alongside Chromium, which stays the
+default for the root config and GitHub Actions evidence gates. Use the plain
+`playwright install firefox` first — `--with-deps` pulls system packages
+through apt and is only needed if a Firefox launch failure proves a system
+library is missing.
+
 Start TradeOS separately using its existing app/web development instructions.
-The default browser target is `http://127.0.0.1:3000`. To use another loopback port:
+
+**Interactive Playwright MCP is unrestricted for browser navigation.** The repo-level
+`.mcp.json` and the three Codex agent definitions use
+`tests/playwright/mcp-server.mjs`, which launches the separate
+`playwright.mcp.config.ts` and removes inherited MCP allowed/blocked-origin
+filters. Agents may navigate to any HTTP(S) site for observation; no sanitized
+Preview declaration or Vercel hostname allowlist is needed for MCP startup.
+This does not grant permission to change production records or bypass
+application authentication, and does not certify a release.
+
+The ordinary `npm run test:e2e` runner **remains guarded** by
+`playwright.config.ts` and `tests/playwright/target.mjs`. Its default browser
+target is `http://127.0.0.1:3000`. To use another loopback port:
 
 ```bash
 TRADEOS_AGENT_BASE_URL=http://127.0.0.1:3001 npm run test:e2e
 ```
 
-For a hosted login-shell check, supply the immutable approved
+For a **governed standard test/evidence run** targeting a hosted login shell,
+supply the immutable approved
 `https://tradeos-costbook-web-<preview-id>.vercel.app` origin, declare
 `TRADEOS_AGENT_ENVIRONMENT=preview` (or `staging`), and confirm
 `TRADEOS_AGENT_SANITIZED_TENANT=true`. Production aliases, main-branch Previews,
 unknown hosts, credentials in URLs and origins containing paths/query/fragment
 are refused by configuration. This declaration is not runtime deployment or
 data-plane attestation and does not authorize authenticated business writes.
+
+Each checked-in Codex Playwright agent uses `sandbox_mode = "workspace-write"`
+so the planner can save plans and the generator/healer can save or repair tests
+within the repository. This does not provide unrestricted operating-system
+access or grant authority to mutate production data.
 
 Invoke the Codex agents by name:
 
@@ -89,8 +115,8 @@ allowlisted; other local Codex state remains ignored.
 
 `npm run playwright:agents` regenerates upstream definitions using the pinned
 local Playwright version. Review its diff before committing: it overwrites
-TradeOS instructions. Reapply the runbook requirements, explicit MCP config
-and `--no-install`, and remove upstream healer instructions that skip/fixme
+TradeOS instructions. Reapply the runbook requirements, the distinct
+unrestricted agent MCP launcher/configuration and `--no-install`, and remove upstream healer instructions that skip/fixme
 correct failing tests. Never replace the meaningful seed with a blank test.
 
 ## Assembly Catalog browser evidence (issue #518)
@@ -146,10 +172,9 @@ trace.
 
 The workflow does not run an LLM inside GitHub Actions; Codex remains the host
 for planner/generator/healer work. GitHub Actions executes the deterministic
-tests those agents produce. The MCP launcher now derives
-`PLAYWRIGHT_MCP_ALLOWED_ORIGINS` from the validated target before starting the
-Playwright test MCP server, which catches unintended cross-origin requests in
-addition to the initial target validation.
+tests those agents produce. The agent MCP launcher deliberately leaves browser origins unrestricted and
+uses its own configuration file. The deterministic GitHub Actions evidence jobs
+continue to validate non-production targets and retain separate release gates.
 
 This lane deliberately records
 `exactDeploymentShaCorrelated: false`. It is useful browser evidence, but it is
@@ -157,4 +182,4 @@ not exact-head release certification and does not replace Beta Evidence, its
 authenticated fixtures, data-plane proof, cleanup, or SHA-correlation contract.
 
 
-Current Vercel Preview deployments may use either `tradeos-costbook-web-<id>.vercel.app` or `tradeos-costbook-<id>.vercel.app`. The latter hostname pattern is also used by Production builds, so it is permitted **only in the Assembly evidence workflow after a successful S027 immutable Preview/Supabase attestation**, not merely because a workflow input declares Preview. The web agent's generic login checks still refuse un-attested hosts.
+Current Vercel Preview deployments may use either `tradeos-costbook-web-<id>.vercel.app` or `tradeos-costbook-<id>.vercel.app`. The latter hostname pattern is also used by Production builds, so it is permitted **only in the Assembly evidence workflow after a successful S027 immutable Preview/Supabase attestation**, not merely because a workflow input declares Preview. The standard CI login checks still refuse un-attested hosts.
