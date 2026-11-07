@@ -54,6 +54,14 @@ test("agent MCP accepts arbitrary browser origins while CI remains gated", () =>
   assert.deepEqual(repoMcpConfig.mcpServers["playwright-test"].args, ["tests/playwright/mcp-server.mjs"]);
 });
 
+test("Codex test agents can write the plans and specs they are assigned to create", () => {
+  for (const role of ["planner", "generator", "healer"]) {
+    const agent = fs.readFileSync(`.codex/agents/playwright_test_${role}.toml`, "utf8");
+    assert.match(agent, /sandbox_mode = "workspace-write"/);
+    assert.match(agent, /Browser navigation through the Playwright MCP may use any HTTP\(S\) origin/);
+  }
+});
+
 test("authenticated evidence stays read-only across contractor and document lifecycle workspaces", () => {
   assert.equal((authenticated.match(/\n  test\('/g) ?? []).length, 8);
   assert.match(authenticated, /TRADEOS_AGENT_AUTHENTICATED === 'true'/);
