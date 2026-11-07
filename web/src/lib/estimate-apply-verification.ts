@@ -49,7 +49,16 @@ export class EstimateApplyVerificationError extends Error {
 // quantity to four decimals (normalizePersistedQuantity), so the saved value
 // may differ from the request by up to half a unit in the last place, plus
 // floating-point noise. Any larger gap is a conflicting edit, not rounding.
-const QUANTITY_TOLERANCE = 0.00005 + Number.EPSILON;
+// The noise allowance scales with magnitude: at a four-decimal rounding
+// midpoint (requested 100.00005 persisted as 100.0001) the JavaScript
+// difference is 0.00005000000000165983, which exceeds a fixed
+// 0.00005 + Number.EPSILON. A few ulps of the magnitude still leaves a
+// genuine conflicting edit (at least 0.0001 at the fourth decimal) far
+// outside the allowance.
+function quantityTolerance(savedQuantity: number, requestedQuantity: number): number {
+  const magnitude = Math.max(Math.abs(savedQuantity), Math.abs(requestedQuantity), 1);
+  return 0.00005 + Number.EPSILON * magnitude * 8;
+}
 
 export function verifyEstimateApplyAcknowledgement(
   acknowledgement: EstimateApplyAcknowledgement,
@@ -103,7 +112,7 @@ export function verifyEstimateApplyAcknowledgement(
     // the apply (edits preserve sourceKey) and echoes its current values,
     // so saved-vs-acknowledgement alone cannot prove the row still matches
     // the accepted review. Compare against the retained request too.
-    if (Math.abs(saved.quantity - requested.quantity) > QUANTITY_TOLERANCE) {
+    if (Math.abs(saved.quantity - requested.quantity) > quantityTolerance(saved.quantity, requested.quantity)) {
       throw new EstimateApplyVerificationError(`Acknowledged line ${lineItemId} no longer matches the reviewed quantity.`);
     }
     const requestedDescription = requested.description?.trim();

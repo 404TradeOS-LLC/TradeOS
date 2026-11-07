@@ -166,3 +166,38 @@ test("accepts an idempotent retry whose saved quantity differs only by persisted
   assert.equal(verified[0]?.quantity, 1.2346);
   assert.equal(verified[0]?.description, "Deck framing assembly");
 });
+
+test("accepts a four-decimal rounding midpoint whose floating-point difference exceeds the half-unit bound", () => {
+  // Requested 100.00005 persists as 100.0001, but the JavaScript
+  // difference 0.00005000000000165983 exceeds 0.00005 + Number.EPSILON:
+  // the allowance must scale with magnitude, or this correctly saved
+  // line is rejected and the Apply UI stays unconfirmed.
+  const midpointBody = JSON.stringify({
+    lineItems: [{
+      draftLineItemId: "reviewed-deck",
+      status: "accepted",
+      targetKind: "assembly",
+      targetId: "assembly-deck",
+      quantity: 100.00005,
+      description: "Deck framing assembly",
+    }],
+  });
+  const verified = verifyEstimateApplyAcknowledgement({
+    applied: [],
+    skipped: [{
+      draftLineItemId: "reviewed-deck",
+      status: "accepted",
+      reason: "Matching reviewed line already exists; skipped for idempotency.",
+      lineItemId: "saved-line-1",
+      quantity: 100.0001,
+      description: "Deck framing assembly",
+    }],
+  }, midpointBody, [{
+    ...savedLine,
+    description: "Deck framing assembly",
+    quantity: 100.0001,
+  }]);
+
+  assert.equal(verified[0]?.quantity, 100.0001);
+  assert.equal(verified[0]?.description, "Deck framing assembly");
+});
