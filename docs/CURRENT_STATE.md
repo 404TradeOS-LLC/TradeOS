@@ -1860,3 +1860,17 @@ No invoice lifecycle, payment, or sending behavior changes.
 This code/contract update is **not** evidence of a deployed staging retest.
 The producer → accepted proposal → job → draft invoice browser path requires a
 fresh authenticated nonproduction acceptance run after deployment.
+
+## Proposed direct offline proposal approval — not yet deployed
+
+Following a verified six-step synthetic staging contractor walkthrough, a
+staff-recorded offline acceptance workflow is implemented on
+`feat/proposal-offline-acceptance-audit` (draft PR pending review). It makes
+the field-use case explicit: a customer may approve an already-finalized,
+positive-price written proposal in person, by phone, or via signed copy,
+without staff faking a `Send` action. The separate endpoint uses
+`documents.manage`, org-scoped CAS, an actor/method/required-note audit
+record, and no outgoing email or sent timestamp. Existing portal/customer
+approval and normal `sent -> accepted` remain untouched. Authenticated
+nonproduction acceptance, required CI and independent review are release
+gates; do not interpret presence on a branch as deployed functionality.
