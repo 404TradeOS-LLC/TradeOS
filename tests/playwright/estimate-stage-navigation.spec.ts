@@ -5,12 +5,15 @@ import { expect, test } from '@playwright/test';
 const path = process.env.TRADEOS_ESTIMATE_STAGE_PATH;
 const state = process.env.TRADEOS_ESTIMATE_STAGE_STATE;
 
+// trace/video cannot be set via test.use inside a describe group (they force
+// a new worker); hoist to file top level like authenticated.spec.ts.
+if (state) test.use({ storageState: state, trace: 'off', video: 'off' });
+
 test.describe('Estimate stage navigation', () => {
   test.skip(!path, 'Set a sanitized draft route to run the stage matrix.');
   if (path && (!path.startsWith('/') || path.startsWith('//'))) {
     throw new Error('TRADEOS_ESTIMATE_STAGE_PATH must be a relative application path');
   }
-  if (state) test.use({ storageState: state, trace: 'off', video: 'off' });
 
   for (const width of [390, 768, 1024, 1440]) {
     test(`keyboard navigation waits for scope save and recovers from failure at ${width}px`, async ({ page }) => {
