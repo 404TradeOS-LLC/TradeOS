@@ -8,7 +8,7 @@ export default async function EstimateBuilderPage({ params }: { params: Promise<
   const project = await getProject(token ?? "", id);
   return (
     <div className="flex flex-col gap-6">
-      <EstimateBuilder projectId={id} projectName={project.name} simpleScope={project.simpleScope} estimateId={estimateId} />
+      <EstimateBuilder key={`${id}:${estimateId}`} projectId={id} projectName={project.name} simpleScope={project.simpleScope} estimateId={estimateId} />
     </div>
   );
 }

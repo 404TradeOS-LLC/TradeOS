@@ -90,6 +90,10 @@ component tests use synthetic transport and do not certify real authentication.
 - **`StatusBadge`** (`status-badge.tsx`) — wraps `Badge` with `capitalize` and turns
   `snake_case` statuses into readable text (`in_progress` → `In progress`). Use this instead of
   a raw `Badge` whenever you're rendering a backend status enum.
+- **`AttentionItem`** (`components/dashboard/attention-item.tsx`) — responsive Needs You row
+  with explicit severity text, source/assignee metadata, and an action callback. Map persisted
+  Today priority `urgent` → Urgent, `high` → Needs action, and `medium` → Review; do not infer
+  alerts from unavailable source data or replace its source-workspace action with a new mutation.
 - **`AppNav`** (`app-nav.tsx`) — shared navigation with desktop sections, the
   mobile Control Dock (Today, Dispatch, Create, Work, More), and the command-palette
   trigger. This is the only nav owner — don't add a second one.
@@ -143,6 +147,8 @@ instead of copy-pasting a third time.
   `overflow-x-auto` rather than letting it push the page width.
 - Test new pages at common breakpoints (~390px mobile, ~768px tablet, desktop) before calling a
   UI change done — a build/lint pass does not catch layout overflow.
+
+- `PageHeader` breadcrumb and back links use visible focus rings; `ProjectWorkspaceTabs` names its navigation, marks the active link with `aria-current="page"`, and provides keyboard focus indicators. Reuse these existing owners rather than creating another navigation abstraction.
 
 ## Known UI debt (not addressed in this pass)
 

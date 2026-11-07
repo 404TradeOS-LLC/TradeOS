@@ -23,5 +23,7 @@ expensesRouter.get("/", asyncHandler(expensesController.list));
 expensesRouter.post("/", asyncHandler(expensesController.create));
 expensesRouter.get("/summary", asyncHandler(expensesController.getSummary));
 expensesRouter.get("/:expenseId", asyncHandler(expensesController.getById));
+expensesRouter.get("/:expenseId/audit", asyncHandler(expensesController.getAuditEvents));
+expensesRouter.post("/:expenseId/receipt", asyncHandler(expensesController.attachReceipt));
 expensesRouter.patch("/:expenseId", asyncHandler(expensesController.update));
 expensesRouter.delete("/:expenseId", asyncHandler(expensesController.remove));

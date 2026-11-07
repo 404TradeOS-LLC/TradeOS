@@ -21,6 +21,8 @@ function renderSection(props: Record<string, unknown>) {
     Date,
     require: (name: string) => {
       if (name === "react/jsx-runtime") return require(name);
+      if (name === "node:crypto") return { randomUUID: () => "11111111-1111-4111-8111-111111111111" };
+      if (name === "@/components/field/job-expense-row-actions") return { JobExpenseRowActions: () => React.createElement("div", null, "Expense controls") };
       if (name === "@/components/field/job-expense-form") return { JobExpenseForm: () => React.createElement("form", null, "Expense form") };
       if (name === "@/lib/job-expenses") return jobExpensesLib;
       throw new Error(`Unexpected job expense section dependency: ${name}`);
@@ -54,6 +56,43 @@ test("job expense section renders actual-vs-estimate rollup, expense list, and a
   assert.equal(html.includes("No expenses recorded"), false);
 });
 
+test("job costs separate customer-paid material from contractor actuals", () => {
+  const html = renderSection({
+    jobId: "job-1",
+    expenses: [
+      { ...expenses[0], amountCents: 2500, paymentResponsibility: "contractor" },
+      { ...expenses[1], amountCents: 4000, category: "material", paymentResponsibility: "customer" },
+    ],
+    summary: { ...summary, actualCents: 2500, customerPaidCents: 4000, byCategoryCents: { material: 2500 }, varianceCents: 95010 },
+    loadError: null,
+    defaultIncurredOn: "2026-11-02",
+  });
+  assert.ok(html.includes("Contractor-paid"), "contractor cost metric must be explicitly labeled");
+  assert.ok(html.includes("Customer-paid"), "customer purchases must be separately totaled");
+  assert.ok(html.includes("$40.00"), "customer-paid total remains visible");
+  assert.ok(html.includes("Customer paid"), "expense history identifies who paid");
+});
+
+test("expense history retains voided costs and safely links receipts", () => {
+  const html = renderSection({
+    jobId: "job-1",
+    expenses: [
+      { ...expenses[0], description: "Paint", receiptStoragePath: "private/receipt.pdf", receiptFileName: "receipt.pdf",
+        voidedAt: null },
+      { ...expenses[1], amountCents: 8000, voidedAt: "2026-11-02T12:00:00.000Z",
+        voidReason: "Duplicate" },
+    ],
+    summary: { ...summary, actualCents: 2000, customerPaidCents: 0, varianceCents: 95510 },
+    loadError: null, defaultIncurredOn: "2026-11-02",
+  });
+  assert.ok(html.includes("Download receipt: receipt.pdf"));
+  assert.ok(html.includes("/api/job-expense-receipts/job-1/e1"));
+  assert.ok(html.includes("Voided"));
+  assert.ok(html.includes("Duplicate"));
+  assert.ok(html.includes("$20.00"));
+  assert.ok(html.includes("Expense controls"));
+});
+
 test("job expense section reports no estimate instead of a fabricated zero", () => {
   const html = renderSection({ jobId: "job-1", expenses: [], summary: { ...summary, expenseCount: 0, actualCents: 0, estimatedCents: null, estimateId: null, varianceCents: null }, loadError: null, defaultIncurredOn: "2026-11-02" });
   assert.ok(html.includes("No estimate"));
@@ -64,4 +103,14 @@ test("job expense section flags over-estimate spend and degrades on load failure
   const html = renderSection({ jobId: "job-1", expenses, summary: { ...summary, actualCents: 100000, varianceCents: -2490 }, loadError: "Job costs couldn't load.", defaultIncurredOn: "2026-11-02" });
   assert.ok(html.includes("$24.90 over"));
   assert.ok(html.includes("Job costs couldn&#x27;t load."));
+});
+
+test("unavailable expense summary never invents a zero-dollar financial total", () => {
+  const html = renderSection({
+    jobId: "job-1", expenses: [], summary: null,
+    loadError: "Unable to read job costs.", defaultIncurredOn: "2026-11-02",
+  });
+  assert.ok(html.includes("Unavailable"));
+  assert.equal(html.includes("$0.00"), false);
+  assert.equal(html.includes("No expenses recorded for this job yet."), false);
 });

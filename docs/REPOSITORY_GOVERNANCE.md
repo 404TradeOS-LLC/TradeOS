@@ -51,6 +51,30 @@ related_code:
 
 # Repository Governance
 
+## Invited PDF beta evidence boundary — 2026-11-06
+
+The opt-in `beta_pdf` scenario uses the existing Beta Evidence workflow, concurrency, synthetic identities, nonproduction guards and credential scan. Exact SHA correlation is mandatory; foreign Customer/Project/Estimate/Athena and Proposal PDF denials are required. Retained PDF bytes must match the current run's receipt and saved Proposal identity at all four widths; a single-width result remains PARTIAL. It does not execute downstream Send/Accept/Contract/Invoice operations or grant release approval. Authentication, target and isolation reports now carry run identity; stale reports cannot certify this scenario. The narrower founder-approved cohort scope does not mark numbered sprints complete or waive protected schema/security/deployment/recovery gates. See [the runbook](operations/INVITED_BETA.md).
+
+## Proposed staging Job handoff migration source boundary — 2026-10-30
+
+The manual `staging-job-handoff-migration.yml` must run trusted main code inside
+the existing staging Environment and migration concurrency group. Only the
+checksum-pinned Job SQL is read from the source SHA; no feature checkout,
+dependency, schema or script executes with the database secret. Preflight is
+the default. Apply additionally requires the protected staging variable
+`STAGING_JOB_HANDOFF_APPROVED_SHA` to equal the full input SHA and the typed
+`APPLY_STAGING_JOB_HANDOFF` confirmation. Environment approval remains mandatory.
+The full ledger names/checksums and jobs RLS/schema are checked before and after
+apply; unrelated pending migrations fail closed. The workflow is proposed, not
+executed or approved by this documentation. See the
+[operator plan](operations/staging-job-handoff-runner.md).
+
+## Beta Evidence S053 saved-line identity and tenant-denial contract — 2026-11-05
+
+The opt-in S053 path must reconcile the real Apply acknowledgement with the retained reviewed request and authorized organization-scoped Estimate detail read. A saved result is valid only when each visible UI row maps one-to-one to an acknowledged line and the reviewed target, normalized description, and four-decimal persisted quantity agree. After a hard reload of the existing Estimate builder, the same saved IDs, targets, descriptions, and quantities must still match. Unit tests exercise the identity and reload helpers; source-text assertions and CI do not certify a deployed run.
+
+S053 requires a foreign Estimate ID for authenticated API detail GET denial (403/404); that probe runs without a Project fixture. A nested browser-route observation is optional and requires the corresponding foreign Project ID. The same scenario continues to deny foreign Athena draft/apply requests. Canonical and S052 retain their Customer/Project fixture requirements. Do not weaken tenant guards or infer acceptance from a passing harness: full evidence still requires the protected operator workflow, an approved non-production target, exact deployment-SHA correlation, synthetic identities/fixtures, and retained PASS artifacts. No authentication permission, RLS, schema, or financial calculation changes are authorized by this evidence-only workflow.
+
 ## Staging migration schema-ledger preflight — 2026-10-27
 
 The protected, manual `.github/workflows/deploy-staging-migrations.yml` must fail before any Prisma migration if the historical invoice expand columns already exist but `20260902193000_rename_invoice_line_price_columns` is not recorded as applied, or if an applied expand migration's expected columns are missing. This guards against a dual-tool migration history collision observed in Supabase Staging. The safe response is to reconcile the schema and both ledgers with reviewed evidence; do not delete a ledger entry, stamp a migration as applied, or proceed to the invoice contract phase without confirming that older Preview writers are retired. The workflow remains staging-only, `main`-restricted and under the existing Environment approval gate.
@@ -614,12 +638,13 @@ treated as exact-head release certification. Broader or mutating contractor
 lifecycle, tenant-isolation, and financial proof remains owned by Beta Evidence
 / governed RC smoke.
 
-The checked-in Playwright agent MCP definitions launch through
-`tests/playwright/mcp-server.mjs`, which validates the same target contract and
-sets `PLAYWRIGHT_MCP_ALLOWED_ORIGINS` to that target before the MCP server
-starts. This is a defense-in-depth guard against accidental cross-origin
-browser requests, not a replacement for environment isolation or the governed
-authenticated evidence path.
+The checked-in Playwright agent MCP definitions and repository `.mcp.json`
+launch through `tests/playwright/mcp-server.mjs`, which uses the distinct
+`playwright.mcp.config.ts` without a browser origin allowlist. Interactive
+agent browsing may inspect any HTTP(S) origin, but does not grant production
+write authority or release certification. The standard `playwright.config.ts`,
+GitHub Actions evidence workflows, environment approvals, and governed
+authenticated release path retain their independent validation requirements.
 
 ## Production Costbook 47802 supplier evidence seed
 
@@ -712,3 +737,17 @@ PR #827 restores reviewed-source equivalents of staging's Supabase table and int
 ## Canonical beta Customer continuity assertion — 2026-10-30
 
 The approved nonproduction beta capture must never quietly change the Project's Customer selection to satisfy evidence. The Customer → Project stage verifies either hidden context or selected-customer form value matches the newly created tenant-scoped Customer ID exactly, and confirms the resulting Project API persisted that ID. S052 explicitly requires hidden Customer context plus saved ServiceAddress reload. Missing/wrong Customer identity is a hard evidence failure; selector differences are not an authorization waiver. Protected staging reviewer and matching-SHA browser acceptance remain mandatory.
+
+## Issue #885 protected staging Expense migration policy — 2026-11-02
+
+`.github/workflows/staging-expenses-migration.yml` is an independently reviewed **manual staging-only** workflow. It runs only from trusted `main`, with `contents: read`, pinned checkout/setup actions, the reviewer-gated `staging` GitHub Environment and the existing serialized `deploy-migrations-staging` concurrency group. No push, unprotected source branch, or production identity may dispatch an apply.
+
+`preflight` captures the staging Prisma ledger and catalog in one repeatable-read READ ONLY transaction. It requires every shared SQL checksum to match, the exact pinned already-applied PR #810 handoff SQL and healthy Jobs RLS/index, no unfinished/duplicate/unknown ledger rows, an entirely absent or entirely valid Expense schema and private receipt Storage. The only pending migrations permitted are the three pinned Job Expense SQLs from Issue #885. `apply` additionally requires protected `STAGING_EXPENSES_APPROVED_SHA` equal to the reviewed full source SHA, the literal `APPLY_STAGING_EXPENSES` input and independent protected staging Environment approval. Only reviewed SQL bytes are fetched as **data** and run with trusted main Prisma tooling; feature PR code, migration-branch dependencies, ledger stamping, `migrate resolve`, unreviewed DDL and unapproved constraint validation are forbidden.
+
+Partial migration failures or changed inventory **fail closed** for manual review; automatic retries and production migration are prohibited. After a successful additive apply, retain exact SHA, run, checksum, RLS and schema proofs, clear the one-time approval variable, then deploy matching staging API before web and obtain authenticated owner/technician, private receipt and tenant-denial evidence before feature PR #891 may be merged or Issue #885 closed. See [operator runbook](operations/staging-expenses-migrations.md).
+
+(Update: PR #891 has since merged to main on 2026-11-04; the staging apply and authenticated acceptance gates above still apply before Issue #885 closes.)
+
+## Foreign Proposal isolation proof — PR #933
+
+The existing Beta Evidence workflow gains three `BETA_RC_FOREIGN_OWNER_*` prerequisites (EMAIL, PASSWORD, ORG_ID) for `beta_pdf` only. The foreign identity must be a dedicated synthetic nonproduction owner/admin in the pinned distinct tenant; its session is in memory, never written to artifacts. Successful owner-scoped Proposal reads must surround the smoke PDF denial, and the validator requires that proof rather than accepting a bare 404. Preflight/full gates require the credentials, and credential-handling failures must be redacted. These are evidence inputs only and grant no new product permissions or deployment authority.

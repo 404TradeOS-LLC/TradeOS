@@ -72,8 +72,11 @@ export default async function FieldPage({
 
   const query = await searchParams;
   const settings = await getOrganizationSettings(token);
-  if (settings.currentRole !== "technician" && settings.currentRole !== "owner") {
-    return <EmptyState title="Technician workspace" description="This workspace is available to technician and owner accounts. Open Dispatch for organization scheduling and coordination." />;
+  // Field gate (founder decision 2026-11-03): technician, owner, admin, and
+  // dispatcher pass; manager and any other role stay denied. Keep this list
+  // aligned with getProjectFieldJobHref in web/src/lib/field-workspace.ts.
+  if (!["technician", "owner", "admin", "dispatcher"].includes(settings.currentRole)) {
+    return <EmptyState title="Technician workspace" description="This workspace is available to technician, owner, admin, and dispatcher accounts. Open Dispatch for organization scheduling and coordination." />;
   }
 
   let jobs: Awaited<ReturnType<typeof listFieldJobs>> = [];

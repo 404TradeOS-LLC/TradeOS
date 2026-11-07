@@ -79,6 +79,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - the 2026-09-09 item-level provenance/source metadata contract (see `modules/ai-estimate-assist.md` and `docs/reports/COSTBOOK_ITEM_PROVENANCE_METADATA_2026-09-09.md`) added optional per-item fields to `cost-item.schema.json` and a `resolveItemProvenance()` fallback in `knowledge-runtime/repository.ts`; noted here only because this doc shares the same `DOC_OWNERSHIP.yml` grouping — it did not change activity events, notifications, or anything in `app/modules/intelligence/*`
 - the 2026-09-10 provenance follow-up slice (see `modules/ai-estimate-assist.md`) extended the same contract to assemblies, added a generation-pipeline enforcement gate, surfaced source/confidence detail on AI suggestion/draft-line responses and the Estimate Assist UI, and added a required blocking CI job for the provenance validator; noted here only because this doc shares the same `DOC_OWNERSHIP.yml` grouping — it did not change activity events, notifications, or anything in `app/modules/intelligence/*`
 - the 2026-10-04 AI Estimate Assist apply repair changed the existing per-estimate PostgreSQL advisory-lock call from Prisma `$queryRaw` to `$executeRaw` because the lock function returns `void`; this is recorded here only because AI Estimate Assist shares this ownership group and it does not change ActivityEvent, notification, intelligence, audit, or attribution semantics
+- the 2026-10-31 saved-line reconciliation slice adds the matched `lineItemId` to idempotent Apply skips and verifies acknowledgements through the existing authorized Estimate detail read; the existing `estimate.ai_estimator_review_applied` event, bounded counts and line-item IDs are unchanged, and no new ActivityEvent or intelligence read/write path is introduced
 
 ## Known limitations
 
@@ -95,3 +96,4 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 ## Metadata and identifier validation
 
 The patched Zod 4 runtime retains explicit string-key metadata records and legacy UUID-shaped activity/entity references. No activity event or financial aggregation rule changes. Structured validation failures still carry the request ID; individual issue diagnostics use Zod 4 metadata. Source services continue to enforce tenant ownership before recording or retrieving activity. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
+

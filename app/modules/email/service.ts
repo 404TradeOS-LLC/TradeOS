@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { renderTradeOsEmail } from "./brand";
 import { waitUntil } from "@vercel/functions";
 import { logWarn } from "../../backend/logging";
 
@@ -179,7 +180,7 @@ export class EmailService {
         from,
         to: [message.to],
         subject: message.subject,
-        html: message.html,
+        html: renderTradeOsEmail(message.html),
         text: message.text,
       }),
       signal: AbortSignal.timeout(10_000),

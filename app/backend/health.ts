@@ -35,6 +35,16 @@ const DASHBOARD_SCHEMA_REQUIREMENTS = [
   ["contracts", "contract_amount"],
   ["contracts", "snapshot_json"],
   ["contracts", "signature_user_agent_reported"],
+  // Expense routes read columns only the expense migrations add, and the
+  // audit listing reads the events table. Until those migrations are
+  // applied, readiness stays not_ready rather than letting expense requests
+  // fail per-call: apply the expense migrations before relying on a ready
+  // deployment for expense traffic.
+  ["job_expenses", "payment_responsibility"],
+  ["job_expenses", "receipt_storage_path"],
+  ["job_expenses", "idempotency_key"],
+  ["job_expenses", "voided_at"],
+  ["job_expense_events", "expense_id"],
 ] as const;
 
 type SchemaColumn = { table_name: string; column_name: string };

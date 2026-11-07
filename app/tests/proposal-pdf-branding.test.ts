@@ -6,7 +6,7 @@ const mockGetDocumentBrand = jest.fn();
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
 jest.mock("../modules/documents/branding", () => ({ getDocumentBrand: mockGetDocumentBrand }));
 
-import { renderEstimateProposalPdf } from "../modules/proposal-generator/service";
+import { ProposalGeneratorService, renderEstimateProposalPdf } from "../modules/proposal-generator/service";
 
 const brand = {
   companyName: "Canonical Builders",
@@ -59,5 +59,31 @@ describe("Trusted proposal logo bytes", () => {
     const pdf = await renderEstimateProposalPdf(estimate, { ...args, logoImage: Buffer.from("http://evil.example.com") });
     expect(pdf.toString("latin1")).not.toContain("/Subtype /Image");
     expect(pdfText(pdf)).toContain("Canonical Builders");
+  });
+});
+
+describe("Proposal PDF organization branding", () => {
+  beforeEach(() => {
+    mockGetDocumentBrand.mockResolvedValue(brand);
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      version: 1, totalPrice: 3000, createdAt: new Date("2026-10-01T12:00:00Z"),
+      project: { name: "Kitchen", siteAddress: null, customer: { name: "Client", email: null }, organization: { name: "Canonical Builders" } },
+      lineItems: [{ description: "Cabinet prep", quantity: 1, unitOfMeasure: "job", lineCost: 3000 }],
+    });
+  });
+  afterEach(() => jest.clearAllMocks());
+
+  it("keeps customer-facing proposal headers contractor-branded without forced platform advertising", async () => {
+    const doc = await new ProposalGeneratorService().generateProposal({ estimateId: "est-1", orgId: "org-1", finalPrice: 3000 });
+    const text = pdfText(doc.buffer);
+    expect(text).toContain("Canonical Builders");
+    expect(text).not.toContain("TRADEOS");
+    expect(text).not.toContain("Powered by TradeOS");
+  });
+
+  it("respects the explicit powered-by setting in the proposal footer", async () => {
+    mockGetDocumentBrand.mockResolvedValue({ ...brand, showPoweredByTradeOS: true });
+    const doc = await new ProposalGeneratorService().generateProposal({ estimateId: "est-1", orgId: "org-1", finalPrice: 3000 });
+    expect(pdfText(doc.buffer)).toContain("Powered by TradeOS");
   });
 });

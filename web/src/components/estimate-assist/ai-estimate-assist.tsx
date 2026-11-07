@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -33,7 +33,14 @@ import type {
   KnowledgeStats,
   KnowledgeTrade,
 } from "@/lib/api";
-import { clientFetch } from "@/lib/clientApi";
+import { clientFetch, ClientApiError } from "@/lib/clientApi";
+import { createEstimateApplySession, isDefinitiveEstimateApplyStatus, snapshotEstimateApply } from "@/lib/estimate-apply-session";
+import {
+  EstimateApplyVerificationError,
+  verifyEstimateApplyAcknowledgement,
+  type SavedEstimateLineIdentity,
+  type VerifiedEstimateApplyLine,
+} from "@/lib/estimate-apply-verification";
 
 type SuggestionStatus = "pending" | "accepted" | "rejected";
 
@@ -56,8 +63,13 @@ interface SuggestionDraft extends AIEstimateSuggestion {
 }
 
 interface ApplySuggestionsResponse {
-  applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number }>;
-  skipped: Array<{ draftLineItemId: string; status: string; reason: string }>;
+  applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number; description: string }>;
+  skipped: Array<{ draftLineItemId: string; status: string; reason: string; lineItemId?: string; quantity?: number; description?: string }>;
+  verified: VerifiedEstimateApplyLine[];
+}
+
+interface EstimateDetailForVerification {
+  lineItems: SavedEstimateLineIdentity[];
 }
 
 const EXAMPLE_PROMPTS = [
@@ -195,6 +207,27 @@ export function AIEstimateAssist({
     initialStructuredDraft || initialSuggestions.length > 0 ? "Loaded from Athena review" : null
   );
   const [applySummary, setApplySummary] = useState<ApplySuggestionsResponse | null>(null);
+  const [applyState, setApplyState] = useState<"idle" | "pending" | "unconfirmed" | "rejected">("idle");
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const applySession = useRef(createEstimateApplySession<ApplySuggestionsResponse>());
+  const applyButton = useRef<HTMLButtonElement>(null);
+  const restoreApplyFocus = useRef(false);
+  const generationInFlight = useRef(false);
+  const reviewContext = useRef<{ projectId: string; estimateId: string } | null>(null);
+
+  useEffect(() => {
+    reviewContext.current = { projectId, estimateId };
+    return () => { reviewContext.current = null; };
+  }, [projectId, estimateId]);
+
+  useEffect(() => {
+    if ((applyState !== "unconfirmed" && applyState !== "rejected") || !restoreApplyFocus.current) return;
+    restoreApplyFocus.current = false;
+    // Restore keyboard recovery only if the user has not focused another control.
+    if (document.activeElement === document.body) applyButton.current?.focus();
+  }, [applyState]);
+
+  const isCurrentReview = () => reviewContext.current?.projectId === projectId && reviewContext.current?.estimateId === estimateId;
 
   const reviewStats = useMemo(() => {
     const accepted = suggestions.filter((suggestion) => suggestion.status === "accepted");
@@ -227,13 +260,17 @@ export function AIEstimateAssist({
       );
     },
     onSuccess: (payload) => {
+      if (!isCurrentReview()) return;
       setStructuredDraft(payload);
       setSuggestions(payload.lineItems.map(structuredToDraft));
       setKnowledgeMatch(null);
       setScopeOfWork(payload.scopeOfWork);
       setLastGeneratedAt(new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
       setApplySummary(null);
+      setApplyError(null);
+      setApplyState("idle");
     },
+    onSettled: () => { generationInFlight.current = false; },
   });
 
   const searchKnowledge = useMutation({
@@ -251,39 +288,80 @@ export function AIEstimateAssist({
     },
   });
 
-  const applyAcceptedSuggestions = useMutation({
-    mutationFn: () =>
-      clientFetch<ApplySuggestionsResponse>(`/estimates/${estimateId}/ai-estimator/apply`, {
-        method: "POST",
-        body: JSON.stringify({
-          // Omit generationId so users with billing.write can apply reviewed lines without an owner/admin-only generation-record lookup.
-          lineItems: suggestions.map((suggestion) => ({
-            draftLineItemId: suggestion.id,
-            quantity: suggestion.quantity,
-            status: suggestion.status,
-            description: suggestion.description,
-            targetId: suggestion.selectedTarget?.id,
-            targetKind: suggestion.selectedTarget?.kind,
-            reviewToken: suggestion.originalTargetId === suggestion.selectedTarget?.id && suggestion.originalTargetKind === suggestion.selectedTarget?.kind
-              ? structuredDraft?.lineItems.find((line) => line.draftLineItemId === suggestion.id)?.reviewToken ?? undefined
-              : undefined,
-          })),
-        }),
+  const applyAcceptedSuggestions = () => {
+    if (generationInFlight.current || !acceptedReadyToApply) return;
+    void applySession.current.apply({
+      snapshot: snapshotEstimateApply(projectId, estimateId, {
+        // Omit generationId so users with billing.write can apply reviewed lines without an owner/admin-only generation-record lookup.
+        lineItems: suggestions.map((suggestion) => ({
+          draftLineItemId: suggestion.id,
+          quantity: suggestion.quantity,
+          status: suggestion.status,
+          description: suggestion.description,
+          targetId: suggestion.selectedTarget?.id,
+          targetKind: suggestion.selectedTarget?.kind,
+          reviewToken: suggestion.originalTargetId === suggestion.selectedTarget?.id && suggestion.originalTargetKind === suggestion.selectedTarget?.kind
+            ? structuredDraft?.lineItems.find((line) => line.draftLineItemId === suggestion.id)?.reviewToken ?? undefined
+            : undefined,
+        })),
       }),
-    onSuccess: (payload) => {
-      setApplySummary(payload);
-    },
-  });
+      isCurrent: isCurrentReview,
+      isDefinitiveRejection: (error) => error instanceof ClientApiError && isDefinitiveEstimateApplyStatus(error.status),
+      send: async (snapshot) => {
+        const acknowledgement = await clientFetch<Omit<ApplySuggestionsResponse, "verified">>(`/estimates/${estimateId}/ai-estimator/apply`, {
+          method: "POST",
+          body: snapshot.body,
+        });
+        try {
+          const estimate = await clientFetch<EstimateDetailForVerification>(`/estimates/${estimateId}`);
+          return {
+            ...acknowledgement,
+            verified: verifyEstimateApplyAcknowledgement(acknowledgement, snapshot.body, estimate.lineItems),
+          };
+        } catch (error) {
+          throw error instanceof EstimateApplyVerificationError
+            ? error
+            : new EstimateApplyVerificationError("Apply was acknowledged, but the saved line could not be verified.", error);
+        }
+      },
+      onPending: () => {
+        restoreApplyFocus.current = document.activeElement === applyButton.current;
+        setApplyState("pending");
+        setApplyError(null);
+        setApplySummary(null);
+      },
+      onSuccess: (payload) => {
+        setApplySummary(payload);
+        setApplyState("idle");
+      },
+      onError: (error) => {
+        setApplyError(error instanceof Error ? error.message : "Unable to confirm the Apply response.");
+        setApplyState(applySession.current.isLocked ? "unconfirmed" : "rejected");
+      },
+    });
+  };
 
   const updateSuggestion = (id: string, updater: (current: SuggestionDraft) => SuggestionDraft) => {
+    if (applySession.current.isLocked || generationInFlight.current) return;
+    setApplyError(null);
+    setApplyState("idle");
+    setApplySummary(null);
     setSuggestions((current) => current.map((suggestion) => (suggestion.id === id ? updater(suggestion) : suggestion)));
   };
 
   const acceptedReadyToApply = suggestions.some((suggestion) => suggestion.status === "accepted" && suggestion.selectedTarget && suggestion.originalTargetId === suggestion.selectedTarget.id && suggestion.originalTargetKind === suggestion.selectedTarget.kind);
+  const reviewLocked = applyState === "pending" || applyState === "unconfirmed" || regenerateSuggestions.isPending;
+
+  const runReview = () => {
+    if (applySession.current.isLocked || generationInFlight.current) return;
+    generationInFlight.current = true;
+    regenerateSuggestions.mutate();
+  };
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
-      <div className="space-y-6">
+      <fieldset disabled={reviewLocked} className="min-w-0 space-y-6">
+        <legend className="sr-only">Scope and suggestion review</legend>
         <Card className="border-border/70 bg-muted/10">
           <CardHeader className="space-y-2">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -300,7 +378,8 @@ export function AIEstimateAssist({
           <CardContent className="space-y-4">
             <Textarea
               value={scopeOfWork}
-              onChange={(event) => setScopeOfWork(event.target.value)}
+              onChange={(event) => { if (!applySession.current.isLocked && !generationInFlight.current) setScopeOfWork(event.target.value); }}
+              aria-label="Scope of work"
               placeholder="Describe the work, materials, constraints, access, demolition, finish details, and anything field notes already confirmed..."
               className="min-h-40 resize-y bg-background/80 text-base"
             />
@@ -310,7 +389,7 @@ export function AIEstimateAssist({
                 <button
                   key={prompt}
                   type="button"
-                  onClick={() => setScopeOfWork(prompt)}
+                  onClick={() => { if (!applySession.current.isLocked && !generationInFlight.current) setScopeOfWork(prompt); }}
                   className="rounded-full border border-border/70 bg-background px-3 py-1.5 text-left text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
                 >
                   {prompt}
@@ -343,7 +422,7 @@ export function AIEstimateAssist({
               <p className="text-sm text-muted-foreground">
                 Leave the scope blank if needed. We will fall back to the project scope or the seeded sample scope for validation.
               </p>
-              <Button onClick={() => regenerateSuggestions.mutate()} disabled={regenerateSuggestions.isPending || !scopeOfWork.trim()}>
+              <Button onClick={runReview} disabled={reviewLocked || !scopeOfWork.trim()}>
                 {regenerateSuggestions.isPending ? (
                   <>
                     <RefreshCw className="size-4 animate-spin" />
@@ -430,7 +509,7 @@ export function AIEstimateAssist({
             )}
           </CardContent>
         </Card>
-      </div>
+      </fieldset>
 
       <div className="space-y-6 xl:sticky xl:top-20 xl:self-start">
         <Card className="border-border/70 bg-muted/10">
@@ -446,16 +525,22 @@ export function AIEstimateAssist({
               <SummaryTile label="Last generated" value={lastGeneratedAt ?? "Ready"} />
             </div>
 
-            <Button type="button" className="w-full" onClick={() => applyAcceptedSuggestions.mutate()} disabled={applyAcceptedSuggestions.isPending || !acceptedReadyToApply}>
-              {applyAcceptedSuggestions.isPending ? "Applying accepted suggestions…" : `Add ${reviewStats.acceptedReadyCount} accepted suggestion${reviewStats.acceptedReadyCount === 1 ? "" : "s"} to estimate`}
+            <Button ref={applyButton} type="button" className="min-h-11 w-full" onClick={applyAcceptedSuggestions} disabled={applyState === "pending" || regenerateSuggestions.isPending || !acceptedReadyToApply}>
+              {applyState === "pending" ? "Applying accepted suggestions…" : applyState === "unconfirmed" ? "Retry unchanged review" : `Add ${reviewStats.acceptedReadyCount} accepted suggestion${reviewStats.acceptedReadyCount === 1 ? "" : "s"} to estimate`}
             </Button>
 
-            {applyAcceptedSuggestions.isError ? (
+            {applyState === "unconfirmed" || applyState === "rejected" ? (
               <p className="text-sm text-destructive" role="alert">
-                {applyAcceptedSuggestions.error instanceof Error
-                  ? applyAcceptedSuggestions.error.message
-                  : "Applying suggestions failed. Try again."}
+                {applyError}{applyState === "unconfirmed"
+                  ? " Apply was not confirmed. Keep this review unchanged when retrying. Check Items before editing."
+                  : " Apply was rejected. Correct the review and try again."}
               </p>
+            ) : null}
+
+            {applyState !== "idle" || applySummary ? (
+              <Link href={`/projects/${projectId}/estimates/${estimateId}`} className={cn(buttonVariants({ variant: "outline" }), "min-h-11")}>
+                Check saved Items
+              </Link>
             ) : null}
 
             <p className="text-sm text-muted-foreground">
@@ -464,11 +549,21 @@ export function AIEstimateAssist({
 
             {applySummary ? (
               <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
-                <div className="text-sm font-medium text-foreground">Latest apply result</div>
+                <div className="text-sm font-medium text-foreground">Saved line verification</div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <SummaryTile label="Applied" value={String(applySummary.applied.length)} />
-                  <SummaryTile label="Skipped" value={String(applySummary.skipped.length)} />
+                  <SummaryTile label="Saved & verified" value={String(applySummary.verified.length)} />
+                  <SummaryTile label="Review only" value={String(applySummary.skipped.filter((entry) => !entry.lineItemId).length)} />
                 </div>
+                {applySummary.verified.length > 0 ? (
+                  <ul aria-label="Verified saved estimate lines" className="mt-3 space-y-2">
+                    {applySummary.verified.map((line) => (
+                      <li key={line.lineItemId} className="rounded-lg border border-emerald-600/50 bg-emerald-50/50 px-3 py-2 text-sm dark:bg-emerald-950/20">
+                        <div className="font-medium text-foreground">{line.description}</div>
+                        <div className="text-muted-foreground">{line.quantity} {line.unitOfMeasure} · saved line matched the reviewed {line.targetKind === "assembly" ? "assembly" : "cost item"}</div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
                 {applySummary.skipped.length > 0 ? (
                   <div className="mt-3 space-y-2">
                     {applySummary.skipped.slice(0, 4).map((entry) => (
@@ -659,6 +754,7 @@ function SuggestionCard({
               <div className="text-sm font-medium text-foreground">Quantity</div>
               <Input
                 type="number"
+                aria-label="Suggestion quantity"
                 min="0.1"
                 step="0.1"
                 value={suggestion.quantity}
@@ -891,3 +987,5 @@ function SearchResultsList({ results, emptyLabel }: { results: KnowledgeSearchRe
 function formatQuantity(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value);
 }
+
+

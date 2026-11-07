@@ -707,7 +707,7 @@ describe("StructuredAIEstimatorService", () => {
       sourceKey: expect.stringMatching(/^ai-estimator:v1:/),
       assemblyId: "10000000-0000-0000-0000-000000000001",
     });
-    expect(result.applied).toEqual([{ draftLineItemId: "accepted-1", lineItemId: "line-item-1", quantity: 3 }]);
+    expect(result.applied).toEqual([{ draftLineItemId: "accepted-1", lineItemId: "line-item-1", quantity: 3, description: "Driveway package" }]);
     expect(result.skipped).toHaveLength(2);
   });
 
@@ -898,7 +898,7 @@ describe("StructuredAIEstimatorService", () => {
       unitOfMeasure: "EA",
       isActive: true,
     });
-    mockPrisma.estimateLineItem.findFirst.mockResolvedValueOnce({ id: "existing-source-key" });
+    mockPrisma.estimateLineItem.findFirst.mockResolvedValueOnce({ id: "existing-source-key", quantity: 1, description: "Panel replacement" });
 
     const result = await new StructuredAIEstimatorService().applyReviewedDraft({
       estimateId: "estimate-1",
@@ -923,7 +923,12 @@ describe("StructuredAIEstimatorService", () => {
     });
 
     expect(mockEstimateEngine.addLineItem).not.toHaveBeenCalled();
-    expect(result.skipped[0]?.reason).toBe("Matching reviewed line already exists; skipped for idempotency.");
+    expect(result.skipped[0]).toEqual(expect.objectContaining({
+      reason: "Matching reviewed line already exists; skipped for idempotency.",
+      lineItemId: "existing-source-key",
+      quantity: 1,
+      description: "Panel replacement",
+    }));
   });
 
   it("skips duplicate accepted targets and already-existing estimate lines for idempotency", async () => {
@@ -941,7 +946,7 @@ describe("StructuredAIEstimatorService", () => {
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ id: "existing-line-1" });
+      .mockResolvedValueOnce({ id: "existing-line-1", quantity: 3, description: "Driveway package with disposal" });
     mockEstimateEngine.addLineItem.mockResolvedValue({ id: "line-item-1" });
 
     const result = await new StructuredAIEstimatorService().applyReviewedDraft({
@@ -1017,7 +1022,7 @@ describe("StructuredAIEstimatorService", () => {
     expect(result.skipped).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ draftLineItemId: "accepted-duplicate-payload", reason: "Duplicate accepted target in review payload." }),
-        expect.objectContaining({ draftLineItemId: "accepted-existing", reason: "Matching estimate line already exists; skipped for idempotency." }),
+        expect.objectContaining({ draftLineItemId: "accepted-existing", reason: "Matching estimate line already exists; skipped for idempotency.", lineItemId: "existing-line-1" }),
         expect.objectContaining({ draftLineItemId: "accepted-existing", reason: "Duplicate draft line item in review payload." }),
       ])
     );
@@ -1264,3 +1269,4 @@ function buildReviewToken(input: {
   const signature = createHmac("sha256", reviewTokenSecret).update(encodedPayload).digest("base64url");
   return `v1.${encodedPayload}.${signature}`;
 }
+
