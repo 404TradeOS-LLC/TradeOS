@@ -1852,7 +1852,7 @@ customer service-address selection and its tenancy/API guards are unchanged.
 
 The new- and edit-invoice Due date controls previously depended on browser-native
 `type=date` interactions that do not accept ordinary keyboard typing reliably
-across clients. Both now accept typed `MM/DD/YYYY` or `YYYY-MM-DD`, normalize
+across clients. Both now accept typed `MM/DD/YYYY` or `YYYY-MM-DD` with a separator-capable mobile keyboard, normalize
 valid calendar dates to ISO `YYYY-MM-DD` before sending to the backend, reject
 invalid dates in the server action, and preserve blank/clearable due dates.
 No invoice lifecycle, payment, or sending behavior changes.
