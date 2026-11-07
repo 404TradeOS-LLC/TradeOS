@@ -222,7 +222,7 @@ describe("CustomerPortalService", () => {
     const staffNote = "Customer called staff privately; internal approval case ID 123";
     const accepted = {
       id: "proposal-a", status: "accepted", deliveries: [
-        { id: "event-1", eventType: "proposal.accepted", metadata: {
+        { id: "event-1", eventType: "proposal.accepted", actorUserId: "user-internal-123", recipientEmail: "private@example.invalid", metadata: {
           source: "staff_recorded_offline", acceptanceNote: staffNote, acceptanceChannel: "phone",
         } },
         { id: "event-2", eventType: "proposal.viewed", metadata: { previousStatus: "sent" } },
@@ -235,6 +235,10 @@ describe("CustomerPortalService", () => {
     const response = await service.getProposal(context, "proposal-a");
 
     expect(JSON.stringify(response)).not.toContain(staffNote);
+    expect(JSON.stringify(response)).not.toContain("user-internal-123");
+    expect(JSON.stringify(response)).not.toContain("private@example.invalid");
+    expect(response.deliveries[0].actorUserId).toBeNull();
+    expect(response.deliveries[0].recipientEmail).toBeNull();
     expect(response.deliveries[0].metadata).toEqual({ source: "staff_recorded_offline" });
     expect(response.deliveries[1].metadata).toEqual({ previousStatus: "sent" });
     expect(accepted.deliveries[0].metadata.acceptanceNote).toBe(staffNote); // keep internal record untouched
@@ -246,7 +250,7 @@ describe("CustomerPortalService", () => {
     service.proposals = {
       listByProject: jest.fn().mockResolvedValue([
         { id: "proposal-a", status: "accepted", deliveries: [
-          { eventType: "proposal.accepted", metadata: { source: "staff_recorded_offline", acceptanceNote: staffNote } },
+          { eventType: "proposal.accepted", actorUserId: "staff-private-id", recipientEmail: "staff-private@example.invalid", metadata: { source: "staff_recorded_offline", acceptanceNote: staffNote } },
         ] },
       ]),
     };
@@ -256,6 +260,8 @@ describe("CustomerPortalService", () => {
     const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
     const response = await service.getProject(context, "project-a");
     expect(JSON.stringify(response)).not.toContain(staffNote);
+    expect(JSON.stringify(response)).not.toContain("staff-private-id");
+    expect(JSON.stringify(response)).not.toContain("staff-private@example.invalid");
     expect(response.proposals[0].deliveries[0].metadata).toEqual({ source: "staff_recorded_offline" });
   });
 
