@@ -132,3 +132,15 @@ longer visible in the address bar. The confirmation button submits an
 exact-origin POST; only that POST calls the backend redemption endpoint, clears
 the pending cookie, and establishes the short-lived portal session. Automated
 GETs therefore cannot spend the invitation.
+
+## Staff-only offline acceptance audit privacy (unreleased feature branch)
+
+The authenticated internal Proposal DTO may include a staff-supplied note recording an
+in-person/phone/signed-copy approval. Customer-portal project summaries and proposal
+detail redact **all private metadata** on events tagged
+`source: staff_recorded_offline`, retaining only the source marker needed to
+show the correct timeline label. The internal journal remains intact for
+authorized staff; the portal neither displays the staff note nor implies that
+an email or electronic signature exists. Access checks against the
+authenticated organization and customer remain unchanged. Portal/PDF
+projections require staging acceptance before release.
