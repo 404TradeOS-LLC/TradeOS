@@ -220,6 +220,25 @@ there; hardware renderers keep the full reflective environment. Approved
 4s/2.5s timing, Skip/Escape, focus restoration, and the reduced-motion
 bypass are unchanged.
 
+Wall-clock verification (2026-11-06): a live probe measured the film
+covering the staging login for ~23s, but staging predates the guard above
+(it runs a deployment whose cinema chunk lacks the PMREM skip), so that
+overstay is pre-fix behavior, not a defect on current main. On current
+main, in a real browser, the film dismisses on schedule once mounted:
+first-visit 4.1–4.6s and returning 2.5–3.0s (intended 4s / 2.5s), measured
+in-page with a MutationObserver. The component suite gains a real-browser
+wall-clock regression test for this (the existing timing test uses
+Playwright's virtual clock, which masks real main-thread blockage) that
+asserts the film is gone within 5.5s first-visit and 4s returning
+(intended durations plus 1.5s slack), measured from mount, and that the
+film no longer intercepts pointer events after dismissal. A module-scope
+preload of the cinema chunk was tried and reverted: it did not change the
+measured dismissal times, and it broke the existing virtual-clock timing
+test (the chunk's evaluation block during bundle load leaves the
+accessibility tree stale after reload, so the dialog is not found by role).
+No source change ships with this verification; staging still needs a
+promotion to a build that includes the guard above.
+
 Historical Chromium download block: the earlier local component-browser run
 was blocked before launch by a missing Chromium binary after the official
 download returned an invalid archive. That limitation is resolved for this PR:
