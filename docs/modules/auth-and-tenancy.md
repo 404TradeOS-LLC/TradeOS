@@ -205,3 +205,18 @@ Authenticated request/background database sessions expose their already-validate
 ## Validation runtime security upgrade
 
 Authentication and portal request schemas use patched Zod 4. UUID-shaped relationship inputs retain the former syntax contract via `z.guid()`; this does not change verified JWT subjects, active membership, portal customer binding, role normalization or forced request-session RLS. body-parser 1.20.9 patches compressed request-body failure handling. HTTP validation remains 400 with correlated structured diagnostics. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
+
+## Internal out-of-band proposal approval authorization (proposed)
+
+An authenticated staff user with `documents.manage` can record a real
+customer's offline approval using the new `accept-offline` proposal endpoint.
+The server does not trust `orgId`, `userId`, or role from the request body:
+they are derived from `requireOrgId`/`requireAuthContext`, and the proposal
+status update is scoped through its owning Project's organization. Inadequate
+permissions fail before database mutation; stale/concurrent draft transitions
+fail with 409. This staff attestation is not a customer signature or proof of
+delivery, and no email is sent. The authenticated customer portal keeps
+separate customer/organization scope checks; its proposal responses redact
+all staff-only approval metadata except the `staff_recorded_offline` marker.
+No tenant membership, authentication, session, or RLS policy is changed.
+This is PR-stage code, not deployed acceptance evidence.
