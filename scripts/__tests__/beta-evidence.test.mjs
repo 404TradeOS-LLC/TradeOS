@@ -799,6 +799,13 @@ test("the tenant assertion cannot be skipped and mutation consent is never impli
   assert.match(authSetup, /tenant assertion cannot be skipped/);
   assert.doesNotMatch(authSetup, /tenant assertion skipped/);
 
+  // The settings console renders only the selected section (default Costbook);
+  // the company name field lives in General, so the assertion must open that
+  // section before reading the rendered field value (CI run 42319149190 failed
+  // on a valid session because the field was absent from the DOM).
+  assert.match(authSetup, /getByRole\("button", \{ name: "General", exact: true \}\)/);
+  assert.match(authSetup, /#section-general/);
+
   // An unset BETA_ALLOW_MUTATIONS previously defaulted to "true".
   const run = read("app/scripts/beta-evidence/run.mjs");
   assert.doesNotMatch(run, /BETA_ALLOW_MUTATIONS \?\? "true"/);
