@@ -37,6 +37,25 @@ export interface RedeemedCustomerPortalToken {
   expiresAt: Date;
 }
 
+/**
+ * Delivery metadata returned by internal proposal APIs may contain staff-only
+ * approval evidence. The customer portal may show an approval milestone but
+ * must not leak the staff's note, contact details, or other internal fields.
+ * Keep the source marker only so the portal timeline labels the event honestly.
+ */
+function redactInternalProposalEvidence<T extends {
+  deliveries: Array<{ metadata: Record<string, unknown> | null }>
+}>(proposal: T): T {
+  return {
+    ...proposal,
+    deliveries: proposal.deliveries.map((delivery) =>
+      delivery.metadata?.source === "staff_recorded_offline"
+        ? { ...delivery, metadata: { source: "staff_recorded_offline" } }
+        : delivery
+    ),
+  };
+}
+
 export class CustomerPortalService {
   private readonly proposals = new ProposalsService();
   private readonly invoices = new InvoicesService();
@@ -220,7 +239,7 @@ export class CustomerPortalService {
       ...project,
       title: project.name,
       projectAddress: project.siteAddress,
-      proposals: proposals.filter((proposal) => proposal.status !== "draft"),
+      proposals: proposals.filter((proposal) => proposal.status !== "draft").map(redactInternalProposalEvidence),
       invoices: invoices.filter((invoice) => invoice.status !== "draft"),
       contracts,
       estimates: [],
@@ -236,7 +255,7 @@ export class CustomerPortalService {
     await this.assertProposal(context, proposalId);
     const proposal = await this.proposals.getById(proposalId, context.orgId);
     if (proposal.status === "draft") throw new ApiError(404, `Proposal ${proposalId} not found`);
-    return proposal;
+    return redactInternalProposalEvidence(proposal);
   }
 
   async getInvoice(context: CustomerPortalContext, invoiceId: string) {
