@@ -137,7 +137,8 @@ export function EditInvoiceForm({
           )}
           <div className="flex flex-col gap-2">
             <Label htmlFor="dueDate">Due date</Label>
-            <Input id="dueDate" name="dueDate" type="date" defaultValue={invoice.dueDate ? invoice.dueDate.slice(0, 10) : ""} />
+            <Input id="dueDate" name="dueDate" type="text" inputMode="numeric" autoComplete="off" placeholder="MM/DD/YYYY or YYYY-MM-DD" aria-describedby="dueDate-hint" defaultValue={invoice.dueDate ? invoice.dueDate.slice(0, 10) : ""} />
+            <p id="dueDate-hint" className="text-xs text-muted-foreground">Optional. Type MM/DD/YYYY or YYYY-MM-DD.</p>
           </div>
           {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
           <Button type="submit" disabled={isPending}>
