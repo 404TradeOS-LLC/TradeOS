@@ -216,3 +216,21 @@ The Vercel supplier price-sync route uses two independent, database-backed, atom
 ## API validation dependency boundary
 
 The API now uses Zod 4.6.7 directly, with `$zod` overriding the older nested Vercel configuration validator. This removes vulnerable validation implementations without adding an adapter layer or changing the request auth/membership/RLS stack. Controllers and Athena tools preserve legacy UUID-shaped inputs through `z.guid()`, while explicit record and typed pipeline schemas retain existing data semantics. body-parser resolves to patched 1.20.9. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
+
+## Staff-recorded offline proposal acceptance (draft implementation)
+
+The Proposals service defines a distinct `draft -> accepted` transition for
+confirmed out-of-band customer approval. The authenticated controller checks
+`documents.manage` and validates method, explicit staff confirmation and a
+bounded audit note. The service reads within the request organization and actor
+context, validates written scope and positive final price, uses an organization-
+scoped status-conditional update, and records `proposal.accepted` in the
+existing proposal delivery/activity history tagged `staff_recorded_offline`.
+No email, `ProposalSent`, `sentAt` mutation, signature, or schema migration is
+introduced. The accepted status feeds the existing Contract/Job handoff.
+
+The customer-portal boundary strips all private staff metadata from tagged
+offline acceptance journal entries on both proposal detail and project
+summary views; only the source marker is retained for accurate timeline text.
+Internal authorized staff retain the full audit record. This branch is
+unreleased pending exact-head CI, review and protected staging acceptance.
