@@ -1874,3 +1874,13 @@ record, and no outgoing email or sent timestamp. Existing portal/customer
 approval and normal `sent -> accepted` remain untouched. Authenticated
 nonproduction acceptance, required CI and independent review are release
 gates; do not interpret presence on a branch as deployed functionality.
+
+## Offline approval privacy correction — proposed, awaiting review
+
+The proposed staff-recorded offline acceptance audit is intentionally
+internal. `CustomerPortalService.getProposal` and the portal project
+proposal-list projection redact internal approval-channel/note metadata,
+preserving only `staff_recorded_offline` so UI can label the customer-visible
+milestone without misrepresenting email delivery. Backend audit history is
+unaltered. Unit regression tests assert both portal paths cannot expose staff
+notes. This is branch work, not a deployed or verified staging behavior.
