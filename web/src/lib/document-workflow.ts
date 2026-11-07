@@ -104,13 +104,16 @@ function describeDeliveryChannel(deliveryChannel: string, recipientEmail: string
 function mapDeliveryEvents(
   id: string,
   category: WorkflowEvent["category"],
-  records: Array<{ eventType: string; deliveryChannel?: string; recipientEmail?: string | null; occurredAt: string }>
+  records: Array<{ eventType: string; deliveryChannel?: string; recipientEmail?: string | null; occurredAt: string; metadata?: Record<string, unknown> | null }>
 ): WorkflowEvent[] {
   return records
     .map((record, index) => ({
       id: `${id}-${record.eventType}-${index}`,
-      title: humanizeEventType(record.eventType),
-      description: describeDeliveryChannel(record.deliveryChannel ?? "system", record.recipientEmail ?? null),
+      title: record.eventType === "proposal.accepted" && record.metadata?.source === "staff_recorded_offline"
+        ? "Proposal accepted offline" : humanizeEventType(record.eventType),
+      description: record.eventType === "proposal.accepted" && record.metadata?.source === "staff_recorded_offline"
+        ? "Customer approval recorded by staff outside TradeOS; no proposal was sent through TradeOS."
+        : describeDeliveryChannel(record.deliveryChannel ?? "system", record.recipientEmail ?? null),
       at: record.occurredAt,
       active: true,
       category,
