@@ -638,12 +638,13 @@ treated as exact-head release certification. Broader or mutating contractor
 lifecycle, tenant-isolation, and financial proof remains owned by Beta Evidence
 / governed RC smoke.
 
-The checked-in Playwright agent MCP definitions launch through
-`tests/playwright/mcp-server.mjs`, which validates the same target contract and
-sets `PLAYWRIGHT_MCP_ALLOWED_ORIGINS` to that target before the MCP server
-starts. This is a defense-in-depth guard against accidental cross-origin
-browser requests, not a replacement for environment isolation or the governed
-authenticated evidence path.
+The checked-in Playwright agent MCP definitions and repository `.mcp.json`
+launch through `tests/playwright/mcp-server.mjs`, which uses the distinct
+`playwright.mcp.config.ts` without a browser origin allowlist. Interactive
+agent browsing may inspect any HTTP(S) origin, but does not grant production
+write authority or release certification. The standard `playwright.config.ts`,
+GitHub Actions evidence workflows, environment approvals, and governed
+authenticated release path retain their independent validation requirements.
 
 ## Production Costbook 47802 supplier evidence seed
 
