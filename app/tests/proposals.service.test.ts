@@ -441,7 +441,7 @@ describe("ProposalsService", () => {
   it("rejects offline acceptance of sent, viewed, or accepted proposals", async () => {
     const service = new ProposalsService();
     for (const status of ["sent", "viewed", "accepted", "declined"]) {
-      mockPrisma.proposal.findFirst.mockResolvedValueOnce(proposalRow(status));
+      mockPrisma.proposal.findFirst.mockResolvedValueOnce({ ...proposalRow(status), finalPrice: 1500, scopeOfWork: "Install a sign" });
       await expect(service.acceptOffline("proposal-1", { channel: "phone", note: "Customer approved the proposal by phone." }, "org-1", "owner-1"))
         .rejects.toMatchObject({ statusCode: 409 });
     }
@@ -455,6 +455,21 @@ describe("ProposalsService", () => {
       await expect(service.acceptOffline("proposal-1", { channel: "in_person", note: "Customer approved these terms in person." }, "org-1", "owner-1")).rejects.toMatchObject({ statusCode: 409 });
     }
     expect(mockPrisma.proposal.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects offline acceptance when the payment schedule does not total 100%", async () => {
+    mockPrisma.proposal.findFirst.mockResolvedValueOnce({
+      ...proposalRow("draft"),
+      finalPrice: 1500,
+      scopeOfWork: "Install a sign",
+      paymentScheduleJson: [{ label: "Deposit", amountPercent: 50 }],
+    });
+    await expect(new ProposalsService().acceptOffline("proposal-1", {
+      channel: "phone", note: "Customer approved the signed amount over the phone.",
+    }, "org-1", "owner-1")).rejects.toMatchObject({ statusCode: 400 });
+    expect(mockPrisma.proposal.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.proposalDelivery.create).not.toHaveBeenCalled();
+    expect(mockPrisma.project.update).not.toHaveBeenCalled();
   });
 
   it("fails closed on a concurrent draft acceptance without recording duplicate activity", async () => {
