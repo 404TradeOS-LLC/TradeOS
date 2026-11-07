@@ -39,3 +39,13 @@ test("empty project address leaves all fields empty", () => {
     addressLine1: "", city: "", state: "", postalCode: "",
   });
 });
+
+test("JobCreateForm binds each structured prefill field without flattening into Street", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(new URL("./job-create-form.tsx", import.meta.url), "utf8");
+  assert.match(source, /splitProjectSiteAddress\(projectSiteAddress\)/);
+  assert.match(source, /name="addressLine1" defaultValue=\{addressPrefill.addressLine1\}/);
+  assert.match(source, /name="city" defaultValue=\{addressPrefill.city\}/);
+  assert.match(source, /name="state" defaultValue=\{addressPrefill.state\}/);
+  assert.match(source, /name="postalCode" defaultValue=\{addressPrefill.postalCode\}/);
+});
