@@ -61,6 +61,11 @@ unknown hosts, credentials in URLs and origins containing paths/query/fragment
 are refused by configuration. This declaration is not runtime deployment or
 data-plane attestation and does not authorize authenticated business writes.
 
+Each checked-in Codex Playwright agent uses `sandbox_mode = "workspace-write"`
+so the planner can save plans and the generator/healer can save or repair tests
+within the repository. This does not provide unrestricted operating-system
+access or grant authority to mutate production data.
+
 Invoke the Codex agents by name:
 
 - `playwright_test_planner`: explore the configured login shell using
