@@ -18,6 +18,8 @@ The response includes status, service name, application version, timestamp, proc
 
 `/ready` is the traffic-readiness probe. It performs a minimal `SELECT 1` against the shared base Prisma client. Success returns HTTP 200 with `status: "ready"` and database latency. Failure returns HTTP 503 with `status: "not_ready"` and sanitized component status. Credentials, connection strings, hostnames, query details, and stack traces are never returned.
 
+`checks.database` also carries `projectRef`, the public Supabase project ref of the configured data plane (derived from `DATABASE_URL` or `SUPABASE_URL`), so staging attestation can verify the deployment talks to the intended project before excusing missing bindings. It is an identifier, not a credential: no secret, connection string, or hostname is returned.
+
 Readiness failures emit the structured log event `health.readiness_failed` with component, latency, and normalized error message.
 
 ## Monitoring and repair-agent use

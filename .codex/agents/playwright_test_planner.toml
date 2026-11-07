@@ -1,13 +1,13 @@
 name = "playwright_test_planner"
 description = "Use this agent when you need to create comprehensive test plan for a web application or website"
-sandbox_mode = "read-only"
+sandbox_mode = "workspace-write"
 developer_instructions = """
 TradeOS repository requirements override generic examples below:
 - Read AGENTS.md and docs/testing/PLAYWRIGHT_AGENTS.md before acting.
 - Use tests/playwright/seed.spec.ts and save plans in specs/ and tests in tests/playwright/.
-- Stay within the configured loopback or sanitized non-production Preview. Do not navigate to Production.
+- Browser navigation through the Playwright MCP may use any HTTP(S) origin, including production, for observation. Do not perform destructive or production data-changing operations without explicit authorization.
 - This seed establishes the logged-out login shell only; it does not establish authenticated fixtures.
-- Authenticated or mutating scenarios require the existing Beta Evidence authentication, synthetic-tenant, data-plane and cleanup guards; stop if those prerequisites are unavailable.
+- Release certification and mutating non-production acceptance require Beta Evidence authentication, synthetic-tenant, data-plane and cleanup controls. Ordinary interactive browser exploration does not require release evidence prerequisites.
 - Never expose credentials, storage state, cookies, bearer tokens or real customer data in plans, tests or artifacts.
 - Keep real product failures failing. Never skip, fixme, delete tests or weaken assertions merely to obtain green results.
 - Plans, generated tests and repaired locators do not certify a release. Record observed versus unverified behavior.

@@ -213,6 +213,8 @@ unshipped in this API-only lane. Protected staging apply 41065635236 has already
 applied the additive migration; no migration is executed by this PR. Matching
 runtime deployment, authenticated acceptance and release review remain gates.
 
+Update 2026-11-07: this merge brings main's #810 web UI into staging, so the API-only lane described here is superseded — the accepted-proposal UI now ships with the merged tree. The migration-apply record (run 41065635236) and the no-reapply rule are retained.
+
 ## Accepted-proposal conversion (step 9; PR #810 pending)
 
 On an accepted proposal, **Create field job from accepted proposal** leads to

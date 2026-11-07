@@ -46,8 +46,8 @@ test("rejects non-image files and oversized files", () => {
   );
 
   assert.equal(
-    validateSettingsAssetUpload({ assetKey: "logoUrl", file: { size: 7 * 1024 * 1024, type: "image/png" } }),
-    "Each brand asset must be 6MB or smaller."
+    validateSettingsAssetUpload({ assetKey: "logoUrl", file: { size: 4 * 1024 * 1024 + 1, type: "image/png" } }),
+    "Each brand asset must be 4MB or smaller."
   );
 });
 

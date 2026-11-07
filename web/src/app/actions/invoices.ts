@@ -10,6 +10,7 @@ import {
   scaleManualLinesForProgress,
   type ManualInvoiceLine,
 } from "./manual-invoice-lines";
+import { parseInvoiceDueDate } from "./invoice-due-date";
 
 export async function createInvoiceAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
   const token = await getSessionToken();
@@ -18,7 +19,9 @@ export async function createInvoiceAction(_prev: FormActionState, formData: Form
   const proposalId = String(formData.get("proposalId") ?? "").trim();
   const type = String(formData.get("type") ?? "full");
   const percentComplete = String(formData.get("percentComplete") ?? "").trim();
-  const dueDate = String(formData.get("dueDate") ?? "").trim();
+  const parsedDueDate = parseInvoiceDueDate(String(formData.get("dueDate") ?? ""));
+  if ("error" in parsedDueDate) return { error: parsedDueDate.error };
+  const dueDate = parsedDueDate.date ?? "";
 
   if (type === "progress" && !percentComplete) return { error: "Enter a percent complete for a progress invoice." };
 
@@ -62,7 +65,9 @@ export async function updateInvoiceAction(_prev: FormActionState, formData: Form
   const token = await getSessionToken();
   const invoiceId = String(formData.get("invoiceId") ?? "");
   const projectId = String(formData.get("projectId") ?? "");
-  const dueDate = String(formData.get("dueDate") ?? "").trim();
+  const parsedDueDate = parseInvoiceDueDate(String(formData.get("dueDate") ?? ""));
+  if ("error" in parsedDueDate) return { error: parsedDueDate.error };
+  const dueDate = parsedDueDate.date ?? "";
   const editMode = String(formData.get("editMode") ?? "");
 
   // Line editing is offered only for manual full drafts (see the edit

@@ -6,6 +6,8 @@ import { firstDetailHref } from "../../tests/playwright/evidence-links.mjs";
 const workflow = fs.readFileSync(".github/workflows/playwright-agent-evidence.yml", "utf8");
 const config = fs.readFileSync("playwright.config.ts", "utf8");
 const launcher = fs.readFileSync("tests/playwright/mcp-server.mjs", "utf8");
+const mcpConfig = fs.readFileSync("playwright.mcp.config.ts", "utf8");
+const repoMcpConfig = JSON.parse(fs.readFileSync(".mcp.json", "utf8"));
 const authenticated = fs.readFileSync("tests/playwright/authenticated.spec.ts", "utf8");
 
 test("Playwright agent evidence workflow stays manual, read-only, and Chromium-only", () => {
@@ -34,10 +36,36 @@ test("evidence mode produces reviewable Playwright artifacts", () => {
   assert.match(config, /video: evidenceMode \? 'retain-on-failure' : 'off'/);
 });
 
-test("agent MCP startup constrains browser requests to the validated target", () => {
-  assert.match(launcher, /resolveAgentTarget\(process\.env\)/);
-  assert.match(launcher, /PLAYWRIGHT_MCP_ALLOWED_ORIGINS: target/);
+test("agent MCP starts using its unrestricted browser config, not the release target guard", () => {
   assert.match(launcher, /run-test-mcp-server/);
+  assert.match(launcher, /playwright\.mcp\.config\.ts/);
+  assert.match(launcher, /PLAYWRIGHT_MCP_ALLOWED_ORIGINS: _allowed/);
+  assert.match(launcher, /PLAYWRIGHT_MCP_BLOCKED_ORIGINS: _blocked/);
+  assert.doesNotMatch(launcher, /resolveAgentTarget/);
+  assert.doesNotMatch(launcher, /PLAYWRIGHT_MCP_ALLOWED_ORIGINS: target/);
+});
+
+test("agent MCP accepts arbitrary browser origins while CI remains gated", () => {
+  assert.match(mcpConfig, /TRADEOS_AGENT_BASE_URL/);
+  assert.match(mcpConfig, /127\.0\.0\.1:3000/);
+  assert.doesNotMatch(mcpConfig, /resolveAgentTarget|SANITIZED_TENANT|ALLOWED_ORIGINS/);
+  assert.match(config, /resolveAgentTarget\(process\.env\)/);
+  assert.equal(repoMcpConfig.mcpServers["playwright-test"].command, "node");
+  assert.deepEqual(repoMcpConfig.mcpServers["playwright-test"].args, ["tests/playwright/mcp-server.mjs"]);
+});
+
+test("agent MCP project selects Firefox, not Chromium", () => {
+  assert.match(mcpConfig, /name: 'firefox'/);
+  assert.match(mcpConfig, /devices\['Desktop Firefox'\]/);
+  assert.doesNotMatch(mcpConfig, /Desktop Chrome/);
+});
+
+test("Codex test agents can write the plans and specs they are assigned to create", () => {
+  for (const role of ["planner", "generator", "healer"]) {
+    const agent = fs.readFileSync(`.codex/agents/playwright_test_${role}.toml`, "utf8");
+    assert.match(agent, /sandbox_mode = "workspace-write"/);
+    assert.match(agent, /Browser navigation through the Playwright MCP may use any HTTP\(S\) origin/);
+  }
 });
 
 test("authenticated evidence stays read-only across contractor and document lifecycle workspaces", () => {

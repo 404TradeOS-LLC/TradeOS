@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { AlertTriangle, ArrowRight, BriefcaseBusiness, CalendarClock, CheckCheck, ChevronDown, ChevronRight, ClipboardList, Clock3, ExternalLink, Filter, ListTodo, MapPin, RefreshCw, Search, ShieldCheck, Sparkles, Users, WifiOff, X } from "lucide-react";
 import { AthenaWorkspace } from "@/components/athena/athena-workspace";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { AttentionItem } from "./attention-item";
 import { buttonVariants } from "@/components/ui/button";
 import { canUseUniversalCreate } from "@/lib/universal-create-access";
 import { buildUniversalCreateHref } from "@/lib/universal-create";
@@ -28,11 +29,9 @@ function localDate(value: string, timeZone: string) {
   return new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric" }).format(new Date(value));
 }
 function AttentionRow({ item, onOpen }: { item: TodayAttentionItem; onOpen: (item: Selection) => void }) {
-  return <li className="today-attention-row">
-    <span className={cn("today-record-icon", item.priority === "urgent" ? "text-destructive bg-destructive/10" : "text-warning bg-warning/10")}><AlertTriangle size={19} aria-hidden="true" /></span>
-    <div className="min-w-0 flex-1"><span className={cn("text-[10px] font-semibold uppercase tracking-wider", item.priority === "urgent" ? "text-destructive" : "text-warning")}>{item.priority} · {item.source}</span><h3 className="mt-1 text-sm font-medium">{item.title}</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">{item.context}</p>{item.assignee ? <p className="text-xs text-muted-foreground">{item.assignee}</p> : null}</div>
-    <button type="button" className="today-row-action" onClick={() => onOpen(item)} aria-label={`${item.action}: ${item.title}`}>{item.action}<ChevronRight size={14} aria-hidden="true" /></button>
-  </li>;
+  const severity = item.priority === "urgent" ? "urgent" : item.priority === "high" ? "action" : "info";
+  const status = item.priority === "urgent" ? "Urgent" : item.priority === "high" ? "Needs action" : "Review";
+  return <AttentionItem title={item.title} description={item.context} meta={`${item.source}${item.assignee ? ` · ${item.assignee}` : ""}`} severity={severity} status={status} action={item.action} onAction={() => onOpen(item)} />;
 }
 function WorkRow({ item, onOpen, timeZone, showDate = false }: { item: TodayWorkItem; onOpen: (item: Selection) => void; timeZone: string; showDate?: boolean }) {
   return <li><button type="button" className="today-work-row" onClick={() => onOpen({ ...item, action: item.kind === "task" ? "Open task workspace" : "Open work", source: item.kind })}>

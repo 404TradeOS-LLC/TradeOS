@@ -1427,13 +1427,23 @@ export interface JobExpense {
   jobId: string;
   orgId: string;
   amountCents: number;
+  currency: "USD";
+  description: string;
+  paymentResponsibility: "contractor" | "customer";
   category: JobExpenseCategory;
   vendor: string;
   receiptNote: string;
+  receiptStoragePath: string | null;
+  receiptFileName: string | null;
+  receiptContentType: "image/png" | "image/jpeg" | "application/pdf" | null;
+  receiptSizeBytes: number | null;
   incurredOn: string;
   createdById: string;
   createdAt: string;
   updatedAt: string;
+  voidedAt: string | null;
+  voidedById: string | null;
+  voidReason: string;
 }
 
 export interface JobCostSummary {
@@ -1441,10 +1451,23 @@ export interface JobCostSummary {
   projectId: string;
   expenseCount: number;
   actualCents: number;
+  customerPaidCents: number;
   byCategoryCents: Record<string, number>;
   estimatedCents: number | null;
   estimateId: string | null;
   varianceCents: number | null;
+  recognizedRevenueCents: null;
+  profitCents: null;
+  profitStatus: "revenue_not_attributed_to_job";
+}
+
+export interface JobExpenseEvent {
+  id: string;
+  expenseId: string;
+  eventType: "created" | "updated" | "receipt_linked" | "voided";
+  actorUserId: string;
+  createdAt: string;
+  payload: unknown;
 }
 
 export function listJobExpenses(token: string, jobId: string) {

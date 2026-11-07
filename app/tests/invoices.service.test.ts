@@ -754,4 +754,83 @@ describe("InvoicesService", () => {
       ).rejects.toThrow("manage invoices");
     });
   });
+
+  describe("finite-value and due-date validation", () => {
+    const validManualLine = { description: "Labor", quantity: 2, unitOfMeasure: "hr", unitPrice: 100 };
+
+    it("rejects a NaN percentComplete on a progress invoice instead of persisting NaN amounts", async () => {
+      mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
+
+      await expect(
+        new InvoicesService().create({
+          orgId: "org-1",
+          actorRole: "admin",
+          projectId: "project-1",
+          type: "progress",
+          percentComplete: Number.NaN,
+          lineItems: [validManualLine],
+        })
+      ).rejects.toMatchObject({ statusCode: 400 });
+      expect(mockPrisma.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects manual line items with a NaN quantity, unit price, or line total", async () => {
+      mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
+
+      for (const lineItems of [
+        [{ ...validManualLine, quantity: Number.NaN }],
+        [{ ...validManualLine, unitPrice: Number.NaN }],
+        [{ ...validManualLine, lineTotal: Number.NaN }],
+      ]) {
+        await expect(
+          new InvoicesService().create({ orgId: "org-1", actorRole: "admin", projectId: "project-1", lineItems })
+        ).rejects.toThrow("finite");
+      }
+      expect(mockPrisma.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects an unparseable due date on create instead of failing with a 500", async () => {
+      mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
+
+      await expect(
+        new InvoicesService().create({
+          orgId: "org-1",
+          actorRole: "admin",
+          projectId: "project-1",
+          lineItems: [validManualLine],
+          dueDate: "not-a-date",
+        })
+      ).rejects.toMatchObject({ statusCode: 400 });
+      expect(mockPrisma.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects NaN line items and an unparseable due date on update", async () => {
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: "invoice-1",
+        projectId: "project-1",
+        estimateId: null,
+        type: "full",
+        status: "draft",
+        amount: 150,
+        subtotal: 150,
+        taxPct: 0,
+        taxAmount: 0,
+        project: { orgId: "org-1", customer: { email: "billing@example.com" } },
+      });
+
+      await expect(
+        new InvoicesService().update({
+          id: "invoice-1",
+          orgId: "org-1",
+          actorRole: "admin",
+          lineItems: [{ ...validManualLine, quantity: Number.NaN }],
+        })
+      ).rejects.toThrow("finite");
+      await expect(
+        new InvoicesService().update({ id: "invoice-1", orgId: "org-1", actorRole: "admin", dueDate: "not-a-date" })
+      ).rejects.toThrow("dueDate must be a valid date");
+      expect(mockPrisma.invoice.update).not.toHaveBeenCalled();
+      expect(mockPrisma.invoiceLineItem.deleteMany).not.toHaveBeenCalled();
+    });
+  });
 });

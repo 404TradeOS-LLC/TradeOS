@@ -20,13 +20,17 @@ interface LocalAuthSession {
 // Configuration > Redirect URLs allowlist in the Supabase dashboard.
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.trim();
 
+// The recovery link target is the bare /auth/confirm path on purpose: the
+// confirm route defaults its `next` parameter to /reset-password (and only
+// allows that path), so a `?next=` query on the redirect URL buys nothing
+// and only widens the URL Supabase's redirect allowlist must match exactly.
 function recoveryRedirectUrl(): string | null {
-  if (!APP_URL) return process.env.NODE_ENV === "development" ? "http://localhost:3000/auth/confirm?next=/reset-password" : null;
+  if (!APP_URL) return process.env.NODE_ENV === "development" ? "http://localhost:3000/auth/confirm" : null;
 
   try {
     const url = new URL(APP_URL);
     if (process.env.NODE_ENV !== "development" && url.protocol !== "https:") return null;
-    return url.origin + "/auth/confirm?next=/reset-password";
+    return url.origin + "/auth/confirm";
   } catch {
     return null;
   }
@@ -100,12 +104,20 @@ export async function requestPasswordResetAction(_prev: AuthActionState, formDat
   });
 
   if (error) {
-    // Server-side diagnostic only. Supabase can fail this for reasons that
-    // must never reach the client response (rate limiting, SMTP/provider
-    // outage, a malformed redirectTo the dashboard allowlist rejects) — the
-    // user-facing copy stays generic so we never confirm which emails have
-    // accounts.
-    console.error("resetPasswordForEmail failed:", error.message);
+    // Server-side diagnostic only: status and code let operators tell a
+    // permanent configuration failure (redirect allowlist, mailer) from a
+    // transient one (rate limit) in the logs. Nothing here reaches the
+    // client: every message below is account-agnostic, so the response
+    // never confirms whether the address has an account.
+    const status = (error as { status?: unknown }).status;
+    const code = (error as { code?: unknown }).code;
+    console.error("resetPasswordForEmail failed:", { status, code, message: error.message });
+    if (status === 429 || /rate limit/i.test(error.message)) {
+      return { error: "Too many reset requests. Please wait a bit and try again." };
+    }
+    if (/redirect/i.test(error.message)) {
+      return { error: "Password recovery is not configured correctly for this deployment." };
+    }
     return { error: "We couldn't process that request. Please try again." };
   }
 

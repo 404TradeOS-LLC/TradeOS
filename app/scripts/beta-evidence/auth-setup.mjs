@@ -196,6 +196,7 @@ try {
     path.join(outDir, "auth-setup-report.json"),
     `${JSON.stringify(
       {
+        runId: process.env.BETA_RUN_ID ?? null,
         generatedAt: new Date().toISOString(),
         baseUrl: parsedBaseUrl.origin,
         smokeIdentity: email.replace(/^(.).*(@.*)$/, "$1***$2"),

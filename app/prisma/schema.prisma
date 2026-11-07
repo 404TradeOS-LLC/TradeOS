@@ -50,6 +50,7 @@ model Organization {
   jobs           Job[]
   jobAssignments JobAssignment[]
   jobExpenses    JobExpense[]
+  jobExpenseEvents JobExpenseEvent[]
   estimates      Estimate[]
   serviceAgreements ServiceAgreement[]
   payments       Payment[]
@@ -277,6 +278,8 @@ model AppUser {
   sentInvites   OrganizationInvite[] @relation("InviteSender")
   createdJobs   Job[]                @relation("JobCreatedBy")
   createdJobExpenses JobExpense[]   @relation("JobExpenseCreatedBy")
+  voidedJobExpenses JobExpense[] @relation("JobExpenseVoidedBy")
+  createdJobExpenseEvents JobExpenseEvent[] @relation("JobExpenseEventActor")
   completedJobs Job[]                @relation("JobCompletedBy")
   assignedProjectTasks ProjectTask[] @relation("ProjectTaskAssignee")
   assignedJobs  JobAssignment[]      @relation("JobAssignmentUser")
@@ -1149,6 +1152,7 @@ model Job {
   tasks          ProjectTask[]
   siteVisits     SiteVisit[]
   expenses       JobExpense[]
+  expenseEvents JobExpenseEvent[]
 
   @@unique([orgId, jobNumber])
   @@index([orgId, status])
@@ -1161,25 +1165,61 @@ model Job {
 }
 
 model JobExpense {
-  id           String   @id @default(uuid())
-  orgId        String   @map("org_id")
-  jobId        String   @map("job_id")
-  amountCents  Int      @map("amount_cents")
-  category     String
-  vendor       String   @default("")
-  receiptNote  String   @default("") @map("receipt_note")
-  incurredOn   DateTime @map("incurred_on")
-  createdById  String   @map("created_by_id")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+  id                    String   @id @default(uuid())
+  orgId                 String   @map("org_id")
+  jobId                 String   @map("job_id")
+  amountCents           Int      @map("amount_cents")
+  currency              String   @default("USD")
+  description           String   @default("")
+  paymentResponsibility String   @default("contractor") @map("payment_responsibility")
+  category              String
+  vendor                String   @default("")
+  receiptNote           String   @default("") @map("receipt_note")
+  receiptStoragePath    String?  @map("receipt_storage_path")
+  receiptFileName       String?  @map("receipt_file_name")
+  receiptContentType    String?  @map("receipt_content_type")
+  receiptSizeBytes      Int?     @map("receipt_size_bytes")
+  idempotencyKey        String?  @map("idempotency_key") @db.Uuid
+  incurredOn            DateTime @map("incurred_on")
+  createdById           String   @map("created_by_id")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at")
+  voidedAt              DateTime? @map("voided_at")
+  voidedById            String?  @map("voided_by_id") @db.Uuid
+  voidReason            String   @default("") @map("void_reason")
 
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   job          Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
   createdBy    AppUser      @relation("JobExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  voidedBy AppUser? @relation("JobExpenseVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  events       JobExpenseEvent[]
 
-  @@index([orgId, jobId])
-  @@index([jobId, incurredOn])
+  @@unique([orgId, jobId, idempotencyKey], map: "job_expenses_org_job_idempotency_key_idx")
+  @@index([orgId, jobId], map: "job_expenses_org_job_idx")
+  @@index([orgId, jobId, voidedAt], map: "job_expenses_org_job_voided_idx")
+  @@index([jobId, incurredOn(sort: Desc)], map: "job_expenses_job_incurred_idx")
   @@map("job_expenses")
+}
+
+// Append-only provenance for create, edit, receipt-link and void events.
+// Neither the service nor the database grants update/delete on these rows.
+model JobExpenseEvent {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  jobId       String   @map("job_id")
+  expenseId   String   @map("expense_id")
+  actorUserId String   @map("actor_user_id")
+  eventType   String   @map("event_type")
+  payloadJson Json     @default("{}") @map("payload_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  expense JobExpense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  actorUser AppUser @relation("JobExpenseEventActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([orgId, jobId, expenseId, createdAt], map: "job_expense_events_org_job_expense_created_idx")
+  @@map("job_expense_events")
 }
 
 model JobAssignment {

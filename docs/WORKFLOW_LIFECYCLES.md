@@ -18,9 +18,17 @@ related_code:
 
 # Workflow Lifecycles
 
-## PDF logo loading does not change commercial state — staging promotion of PR #871 and PR #873
+## PDF logo loading does not change commercial state
 
-Invoice, contract, and proposal PDF generation may add the authenticated organization's stored PNG/JPEG logo after bounded private Storage validation. This affects only document display and retains all estimate/proposal/contract/invoice workflow states, pricing, acceptance, signatures, payment, and authorization behavior. Invalid or missing images fall back safely to the company-name header, and no external URL is accessed. Staging acceptance (seeded same-tenant logo, protected staging credential provenance, visual PDF inspection) remains open under issue #870.
+Invoice, contract and proposal PDF generation may add the authenticated organization's stored PNG/JPEG logo after bounded private Storage validation. This affects only document display and retains all estimate/proposal/contract/invoice workflow states, pricing, acceptance, signatures, payment and authorization behavior. Invalid/missing images fall back safely, and no external URL is accessed. Staging acceptance under issue #870 still requires a seeded same-tenant logo, protected staging credential provenance, and visual PDF inspection.
+
+## Tenant PDF logo rendering lifecycle boundary
+
+Trusted logo rendering is a presentation-only PDFKit option. Estimate/proposal/contract/invoice states, invoices, approvals, prices, signatures and delivery lifecycles are unchanged. The web app's current private SettingsAssetUpload remains authoritative for real tenant logo bytes; PR #873 implements the protected backend organization-scoped loader. Missing credentials or an active same-tenant logo leave the company-name header intact, and staging acceptance remains required under #870.
+
+## Proposal customer-document presentation — PR #868
+
+The accepted estimate to proposal to signature and invoice lifecycle is unchanged. The customer-facing PDF header now avoids forced TradeOS platform labeling so the organization's branding and explicit `showPoweredByTradeOS` preference remain authoritative. Proposal state transitions, pricing, expiry, permission checks, storage and delivery behavior are unaffected. Real tenant PDF visual acceptance and uploaded-logo embedding remain separate follow-up work.
 
 This file defines canonical display states and the current compatibility layer for persisted values.
 
@@ -288,7 +296,7 @@ Current enforced transitions:
 - `sent|overdue -> paid`
 - a draft invoice may be edited: line replacement plus total recompute for manual full drafts, due-date-only edits for progress and estimate-linked drafts; non-drafts are not editable
 - a recorded-payment reconciliation may transition an eligible `sent` invoice, or an existing raw `overdue` invoice for historical compatibility, to persisted `paid` when recorded payments fully cover the invoice
-- non-paid invoices may be voided
+- non-paid invoices that have not already been voided may be voided; voiding an already-void invoice returns 409 and records no duplicate event
 
 Compatibility persistence:
 

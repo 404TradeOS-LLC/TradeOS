@@ -206,3 +206,10 @@ test("recordInvoicePaymentAction revalidates and redirects back to the invoice d
   assert.match(afterApiCall, /revalidatePath\(`\/projects\/\$\{projectId\}\/invoices\/\$\{id\}`\)/);
   assert.match(afterApiCall, /redirect\(`\/projects\/\$\{projectId\}\/invoices\/\$\{id\}`\)/);
 });
+
+test("invoice create and edit actions normalize and reject invalid typed due dates before the API", () => {
+  const source = readInvoicesActionsSource();
+  const occurrences = source.match(/parseInvoiceDueDate\(String\(formData.get\("dueDate"\)/g) ?? [];
+  assert.equal(occurrences.length, 2, "create and edit must both normalize the due date");
+  assert.match(source, /if \("error" in parsedDueDate\) return \{ error: parsedDueDate.error \};/);
+});
