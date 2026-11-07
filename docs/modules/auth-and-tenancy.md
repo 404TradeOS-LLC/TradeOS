@@ -224,3 +224,15 @@ separate customer/organization scope checks; its proposal responses redact
 all staff-only approval metadata except the `staff_recorded_offline` marker.
 No tenant membership, authentication, session, or RLS policy is changed.
 This is PR-stage code, not deployed acceptance evidence.
+
+## Customer portal privacy for staff-recorded offline proposal approvals
+
+The proposed internal offline proposal-acceptance endpoint is protected by bearer-token
+membership, `documents.manage` and request-scoped organization RLS. It is not callable
+with a customer-portal session. Internal ProposalDelivery rows may contain staff notes,
+approval method, actor ID and other audit evidence. The customer portal's project proposal
+list and proposal detail enforce customer+organization scope and project only an offline
+acceptance marker; they redact internal metadata, actorUserId and recipientEmail before
+serializing the result. The internal audit record is not modified. Customer portal PDF,
+normal Send and customer acceptance permissions stay unchanged. This is a source-branch
+security boundary pending exact-head CI and nonproduction acceptance.
