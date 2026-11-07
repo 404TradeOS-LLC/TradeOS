@@ -172,6 +172,13 @@ try {
           throw new Error("Authenticated settings API did not match the expected canonical smoke organization ID.");
         }
       } else {
+        // The settings console renders only the selected section and defaults
+        // to Costbook; the company name field lives in the General section,
+        // so open it before reading the rendered field value. Without this
+        // the field is absent from the DOM and the assertion fails on a valid
+        // session (CI run 42319149190).
+        await page.getByRole("button", { name: "General", exact: true }).first().click();
+        await page.locator("#section-general").waitFor({ state: "visible", timeout: 10_000 });
         // The Settings page keeps the organization label in the editable
         // companyName field; it is not guaranteed to be visible in body text
         // until the user opens the relevant panel. Read the rendered field value
