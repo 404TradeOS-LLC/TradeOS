@@ -29,9 +29,17 @@ and healer definitions use the root Playwright configuration and installed
 ```bash
 npm ci
 npx playwright install --with-deps chromium
+npx playwright install firefox
 npm run test:e2e:guards
 npm run test:e2e:list
 ```
+
+Firefox is the interactive Playwright MCP agent browser (see
+`playwright.mcp.config.ts`); install it alongside Chromium, which stays the
+default for the root config and GitHub Actions evidence gates. Use the plain
+`playwright install firefox` first — `--with-deps` pulls system packages
+through apt and is only needed if a Firefox launch failure proves a system
+library is missing.
 
 Start TradeOS separately using its existing app/web development instructions.
 

@@ -2,7 +2,11 @@ import { defineConfig, devices } from '@playwright/test';
 
 // Interactive agent browser access is intentionally independent from release
 // certification. This config does not enforce a host or origin allowlist.
-// The normal playwright.config.ts and GitHub Actions evidence gates are unchanged.
+// The agent browser is Firefox: the MCP server runs it against a dedicated
+// persistent profile (see tests/playwright/seed.spec.ts) so it trusts the
+// local egress CA with full TLS validation and no relay. Chromium remains
+// the default for the normal playwright.config.ts and GitHub Actions
+// evidence gates, which are unchanged.
 export default defineConfig({
   testDir: './tests/playwright',
   testMatch: '**/*.spec.ts',
@@ -18,5 +22,5 @@ export default defineConfig({
     screenshot: 'off',
     video: 'off',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [{ name: 'firefox', use: { ...devices['Desktop Firefox'] } }],
 });
