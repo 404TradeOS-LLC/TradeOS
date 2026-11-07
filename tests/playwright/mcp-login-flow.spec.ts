@@ -10,6 +10,9 @@ test.describe('TradeOS sign-in workflow', () => {
     // wait below. 60s lets that assertion report cleanly on slow targets
     // instead of the default 30s test timeout firing mid-assertion.
     test.setTimeout(60000);
+    // Force motion on so the intro mounts deterministically: LoginEntry
+    // only opens it when prefers-reduced-motion is NOT reduce.
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.goto('/login');
     // The signature intro film ("TradeOS introduction" dialog) covers the
     // page and intercepts pointer events until it dismisses. Its intended
@@ -17,9 +20,14 @@ test.describe('TradeOS sign-in workflow', () => {
     // 4000ms first visit, 2500ms returning. The 10s bound below gives the
     // film ample slack on slow renderers while failing loudly on the
     // ~23s overstay defect instead of hiding it behind a long wait.
-    await expect(
-      page.getByRole('dialog', { name: 'TradeOS introduction' }),
-    ).toBeHidden({ timeout: 10000 });
+    // First establish that the intro actually mounted: toBeHidden passes
+    // immediately for an element that does not exist yet, and LoginEntry
+    // only mounts the dialog after hydration (requestAnimationFrame in
+    // useEffect), so without this wait the assertion could pass vacuously
+    // and a real overstay would be absorbed by the 60s harness timeout.
+    const intro = page.getByRole('dialog', { name: 'TradeOS introduction' });
+    await expect(intro).toBeVisible({ timeout: 10000 });
+    await expect(intro).toBeHidden({ timeout: 10000 });
     await expect(page).toHaveTitle(/Sign in \| TradeOS/);
     await expect(page.getByRole('heading', { name: 'Welcome back.' })).toBeVisible();
     await expect(page.getByPlaceholder('you@company.com')).toBeVisible();
