@@ -54,6 +54,12 @@ test("agent MCP accepts arbitrary browser origins while CI remains gated", () =>
   assert.deepEqual(repoMcpConfig.mcpServers["playwright-test"].args, ["tests/playwright/mcp-server.mjs"]);
 });
 
+test("agent MCP project selects Firefox, not Chromium", () => {
+  assert.match(mcpConfig, /name: 'firefox'/);
+  assert.match(mcpConfig, /devices\['Desktop Firefox'\]/);
+  assert.doesNotMatch(mcpConfig, /Desktop Chrome/);
+});
+
 test("Codex test agents can write the plans and specs they are assigned to create", () => {
   for (const role of ["planner", "generator", "healer"]) {
     const agent = fs.readFileSync(`.codex/agents/playwright_test_${role}.toml`, "utf8");
