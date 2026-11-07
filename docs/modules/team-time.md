@@ -46,3 +46,29 @@ Team & Time records job-based work hours for W-2 employees and subcontractors. T
 - Staging verification on 2026-10-30 confirms deployed `team-time` Edge Function **version 6** with JWT verification enabled. The original Supabase migrations `20260924145928` (`team_time_foundation`) and `20260924150458` (`team_time_integrity`) are recorded as applied. Repository source at `supabase/functions/team-time/index.ts` is a staging v6-derived candidate with bounded, complete shift pagination; new tracked Prisma equivalents are `20261030004500_team_time_foundation` and `20261030005500_team_time_integrity`, followed by `20261030010000_force_team_time_rls`.
 - **Authorization boundary:** the Edge Function authenticates the requester and explicitly checks organization membership and job assignment; its server-side PostgREST client uses a secret service-role key and therefore bypasses RLS even when FORCE is set. Source-level adversarial tests in `app/tests/team-time-edge-auth.test.ts` exercise the deployed-equivalent access path. FORCE hardens table-owner posture, not service-role tenant isolation.
 - Staging's three Team & Time tables were RLS-enabled but not FORCED on 2026-10-30. The three Prisma migration equivalents and enhanced tests are **proposed source changes**, not evidence that protected staging or production migration deployment occurred. Production activation remains forbidden until separate function, database, role, identity and environment acceptance.
+
+## Draft staging parity — Edge Function provenance (PR #938)
+
+The draft, non-deployed PR #938 now preserves the staging Edge Function source
+rather than replacing it with a less-complete later main copy. The staged
+implementation checks the authenticated Supabase user, same-organization
+membership and non-declined job assignments before touching job/shift records;
+it paginates job, shift and roster reads with bounded explicit failure
+instead of silently truncating 100-row lists. This branch also carries
+regression tests for declined assignments, full roster/job pagination,
+oversized workspaces and the FORCE-RLS audit trigger owner boundary.
+
+Supabase's current [publishable/secret key migration guidance](https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys)
+specifies that `SUPABASE_SECRET_KEYS` and `SUPABASE_PUBLISHABLE_KEYS`
+contain JSON objects **mapping key names to actual key values**. The
+stage-preserved source selects a key value directly (with a legacy
+server-only fallback and explicit missing-key rejection). It does not look
+up the value as another environment-variable name. These secret values
+remain server-only; no live keys were read or written during reconciliation.
+
+**Release gate:** the file is only a source-controlled candidate; the
+active staging Edge Function v6, its secrets, tenant behavior, production
+key handling and application deployment have **not** been changed or
+re-certified by this PR. Protected staging acceptance, independently
+reviewed runtime identity and isolation tests are required before any
+Edge Function deployment.
