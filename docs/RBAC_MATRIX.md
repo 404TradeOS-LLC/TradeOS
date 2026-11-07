@@ -261,3 +261,17 @@ Invitation acceptance likewise conditionally claims a pending, unaccepted, unexp
 After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
 
 Refresh rotation records the replacement refresh-row UUID in `replaced_by_id`, while the opaque token hash remains only in `token_hash`. The conditional single-use rotation and replacement row creation remain in one transaction; replay and logout continue to reject revoked refresh sessions.
+## Proposed staff offline proposal acceptance
+
+`POST /api/v1/proposals/:id/accept-offline` requires `documents.manage`,
+matching the normal internal proposal accept/send management boundary.
+The API derives actor and tenant identifiers exclusively from the authenticated
+request, rejects unknown/absent actor/org, and does not accept caller-provided
+tenant identifiers. Owners/admins and any other explicitly authorized
+`documents.manage` role may record offline acceptance; non-authorized
+technician/viewer roles receive 403. The service conditionally updates only a
+proposal whose parent Project matches the authenticated organization, and
+forced RLS remains in effect. A confirmation checkbox and approval note do
+not grant permission on their own. Customer portal contexts cannot invoke
+the staff-only action or view the staff's private acceptance note. This
+transition remains an unshipped feature until reviewed staging acceptance.
