@@ -45,6 +45,12 @@ export class EstimateApplyVerificationError extends Error {
   }
 }
 
+// Persisted quantities are Decimal(12, 4): the server rounds the requested
+// quantity to four decimals (normalizePersistedQuantity), so the saved value
+// may differ from the request by up to half a unit in the last place, plus
+// floating-point noise. Any larger gap is a conflicting edit, not rounding.
+const QUANTITY_TOLERANCE = 0.00005 + Number.EPSILON;
+
 export function verifyEstimateApplyAcknowledgement(
   acknowledgement: EstimateApplyAcknowledgement,
   serializedRequestBody: string,
@@ -91,6 +97,22 @@ export function verifyEstimateApplyAcknowledgement(
     ) {
       throw new EstimateApplyVerificationError(`Acknowledged line ${lineItemId} did not match the reviewed target, quantity, and description.`);
     }
+
+    // An idempotent retry can acknowledge the CURRENT saved row: the
+    // server's sourceKey lookup finds a line edited in another tab after
+    // the apply (edits preserve sourceKey) and echoes its current values,
+    // so saved-vs-acknowledgement alone cannot prove the row still matches
+    // the accepted review. Compare against the retained request too.
+    if (Math.abs(saved.quantity - requested.quantity) > QUANTITY_TOLERANCE) {
+      throw new EstimateApplyVerificationError(`Acknowledged line ${lineItemId} no longer matches the reviewed quantity.`);
+    }
+    const requestedDescription = requested.description?.trim();
+    if (requestedDescription && normalizeText(saved.description) !== normalizeText(requestedDescription)) {
+      throw new EstimateApplyVerificationError(`Acknowledged line ${lineItemId} no longer matches the reviewed description.`);
+    }
+    // When the request had no description the server fell back to the
+    // target name, which this verifier cannot know; the acknowledgement
+    // comparison above remains the only description check in that case.
 
     return {
       draftLineItemId,
