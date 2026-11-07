@@ -128,7 +128,7 @@ export function abcOAuthCookieDomain(requestHostname: string): string | undefine
  */
 export function buildBrowserBindingCookie(browserBinding: string, requestHostname: string): string {
   const parts = [
-    `${ABC_OAUTH_BROWSER_COOKIE_NAME}=${browserBinding}`,
+    `${ABC_OAUTH_BROWSER_COOKIE_NAME}=${encodeURIComponent(browserBinding)}`,
     "Path=/",
     `Max-Age=${ABC_OAUTH_BROWSER_COOKIE_MAX_AGE_SECONDS}`,
     "HttpOnly",
@@ -170,7 +170,13 @@ export function readCookieValue(cookieHeader: string | undefined, name: string):
     const index = part.indexOf("=");
     if (index < 0) continue;
     if (part.slice(0, index).trim() === name) {
-      return part.slice(index + 1).trim() || null;
+      const raw = part.slice(index + 1).trim();
+      if (!raw) return null;
+      try {
+        return decodeURIComponent(raw);
+      } catch {
+        return raw;
+      }
     }
   }
   return null;
