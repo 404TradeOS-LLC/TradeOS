@@ -462,3 +462,15 @@ For the live staging migration inventory, checksums, required approvals, command
 ## PDF beta review repair
 
 The [Beta Evidence reference](testing/BETA_EVIDENCE.md) now documents dedicated foreign-owner synthetic fixtures and verified Proposal existence before accepting PDF denial. The [cohort runbook](operations/INVITED_BETA.md) requires exact-release PDF renderer results as well as visual acceptance. These source changes do not provision accounts or authorize release.
+
+## Draft staging parity: protected preflight preservation (PR #938)
+
+The draft, unmerged `release/staging-parity-2026-11-06` branch restores the
+staging orchestrator's project-bound direct/session-pooler database identity
+guard and the read-only Prisma status connection's transaction-pooler to
+session-port conversion (`5432`), without enabling migration apply or
+altering deployment approvals. It also restores the synthetic Project-create
+browser harness's list-or-direct-workspace redirect recovery while retaining
+the newer evidence scenarios. This is PR-source work only: the `staging`
+branch and aliases have not moved. See PR #938's three-way conflict-review
+comment and exact-head hosted verification gates before any staging merge.
