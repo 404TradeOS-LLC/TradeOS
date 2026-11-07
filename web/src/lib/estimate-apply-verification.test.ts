@@ -235,3 +235,72 @@ test("rejects a saved quantity that only matches the raw request, not its rounde
     EstimateApplyVerificationError
   );
 });
+
+test("accepts a midpoint whose binary double sits below the decimal (2.00005)", () => {
+  // The backend Decimal rounding persists 2.00005 as 2.0001, but
+  // (2.00005).toFixed(4) is "2.0000": toFixed rounds the binary double,
+  // which is just below the decimal, so the comparison must round the
+  // decimal value itself or this correctly saved line is rejected.
+  const midpointBody = JSON.stringify({
+    lineItems: [{
+      draftLineItemId: "reviewed-deck",
+      status: "accepted",
+      targetKind: "assembly",
+      targetId: "assembly-deck",
+      quantity: 2.00005,
+      description: "Deck framing assembly",
+    }],
+  });
+  const verified = verifyEstimateApplyAcknowledgement({
+    applied: [],
+    skipped: [{
+      draftLineItemId: "reviewed-deck",
+      status: "accepted",
+      reason: "Matching reviewed line already exists; skipped for idempotency.",
+      lineItemId: "saved-line-1",
+      quantity: 2.0001,
+      description: "Deck framing assembly",
+    }],
+  }, midpointBody, [{
+    ...savedLine,
+    description: "Deck framing assembly",
+    quantity: 2.0001,
+  }]);
+
+  assert.equal(verified[0]?.quantity, 2.0001);
+  assert.equal(verified[0]?.description, "Deck framing assembly");
+});
+
+test("rejects a saved 2 against a requested 2.00005", () => {
+  // With binary rounding, 2.00005 rounds to 2, so a saved 2 would be
+  // wrongly accepted as the rounded request; with decimal rounding the
+  // persisted value is 2.0001, so a saved 2 is an edited line.
+  const midpointBody = JSON.stringify({
+    lineItems: [{
+      draftLineItemId: "reviewed-deck",
+      status: "accepted",
+      targetKind: "assembly",
+      targetId: "assembly-deck",
+      quantity: 2.00005,
+      description: "Deck framing assembly",
+    }],
+  });
+  assert.throws(
+    () => verifyEstimateApplyAcknowledgement({
+      applied: [],
+      skipped: [{
+        draftLineItemId: "reviewed-deck",
+        status: "accepted",
+        reason: "Matching reviewed line already exists; skipped for idempotency.",
+        lineItemId: "saved-line-1",
+        quantity: 2,
+        description: "Deck framing assembly",
+      }],
+    }, midpointBody, [{
+      ...savedLine,
+      description: "Deck framing assembly",
+      quantity: 2,
+    }]),
+    EstimateApplyVerificationError
+  );
+});
