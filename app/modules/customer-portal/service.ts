@@ -50,7 +50,7 @@ function redactInternalProposalEvidence<T extends {
     ...proposal,
     deliveries: proposal.deliveries.map((delivery) =>
       delivery.metadata?.source === "staff_recorded_offline"
-        ? { ...delivery, metadata: { source: "staff_recorded_offline" } }
+        ? { ...delivery, actorUserId: null, recipientEmail: null, metadata: { source: "staff_recorded_offline" } }
         : delivery
     ),
   };
