@@ -193,3 +193,21 @@ This is presentation of the existing `createFromEstimate`/`createFromProject` ru
 
 `tests/playwright/proposal-failure-retention.spec.ts` is an opt-in non-production matrix using `TRADEOS_PROPOSAL_RETENTION_PATH` and optional `TRADEOS_PROPOSAL_RETENTION_STATE` with existing safe target guards. An incomplete payment row deliberately reaches the real server action's validation before its backend create call; two failures at each of four widths preserve edits and focus. Local props are explicitly synthetic. Successful creation, database persistence and authenticated negative permission evidence remain separate.
 
+## Staff-recorded offline proposal acceptance (feature branch; not yet released)
+
+For an approved written quote accepted face-to-face, by telephone, or by an
+externally signed copy, a staff member with `documents.manage` may record the
+approval without simulating a delivery. The new `POST /api/v1/proposals/:id/accept-offline`
+endpoint accepts `{ "channel": "in_person" | "phone" | "signed_document",
+"note": "...", "confirmed": true }`. It requires an actual draft, nonempty
+written scope, a positive finalized price, a valid milestone schedule when
+present, authenticated organization/actor scope, and a 10–500 character note.
+A conditional `draft -> accepted` write rejects concurrent or stale attempts.
+
+This path does **not** set `sentAt`, emit `ProposalSent`, send email, create a
+customer signature, or affect customer-portal acceptance. It writes an
+organization-scoped `proposal.accepted` delivery/activity record with actor,
+method, note, and `source: staff_recorded_offline`; downstream contracts and
+Jobs use the same accepted-proposal baseline as other approvals. The UI labels
+it "Customer accepted outside TradeOS" and requires explicit staff confirmation.
+Existing `sent|viewed -> accepted` and send actions are unchanged.

@@ -249,3 +249,33 @@ Managers (owner/admin/dispatcher) can read the accepted commercial baseline thro
 The existing conversion roles and tenant checks are unchanged. Manager authority
 does not permit replacing missing accepted scope with mutable Project scope;
 see [accepted Job scope integrity](WORKFLOW_LIFECYCLES.md#accepted-job-scope-integrity).
+
+## Proposed staff offline proposal acceptance
+
+`POST /api/v1/proposals/:id/accept-offline` requires `documents.manage`,
+matching the normal internal proposal accept/send management boundary.
+The API derives actor and tenant identifiers exclusively from the authenticated
+request, rejects unknown/absent actor/org, and does not accept caller-provided
+tenant identifiers. Owners/admins and any other explicitly authorized
+`documents.manage` role may record offline acceptance; non-authorized
+technician/viewer roles receive 403. The service conditionally updates only a
+proposal whose parent Project matches the authenticated organization, and
+forced RLS remains in effect. A confirmation checkbox and approval note do
+not grant permission on their own. Customer portal contexts cannot invoke
+the staff-only action or view the staff's private acceptance note. This
+transition remains an unshipped feature until reviewed staging acceptance.
+
+## Staff-recorded offline proposal acceptance (proposed)
+
+`POST /api/v1/proposals/:id/accept-offline` requires an authenticated organization
+member with `documents.manage`, as does the normal internal proposal acceptance.
+The controller never accepts org or actor identifiers from the request body; it derives
+them from the verified session. A technician without that permission is denied 403.
+Staff must positively confirm that the customer approved a written scope and final
+price outside TradeOS, choose in-person/phone/external signed-copy channel, and enter
+an audit note. The service conditionally transitions only an org-scoped **draft**
+proposal to accepted and rejects stale or concurrent changes. No customer portal
+acceptance or signature authority is created. Customers can see an approval milestone,
+but the customer projection strips all internal acceptance note/method, actor and
+recipient details, retaining only the offline source indicator. This route remains
+unreleased until reviewed and staged.

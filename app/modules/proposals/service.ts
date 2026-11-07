@@ -369,6 +369,57 @@ export class ProposalsService {
     return this.getById(row.id, orgId);
   }
 
+  /**
+   * Staff-recorded customer approval received outside TradeOS.
+   * This is deliberately distinct from send: it never sets sentAt,
+   * triggers email delivery, or manufactures a ProposalSent event.
+   */
+  async acceptOffline(
+    id: string,
+    input: { channel: "in_person" | "phone" | "signed_document"; note: string },
+    orgId?: string,
+    actorUserId?: string
+  ): Promise<ProposalDTO> {
+    if (!orgId || !actorUserId) throw new ApiError(403, "Authenticated organization and actor are required");
+    const note = input.note?.trim() ?? "";
+    if (!["in_person", "phone", "signed_document"].includes(input.channel) || note.length < 10 || note.length > 500) {
+      throw new ApiError(400, "Provide the acceptance method and a 10-500 character audit note");
+    }
+
+    const row = await this.findOrThrow(id, orgId);
+    const currentStatus = normalizeProposalStatus(row.status);
+    if (currentStatus !== "draft") {
+      throw new ApiError(409, `Proposal ${id} is not a draft and cannot be recorded as accepted offline`);
+    }
+    if (!row.scopeOfWork?.trim() || row.finalPrice == null || !Number.isFinite(Number(row.finalPrice)) || Number(row.finalPrice) <= 0) {
+      throw new ApiError(409, "Finish the written scope and final price before recording customer acceptance");
+    }
+    this.normalizePaymentSchedule(row.paymentScheduleJson);
+    const updated = await prisma.proposal.updateMany({
+      where: { id, status: "draft", project: { orgId } },
+      data: { status: "accepted", respondedAt: new Date() },
+    });
+    if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before offline acceptance could be recorded`);
+
+    await this.recordDeliveryEvent({
+      orgId,
+      proposalId: row.id,
+      projectId: row.projectId,
+      actorUserId,
+      eventType: "proposal.accepted",
+      recipientEmail: null,
+      metadata: {
+        previousStatus: "draft",
+        newStatus: "accepted",
+        acceptanceChannel: input.channel,
+        acceptanceNote: note,
+        source: "staff_recorded_offline",
+      },
+    });
+    await prisma.project.update({ where: { id: row.projectId }, data: { status: "awarded" } });
+    return this.getById(row.id, orgId);
+  }
+
   async reject(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
     const row = await this.findOrThrow(id, orgId);
     const currentStatus = normalizeProposalStatus(row.status);

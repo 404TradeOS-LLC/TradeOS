@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { createContractAction } from "@/app/actions/contracts";
-import { acceptProposalAction, duplicateProposalAction, rejectProposalAction, resendProposalAction, sendProposalAction } from "@/app/actions/proposals";
+import { acceptOfflineProposalAction, acceptProposalAction, duplicateProposalAction, rejectProposalAction, resendProposalAction, sendProposalAction } from "@/app/actions/proposals";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Timeline } from "@/components/shared/timeline";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -20,11 +20,12 @@ export function ProposalLifecyclePanel({ projectId, proposal }: ProposalLifecycl
   const [sendState, sendFormAction, sendPending] = useActionState(sendProposalAction, undefined);
   const [resendState, resendFormAction, resendPending] = useActionState(resendProposalAction, undefined);
   const [acceptState, acceptFormAction, acceptPending] = useActionState(acceptProposalAction, undefined);
+  const [offlineState, offlineFormAction, offlinePending] = useActionState(acceptOfflineProposalAction, undefined);
   const [rejectState, rejectFormAction, rejectPending] = useActionState(rejectProposalAction, undefined);
   const [contractState, contractFormAction, contractPending] = useActionState(createContractAction, undefined);
   const [duplicateState, duplicateFormAction, duplicatePending] = useActionState(duplicateProposalAction, undefined);
 
-  const isPending = sendPending || resendPending || acceptPending || rejectPending || contractPending || duplicatePending;
+  const isPending = sendPending || resendPending || acceptPending || offlinePending || rejectPending || contractPending || duplicatePending;
   const displayStatus = getProposalDisplayStatus(proposal);
   const timeline = buildProposalTimeline(proposal);
 
@@ -55,6 +56,48 @@ export function ProposalLifecyclePanel({ projectId, proposal }: ProposalLifecycl
               {sendPending ? "Sending…" : "Send to customer"}
             </Button>
             {sendState?.error && <p className="text-sm text-destructive">{sendState.error}</p>}
+          </form>
+        )}
+
+        {proposal.status === "draft" && (
+          <form action={offlineFormAction} className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-4">
+            <HiddenFields projectId={projectId} proposalId={proposal.id} />
+            <div>
+              <p className="font-medium">Customer accepted outside TradeOS</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Use only after the customer has actually approved the final written scope and price.
+                This records an internal approval; it does not email the proposal or create a customer signature.
+              </p>
+            </div>
+            <label className="grid gap-1 text-sm font-medium">
+              How did the customer approve?
+              <select name="channel" defaultValue="" required className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <option value="" disabled>Choose an approval method</option>
+                <option value="in_person">In person</option>
+                <option value="phone">Phone</option>
+                <option value="signed_document">Signed copy received outside TradeOS</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Approval note
+              <textarea
+                name="note"
+                minLength={10}
+                maxLength={500}
+                required
+                rows={3}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="Who approved the written scope and price, and when?"
+              />
+            </label>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" name="confirmed" value="true" required className="mt-1" />
+              <span>I confirm the customer approved the scope and final price outside TradeOS.</span>
+            </label>
+            <Button type="submit" variant="secondary" className="w-full" disabled={isPending}>
+              {offlinePending ? "Recording acceptance…" : "Record offline acceptance"}
+            </Button>
+            {offlineState?.error && <p role="alert" className="text-sm text-destructive">{offlineState.error}</p>}
           </form>
         )}
 
@@ -137,7 +180,7 @@ function HiddenFields({ projectId, proposalId }: { projectId: string; proposalId
 function getStatusDescription(status: string) {
   switch (status) {
     case "draft":
-      return "Finish the customer-facing language and send the PDF when the scope, assumptions, and payment schedule are ready.";
+      return "Finish the proposal and send the PDF, or record a verified in-person/phone acceptance without sending it.";
     case "sent":
       return "The proposal has been issued. Update the record as soon as the customer responds.";
     case "viewed":
