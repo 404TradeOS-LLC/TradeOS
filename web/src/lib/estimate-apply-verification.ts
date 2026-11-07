@@ -46,18 +46,24 @@ export class EstimateApplyVerificationError extends Error {
 }
 
 // Persisted quantities are Decimal(12, 4): the server rounds the requested
-// quantity to four decimals (normalizePersistedQuantity), so the saved value
-// may differ from the request by up to half a unit in the last place, plus
-// floating-point noise. Any larger gap is a conflicting edit, not rounding.
-// The noise allowance scales with magnitude: at a four-decimal rounding
-// midpoint (requested 100.00005 persisted as 100.0001) the JavaScript
-// difference is 0.00005000000000165983, which exceeds a fixed
-// 0.00005 + Number.EPSILON. A few ulps of the magnitude still leaves a
-// genuine conflicting edit (at least 0.0001 at the fourth decimal) far
-// outside the allowance.
-function quantityTolerance(savedQuantity: number, requestedQuantity: number): number {
-  const magnitude = Math.max(Math.abs(savedQuantity), Math.abs(requestedQuantity), 1);
-  return 0.00005 + Number.EPSILON * magnitude * 8;
+// quantity to four decimals (normalizePersistedQuantity, half-up via
+// Prisma.Decimal), so the saved value is the rounded request, not the raw
+// request. Compare the saved quantity against the rounded request: a fixed
+// tolerance on the raw request both rejects correctly saved lines (requested
+// 100.00005 persisted as 100.0001 differs by 0.00005000000000165983 in
+// JavaScript) and accepts edited ones (requested 1.00005 persisted as
+// 1.0001, but a saved 1 is within 0.00005 of the raw request).
+// Number.prototype.toFixed(4) rounds half-up on the exact decimal value of
+// the double, matching the backend's Decimal rounding for these inputs.
+function roundToPersistedPrecision(quantity: number): number {
+  return Number(quantity.toFixed(4));
+}
+
+// A few ulps of floating-point noise on the rounded comparison; a genuine
+// conflicting edit still differs by at least 0.0001 at the fourth decimal.
+function roundedQuantityTolerance(savedQuantity: number, roundedRequestedQuantity: number): number {
+  const magnitude = Math.max(Math.abs(savedQuantity), Math.abs(roundedRequestedQuantity), 1);
+  return Number.EPSILON * magnitude * 8;
 }
 
 export function verifyEstimateApplyAcknowledgement(
@@ -112,7 +118,8 @@ export function verifyEstimateApplyAcknowledgement(
     // the apply (edits preserve sourceKey) and echoes its current values,
     // so saved-vs-acknowledgement alone cannot prove the row still matches
     // the accepted review. Compare against the retained request too.
-    if (Math.abs(saved.quantity - requested.quantity) > quantityTolerance(saved.quantity, requested.quantity)) {
+    const roundedRequestedQuantity = roundToPersistedPrecision(requested.quantity);
+    if (Math.abs(saved.quantity - roundedRequestedQuantity) > roundedQuantityTolerance(saved.quantity, roundedRequestedQuantity)) {
       throw new EstimateApplyVerificationError(`Acknowledged line ${lineItemId} no longer matches the reviewed quantity.`);
     }
     const requestedDescription = requested.description?.trim();

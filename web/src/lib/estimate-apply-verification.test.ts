@@ -168,10 +168,10 @@ test("accepts an idempotent retry whose saved quantity differs only by persisted
 });
 
 test("accepts a four-decimal rounding midpoint whose floating-point difference exceeds the half-unit bound", () => {
-  // Requested 100.00005 persists as 100.0001, but the JavaScript
-  // difference 0.00005000000000165983 exceeds 0.00005 + Number.EPSILON:
-  // the allowance must scale with magnitude, or this correctly saved
-  // line is rejected and the Apply UI stays unconfirmed.
+  // Requested 100.00005 persists as 100.0001; comparing against the raw
+  // request rejects it (the JavaScript difference is
+  // 0.00005000000000165983, over the half-unit bound), so the comparison
+  // must use the rounded request.
   const midpointBody = JSON.stringify({
     lineItems: [{
       draftLineItemId: "reviewed-deck",
@@ -200,4 +200,38 @@ test("accepts a four-decimal rounding midpoint whose floating-point difference e
 
   assert.equal(verified[0]?.quantity, 100.0001);
   assert.equal(verified[0]?.description, "Deck framing assembly");
+});
+
+test("rejects a saved quantity that only matches the raw request, not its rounded value", () => {
+  // Requested 1.00005 persists as 1.0001, so a saved 1 is an edited
+  // line, not rounding: it sits within 0.00005 of the raw request but
+  // 0.0001 away from the rounded request the server would have saved.
+  const midpointBody = JSON.stringify({
+    lineItems: [{
+      draftLineItemId: "reviewed-deck",
+      status: "accepted",
+      targetKind: "assembly",
+      targetId: "assembly-deck",
+      quantity: 1.00005,
+      description: "Deck framing assembly",
+    }],
+  });
+  assert.throws(
+    () => verifyEstimateApplyAcknowledgement({
+      applied: [],
+      skipped: [{
+        draftLineItemId: "reviewed-deck",
+        status: "accepted",
+        reason: "Matching reviewed line already exists; skipped for idempotency.",
+        lineItemId: "saved-line-1",
+        quantity: 1,
+        description: "Deck framing assembly",
+      }],
+    }, midpointBody, [{
+      ...savedLine,
+      description: "Deck framing assembly",
+      quantity: 1,
+    }]),
+    EstimateApplyVerificationError
+  );
 });
