@@ -7,12 +7,25 @@ import { test as base, expect, devices } from '@playwright/test';
 // and no relay. The profile path comes from the environment only — never a
 // hardcoded path — and without the variable this file behaves exactly like
 // the plain seed (standard fixtures), so CI and other machines are
-// unaffected.
+// unaffected. The persistent profile is used ONLY for the MCP Firefox
+// project: a Chromium run with the variable set must still test Chromium,
+// so any non-Firefox project gets a standard context from its own browser.
 const userDataDir = process.env.TRADEOS_MCP_FIREFOX_USER_DATA_DIR;
 
 const test = userDataDir
   ? base.extend({
-      context: async ({ playwright }, use) => {
+      context: async ({ playwright, browser, browserName }, use) => {
+        if (browserName !== 'firefox') {
+          // Standard context for non-Firefox projects (e.g. the CI Chromium
+          // project): never launch the MCP profile here, even with the
+          // variable set. The seed only needs the target origin.
+          const context = await browser.newContext({
+            baseURL: process.env.TRADEOS_AGENT_BASE_URL || 'http://127.0.0.1:3000',
+          });
+          await use(context);
+          await context.close();
+          return;
+        }
         // Mirror the MCP server's headed computation: headed only with a
         // display and outside CI; the agent VM has neither.
         const headless =
