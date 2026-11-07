@@ -241,6 +241,29 @@ test("project save accepts the projects list or a direct workspace navigation", 
   );
 });
 
+test("staging orchestrator requires the exact staging project for direct and pooler credentials", () => {
+  const source = read(".github/workflows/staging-orchestrator.yml");
+  assert.ok(source.includes('const directHost = `db.${process.env.STAGING_PROJECT_REF}.supabase.co`;'));
+  assert.ok(source.includes('const poolerHost = "aws-0-us-east-2.pooler.supabase.com";'));
+  assert.ok(source.includes('poolerUsername.endsWith("." + process.env.STAGING_PROJECT_REF)') ||
+    source.includes('poolerUsername.endsWith("."+process.env.STAGING_PROJECT_REF)'));
+  assert.ok(source.includes('url.pathname !== "/postgres"'));
+  assert.ok(source.includes('!(directMatch || poolerMatch)'));
+});
+
+test("staging orchestrator uses a verified session-mode URL only for Prisma migration status", () => {
+  const source = read(".github/workflows/staging-orchestrator.yml");
+  const start = source.indexOf("- name: Report Prisma migrate status");
+  const finish = source.indexOf("- name: Verify app role exists", start);
+  assert.ok(start >= 0 && finish > start);
+  const step = source.slice(start, finish);
+  assert.ok(step.includes("timeout-minutes: 10"));
+  assert.ok(step.includes('const poolerHost = "aws-0-us-east-2.pooler.supabase.com";'));
+  assert.ok(step.includes('if (pooler) url.port = "5432";'));
+  assert.ok(step.includes('url.searchParams.delete("pgbouncer");'));
+  assert.ok(step.includes('DATABASE_URL="$DATABASE_URL" npx prisma migrate status || true'));
+});
+
 test("screenshot truth check rejects login, error, 404, empty, and stuck-loading pages", () => {
   assert.equal(assessScreenshotTruth({ pathname: "/dashboard", bodyText: "Dashboard", checkpoint: "01" }).ok, true);
   assert.equal(assessScreenshotTruth({ pathname: "/login", bodyText: "Sign in", checkpoint: "01" }).ok, false);
