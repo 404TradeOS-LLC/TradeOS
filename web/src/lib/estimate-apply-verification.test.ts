@@ -113,3 +113,56 @@ test("does not claim rejected or unresolved review-only skips as saved lines", (
   }, body, []);
   assert.deepEqual(verified, []);
 });
+
+test("fails closed when an idempotent retry acknowledges a line edited after the apply", () => {
+  // The server's sourceKey lookup finds the edited row (edits preserve
+  // sourceKey) and the skip acknowledgement echoes its CURRENT values, so
+  // saved-vs-acknowledgement agrees while both differ from the review.
+  // The retained request is the only thing that catches it.
+  const editedLine = { ...savedLine, quantity: 300, description: "Edited in another tab" };
+  assert.throws(
+    () => verifyEstimateApplyAcknowledgement({
+      applied: [],
+      skipped: [{
+        draftLineItemId: "reviewed-deck",
+        status: "accepted",
+        reason: "Matching reviewed line already exists; skipped for idempotency.",
+        lineItemId: "saved-line-1",
+        quantity: 300,
+        description: "Edited in another tab",
+      }],
+    }, body, [editedLine]),
+    EstimateApplyVerificationError
+  );
+});
+
+test("accepts an idempotent retry whose saved quantity differs only by persisted precision", () => {
+  const precisionBody = JSON.stringify({
+    lineItems: [{
+      draftLineItemId: "reviewed-deck",
+      status: "accepted",
+      targetKind: "assembly",
+      targetId: "assembly-deck",
+      quantity: 1.23456,
+      description: "   ",
+    }],
+  });
+  const verified = verifyEstimateApplyAcknowledgement({
+    applied: [],
+    skipped: [{
+      draftLineItemId: "reviewed-deck",
+      status: "accepted",
+      reason: "Matching reviewed line already exists; skipped for idempotency.",
+      lineItemId: "saved-line-1",
+      quantity: 1.2346,
+      description: "Deck framing assembly",
+    }],
+  }, precisionBody, [{
+    ...savedLine,
+    description: "Deck framing assembly",
+    quantity: 1.2346,
+  }]);
+
+  assert.equal(verified[0]?.quantity, 1.2346);
+  assert.equal(verified[0]?.description, "Deck framing assembly");
+});
