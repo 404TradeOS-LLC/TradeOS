@@ -2,7 +2,7 @@
 
 Path: `/beta-readiness` (TradeOS web application, authenticated **TradeOS operator-organization** owner/admin only).
 
-The **More → Tools & admin** navigation includes **Beta readiness** only when the existing authenticated organization role is exactly `owner` or `admin`; unknown or technician roles never receive this link. Link visibility is convenience only and is not a substitute for the server-side authorization check on the route. The explicit opt-in browser suite checks visible owner navigation and absent technician navigation at all four widths.
+The **More → Tools & admin** navigation includes **Beta readiness** only when the authenticated user is an `owner` or `admin` of the server-configured operator organization (`TRADEOS_BETA_OPERATOR_ORG_ID`); a customer organization's owner/admin, unknown roles, and technicians never receive this link, and no one receives it when operator access is not configured. Link visibility is convenience only and is not a substitute for the server-side authorization check on the route. The explicit opt-in browser suite checks visible operator-owner navigation and absent technician and other-customer-owner navigation at all four widths.
 
 This is a **read-only observation console** around `.github/workflows/beta-evidence.yml`, not a new test runner, migration executor, deployment orchestrator, release approver, or merge bot. The existing workflow remains the sole canonical preflight/full evidence runner. The site never dispatches workflow runs, writes databases, touches production, uploads receipts, or changes PR state.
 
