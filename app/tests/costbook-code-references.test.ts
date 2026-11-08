@@ -8,6 +8,12 @@ describe("Costbook Codes & Permits reference catalog", () => {
     expect(result.items.length).toBeGreaterThan(1);
     expect(result.items.some((item) => item.citation === "Vigo County UZO §16")).toBe(true);
     expect(result.items.some((item) => item.issuer === "Indiana Department of Transportation")).toBe(true);
+    // Pin the published county ordinance PDF, not a CMS page that may redirect or deny access.
+    const vigoSources = result.items.filter((item) => item.county === "Vigo");
+    expect(vigoSources).toHaveLength(2);
+    expect(vigoSources.every((item) =>
+      item.sourceUrl === "https://www.vigocounty.in.gov/egov/docs/1088861399_472198.pdf"
+    )).toBe(true);
     for (const item of result.items) {
       expect(item.sourceUrl).toMatch(/^https:\/\//);
       expect(item.reviewedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
