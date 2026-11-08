@@ -74,6 +74,17 @@ export async function createDraft(input, {
   if (prs.some((x) => x.head?.ref === plan.branch || closing.test(x.body ?? ""))) {
     throw Error("Overlapping open PR detected");
   }
+  // A competing open PR may add the same docs/forge path under another branch
+  // without closing this issue; the contents check below only sees main, where
+  // the pending file does not yet exist. Inspect the changed files of every
+  // open PR and reject overlapping proposed paths before any write.
+  await Promise.all(prs.map(async (openPr) => {
+    const files = await api("/pulls/" + openPr.number + "/files?per_page=100");
+    if (!Array.isArray(files) || files.length === 100) throw Error("Incomplete PR file inventory");
+    if (files.some((f) => plan.files.some((proposed) => proposed.path === f.filename))) {
+      throw Error("Overlapping open PR detected");
+    }
+  }));
   const base = await api("/git/commits/" + plan.baseSha);
   if (!/^[a-f0-9]{40}$/.test(base.tree?.sha ?? "")) throw Error("Missing base tree");
   const latest = await api("/git/ref/heads/main");

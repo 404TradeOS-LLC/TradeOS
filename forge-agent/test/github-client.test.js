@@ -11,7 +11,7 @@ const input = {
 
 function fakeServer({ moved=false, label=true, overlap=false, existing=false,
   overlapText=null, longBody=false, pullFailure=null, matchingOpenPr=false, wrongBase=false,
-  preservedBranch=false, preservedTreeMismatch=false } = {}) {
+  preservedBranch=false, preservedTreeMismatch=false, competingPr=null } = {}) {
   const calls=[];
   const fetchImpl=async(url,options)=>{
     const path=new URL(url).pathname+new URL(url).search;
@@ -19,7 +19,8 @@ function fakeServer({ moved=false, label=true, overlap=false, existing=false,
     let data;
     if(path.endsWith("/git/ref/heads/main")) data={object:{sha:moved?"b".repeat(40):mainSha}};
     else if(path.endsWith("/issues/910")) data={number:910,state:"open",body:longBody?"x".repeat(12001):"# brief",labels:label?[{name:"forge:ready"}]:[]};
-    else if(path.endsWith("/pulls?state=open&per_page=100")) data=(overlap||overlapText)?[{head:{ref:"other"},body:overlapText??"Closes #910"}]:[];
+    else if(path.endsWith("/pulls?state=open&per_page=100")) data=competingPr?[{number:competingPr.number,head:{ref:"other-branch"},body:"unrelated"}]:(overlap||overlapText)?[{head:{ref:"other"},body:overlapText??"Closes #910"}]:[];
+    else if(path.includes("/pulls/") && path.includes("/files")) data=competingPr && path.includes("/pulls/"+competingPr.number+"/files") ? competingPr.files : [];
     else if(path.includes("/pulls?head=")) data=matchingOpenPr?[{number:999,draft:true,html_url:"https://github.com/404TradeOS-LLC/TradeOS/pull/999",head:{ref:"forge/issue-910-"+mainSha.slice(0,12),sha:commitSha},base:{ref:wrongBase?"staging":"main"}}]:[];
     else if(path.includes("/git/ref/heads/forge/")) {
       if(!preservedBranch) return {ok:false,status:404,json:async()=>({message:"Not Found"})};
@@ -209,4 +210,17 @@ test("review regression: a preserved branch with different content is not reused
   const result=await createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl});
   assert.equal(result.ok,true);
   assert.equal(fake.calls.filter(c=>c.path.endsWith("/git/commits")&&c.method==="POST").length,1);
+});
+
+test("review regression: a competing open PR adding the same docs/forge path blocks publication",async()=>{
+  const fake=fakeServer({competingPr:{number:123,files:[{filename:"docs/forge/safe.md"}]}});
+  await assert.rejects(()=>createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl}),/Overlapping/);
+  assert.equal(fake.calls.filter(c=>c.method!=="GET").length,0);
+  assert.ok(fake.calls.some(c=>c.path.includes("/pulls/123/files")));
+});
+
+test("review regression: a competing open PR adding a different path does not block publication",async()=>{
+  const fake=fakeServer({competingPr:{number:123,files:[{filename:"docs/forge/other.md"}]}});
+  const result=await createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl});
+  assert.equal(result.ok,true);
 });
