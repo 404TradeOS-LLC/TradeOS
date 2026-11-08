@@ -16,7 +16,11 @@ export const metadata: Metadata = {
   description: "Review cited zoning, building, electrical, and highway permit sources before estimating.",
 };
 
-type Search = { county?: string; topic?: string; q?: string };
+type Search = { county?: string | string[]; topic?: string | string[]; q?: string | string[] };
+
+function single(value: string | string[] | undefined): string {
+  return typeof value === "string" ? value : "";
+}
 
 const topics: { value: CodeTopic; label: string }[] = [
   { value: "signage", label: "Signs" },
@@ -33,9 +37,9 @@ export default async function CodesAndPermitsPage({
 }) {
   const token = await getSessionToken();
   const search = await searchParams;
-  const county = (search.county ?? "Vigo").trim().slice(0, 80);
-  const q = (search.q ?? "").trim().slice(0, 120);
-  const topic = topics.find(({ value }) => value === search.topic)?.value;
+  const county = (single(search.county) || "Vigo").trim().slice(0, 80);
+  const q = single(search.q).trim().slice(0, 120);
+  const topic = topics.find(({ value }) => value === single(search.topic))?.value;
   let result: CodeReferenceResult | null = null;
   let error: string | null = null;
 
