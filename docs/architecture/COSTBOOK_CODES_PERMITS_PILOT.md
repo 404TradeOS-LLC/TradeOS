@@ -61,7 +61,7 @@ These later changes may require schema/migrations and separate founder/staging s
 
 ## Athena integration supplement (proposed)
 
-A single read-only Athena SDK tool is registered in `app/modules/athena-tools/registry.ts`: `tradeos.athena.tools.costbook.code.references`. It uses the Costbook reference function without direct database access, scoped by the caller-supplied state/county and the existing `costbook.read` permission. The tool emits only `advisory` items and warnings for missing local jurisdiction sources; it never supplies a legal determination or fee. `app/tests/athena-tools.costbook.code-references.contracts.test.ts` verifies registration contract, source content, strict inputs and warning behavior. This is not an automatically injected estimator-stage advice provider.
+A single read-only Athena SDK tool is registered in `app/modules/athena-tools/registry.ts`: `tradeos.athena.tools.costbook.code.references`. It uses the Costbook reference function without direct database access, scoped by the caller-supplied state/county and the existing `costbook.read` permission. The tool emits only `advisory` items, warns when county is omitted, and separately warns when **unfiltered** county coverage is absent; topic-specific statewide-only results do not falsely imply the county has no indexed zoning references. It never supplies a legal determination or fee. `app/tests/athena-tools.costbook.code-references.contracts.test.ts` verifies registration contract, source content, strict inputs and warning behavior. This is not an automatically injected estimator-stage advice provider.
 
 ## Hosted repository verification — 2026-11-08
 
