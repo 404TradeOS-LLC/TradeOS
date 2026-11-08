@@ -37,9 +37,10 @@ describe("Costbook Codes & Permits reference catalog", () => {
   });
 
   it("filters by topic and case-insensitive text without changing source order", () => {
-    const electrical = listCodeReferences({ state: "IN", county: "Vigo", topic: "electrical", q: "Indiana" });
+    const electrical = listCodeReferences({ state: "IN", county: "Vigo", topic: "electrical", q: "iNdIaNa" });
     expect(electrical.items.some((item) => item.citation === "675 IAC 17-1.8")).toBe(true);
     expect(electrical.items.every((item) => item.topics.includes("electrical"))).toBe(true);
+    expect(electrical.items.map((item) => item.id)).toEqual(["indiana-electrical-code", "indot-occupancy"]);
     const noMatch = listCodeReferences({ state: "IN", county: "Vigo", q: "unfindable-does-not-exist" });
     expect(noMatch.items).toHaveLength(0);
   });
