@@ -11,7 +11,7 @@ const querySchema = z.object({
 }).strict();
 
 export const costbookCodesController = {
-  list(req: Request, res: Response) {
+  async list(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
     const query = querySchema.parse(req.query);
     res.setHeader("Cache-Control", "private, no-store");
