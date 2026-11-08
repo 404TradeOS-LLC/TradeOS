@@ -226,3 +226,7 @@ unchanged. High-risk confirmation/resume is still a separate contract; this
 change does not turn an approval state into success or resubmit restricted
 actions. Action-engine dispatch is required for receipt guarantees; calling
 the service or tool handler directly does not provide deduplication.
+
+## Code and permits research tool boundary (draft 2026-11-08)
+
+No new contextual provider or automatic jurisdiction resolution was introduced. A registered read-only Costbook tool can return curated official Code & Permits references for an explicitly supplied state/county and topic. Athena receives source citations and warnings rather than a verified permit, zoning district, structural design, code edition or inspection approval. Do not infer jurisdiction from untrusted message text as an authoritative parcel match. This is a draft feature requiring hosted contract and authenticated acceptance evidence.
