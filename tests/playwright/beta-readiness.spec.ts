@@ -124,11 +124,15 @@ test.describe('Beta readiness role and four-width acceptance (non-production onl
         await page.getByRole('button', { name: 'Open more menu' }).click();
         await expect(page.getByRole('link', { name: 'Beta readiness' })).toHaveCount(0);
 
-        // Navigate directly with the menu open: the close locator is
-        // ambiguous (the backdrop and the dock toggle both carry the name
-        // 'Close more menu'), and the 404 comes from the server either way.
-        const response = await page.goto('/beta-readiness', { waitUntil: 'domcontentloaded' });
-        expect(response?.status(), 'An authenticated technician must receive a server-side 404').toBe(404);
+        // The app streams a loading shell (web/src/app/loading.tsx) before
+        // the page's authorization runs, so the document response can carry
+        // HTTP 200 even when the server denies with the not-found UI. Assert
+        // the rendered denial — not the status code — plus absence of
+        // release data. The URL stays on /beta-readiness: this is a denial,
+        // not a redirect to login.
+        await page.goto('/beta-readiness', { waitUntil: 'domcontentloaded' });
+        await expect(page).toHaveURL(/beta-readiness(?:[/?#]|$)/);
+        await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
         await expect(page.getByRole('heading', { name: /Beta readiness control/i })).toHaveCount(0);
         await expect(page.getByRole('heading', { name: 'Beta gate matrix' })).toHaveCount(0);
         await expect(page.getByRole('button', { name: /Refresh live/i })).toHaveCount(0);
@@ -151,8 +155,12 @@ test.describe('Beta readiness role and four-width acceptance (non-production onl
         // owner/admin; the route itself also denies with a server 404.
         await page.getByRole('button', { name: 'Open more menu' }).click();
         await expect(page.getByRole('link', { name: 'Beta readiness' })).toHaveCount(0);
-        const response = await page.goto('/beta-readiness', { waitUntil: 'domcontentloaded' });
-        expect(response?.status(), 'other-customer owner must receive server-side denial').toBe(404);
+        // Same streamed-response caveat as the technician case: assert the
+        // rendered not-found UI and absence of release data, not the HTTP
+        // status, and confirm the URL stays on /beta-readiness.
+        await page.goto('/beta-readiness', { waitUntil: 'domcontentloaded' });
+        await expect(page).toHaveURL(/beta-readiness(?:[/?#]|$)/);
+        await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
         await expect(page.getByRole('heading', { name: /Beta readiness control/i })).toHaveCount(0);
         await expect(page.getByRole('heading', { name: 'Beta gate matrix' })).toHaveCount(0);
         await expect(page.getByText('HOLD — NO PROMOTION', { exact: true })).toHaveCount(0);
