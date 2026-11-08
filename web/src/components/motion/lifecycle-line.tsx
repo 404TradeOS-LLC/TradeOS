@@ -38,6 +38,19 @@ const STATE_TEXT: Record<LifecycleStageState, string | null> = {
   changed: "Changed",
 };
 
+// Screen-reader-only state text. Completed and unconfirmed stages carry no
+// visible label, but a screen reader still needs the state: confirmed Sent
+// must be distinguishable from unrecorded Viewed. The unconfirmed label
+// says "Not recorded", never "Upcoming" — a bypassed stage (Viewed skipped
+// on the way to Partially paid) was not upcoming, it simply never happened.
+const SR_STATE_TEXT: Record<LifecycleStageState, string | null> = {
+  completed: "Completed",
+  current: null,
+  upcoming: "Not recorded",
+  blocked: null,
+  changed: null,
+};
+
 export function LifecycleLine<Stage extends string>(props: LifecycleLineProps<Stage>) {
   const states = mapLifecycleStates(
     props.stages.map((stage) => stage.id),
@@ -53,6 +66,7 @@ export function LifecycleLine<Stage extends string>(props: LifecycleLineProps<St
       {props.stages.map((stage) => {
         const state = states[stage.id];
         const stateText = STATE_TEXT[state];
+        const srStateText = SR_STATE_TEXT[state];
         return (
           <li key={stage.id} className="flex items-center gap-2">
             <span
@@ -77,6 +91,7 @@ export function LifecycleLine<Stage extends string>(props: LifecycleLineProps<St
             {stateText ? (
               <span className="text-xs font-medium text-muted-foreground">({stateText})</span>
             ) : null}
+            {srStateText ? <span className="sr-only">({srStateText})</span> : null}
           </li>
         );
       })}

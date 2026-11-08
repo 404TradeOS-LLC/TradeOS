@@ -22,7 +22,7 @@ import type { Estimate } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { markerGeometry, type MarkerGeometry } from "@/lib/motion/lifecycle";
 import { PriceDelta } from "@/components/motion/price-delta";
-import { toMinorUnits } from "@/lib/motion/price-delta";
+import { nextRecalculationSnapshot, toMinorUnits } from "@/lib/motion/price-delta";
 import { groupSavedDirectCosts } from "@/lib/estimate-direct-costs";
 import { canAddReviewedEstimateCatalogItem } from "@/lib/estimate-catalog-review";
 import { createEstimateReviewNavigator } from "@/lib/estimate-review-navigation";
@@ -108,11 +108,19 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
     // mutation's onSuccess fires. Query data is still the pre-mutation
     // record at that point (the refetch lands later), so the snapshot is
     // the last server-confirmed total, never an invented value. Only
-    // pricing mutations pass a reason; finalize, scope saves, and pricing
-    // mode switches (same math, different expression) do not.
+    // pricing mutations pass a reason; finalize and scope saves do not.
+    // A pricing-mode Apply passes a reason too: changing the percentage
+    // reprices the estimate. A pure mode switch with an equivalent
+    // percentage moves no total, so the delta render guard (the total
+    // must move) prevents a fabricated repricing.
     if (reason && estimate) {
-      const previousTotalMinor = toMinorUnits(estimate.totalPrice);
-      if (previousTotalMinor !== null) setLastRecalculation({ previousTotalMinor, reason });
+      setLastRecalculation(
+        nextRecalculationSnapshot({
+          currentTotalMinor: toMinorUnits(estimate.totalPrice),
+          reason,
+          pending: lastRecalculation,
+        }),
+      );
     }
     queryClient.invalidateQueries({ queryKey: estimateKey });
   };
@@ -1752,7 +1760,7 @@ function PricingPanel({
     },
     onSuccess: () => {
       setError(null);
-      onUpdated();
+      onUpdated("Pricing mode applied");
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to update pricing"),
   });

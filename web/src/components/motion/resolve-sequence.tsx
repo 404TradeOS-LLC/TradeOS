@@ -11,6 +11,7 @@
  * this component never renders invented intermediate stages.
  */
 
+import { useEffect, useState } from "react";
 import { staggerDelayMs } from "@/lib/motion/tokens";
 
 type ResolveSequenceProps = {
@@ -23,9 +24,24 @@ type ResolveSequenceProps = {
 };
 
 export function ResolveSequence(props: ResolveSequenceProps) {
+  // Entry state: categories mount hidden and flip to revealed on the next
+  // frame, so the stagger transition actually runs. Mounting already
+  // revealed skips the transition entirely (no before-change style).
+  // Reduced motion still applies: the CSS override collapses the travel
+  // to an instant/<=100ms opacity swap. The entered key tracks which
+  // payload entered, so a new Athena payload re-enters from hidden.
+  const categoriesKey = props.categories.join("\n");
+  const [enteredKey, setEnteredKey] = useState<string | null>(null);
+  const entered = enteredKey === categoriesKey;
+  useEffect(() => {
+    if (!props.revealed || entered) return undefined;
+    const frame = requestAnimationFrame(() => setEnteredKey(categoriesKey));
+    return () => cancelAnimationFrame(frame);
+  }, [props.revealed, entered, categoriesKey]);
+
   return (
     <div className="grid gap-3">
-      <blockquote className="border-l-2 border-border pl-3 text-sm text-foreground">
+      <blockquote className="whitespace-pre-wrap border-l-2 border-border pl-3 text-sm text-foreground">
         {props.rawInput}
       </blockquote>
       {!props.revealed ? (
@@ -38,7 +54,7 @@ export function ResolveSequence(props: ResolveSequenceProps) {
             <li
               key={`${category}-${index}`}
               className="motion-resolve-item text-sm text-foreground"
-              data-state="revealed"
+              data-state={entered ? "revealed" : "hidden"}
               style={{ ["--motion-delay" as string]: `${staggerDelayMs(index)}ms` }}
             >
               {category}

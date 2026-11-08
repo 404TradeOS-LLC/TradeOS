@@ -28,7 +28,7 @@ on:
         default: true
         type: boolean
       smoke_tenant_label:
-        description: Sanitized smoke organization label expected after login
+        description: Sanitized smoke organization label expected after login; use the TEST Org's actual name when use_test_org is enabled
         required: true
         default: TradeOS Beta Smoke
         type: string
@@ -45,6 +45,10 @@ on:
         required: false
         default: false
         type: boolean
+      smoke_org_id:
+        description: Canonical smoke organization UUID; when set, tenant verification uses the read-only Costbook workspace endpoint instead of loading Settings (which may persist a BrandProfile for legacy-branding tenants)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -112,13 +116,23 @@ jobs:
           }
 
           const storageStatePath = `${process.env.RUNNER_TEMP}/playwright-agent-storage-state.json`;
+          // The estimate specs apply TRADEOS_ESTIMATE_STAGE_STATE as a
+          // storageState path; exporting it before authentication would hand
+          // them a file that does not exist yet and Playwright would fail
+          // before creating a page. Export it only for authenticated runs —
+          // a failed bootstrap aborts the job before the specs run, so the
+          // file exists whenever the specs consume it.
+          const estimateStateLine =
+            process.env.TRADEOS_AGENT_AUTHENTICATED === "true"
+              ? [`TRADEOS_ESTIMATE_STAGE_STATE=${storageStatePath}`]
+              : [];
           fs.appendFileSync(
             process.env.GITHUB_ENV,
             [
               `TRADEOS_AGENT_BASE_URL=${target}`,
               `BETA_RC_BASE_URL_RESOLVED=${target}`,
               `TRADEOS_AGENT_STORAGE_STATE=${storageStatePath}`,
-              `TRADEOS_ESTIMATE_STAGE_STATE=${storageStatePath}`,
+              ...estimateStateLine,
               `BETA_STORAGE_STATE_PATH=${storageStatePath}`,
               "",
             ].join("\n"),
@@ -146,6 +160,19 @@ jobs:
       - name: Install Chromium and Linux dependencies
         run: npx playwright install --with-deps chromium
 
+      - name: Select read-only tenant verification when an org id is supplied
+        if: inputs.authenticated_smoke && inputs.smoke_org_id != ''
+        shell: bash
+        run: |
+          # The Settings tenant assertion may persist a BrandProfile for
+          # legacy-branding tenants (lazy adoption in getSettings), so when
+          # the operator supplies the canonical org UUID, verify through the
+          # genuinely read-only Costbook workspace endpoint instead. The
+          # smoke identities are owner-level, matching the assembly lane's
+          # costbook_read_only owner step (expected write "true").
+          echo "BETA_SMOKE_TENANT_VERIFY_MODE=costbook_read_only" >> "$GITHUB_ENV"
+          echo "BETA_SMOKE_EXPECTED_COSTBOOK_WRITE=true" >> "$GITHUB_ENV"
+
       - name: Require authenticated smoke prerequisites
         if: inputs.authenticated_smoke && !inputs.use_test_org
         shell: bash
@@ -168,6 +195,7 @@ jobs:
         env:
           BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
           BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
+          BETA_SMOKE_ORG_ID: ${{ inputs.smoke_org_id }}
         run: node app/scripts/beta-evidence/auth-setup.mjs
 
       - name: Require TEST org prerequisites
@@ -192,6 +220,7 @@ jobs:
         env:
           BETA_SMOKE_EMAIL: ${{ secrets.TEST_STAGING_EMAIL }}
           BETA_SMOKE_PASSWORD: ${{ secrets.TEST_STAGING_PASSWORD }}
+          BETA_SMOKE_ORG_ID: ${{ inputs.smoke_org_id }}
         run: node app/scripts/beta-evidence/auth-setup.mjs
 
       - name: Record Playwright version and discovered tests
@@ -202,9 +231,14 @@ jobs:
           npm run test:e2e:list | tee artifacts/playwright-agent-evidence/test-list.txt
 
       - name: Run Playwright agent suite in Chromium
+        env:
+          # Inputs reach the shell only through the environment: direct
+          # ${{ inputs.* }} interpolation into a run script is a template
+          # injection (a crafted spec_file could execute before Playwright).
+          SPEC_FILE: ${{ inputs.spec_file }}
         run: |
-          if [ -n "${{ inputs.spec_file }}" ]; then
-            npx --no-install playwright test --project=chromium "${{ inputs.spec_file }}"
+          if [ -n "${SPEC_FILE}" ]; then
+            npx --no-install playwright test --project=chromium "${SPEC_FILE}"
           else
             npx --no-install playwright test --project=chromium
           fi

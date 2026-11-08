@@ -15,8 +15,10 @@
  * fields, not from stage order alone, because the product allows
  * bypasses the order does not capture (office-recorded offline
  * payments, mark-paid without a payment). Draft is confirmed by the
- * record existing, sent by sentAt, partially-paid by a recorded
- * payment; viewed has no timestamp or delivery vocabulary on the
+ * record existing, sent by sentAt, partially-paid by more than one
+ * recorded payment — a single payment that covers the invoice in full
+ * never passed through a partial phase, so it must not complete that
+ * stage; viewed has no timestamp or delivery vocabulary on the
  * record, so it is never claimed completed — it renders upcoming
  * (view not recorded) unless it is the current status. Paid renders
  * as current only on a reconciled zero balance; any other balance
@@ -74,7 +76,11 @@ export function invoiceLifecycle(input: {
   const completed: InvoiceLifecycleStage[] = [];
   if (current !== "draft") completed.push("draft");
   if (input.sentAt && current !== "sent") completed.push("sent");
-  if (input.payments.length > 0 && current !== "partially_paid") completed.push("partially_paid");
+  // More than one recorded payment confirms a prior partial-payment
+  // phase: the first payment left a balance the later one settled. A
+  // single payment that covers the invoice in full never passed
+  // through that phase.
+  if (input.payments.length > 1 && current !== "partially_paid") completed.push("partially_paid");
   return { current, completed };
 }
 

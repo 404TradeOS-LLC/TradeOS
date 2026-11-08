@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { computePriceDelta, toMinorUnits } from "./price-delta.ts";
+import { computePriceDelta, nextRecalculationSnapshot, toMinorUnits } from "./price-delta.ts";
 
 test("increase: spec plywood example $42.18 -> $46.92 is +$4.74", () => {
   const delta = computePriceDelta({ previousMinor: 4218, currentMinor: 4692, currency: "USD" });
@@ -46,4 +46,39 @@ test("toMinorUnits converts major units and absorbs representation error", () =>
   assert.equal(toMinorUnits(-10.5), -1050);
   assert.equal(toMinorUnits(Number.NaN), null);
   assert.equal(toMinorUnits(Number.POSITIVE_INFINITY), null);
+});
+
+test("nextRecalculationSnapshot snapshots the last server-confirmed total", () => {
+  assert.deepEqual(
+    nextRecalculationSnapshot({ currentTotalMinor: 469200, reason: "Line item updated", pending: null }),
+    { previousTotalMinor: 469200, reason: "Line item updated" },
+  );
+  // After the refetch lands the total moved, so a later success snapshots
+  // the new baseline.
+  assert.deepEqual(
+    nextRecalculationSnapshot({
+      currentTotalMinor: 486000,
+      reason: "Pricing mode applied",
+      pending: { previousTotalMinor: 469200, reason: "Line item updated" },
+    }),
+    { previousTotalMinor: 486000, reason: "Pricing mode applied" },
+  );
+  assert.equal(
+    nextRecalculationSnapshot({ currentTotalMinor: null, reason: "Line item updated", pending: null }),
+    null,
+  );
+});
+
+test("nextRecalculationSnapshot clears a pending delta when a second edit succeeds before the refetch", () => {
+  // Two successes against the same pre-mutation total would both snapshot
+  // that baseline; the pending delta is no longer tied to one edit, so no
+  // per-edit delta is shown until a clean single-edit snapshot exists.
+  assert.equal(
+    nextRecalculationSnapshot({
+      currentTotalMinor: 469200,
+      reason: "Line item updated",
+      pending: { previousTotalMinor: 469200, reason: "Line item removed" },
+    }),
+    null,
+  );
 });

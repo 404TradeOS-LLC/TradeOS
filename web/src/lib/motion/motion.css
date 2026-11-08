@@ -92,11 +92,17 @@
   .motion-resolve-item,
   .motion-connect-datum,
   .motion-price-delta-value,
-  .motion-advance-marker,
   .motion-complete-label {
     transition-duration: var(--motion-reduced) !important;
     transition-delay: 0ms !important;
     transform: none !important;
+  }
+
+  /* The advance marker is positioned by an inline translateX transform:
+     resetting it would pin the marker under the first stage. Keep the
+     transform and drop the travel instead. */
+  .motion-advance-marker {
+    transition: none !important;
   }
 
   .motion-resolve-item[data-state="hidden"] {
@@ -108,11 +114,15 @@
 [data-motion="reduced"] .motion-resolve-item,
 [data-motion="reduced"] .motion-connect-datum,
 [data-motion="reduced"] .motion-price-delta-value,
-[data-motion="reduced"] .motion-advance-marker,
 [data-motion="reduced"] .motion-complete-label {
   transition-duration: var(--motion-reduced) !important;
   transition-delay: 0ms !important;
   transform: none !important;
+}
+
+/* Same as above: the marker keeps its inline transform position. */
+[data-motion="reduced"] .motion-advance-marker {
+  transition: none !important;
 }
 
 [data-motion="reduced"] .motion-resolve-item[data-state="hidden"] {

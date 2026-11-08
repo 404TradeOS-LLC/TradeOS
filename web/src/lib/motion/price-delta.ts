@@ -77,3 +77,31 @@ export function toMinorUnits(value: number): number | null {
   if (!Number.isFinite(value)) return null;
   return Math.round(value * 100);
 }
+
+export type RecalculationSnapshot = {
+  previousTotalMinor: number;
+  reason: string;
+};
+
+/**
+ * Next "Last recalculation" snapshot for one pricing mutation success.
+ *
+ * The snapshot baseline is the last server-confirmed total, so two edits
+ * that succeed before the refetch lands would both snapshot the same
+ * baseline and the second would re-attribute their combined change to
+ * itself (or hide offsetting changes). When a snapshot is already pending
+ * against this same total, the pending delta is no longer tied to one
+ * edit, so return null (clear it) instead of overwriting it: no per-edit
+ * delta is shown until a clean single-edit snapshot exists. Once the
+ * refetch lands, the current total moves and a later success snapshots
+ * normally again.
+ */
+export function nextRecalculationSnapshot(input: {
+  currentTotalMinor: number | null;
+  reason: string;
+  pending: RecalculationSnapshot | null;
+}): RecalculationSnapshot | null {
+  if (input.currentTotalMinor === null) return null;
+  if (input.pending && input.pending.previousTotalMinor === input.currentTotalMinor) return null;
+  return { previousTotalMinor: input.currentTotalMinor, reason: input.reason };
+}

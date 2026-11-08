@@ -40,3 +40,23 @@ test("motion.css carries the stagger cap, displacement, and reduced variants", (
   assert.ok(css.includes("prefers-reduced-motion"), "reduced-motion media block missing");
   assert.ok(css.includes('[data-motion="reduced"]'), "stored-preference reduced block missing");
 });
+
+test("motion.css keeps the advance marker positioned under reduced motion", () => {
+  // The marker is positioned by an inline translateX transform: a reduced
+  // reset would pin it under the first stage. Both reduced blocks drop the
+  // marker's travel without resetting its transform, and the marker no
+  // longer sits in either transform-resetting group.
+  assert.ok(
+    css.includes(".motion-advance-marker {\n    transition: none !important;\n  }"),
+    "media reduced block must drop marker travel without resetting transform",
+  );
+  assert.ok(
+    css.includes('[data-motion="reduced"] .motion-advance-marker {\n  transition: none !important;\n}'),
+    "stored-preference reduced block must drop marker travel without resetting transform",
+  );
+  assert.match(css, /\.motion-price-delta-value,\n  \.motion-complete-label \{/);
+  assert.match(
+    css,
+    /\[data-motion="reduced"\] \.motion-price-delta-value,\n\[data-motion="reduced"\] \.motion-complete-label \{/,
+  );
+});

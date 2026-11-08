@@ -50,8 +50,16 @@ test("invoice lifecycle derives completion from record fields, not stage order",
     invoiceLifecycle({ status: "partially_paid", sentAt: "2026-10-01T00:00:00Z", payments: [{ amount: 50 }], balanceDue: 50 }),
     { current: "partially_paid", completed: ["draft", "sent"] },
   );
+  // A single payment that covers the invoice in full never passed through
+  // a partial phase, so it must not complete "Partially paid".
   assert.deepEqual(
     invoiceLifecycle({ status: "paid", sentAt: "2026-10-01T00:00:00Z", payments: [{ amount: 100 }], balanceDue: 0 }),
+    { current: "paid", completed: ["draft", "sent"] },
+  );
+  // More than one recorded payment confirms the prior partial phase: the
+  // first payment left a balance the later one settled.
+  assert.deepEqual(
+    invoiceLifecycle({ status: "paid", sentAt: "2026-10-01T00:00:00Z", payments: [{ amount: 50 }, { amount: 50 }], balanceDue: 0 }),
     { current: "paid", completed: ["draft", "sent", "partially_paid"] },
   );
 });

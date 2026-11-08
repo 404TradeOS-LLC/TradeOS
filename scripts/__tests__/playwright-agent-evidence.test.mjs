@@ -120,3 +120,27 @@ test("document detail href selection rejects action and nested routes", () => {
     undefined,
   );
 });
+
+test("estimate stage state is exported only for authenticated runs, spec input stays out of the shell, and tenant verification can use the read-only endpoint", () => {
+  // A nonexistent state file makes Playwright fail before creating a page,
+  // so the estimate-stage variable is exported only when the authenticated
+  // bootstrap runs (a failed bootstrap aborts the job first).
+  assert.match(
+    workflow,
+    /TRADEOS_AGENT_AUTHENTICATED === "true"[\s\S]*?TRADEOS_ESTIMATE_STAGE_STATE=/,
+  );
+  // spec_file must reach the shell through the environment only: direct
+  // ${{ inputs.* }} interpolation into a run script is template injection.
+  // (The env assignment itself is the sanctioned passthrough.)
+  assert.doesNotMatch(workflow, /if \[ -n "\$\{\{ inputs\.spec_file \}\}" \]/);
+  assert.doesNotMatch(workflow, /playwright test --project=chromium "\$\{\{ inputs\.spec_file \}\}"/);
+  assert.match(workflow, /SPEC_FILE: \$\{\{ inputs\.spec_file \}\}/);
+  assert.match(workflow, /if \[ -n "\$\{SPEC_FILE\}" \]/);
+  // Supplying the canonical org UUID switches tenant verification to the
+  // read-only Costbook workspace endpoint instead of loading Settings,
+  // which may persist a BrandProfile for legacy-branding tenants.
+  assert.match(workflow, /smoke_org_id:/);
+  assert.match(workflow, /BETA_SMOKE_TENANT_VERIFY_MODE=costbook_read_only/);
+  assert.match(workflow, /BETA_SMOKE_ORG_ID: \$\{\{ inputs\.smoke_org_id \}\}/);
+  assert.match(workflow, /BETA_SMOKE_EXPECTED_COSTBOOK_WRITE=true/);
+});

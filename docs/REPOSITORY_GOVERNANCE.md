@@ -631,7 +631,14 @@ smoke identity.
 Authenticated checks in this lane are intentionally read-only: they verify the
 canonical **Today**, **Customers**, **Projects**, **Estimates**, **Proposals**,
 **Contracts**, and **Invoices** workspaces without creating or changing
-contractor records or financial state. Customer, Project, Estimate, Proposal,
+contractor records or financial state. One exception to the read-only claim:
+the tenant assertion loads the Settings page (or calls the Settings API), and
+the Settings read path performs lazy BrandProfile adoption for tenants with
+legacy branding, so it can persist a BrandProfile before the selected spec
+starts; the workflow does not reverse that write. Dispatch with `smoke_org_id`
+set to verify the tenant through the genuinely read-only Costbook workspace
+endpoint instead (`BETA_SMOKE_TENANT_VERIFY_MODE=costbook_read_only`,
+verified against the canonical org UUID rather than the label). Customer, Project, Estimate, Proposal,
 Contract, and Invoice detail routes are exercised only from sanitized records
 already visible to the smoke tenant; absent records must render truthful empty
 states. The suite never submits proposal, signature, invoice, payment, or void

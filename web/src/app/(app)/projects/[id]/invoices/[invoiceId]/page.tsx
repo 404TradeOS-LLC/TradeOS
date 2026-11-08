@@ -69,7 +69,10 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   // mapping: overdue/voided have no progression position, and a paid
   // status with a non-zero balance is an inconsistency the line must
   // not present as complete. The badge and timeline remain authoritative.
-  const invoiceLifecycleState = invoiceLifecycle(invoice);
+  // The stage is derived from the payment-aware display status, not the
+  // raw record status: a partial payment leaves the backend status as
+  // "sent" while the badge already reads Partially Paid.
+  const invoiceLifecycleState = invoiceLifecycle({ ...invoice, status: displayStatus });
   const paymentCount = invoice.payments.length;
   const hasOpenBalance = invoice.balanceDue > 0;
   const canShowPaymentEntry =
