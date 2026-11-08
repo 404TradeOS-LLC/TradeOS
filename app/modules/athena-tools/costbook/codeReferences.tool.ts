@@ -19,7 +19,7 @@ export function createCostbookCodeReferencesTool(): AthenaToolDefinition<
   CostbookCodeReferencesData
 > {
   return defineTool({
-    id: "tradeos.athena.tools.costbook.code_references",
+    id: "tradeos.athena.tools.costbook.code.references",
     version: "1.0.0",
     owner: "athena-tools-costbook",
     name: "Find codes and permits references",
