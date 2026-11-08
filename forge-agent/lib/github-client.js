@@ -119,10 +119,16 @@ export async function createDraft(input, {
   // the retry. If the preserved head already carries this exact tree on the
   // same base with the same message, reuse that commit instead.
   const branchPath = "/git/ref/heads/" + plan.branch;
-  const preserved = await api(branchPath).catch(() => null);
+  const preserved = await api(branchPath).catch((error) => {
+    if (error.status === 404) return null;
+    throw error;
+  });
   let commit;
   if (preserved?.object?.sha) {
-    const preservedCommit = await api("/git/commits/" + preserved.object.sha).catch(() => null);
+    const preservedCommit = await api("/git/commits/" + preserved.object.sha).catch((error) => {
+      if (error.status === 404) return null;
+      throw error;
+    });
     if (preservedCommit?.tree?.sha === tree.sha &&
         Array.isArray(preservedCommit.parents) &&
         preservedCommit.parents.length === 1 &&

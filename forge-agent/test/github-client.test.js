@@ -11,7 +11,8 @@ const input = {
 
 function fakeServer({ moved=false, label=true, overlap=false, existing=false,
   overlapText=null, longBody=false, pullFailure=null, matchingOpenPr=false, wrongBase=false,
-  preservedBranch=false, preservedTreeMismatch=false, competingPr=null } = {}) {
+  preservedBranch=false, preservedTreeMismatch=false, competingPr=null,
+  branchLookupFailure=null, commitLookupFailure=null } = {}) {
   const calls=[];
   const fetchImpl=async(url,options)=>{
     const path=new URL(url).pathname+new URL(url).search;
@@ -23,6 +24,7 @@ function fakeServer({ moved=false, label=true, overlap=false, existing=false,
     else if(path.includes("/pulls/") && path.includes("/files")) data=competingPr && path.includes("/pulls/"+competingPr.number+"/files") ? competingPr.files : [];
     else if(path.includes("/pulls?head=")) data=matchingOpenPr?[{number:999,draft:true,html_url:"https://github.com/404TradeOS-LLC/TradeOS/pull/999",head:{ref:"forge/issue-910-"+mainSha.slice(0,12),sha:commitSha},base:{ref:wrongBase?"staging":"main"}}]:[];
     else if(path.includes("/git/ref/heads/forge/")) {
+      if(branchLookupFailure) return {ok:false,status:Number(branchLookupFailure),json:async()=>({message:"simulated lookup failure"})};
       if(!preservedBranch) return {ok:false,status:404,json:async()=>({message:"Not Found"})};
       data={ref:"refs/heads/forge/issue-910-"+mainSha.slice(0,12),object:{sha:commitSha}};
     }
@@ -31,10 +33,16 @@ function fakeServer({ moved=false, label=true, overlap=false, existing=false,
       return {ok:existing,status:existing?200:404,json:async()=>({sha:"f".repeat(40)})};
     }
     else if(path.endsWith("/git/commits/"+mainSha)) data={tree:{sha:"b".repeat(40)}};
-    else if(path.endsWith("/git/commits/"+commitSha)) data={tree:{sha:preservedTreeMismatch?"d".repeat(40):"b".repeat(40)},parents:[{sha:mainSha}],message:"docs(forge): pilot issue #910"};
+    else if(path.endsWith("/git/commits/"+commitSha)) {
+      if(commitLookupFailure) return {ok:false,status:Number(commitLookupFailure),json:async()=>({message:"simulated lookup failure"})};
+      data={tree:{sha:preservedTreeMismatch?"d".repeat(40):"b".repeat(40)},parents:[{sha:mainSha}],message:"docs(forge): pilot issue #910"};
+    }
     else if(path.endsWith("/git/trees")) data={sha:"b".repeat(40)};
-    else if(path.endsWith("/git/commits")) data={sha:commitSha};
-    else if(path.endsWith("/git/refs")) data={ref:"refs/heads/forge/issue-910-"+mainSha.slice(0,12)};
+    else if(path.endsWith("/git/commits")) data={sha:preservedTreeMismatch?"e".repeat(40):commitSha};
+    else if(path.endsWith("/git/refs")) {
+      if(preservedBranch) return {ok:false,status:422,json:async()=>({message:"Reference already exists"})};
+      data={ref:"refs/heads/forge/issue-910-"+mainSha.slice(0,12)};
+    }
     else if(path.endsWith("/pulls")) {
       if(["422","429","500"].includes(pullFailure))return {ok:false,status:Number(pullFailure),json:async()=>({message:"simulated failure"})};
       if(pullFailure==="timeout")throw Error("connection lost");
@@ -205,11 +213,25 @@ test("review regression: a preserved branch with the identical tree is reused in
   assert.ok(fake.calls.some(c=>c.path.includes("/git/ref/heads/forge/")));
 });
 
-test("review regression: a preserved branch with different content is not reused",async()=>{
+test("review regression: a preserved branch with different content is rejected, not reused",async()=>{
   const fake=fakeServer({preservedBranch:true,preservedTreeMismatch:true});
-  const result=await createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl});
-  assert.equal(result.ok,true);
+  await assert.rejects(()=>createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl}),/422/);
+  // The fresh commit has a distinct SHA from the preserved head, so the
+  // duplicate ref creation is rejected and no PR is created.
   assert.equal(fake.calls.filter(c=>c.path.endsWith("/git/commits")&&c.method==="POST").length,1);
+  assert.equal(fake.calls.filter(c=>c.path.endsWith("/pulls")&&c.method==="POST").length,0);
+});
+
+test("review regression: transient reconciliation lookup failures propagate instead of masking the cause",async()=>{
+  for(const options of [{branchLookupFailure:"500"},{preservedBranch:true,commitLookupFailure:"500"}]){
+    const fake=fakeServer(options);
+    await assert.rejects(()=>createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl}),/500/);
+    // The deterministic tree may already exist, but no commit, branch, or PR
+    // is created when reconciliation cannot be trusted.
+    assert.equal(fake.calls.filter(c=>c.path.endsWith("/git/commits")&&c.method==="POST").length,0);
+    assert.equal(fake.calls.filter(c=>c.path.endsWith("/git/refs")&&c.method==="POST").length,0);
+    assert.equal(fake.calls.filter(c=>c.path.endsWith("/pulls")&&c.method==="POST").length,0);
+  }
 });
 
 test("review regression: a competing open PR adding the same docs/forge path blocks publication",async()=>{
