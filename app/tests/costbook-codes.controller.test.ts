@@ -26,6 +26,14 @@ describe("Costbook Codes & Permits endpoint", () => {
       .rejects.toThrow("Organization context is required");
   });
 
+  it("denies authenticated viewers without Costbook read permission", async () => {
+    const res = response();
+    await expect(
+      costbookCodesController.list(request({ state: "IN" }, "viewer") as never, res as never)
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(res.json).not.toHaveBeenCalled();
+  });
+
   it("rejects unknown topics and arbitrary query keys", async () => {
     await expect(costbookCodesController.list(request({ state: "IN", topic: "guess" }) as never, response() as never))
       .rejects.toThrow();
