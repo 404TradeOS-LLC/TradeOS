@@ -25,12 +25,15 @@ const rows = [
 ];
 const unitCosts: Record<string, number> = { 'stud-item': 10, 'plate-item': 15 };
 
+// trace/video cannot be set via test.use inside a describe group (they force
+// a new worker); hoist to file top level like estimate-stage-navigation.spec.ts.
+if (state) test.use({ storageState: state, trace: 'off', video: 'off' });
+
 test.describe('Estimate mapping resolve', () => {
   test.skip(!path, 'Set a sanitized draft route to run the mapping matrix.');
   if (path && (!path.startsWith('/') || path.startsWith('//'))) {
     throw new Error('TRADEOS_ESTIMATE_STAGE_PATH must be a relative application path');
   }
-  if (state) test.use({ storageState: state, trace: 'off', video: 'off' });
 
   const openResolveScreen = async (page: import('@playwright/test').Page) => {
     await page.route('**/api/proxy/projects/*', async (route) => {
