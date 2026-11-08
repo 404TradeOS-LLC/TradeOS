@@ -100,17 +100,38 @@ export async function createDraft(input, {
       })),
     },
   });
-  const commit = await api("/git/commits", {
-    method: "POST",
-    body: {
-      parents: [plan.baseSha], tree: tree.sha,
-      message: "docs(forge): pilot issue #" + plan.issueNumber,
-    },
-  });
+  // Reconcile a preserved branch before creating a new commit. A prior
+  // invocation may have created the branch and commit but failed to publish
+  // the PR; the branch is deliberately preserved for review. Commit SHAs are
+  // timestamp-dependent, so a fresh commit for identical content would never
+  // match the preserved head, and the branch-reuse check below would reject
+  // the retry. If the preserved head already carries this exact tree on the
+  // same base with the same message, reuse that commit instead.
+  const branchPath = "/git/ref/heads/" + plan.branch;
+  const preserved = await api(branchPath).catch(() => null);
+  let commit;
+  if (preserved?.object?.sha) {
+    const preservedCommit = await api("/git/commits/" + preserved.object.sha).catch(() => null);
+    if (preservedCommit?.tree?.sha === tree.sha &&
+        Array.isArray(preservedCommit.parents) &&
+        preservedCommit.parents.length === 1 &&
+        preservedCommit.parents[0]?.sha === plan.baseSha &&
+        preservedCommit.message === "docs(forge): pilot issue #" + plan.issueNumber) {
+      commit = { sha: preserved.object.sha };
+    }
+  }
+  if (!commit) {
+    commit = await api("/git/commits", {
+      method: "POST",
+      body: {
+        parents: [plan.baseSha], tree: tree.sha,
+        message: "docs(forge): pilot issue #" + plan.issueNumber,
+      },
+    });
+  }
   if (!/^[a-f0-9]{40}$/.test(commit.sha ?? "")) throw Error("Commit was not confirmed");
   // Do not reuse a branch unless its head matches the commit we just created.
   // A prior ambiguous request may have created a PR; reconcile before retrying.
-  const branchPath = "/git/ref/heads/" + plan.branch;
   try {
     await api("/git/refs", {
       method: "POST", body: { ref: "refs/heads/" + plan.branch, sha: commit.sha },

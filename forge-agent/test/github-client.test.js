@@ -10,7 +10,8 @@ const input = {
 };
 
 function fakeServer({ moved=false, label=true, overlap=false, existing=false,
-  overlapText=null, longBody=false, pullFailure=null, matchingOpenPr=false, wrongBase=false } = {}) {
+  overlapText=null, longBody=false, pullFailure=null, matchingOpenPr=false, wrongBase=false,
+  preservedBranch=false, preservedTreeMismatch=false } = {}) {
   const calls=[];
   const fetchImpl=async(url,options)=>{
     const path=new URL(url).pathname+new URL(url).search;
@@ -20,12 +21,16 @@ function fakeServer({ moved=false, label=true, overlap=false, existing=false,
     else if(path.endsWith("/issues/910")) data={number:910,state:"open",body:longBody?"x".repeat(12001):"# brief",labels:label?[{name:"forge:ready"}]:[]};
     else if(path.endsWith("/pulls?state=open&per_page=100")) data=(overlap||overlapText)?[{head:{ref:"other"},body:overlapText??"Closes #910"}]:[];
     else if(path.includes("/pulls?head=")) data=matchingOpenPr?[{number:999,draft:true,html_url:"https://github.com/404TradeOS-LLC/TradeOS/pull/999",head:{ref:"forge/issue-910-"+mainSha.slice(0,12),sha:commitSha},base:{ref:wrongBase?"staging":"main"}}]:[];
-    else if(path.includes("/git/ref/heads/forge/")) data={ref:"refs/heads/forge/issue-910-"+mainSha.slice(0,12),object:{sha:commitSha}};
+    else if(path.includes("/git/ref/heads/forge/")) {
+      if(!preservedBranch) return {ok:false,status:404,json:async()=>({message:"Not Found"})};
+      data={ref:"refs/heads/forge/issue-910-"+mainSha.slice(0,12),object:{sha:commitSha}};
+    }
     else if(path.includes("/git/refs/heads/forge/")) return {ok:true,status:204,json:async()=>{throw Error("204 has no body")}};
     else if(path.startsWith("/repos/404TradeOS-LLC/TradeOS/contents/docs/forge/")) {
       return {ok:existing,status:existing?200:404,json:async()=>({sha:"f".repeat(40)})};
     }
     else if(path.endsWith("/git/commits/"+mainSha)) data={tree:{sha:"b".repeat(40)}};
+    else if(path.endsWith("/git/commits/"+commitSha)) data={tree:{sha:preservedTreeMismatch?"d".repeat(40):"b".repeat(40)},parents:[{sha:mainSha}],message:"docs(forge): pilot issue #910"};
     else if(path.endsWith("/git/trees")) data={sha:"b".repeat(40)};
     else if(path.endsWith("/git/commits")) data={sha:commitSha};
     else if(path.endsWith("/git/refs")) data={ref:"refs/heads/forge/issue-910-"+mainSha.slice(0,12)};
@@ -186,4 +191,22 @@ test("definitive rejection preserves the branch when PR inventory is empty",asyn
   const fake=fakeServer({pullFailure:"422"});
   await assert.rejects(()=>createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl}),/422/);
   assert.equal(fake.calls.filter(c=>c.method==="DELETE").length,0);
+});
+
+test("review regression: a preserved branch with the identical tree is reused instead of a duplicate commit",async()=>{
+  const fake=fakeServer({preservedBranch:true});
+  const result=await createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl});
+  assert.equal(result.ok,true);
+  assert.equal(result.headSha,commitSha);
+  // No fresh commit was created: commit SHAs are timestamp-dependent, so a
+  // duplicate commit could never match the preserved head.
+  assert.equal(fake.calls.filter(c=>c.path.endsWith("/git/commits")&&c.method==="POST").length,0);
+  assert.ok(fake.calls.some(c=>c.path.includes("/git/ref/heads/forge/")));
+});
+
+test("review regression: a preserved branch with different content is not reused",async()=>{
+  const fake=fakeServer({preservedBranch:true,preservedTreeMismatch:true});
+  const result=await createDraft(input,{enabled:true,token:"mock",fetchImpl:fake.fetchImpl});
+  assert.equal(result.ok,true);
+  assert.equal(fake.calls.filter(c=>c.path.endsWith("/git/commits")&&c.method==="POST").length,1);
 });
