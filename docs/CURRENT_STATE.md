@@ -1887,3 +1887,7 @@ The producer → accepted proposal → job → draft invoice browser path requir
 fresh authenticated nonproduction acceptance run after deployment.
 
 PR #931 / issue #927: provider-time delivery-status ordering is repaired in the existing draft branch. Known-message callbacks lock the journal row; older callbacks cannot replace newer status, while append-only events and sticky suppression candidates are preserved. Bounded parseable provider dates normalize to UTC. No schema/RLS change; tests use disposable PostgreSQL only. Route integration, protected staging application and signed callback proof remain open.
+
+## Proposed Costbook Codes & Permits branch — 2026-11-08
+
+Branch `feat/costbook-codes-permits-vigo-pilot` adds a static, cited, read-only Vigo County / Indiana code-reference index, strict authenticated `GET /api/v1/costbook/codes` route, Costbook `Codes & Permits` page and tests. It deliberately marks parcel applicability **unverified** and does not create Cost Items, prices, permits, inspections, migrations, Athena claims, or estimate changes. This is **proposed** work until CI, review, merge, deployment identity and authenticated mobile/desktop acceptance are verified; no live release is claimed. See `docs/architecture/COSTBOOK_CODES_PERMITS_PILOT.md`.
