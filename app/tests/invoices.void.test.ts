@@ -77,4 +77,15 @@ describe("InvoicesService.void", () => {
     });
     expect(result.status).toBe("voided");
   });
+
+  it("rejects voiding an already-void invoice instead of recording a duplicate event", async () => {
+    invoiceFindFirstMock.mockResolvedValue({ ...baseInvoice, status: "void" });
+
+    await expect(new InvoicesService().void("invoice-1", "org-1", "user-1", "owner")).rejects.toThrow(
+      "has already been voided"
+    );
+    expect(invoiceUpdateMock).not.toHaveBeenCalled();
+    expect(invoiceDeliveryCreateMock).not.toHaveBeenCalled();
+    expect(activityRecordMock).not.toHaveBeenCalled();
+  });
 });

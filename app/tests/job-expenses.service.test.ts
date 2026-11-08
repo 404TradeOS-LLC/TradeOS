@@ -434,6 +434,18 @@ describe("JobExpensesService", () => {
     expect(mockDb.jobExpense.update).not.toHaveBeenCalled();
   });
 
+  it("never persists a receipt if an object-verification provider returns skipped", async () => {
+    const verifying = new JobExpensesService(mockDb as any, async () => "skipped");
+    mockDb.jobExpense.findFirst.mockResolvedValue(expenseRow());
+    await expect(verifying.attachReceipt({
+      id: "expense-1", jobId: JOB, orgId: ORG,
+      receiptStoragePath: "job-expenses/org-1/10000000-0000-0000-0000-000000000001/expense-1/receipt-11111111-1111-4111-8111-111111111111.pdf",
+      receiptFileName: "bill.pdf", receiptContentType: "application/pdf", receiptSizeBytes: 2048,
+    })).rejects.toMatchObject({ statusCode: 502 });
+    expect(mockDb.jobExpense.update).not.toHaveBeenCalled();
+    expect(mockDb.jobExpenseEvent.create).not.toHaveBeenCalled();
+  });
+
   it("fails closed when receipt storage verification is unavailable", async () => {
     const verifying = new JobExpensesService(mockDb as any, async () => "unavailable");
     mockDb.jobExpense.findFirst.mockResolvedValue(expenseRow());
@@ -500,10 +512,20 @@ describe("verifyReceiptObjectExists", () => {
     jest.restoreAllMocks();
   });
 
-  it("skips verification when storage is not configured", async () => {
+  it("fails closed when the storage endpoint or service key is not configured", async () => {
     delete process.env.SUPABASE_URL;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-    await expect(verifyReceiptObjectExists(PATH)).resolves.toBe("skipped");
+    global.fetch = jest.fn();
+    await expect(verifyReceiptObjectExists(PATH)).resolves.toBe("unavailable");
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    process.env.SUPABASE_URL = "https://example.supabase.co";
+    await expect(verifyReceiptObjectExists(PATH)).resolves.toBe("unavailable");
+
+    delete process.env.SUPABASE_URL;
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
+    await expect(verifyReceiptObjectExists(PATH)).resolves.toBe("unavailable");
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it("reports a missing object on a 404 from storage", async () => {

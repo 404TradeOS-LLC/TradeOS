@@ -51,6 +51,7 @@ const mockPrisma = {
 const mockProvision = jest.fn();
 const mockSendPasswordReset = jest.fn().mockResolvedValue({ sent: true });
 const mockSendTeamInvite = jest.fn().mockResolvedValue({ sent: true });
+const mockRecordOutbound = jest.fn().mockResolvedValue({ created: true });
 const mockScheduleEmailInBackground = jest.fn((send: () => Promise<void>) => setImmediate(() => void send()));
 
 jest.mock("../db/client", () => ({ basePrisma: mockBasePrisma, prisma: mockPrisma }));
@@ -64,7 +65,14 @@ jest.mock("../modules/email/service", () => ({
 jest.mock("../modules/organization-provisioning/service", () => ({
   OrganizationProvisioningService: jest.fn().mockImplementation(() => ({ provision: mockProvision })),
 }));
+jest.mock("../db/resendDeliveryJournalStore", () => ({
+  resendDeliveryJournalStore: {
+    recordOutbound: mockRecordOutbound,
+    processVerifiedEvent: jest.fn(),
+  },
+}));
 
+import { createHash } from "node:crypto";
 import { hashPassword } from "../backend/auth/password";
 import { verifyAuthToken } from "../backend/auth/jwt";
 import { AuthService } from "../modules/auth/service";
@@ -313,6 +321,50 @@ describe("AuthService", () => {
     expect(result.resetToken).toEqual(expect.any(String));
   });
 
+  it("records a sent password reset in the delivery journal without an org or plaintext recipient", async () => {
+    mockTransactionClient.appUser.findUnique.mockResolvedValue({
+      id: "user-1",
+      authSubject: "local:abc",
+      email: "owner@example.com",
+      fullName: "Owner",
+      isActive: true,
+    });
+    mockSendPasswordReset.mockResolvedValueOnce({ sent: true, providerMessageId: "re_reset_123" });
+
+    const service = new AuthService();
+    const result = await service.requestPasswordReset({ email: "owner@example.com" });
+    await waitForScheduledEmail();
+    await waitForScheduledEmail();
+
+    expect(result.success).toBe(true);
+    expect(mockRecordOutbound).toHaveBeenCalledWith({
+      providerMessageId: "re_reset_123",
+      kind: "password_reset",
+      orgId: null,
+      recipientDigest: createHash("sha256").update("owner@example.com").digest("hex"),
+    });
+  });
+
+  it("keeps the generic password-reset response when delivery journaling fails", async () => {
+    mockTransactionClient.appUser.findUnique.mockResolvedValue({
+      id: "user-1",
+      authSubject: "local:abc",
+      email: "owner@example.com",
+      fullName: "Owner",
+      isActive: true,
+    });
+    mockSendPasswordReset.mockResolvedValueOnce({ sent: true, providerMessageId: "re_reset_123" });
+    mockRecordOutbound.mockRejectedValueOnce(new Error("connection refused"));
+
+    const service = new AuthService();
+    const result = await service.requestPasswordReset({ email: "owner@example.com" });
+    await waitForScheduledEmail();
+    await waitForScheduledEmail();
+
+    expect(result.success).toBe(true);
+    expect(mockRecordOutbound).toHaveBeenCalledTimes(1);
+  });
+
   it("bootstrapSupabaseIdentity returns an existing user's membership without organizationName and without provisioning", async () => {
     mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person", isActive: true });
     mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({ id: "membership-1", role: "owner", orgId: "org-1", createdAt: new Date("2024-01-01") });
@@ -491,6 +543,34 @@ describe("AuthService", () => {
         expiresAt: expect.any(Date),
       })
     );
+  });
+
+  it("records a sent team invite in the delivery journal with the inviting org", async () => {
+    mockPrisma.organizationInvite.create.mockResolvedValue({
+      id: "invite-1",
+      email: "tech@example.com",
+      role: "technician",
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    mockSendTeamInvite.mockResolvedValueOnce({ sent: true, providerMessageId: "re_invite_123" });
+
+    const service = new AuthService();
+    const result = await service.inviteTeamMember({
+      orgId: "10000000-0000-0000-0000-000000000001",
+      invitedByUserId: "owner-1",
+      email: "tech@example.com",
+      role: "technician",
+    });
+    await waitForScheduledEmail();
+    await waitForScheduledEmail();
+
+    expect(result.role).toBe("technician");
+    expect(mockRecordOutbound).toHaveBeenCalledWith({
+      providerMessageId: "re_invite_123",
+      kind: "team_invite",
+      orgId: "10000000-0000-0000-0000-000000000001",
+      recipientDigest: createHash("sha256").update("tech@example.com").digest("hex"),
+    });
   });
 });
 

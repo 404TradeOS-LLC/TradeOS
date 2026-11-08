@@ -55,7 +55,7 @@ Own invoice creation, send and pay state changes, voiding, line items, delivery 
 - `/api/v1/invoices/*`
 - `GET /api/v1/invoices` — organization-scoped work-queue read (see below)
 - `GET /api/v1/invoices/:id` — organization-scoped invoice detail with recorded payment history and server-derived `paidAmount`/`balanceDue`
-- `POST /api/v1/invoices/:id/void` — voids a non-paid invoice; persistence uses the database-compatible raw status `void`, while normalized UI/activity semantics remain canonical `voided`
+- `POST /api/v1/invoices/:id/void` — voids a non-paid invoice that has not already been voided (an already-void invoice returns 409 instead of recording a duplicate void event); persistence uses the database-compatible raw status `void`, while normalized UI/activity semantics remain canonical `voided`
 - `PATCH /api/v1/invoices/:id` — draft-only invoice edit (`InvoicesService.update`): replaces line items and recomputes the total for manual (estimate-less) full drafts, or edits only the due date for progress and estimate-linked drafts; requires `billing.write` and organization scope, 409 otherwise
 - `/api/v1/invoices/:id/payments`
 - `GET /api/v1/payments/current-week` — read-only organization-scoped ledger of `recorded` Payment rows in the current organization week, with invoice/project/customer context and organization-timezone-aware boundaries
@@ -90,6 +90,8 @@ invoice persists `subtotal`, `taxPct`, and `taxAmount`; when an accepted
 proposal changes the total, the estimate's persisted tax composition is scaled
 proportionally so `subtotal + taxAmount = amount` without inventing a new tax
 basis.
+
+Invoice creation and draft edits validate finite values at the service layer: a progress invoice requires a finite `percentComplete` in (0, 100], manual line items require finite `quantity`, `unitPrice`, and `lineTotal` when supplied, and `dueDate` must parse as a valid date — otherwise the call returns 400. The HTTP controller already rejects non-numeric strings for these fields; the service guard covers in-process callers, where NaN would otherwise pass every range comparison and persist NaN amounts (Postgres `numeric` accepts NaN).
 
 `InvoiceLineItem` uses the selling-price names `unitPrice` and `lineTotal`.
 These replace the legacy `unitCost` and `lineCost` names for invoice rows only;

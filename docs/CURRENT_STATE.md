@@ -69,7 +69,27 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Estimate authenticated acceptance — 2026-11-05
+
+The opt-in S053 Beta Evidence run now joins Apply acknowledgements to the retained review payload and authenticated organization-scoped Estimate read, requires visible verified saved-line rows, hard-reloads the builder, and checks exact acknowledged IDs, descriptions, persisted quantities and reviewed target links. The separate tenant-isolation lane requires foreign Estimate detail GET to return 403/404; S053 continues to require foreign Athena draft/apply denials. Source checks do not equal a successful deployed run: exact deployment SHA, approved non-production tenant, synthetic identity and protected operator-dispatched `mode=full` evidence remain required. No RLS or permission policy changed.
+
+
+## Invoice finite-value and void guards — 2026-11-05
+
+`InvoicesService` now rejects non-finite invoice inputs at the service layer: a progress invoice requires a finite `percentComplete` in (0, 100], manual line items require finite `quantity`, `unitPrice`, and `lineTotal`, and `dueDate` must parse as a valid date (400, not 500). The HTTP controller already rejected non-numeric strings; the service guard closes the in-process path, where NaN passes every range comparison and Postgres `numeric` would persist it. Voiding an already-void invoice now returns 409 instead of recording a duplicate void event. Project create/update also reject whitespace-only names. This is pending exact-head CI/review/merge; no schema, RLS, or permission policy changed (the `jobs_select_policy` RLS test comment was corrected to admin/owner-or-active-assignee only — comment-only, dispatcher was never in the SELECT policy).
+
+
 # TradeOS Current State
+
+## Invited PDF beta evidence — local candidate, 2026-11-06
+
+Founder selected a free 1–3-business beta ending at contractor-delivered Proposal PDFs with reviewed AI assist included. A local `beta_pdf` scenario extends the existing evidence runner without changing application APIs, schema, permissions, pricing or existing scenario defaults. It adds authenticated PDF transport/receipt retention, Proposal reload checks and foreign PDF denial, and requires exact SHA/current-run artifacts. S053 assertion-name drift is repaired. This is unmerged source, not deployed acceptance. Clarification persistence, documented deck/Estimate→Proposal discrepancies, environment/RLS/recovery proof and onboarding gates remain HOLD in [the beta runbook](operations/INVITED_BETA.md).
+
+## Estimate Apply saved-line identity — implementation branch, 2026-11-04
+
+The rebased `feat/figma-to-code-completion` slice extends structured Apply idempotency acknowledgements with the matched saved-line ID and reconciles acknowledged lines through the existing authorized, organization-scoped Estimate detail read before showing Saved & verified. A missing read, missing line or target/quantity/description mismatch remains unconfirmed and preserves the retained request for explicit retry. Review-only skips do not count as saved, and verified saved identity does not certify current pricing evidence. See [AI Estimate Assist](modules/ai-estimate-assist.md#saved-line-identity-reconciliation--2026-10-31). This is pending exact-head CI/review/merge; deployment and full-workflow readiness are unverified.
+
+Saved-line verification also compares against the retained Apply request (quantity within the persisted Decimal(12, 4) rounding, description when the request supplied one): an idempotent retry that acknowledges a line edited in another tab after the apply no longer certifies values that differ from the accepted review. (PR #941 Codex review fix, ported to main 2026-11-07.)
 
 ## Job expenses / actual job costs — Issue #885 implementation, pending release
 
@@ -104,6 +124,10 @@ The proposed brand cleanup deletes only the five unused starter SVGs under `web/
 ## Transactional email platform branding — merged PR #847
 
 Security, team invitation and customer portal access email HTML now uses one graphite/copper TradeOS platform shell, while existing copy, one-time URLs, expiration notices, plain-text alternatives and delivery idempotency remain unchanged. Customer document branding remains organization-specific and is not modified. Unit coverage for the shell is added; hosted tests, email-client rendering and provider-delivery checks remain separate gates. No deployment or delivery certification is claimed.
+
+## Resend delivery-event journal — draft PR, issue #927
+
+A durable, tenant-safe delivery journal is implemented as a protected draft (branch `feat/resend-delivery-journal-927`, base `main` @ `1c0ac269` after rebase from `33487905`): additive migration `20261105220000_add_resend_delivery_journal` adds forced-RLS `email_delivery_messages` (outbound journal, unique `provider_message_id`, nullable `org_id` for user-wide password resets, recipient digests only) and `email_delivery_events` (verified inbox keyed by `svix-id`, allowlisted metadata plus payload digest only). `app/modules/email/deliveryJournal.ts` processes verified events idempotently with org attribution resolved only from the journal row; `app/db/resendDeliveryJournalStore.ts` is the server-only write path behind the transaction-local `app.resend_webhook` flag. Outbound recording is wired at the auth (password reset, team invite) and customer-portal send call sites and is best-effort — a journal failure never changes the user flow. No suppression is performed; bounces/complaints only set a `suppression_candidate` flag (see `docs/modules/resend-delivery-suppression-policy.md`). The staging migration is NOT applied by this PR and no webhook is registered; both need separate approvals, and the inbox processor stays unwired until draft PR #923 (signed webhook ingress) merges. Unit tests (13) plus call-site tests pass locally; live-DB RLS integration coverage is added for CI (Docker Postgres is unavailable locally).
 
 ## Platform social link preview — pending verification, 2026-10-31
 
@@ -201,6 +225,25 @@ suite's intro-timing test failed. The scene lights still shade the metal
 there; hardware renderers keep the full reflective environment. Approved
 4s/2.5s timing, Skip/Escape, focus restoration, and the reduced-motion
 bypass are unchanged.
+
+Wall-clock verification (2026-11-06): a live probe measured the film
+covering the staging login for ~23s, but staging predates the guard above
+(it runs a deployment whose cinema chunk lacks the PMREM skip), so that
+overstay is pre-fix behavior, not a defect on current main. On current
+main, in a real browser, the film dismisses on schedule once mounted:
+first-visit 4.1–4.6s and returning 2.5–3.0s (intended 4s / 2.5s), measured
+in-page with a MutationObserver. The component suite gains a real-browser
+wall-clock regression test for this (the existing timing test uses
+Playwright's virtual clock, which masks real main-thread blockage) that
+asserts the film is gone within 5.5s first-visit and 4s returning
+(intended durations plus 1.5s slack), measured from mount, and that the
+film no longer intercepts pointer events after dismissal. A module-scope
+preload of the cinema chunk was tried and reverted: it did not change the
+measured dismissal times, and it broke the existing virtual-clock timing
+test (the chunk's evaluation block during bundle load leaves the
+accessibility tree stale after reload, so the dialog is not found by role).
+No source change ships with this verification; staging still needs a
+promotion to a build that includes the guard above.
 
 Historical Chromium download block: the earlier local component-browser run
 was blocked before launch by a missing Chromium binary after the official
@@ -1798,12 +1841,13 @@ The existing Universal Create → Task flow preserves `intent=task` through new 
 
 The `/field` page previously admitted technician-role accounts only: any other canonical role hit a "Technician workspace" empty state before any job request, so an owner-role founder account could not reach the field job view or its job-expense section even though the expense API is role-agnostic within the organization. The gate in `web/src/app/(app)/field/page.tsx` now admits exactly technician and owner; admin, dispatcher, manager, and unauthenticated requests are still denied before any job request, and no other page gate, API authorization, or RLS policy changed. The denied-state copy now reads "technician and owner accounts". Regression coverage in `web/src/app/(app)/field/page.test.ts` pins both directions: admin/manager/dispatcher still denied, technician and owner pass the gate and load the job list.
 
-## Beta readiness control surface — PR #915 (unmerged)
+## Beta readiness control surface — merged PR #915; operator-isolation hardening in PR #928
 
-- Proposed owner/admin-only `/beta-readiness` route displays read-only, refreshable exact-head PR signals for #810, #891, #905 and #906 and the current staging dependency path; it links to the existing `.github/workflows/beta-evidence.yml` without dispatching or replacing it.
+- The read-only, refreshable `/beta-readiness` route merged via #915 on 2026-11-04 (merge commit `b566de4c9584444cff2f779614a179f8bf8f489d`). The route observes GitHub and Vercel metadata only; it links to `.github/workflows/beta-evidence.yml` without dispatching or replacing it.
+- **Security finding:** the merged page checks the authenticated organization's owner/admin role but not whether that organization is the authorized TradeOS platform operator. Because the collector uses platform-level GitHub/Vercel readers, customer-organization admins could otherwise see shared release metadata. PR #928 adds a server-only exact operator organization UUID allowlist before any collector call. It intentionally denies all access until `TRADEOS_BETA_OPERATOR_ORG_ID` is explicitly configured in an approved environment; the ID is never embedded in client code or documentation. **Do not regard #928 as landed until it is separately reviewed and merged.**
 - Source-level gate logic fails closed on missing required check policy, review threads, migration inventory/checksum proof, protected staging authorization, ledger/RLS/tenant validation, matching API/web deployment and runtime-binding identity, private receipt acceptance, 1440/1024/768/390 screenshots, concurrency/rollback evidence and final review. No operator toggle marks these passed.
-- Previously completed Job handoff migration is never replayed. Merged #907 is the protected staging Expense runner; #905 and #906 remain overlapping proposed alternatives that require reconciliation rather than automatic merges.
-- This is **source proposed in PR #915**, not an implemented production release or a successful authenticated browser test. Deployment metadata alone cannot prove nonproduction runtime identity; staging/production database state is unchanged by this UI PR. See `docs/testing/BETA_CONTROL_SURFACE.md`.
+- The completed Job handoff migration must never be replayed. #810 and #891 merged to `main` on 2026-11-04; #907 is the protected staging Expense runner, while #905 and #906 were closed **without merging** as superseded. As of the live 2026-11-04 read-only inspection, staging has 67 completed migrations, zero unfinished, and exactly the three Expense migrations pending. `job_expenses` and `job_expense_events` are absent; source merge is not a protected migration execution. Protected staging approval, effective API/web bindings, and authenticated owner/technician and tenant isolation remain unverified.
+- Source merge and READY production-target deployment metadata are **not** authenticated staging release acceptance. See `docs/testing/BETA_CONTROL_SURFACE.md`.
 - Review fixes on the PR branch: the PR card no longer shows a green verified tone unless reviews are approved and threads are resolved; timestamps render with a pinned locale/time zone so server and browser text match; settings errors other than 401/403 render a retryable unavailable state instead of a 404; Vercel observations filter to staging-branch deployments; PR review reads follow pagination; reviewer state ignores comment-only and pending reviews; and an approval counts only when it targets the current head. Required-check sourcing now reads the main branch ruleset (`GET /rules/branches/main`, unioned across applicable rulesets) instead of legacy branch protection, which 404s for main; required CI is verified only when a current-head success run matches both the required context and, when the ruleset binds one, the bound GitHub App id taken from the ruleset response itself (never hardcoded), and the policy read fails closed to unverified. The rules read needs no special scope on this public repository.
 - Follow-up review fixes on the PR branch: required-check reads now also collect commit statuses for the head SHA (mapped without app identity, so a status can satisfy only an unbound requirement and never a bound one), and Vercel staging lookups page through deployments with a fixed page bound instead of stopping at the first 25.
 
@@ -1814,3 +1858,32 @@ Brand Studio's four existing Settings-backed brand asset slots now accept a loca
 ### Staging password-reset request failures now return truthful errors — 2026-11-03 (PR pending)
 
 Staging /forgot-password returned "We couldn't process that request. Please try again." for every submit (reproduced in-browser 2026-10-31) with no reset email arriving, while the server log captured only the provider message. The request action collapsed every Supabase failure into that one generic message, and its redirect URL carried a `?next=/reset-password` query the /auth/confirm route does not need (it defaults `next` to /reset-password and only allows that path). The fix: the recovery redirect is now the bare /auth/confirm path, the server log records the provider status and code, and the client message is classified — rate-limit failures say to wait and retry, redirect/allowlist failures say recovery is misconfigured for the deployment, and anything else keeps the previous generic message. No message confirms whether an address has an account, and no provider error text is echoed to the client. Staging follow-up (not proven locally): confirm the staging Supabase project's Auth redirect allowlist contains the staging web origin, redeploy, and submit a live reset for the staging test account.
+
+## PR #933 review repair — foreign Proposal proof
+
+The PDF isolation check now requires an authenticated dedicated owner/admin in a pinned distinct synthetic organization and successful exact Proposal reads surrounding the smoke-account denial. Missing or deleted records cannot certify isolation from a 404. The evidence validator requires the ownership proof, workflow preflight/full checks include the new fixture credentials, and the cohort runbook explicitly requires retained PDF renderer results for the release SHA. This is evidence tooling only; live staging acceptance remains unverified.
+
+PR #933 follow-up: fixture proof must belong to the same passing foreign-PDF probe; when route/status fields are present, they must match that proof’s Proposal ID and HTTP status. Legacy compact reports may omit those fields. Split proof/PASS entries and mismatched routes/statuses fail validation.
+
+## Contractor walkthrough form repairs — 2026-11-06
+
+The six-step synthetic staging walkthrough exposed two form usability defects. The
+project-to-job form previously passed a single full `project.siteAddress`
+string into the Street field and left City/State/ZIP blank. The job form now
+splits only unambiguous comma- or newline-separated US addresses into their
+structured fields; ambiguous free-form values are retained in Street and
+explicitly flagged for human confirmation rather than guessed. Existing
+customer service-address selection and its tenancy/API guards are unchanged.
+
+The new- and edit-invoice Due date controls previously depended on browser-native
+`type=date` interactions that do not accept ordinary keyboard typing reliably
+across clients. Both now accept typed `MM/DD/YYYY` or `YYYY-MM-DD` with a separator-capable mobile keyboard, normalize
+valid calendar dates to ISO `YYYY-MM-DD` before sending to the backend, reject
+invalid dates in the server action, and preserve blank/clearable due dates.
+No invoice lifecycle, payment, or sending behavior changes.
+
+This code/contract update is **not** evidence of a deployed staging retest.
+The producer → accepted proposal → job → draft invoice browser path requires a
+fresh authenticated nonproduction acceptance run after deployment.
+
+PR #931 / issue #927: provider-time delivery-status ordering is repaired in the existing draft branch. Known-message callbacks lock the journal row; older callbacks cannot replace newer status, while append-only events and sticky suppression candidates are preserved. Bounded parseable provider dates normalize to UTC. No schema/RLS change; tests use disposable PostgreSQL only. Route integration, protected staging application and signed callback proof remain open.

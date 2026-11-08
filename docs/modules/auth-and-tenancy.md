@@ -101,6 +101,8 @@ The shared adapter in `app/modules/email/service.ts` uses Resend's HTTPS API dir
 
 Missing email configuration is a non-fatal skip outside production so local auth tests and development can continue without network delivery. Delivery is scheduled after the HTTP response rather than awaited by the auth routes, which keeps password-reset timing uniform for known and unknown addresses. In production, missing configuration or a non-HTTPS `APP_BASE_URL` fails closed inside the adapter; the auth service logs only the error class and preserves the reset route's generic response. Invite creation remains durable even if delivery fails, so a later resend path can be added without losing the invitation record. Auth controllers register delivery after the response finishes; the scheduler keeps provider latency out of public auth responses and gives the authenticated request transaction a chance to commit before invite delivery starts. On Vercel, the scheduler registers the post-response promise with `waitUntil` before the response finishes so the function invocation remains alive through provider delivery; non-Vercel runtimes use a best-effort fallback. A durable transactional outbox remains the follow-up for retryable delivery across runtime termination.
 
+Successful sends are recorded in the outbound delivery journal (`app/modules/email/deliveryJournal.ts`, `app/db/resendDeliveryJournalStore.ts`, migration `20261105220000_add_resend_delivery_journal`; see `docs/modules/resend-delivery-journal.md`). The auth service records password resets with no org — reset identity is user-wide by design and no tenant is ever guessed — and team invites with the inviting org; only the recipient-address digest is stored, never plaintext. Journal recording is best-effort and log-only on failure, so it can never change the generic reset response or the persisted invite. Delivery events themselves are processed only after Svix verification (#923's boundary) by the idempotent inbox processor, which resolves org attribution solely from the journal row matched by `email_id`; a database failure yields a retryable error rather than a false acknowledgement. No suppression is performed from delivery events; see `docs/modules/resend-delivery-suppression-policy.md`.
+
 Authentication success and failure outcomes are also emitted to the durable
 Athena security audit trail when the server has a verified actor and
 organization context. The event builder allowlists metadata and never stores
@@ -161,14 +163,16 @@ The already-orphaned production account (`hello@404tradeos.com`, created before 
 
 ## Tests
 
-- `app/tests/auth.service.test.ts`
+- `app/tests/auth.service.test.ts` — includes delivery-journal call-site coverage: a sent password reset is recorded with no org and a recipient digest (never plaintext), a sent team invite is recorded with the inviting org, and a journal failure preserves the generic reset response
+- `app/tests/resend.delivery-journal.test.ts` — idempotent verified-event processing: duplicate `svix-id`, unrecognized `email_id`, cross-tenant non-correlation, retryable database failure, unknown event types, user-wide password-reset identity, and digest-only storage
+- `app/tests/customer-portal.service.test.ts` — includes delivery-journal call-site coverage for a sent portal access email recorded with the owning org
 - `app/tests/auth.middleware.test.ts`
 - `app/tests/jwt.local.test.ts` — finite local-token expiry, expiration boundary, and malformed-claim rejection
 - `app/tests/auth.controller.bootstrap.test.ts` — supertest-level trust-boundary coverage: a bootstrap request body carrying `role`/`userId`/`authSubject`/`organizationId` is rejected (`400`, Zod `.strict()`) before it ever reaches provisioning logic
 - `app/tests/trustProxy.test.ts` — proves `TRUST_PROXY=1` resolves `req.ip` from the single innermost `X-Forwarded-For` entry Vercel's edge appends (silencing `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`) without trusting an attacker-prefixed chain
 - `app/tests/platformProvisioningAuth.test.ts`
 - `app/tests/platformProvisioningRateLimit.test.ts`
-- `app/tests/rls.integration.ts` (Docker-backed, live Postgres) — includes `bootstrapSupabaseIdentity finds an already-provisioned identity's real membership against live RLS, not a false 409`, the authoritative regression test for the RLS-context bug described above (a mocked Prisma client can't catch an RLS visibility gap)
+- `app/tests/rls.integration.ts` (Docker-backed, live Postgres) — includes `bootstrapSupabaseIdentity finds an already-provisioned identity's real membership against live RLS, not a false 409`, the authoritative regression test for the RLS-context bug described above (a mocked Prisma client can't catch an RLS visibility gap), and the delivery-journal tenant-isolation test proving tenant sessions cannot write the journal/inbox tables while the flagged server-only webhook transaction can
 - `app/tests/databaseSecurityHardening.migration.test.ts`
 - `web/src/app/actions/auth.test.ts` — source-shape pinning (no mock harness exists for Server Actions in `web/`; see the file's own header comment) covering the three-way `loginAction` routing outcome, the `finishSetupAction` auth/trust-boundary guarantees, and the `/finish-setup` page's session gate
 
