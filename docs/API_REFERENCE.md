@@ -488,6 +488,8 @@ been configured.
 
 `GET /api/v1/billing` and `GET /api/v1/billing/catalog` require `billing.read`. The summary is the tenant-scoped Stripe subscription projection; the catalog is the server-owned Starter/Pro/Business/Scale presentation and price contract used by both checkout validation and the billing UI. `POST /api/v1/billing/checkout` and `POST /api/v1/billing/portal` require an organization owner or admin. Checkout requests validate the configured Stripe Price against the selected catalog amount, currency, and recurring interval; an organization-scoped persisted checkout attempt and stable Stripe idempotency key prevent duplicate sessions. `POST /api/v1/billing/webhook` accepts only a valid Stripe-signed raw body. Webhook event claiming is atomic, and subscription events hydrate the current Stripe subscription before updating the local projection so out-of-order delivery cannot restore stale access. Only `active` and `trialing` states grant entitlements.
 
+There is no public Resend delivery-events endpoint in this release. The signed Resend receiver (`POST /api/v1/webhooks/resend`) is draft PR #923 and is not registered anywhere; the durable delivery journal behind it (`email_delivery_messages`, `email_delivery_events`, migration `20261105220000_add_resend_delivery_journal`) is internal only — no role may read or write it through the API, tenant reads are org-scoped at the database boundary, and writes are server-only behind the transaction-local `app.resend_webhook` flag. See `docs/modules/resend-delivery-journal.md`.
+
 `GET /api/v1/invoices` requires `billing.read` and returns the organization-scoped invoice work queue. `paidAmount` remains the sum of recorded Payment rows. For non-paid invoices, `balanceDue` is the non-negative remainder of invoice amount minus recorded payments; when persisted invoice status is `paid`, the queue returns `balanceDue: 0` even if the supported manual mark-paid path created no Payment row. Persisted `paid` therefore stays authoritative and consistent with invoice detail presentation without fabricating payment ledger history.
 
 `GET /api/v1/invoices/:id` and `GET /api/v1/invoices/by-project/:projectId`
@@ -1165,3 +1167,5 @@ This API is proposed on an unmerged branch, not yet available on production.
 a new Job if the accepted proposal's `scopeOfWork` is null, empty or whitespace.
 It never fills missing accepted scope from the current Project. An existing
 source-linked Job is still returned on retry, without creating another Job.
+
+Resend delivery journal (PR #931, merged 2026-11-07): internal verified-event processing now validates/normalizes provider occurrence timestamps and prevents older callbacks from overwriting newer delivery status. This creates no public endpoint and does not activate the separate #923 webhook pilot.

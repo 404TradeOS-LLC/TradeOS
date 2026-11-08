@@ -146,6 +146,26 @@ test("withheld bindings stay unverified when runtime cannot prove the staging da
   assert.deepEqual(noKey.runtimeInferred, []);
 });
 
+test("withheld bindings stay runtime-inferred when only the first /ready fetch succeeds", async () => {
+  // attestWithRuntime fetches /ready once and shares it between the
+  // readiness check and the data-plane gate: a second /ready request
+  // that fails transiently must not unverify bindings the first
+  // response already proved.
+  let readyCalls = 0;
+  const flakyFetch = async (url) => {
+    if (url === `${STAGING_API_ORIGIN}/ready`) {
+      readyCalls += 1;
+      if (readyCalls > 1) throw new Error("transient /ready failure");
+      return { ok: true, status: 200, json: async () => ({ status: "ready", checks: { database: { status: "ok", projectRef: STAGING_REF } } }) };
+    }
+    return stubFetch()(url);
+  };
+  const result = await attestWithRuntime("api", {}, flakyFetch);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.runtimeInferred, ["SUPABASE_URL", "AUTH_JWT_SECRET", "DATABASE_URL"]);
+  assert.equal(readyCalls, 1);
+});
+
 test("a malformed database url is a mismatch, never runtime-inferred", async () => {
   const result = await attestWithRuntime("api", { ...api(), DATABASE_URL: "not-a-postgresql-url" }, stubFetch());
   assert.deepEqual(result.errors, ["DATABASE_URL"]);

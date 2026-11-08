@@ -22,6 +22,8 @@ import { normalizeRole } from "../../domain";
 import { runInDatabaseTransaction } from "../../db/requestSession";
 import { logError } from "../../backend/logging";
 import { emailService, EmailDispatchScheduler, scheduleEmailInBackground } from "../email/service";
+import { hashRecipientAddress, recordOutboundDeliveryMessage } from "../email/deliveryJournal";
+import { resendDeliveryJournalStore } from "../../db/resendDeliveryJournalStore";
 
 const INVALID_CREDENTIALS = "Invalid email or password";
 const REFRESH_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 30;
@@ -202,7 +204,24 @@ export class AuthService {
     if (reset) {
       scheduleDelivery(async () => {
         try {
-          await emailService.sendPasswordReset(reset);
+          const result = await emailService.sendPasswordReset(reset);
+          // Password-reset identity is user-wide by design: the reset lookup
+          // intentionally supports users outside a single preselected
+          // organization, so the journal row carries no org. Never guess a
+          // tenant here. Recording is best-effort: a journal failure must
+          // never change the generic reset response.
+          if (result.providerMessageId) {
+            try {
+              await recordOutboundDeliveryMessage(resendDeliveryJournalStore, {
+                providerMessageId: result.providerMessageId,
+                kind: "password_reset",
+                orgId: null,
+                recipientDigest: hashRecipientAddress(reset.to),
+              });
+            } catch (error) {
+              logError("auth.password_reset_journal_failed", { error: errorName(error) });
+            }
+          }
         } catch (error) {
           logError("auth.password_reset_email_failed", { error: errorName(error) });
         }
@@ -275,12 +294,24 @@ export class AuthService {
 
     scheduleDelivery(async () => {
       try {
-        await emailService.sendTeamInvite({
+        const result = await emailService.sendTeamInvite({
           to: invite.email,
           role: invite.role as "dispatcher" | "technician",
           token: rawToken,
           expiresAt: invite.expiresAt,
         });
+        if (result.providerMessageId) {
+          try {
+            await recordOutboundDeliveryMessage(resendDeliveryJournalStore, {
+              providerMessageId: result.providerMessageId,
+              kind: "team_invite",
+              orgId: input.orgId,
+              recipientDigest: hashRecipientAddress(invite.email),
+            });
+          } catch (error) {
+            logError("auth.team_invite_journal_failed", { error: errorName(error) });
+          }
+        }
       } catch (error) {
         logError("auth.team_invite_email_failed", { error: errorName(error) });
       }

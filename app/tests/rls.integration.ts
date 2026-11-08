@@ -1381,6 +1381,96 @@ describe("live organization row-level security", () => {
     }
   });
 
+  it("keeps the Resend delivery journal tenant-isolated with server-only webhook writes", async () => {
+    const messageA = "re_rls_msg_a";
+    const messageB = "re_rls_msg_b";
+    const messageReset = "re_rls_msg_reset";
+    const svixA = "msg_rls_svix_a";
+    const digest = "a".repeat(64);
+    try {
+      // A tenant session cannot write either table directly: the only write
+      // path is the transaction-local app.resend_webhook flag set by the
+      // server-only webhook store.
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().$executeRaw(Prisma.sql`
+            insert into email_delivery_messages (provider_message_id, org_id, kind, recipient_digest, status)
+            values (${messageA}, ${orgA}::uuid, 'customer_portal_access', ${digest}, 'sent')
+          `),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().$executeRaw(Prisma.sql`
+            insert into email_delivery_events (svix_id, event_type, provider_message_id, org_id, payload_digest, metadata)
+            values (${svixA}, 'email.delivered', ${messageA}, ${orgA}::uuid, ${digest}, '{}'::jsonb)
+          `),
+        ),
+      ).rejects.toThrow();
+
+      // The server-only webhook transaction can write, resolves org from the
+      // journal row, and a duplicate svix-id is a no-op.
+      await inResendWebhookSession(async (transaction) => {
+        await transaction.$executeRaw(Prisma.sql`
+          insert into email_delivery_messages (provider_message_id, org_id, kind, recipient_digest, status)
+          values (${messageA}, ${orgA}::uuid, 'customer_portal_access', ${digest}, 'sent'),
+                 (${messageB}, ${orgB}::uuid, 'customer_portal_access', ${digest}, 'sent'),
+                 (${messageReset}, NULL, 'password_reset', ${digest}, 'sent')
+        `);
+        const inserted = await transaction.$queryRaw<Array<{ org_id: string | null }>>(Prisma.sql`
+          insert into email_delivery_events (svix_id, event_type, provider_message_id, org_id, payload_digest, metadata)
+          values (${svixA}, 'email.delivered', ${messageA},
+            (select org_id from email_delivery_messages where provider_message_id = ${messageA}),
+            ${digest}, '{"eventType":"email.delivered"}'::jsonb)
+          on conflict (svix_id) do nothing
+          returning org_id::text as org_id
+        `);
+        expect(inserted).toHaveLength(1);
+        expect(inserted[0]?.org_id).toBe(orgA);
+        await transaction.$executeRaw(Prisma.sql`
+          update email_delivery_messages set status = 'delivered', updated_at = now()
+          where provider_message_id = ${messageA}
+        `);
+        const duplicate = await transaction.$queryRaw<Array<{ svix_id: string }>>(Prisma.sql`
+          insert into email_delivery_events (svix_id, event_type, provider_message_id, org_id, payload_digest, metadata)
+          values (${svixA}, 'email.delivered', ${messageA}, ${orgA}::uuid, ${digest}, '{}'::jsonb)
+          on conflict (svix_id) do nothing
+          returning svix_id
+        `);
+        expect(duplicate).toHaveLength(0);
+      });
+
+      // Tenant reads are org-scoped. The user-wide (NULL org) password-reset
+      // row is visible to no tenant session, and org B cannot see org A's
+      // message or event rows.
+      const adminVisible = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().$queryRaw<Array<{ provider_message_id: string; status: string }>>(Prisma.sql`
+          select provider_message_id, status from email_delivery_messages order by provider_message_id
+        `),
+      );
+      expect(adminVisible).toEqual([{ provider_message_id: messageA, status: "delivered" }]);
+      const otherVisible = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().$queryRaw<Array<{ provider_message_id: string }>>(Prisma.sql`
+          select provider_message_id from email_delivery_messages order by provider_message_id
+        `),
+      );
+      expect(otherVisible).toEqual([{ provider_message_id: messageB }]);
+      const otherEvents = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().$queryRaw<Array<{ svix_id: string }>>(Prisma.sql`
+          select svix_id from email_delivery_events where svix_id = ${svixA}
+        `),
+      );
+      expect(otherEvents).toHaveLength(0);
+    } finally {
+      await adminClient.$executeRaw(Prisma.sql`
+        delete from email_delivery_events where svix_id in (${svixA})
+      `);
+      await adminClient.$executeRaw(Prisma.sql`
+        delete from email_delivery_messages where provider_message_id in (${messageA}, ${messageB}, ${messageReset})
+      `);
+    }
+  });
+
 
   it("serializes concurrent expense updates so each audit before state matches committed reality", async () => {
     const expenseId = randomUUID();
@@ -2799,6 +2889,13 @@ function inSession<T>(userId: string, orgId: string, role: SupportedRole, operat
 function inLoginLookupSession<T>(operation: (transaction: Prisma.TransactionClient) => Promise<T>): Promise<T> {
   return appClient.$transaction(async (transaction) => {
     await transaction.$queryRaw(Prisma.sql`select set_config('app.login_lookup', 'true', true)`);
+    return operation(transaction);
+  });
+}
+
+function inResendWebhookSession<T>(operation: (transaction: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  return appClient.$transaction(async (transaction) => {
+    await transaction.$queryRaw(Prisma.sql`select set_config('app.resend_webhook', 'true', true)`);
     return operation(transaction);
   });
 }

@@ -32,6 +32,7 @@ jest.mock("../modules/invoices/service", () => ({ InvoicesService: jest.fn().moc
 jest.mock("../modules/contracts/service", () => ({ ContractsService: jest.fn().mockImplementation(() => ({})) }));
 
 const mockSendCustomerPortalAccess = jest.fn();
+const mockRecordOutbound = jest.fn().mockResolvedValue({ created: true });
 const mockScheduleEmailInBackground = jest.fn((send: () => Promise<void>) => {
   void send();
 });
@@ -39,7 +40,14 @@ jest.mock("../modules/email/service", () => ({
   emailService: { sendCustomerPortalAccess: mockSendCustomerPortalAccess },
   scheduleEmailInBackground: mockScheduleEmailInBackground,
 }));
+jest.mock("../db/resendDeliveryJournalStore", () => ({
+  resendDeliveryJournalStore: {
+    recordOutbound: mockRecordOutbound,
+    processVerifiedEvent: jest.fn(),
+  },
+}));
 
+import { createHash } from "node:crypto";
 import { CustomerPortalService, hashPortalSecret } from "../modules/customer-portal/service";
 
 describe("CustomerPortalService", () => {
@@ -77,6 +85,32 @@ describe("CustomerPortalService", () => {
     expect(mockPrisma.customerPortalAccessToken.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ tokenHash: hashPortalSecret(result.token) }),
     }));
+  });
+
+  it("records a sent portal access email in the delivery journal with the owning org", async () => {
+    const expiresAt = new Date("2026-09-20T12:00:00.000Z");
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: "customer-a", email: "customer@example.com" });
+    mockPrisma.customerPortalAccessToken.create.mockResolvedValue({
+      id: "access-1",
+      customerId: "customer-a",
+      expiresAt,
+    });
+    mockSendCustomerPortalAccess.mockResolvedValue({ sent: true, providerMessageId: "re_portal_123" });
+
+    await new CustomerPortalService().issueAccessToken({
+      orgId: "10000000-0000-0000-0000-000000000001",
+      customerId: "customer-a",
+      createdByUserId: "user-a",
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(mockRecordOutbound).toHaveBeenCalledWith({
+      providerMessageId: "re_portal_123",
+      kind: "customer_portal_access",
+      orgId: "10000000-0000-0000-0000-000000000001",
+      recipientDigest: createHash("sha256").update("customer@example.com").digest("hex"),
+    });
   });
 
   it("atomically consumes an unused access token before creating a session", async () => {

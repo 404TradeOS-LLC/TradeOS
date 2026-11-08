@@ -52,6 +52,7 @@ import { athenaObservabilityRouter } from "./routes/athenaObservability.routes";
 import { customerPortalRouter } from "./routes/customerPortal.routes";
 import { billingRouter } from "./routes/billing.routes";
 import { stripeWebhookRouter } from "./routes/stripeWebhook.routes";
+import { resendWebhookRouter } from "./routes/resendWebhook.routes";
 
 export function createServer() {
   const app = express();
@@ -69,6 +70,9 @@ export function createServer() {
   // middleware. The handler resolves TradeOS tenant metadata from Stripe and
   // establishes its own tenant-scoped database session before writing.
   app.use("/api/v1/webhooks/stripe", express.raw({ type: "application/json" }), stripeWebhookRouter);
+  // Resend also signs the exact raw bytes. Fail closed without a dedicated signing secret.
+  // This pilot endpoint acknowledges verified events but performs no tenant or billing writes.
+  app.use("/api/v1/webhooks/resend", express.raw({ type: "application/json", limit: "64kb" }), resendWebhookRouter);
 
   // Only the bounded regional-supplier import needs the larger JSON allowance.
   // Other routes retain the normal parser limit so unauthenticated traffic
