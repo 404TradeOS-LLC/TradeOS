@@ -484,4 +484,4 @@ This index does **not** mirror copyrighted building codes, assert compliance, ch
 
 ### Read-only Athena official-reference capability (proposed 2026-11-08)
 
-The same proposed pilot registers `tradeos.athena.tools.costbook.code_references` through the canonical Athena tool registry. It consumes the identical static Costbook reference index as the authenticated browser and responds only with citations, applicability warnings and authority-verification actions. It uses `costbook.read` and creates no Estimate cost or legal approval. Review and release evidence are pending.
+The same proposed pilot registers `tradeos.athena.tools.costbook.code.references` through the canonical Athena tool registry. It consumes the identical static Costbook reference index as the authenticated browser and responds only with citations, applicability warnings and authority-verification actions. It uses `costbook.read` and creates no Estimate cost or legal approval. Review and release evidence are pending.
