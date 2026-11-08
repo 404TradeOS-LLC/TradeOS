@@ -42,4 +42,40 @@ describe("Athena Codes & Permits read-only tool", () => {
     expect(result.data?.items.every((reference) => reference.county === null)).toBe(true);
     expect(result.warnings?.length).toBeGreaterThan(0);
   });
+
+  it("warns when no county is selected, even though statewide citations exist", async () => {
+    const result = await createCostbookCodeReferencesTool().execute(
+      { state: "IN", topic: "electrical" },
+      {} as never,
+      execution
+    );
+    expect(result.data?.items.length).toBeGreaterThan(0);
+    expect(result.data?.items.every((reference) => reference.county === null)).toBe(true);
+    expect(result.warnings).toContainEqual(expect.objectContaining({
+      code: "athena_costbook_codes_county_not_selected",
+    }));
+    expect(result.warnings).not.toContainEqual(expect.objectContaining({
+      code: "athena_costbook_codes_local_unindexed",
+    }));
+  });
+
+  it("does not misreport local county coverage just because topic filtering yields statewide citations", async () => {
+    const result = await createCostbookCodeReferencesTool().execute(
+      { state: "IN", county: "Vigo", topic: "electrical" },
+      {} as never,
+      execution
+    );
+    expect(result.data?.items.every((reference) => reference.county === null)).toBe(true);
+    expect(result.warnings).not.toContainEqual(expect.objectContaining({
+      code: "athena_costbook_codes_local_unindexed",
+    }));
+    const unindexed = await createCostbookCodeReferencesTool().execute(
+      { state: "IN", county: "Marion", topic: "electrical" },
+      {} as never,
+      execution
+    );
+    expect(unindexed.warnings).toContainEqual(expect.objectContaining({
+      code: "athena_costbook_codes_local_unindexed",
+    }));
+  });
 });
