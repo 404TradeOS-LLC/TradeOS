@@ -28,7 +28,7 @@ All are **reference leads**, not a legally complete source corpus or certified l
 
 | Identifier | Published issuer and source | Citation | Applicability |
 | --- | --- | --- | --- |
-| `vigo-zoning-signs` | [Vigo County official ordinance](https://www.vigocounty.in.gov/egov/apps/document/center.egov?id=47&view=item) | UZO §16, source dated 1996-10-21 | Verify amendments, zoning, sign category and permit |
+| `vigo-zoning-signs` | [Vigo County official ordinance](https://www.vigocounty.in.gov/egov/docs/1088861399_472198.pdf) | UZO §16, source dated 1996-10-21 | Verify amendments, zoning, sign category and permit |
 | `vigo-zoning-permits` | Same | UZO §5, source dated 1996-10-21 | Verify issuing office and application |
 | `indiana-building-code` | [DHS current rules index](https://www.in.gov/dhs/boards-and-commissions/fpbsc-rules/) | 675 IAC 13-2.6 | Verify edition at job date and foundation design |
 | `indiana-electrical-code` | Same | 675 IAC 17-1.8 | Verify accepted wiring, licensing and inspection |
@@ -53,7 +53,7 @@ For an Indiana / Vigo County sign project, filtering `topic=signage` returns the
 
 1. Effective-date and amendment watch with human approval/version history.
 2. Jurisdiction/parcel matching after authoritative GIS mapping, with ambiguous locations fail-closed.
-3. Athena read-only code-reference tool, never auto-certifying a job.
+3. Estimator-stage automatic surfacing of existing Athena source references, after reviewed project-context design; never auto-certifying a job.
 4. Estimate-stage advisory prompts and explicit, quoted/approved permit-fee costs; no unreviewed auto-add.
 5. Permit tasks, evidence attachments, inspection and approval history, audit and tenant isolation tests.
 
