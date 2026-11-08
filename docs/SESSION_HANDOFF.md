@@ -445,7 +445,7 @@ updates remain supported. Schema/RLS changes retain PR-only merge posture.
 
 - Repository `404TradeOS-LLC/TradeOS`; base `main` `58dcb6acfad3fc05f80f7d72ae1dfe77871dd493`; isolated feature branch `feat/costbook-codes-permits-vigo-pilot`.
 - Classification `NEW_WORK_REQUIRED`: live search found no equivalently scoped municipality-code Costbook implementation or active PR. Existing PR #938 (staging parity) and #921 (beta evidence) are different missions.
-- This branch adds an official-source index and `costbook.read` endpoint, 390px-first page, Costbook navigation, unit/controller tests and this documentation. No schema, migrations, production change, pricing, tenant data, or claims of legal approval.
+- This branch adds an official-source index and `costbook.read` endpoint, 390px-first page, Costbook navigation, unit/controller tests, and a citation-only read-only Athena tool with SDK contract tests. No schema, migrations, production change, pricing, tenant data, or claims of legal approval.
 - Upstream source verified at 2026-11-08: Vigo official zoning text (dated 1996-10-21); IDHS currently posted building/electrical code register; INDOT sign/ROW permit guidance. Amendments and parcel requirements are unverified by design.
 - Remaining gates: inspect final diff, exact-head hosted app/web/docs checks, review threads and branch currency; four-width nonproduction authenticated navigation/denial and zero-write acceptance; governed merge only after standard protections. Broader Athena/parcel/permit-workflow automation is a separately reviewed next slice.
 - No local repository clone is mounted in this ChatGPT runtime; direct local app/web test commands were not run. Do not treat repository PR checks as passed until GitHub reports them.
