@@ -373,10 +373,10 @@ test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit r
   assert.match(workflow, /node scripts\/beta-evidence\/s052-role-evidence\.mjs/);
   assert.equal((workflow.match(/HAS_S052_ADMIN_EMAIL:/g) ?? []).length, 1);
   assert.equal((workflow.match(/BETA_SCENARIO" = "s052"/g) ?? []).length, 2);
-  assert.match(runner, /--scenario=<canonical\|s052\|s053>/);
-  assert.match(runner, /\["s052", "s053"\]\.includes\(scenario\) \? "true"/);
+  assert.match(runner, /--scenario=<canonical\|s052\|s053\|beta_pdf>/);
+  assert.match(runner, /\["s052", "s053", "beta_pdf"\]\.includes\(scenario\) \? "true"/);
   assert.match(runner, /S052 admin and inactive-membership evidence/);
-  assert.match(capture, /\["canonical", "s052", "s053"\]\.includes\(scenario\)/);
+  assert.match(capture, /\["canonical", "s052", "s053", "beta_pdf"\]\.includes\(scenario\)/);
   assert.match(capture, /S052 smoke identity is the owner role/);
   assert.match(capture, /s052-customer-created/);
   assert.match(capture, /s052-customer-service-address/);
@@ -544,12 +544,12 @@ test("S053 evidence is opt-in and defaults do not change the canonical beta flow
   assert.match(workflow, /scenario:\s*[\s\S]*default: canonical[\s\S]*- canonical[\s\S]*- s052[\s\S]*- s053/);
   assert.match(workflow, /BETA_SCENARIO: \$\{\{ inputs\.scenario \}\}/);
   assert.match(workflow, /BETA_RC_FOREIGN_ESTIMATE_ID is required for the s053 scenario/);
-  assert.match(workflow, /BETA_REQUIRE_SHA_CORRELATION: \$\{\{ inputs\.scenario == 's052' \|\| inputs\.scenario == 's053' \|\| inputs\.require_sha_correlation \}\}/);
-  assert.match(runner, /--scenario=<canonical\|s052\|s053>/);
+  assert.match(workflow, /BETA_REQUIRE_SHA_CORRELATION: \$\{\{ inputs\.scenario == 's052' \|\| inputs\.scenario == 's053' \|\| inputs\.scenario == 'beta_pdf' \|\| inputs\.require_sha_correlation \}\}/);
+  assert.match(runner, /--scenario=<canonical\|s052\|s053\|beta_pdf>/);
   assert.match(runner, /const scenario = flagValue\("scenario"\) \|\| process\.env\.BETA_SCENARIO \|\| "canonical"/);
-  assert.match(runner, /BETA_REQUIRE_SHA_CORRELATION: \["s052", "s053"\]\.includes\(scenario\) \? "true"/);
+  assert.match(runner, /BETA_REQUIRE_SHA_CORRELATION: \["s052", "s053", "beta_pdf"\]\.includes\(scenario\) \? "true"/);
   assert.match(capture, /const scenario = process\.env\.BETA_SCENARIO \|\| "canonical"/);
-  assert.match(capture, /if \(scenario === "s053"\)/);
+  assert.match(capture, /if \(scenario === "s053" \|\| scenario === "beta_pdf"\)/);
 });
 
 test("S053 browser evidence cleans run-created lines even when post-apply assertions fail", () => {

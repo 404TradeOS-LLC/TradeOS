@@ -51,6 +51,10 @@ related_code:
 
 # Repository Governance
 
+## Invited PDF beta evidence boundary — 2026-11-06
+
+The opt-in `beta_pdf` scenario uses the existing Beta Evidence workflow, concurrency, synthetic identities, nonproduction guards and credential scan. Exact SHA correlation is mandatory; foreign Customer/Project/Estimate/Athena and Proposal PDF denials are required. Retained PDF bytes must match the current run's receipt and saved Proposal identity at all four widths; a single-width result remains PARTIAL. It does not execute downstream Send/Accept/Contract/Invoice operations or grant release approval. Authentication, target and isolation reports now carry run identity; stale reports cannot certify this scenario. The narrower founder-approved cohort scope does not mark numbered sprints complete or waive protected schema/security/deployment/recovery gates. See [the runbook](operations/INVITED_BETA.md).
+
 ## Proposed staging Job handoff migration source boundary — 2026-10-30
 
 The manual `staging-job-handoff-migration.yml` must run trusted main code inside
@@ -634,12 +638,13 @@ treated as exact-head release certification. Broader or mutating contractor
 lifecycle, tenant-isolation, and financial proof remains owned by Beta Evidence
 / governed RC smoke.
 
-The checked-in Playwright agent MCP definitions launch through
-`tests/playwright/mcp-server.mjs`, which validates the same target contract and
-sets `PLAYWRIGHT_MCP_ALLOWED_ORIGINS` to that target before the MCP server
-starts. This is a defense-in-depth guard against accidental cross-origin
-browser requests, not a replacement for environment isolation or the governed
-authenticated evidence path.
+The checked-in Playwright agent MCP definitions and repository `.mcp.json`
+launch through `tests/playwright/mcp-server.mjs`, which uses the distinct
+`playwright.mcp.config.ts` without a browser origin allowlist. Interactive
+agent browsing may inspect any HTTP(S) origin, but does not grant production
+write authority or release certification. The standard `playwright.config.ts`,
+GitHub Actions evidence workflows, environment approvals, and governed
+authenticated release path retain their independent validation requirements.
 
 ## Production Costbook 47802 supplier evidence seed
 
@@ -739,3 +744,7 @@ The approved nonproduction beta capture must never quietly change the Project's 
 `preflight` captures the staging Prisma ledger and catalog in one repeatable-read READ ONLY transaction. It requires every shared SQL checksum to match, the exact pinned already-applied PR #810 handoff SQL and healthy Jobs RLS/index, no unfinished/duplicate/unknown ledger rows, an entirely absent or entirely valid Expense schema and private receipt Storage. The only pending migrations permitted are the three pinned Job Expense SQLs from Issue #885. `apply` additionally requires protected `STAGING_EXPENSES_APPROVED_SHA` equal to the reviewed full source SHA, the literal `APPLY_STAGING_EXPENSES` input and independent protected staging Environment approval. Only reviewed SQL bytes are fetched as **data** and run with trusted main Prisma tooling; feature PR code, migration-branch dependencies, ledger stamping, `migrate resolve`, unreviewed DDL and unapproved constraint validation are forbidden.
 
 Partial migration failures or changed inventory **fail closed** for manual review; automatic retries and production migration are prohibited. After a successful additive apply, retain exact SHA, run, checksum, RLS and schema proofs, clear the one-time approval variable, then deploy matching staging API before web and obtain authenticated owner/technician, private receipt and tenant-denial evidence before feature PR #891 may be merged or Issue #885 closed. See [operator runbook](operations/staging-expenses-migrations.md).
+
+## Foreign Proposal isolation proof — PR #933
+
+The existing Beta Evidence workflow gains three `BETA_RC_FOREIGN_OWNER_*` prerequisites (EMAIL, PASSWORD, ORG_ID) for `beta_pdf` only. The foreign identity must be a dedicated synthetic nonproduction owner/admin in the pinned distinct tenant; its session is in memory, never written to artifacts. Successful owner-scoped Proposal reads must surround the smoke PDF denial, and the validator requires that proof rather than accepting a bare 404. Preflight/full gates require the credentials, and credential-handling failures must be redacted. These are evidence inputs only and grant no new product permissions or deployment authority.
