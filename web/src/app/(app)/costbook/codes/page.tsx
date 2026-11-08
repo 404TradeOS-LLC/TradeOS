@@ -10,17 +10,12 @@ import {
   type CodeTopic,
 } from "@/lib/costbook-codes";
 import { getSessionToken } from "@/lib/session";
+import { normalizeCodesSearchParams, type CodesSearchParams } from "@/lib/costbook-codes-query";
 
 export const metadata: Metadata = {
   title: "Codes & Permits | Costbook | TradeOS",
   description: "Review cited zoning, building, electrical, and highway permit sources before estimating.",
 };
-
-type Search = { county?: string | string[]; topic?: string | string[]; q?: string | string[] };
-
-function single(value: string | string[] | undefined): string {
-  return typeof value === "string" ? value : "";
-}
 
 const topics: { value: CodeTopic; label: string }[] = [
   { value: "signage", label: "Signs" },
@@ -33,13 +28,11 @@ const topics: { value: CodeTopic; label: string }[] = [
 export default async function CodesAndPermitsPage({
   searchParams,
 }: {
-  searchParams: Promise<Search>;
+  searchParams: Promise<CodesSearchParams>;
 }) {
   const token = await getSessionToken();
   const search = await searchParams;
-  const county = (single(search.county) || "Vigo").trim().slice(0, 80);
-  const q = single(search.q).trim().slice(0, 120);
-  const topic = topics.find(({ value }) => value === single(search.topic))?.value;
+  const { county, q, topic } = normalizeCodesSearchParams(search);
   let result: CodeReferenceResult | null = null;
   let error: string | null = null;
 
