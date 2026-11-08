@@ -1891,3 +1891,7 @@ PR #931 / issue #927: provider-time delivery-status ordering is repaired in the 
 ## Proposed Costbook Codes & Permits branch — 2026-11-08
 
 Branch `feat/costbook-codes-permits-vigo-pilot` adds a static, cited, read-only Vigo County / Indiana code-reference index, strict authenticated `GET /api/v1/costbook/codes` route, Costbook `Codes & Permits` page and tests. It deliberately marks parcel applicability **unverified** and does not create Cost Items, prices, permits, inspections, migrations, Athena claims, or estimate changes. This is **proposed** work until CI, review, merge, deployment identity and authenticated mobile/desktop acceptance are verified; no live release is claimed. See `docs/architecture/COSTBOOK_CODES_PERMITS_PILOT.md`.
+
+## Athena Codes & Permits pilot integration (proposed 2026-11-08)
+
+This same draft feature branch additionally registers a `costbook.read` gated read-only Athena tool for the shared official-source registry, with SDK contract tests. No new authoritative location provider, pricing writer, approval record, schema/RLS policy, or human-compliance decision is implemented. Hosted full tests, independent review and exact-head authenticated browser verification are not yet certified.
