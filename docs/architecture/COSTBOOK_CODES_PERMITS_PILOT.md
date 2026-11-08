@@ -62,3 +62,13 @@ These later changes may require schema/migrations and separate founder/staging s
 ## Athena integration supplement (proposed)
 
 A single read-only Athena SDK tool is registered in `app/modules/athena-tools/registry.ts`: `tradeos.athena.tools.costbook.code.references`. It uses the Costbook reference function without direct database access, scoped by the caller-supplied state/county and the existing `costbook.read` permission. The tool emits only `advisory` items and warnings for missing local jurisdiction sources; it never supplies a legal determination or fee. `app/tests/athena-tools.costbook.code-references.contracts.test.ts` verifies registration contract, source content, strict inputs and warning behavior. This is not an automatically injected estimator-stage advice provider.
+
+## Hosted repository verification — 2026-11-08
+
+GitHub Actions completed all required repository checks successfully at the exact code commit `2f888d7e87d93fae6e36cc098543f1a99b318529`, run [Verify repository #42462868320](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/42462868320):
+- App unit tests, PostgreSQL integration, typecheck, build/dependency audit, Costbook provenance/seed checks and Athena contract/smoke checks: **PASS**.
+- Web unit tests, lint, build/dependency audit: **PASS**.
+- Docs consistency, live docs reconciliation, sprint governance, dependency review and branch currency: **PASS**.
+- GitHub review-thread query: **zero threads**. Branch compare: **0 behind main**, 19 changed files at this checkpoint.
+
+This confirms hosted source verification only, not independent review, source-law currentness, a protected staging deployment, matching runtime SHA, authenticated responsive browser evidence, permit issuance or legal compliance. Docs-only updates after this checkpoint must pass their own current-head CI; the executable code is unchanged.
