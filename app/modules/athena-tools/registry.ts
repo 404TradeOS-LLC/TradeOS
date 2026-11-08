@@ -48,6 +48,7 @@ import { createJobAddNoteTool } from "./field/addJobNote.tool";
 import { createJobRecommendationTool } from "./field/createRecommendation.tool";
 
 import { createCostbookLookupTool } from "./costbook/lookup.tool";
+import { createCostbookCodeReferencesTool } from "./costbook/codeReferences.tool";
 import { createCostbookAnalyzeMarginTool } from "./costbook/analyzeMargin.tool";
 import { createCostbookRecommendPriceTool } from "./costbook/recommendPrice.tool";
 
@@ -84,6 +85,7 @@ export function createProductionAthenaToolRegistry(): AthenaToolRegistry {
     createJobRecommendationTool({ jobs }),
 
     createCostbookLookupTool({ costDatabase, assembliesDatabase }),
+    createCostbookCodeReferencesTool(),
     createCostbookAnalyzeMarginTool({ costDatabase }),
     createCostbookRecommendPriceTool({ costDatabase }),
   ];
