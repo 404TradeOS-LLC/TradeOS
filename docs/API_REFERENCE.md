@@ -1173,3 +1173,7 @@ Resend delivery journal (draft PR #931): internal verified-event processing now 
 `GET /api/v1/costbook/codes?state=IN&county=Vigo&topic=signage&q=...` — authenticated, `costbook.read`, read-only, `Cache-Control: private, no-store`.
 
 Query: required two-letter alphabetic `state`, optional `county` (max 80 characters), `topic` in `signage|permits|electrical|structural|right-of-way`, `q` (max 120). Unknown query fields are rejected. No caller-supplied tenant ID. Result: `{status:"advisory",disclaimer,total,items}`; each item includes source URL, issuer, citation, geographic scope, source/review dates, next verification action and `applicability:"unverified"`. Unknown jurisdictions return no local records; no fees, compliance, permit approval, or Estimate writes. Read-only source-backed Vigo/Indiana pilot, not yet deployed. [Pilot detail](architecture/COSTBOOK_CODES_PERMITS_PILOT.md).
+
+## Athena source research addendum (proposed 2026-11-08)
+
+The registered Athena tool ID `tradeos.athena.tools.costbook.code_references` is available through the existing governed Athena tool-dispatch contract rather than a new ad-hoc HTTP endpoint. It requires `costbook.read` and accepts a two-letter `state`, optional `county`, optional `topic`, and bounded `q`; responses are advisory source references and explicit missing-county warnings. It cannot write prices, permits or estimates. Production invocation/browser verification remains pending.
