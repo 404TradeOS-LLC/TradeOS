@@ -224,6 +224,98 @@ test("first and returning intro complete on schedule and support keyboard skip",
     page.getByRole("heading", { name: "Welcome back." }),
   ).toBeFocused();
 });
+test("intro dismisses on the wall-clock schedule in a real browser", async ({
+  page,
+}) => {
+  // Real-browser regression for the login intro overstay: no virtual clock
+  // is installed, so the exit timer runs on wall-clock time and any
+  // main-thread block that delays it shows up as a failure instead of being
+  // masked by fake time.
+  //
+  // The film's lifetime is measured in-page with a MutationObserver, not
+  // with Playwright's visibility polling: the very main-thread blocks this
+  // test guards against delay Playwright's observation of the dialog by
+  // seconds (on one run the dialog was reported visible only 202ms before
+  // it detached, although its timer had run for the full 2.5s), so polled
+  // timings are meaningless here. The observer records performance.now()
+  // as a microtask right after the mutating commit, which is accurate to
+  // milliseconds. Bounds are the intended durations plus 1.5s of
+  // scheduling slack, measured from the moment the film mounts (the exit
+  // timer's own start): 4s + 1.5s first visit, 2.5s + 1.5s returning.
+  // Measuring from navigation instead would conflate bundle/mount overhead
+  // (~2s on software renderers, highly variable) with the timer and make
+  // the test flaky. The empty-submit click after each dismissal proves the
+  // film no longer intercepts pointer events on the sign-in form.
+  await page.addInitScript(() => {
+    const w = window as unknown as {
+      __introTiming: { added?: number; removed?: number };
+    };
+    w.__introTiming = {};
+    const record = () => {
+      const present = !!document.querySelector(
+        '[aria-label="TradeOS introduction"]',
+      );
+      const now = performance.now();
+      if (present && w.__introTiming.added === undefined)
+        w.__introTiming.added = now;
+      if (
+        !present &&
+        w.__introTiming.added !== undefined &&
+        w.__introTiming.removed === undefined
+      )
+        w.__introTiming.removed = now;
+    };
+    new MutationObserver(record).observe(document, {
+      childList: true,
+      subtree: true,
+    });
+  });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const readTiming = () =>
+    page.evaluate(() => {
+      const w = window as unknown as {
+        __introTiming: { added?: number; removed?: number };
+      };
+      return w.__introTiming;
+    });
+  // Wait for the in-page observer to record both the mount and the
+  // dismissal. This deliberately does not gate on Playwright's visibility
+  // polling: the observer runs as a microtask in the page, so it records
+  // the true mount/dismissal moments even while the main thread is busy.
+  const waitTiming = async (label: string) => {
+    const deadline = Date.now() + 15000;
+    for (;;) {
+      const t = await readTiming();
+      if (t.added !== undefined && t.removed !== undefined) return t;
+      if (Date.now() > deadline)
+        throw new Error(
+          `${label}: intro timing incomplete after 15s (added=${t.added}, removed=${t.removed})`,
+        );
+      await page.waitForTimeout(100);
+    }
+  };
+  const dismissAndProveReachable = async () => {
+    const email = page.getByLabel("Email address", { exact: true });
+    await expect(email).toBeEnabled();
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(email).toBeFocused();
+    await expect(email).toHaveAttribute("aria-invalid", "true");
+  };
+  await open(page);
+  const first = await waitTiming("first-visit intro");
+  const firstMs = first.removed! - first.added!;
+  console.log(`first-visit intro visible for ${Math.round(firstMs)}ms`);
+  expect(firstMs).toBeLessThanOrEqual(5500);
+  await dismissAndProveReachable();
+  await page.reload();
+  const returning = await waitTiming("returning intro");
+  const returningMs = returning.removed! - returning.added!;
+  console.log(
+    `returning intro visible for ${Math.round(returningMs)}ms`,
+  );
+  expect(returningMs).toBeLessThanOrEqual(4000);
+  await dismissAndProveReachable();
+});
 test("GPU failure and blocked storage retain a skippable vector fallback", async ({
   page,
 }) => {

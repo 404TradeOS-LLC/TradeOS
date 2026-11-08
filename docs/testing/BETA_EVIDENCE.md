@@ -231,7 +231,7 @@ the foreign-resource ids surfaces as the tenant-isolation probe refusing to run.
 | `BETA_RC_SUPABASE_PROJECT_REF` | `BETA_RC_SUPABASE_PROJECT_REF` | secret | `resolve-rc-target.mjs` | full runs |
 | `BETA_RC_FOREIGN_PROJECT_ID` | `BETA_FOREIGN_PROJECT_ID` | secret | `tenant-isolation.mjs` | full runs (or `_CUSTOMER_ID`) |
 | `BETA_RC_FOREIGN_CUSTOMER_ID` | `BETA_FOREIGN_CUSTOMER_ID` | secret | `tenant-isolation.mjs` | full runs (or `_PROJECT_ID`) |
-| `BETA_RC_FOREIGN_ESTIMATE_ID` | `BETA_FOREIGN_ESTIMATE_ID` | secret | `tenant-isolation.mjs` | required for `s053`; optional otherwise; browser estimate probe also requires `_PROJECT_ID` |
+| `BETA_RC_FOREIGN_ESTIMATE_ID` | `BETA_FOREIGN_ESTIMATE_ID` | secret | `tenant-isolation.mjs` | required for `s053`; API detail denial does not require `_PROJECT_ID`; browser route is optional |
 | `BETA_RC_BASE_URL` (repository variable) | `BETA_RC_BASE_URL_VARIABLE` | variable | `resolve-rc-target.mjs` | optional |
 | `BETA_RC_DEPLOYMENT_URL` | `BETA_RC_DEPLOYMENT_URL` | variable | `resolve-rc-target.mjs` | optional |
 | `BETA_RC_DEPLOYMENT_SHA` | `BETA_RC_DEPLOYMENT_SHA` | variable | `resolve-rc-target.mjs` | optional |
@@ -307,7 +307,7 @@ Actions → **Beta Evidence** → Run workflow.
 - `scenario: s053` adds the review-first Athena certification checks and three extra
   truth/viewport-validated checkpoints (`s053-setup-required`, `s053-athena-review`,
   and `s053-athena-applied`) at every captured viewport. It forces deployment SHA
-  correlation and requires the foreign estimate fixture for draft/apply denial.
+  correlation and requires the foreign estimate fixture for draft/apply denial. After Apply it joins acknowledged saved IDs to the retained review request and authenticated Estimate detail response, requires matching visible verified rows, hard-reloads the builder, then verifies the same IDs, target links, descriptions and persisted quantities remain. Tenant isolation separately requires foreign Estimate detail GET to return 403/404. These are implemented assertions until a protected full run passes.
 
 Runs are serialized (`concurrency: tradeos-beta-evidence`,
 `cancel-in-progress: false`) so two evidence runs cannot corrupt each other.
@@ -503,7 +503,7 @@ documentation and configuration are never substitutes for a passing run.
 | `WRONG_WIDTH` | screenshot width ≠ viewport | do not resize screenshots; capture at the real viewport |
 | `Evidence bundle contains session material` | credential material reached the bundle | remove it; never relax the scan (the artifact upload is skipped when this fails) |
 | `ENV_UNDERIVABLE` | host is not a recognised TradeOS deployment | target an approved Preview or staging deployment |
-| `No tenant-isolation probe could be constructed` | only an estimate id was supplied | also supply `BETA_RC_FOREIGN_PROJECT_ID` |
+| `No tenant-isolation probe could be constructed` | no probeable foreign resource id was supplied | provide a foreign Customer or Project, or run `s053` with `BETA_RC_FOREIGN_ESTIMATE_ID` |
 | viewport shows `STALE` | a capture report is left over from an earlier run | clear the evidence directory and re-run |
 | `Overall: PARTIAL` | a targeted `--viewport` run | run the full matrix for a release gate |
 
@@ -529,3 +529,17 @@ refresh persistence, logout, and protected-route denial still remain required.
 Staging orchestrator run [41007794872](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/41007794872) proved an authenticated shell, current database ledger, matching Vercel deployments, and staging SHA, but then failed at the **1440px** capture on `input[type="hidden"][name="customerId"]` with a 30-second timeout. The source Project form supports a hidden `customerId` when a tenant-scoped Customer context is resolved and a `select[name="customerId"]` when it is not; the capture harness assumed only the first state.
 
 The evidence capture now reads the exact Customer ID from either valid form control, **without selecting or altering the linked Customer**. A missing control, unexpected type, empty ID or mismatch fails immediately. It subsequently fetches `/api/proxy/projects/:id` and requires the persisted `customerId` to equal the server-created Customer, for every canonical viewport. The `s052` scenario retains its stricter requirement for the resolved hidden customer context, plus saved ServiceAddress checks and reload persistence. This is a test-harness fix, not a waiver of Customer/Project tenant isolation or proof of hosted browser success. The protected staging workflow must rerun at one exact SHA for actual 1440/1024/768/390 artifacts.
+
+## Invited PDF beta scenario — 2026-11-06
+
+`beta_pdf` reuses the canonical runner and S053 review-first AI checks, then manual estimating, pricing, finalization and Proposal snapshot checks. It requires exact SHA correlation and foreign Customer, Project, Estimate, Athena draft/apply, and Proposal PDF denial. It downloads the saved Proposal through the authenticated document route, retains synthetic `proposal.pdf` plus a run/Proposal/hash receipt at each width, verifies Proposal snapshot reload, and stops before Send/Accept/Contract/Invoice. Canonical/s052/s053 keep their downstream behavior.
+
+Configure new GitHub secret `BETA_RC_FOREIGN_PROPOSAL_ID` (runtime `BETA_FOREIGN_PROPOSAL_ID`) in addition to the existing foreign fixtures. Dispatch `scenario=beta_pdf` in the existing workflow; preflight checks configuration without claiming evidence. Local: `npm run beta:evidence -- --scenario=beta_pdf --allow-mutations`. Missing fixtures, uncorrelated SHA, stale report identities, wrong scenario, missing/changed PDF or failed denials prevent PASS. A partial width remains PARTIAL.
+
+PDF signature/end marker, content type and hash prove transport/integrity only. Renderer tests and visual PDF total/branding inspection remain separate gates. Metadata explicitly records the limited evidence scope and grants no release approval. The S053 validator now requires the actual current capture assertion, “reviewed Athena saved-line IDs survive an authenticated hard reload”; the old assertion name could never pass current capture output. See [the cohort runbook](../operations/INVITED_BETA.md) for all remaining launch gates.
+
+### Foreign Proposal fixture proof (PR #933 review repair)
+
+`beta_pdf` also requires dedicated synthetic `BETA_RC_FOREIGN_OWNER_EMAIL`, `BETA_RC_FOREIGN_OWNER_PASSWORD`, and `BETA_RC_FOREIGN_OWNER_ORG_ID`, mapped to the corresponding `BETA_FOREIGN_OWNER_*` runtime variables. Preflight and full-run gates require their presence before capture. The isolation script signs in separately without persisting session state, checks authenticated Settings against the pinned organization and owner/admin role, and requires a different organization from the smoke session. It reads the exact Proposal through its owner's scoped API before and after the smoke PDF request. Missing/deleted fixtures, wrong tenant/role, expired login or readable foreign PDFs fail; a bare 404 is not proof. The validator requires the resulting fixture/tenant proof. Login failures are redacted and no foreign cookies are retained. These fixtures must be provisioned through existing approved nonproduction controls; no permissions or production configuration are changed.
+
+PR #933 follow-up: fixture proof must belong to the same passing foreign-PDF probe; when route/status fields are present, they must match that proof’s Proposal ID and HTTP status. Legacy compact reports may omit those fields. Split proof/PASS entries and mismatched routes/statuses fail validation.

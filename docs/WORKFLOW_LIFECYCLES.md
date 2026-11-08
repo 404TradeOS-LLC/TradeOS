@@ -296,7 +296,7 @@ Current enforced transitions:
 - `sent|overdue -> paid`
 - a draft invoice may be edited: line replacement plus total recompute for manual full drafts, due-date-only edits for progress and estimate-linked drafts; non-drafts are not editable
 - a recorded-payment reconciliation may transition an eligible `sent` invoice, or an existing raw `overdue` invoice for historical compatibility, to persisted `paid` when recorded payments fully cover the invoice
-- non-paid invoices may be voided
+- non-paid invoices that have not already been voided may be voided; voiding an already-void invoice returns 409 and records no duplicate event
 
 Compatibility persistence:
 

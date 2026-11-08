@@ -108,6 +108,18 @@ A first-class scheduled field-execution record stored in `Job`.
 - The actual-cost summary is integer cents and uses only nonvoid contractor-paid records. The displayed quote comparison is not recognized revenue or accounting profit. `recognizedRevenueCents` and `profitCents` remain null until verified job-level revenue attribution exists.
 - New constraint validation, migrations, receipt Storage and mobile acceptance require staged verification and documented release approval; code committed to a branch is not production deployment.
 
+## EmailDeliveryMessage and EmailDeliveryEvent
+
+`EmailDeliveryMessage` is the outbound Resend journal and `EmailDeliveryEvent` is the verified event inbox (migration `20261105220000_add_resend_delivery_journal`, issue #927). Neither is a Prisma model; both are raw-SQL tables accessed through `app/db/resendDeliveryJournalStore.ts`, mirroring `athena_action_idempotency`.
+
+- Each message row is keyed by unique Resend `provider_message_id` with a `kind` of `password_reset`, `team_invite`, or `customer_portal_access`. `org_id` is nullable by design: password-reset mail is user-wide and must never have a tenant guessed for it.
+- `recipient_digest` is a SHA-256 hex digest of the normalized recipient address. No recipient plaintext, action-link token, raw HTML, or provider secret is ever stored.
+- `status` tracks the latest known provider state (`sent`, `delivered`, `delayed`, `failed`, `bounced`, `complained`, `suppressed`). `suppression_candidate` is set only by a hard bounce or complaint and performs no suppression by itself; see `docs/modules/resend-delivery-suppression-policy.md`.
+- Each event row is keyed by unique Svix `svix-id`, so duplicate provider retries are no-ops. Only allowlisted metadata (`eventType`, `createdAt`) is stored; the raw payload is never stored, only its irreversible SHA-256 digest.
+- Org attribution for an event comes only from the journal row matched by `email_id`. Payload-supplied org claims are ignored, so a forged or misdirected event can never correlate or update another tenant. An unrecognized `email_id` is recorded with no tenant attribution and updates no journal row.
+- Both tables have forced RLS. Tenant sessions read only their own org's rows; NULL-org rows are visible to no tenant session. All writes go through the transaction-local `app.resend_webhook` flag set only inside the server-only webhook store transaction, mirroring the `app.login_lookup` flag pattern. Event rows are append-only; journal rows have no DELETE policy.
+- The inbox processor has no caller on `main` until the #923 signed webhook route wiring lands; the outbound journal is live from the journal PR. No webhook is registered by this change, and the staging migration is applied only under a separate approval.
+
 
 ## Estimate
 
@@ -402,6 +414,8 @@ Operational sub-relationships:
 - `Invoice -> Payment`
 - `Organization -> organization_billing`
 - `Organization -> stripe_webhook_events`
+- `Organization -> email_delivery_messages`
+- `Organization -> email_delivery_events` (org resolved only from the matched journal row; user-wide password-reset rows carry no org)
 - `Job -> JobAssignment`
 - `ActivityEvent` may describe changes across multiple entity types
 

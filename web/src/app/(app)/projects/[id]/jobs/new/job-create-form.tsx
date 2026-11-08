@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ClientApiError, clientFetch } from "@/lib/clientApi";
+import { splitProjectSiteAddress } from "./job-address";
 
 type ServiceAddress = {
   id: string;
@@ -45,6 +46,7 @@ export function JobCreateForm({
   approvedScope?: string | null;
 }) {
   const router = useRouter();
+  const addressPrefill = useMemo(() => splitProjectSiteAddress(projectSiteAddress), [projectSiteAddress]);
   const [addresses, setAddresses] = useState<ServiceAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [loadingAddresses, setLoadingAddresses] = useState(true);
@@ -275,11 +277,12 @@ export function JobCreateForm({
         {!loadingAddresses && !addressLoadFailed && (showAddressForm || addresses.length === 0) ? (
           <div className="grid gap-3 md:grid-cols-2">
             <label className="grid gap-1 text-sm font-medium">Label<input className={fieldClass} name="addressLabel" defaultValue="Jobsite" /></label>
-            <label className="grid gap-1 text-sm font-medium md:col-span-2">Street address<input className={fieldClass} name="addressLine1" defaultValue={projectSiteAddress ?? ""} required /></label>
+            <label className="grid gap-1 text-sm font-medium md:col-span-2">Street address<input className={fieldClass} name="addressLine1" defaultValue={addressPrefill.addressLine1} required /></label>
             <label className="grid gap-1 text-sm font-medium md:col-span-2">Address line 2<input className={fieldClass} name="addressLine2" /></label>
-            <label className="grid gap-1 text-sm font-medium">City<input className={fieldClass} name="city" required /></label>
-            <label className="grid gap-1 text-sm font-medium">State<input className={fieldClass} name="state" required /></label>
-            <label className="grid gap-1 text-sm font-medium">ZIP / postal code<input className={fieldClass} name="postalCode" required /></label>
+            <label className="grid gap-1 text-sm font-medium">City<input className={fieldClass} name="city" defaultValue={addressPrefill.city} required /></label>
+            <label className="grid gap-1 text-sm font-medium">State<input className={fieldClass} name="state" defaultValue={addressPrefill.state} required /></label>
+            <label className="grid gap-1 text-sm font-medium">ZIP / postal code<input className={fieldClass} name="postalCode" defaultValue={addressPrefill.postalCode} required /></label>
+            {projectSiteAddress && !addressPrefill.city ? <p className="text-xs text-muted-foreground md:col-span-2">The project address is not fully structured. Confirm Street, City, State and ZIP before creating the service address.</p> : null}
           </div>
         ) : null}
       </div>
