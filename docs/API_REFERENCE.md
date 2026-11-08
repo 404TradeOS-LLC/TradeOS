@@ -1167,3 +1167,9 @@ It never fills missing accepted scope from the current Project. An existing
 source-linked Job is still returned on retry, without creating another Job.
 
 Resend delivery journal (draft PR #931): internal verified-event processing now validates/normalizes provider occurrence timestamps and prevents older callbacks from overwriting newer delivery status. This creates no public endpoint and does not activate the separate #923 webhook pilot.
+
+## Costbook Codes & Permits references — proposed 2026-11-08
+
+`GET /api/v1/costbook/codes?state=IN&county=Vigo&topic=signage&q=...` — authenticated, `costbook.read`, read-only, `Cache-Control: private, no-store`.
+
+Query: required two-letter alphabetic `state`, optional `county` (max 80 characters), `topic` in `signage|permits|electrical|structural|right-of-way`, `q` (max 120). Unknown query fields are rejected. No caller-supplied tenant ID. Result: `{status:"advisory",disclaimer,total,items}`; each item includes source URL, issuer, citation, geographic scope, source/review dates, next verification action and `applicability:"unverified"`. Unknown jurisdictions return no local records; no fees, compliance, permit approval, or Estimate writes. Read-only source-backed Vigo/Indiana pilot, not yet deployed. [Pilot detail](architecture/COSTBOOK_CODES_PERMITS_PILOT.md).
