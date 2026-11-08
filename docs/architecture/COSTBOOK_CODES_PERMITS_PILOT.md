@@ -58,3 +58,7 @@ For an Indiana / Vigo County sign project, filtering `topic=signage` returns the
 5. Permit tasks, evidence attachments, inspection and approval history, audit and tenant isolation tests.
 
 These later changes may require schema/migrations and separate founder/staging safety review. Do not label this pilot as full code-compliance automation.
+
+## Athena integration supplement (proposed)
+
+A single read-only Athena SDK tool is registered in `app/modules/athena-tools/registry.ts`: `tradeos.athena.tools.costbook.code_references`. It uses the Costbook reference function without direct database access, scoped by the caller-supplied state/county and the existing `costbook.read` permission. The tool emits only `advisory` items and warnings for missing local jurisdiction sources; it never supplies a legal determination or fee. `app/tests/athena-tools.costbook.code-references.contracts.test.ts` verifies registration contract, source content, strict inputs and warning behavior. This is not an automatically injected estimator-stage advice provider.
