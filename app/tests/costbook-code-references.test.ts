@@ -12,7 +12,7 @@ describe("Costbook Codes & Permits reference catalog", () => {
       expect(item.sourceUrl).toMatch(/^https:\/\//);
       expect(item.reviewedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(item.applicability).toBe("unverified");
-      expect(item.estimatedFee).toBeUndefined();
+      expect("estimatedFee" in item).toBe(false);
     }
   });
 
