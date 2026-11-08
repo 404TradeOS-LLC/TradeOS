@@ -36,7 +36,6 @@ import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { clientFetch } from "@/lib/clientApi";
 import { buildUniversalCreateHref, type UniversalCreateKind } from "@/lib/universal-create";
 import { canUseUniversalCreate } from "@/lib/universal-create-access";
-import { isBetaReadinessOperatorRole } from "@/lib/beta-control";
 import { cn } from "@/lib/utils";
 
 interface NavLink {
@@ -180,6 +179,7 @@ function NavPill({
 export function AppNav({
   email,
   currentRole = null,
+  betaReadinessVisible = false,
   athenaEnabled = false,
   athenaCapabilityRetryKey = null,
   teamTimeEnabled = false,
@@ -187,6 +187,10 @@ export function AppNav({
 }: {
   email?: string | null;
   currentRole?: string | null;
+  // Server-resolved operator-organization eligibility (see (app)/layout.tsx).
+  // The client must never decide this from role alone: a customer owner/admin
+  // would otherwise see a link whose route always 404s for their org.
+  betaReadinessVisible?: boolean;
   athenaEnabled?: boolean;
   athenaCapabilityRetryKey?: string | null;
   teamTimeEnabled?: boolean;
@@ -206,7 +210,7 @@ export function AppNav({
   const secondaryLinks = [
     ...SECONDARY_NAV_LINKS,
     ...(teamTimeEnabled ? [TEAM_TIME_NAV_LINK] : []),
-    ...(isBetaReadinessOperatorRole(currentRole) ? [BETA_READINESS_NAV_LINK] : []),
+    ...(betaReadinessVisible ? [BETA_READINESS_NAV_LINK] : []),
   ];
 
   const effectiveAthenaEnabled = athenaCapabilityRetryKey

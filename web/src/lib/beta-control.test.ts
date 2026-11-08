@@ -239,6 +239,16 @@ test('authorized platform-organization owner and admin reach snapshot exactly on
   assert.equal(snapshotCalls, 2);
 });
 
+test('beta readiness navigation link is gated by operator organization, not role alone', () => {
+  const layout = readFileSync(new URL('../app/(app)/layout.tsx', import.meta.url), 'utf8');
+  assert.match(layout, /isAuthorizedBetaOperator\s*\(/);
+  assert.match(layout, /betaReadinessVisible/);
+  assert.match(layout, /process\.env\.TRADEOS_BETA_OPERATOR_ORG_ID/);
+  const nav = readFileSync(new URL('../components/shared/app-nav.tsx', import.meta.url), 'utf8');
+  assert.match(nav, /betaReadinessVisible\s*=\s*false/);
+  assert.doesNotMatch(nav, /isBetaReadinessOperatorRole\(currentRole\)/);
+});
+
 test('BetaReadinessPage cannot bypass the authorized collector boundary', () => {
   const source = readFileSync(new URL('../app/(app)/beta-readiness/page.tsx', import.meta.url), 'utf8');
   assert.match(source, /await loadAuthorizedBetaSnapshot\s*\(/);
@@ -270,6 +280,22 @@ test('PR badges never go green for failed collector, unapproved reviews, or conf
   assert.equal(prCardStatus({ ...candidate, state:'closed', merged:true }), 'merged');
 });
 
+test('closed PRs never recommend a branch update, whatever their recorded currency', () => {
+  for (const number of [810, 891]) {
+    const closedUnmerged: PrStatus = { ...candidate, number, state:'closed', merged:false, behind:3 };
+    assert.match(nextSafeAction(closedUnmerged), /closed without merge/i);
+    assert.doesNotMatch(nextSafeAction(closedUnmerged), /rebase|update/i);
+    assert.doesNotMatch(nextSafeAction({ ...candidate, number, state:'closed', merged:true, behind:3 }), /rebase|update/i);
+  }
+  assert.match(nextSafeAction({ ...candidate, number:810, state:'closed', merged:true, behind:3 }), /attest.*bindings/i);
+  assert.match(nextSafeAction({ ...candidate, number:891, state:'closed', merged:true, behind:3 }), /expense baseline/i);
+  const mergedOther = nextSafeAction({ ...candidate, number:820, state:'closed', merged:true, behind:3 });
+  assert.match(mergedOther, /merged/i);
+  assert.doesNotMatch(mergedOther, /rebase|update/i);
+  // Open PRs still recommend updating when behind.
+  assert.match(nextSafeAction({ ...candidate, number:810, behind:3 }), /rebase|update/i);
+});
+
 test('superseded lane stays actionable even when its historical CI cannot be collected', () => {
   const closed: PrStatus = { ...candidate, number:905, state:'closed', merged:false, mergeable:false, error:'commit statuses unavailable' };
   assert.equal(prCardStatus(closed), 'superseded');
@@ -296,6 +322,13 @@ test('known required-check failure remains blocked despite another collector fai
     ...knownFailure,
     checks:[{name:'CI',status:'completed',conclusion:'success',url:null}],
   }),'unverified');
+});
+
+test('known draft and non-mergeable states survive a collector failure', () => {
+  assert.equal(prCardStatus({ ...candidate, draft:true, error:'review source unavailable' }), 'draft');
+  assert.equal(prCardStatus({ ...candidate, mergeable:false, error:'review source unavailable' }), 'blocked');
+  assert.equal(prCardStatus({ ...candidate, draft:true, mergeable:false, error:'review source unavailable' }), 'draft');
+  assert.equal(prCardStatus({ ...candidate, error:'review source unavailable' }), 'unverified');
 });
 
 test('missing required evidence is unverified only when the collector failed', () => {

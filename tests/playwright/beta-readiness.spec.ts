@@ -66,12 +66,15 @@ const viewports = [
   { width: 390, height: 844 },
 ] as const;
 
+// Never capture private login storage, network traces, screenshots, or
+// videos through this auxiliary suite. Canonical evidence captures are
+// governed separately by beta-evidence.yml and its artifact scrubber.
+// Top-level only: trace/screenshot/video force a new worker and Playwright
+// rejects test.use for them inside a describe group (file fails to load).
+test.use({ trace: 'off', screenshot: 'off', video: 'off' });
+
 test.describe('Beta readiness role and four-width acceptance (non-production only)', () => {
   test.skip(!enabled, 'NOT CERTIFIED: requires distinct operator owner, customer owner and technician sessions on approved staging.');
-  // Never capture private login storage, network traces, screenshots, or
-  // videos through this auxiliary suite. Canonical evidence captures are
-  // governed separately by beta-evidence.yml and its artifact scrubber.
-  test.use({ trace: 'off', screenshot: 'off', video: 'off' });
 
   test.describe('authenticated owner', () => {
     test.use({ storageState: ownerState ?? { cookies: [], origins: [] } });
@@ -120,8 +123,10 @@ test.describe('Beta readiness role and four-width acceptance (non-production onl
         await requireSyntheticIdentity(page, ['technician']);
         await page.getByRole('button', { name: 'Open more menu' }).click();
         await expect(page.getByRole('link', { name: 'Beta readiness' })).toHaveCount(0);
-        await page.getByRole('button', { name: 'Close more menu' }).click();
 
+        // Navigate directly with the menu open: the close locator is
+        // ambiguous (the backdrop and the dock toggle both carry the name
+        // 'Close more menu'), and the 404 comes from the server either way.
         const response = await page.goto('/beta-readiness', { waitUntil: 'domcontentloaded' });
         expect(response?.status(), 'An authenticated technician must receive a server-side 404').toBe(404);
         await expect(page.getByRole('heading', { name: /Beta readiness control/i })).toHaveCount(0);
@@ -141,6 +146,11 @@ test.describe('Beta readiness role and four-width acceptance (non-production onl
         expect(landing?.status(), 'customer fixture must be authenticated').toBe(200);
         await expect(page).toHaveURL(/dashboard(?:[/?#]|$)/);
         await requireSyntheticIdentity(page, ['owner', 'admin'], customerOrgId);
+        // A customer owner/admin is never the operator organization, so the
+        // navigation link must stay hidden even though the role alone is
+        // owner/admin; the route itself also denies with a server 404.
+        await page.getByRole('button', { name: 'Open more menu' }).click();
+        await expect(page.getByRole('link', { name: 'Beta readiness' })).toHaveCount(0);
         const response = await page.goto('/beta-readiness', { waitUntil: 'domcontentloaded' });
         expect(response?.status(), 'other-customer owner must receive server-side denial').toBe(404);
         await expect(page.getByRole('heading', { name: /Beta readiness control/i })).toHaveCount(0);
