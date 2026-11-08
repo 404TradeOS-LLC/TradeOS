@@ -1176,4 +1176,4 @@ Query: required two-letter alphabetic `state`, optional `county` (max 80 charact
 
 ## Athena source research addendum (proposed 2026-11-08)
 
-The registered Athena tool ID `tradeos.athena.tools.costbook.code_references` is available through the existing governed Athena tool-dispatch contract rather than a new ad-hoc HTTP endpoint. It requires `costbook.read` and accepts a two-letter `state`, optional `county`, optional `topic`, and bounded `q`; responses are advisory source references and explicit missing-county warnings. It cannot write prices, permits or estimates. Production invocation/browser verification remains pending.
+The registered Athena tool ID `tradeos.athena.tools.costbook.code.references` is available through the existing governed Athena tool-dispatch contract rather than a new ad-hoc HTTP endpoint. It requires `costbook.read` and accepts a two-letter `state`, optional `county`, optional `topic`, and bounded `q`; responses are advisory source references and explicit missing-county warnings. It cannot write prices, permits or estimates. Production invocation/browser verification remains pending.
