@@ -441,14 +441,6 @@ excludes them from the old broad task policy before adding the narrow one.
 Legacy estimator identity administration is not widened; regular task status
 updates remain supported. Schema/RLS changes retain PR-only merge posture.
 
-## Next Eligible Sprint
-
-Sprint ID: S073
-Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit.
-Dependencies: S051 — DONE through merged PR #538.
-Overlap check: Recheck live PRs/branches before starting; this non-numbered repair does not advance S073 or authorize a second active sprint.
-Startup prompt: Execute S073 from current main using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md` after canonical startup/reconciliation; stop on protected policy gaps.
-
 ## Codes & Permits advisory pilot (new bounded founder request, 2026-11-08)
 
 - Repository `404TradeOS-LLC/TradeOS`; base `main` `58dcb6acfad3fc05f80f7d72ae1dfe77871dd493`; isolated feature branch `feat/costbook-codes-permits-vigo-pilot`.
@@ -457,3 +449,11 @@ Startup prompt: Execute S073 from current main using `docs/architecture/S073_REL
 - Upstream source verified at 2026-11-08: Vigo official zoning text (dated 1996-10-21); IDHS currently posted building/electrical code register; INDOT sign/ROW permit guidance. Amendments and parcel requirements are unverified by design.
 - Remaining gates: inspect final diff, exact-head hosted app/web/docs checks, review threads and branch currency; four-width nonproduction authenticated navigation/denial and zero-write acceptance; governed merge only after standard protections. Broader Athena/parcel/permit-workflow automation is a separately reviewed next slice.
 - No local repository clone is mounted in this ChatGPT runtime; direct local app/web test commands were not run. Do not treat repository PR checks as passed until GitHub reports them.
+
+## Next Eligible Sprint
+
+Sprint ID: S073
+Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit.
+Dependencies: S051 — DONE through merged PR #538.
+Overlap check: Recheck live PRs/branches before starting; this non-numbered repair does not advance S073 or authorize a second active sprint.
+Startup prompt: Execute S073 from current main using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md` after canonical startup/reconciliation; stop on protected policy gaps.
