@@ -20,7 +20,7 @@ Codes and permits alter material selection, labor, permitting, scheduling, and s
 - Response shape: `{status:"advisory", disclaimer, total, items}`. Each item carries `id`, `title`, `issuer`, `citation`, `state`, `county`, `sourceUrl`, `sourceDate`, `reviewedAt`, `topics`, `summary`, `nextAction`, `applicability:"unverified"`.
 - Unknown state has zero items; unspecified county has **only** state-level references. An unindexed county does not silently inherit Vigo County ordinances.
 - `Cache-Control: private, no-store`. The index is read-only, shared official reference material; its tenant gate follows Costbook permissions and does not expose tenant data.
-- The web route `/costbook/codes` uses the existing server-only API wrapper and session, with filtering by county, topic and free-text. The Costbook home screen links to it.
+- The web route `/costbook/codes` uses the existing server-only API wrapper and session, with filtering by county, topic and free-text. First visit defaults the county field to Vigo for this pilot, but explicitly clearing the county shows **statewide-only** references; an unspecified county never inherits local Vigo requirements. Duplicate/untrusted query values are ignored. The Costbook home screen links to it.
 
 ## Seeded references and provenance
 
