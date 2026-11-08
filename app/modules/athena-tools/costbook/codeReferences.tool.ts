@@ -41,7 +41,16 @@ export function createCostbookCodeReferencesTool(): AthenaToolDefinition<
           code: "athena_costbook_codes_no_sources",
           message: "No indexed code sources for this jurisdiction and search. Consult the authority directly.",
         }));
-      } else if (input.county && data.items.every((item) => item.county === null)) {
+      }
+      // County coverage is independent of topic/text-filtered results. A state-only
+      // citation returned for electrical work does not imply Vigo zoning is absent.
+      if (!input.county) {
+        warnings.push(warning({
+          code: "athena_costbook_codes_county_not_selected",
+          message: "No county was selected, so local sources are excluded. Select a county and verify local requirements with the authority.",
+        }));
+      } else if (!listCodeReferences({ state: input.state, county: input.county })
+        .items.some((item) => item.county !== null)) {
         warnings.push(warning({
           code: "athena_costbook_codes_local_unindexed",
           message: "Only statewide references are indexed for this county. Local ordinances and permits still require direct verification.",
