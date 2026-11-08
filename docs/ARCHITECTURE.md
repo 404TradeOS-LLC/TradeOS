@@ -114,6 +114,8 @@ Database search-index changes do not alter this tenancy model. The `pg_trgm` ext
 
 Auth flows that must find a user before any org context exists (login, password reset, invite acceptance, and Supabase identity bootstrap) use a separate, narrower escape hatch instead: an `app.login_lookup` session flag, then `app.user_id` once the user is known, then `app.org_id` once their membership is known — set in that order, inside one transaction. See [modules/auth-and-tenancy.md](modules/auth-and-tenancy.md)'s Database security invariants.
 
+Provider webhooks use the same flag pattern for a different reason: a verified Resend delivery event has no user identity at all, so no tenant session exists to scope the write. The delivery-journal store (`app/db/resendDeliveryJournalStore.ts`) sets the transaction-local `app.resend_webhook` flag inside its own transaction; the forced-RLS policies on `email_delivery_messages` and `email_delivery_events` only widen writes for the duration of that transaction, and tenant reads stay org-scoped. Org attribution for an event is resolved inside the database from the journal row matched by `email_id`, never from payload claims. See [modules/resend-delivery-journal.md](modules/resend-delivery-journal.md).
+
 ## Service boundaries
 
 Business logic follows the module pattern:
@@ -216,3 +218,5 @@ The Vercel supplier price-sync route uses two independent, database-backed, atom
 ## API validation dependency boundary
 
 The API now uses Zod 4.6.7 directly, with `$zod` overriding the older nested Vercel configuration validator. This removes vulnerable validation implementations without adding an adapter layer or changing the request auth/membership/RLS stack. Controllers and Athena tools preserve legacy UUID-shaped inputs through `z.guid()`, while explicit record and typed pipeline schemas retain existing data semantics. body-parser resolves to patched 1.20.9. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
+
+Draft Resend journal ordering uses a per-message PostgreSQL row lock before event insertion and a provider-occurrence-time guard on status projection; all unique events remain append-only and bounce/complaint flags are sticky. It preserves existing transactions, tenant attribution and forced-RLS policies; no new migration or pool architecture is introduced.

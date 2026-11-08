@@ -8,6 +8,8 @@ import { InvoicesService } from "../invoices/service";
 import { ProposalsService } from "../proposals/service";
 import { logError } from "../../backend/logging";
 import { emailService, scheduleEmailInBackground } from "../email/service";
+import { hashRecipientAddress, recordOutboundDeliveryMessage } from "../email/deliveryJournal";
+import { resendDeliveryJournalStore } from "../../db/resendDeliveryJournalStore";
 
 export const CUSTOMER_PORTAL_SESSION_HEADER = "x-tradeos-portal-session";
 export const CUSTOMER_PORTAL_ACCESS_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -62,7 +64,19 @@ export class CustomerPortalService {
     });
     scheduleEmailInBackground(async () => {
       try {
-        await emailService.sendCustomerPortalAccess({ to: customerEmail, token, expiresAt: row.expiresAt });
+        const result = await emailService.sendCustomerPortalAccess({ to: customerEmail, token, expiresAt: row.expiresAt });
+        if (result.providerMessageId) {
+          try {
+            await recordOutboundDeliveryMessage(resendDeliveryJournalStore, {
+              providerMessageId: result.providerMessageId,
+              kind: "customer_portal_access",
+              orgId: input.orgId,
+              recipientDigest: hashRecipientAddress(customerEmail),
+            });
+          } catch (error) {
+            logError("customer_portal.access_email_journal_failed", { error: error instanceof Error ? error.name : "UnknownError" });
+          }
+        }
       } catch (error) {
         logError("customer_portal.access_email_failed", { error: error instanceof Error ? error.name : "UnknownError" });
       }
