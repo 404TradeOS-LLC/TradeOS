@@ -706,26 +706,26 @@ test("staging beta evidence pins the canonical smoke UUID and forwards it to the
 
 test("login credentials are filled only after the login film dismisses", () => {
   // Playwright waitForFunction(pageFunction, arg, options) requires its
-  // timeout as the third argument. The page-side observer must be installed
-  // before navigation, or a completed film may never be observed.
+  // timeout as the third argument. Observe the film before navigation,
+  // or a completed film may never be observed.
   const waitMatch = authSetup.match(
-    /page\\.waitForFunction\\(\\s*(\\(\\) => \\{[\\s\\S]*?\\n    \\}),\\s*undefined,\\s*\\{\\s*timeout: 30_000\\s*\\},?\\s*\\)/,
+    /page\.waitForFunction\(\s*(\(\) => \{[\s\S]*?\n    \}),\s*undefined,\s*\{\s*timeout: 30_000\s*\},?\s*\)/,
   );
   assert.ok(waitMatch, "bounded film wait not found");
   const observer = authSetup.indexOf("await page.addInitScript(");
   const navigation = authSetup.indexOf('await page.goto(new URL("/login"');
   const wait = authSetup.indexOf(waitMatch[0]);
-  const fill = authSetup.indexOf("await page.locator('[name=\\\"email\\\"]')");
+  const fill = authSetup.indexOf("await page.locator('[name=\"email\"]')");
   assert.ok(observer >= 0 && observer < navigation, "film observation must begin before navigation");
   assert.ok(navigation < wait && wait < fill, "film readiness must precede credential filling");
 });
 
 test("login film readiness tracks pre-navigation inert transitions, late polling, and reduced motion", () => {
   const bootstrap = authSetup.match(
-    /await page\\.addInitScript\\(\\s*(\\(\\) => \\{[\\s\\S]*?\\n  \\})\\s*\\);/,
+    /await page\.addInitScript\(\s*(\(\) => \{[\s\S]*?\n  \})\s*\);/,
   );
   const wait = authSetup.match(
-    /page\\.waitForFunction\\(\\s*(\\(\\) => \\{[\\s\\S]*?\\n    \\}),\\s*undefined,\\s*\\{\\s*timeout: 30_000\\s*\\},?\\s*\\)/,
+    /page\.waitForFunction\(\s*(\(\) => \{[\s\S]*?\n    \}),\s*undefined,\s*\{\s*timeout: 30_000\s*\},?\s*\)/,
   );
   assert.ok(bootstrap && wait, "pre-navigation observer and bounded readiness predicate are required");
   const install = new Function("document", "window", "MutationObserver", `return (${bootstrap[1]})();`);
