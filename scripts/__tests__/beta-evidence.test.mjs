@@ -709,7 +709,7 @@ test("login credentials are filled only after the login film dismisses", () => {
   // timeout as the third argument. Observe the film before navigation,
   // or a completed film may never be observed.
   const waitMatch = authSetup.match(
-    /page\.waitForFunction\(\s*(\(\) => \{[\s\S]*?\n    \}),\s*undefined,\s*\{\s*timeout: 30_000\s*\},?\s*\)/,
+    /page\.waitForFunction\(\s*(\(\) => \{[\s\S]*?\})\s*,\s*undefined,\s*\{\s*timeout:\s*30_000\s*\},?\s*\)/,
   );
   assert.ok(waitMatch, "bounded film wait not found");
   const observer = authSetup.indexOf("await page.addInitScript(");
@@ -722,10 +722,10 @@ test("login credentials are filled only after the login film dismisses", () => {
 
 test("login film readiness tracks pre-navigation inert transitions, late polling, and reduced motion", () => {
   const bootstrap = authSetup.match(
-    /await page\.addInitScript\(\s*(\(\) => \{[\s\S]*?\n  \})\s*\);/,
+    /await page\.addInitScript\(\s*(\(\) => \{[\s\S]*?noteIntroState\(\);\s*\})\s*\);/,
   );
   const wait = authSetup.match(
-    /page\.waitForFunction\(\s*(\(\) => \{[\s\S]*?\n    \}),\s*undefined,\s*\{\s*timeout: 30_000\s*\},?\s*\)/,
+    /page\.waitForFunction\(\s*(\(\) => \{[\s\S]*?\})\s*,\s*undefined,\s*\{\s*timeout:\s*30_000\s*\},?\s*\)/,
   );
   assert.ok(bootstrap && wait, "pre-navigation observer and bounded readiness predicate are required");
   const install = new Function("document", "window", "MutationObserver", `return (${bootstrap[1]})();`);
