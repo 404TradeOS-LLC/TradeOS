@@ -704,6 +704,75 @@ test("staging beta evidence pins the canonical smoke UUID and forwards it to the
   assert.match(authSetup, /expectedOrgId = process\.env\.BETA_SMOKE_ORG_ID/);
 });
 
+test("login credentials are filled only after the login film dismisses", () => {
+  // Playwright waitForFunction(pageFunction, arg, options) requires its
+  // timeout as the third argument. Observe the film before navigation,
+  // or a completed film may never be observed.
+  const waitMatch = authSetup.match(
+    /page\.waitForFunction\(\s*(\(\) => \{[\s\S]*?\})\s*,\s*undefined,\s*\{\s*timeout:\s*30_000\s*\},?\s*\)/,
+  );
+  assert.ok(waitMatch, "bounded film wait not found");
+  const observer = authSetup.indexOf("await page.addInitScript(");
+  const navigation = authSetup.indexOf('await page.goto(new URL("/login"');
+  const wait = authSetup.indexOf(waitMatch[0]);
+  const fill = authSetup.indexOf("await page.locator('[name=\"email\"]')");
+  assert.ok(observer >= 0 && observer < navigation, "film observation must begin before navigation");
+  assert.ok(navigation < wait && wait < fill, "film readiness must precede credential filling");
+});
+
+test("login film readiness tracks pre-navigation inert transitions, late polling, and reduced motion", () => {
+  const bootstrap = authSetup.match(
+    /await page\.addInitScript\(\s*(\(\) => \{[\s\S]*?noteIntroState\(\);\s*\})\s*\);/,
+  );
+  const wait = authSetup.match(
+    /page\.waitForFunction\(\s*(\(\) => \{[\s\S]*?\})\s*,\s*undefined,\s*\{\s*timeout:\s*30_000\s*\},?\s*\)/,
+  );
+  assert.ok(bootstrap && wait, "pre-navigation observer and bounded readiness predicate are required");
+  const install = new Function("document", "window", "MutationObserver", `return (${bootstrap[1]})();`);
+  const ready = new Function("document", "window", `return (${wait[1]})();`);
+
+  let present = false;
+  let inert = false;
+  let onMutation;
+  const document = {
+    querySelector: (selector) => {
+      assert.equal(selector, ".entry-content");
+      return present ? { hasAttribute: (name) => name === "inert" && inert } : null;
+    },
+  };
+  const window = { matchMedia: () => ({ matches: false }) };
+  class FakeMutationObserver {
+    constructor(callback) { onMutation = callback; }
+    observe(target, options) {
+      assert.equal(target, document);
+      assert.equal(options.subtree, true);
+      assert.equal(options.childList, true);
+      assert.equal(options.attributes, true);
+      assert.deepEqual(options.attributeFilter, ["inert"]);
+    }
+  }
+
+  install(document, window, FakeMutationObserver);
+  assert.equal(ready(document, window), false, "missing form must not count as ready");
+  present = true;
+  onMutation();
+  assert.equal(ready(document, window), false, "SSR form before hydration must not count as ready");
+  inert = true;
+  onMutation();
+  assert.equal(ready(document, window), false, "active film must block filling");
+  inert = false;
+  onMutation();
+  assert.equal(ready(document, window), true, "film completion before polling must be remembered");
+  inert = true;
+  assert.equal(ready(document, window), false, "a reopened film must still block filling");
+  inert = false;
+  assert.equal(ready(document, window), true, "dismissal restores readiness");
+
+  // Reduced motion never creates a film; do not require the inert transition.
+  const reducedWindow = { matchMedia: () => ({ matches: true }) };
+  assert.equal(ready(document, reducedWindow), true);
+});
+
 test("the tenant assertion cannot be skipped and mutation consent is never implicit", () => {
   // An unset organization label previously recorded the tenant check as passed.
   assert.match(authSetup, /BETA_SMOKE_ORG_LABEL/);
