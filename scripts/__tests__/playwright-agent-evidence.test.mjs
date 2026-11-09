@@ -129,6 +129,15 @@ test("estimate stage state is exported only for authenticated runs, spec input s
     workflow,
     /TRADEOS_AGENT_AUTHENTICATED === "true"[\s\S]*?TRADEOS_ESTIMATE_STAGE_STATE=/,
   );
+  // Both outcomes of the export condition: the authenticated branch
+  // exports the state path, and the unauthenticated branch exports
+  // nothing. An unconditional export would fail the second assertion,
+  // and a second export site would fail the count below.
+  assert.match(
+    workflow,
+    /process\.env\.TRADEOS_AGENT_AUTHENTICATED === "true"\s*\n\s*\? \[`TRADEOS_ESTIMATE_STAGE_STATE=\$\{storageStatePath\}`\]\s*\n\s*: \[\]/,
+  );
+  assert.equal(workflow.match(/TRADEOS_ESTIMATE_STAGE_STATE=/g)?.length, 1);
   // spec_file must reach the shell through the environment only: direct
   // ${{ inputs.* }} interpolation into a run script is template injection.
   // (The env assignment itself is the sanctioned passthrough.)
@@ -143,4 +152,20 @@ test("estimate stage state is exported only for authenticated runs, spec input s
   assert.match(workflow, /BETA_SMOKE_TENANT_VERIFY_MODE=costbook_read_only/);
   assert.match(workflow, /BETA_SMOKE_ORG_ID: \$\{\{ inputs\.smoke_org_id \}\}/);
   assert.match(workflow, /BETA_SMOKE_EXPECTED_COSTBOOK_WRITE=true/);
+});
+
+test("evidence workflow rejects unauthenticated estimate runs and CLI-option spec files", () => {
+  // An estimate path without a session would run the estimate specs
+  // against the login page and report a misleading navigation failure.
+  // The guard fails fast before any install or target resolution.
+  assert.match(workflow, /Reject unauthenticated estimate evidence/);
+  assert.match(
+    workflow,
+    /if \[ "\$\{TRADEOS_AGENT_AUTHENTICATED\}" != "true" \] && \[ -n "\$\{TRADEOS_ESTIMATE_STAGE_PATH\}" \]; then/,
+  );
+  assert.match(workflow, /estimate_stage_path requires authenticated_smoke/);
+  // A hyphen-leading spec_file would be parsed as a Playwright CLI
+  // option instead of a spec path. Valid spec paths never start with one.
+  assert.match(workflow, /case "\$\{SPEC_FILE\}" in/);
+  assert.match(workflow, /spec_file must be a spec file path, not a Playwright CLI option/);
 });

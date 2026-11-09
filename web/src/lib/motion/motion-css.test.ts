@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { MOTION_DURATIONS_MS, MOTION_EASINGS } from "./tokens.ts";
+import { MOTION_DISPLACEMENT_PX, MOTION_DURATIONS_MS, MOTION_EASINGS } from "./tokens.ts";
 
 // Guards tokens.ts / motion.css drift: the CSS collection must carry the
 // same durations, easings, stagger cap, and displacement as the TS tokens,
@@ -36,7 +36,19 @@ test("motion.css aliases production tokens instead of restating them", () => {
 test("motion.css carries the stagger cap, displacement, and reduced variants", () => {
   assert.ok(css.includes("35ms"), "stagger 35ms missing");
   assert.ok(css.includes("105ms"), "stagger cap 105ms missing");
-  assert.ok(css.includes("4px"), "displacement 4px missing");
+  // Exact declaration against the TypeScript token: a bare "4px"
+  // substring would also accept 14px. The hidden resolve item must
+  // travel by the token variable, not a restated literal.
+  assert.match(
+    css,
+    new RegExp(`--motion-displacement:\\s*${MOTION_DISPLACEMENT_PX}px;`),
+    "displacement must be the exact token declaration",
+  );
+  assert.match(
+    css,
+    /transform:\s*translateY\(var\(--motion-displacement\)\);/,
+    "hidden resolve item must travel by the displacement token",
+  );
   assert.ok(css.includes("prefers-reduced-motion"), "reduced-motion media block missing");
   assert.ok(css.includes('[data-motion="reduced"]'), "stored-preference reduced block missing");
 });
@@ -45,18 +57,21 @@ test("motion.css keeps the advance marker positioned under reduced motion", () =
   // The marker is positioned by an inline translateX transform: a reduced
   // reset would pin it under the first stage. Both reduced blocks drop the
   // marker's travel without resetting its transform, and the marker no
-  // longer sits in either transform-resetting group.
-  assert.ok(
-    css.includes(".motion-advance-marker {\n    transition: none !important;\n  }"),
-    "media reduced block must drop marker travel without resetting transform",
-  );
-  assert.ok(
-    css.includes('[data-motion="reduced"] .motion-advance-marker {\n  transition: none !important;\n}'),
-    "stored-preference reduced block must drop marker travel without resetting transform",
-  );
-  assert.match(css, /\.motion-price-delta-value,\n  \.motion-complete-label \{/);
+  // longer sits in either transform-resetting group. Whitespace-insensitive:
+  // an indentation change must not fail these assertions.
   assert.match(
     css,
-    /\[data-motion="reduced"\] \.motion-price-delta-value,\n\[data-motion="reduced"\] \.motion-complete-label \{/,
+    /\.motion-advance-marker\s*\{\s*transition:\s*none\s*!important;\s*\}/,
+    "media reduced block must drop marker travel without resetting transform",
+  );
+  assert.match(
+    css,
+    /\[data-motion="reduced"\]\s*\.motion-advance-marker\s*\{\s*transition:\s*none\s*!important;\s*\}/,
+    "stored-preference reduced block must drop marker travel without resetting transform",
+  );
+  assert.match(css, /\.motion-price-delta-value,\s*\.motion-complete-label\s*\{/);
+  assert.match(
+    css,
+    /\[data-motion="reduced"\]\s*\.motion-price-delta-value,\s*\[data-motion="reduced"\]\s*\.motion-complete-label\s*\{/,
   );
 });

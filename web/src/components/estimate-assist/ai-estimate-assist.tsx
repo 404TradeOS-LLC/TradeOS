@@ -201,6 +201,12 @@ export function AIEstimateAssist({
   const [scopeOfWork, setScopeOfWork] = useState(initialScopeOfWork || "");
   const [suggestions, setSuggestions] = useState<SuggestionDraft[]>(initialStructuredDraft?.lineItems.map(structuredToDraft) ?? initialSuggestions.map(toDraft));
   const [structuredDraft, setStructuredDraft] = useState<StructuredAIEstimateDraft | null>(initialStructuredDraft ?? null);
+  // Generation identity for the ResolveSequence reveal: incremented on
+  // every successful regeneration, so a new generation replays the entry
+  // transition even when it produces categories identical to the last
+  // one. The server's optional generationId is not relied on — it may be
+  // absent on older payloads.
+  const [generationSequence, setGenerationSequence] = useState(0);
   const [knowledgeMatch, setKnowledgeMatch] = useState<KnowledgeScopeMatch | null>(initialKnowledgeMatch);
   const [searchMode, setSearchMode] = useState<"assemblies" | "cost-items">("assemblies");
   const [searchQuery, setSearchQuery] = useState("");
@@ -269,6 +275,7 @@ export function AIEstimateAssist({
     onSuccess: (payload) => {
       if (!isCurrentReview()) return;
       setStructuredDraft(payload);
+      setGenerationSequence((n) => n + 1);
       setSuggestions(payload.lineItems.map(structuredToDraft));
       setKnowledgeMatch(null);
       setScopeOfWork(payload.scopeOfWork);
@@ -475,6 +482,7 @@ export function AIEstimateAssist({
                   rawInput={interpretationDraft?.scopeOfWork ?? submittedScope ?? scopeOfWork}
                   categories={draftCategories(interpretationDraft)}
                   revealed={interpretationDraft !== null}
+                  generationKey={`generation-${generationSequence}`}
                 />
               </div>
             ) : null}

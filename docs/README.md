@@ -377,7 +377,12 @@ organization is verified, and read-only checks cover **Today**, **Customers**,
 Optional inputs (`estimate_stage_path`, `spec_file`, `use_test_org`) let a
 dispatch target a single estimate spec against a seeded draft route using the
 TEST Org staging test account (`TEST_STAGING_EMAIL`/`TEST_STAGING_PASSWORD`)
-instead of the Beta smoke identity.
+instead of the Beta smoke identity. `use_test_org` selects the TEST Org
+credentials only when `authenticated_smoke` is enabled; with authentication
+disabled no TEST Org session is created. When `use_test_org` is enabled,
+operators must set `smoke_tenant_label` to the TEST Org's Settings company
+name when it differs from TradeOS Beta Smoke, so tenant verification passes
+before the spec runs.
 When sanitized records exist, the suite follows their real hrefs to Customer,
 Project, Estimate, Proposal, Contract, and Invoice detail surfaces; otherwise
 it requires truthful empty states. Authenticated trace capture is disabled and

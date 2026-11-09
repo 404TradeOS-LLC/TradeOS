@@ -46,6 +46,17 @@ test("adapter 2: estimate repricing snapshots the last server-confirmed total", 
   // Concurrent successes before the refetch must not re-attribute their
   // combined change to one edit (see nextRecalculationSnapshot).
   assert.match(builder, /nextRecalculationSnapshot\(/);
+  // Refetch completion is tracked independently of whether the total
+  // moved: a price-neutral save's pending snapshot is cleared once its
+  // refetch lands with the total still equal to the baseline, so it
+  // cannot suppress the next price-changing edit's delta. A moved total
+  // keeps its snapshot, and a snapshot superseded by a later edit is
+  // never cleared by an older refetch. A failed or skipped refetch
+  // leaves the snapshot in place.
+  assert.match(builder, /const lastRecalculationRef = useRef/);
+  assert.match(builder, /lastRecalculationRef\.current !== mine/);
+  assert.match(builder, /queryState\.dataUpdatedAt/);
+  assert.match(builder, /freshMinor === mine\.previousTotalMinor/);
 });
 
 test("adapter 2: Athena suggestion adds carry their own repricing reason", async () => {
@@ -88,8 +99,24 @@ test("adapter 1: resolve sequence preserves scope whitespace and enters categori
   assert.match(resolve, /whitespace-pre-wrap/);
   // Categories mount hidden and flip to revealed on the next frame, so the
   // stagger transition runs instead of mounting already revealed.
-  assert.match(resolve, /requestAnimationFrame\(\(\) => setEnteredKey\(categoriesKey\)\)/);
+  assert.match(resolve, /requestAnimationFrame\(\(\) => setEnteredKey\(entryKey\)\)/);
   assert.match(resolve, /data-state=\{entered \? "revealed" : "hidden"\}/);
+  // A new generation replays the reveal even when its categories are
+  // identical to the last one: entry state is keyed by generation as
+  // well as content. Without a generation key, identical content stays
+  // entered (no replay).
+  assert.match(resolve, /generationKey\?: string;/);
+  assert.match(resolve, /const entryKey = props\.generationKey === undefined \? categoriesKey : `\$\{props\.generationKey\}\\n\$\{categoriesKey\}`;/);
+});
+
+test("adapter 1: Athena interpretation replays the reveal for each generation", async () => {
+  const assist = await readSource("../estimate-assist/ai-estimate-assist.tsx");
+  // The generation identity is a local counter incremented on every
+  // successful regeneration — it does not rely on the server's optional
+  // generationId, which may be absent on older payloads.
+  assert.match(assist, /const \[generationSequence, setGenerationSequence\] = useState\(0\);/);
+  assert.match(assist, /setGenerationSequence\(\(n\) => n \+ 1\);/);
+  assert.match(assist, /generationKey=\{`generation-\$\{generationSequence\}`\}/);
 });
 
 test("adapter 4: lifecycle line exposes completed and unconfirmed states to screen readers", async () => {

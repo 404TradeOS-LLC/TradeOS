@@ -101,6 +101,10 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
   });
 
   const [lastRecalculation, setLastRecalculation] = useState<{ previousTotalMinor: number; reason: string } | null>(null);
+  // Mirror of lastRecalculation for the async refetch-completion check in
+  // invalidate(): state alone cannot identify whether a later edit has
+  // superseded the snapshot by the time a refetch lands.
+  const lastRecalculationRef = useRef<{ previousTotalMinor: number; reason: string } | null>(null);
 
   const invalidate = (reason?: string) => {
     // Previous-totals source for the Price stage delta: no caller carries
@@ -114,13 +118,41 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
     // percentage moves no total, so the delta render guard (the total
     // must move) prevents a fabricated repricing.
     if (reason && estimate) {
-      setLastRecalculation(
-        nextRecalculationSnapshot({
-          currentTotalMinor: toMinorUnits(estimate.totalPrice),
-          reason,
-          pending: lastRecalculation,
-        }),
-      );
+      const next = nextRecalculationSnapshot({
+        currentTotalMinor: toMinorUnits(estimate.totalPrice),
+        reason,
+        pending: lastRecalculationRef.current,
+      });
+      lastRecalculationRef.current = next;
+      setLastRecalculation(next);
+      if (next) {
+        // Track refetch completion independently of whether the total
+        // moved: a price-neutral save leaves a pending snapshot against
+        // an unchanged total, and the old total-equality proxy could not
+        // tell "refetch pending" from "refetch landed". Once this save's
+        // refetch lands with the total still equal to the baseline, the
+        // snapshot can never render — clear it so it does not suppress
+        // the next price-changing edit's delta. A moved total keeps its
+        // snapshot (that is the delta on display), and a snapshot
+        // superseded by a later edit is never cleared by an older
+        // refetch. A failed or skipped refetch leaves the snapshot in
+        // place (the pre-existing behavior), never invents a clearing.
+        const mine = next;
+        const startedAt = Date.now();
+        const refetch = queryClient.invalidateQueries({ queryKey: estimateKey });
+        void refetch.then(() => {
+          if (lastRecalculationRef.current !== mine) return;
+          const queryState = queryClient.getQueryState(estimateKey);
+          if (!queryState || queryState.error != null || (queryState.dataUpdatedAt ?? 0) < startedAt) return;
+          const fresh = queryClient.getQueryData<EstimateDetail>(estimateKey);
+          const freshMinor = fresh ? toMinorUnits(fresh.totalPrice) : null;
+          if (freshMinor !== null && freshMinor === mine.previousTotalMinor) {
+            lastRecalculationRef.current = null;
+            setLastRecalculation(null);
+          }
+        });
+        return;
+      }
     }
     queryClient.invalidateQueries({ queryKey: estimateKey });
   };
