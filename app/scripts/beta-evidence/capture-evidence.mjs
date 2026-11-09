@@ -10,6 +10,7 @@ import { verifyProposalPdfDownload } from "./lib/proposal-pdf.mjs";
 import { openEstimateCustomEntry } from "./lib/estimate-entry.mjs";
 import { waitForEstimateTotal } from "./lib/estimate-total-poll.mjs";
 import { createdCustomerIdFromUrl } from "./lib/customer-detail-url.mjs";
+import { createdProjectIdFromUrl } from "./lib/project-detail-url.mjs";
 import { matchesReviewedSavedLine, renderedVerifiedRowMatches, reloadEstimateAndRead } from "./lib/saved-line-verification.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -687,14 +688,13 @@ try {
 
   await page.locator('[name="simpleScope"]').fill(scope);
   await page.getByRole("button", { name: "Create project" }).click();
-  await page.waitForURL(/\/projects(?:\?|$)/, { timeout: 60_000 });
-
-  const projectLink = page.locator('a[href^="/projects/"]').filter({ hasText: projectName }).first();
-  const projectHref = await projectLink.getAttribute("href");
-  const projectId = projectHref ? /\/projects\/([^/?]+)/.exec(projectHref)?.[1] : undefined;
-  assertBusiness("project link resolves an id", Boolean(projectId), `href was ${projectHref ?? "missing"}`);
-  await projectLink.click();
-  await page.waitForURL(new RegExp(`/projects/${projectId}(?:$|[/?])`), { timeout: 60_000 });
+  // The app redirects straight to the new project detail page after
+  // creation; the project list URL is never visited. A regex that accepts
+  // /projects/new can falsely pass *before* the server action navigates to
+  // the saved Project. Wait for a real UUID detail route instead.
+  await page.waitForURL((url) => createdProjectIdFromUrl(url) !== null, { timeout: 60_000 });
+  const projectId = createdProjectIdFromUrl(page.url());
+  assertBusiness("created project resolves an id", Boolean(projectId), `url was ${page.url()}`);
   await page.waitForLoadState("networkidle");
   assertBusiness("project workspace resolves an id", new URL(page.url()).pathname === `/projects/${projectId}`, `url was ${page.url()}`);
 
