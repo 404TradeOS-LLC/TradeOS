@@ -71,7 +71,7 @@ export function createServer() {
   // establishes its own tenant-scoped database session before writing.
   app.use("/api/v1/webhooks/stripe", express.raw({ type: "application/json" }), stripeWebhookRouter);
   // Resend also signs the exact raw bytes. Fail closed without a dedicated signing secret.
-  // This pilot endpoint acknowledges verified events but performs no tenant or billing writes.
+  // The route verifies first, commits its durable journal transaction, then acknowledges.
   app.use("/api/v1/webhooks/resend", express.raw({ type: "application/json", limit: "64kb" }), resendWebhookRouter);
 
   // Only the bounded regional-supplier import needs the larger JSON allowance.

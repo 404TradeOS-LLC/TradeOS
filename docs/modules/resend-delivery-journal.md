@@ -120,9 +120,8 @@ proven end to end. Production registration needs separate approval.
 
 ## Known limitations
 
-- The processor has no caller on `main` until the #923 route wiring
-  lands; the outbound journal is live from this PR, the inbox processor
-  is complete and tested but unwired.
+- The signed ingress-to-journal caller is implemented in this stacked draft;
+  migration application and webhook registration remain separately gated.
 - No suppression is performed. Bounce/complaint handling beyond the
   `suppression_candidate` flag is a separate reviewed policy decision.
 - Stored metadata is intentionally minimal (`eventType`, `createdAt`);
