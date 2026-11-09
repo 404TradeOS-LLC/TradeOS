@@ -96,31 +96,42 @@ try {
   const page = await context.newPage();
 
   // 1. Real login through the shipped form.
+  // Watch the intro state from the start of navigation, not after networkidle.
+  // On a fast load, inert can appear and disappear before a late page-side
+  // wait starts. This observer remembers that full transition without
+  // depending on a fixed animation delay or changing the shipped login UI.
+  await page.addInitScript(() => {
+    const noteIntroState = () => {
+      const entry = document.querySelector(".entry-content");
+      if (!entry) return;
+      if (entry.hasAttribute("inert")) {
+        window.__tradeosLoginFilmSeen = true;
+      } else if (window.__tradeosLoginFilmSeen === true) {
+        window.__tradeosLoginFilmFinished = true;
+      }
+    };
+    new MutationObserver(noteIntroState).observe(document, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["inert"],
+    });
+    noteIntroState();
+  });
   await page.goto(new URL("/login", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
   if (new URL(page.url()).origin !== parsedBaseUrl.origin) {
     throw new Error("Login navigation left the approved RC origin before credentials were entered.");
   }
-  // The login form sits inside `.entry-content`, which carries `inert` while the
-  // CinematicIntro film plays. Filling while inert never lands in React state,
-  // so wait for the form to exist and the film to dismiss first.
-  //
-  // `opening` starts `false` and only becomes `true` inside a
-  // requestAnimationFrame effect after mount, so the SSR HTML carries no
-  // `inert` and a bare `!hasAttribute("inert")` check can pass in the window
-  // before the film opens — then the fill lands while inert and login fails
-  // exactly as before. Track the transition instead: pass only once `inert`
-  // has been observed and then cleared. With prefers-reduced-motion the film
-  // never opens and `inert` is never set, so this passes immediately.
+  // Do not fill during the film or in the pre-hydration SSR gap.
+  // The init script remembers a finished film even when navigation reaches
+  // networkidle after the intro has already dismissed. Reduced-motion
+  // sessions have no film and are permitted once the form exists.
   await page.waitForFunction(
     () => {
       const el = document.querySelector(".entry-content");
-      if (!el) return false;
+      if (!el || el.hasAttribute("inert")) return false;
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
-      if (el.hasAttribute("inert")) {
-        window.__tradeosLoginFilmSeen = true;
-        return false;
-      }
-      return window.__tradeosLoginFilmSeen === true;
+      return window.__tradeosLoginFilmFinished === true;
     },
     undefined,
     { timeout: 30_000 },
