@@ -441,6 +441,15 @@ Retained for 30 days. Before upload, the bundle is scanned for cookie jars,
 Supabase auth tokens, TradeOS session cookies, and bearer tokens; a match fails
 the run rather than publishing the artifact.
 
+On a login timeout, `auth-setup.mjs` additionally captures
+`auth/login-failure.png`, `auth/login-failure.txt` (page URL + visible body
+text), and `auth/login-failure-diagnostics.json` (URL, body text, the inline
+`.server-error` text, console errors, and failed requests collected during the
+login attempt), and records the summary as `loginFailureDiagnostics` in
+`auth-setup-report.json`. The capture is best-effort and carries no credential
+material: `innerText` excludes field values and password inputs render masked
+in the screenshot.
+
 `metadata.json` records repository, commit, branch, preview URL, environment,
 deployment SHA correlation, workflow, smoke tenant, viewports, timestamps, and
 per-check results. It contains no passwords, tokens, cookies, or storage state.
