@@ -89,6 +89,8 @@ Founder selected a free 1–3-business beta ending at contractor-delivered Propo
 
 The rebased `feat/figma-to-code-completion` slice extends structured Apply idempotency acknowledgements with the matched saved-line ID and reconciles acknowledged lines through the existing authorized, organization-scoped Estimate detail read before showing Saved & verified. A missing read, missing line or target/quantity/description mismatch remains unconfirmed and preserves the retained request for explicit retry. Review-only skips do not count as saved, and verified saved identity does not certify current pricing evidence. See [AI Estimate Assist](modules/ai-estimate-assist.md#saved-line-identity-reconciliation--2026-10-31). This is pending exact-head CI/review/merge; deployment and full-workflow readiness are unverified.
 
+Saved-line verification also compares against the retained Apply request (quantity within the persisted Decimal(12, 4) rounding, description when the request supplied one): an idempotent retry that acknowledges a line edited in another tab after the apply no longer certifies values that differ from the accepted review. (PR #941 Codex review fix, ported to main 2026-11-07.)
+
 ## Job expenses / actual job costs — Issue #885 implementation, pending release
 
 The first-party Job Expenses workflow is implemented in the `feat/885-expense-payment-responsibility` branch (PR #891), not verified as deployed. The baseline `20261102020000_add_job_expenses`, payer `20261102074000_add_job_expense_payment_responsibility`, and extended `20261102081500_complete_job_expenses` are additive migrations. Existing expense rows remain contractor-paid by default. The new columns provide a USD currency marker, description, unique per-job idempotency key, private receipt metadata, and void provenance. `JobExpenseEvent` preserves append-only create, update, receipt-link and void history; forced RLS and job/org joins constrain access. The migration requires reviewed staging application and live RLS evidence before production.
@@ -223,6 +225,25 @@ suite's intro-timing test failed. The scene lights still shade the metal
 there; hardware renderers keep the full reflective environment. Approved
 4s/2.5s timing, Skip/Escape, focus restoration, and the reduced-motion
 bypass are unchanged.
+
+Wall-clock verification (2026-11-06): a live probe measured the film
+covering the staging login for ~23s, but staging predates the guard above
+(it runs a deployment whose cinema chunk lacks the PMREM skip), so that
+overstay is pre-fix behavior, not a defect on current main. On current
+main, in a real browser, the film dismisses on schedule once mounted:
+first-visit 4.1–4.6s and returning 2.5–3.0s (intended 4s / 2.5s), measured
+in-page with a MutationObserver. The component suite gains a real-browser
+wall-clock regression test for this (the existing timing test uses
+Playwright's virtual clock, which masks real main-thread blockage) that
+asserts the film is gone within 5.5s first-visit and 4s returning
+(intended durations plus 1.5s slack), measured from mount, and that the
+film no longer intercepts pointer events after dismissal. A module-scope
+preload of the cinema chunk was tried and reverted: it did not change the
+measured dismissal times, and it broke the existing virtual-clock timing
+test (the chunk's evaluation block during bundle load leaves the
+accessibility tree stale after reload, so the dialog is not found by role).
+No source change ships with this verification; staging still needs a
+promotion to a build that includes the guard above.
 
 Historical Chromium download block: the earlier local component-browser run
 was blocked before launch by a missing Chromium binary after the official
@@ -1843,5 +1864,26 @@ Staging /forgot-password returned "We couldn't process that request. Please try 
 The PDF isolation check now requires an authenticated dedicated owner/admin in a pinned distinct synthetic organization and successful exact Proposal reads surrounding the smoke-account denial. Missing or deleted records cannot certify isolation from a 404. The evidence validator requires the ownership proof, workflow preflight/full checks include the new fixture credentials, and the cohort runbook explicitly requires retained PDF renderer results for the release SHA. This is evidence tooling only; live staging acceptance remains unverified.
 
 PR #933 follow-up: fixture proof must belong to the same passing foreign-PDF probe; when route/status fields are present, they must match that proof’s Proposal ID and HTTP status. Legacy compact reports may omit those fields. Split proof/PASS entries and mismatched routes/statuses fail validation.
+
+## Contractor walkthrough form repairs — 2026-11-06
+
+The six-step synthetic staging walkthrough exposed two form usability defects. The
+project-to-job form previously passed a single full `project.siteAddress`
+string into the Street field and left City/State/ZIP blank. The job form now
+splits only unambiguous comma- or newline-separated US addresses into their
+structured fields; ambiguous free-form values are retained in Street and
+explicitly flagged for human confirmation rather than guessed. Existing
+customer service-address selection and its tenancy/API guards are unchanged.
+
+The new- and edit-invoice Due date controls previously depended on browser-native
+`type=date` interactions that do not accept ordinary keyboard typing reliably
+across clients. Both now accept typed `MM/DD/YYYY` or `YYYY-MM-DD` with a separator-capable mobile keyboard, normalize
+valid calendar dates to ISO `YYYY-MM-DD` before sending to the backend, reject
+invalid dates in the server action, and preserve blank/clearable due dates.
+No invoice lifecycle, payment, or sending behavior changes.
+
+This code/contract update is **not** evidence of a deployed staging retest.
+The producer → accepted proposal → job → draft invoice browser path requires a
+fresh authenticated nonproduction acceptance run after deployment.
 
 PR #931 / issue #927: provider-time delivery-status ordering is repaired in the existing draft branch. Known-message callbacks lock the journal row; older callbacks cannot replace newer status, while append-only events and sticky suppression candidates are preserved. Bounded parseable provider dates normalize to UTC. No schema/RLS change; tests use disposable PostgreSQL only. Route integration, protected staging application and signed callback proof remain open.

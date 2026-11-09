@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
-import { attestStagingPreview, attestEnvDetail, attestStagingRuntime, attestWithRuntime, STAGING_REF, PROD_REF, STAGING_URL, STAGING_API_ORIGIN, STAGING_WEB_ORIGIN } from "../staging-preview-attest.mjs";
+import { attestStagingPreview, attestEnvDetail, attestStagingRuntime, attestStagingDataPlane, attestWithRuntime, STAGING_REF, PROD_REF, STAGING_URL, STAGING_API_ORIGIN, STAGING_WEB_ORIGIN } from "../staging-preview-attest.mjs";
 
 const api = () => ({
   SUPABASE_URL: STAGING_URL,
@@ -75,7 +75,7 @@ test("protected workflow selects the exact projects and branch without mutating 
   assert.doesNotMatch(workflow, /kssaceuetdjwfqnbzhly|environment: production/);
 });
 
-function stubFetch({ health = { status: "ok" }, ready = { status: "ready", checks: { database: { status: "ok" } } }, homeOk = true, loginOk = true } = {}) {
+function stubFetch({ health = { status: "ok" }, ready = { status: "ready", checks: { database: { status: "ok", projectRef: STAGING_REF } } }, homeOk = true, loginOk = true } = {}) {
   return async (url) => {
     if (url === `${STAGING_API_ORIGIN}/health`) {
       return { ok: true, status: 200, json: async () => health };
@@ -123,6 +123,47 @@ test("withheld api secrets are runtime-inferred only when runtime is healthy", a
   assert.ok(unhealthy.errors.includes("SUPABASE_URL"));
   assert.ok(unhealthy.errors.includes("API_READINESS"));
   assert.deepEqual(unhealthy.runtimeInferred, []);
+});
+
+test("withheld bindings stay unverified when runtime cannot prove the staging data plane", async () => {
+  // Healthy connectivity alone is not isolation proof: a staging deployment
+  // accidentally pointed at production returns the same /health and /ready.
+  // Only a /ready that identifies the staging project ref excuses a
+  // missing binding.
+  assert.equal(await attestStagingDataPlane(stubFetch()), STAGING_REF);
+  assert.equal(
+    await attestStagingDataPlane(stubFetch({ ready: { status: "ready", checks: { database: { status: "ok" } } } })),
+    undefined,
+  );
+  const noRef = await attestWithRuntime("api", {}, stubFetch({ ready: { status: "ready", checks: { database: { status: "ok" } } } }));
+  assert.deepEqual(noRef.errors, ["SUPABASE_URL", "AUTH_JWT_SECRET", "DATABASE_URL"]);
+  assert.deepEqual(noRef.runtimeInferred, []);
+  const prodRef = await attestWithRuntime("api", {}, stubFetch({ ready: { status: "ready", checks: { database: { status: "ok", projectRef: PROD_REF } } } }));
+  assert.deepEqual(prodRef.errors, ["SUPABASE_URL", "AUTH_JWT_SECRET", "DATABASE_URL"]);
+  assert.deepEqual(prodRef.runtimeInferred, []);
+  const noKey = await attestWithRuntime("web", { NEXT_PUBLIC_SUPABASE_URL: STAGING_URL, BACKEND_API_URL: STAGING_API_ORIGIN }, stubFetch({ ready: { status: "ready", checks: { database: { status: "ok" } } } }));
+  assert.deepEqual(noKey.errors, ["SUPABASE_SERVICE_ROLE_KEY"]);
+  assert.deepEqual(noKey.runtimeInferred, []);
+});
+
+test("withheld bindings stay runtime-inferred when only the first /ready fetch succeeds", async () => {
+  // attestWithRuntime fetches /ready once and shares it between the
+  // readiness check and the data-plane gate: a second /ready request
+  // that fails transiently must not unverify bindings the first
+  // response already proved.
+  let readyCalls = 0;
+  const flakyFetch = async (url) => {
+    if (url === `${STAGING_API_ORIGIN}/ready`) {
+      readyCalls += 1;
+      if (readyCalls > 1) throw new Error("transient /ready failure");
+      return { ok: true, status: 200, json: async () => ({ status: "ready", checks: { database: { status: "ok", projectRef: STAGING_REF } } }) };
+    }
+    return stubFetch()(url);
+  };
+  const result = await attestWithRuntime("api", {}, flakyFetch);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.runtimeInferred, ["SUPABASE_URL", "AUTH_JWT_SECRET", "DATABASE_URL"]);
+  assert.equal(readyCalls, 1);
 });
 
 test("a malformed database url is a mismatch, never runtime-inferred", async () => {
