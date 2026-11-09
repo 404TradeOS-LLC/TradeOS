@@ -705,67 +705,72 @@ test("staging beta evidence pins the canonical smoke UUID and forwards it to the
 });
 
 test("login credentials are filled only after the login film dismisses", () => {
-  // Filling while `.entry-content` carries `inert` never lands in React state,
-  // so the submit is blocked by client-side validation and the login request
-  // is never sent (run 42465235402).
-  //
-  // Playwright's signature is waitForFunction(pageFunction, arg, options):
-  // the timeout must be the third argument, not the second. Passing the
-  // options object as `arg` silently drops the explicit timeout (it only
-  // worked by coincidence because the default timeout is also 30s).
-  assert.match(
-    authSetup,
-    /waitForFunction\(\s*\(\) => \{[\s\S]*?\n    \},\s*undefined,\s*\{\s*timeout: 30_000\s*\},?\s*\)/,
+  // Playwright waitForFunction(pageFunction, arg, options) requires its
+  // timeout as the third argument. The page-side observer must be installed
+  // before navigation, or a completed film may never be observed.
+  const waitMatch = authSetup.match(
+    /page\\.waitForFunction\\(\\s*(\\(\\) => \\{[\\s\\S]*?\\n    \\}),\\s*undefined,\\s*\\{\\s*timeout: 30_000\\s*\\},?\\s*\\)/,
   );
-  // The wait must run before the email fill, not after it.
-  assert.ok(
-    authSetup.indexOf("waitForFunction") < authSetup.indexOf('[name="email"]'),
-    "film wait must precede the email fill",
-  );
+  assert.ok(waitMatch, "bounded film wait not found");
+  const observer = authSetup.indexOf("await page.addInitScript(");
+  const navigation = authSetup.indexOf('await page.goto(new URL("/login"');
+  const wait = authSetup.indexOf(waitMatch[0]);
+  const fill = authSetup.indexOf("await page.locator('[name=\\\"email\\\"]')");
+  assert.ok(observer >= 0 && observer < navigation, "film observation must begin before navigation");
+  assert.ok(navigation < wait && wait < fill, "film readiness must precede credential filling");
 });
 
-test("login film wait cannot pass before the film opens", () => {
-  // `opening` starts false and only becomes true inside a
-  // requestAnimationFrame effect after mount, so the SSR HTML carries no
-  // `inert` and a bare `!hasAttribute("inert")` check passes in the window
-  // before the film opens. The predicate must therefore track the
-  // transition: pass only once `inert` has been observed and then cleared.
-  // Extract the predicate from auth-setup.mjs and run it against a fake
-  // page, polling the way waitForFunction does.
-  const match = authSetup.match(
-    /page\.waitForFunction\(\s*(\(\) => \{[\s\S]*?\n    \}),\s*undefined,\s*\{\s*timeout: 30_000\s*\},?\s*\)/,
+test("login film readiness tracks pre-navigation inert transitions, late polling, and reduced motion", () => {
+  const bootstrap = authSetup.match(
+    /await page\\.addInitScript\\(\\s*(\\(\\) => \\{[\\s\\S]*?\\n  \\})\\s*\\);/,
   );
-  assert.ok(match, "film-wait predicate not found in auth-setup.mjs");
-  const runPredicate = new Function("document", "window", `return (${match[1]})();`);
-  const fakePage = ({ element = true, inert = false, reducedMotion = false } = {}) => {
-    const el = { hasAttribute: (name) => name === "inert" && inert };
-    return {
-      document: { querySelector: () => (element ? el : null) },
-      window: { matchMedia: () => ({ matches: reducedMotion }) },
-      setInert: (value) => {
-        inert = value;
-      },
-    };
+  const wait = authSetup.match(
+    /page\\.waitForFunction\\(\\s*(\\(\\) => \\{[\\s\\S]*?\\n    \\}),\\s*undefined,\\s*\\{\\s*timeout: 30_000\\s*\\},?\\s*\\)/,
+  );
+  assert.ok(bootstrap && wait, "pre-navigation observer and bounded readiness predicate are required");
+  const install = new Function("document", "window", "MutationObserver", `return (${bootstrap[1]})();`);
+  const ready = new Function("document", "window", `return (${wait[1]})();`);
+
+  let present = false;
+  let inert = false;
+  let onMutation;
+  const document = {
+    querySelector: (selector) => {
+      assert.equal(selector, ".entry-content");
+      return present ? { hasAttribute: (name) => name === "inert" && inert } : null;
+    },
   };
-  // 1. Before the film opens (SSR state: element present, no `inert` yet,
-  //    film never seen) the wait must NOT pass — this is the race the old
-  //    predicate lost.
-  const before = fakePage();
-  assert.equal(runPredicate(before.document, before.window), false);
-  // 2. While the film plays (`inert` set) the wait must not pass, and the
-  //    observation must be recorded.
-  before.setInert(true);
-  assert.equal(runPredicate(before.document, before.window), false);
-  // 3. Once the film dismisses (`inert` cleared after being seen) it passes.
-  before.setInert(false);
-  assert.equal(runPredicate(before.document, before.window), true);
-  // 4. With prefers-reduced-motion the film never opens; the wait passes
-  //    immediately without ever seeing `inert`.
-  const reduced = fakePage({ reducedMotion: true });
-  assert.equal(runPredicate(reduced.document, reduced.window), true);
-  // 5. With no `.entry-content` yet the wait must not pass.
-  const missing = fakePage({ element: false });
-  assert.equal(runPredicate(missing.document, missing.window), false);
+  const window = { matchMedia: () => ({ matches: false }) };
+  class FakeMutationObserver {
+    constructor(callback) { onMutation = callback; }
+    observe(target, options) {
+      assert.equal(target, document);
+      assert.equal(options.subtree, true);
+      assert.equal(options.childList, true);
+      assert.equal(options.attributes, true);
+      assert.deepEqual(options.attributeFilter, ["inert"]);
+    }
+  }
+
+  install(document, window, FakeMutationObserver);
+  assert.equal(ready(document, window), false, "missing form must not count as ready");
+  present = true;
+  onMutation();
+  assert.equal(ready(document, window), false, "SSR form before hydration must not count as ready");
+  inert = true;
+  onMutation();
+  assert.equal(ready(document, window), false, "active film must block filling");
+  inert = false;
+  onMutation();
+  assert.equal(ready(document, window), true, "film completion before polling must be remembered");
+  inert = true;
+  assert.equal(ready(document, window), false, "a reopened film must still block filling");
+  inert = false;
+  assert.equal(ready(document, window), true, "dismissal restores readiness");
+
+  // Reduced motion never creates a film; do not require the inert transition.
+  const reducedWindow = { matchMedia: () => ({ matches: true }) };
+  assert.equal(ready(document, reducedWindow), true);
 });
 
 test("the tenant assertion cannot be skipped and mutation consent is never implicit", () => {
