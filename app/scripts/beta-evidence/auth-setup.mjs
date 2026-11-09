@@ -96,10 +96,46 @@ try {
   const page = await context.newPage();
 
   // 1. Real login through the shipped form.
+  // Watch the intro state from the start of navigation, not after networkidle.
+  // On a fast load, inert can appear and disappear before a late page-side
+  // wait starts. This observer remembers that full transition without
+  // depending on a fixed animation delay or changing the shipped login UI.
+  await page.addInitScript(() => {
+    const noteIntroState = () => {
+      const entry = document.querySelector(".entry-content");
+      if (!entry) return;
+      if (entry.hasAttribute("inert")) {
+        window.__tradeosLoginFilmSeen = true;
+      } else if (window.__tradeosLoginFilmSeen === true) {
+        window.__tradeosLoginFilmFinished = true;
+      }
+    };
+    new MutationObserver(noteIntroState).observe(document, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["inert"],
+    });
+    noteIntroState();
+  });
   await page.goto(new URL("/login", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
   if (new URL(page.url()).origin !== parsedBaseUrl.origin) {
     throw new Error("Login navigation left the approved RC origin before credentials were entered.");
   }
+  // Do not fill during the film or in the pre-hydration SSR gap.
+  // The init script remembers a finished film even when navigation reaches
+  // networkidle after the intro has already dismissed. Reduced-motion
+  // sessions have no film and are permitted once the form exists.
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector(".entry-content");
+      if (!el || el.hasAttribute("inert")) return false;
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+      return window.__tradeosLoginFilmFinished === true;
+    },
+    undefined,
+    { timeout: 30_000 },
+  );
   await page.locator('[name="email"]').fill(email);
   await page.locator('[name="password"]').fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
