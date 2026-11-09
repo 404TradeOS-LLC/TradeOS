@@ -188,6 +188,11 @@ that exact tenant-scoped Customer id. This exercises the shipped
 Customer → Project continuity contract directly; it does not depend on the
 Customer also appearing in a generic selector or on list ordering.
 
+After "Create project" the app redirects straight to the new project detail
+page (`/projects/<uuid>`); the project list is never visited. The capture
+script therefore waits for that UUID detail route — not the list URL — and
+takes the project id from the URL, exactly as the customer step does.
+
 Customer email addresses use the `example.invalid` reserved domain so no mail
 can ever be delivered.
 

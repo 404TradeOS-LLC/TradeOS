@@ -35,6 +35,7 @@ import {
 
 import { assertAuthenticatedSmokeTenant } from "../../app/scripts/beta-evidence/lib/tenant-identity.mjs";
 import { createdCustomerIdFromUrl } from "../../app/scripts/beta-evidence/lib/customer-detail-url.mjs";
+import { createdProjectIdFromUrl } from "../../app/scripts/beta-evidence/lib/project-detail-url.mjs";
 import { matchesReviewedSavedLine, renderedVerifiedRowMatches, reloadEstimateAndRead } from "../../app/scripts/beta-evidence/lib/saved-line-verification.mjs";
 
 const root = process.cwd();
@@ -538,6 +539,25 @@ test("beta capture waits for the persisted Customer UUID rather than matching /c
   assert.equal(createdCustomerIdFromUrl(`${origin}/customers/${uuid}?tab=projects`), uuid);
   assert.match(capture, /waitForURL\(\(url\) => createdCustomerIdFromUrl\(url\) !== null/);
   assert.match(capture, /const customerId = createdCustomerIdFromUrl\(page\.url\(\)\)/);
+});
+
+test("beta capture waits for the persisted Project UUID rather than the project list", () => {
+  // Regression guard for the run-42597262414 failure: after "Create project"
+  // the app redirects straight to /projects/<uuid>, so waiting for the
+  // project list URL (/projects(?:\?|$)/) times out after 60 s even though
+  // the Project was created and its detail page rendered.
+  const uuid = "4a83bbd6-c562-47f3-8655-f08790b41371";
+  const origin = "https://tradeos-costbook-web-git-staging-billykshowalters.vercel.app";
+  assert.equal(createdProjectIdFromUrl(`${origin}/projects/new`), null);
+  assert.equal(createdProjectIdFromUrl(`${origin}/projects`), null);
+  assert.equal(createdProjectIdFromUrl(`${origin}/projects/not-a-uuid`), null);
+  assert.equal(createdProjectIdFromUrl(`${origin}/projects/${uuid}/estimates/${uuid}`), null);
+  assert.equal(createdProjectIdFromUrl("not a URL"), null);
+  assert.equal(createdProjectIdFromUrl(`${origin}/projects/${uuid}`), uuid);
+  assert.equal(createdProjectIdFromUrl(`${origin}/projects/${uuid}?tab=estimate-history`), uuid);
+  assert.match(capture, /waitForURL\(\(url\) => createdProjectIdFromUrl\(url\) !== null/);
+  assert.match(capture, /const projectId = createdProjectIdFromUrl\(page\.url\(\)\)/);
+  assert.doesNotMatch(capture, /await page\.waitForURL\(\/\\\/projects\(\?:\\\?\|\\\$\)\//);
 });
 
 test("S053 evidence is opt-in and defaults do not change the canonical beta flow", () => {
