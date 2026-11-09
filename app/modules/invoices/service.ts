@@ -1,5 +1,7 @@
+import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
-import { prisma } from "../../db/client";
+import { basePrisma, prisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { ActivityTimelineService } from "../intelligence/service";
 import { hasPermission, legacyInvoiceStatusMap, normalizeEstimateStatus, normalizeInvoiceStatus, normalizeProposalStatus } from "../../domain/contracts";
@@ -24,7 +26,65 @@ import { calculateInvoiceFinancials, toInvoicePaymentDTO } from "./presentation"
 export class InvoicesService {
   private readonly activityService = new ActivityTimelineService();
 
-  async create(input: CreateInvoiceInput): Promise<InvoiceDTO> {
+  /**
+   * Replay a committed create without repricing or recording another event.
+   * Both the replay and insert stay in the request's tenant-scoped transaction.
+   */
+  async createWithIdempotency(input: CreateInvoiceInput, key: string): Promise<{ invoice: InvoiceDTO; replayed: boolean }> {
+    assertInvoiceWriteAccess(input.actorRole);
+    const type = input.type ?? "full";
+    assertFiniteLineItems(input.lineItems);
+    const hash = createHash("sha256").update(JSON.stringify({
+      estimateId: input.estimateId ?? null,
+      proposalId: input.proposalId ?? null,
+      type,
+      percentComplete: type === "progress" ? input.percentComplete ?? null : null,
+      dueDate: toValidDueDate(input.dueDate)?.toISOString() ?? null,
+      lineItems: input.lineItems?.map(({ description, quantity, unitOfMeasure, unitPrice, lineTotal }) =>
+        [description, quantity, unitOfMeasure, unitPrice, lineTotal ?? null]) ?? null,
+    })).digest("hex");
+
+    return runInDatabaseTransaction(basePrisma, async (tx) => {
+      const project = await prisma.project.findFirst({ where: { id: input.projectId, orgId: input.orgId } });
+      if (!project) throw new ApiError(404, `Project ${input.projectId} not found`);
+
+      const replay = async () => {
+        const row = await prisma.invoice.findFirst({
+          where: { projectId: input.projectId, project: { orgId: input.orgId }, createRequestKey: key },
+          select: { id: true, createRequestHash: true },
+        });
+        if (!row) return null;
+        if (row.createRequestHash !== hash) {
+          throw new ApiError(409, "This invoice request key was already used with different details. Check the project invoices before starting another draft.");
+        }
+        return { invoice: await this.getById(row.id, input.orgId), replayed: true as const };
+      };
+
+      const existing = await replay();
+      if (existing) return existing;
+
+      // The losing insert may hit either the request-key or invoice-number
+      // unique index. Roll back before looking for a committed same-key winner.
+      const savepoint = `invoice_create_${randomUUID().replace(/-/g, "")}`;
+      await tx.$executeRawUnsafe(`SAVEPOINT "${savepoint}"`);
+      let invoice: InvoiceDTO;
+      try {
+        invoice = await this.create(input, { key, hash });
+      } catch (error) {
+        await tx.$executeRawUnsafe(`ROLLBACK TO SAVEPOINT "${savepoint}"`);
+        await tx.$executeRawUnsafe(`RELEASE SAVEPOINT "${savepoint}"`);
+        if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+          const concurrent = await replay();
+          if (concurrent) return concurrent;
+        }
+        throw error;
+      }
+      await tx.$executeRawUnsafe(`RELEASE SAVEPOINT "${savepoint}"`);
+      return { invoice, replayed: false };
+    });
+  }
+
+  async create(input: CreateInvoiceInput, request?: { key: string; hash: string }): Promise<InvoiceDTO> {
     assertInvoiceWriteAccess(input.actorRole);
     const project = await prisma.project.findFirst({ where: { id: input.projectId, orgId: input.orgId } });
     if (!project) throw new ApiError(404, `Project ${input.projectId} not found`);
@@ -56,6 +116,7 @@ export class InvoicesService {
         estimateId: input.estimateId,
         proposalId: pricingProposal?.id ?? input.proposalId,
         invoiceNumber: nextNumber + 1,
+        ...(request ? { createRequestKey: request.key, createRequestHash: request.hash } : {}),
         type,
         percentComplete: type === "progress" ? input.percentComplete : undefined,
         amount,

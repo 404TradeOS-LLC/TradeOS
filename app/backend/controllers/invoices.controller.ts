@@ -71,7 +71,15 @@ export const invoicesController = {
   },
   async create(req: Request, res: Response) {
     const auth = requireAuthContext(req);
-    res.status(201).json(await service.create({ ...createSchema.parse(req.body), orgId: requireOrgId(req), actorUserId: auth.userId, actorRole: auth.role }));
+    const input = { ...createSchema.parse(req.body), orgId: requireOrgId(req), actorUserId: auth.userId, actorRole: auth.role };
+    const rawKey = req.headers["idempotency-key"];
+    if (rawKey === undefined) {
+      res.status(201).json(await service.create(input));
+      return;
+    }
+    const { invoice, replayed } = await service.createWithIdempotency(input, z.guid().parse(rawKey).toLowerCase());
+    res.setHeader("Idempotency-Replayed", String(replayed));
+    res.status(replayed ? 200 : 201).json(invoice);
   },
   async update(req: Request, res: Response) {
     const auth = requireAuthContext(req);
