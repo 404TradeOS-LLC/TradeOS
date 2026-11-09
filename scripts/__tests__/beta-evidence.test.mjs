@@ -704,6 +704,21 @@ test("staging beta evidence pins the canonical smoke UUID and forwards it to the
   assert.match(authSetup, /expectedOrgId = process\.env\.BETA_SMOKE_ORG_ID/);
 });
 
+test("login credentials are filled only after the login film dismisses", () => {
+  // Filling while `.entry-content` carries `inert` never lands in React state,
+  // so the submit is blocked by client-side validation and the login request
+  // is never sent (run 42465235402).
+  assert.match(
+    authSetup,
+    /waitForFunction\(\s*\(\) => \{\s*const el = document\.querySelector\("\.entry-content"\);\s*return !!el && !el\.hasAttribute\("inert"\);\s*\},\s*\{ timeout: 30_000 \},\s*\)/,
+  );
+  // The wait must run before the email fill, not after it.
+  assert.ok(
+    authSetup.indexOf("waitForFunction") < authSetup.indexOf('[name="email"]'),
+    "film wait must precede the email fill",
+  );
+});
+
 test("the tenant assertion cannot be skipped and mutation consent is never implicit", () => {
   // An unset organization label previously recorded the tenant check as passed.
   assert.match(authSetup, /BETA_SMOKE_ORG_LABEL/);

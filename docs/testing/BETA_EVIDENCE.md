@@ -202,6 +202,13 @@ Storage state is generated at runtime, not stored:
 5. assert the session is scoped to the expected smoke organization;
 6. write storage state to a path outside the repository, `chmod 600`.
 
+Before filling, the script waits (up to 30 s) for the login form's
+`.entry-content` wrapper to exist and its `inert` attribute to clear: the
+CinematicIntro film holds the form inert while it plays, and filling while
+inert never lands in React state, so the submit is blocked by client-side
+validation. With prefers-reduced-motion the film never opens and the wait
+passes immediately.
+
 A successful redirect to `/finish-setup` is treated as a provisioning failure,
 not an authentication success — it means the identity has no organization yet.
 

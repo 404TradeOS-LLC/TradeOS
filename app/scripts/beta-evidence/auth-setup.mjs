@@ -100,6 +100,18 @@ try {
   if (new URL(page.url()).origin !== parsedBaseUrl.origin) {
     throw new Error("Login navigation left the approved RC origin before credentials were entered.");
   }
+  // The login form sits inside `.entry-content`, which carries `inert` while the
+  // CinematicIntro film plays. Filling while inert never lands in React state,
+  // so wait for the form to exist and the film to dismiss first. With
+  // prefers-reduced-motion the film never opens and `inert` is never set, so
+  // this passes immediately.
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector(".entry-content");
+      return !!el && !el.hasAttribute("inert");
+    },
+    { timeout: 30_000 },
+  );
   await page.locator('[name="email"]').fill(email);
   await page.locator('[name="password"]').fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
