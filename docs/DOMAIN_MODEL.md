@@ -157,6 +157,8 @@ A signable commercial agreement stored in `Contract`.
 
 A billing document stored in `Invoice`.
 
+Draft PR #956 adds optional paired create-request key and payload fingerprint fields, unique by project and key. Legacy invoices remain unkeyed; a matching retry resolves the original invoice without creating a second billing document.
+
 - belongs to one project
 - may reference an estimate and proposal
 - stores `subtotal`, `taxPct`, and `taxAmount` so customer documents can itemize the persisted total

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { getProject } from "@/lib/api";
 import { PageHeader } from "@/components/shared/page-header";
 import { getSessionToken } from "@/lib/session";
@@ -11,7 +12,7 @@ export default async function NewInvoicePage({ params }: { params: Promise<{ id:
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="New invoice" backHref={`/projects/${id}`} backLabel="Back to project" />
-      <NewInvoiceForm projectId={id} estimates={project.estimates} proposals={project.proposals} />
+      <NewInvoiceForm createRequestKey={randomUUID()} projectId={id} estimates={project.estimates} proposals={project.proposals} />
     </div>
   );
 }

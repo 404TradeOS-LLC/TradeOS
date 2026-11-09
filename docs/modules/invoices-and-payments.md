@@ -60,6 +60,14 @@ Own invoice creation, send and pay state changes, voiding, line items, delivery 
 - `/api/v1/invoices/:id/payments`
 - `GET /api/v1/payments/current-week` — read-only organization-scoped ledger of `recorded` Payment rows in the current organization week, with invoice/project/customer context and organization-timezone-aware boundaries
 
+## Recoverable invoice draft creation
+
+The New invoice form posts to `POST /api/v1/invoices/drafts` with an `Idempotency-Key` UUID. A new draft returns 201 and a matching replay returns 200 with the original invoice ID; both set `Idempotency-Replayed`. A changed payload under the same project/key returns 409. The dedicated path fails without a write on an older API. The existing unkeyed create path remains available.
+
+The recoverable route authenticates before opening its tenant-scoped transaction and sends success only after commit. A known unique or serialization failure can start one fresh tenant-scoped transaction to recover the concurrent winner. The form preserves the original payload and key while it stays open and offers an explicit retry after an uncertain response. If the form was closed or reloaded, check the project’s invoices before creating another draft. Creating a draft never sends it or records payment.
+
+Before deploying, rehearse the migration and measure invoice-table lock and index build duration on a representative disposable copy. The pair check is added without a historical scan; the transactional unique index still requires a coordinated invoice-write window. Lock and statement timeouts abort the migration on excessive waiting or build duration. Deploy the schema and API before enabling the matching web build. Confirm one draft and one creation event for overlapping retries; separately verify cross-tenant denial and the same-ID PDF in staging.
+
 ## Organization work-queue read
 
 `GET /api/v1/invoices` (`InvoicesService.listOrganizationQueue`) returns every invoice in the caller's organization, newest-activity-first, for dashboard/reporting/future-Athena-tool consumers that need a company-wide view rather than a single project's invoices.
