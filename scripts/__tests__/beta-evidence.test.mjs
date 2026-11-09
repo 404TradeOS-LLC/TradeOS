@@ -708,15 +708,64 @@ test("login credentials are filled only after the login film dismisses", () => {
   // Filling while `.entry-content` carries `inert` never lands in React state,
   // so the submit is blocked by client-side validation and the login request
   // is never sent (run 42465235402).
+  //
+  // Playwright's signature is waitForFunction(pageFunction, arg, options):
+  // the timeout must be the third argument, not the second. Passing the
+  // options object as `arg` silently drops the explicit timeout (it only
+  // worked by coincidence because the default timeout is also 30s).
   assert.match(
     authSetup,
-    /waitForFunction\(\s*\(\) => \{\s*const el = document\.querySelector\("\.entry-content"\);\s*return !!el && !el\.hasAttribute\("inert"\);\s*\},\s*\{ timeout: 30_000 \},\s*\)/,
+    /waitForFunction\(\s*\(\) => \{[\s\S]*?\n    \},\s*undefined,\s*\{\s*timeout: 30_000\s*\},?\s*\)/,
   );
   // The wait must run before the email fill, not after it.
   assert.ok(
     authSetup.indexOf("waitForFunction") < authSetup.indexOf('[name="email"]'),
     "film wait must precede the email fill",
   );
+});
+
+test("login film wait cannot pass before the film opens", () => {
+  // `opening` starts false and only becomes true inside a
+  // requestAnimationFrame effect after mount, so the SSR HTML carries no
+  // `inert` and a bare `!hasAttribute("inert")` check passes in the window
+  // before the film opens. The predicate must therefore track the
+  // transition: pass only once `inert` has been observed and then cleared.
+  // Extract the predicate from auth-setup.mjs and run it against a fake
+  // page, polling the way waitForFunction does.
+  const match = authSetup.match(
+    /page\.waitForFunction\(\s*(\(\) => \{[\s\S]*?\n    \}),\s*undefined,\s*\{\s*timeout: 30_000\s*\},?\s*\)/,
+  );
+  assert.ok(match, "film-wait predicate not found in auth-setup.mjs");
+  const runPredicate = new Function("document", "window", `return (${match[1]})();`);
+  const fakePage = ({ element = true, inert = false, reducedMotion = false } = {}) => {
+    const el = { hasAttribute: (name) => name === "inert" && inert };
+    return {
+      document: { querySelector: () => (element ? el : null) },
+      window: { matchMedia: () => ({ matches: reducedMotion }) },
+      setInert: (value) => {
+        inert = value;
+      },
+    };
+  };
+  // 1. Before the film opens (SSR state: element present, no `inert` yet,
+  //    film never seen) the wait must NOT pass — this is the race the old
+  //    predicate lost.
+  const before = fakePage();
+  assert.equal(runPredicate(before.document, before.window), false);
+  // 2. While the film plays (`inert` set) the wait must not pass, and the
+  //    observation must be recorded.
+  before.setInert(true);
+  assert.equal(runPredicate(before.document, before.window), false);
+  // 3. Once the film dismisses (`inert` cleared after being seen) it passes.
+  before.setInert(false);
+  assert.equal(runPredicate(before.document, before.window), true);
+  // 4. With prefers-reduced-motion the film never opens; the wait passes
+  //    immediately without ever seeing `inert`.
+  const reduced = fakePage({ reducedMotion: true });
+  assert.equal(runPredicate(reduced.document, reduced.window), true);
+  // 5. With no `.entry-content` yet the wait must not pass.
+  const missing = fakePage({ element: false });
+  assert.equal(runPredicate(missing.document, missing.window), false);
 });
 
 test("the tenant assertion cannot be skipped and mutation consent is never implicit", () => {

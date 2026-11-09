@@ -102,14 +102,27 @@ try {
   }
   // The login form sits inside `.entry-content`, which carries `inert` while the
   // CinematicIntro film plays. Filling while inert never lands in React state,
-  // so wait for the form to exist and the film to dismiss first. With
-  // prefers-reduced-motion the film never opens and `inert` is never set, so
-  // this passes immediately.
+  // so wait for the form to exist and the film to dismiss first.
+  //
+  // `opening` starts `false` and only becomes `true` inside a
+  // requestAnimationFrame effect after mount, so the SSR HTML carries no
+  // `inert` and a bare `!hasAttribute("inert")` check can pass in the window
+  // before the film opens — then the fill lands while inert and login fails
+  // exactly as before. Track the transition instead: pass only once `inert`
+  // has been observed and then cleared. With prefers-reduced-motion the film
+  // never opens and `inert` is never set, so this passes immediately.
   await page.waitForFunction(
     () => {
       const el = document.querySelector(".entry-content");
-      return !!el && !el.hasAttribute("inert");
+      if (!el) return false;
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+      if (el.hasAttribute("inert")) {
+        window.__tradeosLoginFilmSeen = true;
+        return false;
+      }
+      return window.__tradeosLoginFilmSeen === true;
     },
+    undefined,
     { timeout: 30_000 },
   );
   await page.locator('[name="email"]').fill(email);
