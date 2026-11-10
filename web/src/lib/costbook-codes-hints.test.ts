@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  isEstimateCodesHintsResponse,
   summarizeCodesHints,
   type EstimateCodesHintsResponse,
 } from "./costbook-codes-hints.ts";
@@ -81,4 +82,38 @@ test("hints payloads are financially inert: the echoed total is the saved total"
   assert.equal(payload.estimateTotal, 975);
   assert.ok(!("lineItems" in payload));
   assert.ok(!("permitFee" in payload));
+});
+
+test("isEstimateCodesHintsResponse accepts a well-formed payload", () => {
+  assert.equal(isEstimateCodesHintsResponse(response()), true);
+});
+
+test("isEstimateCodesHintsResponse rejects truthy-but-malformed payloads instead of rendering them", () => {
+  // PR #961: a generic list transport answers an unknown GET with `[]`.
+  // `[]` is truthy, so the old `!data` check let it through and
+  // summarizeCodesHints threw during render, unmounting the estimate stage.
+  assert.equal(isEstimateCodesHintsResponse([]), false);
+  assert.equal(isEstimateCodesHintsResponse(null), false);
+  assert.equal(isEstimateCodesHintsResponse(undefined), false);
+  assert.equal(isEstimateCodesHintsResponse({}), false);
+  assert.equal(isEstimateCodesHintsResponse(response({ hints: "not-an-array" as never })), false);
+  assert.equal(
+    isEstimateCodesHintsResponse(response({ jurisdiction: { outcome: "unknown" } as never })),
+    false,
+  );
+  assert.equal(
+    isEstimateCodesHintsResponse(
+      response({ assessments: [{ id: "a-1", workType: "sign", status: "bogus" } as never] }),
+    ),
+    false,
+  );
+});
+
+test("summarizeCodesHints never throws on a malformed payload and fails closed to needs-verification", () => {
+  const summary = summarizeCodesHints({} as unknown as EstimateCodesHintsResponse);
+  assert.equal(summary.statusLine, "Codes & permits — jurisdiction needs verification");
+  assert.equal(summary.needsAttention, true);
+  assert.equal(summary.openQuestionCount, 0);
+  assert.equal(summary.unresolvedAssessmentCount, 0);
+  assert.equal(summary.citationCount, 0);
 });

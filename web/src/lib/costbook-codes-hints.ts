@@ -47,19 +47,74 @@ export interface CodesHintsSummary {
 }
 
 export function summarizeCodesHints(hints: EstimateCodesHintsResponse): CodesHintsSummary {
-  const unresolvedAssessmentCount = hints.assessments.filter(
-    (assessment) => assessment.status !== "owner_approved",
+  // Defensive: the hints payload crosses a network boundary, so a malformed
+  // payload must degrade to "needs verification", never throw during render
+  // (a render throw unmounts the whole estimate stage — see PR #961).
+  const assessments = Array.isArray(hints?.assessments) ? hints.assessments : [];
+  const openQuestions = Array.isArray(hints?.openQuestions) ? hints.openQuestions : [];
+  const citations = Array.isArray(hints?.citations) ? hints.citations : [];
+  const unresolvedAssessmentCount = assessments.filter(
+    (assessment) => assessment?.status !== "owner_approved",
   ).length;
-  const needsAttention =
-    hints.jurisdiction.outcome === "needs_verification" || unresolvedAssessmentCount > 0;
+  const verified = hints?.jurisdiction?.outcome === "verified";
+  const needsAttention = !verified || unresolvedAssessmentCount > 0;
   return {
-    statusLine:
-      hints.jurisdiction.outcome === "verified"
-        ? "Codes & permits — jurisdiction verified"
-        : "Codes & permits — jurisdiction needs verification",
+    statusLine: verified
+      ? "Codes & permits — jurisdiction verified"
+      : "Codes & permits — jurisdiction needs verification",
     needsAttention,
-    openQuestionCount: hints.openQuestions.length,
+    openQuestionCount: openQuestions.length,
     unresolvedAssessmentCount,
-    citationCount: hints.citations.length,
+    citationCount: citations.length,
   };
+}
+
+/**
+ * Runtime shape check for the hints payload. `clientFetch` returns whatever
+ * the transport delivers, and a truthy-but-malformed payload (notably the
+ * `[]` a generic list transport returns for an unknown GET) must render
+ * nothing instead of throwing inside `summarizeCodesHints` or the disclosure.
+ * Anything uncertain fails closed to "not a hints payload".
+ */
+export function isEstimateCodesHintsResponse(data: unknown): data is EstimateCodesHintsResponse {
+  if (typeof data !== "object" || data === null || Array.isArray(data)) return false;
+  const candidate = data as Partial<EstimateCodesHintsResponse>;
+  if (
+    typeof candidate.jurisdiction !== "object" ||
+    candidate.jurisdiction === null ||
+    (candidate.jurisdiction.outcome !== "verified" &&
+      candidate.jurisdiction.outcome !== "needs_verification")
+  ) {
+    return false;
+  }
+  if (
+    !Array.isArray(candidate.hints) ||
+    !candidate.hints.every((hint) => typeof hint === "string") ||
+    !Array.isArray(candidate.openQuestions) ||
+    !candidate.openQuestions.every((question) => typeof question === "string") ||
+    !Array.isArray(candidate.citations) ||
+    !candidate.citations.every(
+      (citation) =>
+        typeof citation === "object" &&
+        citation !== null &&
+        typeof citation.source_id === "string" &&
+        typeof citation.rationale === "string",
+    ) ||
+    !Array.isArray(candidate.assessments) ||
+    !candidate.assessments.every(
+      (assessment) =>
+        typeof assessment === "object" &&
+        assessment !== null &&
+        typeof assessment.id === "string" &&
+        typeof assessment.workType === "string" &&
+        (assessment.status === "needs_review" ||
+          assessment.status === "in_review" ||
+          assessment.status === "owner_approved" ||
+          assessment.status === "needs_verification"),
+    ) ||
+    typeof candidate.disclaimer !== "string"
+  ) {
+    return false;
+  }
+  return true;
 }
