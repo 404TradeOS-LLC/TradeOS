@@ -536,7 +536,12 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          persist-credentials: true
+          # Dedicated founder-provisioned token is required for repair pushes:
+          # GitHub's default token does not trigger pull_request CI on push.
+          # When absent, checkout can read main but persists NO git credentials,
+          # and the repair branch below is skipped.
+          token: ${{ secrets.TRADEOS_PR_COMMANDER_PUSH_TOKEN || github.token }}
+          persist-credentials: ${{ secrets.TRADEOS_PR_COMMANDER_PUSH_TOKEN != '' }}
 
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -563,6 +568,8 @@ jobs:
           # the CLI/library read it through isArmed(). It is "true" here
           # because this job's `if` already required it.
           TRADEOS_PR_COMMANDER_WRITE_ENABLED: ${{ vars.TRADEOS_PR_COMMANDER_WRITE_ENABLED }}
+          # Never put the secret value into the shell environment or logs.
+          REPAIR_PUSH_TOKEN_AVAILABLE: ${{ secrets.TRADEOS_PR_COMMANDER_PUSH_TOKEN != '' }}
           READY_PRS: ${{ needs.report.outputs.ready_prs }}
           FOUNDER_PRS: ${{ needs.report.outputs.founder_prs }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -786,7 +793,10 @@ jobs:
             # check, and only while attempts remain. Behavior changes require
             # the regression tests run below; the push happens only if they
             # pass. No thread is auto-resolved (see header).
-            if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$attempts" -lt 3 ]; then
+            if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$REPAIR_PUSH_TOKEN_AVAILABLE" != "true" ]; then
+              echo "::warning::Skipping deterministic repair push: no founder-provisioned CI-triggering credential (TRADEOS_PR_COMMANDER_PUSH_TOKEN). GITHUB_TOKEN pushes do not trigger pull_request CI."
+            fi
+            if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$attempts" -lt 3 ] && [ "$REPAIR_PUSH_TOKEN_AVAILABLE" = "true" ]; then
               if jq -e '.reasons[]? | test("Web lint and build")' fresh-verdict.json >/dev/null; then
                 # headRepository is not in the pr-view snapshot payload; fetch it.
                 head_repo=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json headRepository --jq '.headRepository.nameWithOwner')
