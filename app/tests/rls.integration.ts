@@ -23,6 +23,7 @@ import { InvoicesService } from "../modules/invoices/service";
 import { CrmService } from "../modules/crm/service";
 import { ContractsService } from "../modules/contracts/service";
 import { ProjectTasksService } from "../modules/project-tasks/service";
+import { CodesPermitTasksService } from "../modules/costbook/codes/permitTasks.service";
 import { JobsService } from "../modules/jobs/service";
 import { JobExpensesService } from "../modules/expenses/service";
 import { AuthService } from "../modules/auth/service";
@@ -1261,6 +1262,101 @@ describe("live organization row-level security", () => {
         })
       )
     ).rejects.toThrow();
+  });
+
+  it("enforces codes permit task and fee review isolation, role gates, and fee no-op", async () => {
+    const taskId = randomUUID();
+    const otherTaskId = randomUUID();
+    const feeId = randomUUID();
+    const before = await adminClient.estimate.findUniqueOrThrow({
+      where: { id: estimateA },
+      select: { subtotalCost: true, totalPrice: true },
+    });
+    await adminClient.codesPermitTask.createMany({
+      data: [
+        { id: taskId, orgId: orgA, projectId: projectA, taskKind: "permit", title: "File county sign permit", permitStatus: "not_submitted", assigneeId: technicianUser },
+        { id: otherTaskId, orgId: orgA, projectId: projectA, taskKind: "inspection", title: "Unassigned inspection", permitStatus: "not_submitted" },
+      ],
+    });
+    await adminClient.codesFeeReview.create({
+      data: { id: feeId, orgId: orgA, projectId: projectA, estimateId: estimateA, feeCents: 12500, feeSource: "quoted", currency: "USD", status: "pending" },
+    });
+    try {
+      // Own-org reads see the rows; the other tenant sees nothing.
+      const visible = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesPermitTask.findUnique({ where: { id: taskId } }),
+      );
+      expect(visible?.id).toBe(taskId);
+      const hiddenTask = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().codesPermitTask.findUnique({ where: { id: taskId } }),
+      );
+      expect(hiddenTask).toBeNull();
+      const hiddenFee = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().codesFeeReview.findUnique({ where: { id: feeId } }),
+      );
+      expect(hiddenFee).toBeNull();
+
+      // Cross-org writes are refused by RLS even with a matching org_id claim.
+      await expect(
+        inSession(otherUser, orgB, "owner", async () =>
+          currentTransaction().codesPermitTask.create({
+            data: { orgId: orgA, projectId: projectA, taskKind: "permit", title: "Cross-org task", permitStatus: "not_submitted" },
+          }),
+        ),
+      ).rejects.toThrow();
+
+      // Role narrowing is the service's job: a technician lists only tasks
+      // assigned to them, even though RLS select is org-scoped.
+      const techTasks = await inSession(technicianUser, orgA, "technician", async () =>
+        new CodesPermitTasksService(currentTransaction() as unknown as typeof appClient).list(orgA, "technician", technicianUser, projectA),
+      );
+      expect(techTasks.map((row) => row.id)).toEqual([taskId]);
+
+      // The assigned technician may update their own task's explicit status.
+      const techUpdated = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().codesPermitTask.update({ where: { id: taskId }, data: { permitStatus: "inspection_scheduled" } }),
+      );
+      expect(techUpdated.permitStatus).toBe("inspection_scheduled");
+      // …but not a task assigned to someone else (or no one).
+      await expect(
+        inSession(technicianUser, orgA, "technician", async () =>
+          currentTransaction().codesPermitTask.update({ where: { id: otherTaskId }, data: { permitStatus: "approved" } }),
+        ),
+      ).rejects.toThrow();
+      // Viewers may not create permit tasks.
+      await expect(
+        inSession(viewerUser, orgA, "viewer", async () =>
+          currentTransaction().codesPermitTask.create({
+            data: { orgId: orgA, projectId: projectA, taskKind: "permit", title: "Viewer task", permitStatus: "not_submitted" },
+          }),
+        ),
+      ).rejects.toThrow();
+
+      // Fee-review writes are owner/admin only.
+      await expect(
+        inSession(technicianUser, orgA, "technician", async () =>
+          currentTransaction().codesFeeReview.update({ where: { id: feeId }, data: { status: "approved" } }),
+        ),
+      ).rejects.toThrow();
+      const approved = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesFeeReview.update({
+          where: { id: feeId },
+          data: { status: "approved", reviewedBy: adminUser, reviewedAt: new Date() },
+        }),
+      );
+      expect(approved.status).toBe("approved");
+
+      // Financial no-op: approving the fee changed no estimate total.
+      const after = await adminClient.estimate.findUniqueOrThrow({
+        where: { id: estimateA },
+        select: { subtotalCost: true, totalPrice: true },
+      });
+      expect(after.subtotalCost.toString()).toBe(before.subtotalCost.toString());
+      expect(after.totalPrice.toString()).toBe(before.totalPrice.toString());
+    } finally {
+      await adminClient.codesFeeReview.deleteMany({ where: { id: feeId } });
+      await adminClient.codesPermitTask.deleteMany({ where: { id: { in: [taskId, otherTaskId] } } });
+    }
   });
 
   it("serializes concurrent task revisions without losing a saved update or tenant isolation", async () => {
