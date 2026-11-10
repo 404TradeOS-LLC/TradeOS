@@ -70,6 +70,27 @@ describe("production health surfaces", () => {
     expect(resolveDatabaseProjectRef({ DATABASE_URL: "not-a-url" } as NodeJS.ProcessEnv)).toBeUndefined();
   });
 
+  it("refuses an unverified DATABASE_URL even when SUPABASE_URL claims staging", () => {
+    const stagingUrl = "https://qfbgdkbamfaasmtjfyru.supabase.co";
+    const ambiguousDatabaseUrls = [
+      "not-a-url",
+      "postgresql://app@db.example.com:5432/postgres",
+      "https://db.qfbgdkbamfaasmtjfyru.supabase.co/postgres",
+      "postgresql://app@aws-0-us-east-2.pooler.supabase.com:6543/postgres",
+      "postgresql://app@db.qfbgdkbamfaasmtjfyru.supabase.co:5432/postgres?host=db.kssaceuetdjwfqnbzhly.supabase.co",
+    ];
+    for (const databaseUrl of ambiguousDatabaseUrls) {
+      expect(resolveDatabaseProjectRef({
+        DATABASE_URL: databaseUrl,
+        SUPABASE_URL: stagingUrl,
+      } as NodeJS.ProcessEnv)).toBeUndefined();
+    }
+    expect(resolveDatabaseProjectRef({
+      DATABASE_URL: "postgresql://app@db.kssaceuetdjwfqnbzhly.supabase.co:5432/postgres",
+      SUPABASE_URL: stagingUrl,
+    } as NodeJS.ProcessEnv)).toBe("kssaceuetdjwfqnbzhly");
+  });
+
   it("fails closed and logs when the database probe fails", async () => {
     queryRawUnsafe.mockRejectedValueOnce(new Error("database unavailable"));
     const payload = await checkReadiness(new Date("2026-08-12T22:00:00.000Z"));
