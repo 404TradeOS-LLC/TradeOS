@@ -35,6 +35,11 @@ related_code:
   - .github/workflows/merge-queue.yml
   - .github/merge-queue-ruleset.json
   - scripts/merge-queue.mjs
+  - .github/workflows/pr-commander.yml
+  - scripts/pr-commander.mjs
+  - scripts/pr-commander-lib.mjs
+  - docs/PR_COMMANDER.md
+  - docs/PR_COMMANDER_CONFIGURATION.md
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
@@ -351,6 +356,34 @@ S030 implementation PR #341 merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`
 ## Automated maintenance lanes
 
 TradeOS includes two governed maintenance workflows: CodeQL remediation runs on a schedule or manual dispatch and opens isolated PRs for bounded alerts; the frontend code-quality lane runs ESLint autofix on a schedule or manual dispatch and opens a PR only after tests, lint, build, and diff validation pass. Neither lane writes directly to `main`, bypasses branch protection, or makes product, schema, authentication, authorization, billing, or production-trust decisions.
+
+### PR Commander — autonomous PR coordination (draft PR, dry-run only) — 2026-11-10
+
+The [PR Commander](PR_COMMANDER.md) (`.github/workflows/pr-commander.yml`,
+branch `feat/pr-commander-autonomous`, base main `2b116767`) adds a third,
+queue-wide automation lane: an hourly sweep at :17 UTC plus a read-only fast
+path on every `pull_request` event, evaluating every open PR against the
+unchanged merge bar and enabling native auto-merge only when every gate
+passes at one exact head SHA. It composes the existing verify /
+merge-readiness / pr-maintenance / CodeQL-autofix pieces and rebuilds none of
+them. **Status: draft PR pending; dry-run only, not activated.** It ships
+dry-run by default — schedule and `pull_request` runs can never act, and
+write action additionally requires the repository variable
+`TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly `"true"` **and** a manual
+dispatch with `mode=armed`. No agent enables the variable; Billy enables it
+only after completing the activation checklist in
+[PR Commander](PR_COMMANDER.md#activation-checklist-billy-must-complete-before-write-mode)
+(verify live ruleset 18958081, verify the variable, review a dry-run sweep,
+confirm the Copilot gap is understood). Founder-only boundaries are unchanged:
+the Commander never dismisses a blocking review, never auto-resolves threads
+in v1, never undrafts a PR, never applies migrations or staging-apply gates,
+never touches production, and never changes a ruleset. Copilot Agent Merge is
+not available as a delegation path (0 org seats, quota failures, disabled
+review ruleset — verified 2026-11-10); delegation is deterministic repair,
+CodeQL Autofix, and CodeRabbit re-review. Setup and disable steps are in
+[PR Commander configuration](PR_COMMANDER_CONFIGURATION.md). A first live
+dry-run sweep and its artifact inspection are still owed after the PR lands;
+the workflow has never executed on GitHub.
 
 ### GitHub Actions runtime maintenance
 
