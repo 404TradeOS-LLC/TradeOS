@@ -149,6 +149,111 @@ describe("resolveJurisdiction", () => {
     expectNoInferredValues(resolution);
   });
 
+  it("fails closed when only a street address identifies the site — an address alone is not a parcel", () => {
+    const resolution = resolveJurisdiction(
+      { siteAddress: "4050 S. State Road 63, Terre Haute, IN 47802" },
+      [record()],
+      "sign replacement",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toContain("no_verifiable_site");
+    expect(resolution.openQuestions.join(" ")).toMatch(/verified parcel ID, or a verified site address with coordinates/);
+    expectNoInferredValues(resolution);
+  });
+
+  it("accepts coordinates plus address as an identifiable site without a parcel id", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite({ parcelId: null, latitude: 39.4665, longitude: -87.413 }),
+      [record(), municipalRecord()],
+      "sign replacement",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("verified");
+    expect(resolution.reasons).not.toContain("no_verifiable_site");
+    expect(resolution.distinctions.parcelBoundary).toBe("verified");
+    expectNoInferredValues(resolution);
+  });
+
+  it("does not treat 'design' as signage work — the sign match needs word boundaries", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite({ signCategory: null, signDetailsVerified: false }),
+      [record({ topics: ["permits"] }), municipalRecord({ topics: ["permits"] })],
+      "kitchen design",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("verified");
+    expect(resolution.reasons).not.toContain("sign_category_unknown");
+    expect(resolution.reasons).not.toContain("sign_details_unverified");
+    expect(resolution.distinctions.signCategory).toBe("not_applicable");
+    expectNoInferredValues(resolution);
+  });
+
+  it("still treats standalone 'sign' and 'signage' as signage work", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite({ signCategory: null }),
+      [record(), municipalRecord()],
+      "signage install",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toContain("sign_category_unknown");
+    expectNoInferredValues(resolution);
+  });
+
+  it("fails closed when an incorporated site has no city — a missing municipality matches no record", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite({ city: null }),
+      [record(), municipalRecord()],
+      "sign replacement",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toContain("no_municipal_authority_record");
+    expect(resolution.openQuestions.join(" ")).toMatch(/governing municipal authority/);
+    expectNoInferredValues(resolution);
+  });
+
+  it("fails closed when an incorporated site has no county — a missing county matches no county-claiming record", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite({ county: null }),
+      [record(), municipalRecord()],
+      "sign replacement",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toContain("no_municipal_authority_record");
+    expectNoInferredValues(resolution);
+  });
+
+  it("fails closed when an unincorporated site has no county", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite({ incorporated: false, city: null, county: null, signCategory: null }),
+      [record(), countyRecord()],
+      "roof repair",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toContain("no_county_authority_record");
+    expectNoInferredValues(resolution);
+  });
+
+  it("does not let an unmatched record cover a topic the work requires", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite(),
+      [
+        record({ topics: ["permits"] }),
+        municipalRecord({ topics: ["permits"] }),
+        countyRecord({ topics: ["signage", "permits", "structural"] }),
+      ],
+      "sign replacement",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toContain("missing_topics:signage");
+    expectNoInferredValues(resolution);
+  });
+
   it("fails closed when every record is stale, superseded, or research-only", () => {
     const resolution = resolveJurisdiction(
       verifiedSite(),

@@ -216,8 +216,7 @@ Unified Costbook routes include:
 - `/api/v1/costbook/codes/jurisdiction`
 - `/api/v1/costbook/codes/estimates/:estimateId/hints`
 - `/api/v1/costbook/codes/assessments`
-
-Codes & Permits jurisdiction matching and job assessments (issue #946, TODO 4, proposed): the pure matcher resolves governing jurisdictions from reviewed records and fails closed to `needs_verification` — it never infers a setback, footing size, wiring method, or permit fee. `codes_job_assessment` is tenant-scoped under forced RLS with owner sign-off. Estimate Scope/Review hints are read-only and financially inert (`financialEffect: "none"`). See `docs/architecture/COSTBOOK_CODES_JURISDICTION_MATCHING.md`.
+- `/api/v1/costbook/codes/assessments/:id/sign-off`
 - `/api/v1/costbook/categories`
 - `/api/v1/costbook/categories/:id`
 - `/api/v1/costbook/subcategories`
@@ -242,6 +241,8 @@ Codes & Permits jurisdiction matching and job assessments (issue #946, TODO 4, p
 - `/api/v1/costbook/candidates/:id`
 - `/api/v1/costbook/candidates/:id/review`
 - `/api/v1/costbook/candidates/:id/promote`
+
+Codes & Permits jurisdiction matching and job assessments (issue #946, TODO 4, proposed): the pure matcher resolves governing jurisdictions from reviewed records and fails closed to `needs_verification` — it never infers a setback, footing size, wiring method, or permit fee. `codes_job_assessment` is tenant-scoped under forced RLS with owner sign-off. Estimate Scope/Review hints are read-only and financially inert (`financialEffect: "none"`). See `docs/architecture/COSTBOOK_CODES_JURISDICTION_MATCHING.md`.
 
 `GET /api/v1/costbook/workspace` is a read-only workspace summary. It requires `costbook.read`, returns Costbook permission flags for the authenticated role, and returns organization-scoped counts for existing catalog records.
 

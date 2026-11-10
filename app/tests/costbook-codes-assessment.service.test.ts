@@ -41,6 +41,7 @@ function mockDb() {
       findMany: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
   };
 }
@@ -159,7 +160,9 @@ describe("CodesJobAssessmentService", () => {
   it("signs off an assessment once, stamping actor and time, and refuses a second approval", async () => {
     const db = mockDb();
     db.codesJobAssessment.findFirst.mockResolvedValue(assessmentRow());
-    db.codesJobAssessment.update.mockResolvedValue(
+    db.codesJobAssessment.updateMany.mockResolvedValue({ count: 1 });
+    db.codesJobAssessment.findFirst.mockResolvedValueOnce(assessmentRow());
+    db.codesJobAssessment.findFirst.mockResolvedValueOnce(
       assessmentRow({ status: "owner_approved", ownerSignoff: true, signedOffBy: ACTOR, signedOffAt: new Date("2026-11-09T13:00:00.000Z") }),
     );
     const service = new CodesJobAssessmentService(db as any);
@@ -169,17 +172,31 @@ describe("CodesJobAssessmentService", () => {
     expect(signed.ownerSignoff).toBe(true);
     expect(signed.signedOffBy).toBe(ACTOR);
     expect(signed.signedOffAt).toBe("2026-11-09T13:00:00.000Z");
-    expect(db.codesJobAssessment.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "30000000-0000-4000-8000-000000000001" },
-        data: expect.objectContaining({ status: "owner_approved", ownerSignoff: true, signedOffBy: ACTOR }),
-      }),
-    );
+    // Atomic conditional write: org-scoped, unapproved-state only — no
+    // read-then-update-by-id, so a concurrent sign-off cannot overwrite the
+    // audit stamp.
+    expect(db.codesJobAssessment.updateMany).toHaveBeenCalledWith({
+      where: { id: "30000000-0000-4000-8000-000000000001", orgId: ORG, ownerSignoff: false, status: { not: "owner_approved" } },
+      data: expect.objectContaining({ status: "owner_approved", ownerSignoff: true, signedOffBy: ACTOR }),
+    });
+    expect(db.codesJobAssessment.update).not.toHaveBeenCalled();
 
     db.codesJobAssessment.findFirst.mockResolvedValue(
       assessmentRow({ status: "owner_approved", ownerSignoff: true }),
     );
     await expect(service.signOff("30000000-0000-4000-8000-000000000001", ORG, ACTOR)).rejects.toThrow(/already owner-approved/);
+    expect(db.codesJobAssessment.updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 409 when a concurrent sign-off wins the race (conditional update affects zero rows)", async () => {
+    const db = mockDb();
+    // The pre-check still sees the row unapproved; the atomic update then
+    // finds nothing to update because the other request approved it first.
+    db.codesJobAssessment.findFirst.mockResolvedValue(assessmentRow());
+    db.codesJobAssessment.updateMany.mockResolvedValue({ count: 0 });
+    const service = new CodesJobAssessmentService(db as any);
+    await expect(service.signOff("30000000-0000-4000-8000-000000000001", ORG, ACTOR)).rejects.toThrow(/already owner-approved/);
+    expect(db.codesJobAssessment.updateMany).toHaveBeenCalledTimes(1);
   });
 
   it("lists assessments for a project newest first, scoped to the org", async () => {

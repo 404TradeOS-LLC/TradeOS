@@ -43,15 +43,15 @@ export function EstimateCodesHints({ estimateId }: { estimateId: string }) {
           {summary.openQuestionCount > 0 ? ` · ${summary.openQuestionCount} open question${summary.openQuestionCount === 1 ? "" : "s"}` : ""}
         </summary>
         <div className="mt-3 space-y-3 text-sm text-muted-foreground">
-          {data.hints.map((hint) => (
-            <p key={hint}>{hint}</p>
+          {data.hints.map((hint, index) => (
+            <p key={`${index}:${hint}`}>{hint}</p>
           ))}
           {data.openQuestions.length > 0 ? (
             <div>
               <p className="font-medium text-foreground">Open questions</p>
               <ul className="mt-1 list-disc space-y-1 pl-5">
-                {data.openQuestions.map((question) => (
-                  <li key={question}>{question}</li>
+                {data.openQuestions.map((question, index) => (
+                  <li key={`${index}:${question}`}>{question}</li>
                 ))}
               </ul>
             </div>
@@ -72,8 +72,8 @@ export function EstimateCodesHints({ estimateId }: { estimateId: string }) {
             <div>
               <p className="font-medium text-foreground">Authorities cited</p>
               <ul className="mt-1 list-disc space-y-1 pl-5">
-                {data.citations.map((citation) => (
-                  <li key={`${citation.source_id}:${citation.rationale}`}>
+                {data.citations.map((citation, index) => (
+                  <li key={`${index}:${citation.source_id}:${citation.rationale}`}>
                     <span className="font-mono text-xs">{citation.source_id}</span> — {citation.rationale}
                   </li>
                 ))}
