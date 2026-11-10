@@ -108,6 +108,16 @@ A first-class scheduled field-execution record stored in `Job`.
 - The actual-cost summary is integer cents and uses only nonvoid contractor-paid records. The displayed quote comparison is not recognized revenue or accounting profit. `recognizedRevenueCents` and `profitCents` remain null until verified job-level revenue attribution exists.
 - New constraint validation, migrations, receipt Storage and mobile acceptance require staged verification and documented release approval; code committed to a branch is not production deployment.
 
+## CodesJobAssessment
+
+`CodesJobAssessment` records a tenant-scoped Codes & Permits job assessment (migration `20261109220000_add_codes_job_assessment`, issue #946 TODO 4).
+
+- Each assessment belongs to an organization and a project, optionally to one estimate of that project; all reads and writes verify the parent project/estimate matches the authenticated organization, and forced RLS policies scope every row to `(SELECT public.current_app_org_id())`.
+- `workType` is the proposed work in 1–120 characters; `status` is `needs_review`, `in_review`, `owner_approved`, or `needs_verification` (default `needs_review`).
+- `citations` is a JSON array of `{source_id, rationale}` (max 20, rationale 1–500 characters); `source_id` references a TODO 2 `codes_source` id (or pilot registry id) by string, not by foreign key, so the table lands independently of TODO 2. `unknowns` is a JSON array of open questions (max 20).
+- Owner approval is never set at creation; the sign-off path sets `owner_signoff`, `signed_off_by`, and `signed_off_at`, and refuses a second approval. `created_by` records the creating user id as text.
+- The matching rules, fail-closed behavior, hints surface, and Route 63 acceptance case are documented in `docs/architecture/COSTBOOK_CODES_JURISDICTION_MATCHING.md`.
+
 ## EmailDeliveryMessage and EmailDeliveryEvent
 
 `EmailDeliveryMessage` is the outbound Resend journal and `EmailDeliveryEvent` is the verified event inbox (migration `20261105220000_add_resend_delivery_journal`, issue #927). Neither is a Prisma model; both are raw-SQL tables accessed through `app/db/resendDeliveryJournalStore.ts`, mirroring `athena_action_idempotency`.
