@@ -10,6 +10,7 @@ import { costbookCandidatesController as candidateCtrl } from "../controllers/co
 import { costbookCompositeBenchmarksController as compositeBenchmarkCtrl } from "../controllers/costbookCompositeBenchmarks.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { davisBaconController as davisBaconCtrl } from "../controllers/davisBacon.controller";
+import { costbookCodesIngestionController as codesIngestionCtrl } from "../controllers/costbookCodesIngestion.controller";
 
 export const costbookRouter = Router();
 
@@ -115,3 +116,17 @@ costbookRouter.get("/candidates/:id", asyncHandler(candidateCtrl.getById));
 costbookRouter.get("/candidates/:id/match", asyncHandler(candidateCtrl.match));
 costbookRouter.post("/candidates/:id/review", asyncHandler(candidateCtrl.review));
 costbookRouter.post("/candidates/:id/promote", asyncHandler(candidateCtrl.promote));
+
+// Governed Codes & Permits source/review pipeline (issue #946, TODO 3; see
+// docs/architecture/COSTBOOK_CODES_INGESTION.md). The reference tables are
+// global-read, but every write goes through the ingestion service only:
+// POST /ingest fetches exactly one allowlisted official URL (explicit human
+// trigger — no background fetch, scraper, or cron) and versions it as
+// `research`; approve/reject are the only paths to `reviewed`/`superseded`.
+// Static segments must precede "/:id" so they are not parsed as a source id.
+costbookRouter.post("/codes/sources/ingest", asyncHandler(codesIngestionCtrl.ingest));
+costbookRouter.get("/codes/sources/review-queue", asyncHandler(codesIngestionCtrl.reviewQueue));
+costbookRouter.get("/codes/sources", asyncHandler(codesIngestionCtrl.list));
+costbookRouter.get("/codes/sources/:id", asyncHandler(codesIngestionCtrl.getById));
+costbookRouter.post("/codes/sources/:id/approve", asyncHandler(codesIngestionCtrl.approve));
+costbookRouter.post("/codes/sources/:id/reject", asyncHandler(codesIngestionCtrl.reject));

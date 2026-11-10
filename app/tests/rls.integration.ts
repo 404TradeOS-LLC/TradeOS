@@ -8,6 +8,13 @@ import {
 } from "../db/requestSession";
 import { resolveAuthContext } from "../backend/auth/session";
 import type { SupportedRole } from "../domain";
+import type { AuthContext } from "../backend/auth/context";
+import {
+  approveCodeSource,
+  getCodeSource,
+  ingestOfficialCodeSource,
+} from "../modules/costbook/codes/ingestion";
+import { PrismaCodesSourceStore } from "../modules/costbook/codes/store";
 import { OrganizationProvisioningService } from "../modules/organization-provisioning/service";
 import { MaterialDatabaseService } from "../modules/material-database/service";
 import { SupplierIntegrationService } from "../modules/supplier-integration/service";
@@ -2878,6 +2885,192 @@ describe("live organization row-level security", () => {
       expect(signed.event.actorUserId).toBeNull();
       expect(signed.event.metadataJson).toMatchObject({ actorType: "customer_portal", customerId: customerA });
       expect(signed.activity.actorUserId).toBeNull();
+    });
+  });
+
+  describe("codes_source governed ingestion RLS (issue #946, TODO 3)", () => {
+    // Depends on TODO 2's tables (codes_source, codes_source_history) and
+    // its seed rows (PR #960, `feat/codes-permits-registry-946`, head
+    // 9cdea60d). Jurisdiction/authority ids below are TODO 2's FIXED seed
+    // UUIDs, so no seeder is needed: the migration inserts them
+    // idempotently (ON CONFLICT DO NOTHING).
+    //   INDOT authority  94600001-0000-4000-8000-000000000003
+    //   Indiana (INDOT) jurisdiction 94600002-0000-4000-8000-000000000003
+    //
+    // Uniqueness note (#960): (authority_id, code_family, citation,
+    // version_label) is UNIQUE, so every seeded/ingested row in this block
+    // uses a DISTINCT citation — two rows for one citation would collide
+    // even on different URLs.
+    const codesStore = new PrismaCodesSourceStore();
+    const codesJurisdictionId = "94600002-0000-4000-8000-000000000003";
+    const codesAuthorityId = "94600001-0000-4000-8000-000000000003";
+    // Deliberately distinct from every URL seeded by the other tests in
+    // this block: the ingest test expects its first version to be `v1`,
+    // which only holds when no earlier version exists for the same citation.
+    const codesSourceUrl = "https://www.in.gov/indot/permits/governed-ingest-test/";
+    const codesAdminAuth: AuthContext = { userId: adminUser, orgId: orgA, role: "admin" };
+    const codesOtherAuth: AuthContext = { userId: otherUser, orgId: orgB, role: "owner" };
+    const codesTechnicianAuth: AuthContext = { userId: technicianUser, orgId: orgA, role: "technician" };
+
+    async function seedReviewedSource(input: { citation: string; sourceUrl: string; expiryDate: string | null; sourceHash: string }): Promise<string> {
+      const id = randomUUID();
+      await adminClient.$queryRaw(Prisma.sql`
+        insert into codes_source (
+          id, jurisdiction_id, authority_id, code_family, section, citation, title,
+          source_url, source_hash, license_note,
+          published_date, amended_date, effective_date, expiry_date,
+          status, reviewed_at, reviewed_by, version_label, supersedes_id
+        ) values (
+          ${id}::uuid, ${codesJurisdictionId}::uuid, ${codesAuthorityId}::uuid, 'sign-permits', null,
+          ${input.citation}, 'INDOT outdoor advertising sign permits',
+          ${input.sourceUrl}, ${input.sourceHash}, null,
+          null, null, null, ${input.expiryDate ? Prisma.sql`${input.expiryDate}::date` : Prisma.sql`NULL`},
+          'reviewed', now(), ${adminUser}, 'v1', NULL
+        )
+      `);
+      return id;
+    }
+
+    it("reads the shared reference globally: both tenants see the same reviewed source", async () => {
+      const sourceId = await seedReviewedSource({
+        citation: "INDOT — Global read fixture",
+        sourceUrl: "https://www.in.gov/indot/doing-business-with-indot/permits/",
+        expiryDate: null,
+        sourceHash: "a".repeat(64),
+      });
+      const seenByOrgA = await inSession(adminUser, orgA, "admin", () => codesStore.getById(sourceId));
+      const seenByOrgB = await inSession(otherUser, orgB, "owner", () => codesStore.getById(sourceId));
+      expect(seenByOrgA?.id).toBe(sourceId);
+      expect(seenByOrgB?.id).toBe(sourceId);
+      const listedByOrgB = await inSession(otherUser, orgB, "owner", () => codesStore.list({}));
+      expect(listedByOrgB.some((row) => row.id === sourceId)).toBe(true);
+    });
+
+    it("denies direct tenant writes without the ingestion flag", async () => {
+      const sourceId = await seedReviewedSource({
+        citation: "INDOT — Direct write fixture",
+        sourceUrl: "https://www.in.gov/dhs/boards-and-commissions/fpbsc-rules/",
+        expiryDate: null,
+        sourceHash: "b".repeat(64),
+      });
+      await expect(
+        inSession(adminUser, orgA, "admin", () =>
+          currentTransaction().$queryRaw(Prisma.sql`
+            insert into codes_source (
+              jurisdiction_id, authority_id, code_family, section, citation, title,
+              source_url, source_hash, license_note,
+              published_date, amended_date, effective_date, expiry_date,
+              status, reviewed_at, reviewed_by, version_label, supersedes_id
+            ) values (
+              ${codesJurisdictionId}::uuid, ${codesAuthorityId}::uuid, 'sign-permits', null, 'direct', 'direct',
+              'https://www.in.gov/indot/direct-write/', ${"c".repeat(64)}, null,
+              null, null, null, null,
+              'research', null, null, 'v1', null
+            )
+          `),
+        ),
+      ).rejects.toThrow(/row-level security/);
+      await expect(
+        inSession(adminUser, orgA, "admin", () =>
+          currentTransaction().$queryRaw(Prisma.sql`
+            update codes_source set title = 'direct edit' where id = ${sourceId}::uuid
+          `),
+        ),
+      ).rejects.toThrow(/row-level security/);
+      await expect(
+        inSession(adminUser, orgA, "admin", () =>
+          currentTransaction().$queryRaw(Prisma.sql`
+            delete from codes_source where id = ${sourceId}::uuid
+          `),
+        ),
+      ).rejects.toThrow(/row-level security/);
+      await expect(
+        inSession(adminUser, orgA, "admin", () =>
+          currentTransaction().$queryRaw(Prisma.sql`
+            insert into codes_source_history (source_id, version_label, source_hash, status, change_summary, recorded_by)
+            values (${sourceId}::uuid, 'v1', ${"b".repeat(64)}, 'reviewed', 'direct write attempt', ${adminUser})
+          `),
+        ),
+      ).rejects.toThrow(/row-level security/);
+      // The denied writes changed nothing.
+      const stillThere = await inSession(adminUser, orgA, "admin", () => codesStore.getById(sourceId));
+      expect(stillThere?.title).toBe("INDOT outdoor advertising sign permits");
+    });
+
+    it("ingests through the governed service under the flag and is idempotent", async () => {
+      const fetchImpl = (async () =>
+        new Response(new TextEncoder().encode("live indot permits bytes"), { status: 200 })) as typeof fetch;
+      const input = {
+        jurisdictionId: codesJurisdictionId,
+        authorityId: codesAuthorityId,
+        codeFamily: "sign-permits",
+        citation: "INDOT — Governed ingest test",
+        title: "INDOT outdoor advertising sign permits",
+        sourceUrl: codesSourceUrl,
+      };
+      const first = await inSession(adminUser, orgA, "admin", () =>
+        ingestOfficialCodeSource(codesAdminAuth, input, { fetchImpl }),
+      );
+      expect(first.outcome).toBe("created");
+      expect(first.source.status).toBe("research");
+      expect(first.source.versionLabel).toBe("v1");
+      const second = await inSession(adminUser, orgA, "admin", () =>
+        ingestOfficialCodeSource(codesAdminAuth, input, { fetchImpl }),
+      );
+      expect(second.outcome).toBe("unchanged");
+      expect(second.source.id).toBe(first.source.id);
+      const historyCount = await adminClient.$queryRaw<Array<{ total: number }>>(Prisma.sql`
+        select count(*)::int as total from codes_source_history where source_id = ${first.source.id}::uuid
+      `);
+      expect(historyCount[0]?.total).toBe(1);
+    });
+
+    it("refuses technician ingest and enforces single human approval", async () => {
+      const fetchImpl = (async () =>
+        new Response(new TextEncoder().encode("technician attempt bytes"), { status: 200 })) as typeof fetch;
+      await expect(
+        inSession(technicianUser, orgA, "technician", () =>
+          ingestOfficialCodeSource(codesTechnicianAuth, {
+            jurisdictionId: codesJurisdictionId,
+            authorityId: codesAuthorityId,
+            codeFamily: "sign-permits",
+            citation: "INDOT — Approval test",
+            title: "INDOT outdoor advertising sign permits",
+            sourceUrl: "https://www.in.gov/indot/technician-attempt/",
+          }, { fetchImpl }),
+        ),
+      ).rejects.toMatchObject({ statusCode: 403 });
+
+      const created = await inSession(adminUser, orgA, "admin", () =>
+        ingestOfficialCodeSource(codesAdminAuth, {
+          jurisdictionId: codesJurisdictionId,
+          authorityId: codesAuthorityId,
+          codeFamily: "sign-permits",
+          citation: "INDOT — Approval test",
+          title: "INDOT outdoor advertising sign permits",
+          sourceUrl: "https://www.in.gov/indot/approval-attempt/",
+        }, { fetchImpl }),
+      );
+      const approved = await inSession(adminUser, orgA, "admin", () =>
+        approveCodeSource(codesAdminAuth, created.source.id, {}, {}),
+      );
+      expect(approved.status).toBe("reviewed");
+      expect(approved.reviewedBy).toBe(adminUser);
+      await expect(
+        inSession(adminUser, orgA, "admin", () => approveCodeSource(codesAdminAuth, created.source.id, {}, {})),
+      ).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    it("surfaces expired warnings on live reads", async () => {
+      const sourceId = await seedReviewedSource({
+        citation: "INDOT — Expired fixture",
+        sourceUrl: "https://www.in.gov/indot/expired-source/",
+        expiryDate: "2020-01-01",
+        sourceHash: "d".repeat(64),
+      });
+      const read = await inSession(otherUser, orgB, "owner", () => getCodeSource(codesOtherAuth, sourceId, {}));
+      expect(read.status).toBe("reviewed");
+      expect(read.warnings).toContain("expired");
     });
   });
 });
