@@ -88,4 +88,17 @@ test("migrated source-controlled Team & Time foundation precedes FORCE with audi
       AND tgname='team_time_shift_audit' AND NOT tgisinternal`,
   );
   expect(trigger[0]?.count).toBe(1n);
+  // FORCE RLS blocks even the table owner, so the SECURITY DEFINER audit
+  // trigger can only write team_time_events if its owner is a superuser or
+  // holds BYPASSRLS. On Supabase that owner is postgres; the CI test database
+  // is likewise provisioned with postgres as admin.
+  const owner = await admin.$queryRawUnsafe<Array<{ prosecdef: boolean; can_bypass: boolean }>>(
+    `SELECT p.prosecdef, (r.rolsuper OR r.rolbypassrls) AS can_bypass
+    FROM pg_proc p JOIN pg_roles r ON r.oid = p.proowner
+    WHERE p.pronamespace = 'tradeos_private'::regnamespace
+      AND p.proname = 'audit_team_time_shift'`,
+  );
+  expect(owner).toHaveLength(1);
+  expect(owner[0]?.prosecdef).toBe(true);
+  expect(owner[0]?.can_bypass).toBe(true);
 });
