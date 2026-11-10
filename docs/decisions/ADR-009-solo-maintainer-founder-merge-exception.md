@@ -6,12 +6,13 @@ Decision owner: Founder
 
 ## Context
 
-TradeOS currently has one repository maintainer. The live `main` ruleset already
+TradeOS has operated with one repository maintainer. The live `main` ruleset
 requires pull requests, current branches, required checks, resolved
-conversations, linear history, and deletion/non-fast-forward protection, but an
-implicit extra-approval rule can still block a self-authored pull request when
-no independent reviewer exists. A fake independent approval would provide no
-additional safety and would misrepresent the review record.
+conversations, linear history, and deletion/non-fast-forward protection. An
+implicit extra-approval gate previously blocked self-authored pull requests
+when no independent reviewer was available. That gate was disabled by the
+narrow ruleset change verified on 2026-11-10. A fake independent approval
+would provide no additional safety and would misrepresent the review record.
 
 ## Decision
 
@@ -47,8 +48,13 @@ tenant isolation, and product/legal decisions remain independently required.
 - The technical branch-protection envelope remains intact.
 - The approving-review requirement must be raised when another qualified
   maintainer or reviewer becomes available.
-- The current live ruleset still needs the narrow extra-approval configuration
-  change; repository documentation alone does not alter GitHub settings.
+- The narrow extra-approval change has been applied and was verified on
+  2026-11-10 against active GitHub ruleset [18958081](https://github.com/404TradeOS-LLC/TradeOS/rules/18958081):
+  `require_extra_approval_for_unattributed_changes: false` and
+  `required_approving_review_count: 0`. Required checks, branch freshness,
+  thread resolution, linear history and deletion/non-fast-forward protections
+  remain in effect. Future audits must re-check live settings; this ADR does
+  not itself change GitHub configuration.
 
 ## Alternatives considered
 
