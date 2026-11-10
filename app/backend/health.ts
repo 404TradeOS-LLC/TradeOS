@@ -18,6 +18,12 @@ export interface ReadinessPayload {
     database: {
       status: "ok" | "error";
       latencyMs: number;
+      // The Supabase project ref of the configured data plane (a public
+      // identifier, not a secret). The staging attestation script requires
+      // it in /ready before excusing missing database bindings: healthy
+      // connectivity alone cannot prove the deployment talks to staging
+      // rather than production. Omitted when no configured URL parses.
+      projectRef?: string;
     };
     schema: {
       status: "ok" | "error";
@@ -57,6 +63,35 @@ function serviceMetadata() {
   };
 }
 
+// Identify the configured Supabase data plane from the connection URLs:
+// DATABASE_URL first (direct `db.<ref>.supabase.co` host, or the pooler
+// username `postgres.<ref>`), then SUPABASE_URL (`<ref>.supabase.co`).
+// Returns undefined when neither parses, so callers fail closed rather
+// than guessing. The ref is a public identifier, never a secret.
+export function resolveDatabaseProjectRef(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  const databaseUrl = env.DATABASE_URL;
+  if (databaseUrl) {
+    try {
+      const db = new URL(databaseUrl);
+      const direct = /^db\.([a-z0-9]+)\.supabase\.co$/.exec(db.hostname)?.[1];
+      if (direct) return direct;
+      if (/(^|\.)pooler\.supabase\.com$/.test(db.hostname)) {
+        const poolerRef = /\.([a-z0-9]+)$/.exec(decodeURIComponent(db.username))?.[1];
+        if (poolerRef) return poolerRef;
+      }
+    } catch {
+      // Fall through to SUPABASE_URL below.
+    }
+  }
+  const supabaseUrl = env.SUPABASE_URL;
+  if (!supabaseUrl) return undefined;
+  try {
+    return /^([a-z0-9]+)\.supabase\.co$/.exec(new URL(supabaseUrl).hostname)?.[1];
+  } catch {
+    return undefined;
+  }
+}
+
 export function buildHealthPayload(now: Date = new Date()): HealthPayload {
   const metadata = serviceMetadata();
   return {
@@ -71,6 +106,7 @@ export function buildHealthPayload(now: Date = new Date()): HealthPayload {
 
 export async function checkReadiness(now: Date = new Date()): Promise<ReadinessPayload> {
   const startedAt = process.hrtime.bigint();
+  const projectRef = resolveDatabaseProjectRef();
 
   try {
     await basePrisma.$queryRawUnsafe("SELECT 1");
@@ -95,7 +131,7 @@ export async function checkReadiness(now: Date = new Date()): Promise<ReadinessP
         service: serviceMetadata().service,
         timestamp: now.toISOString(),
         checks: {
-          database: { status: "ok", latencyMs: Number(latencyMs.toFixed(1)) },
+          database: { status: "ok", latencyMs: Number(latencyMs.toFixed(1)), ...(projectRef ? { projectRef } : {}) },
           schema: { status: "error", missingColumns },
         },
       };
@@ -108,6 +144,7 @@ export async function checkReadiness(now: Date = new Date()): Promise<ReadinessP
         database: {
           status: "ok",
           latencyMs: Number(latencyMs.toFixed(1)),
+          ...(projectRef ? { projectRef } : {}),
         },
         schema: { status: "ok" },
       },
@@ -128,6 +165,7 @@ export async function checkReadiness(now: Date = new Date()): Promise<ReadinessP
         database: {
           status: "error",
           latencyMs: Number(latencyMs.toFixed(1)),
+          ...(projectRef ? { projectRef } : {}),
         },
         schema: { status: "error" },
       },
