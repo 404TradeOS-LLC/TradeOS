@@ -73,20 +73,27 @@ export function resolveDatabaseProjectRef(env: NodeJS.ProcessEnv = process.env):
   if (databaseUrl) {
     try {
       const db = new URL(databaseUrl);
-      const direct = /^db\.([a-z0-9]+)\.supabase\.co$/.exec(db.hostname)?.[1];
+      // A configured database URL must prove its own project. Never let a
+      // separate SUPABASE_URL conceal an unrecognized or overridden DB target.
+      if (!["postgres:", "postgresql:"].includes(db.protocol) || db.searchParams.has("host")) {
+        return undefined;
+      }
+      const direct = /^db\.([a-z0-9]{20})\.supabase\.co$/.exec(db.hostname)?.[1];
       if (direct) return direct;
       if (/(^|\.)pooler\.supabase\.com$/.test(db.hostname)) {
-        const poolerRef = /\.([a-z0-9]+)$/.exec(decodeURIComponent(db.username))?.[1];
+        const poolerRef = /^[a-z_][a-z0-9_]*\.([a-z0-9]{20})$/i.exec(decodeURIComponent(db.username))?.[1];
         if (poolerRef) return poolerRef;
       }
     } catch {
-      // Fall through to SUPABASE_URL below.
+      // Invalid configured database identity is not a staging attestation.
     }
+    return undefined;
   }
+  // Fallback is allowed only if no DATABASE_URL was configured.
   const supabaseUrl = env.SUPABASE_URL;
   if (!supabaseUrl) return undefined;
   try {
-    return /^([a-z0-9]+)\.supabase\.co$/.exec(new URL(supabaseUrl).hostname)?.[1];
+    return /^([a-z0-9]{20})\.supabase\.co$/.exec(new URL(supabaseUrl).hostname)?.[1];
   } catch {
     return undefined;
   }
