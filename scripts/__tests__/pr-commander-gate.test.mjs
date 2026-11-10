@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { evaluateGate, headVerdictKey } from "../pr-commander-lib.mjs";
+import { evaluateGate, headVerdictKey, normalizeSnapshot } from "../pr-commander-lib.mjs";
 
 // Tests for the PR Commander coordinator gate (Workstream C).
 //
@@ -221,4 +221,64 @@ test("dry-run guard: an unarmed evaluation never reports MERGE_READY", () => {
 test("armed evaluation of a ready snapshot still reports MERGE_READY", () => {
   const result = evaluateGate(readySnapshot(), { armed: true });
   assert.equal(result.verdict, "MERGE_READY");
+});
+
+// Regression (2026-11-10 repair of PR #964): the workflow's inline node
+// evaluators called evaluateGate on the RAW `gh pr view` payload, which
+// carries `statusCheckRollup` (not `checks`), so every PR mis-evaluated as
+// BLOCKED on missing required-check evidence — and the armed re-evaluation
+// could never reach MERGE_READY. The fix moves normalizeSnapshot into the
+// lib and normalizes before every evaluateGate call (CLI + both workflow
+// inline blocks). These tests pin the raw-payload path.
+
+function rawGhSnapshot(overrides = {}) {
+  return {
+    number: 945,
+    headRefOid: HEAD_A,
+    isDraft: false,
+    mergeStateStatus: "CLEAN",
+    mergeable: "MERGEABLE",
+    reviewDecision: null,
+    statusCheckRollup: REQUIRED_CHECKS.map((name) => ({
+      name,
+      conclusion: "SUCCESS",
+      status: "COMPLETED",
+    })),
+    reviewThreads: { nodes: [], pageInfo: { hasNextPage: false } },
+    reviews: [],
+    baseRefName: "main",
+    headRefName: "dependabot/npm_and_yarn/app/api-development-abc",
+    files: [{ path: "app/package.json" }, { path: "app/package-lock.json" }],
+    ...overrides,
+  };
+}
+
+test("normalizeSnapshot maps a raw gh pr view payload to the lib shape", () => {
+  const normalized = normalizeSnapshot(rawGhSnapshot());
+  assert.equal(normalized.headSha, HEAD_A);
+  assert.deepEqual(
+    normalized.checks.map((c) => c.name),
+    REQUIRED_CHECKS,
+  );
+  assert.deepEqual(normalized.threads, { total: 0, unresolved: 0 });
+  assert.deepEqual(normalized.files, ["app/package.json", "app/package-lock.json"]);
+});
+
+test("evaluateGate on a raw gh payload must be normalized first: unnormalized reads zero checks", () => {
+  // The trap, pinned: without normalizeSnapshot, the four green required
+  // checks are invisible and the verdict is BLOCKED on missing evidence.
+  const raw = rawGhSnapshot();
+  const unnormalized = evaluateGate(raw, { armed: true });
+  assert.equal(unnormalized.verdict, "BLOCKED");
+  assert.match(unnormalized.reasons.join(" "), /Required check evidence missing/);
+  // The workflow's inline evaluators normalize first — same payload, ready.
+  const normalized = evaluateGate(normalizeSnapshot(raw), { armed: true });
+  assert.equal(normalized.verdict, "MERGE_READY");
+});
+
+test("repair attempts survive normalization: 3 attempts on a BEHIND raw payload escalates", () => {
+  const raw = rawGhSnapshot({ mergeStateStatus: "BEHIND", attempts: 3 });
+  const result = evaluateGate(normalizeSnapshot(raw), { armed: true });
+  assert.equal(result.verdict, "BLOCKED_ESCALATED");
+  assert.match(result.founderItems.join(" "), /repair attempts exhausted/);
 });

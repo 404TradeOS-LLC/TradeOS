@@ -38,6 +38,7 @@ import {
   headVerdictKey,
   isArmed,
   nextRetryDelayMs,
+  normalizeSnapshot,
 } from "./pr-commander-lib.mjs";
 
 const MODES = ["audit", "dry-run", "armed"];
@@ -106,59 +107,6 @@ function parseArgs(argv) {
     throw new Error("Provide exactly one snapshot source: --snapshot, --stdin, --pr, or a JSON argument.");
   }
   return args;
-}
-
-// Normalize a `gh pr view --json` payload (or a partial one) into the lib
-// snapshot shape. A lib-shaped snapshot passes through unchanged, except
-// that `headRefOid` is accepted as an alias for `headSha`.
-export function normalizeSnapshot(raw) {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error("Snapshot must be a JSON object");
-  }
-  const checks = [];
-  const rollup = raw.statusCheckRollup;
-  if (Array.isArray(rollup)) {
-    for (const entry of rollup) {
-      if (entry && typeof entry.name === "string") {
-        checks.push({ name: entry.name, conclusion: entry.conclusion ?? null, status: entry.status ?? null });
-      }
-    }
-  } else if (Array.isArray(raw.checks)) {
-    for (const entry of raw.checks) {
-      if (entry && typeof entry.name === "string") checks.push(entry);
-    }
-  }
-  const threadsRaw = raw.reviewThreads;
-  let threads = raw.threads ?? null;
-  if (!threads && threadsRaw) {
-    const nodes = Array.isArray(threadsRaw.nodes) ? threadsRaw.nodes : Array.isArray(threadsRaw) ? threadsRaw : [];
-    threads = {
-      total: nodes.length,
-      unresolved: nodes.filter((t) => t?.isResolved !== true).length,
-    };
-  }
-  const filesRaw = raw.files ?? [];
-  const files = filesRaw.map((f) => (typeof f === "string" ? f : f?.path ?? f?.filename ?? "")).filter(Boolean);
-  const reviews = Array.isArray(raw.reviews)
-    ? raw.reviews.map((r) => ({ state: r?.state ?? null, author: r?.author?.login ?? r?.author ?? null }))
-    : [];
-  return {
-    number: raw.number ?? null,
-    headSha: raw.headSha ?? raw.headRefOid ?? null,
-    isDraft: Boolean(raw.isDraft),
-    mergeStateStatus: raw.mergeStateStatus ?? null,
-    mergeable: raw.mergeable ?? null,
-    reviewDecision: raw.reviewDecision ?? null,
-    checks,
-    threads: threads ?? { total: 0, unresolved: 0 },
-    reviews,
-    baseRefName: raw.baseRefName ?? null,
-    headRefName: raw.headRefName ?? null,
-    files,
-    attempts: Number.isInteger(raw.attempts) ? raw.attempts : undefined,
-    adr009Record: Boolean(raw.adr009Record),
-    prOnlyCategory: Boolean(raw.prOnlyCategory),
-  };
 }
 
 function fetchLiveSnapshot(prNumber) {

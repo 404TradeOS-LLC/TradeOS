@@ -70,7 +70,13 @@ object is `{ verdict, reasons[], nextActions[], founderItems[], headSha }`.
    verified by `npm test` + lint + build before any push); the workflow's
    repair tier is deliberately narrow in v1 (same-repo PRs whose failing
    check is `Web lint and build`); (b) CodeQL Autofix for security findings
-   — the existing `codeql-autofix.yml` is dispatched, never re-implemented;
+   — the existing `codeql-autofix.yml` is NOT dispatched from this
+   workflow (a dispatch needs `actions: write`, which the repository's
+   workflow-security policy prohibits) and is never re-implemented;
+   security findings are surfaced as founder items and handled by the
+   `codeql-autofix.yml` scheduled run (every 2h). On-demand dispatch is
+   a documented v1 gap (policy exception or `workflow_call`
+   restructure);
    (c) CodeRabbit re-review after a repair push (one best-effort request,
    60 s backoff; re-review is externally rate-limited). Copilot Agent Merge
    is NOT available (org: 0 Copilot seats, no billing source, quota failures
@@ -172,7 +178,10 @@ object is `{ verdict, reasons[], nextActions[], founderItems[], headSha }`.
     `gh pr review --approve` anywhere); no production scope in
     permissions (workflow permissions are read-only except the armed `act`
     job: `contents: write, pull-requests: write, issues: write,
-    checks: read, actions: write`); no spending path exists. The workflow
+    checks: read, actions: read` — `actions: write` is deliberately not
+    requested: the repository's workflow-security policy prohibits it,
+    and the CodeQL dispatch that needed it is delegated to the
+    `codeql-autofix.yml` scheduled run instead); no spending path exists. The workflow
     works WITH live ruleset 18958081 and never creates, edits, enables, or
     disables a ruleset. No `pull_request_target`, no `write-all`,
     least-privilege permissions, SHA-pinned actions, no untrusted
@@ -258,3 +267,65 @@ object is `{ verdict, reasons[], nextActions[], founderItems[], headSha }`.
 - Workflow YAML: `python3 -c yaml.safe_load` parses; `actionlint` 1.7.7
   (pinned SHA `023070a2…0757`, same as `workflow-security.yml`) exits 0
   with no findings.
+
+## Repair — 2026-11-10 (PR #964, head 43fd0804 → repair commit)
+
+Four CI failures on the first `pull_request` run (42848879225) and the
+first `workflow_dispatch` dry-run (42848887799, PR #953), all on head
+43fd0804. Root causes, verified from the job logs:
+
+1. **Evaluate / Aggregate bootstrap (expected, by design).** Both jobs
+   check out `main`, and the scripts exist only on the PR branch, so
+   `node scripts/pr-commander.mjs` fails with `MODULE_NOT_FOUND`. The
+   checkout is NOT weakened: the Commander must only ever run code that
+   is on `main`. The jobs now fail fast with an explicit bootstrap error
+   instead of a bare module error. They will pass on the first run after
+   this PR merges; the first post-merge verification is
+   `gh workflow run pr-commander.yml --ref main -f mode=dry-run
+   -f pr_number=<n>` (see the PR body).
+2. **Aggregate import path (real bug).** `aggregate.mjs` is written to
+   `$RUNNER_TEMP` but imported `./scripts/pr-commander-lib.mjs`, which
+   resolves under `$RUNNER_TEMP/scripts/` and does not exist. Fixed by
+   copying the library next to the script in the report job.
+3. **Evaluate/aggregate verdict mismatch (real bug, caught by local
+   simulation).** The workflow's inline node evaluators called
+   `evaluateGate` on the raw `gh pr view` payload, which carries
+   `statusCheckRollup`, not `checks` — so `checkByName` read zero checks
+   and every PR mis-evaluated as BLOCKED on missing required-check
+   evidence; the armed re-evaluation could never have reached
+   MERGE_READY. Fixed by moving `normalizeSnapshot` from the CLI into
+   the lib and normalizing before every `evaluateGate` call (CLI + both
+   inline blocks). Regression tests pin the raw-payload path (51 tests
+   total, was 48).
+4. **Armed attempt count never reached node (real bug, caught by
+   shellcheck SC2034).** `ATTEMPTS="$attempts" verdict=$(armed_verdict)`
+   is an assignment statement: the prefix is a shell variable during
+   expansion, never exported to the `node` child, so armed re-evaluation
+   silently ran with attempts=0 and `BLOCKED_ESCALATED` could never
+   trigger. Fixed by passing the count as an argument
+   (`armed_verdict "$attempts"`, `ATTEMPTS="$1" node …` inside).
+   Verified locally: attempts=3 → `BLOCKED_ESCALATED`, attempts=0 →
+   `REPAIRABLE` on the same live #953 snapshot.
+5. **Workflow-security policy: `actions: write` prohibited.** The only
+   use was `gh workflow run codeql-autofix.yml` (a dispatch needs
+   `actions: write`). No policy was changed and no exception requested:
+   the `act` job now holds `actions: read` (still covers
+   `gh run download`), the dispatch is removed, and security findings are
+   surfaced as founder items and handled by the existing
+   `codeql-autofix.yml` scheduled run (every 2h). On-demand dispatch is a
+   documented v1 gap: it needs a policy exception for `actions: write`
+   (a founder decision) or a `workflow_call` restructure of
+   `codeql-autofix.yml`.
+6. **actionlint (5 findings, all fixed).** SC2129 (group the three
+   `GITHUB_OUTPUT` echoes), SC2016 ×2 (GraphQL `$owner`/`$name`/`$number`
+   are GraphQL variables — script-wide disable with a comment), SC2012
+   (`ls` → `find`), SC2034 (the `armed_verdict` bug above). Local
+   `actionlint` 1.7.7 exits 0 with no findings.
+
+Local end-to-end simulation (live #953 snapshot, head 16bbaafa):
+CLI and the fixed verdict-writer path agree (`REPAIRABLE`, behind
+branch); the fixed aggregate script runs and emits the summary +
+`ready_prs=[] / founder_prs=[] / escalated_prs=[]`; the fixed armed
+path escalates at 3 attempts. The workflow YAML itself cannot run
+end-to-end before merge (bootstrap, item 1) — that is the documented
+gap, not a claim.

@@ -34,8 +34,9 @@ verdict record per PR.
 It **composes** existing pieces and rebuilds none of them: required checks are
 read from `verify-repository.yml`, readiness comes from `merge-readiness.yml`
 (extended with threads, branch currency, ADR-009, and file classification),
-rebases are dispatched to `pr-maintenance.yml`, security fixes are dispatched
-to `codeql-autofix.yml`, and the lint-autofix pattern comes from
+rebases are dispatched to `pr-maintenance.yml`, security fixes are left
+to the `codeql-autofix.yml` scheduled run (the Commander never dispatches
+it — see "Repair tiers" below), and the lint-autofix pattern comes from
 `code-quality-autofix.yml`. See
 [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md) for setup, and
 `scripts/pr-commander-implementation-note.md` for the 14-requirement map.
@@ -51,9 +52,10 @@ to `codeql-autofix.yml`, and the lint-autofix pattern comes from
   (via GraphQL — `gh pr view` does not expose them), changed files, and
   reviews.
 - A bounded repair loop: deterministic lint repair on the PR branch
-  (verified by unit tests + lint + build before any push), CodeQL Autofix
-  dispatch for security findings, and one best-effort CodeRabbit re-review
-  request after a repair push.
+  (verified by unit tests + lint + build before any push), security
+  findings surfaced as founder items and handled by the scheduled
+  CodeQL Autofix run (no dispatch from this workflow), and one
+  best-effort CodeRabbit re-review request after a repair push.
 - A dependency-safe merge orderer: stacked PRs merge base-first
   (`detectStacks` / `orderMerges`); a dependency cycle merges nothing from
   the cyclic set.
@@ -276,7 +278,14 @@ Actions tab stops schedule runs as well.
    if the verification passes; otherwise the branch is restored and
    nothing is pushed.
 2. **CodeQL Autofix for security findings** — the existing
-   `codeql-autofix.yml` is dispatched (once per run), never re-implemented.
+   `codeql-autofix.yml` is **not dispatched from this workflow and never
+   re-implemented here**: a workflow dispatch needs `actions: write`,
+   which the repository's workflow-security policy prohibits. Security
+   findings are surfaced as founder items in the verdict comment and
+   handled by the `codeql-autofix.yml` scheduled run (every 2h) on its
+   own cadence. On-demand dispatch is a documented v1 gap: closing it
+   needs a policy exception for `actions: write` (a founder decision)
+   or a `workflow_call` restructure of `codeql-autofix.yml`.
 3. **CodeRabbit re-review** — after a repair push, one best-effort request
    (`@coderabbitai review`, after a 60 s backoff). CodeRabbit also
    re-reviews automatically on push. Re-review is externally rate-limited:

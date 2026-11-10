@@ -13,7 +13,8 @@
 #   - Branch currency signal: stale-pr-check.yml (read, not duplicated).
 #   - ESLint autofix pattern: code-quality-autofix.yml (fix -> verify ->
 #     push), extended here to per-PR scope.
-#   - Security fixes: codeql-autofix.yml (dispatched, not re-implemented).
+#   - Security fixes: codeql-autofix.yml (scheduled run every 2h, never
+#     re-implemented and never dispatched from here — see below).
 #   - Merge queue: merge-queue.yml / scripts/merge-queue.mjs eligibility
 #     policy is the queue path; this workflow uses native auto-merge
 #     (`gh pr merge --auto --squash`) and never assumes the native queue is
@@ -42,7 +43,17 @@
 #      check + regression tests before any push. Repair pushes use real
 #      `git push` from the runner — never the REST git-data API, because
 #      API-pushed commits emit no push event and never trigger pull_request CI.
-#   2. CodeQL Autofix for security findings: dispatch codeql-autofix.yml.
+#   2. CodeQL Autofix for security findings: delegated to the existing
+#      codeql-autofix.yml SCHEDULED run (every 2h), never re-implemented
+#      here. The Commander does NOT dispatch that workflow itself: a
+#      workflow dispatch needs `actions: write`, which the repository's
+#      workflow-security policy prohibits (see the `act` job). Security
+#      findings are surfaced as founder items in the verdict comment, and
+#      the scheduled CodeQL Autofix run picks them up on its own cadence.
+#      On-demand dispatch is a documented v1 gap, not a silent omission:
+#      closing it needs either a policy exception for `actions: write`
+#      (a founder decision) or a `workflow_call` restructure of
+#      codeql-autofix.yml (a separate change to that workflow).
 #   3. CodeRabbit re-review after repair pushes (it is the reviewer of
 #      record). Re-review is externally rate-limited: one best-effort request
 #      with backoff, never a retry loop.
@@ -181,9 +192,11 @@ jobs:
           if [ "$VAR_ARMED" = "true" ] && [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$mode" = "armed" ]; then
             effective_armed="true"
           fi
-          echo "mode=$mode" >> "$GITHUB_OUTPUT"
-          echo "armed=$VAR_ARMED" >> "$GITHUB_OUTPUT"
-          echo "effective_armed=$effective_armed" >> "$GITHUB_OUTPUT"
+          {
+            echo "mode=$mode"
+            echo "armed=$VAR_ARMED"
+            echo "effective_armed=$effective_armed"
+          } >> "$GITHUB_OUTPUT"
           echo "Mode: $mode; variable armed: $VAR_ARMED; effectively armed: $effective_armed"
           if [ -n "${EVENT_PR:-}" ]; then
             prs=$(jq -cn --argjson n "$EVENT_PR" '[$n]')
@@ -238,6 +251,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ matrix.pr }}
         run: |
+          # shellcheck disable=SC2016 -- $owner/$name/$number in the GraphQL query are GraphQL variables, not shell expansions.
           set -euo pipefail
           mkdir -p verdicts
           # Exact-head snapshot: head SHA, mergeability, review decision,
@@ -276,6 +290,12 @@ jobs:
           ATTEMPTS: ${{ steps.snapshot.outputs.attempts }}
         run: |
           set -euo pipefail
+          # Bootstrap: until #964 merges, the scripts do not exist on main.
+          # Fail fast with a clear message instead of a module error.
+          if [ ! -f scripts/pr-commander.mjs ]; then
+            echo "::error::scripts/pr-commander.mjs is not on main yet — the Commander bootstrap requires #964 to be merged before evaluate can run."
+            exit 1
+          fi
           # The evaluate job is ALWAYS dry-run evaluation: armed=false here.
           # Job `act` re-evaluates with armed=true before any write.
           node scripts/pr-commander.mjs --snapshot snapshot.json --mode "$MODE" --attempts "$ATTEMPTS"
@@ -291,9 +311,14 @@ jobs:
           set -euo pipefail
           node --input-type=module -e "
             import fs from 'node:fs';
-            import { evaluateGate } from './scripts/pr-commander-lib.mjs';
-            const snapshot = JSON.parse(fs.readFileSync('snapshot.json', 'utf8'));
-            snapshot.attempts = Number(process.env.ATTEMPTS || 0);
+            import { evaluateGate, normalizeSnapshot } from './scripts/pr-commander-lib.mjs';
+            const raw = JSON.parse(fs.readFileSync('snapshot.json', 'utf8'));
+            raw.attempts = Number(process.env.ATTEMPTS || 0);
+            // Normalize first: the raw `gh pr view` payload carries
+            // `statusCheckRollup`, not `checks` — evaluateGate on the raw
+            // shape reads zero checks and mis-evaluates every PR as
+            // BLOCKED on missing required-check evidence.
+            const snapshot = normalizeSnapshot(raw);
             const verdict = evaluateGate(snapshot, { armed: false });
             const record = {
               pr: snapshot.number,
@@ -370,7 +395,7 @@ jobs:
         run: |
           set -euo pipefail
           if gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name pr-commander-verdicts --dir verdicts; then
-            echo "Downloaded $(ls verdicts/*.json 2>/dev/null | wc -l) verdict file(s)."
+            echo "Downloaded $(find verdicts -maxdepth 1 -name '*.json' -type f 2>/dev/null | wc -l) verdict file(s)."
           else
             echo "No verdict artifacts for this run (no PRs, or evaluation failed before upload)."
             mkdir -p verdicts
@@ -384,6 +409,14 @@ jobs:
           EFFECTIVE_ARMED: ${{ needs.discover.outputs.effective_armed }}
         run: |
           set -euo pipefail
+          # aggregate.mjs lives in $RUNNER_TEMP, so its relative import
+          # "./scripts/pr-commander-lib.mjs" resolves under $RUNNER_TEMP.
+          # Copy the library next to it. (Bootstrap: until #964 merges,
+          # scripts/ does not exist on main and this copy fails with a
+          # clear message instead of a confusing module error.)
+          mkdir -p "$RUNNER_TEMP/scripts"
+          cp scripts/pr-commander-lib.mjs "$RUNNER_TEMP/scripts/pr-commander-lib.mjs" \
+            || { echo "::error::scripts/pr-commander-lib.mjs is not on main yet — the Commander bootstrap requires #964 to be merged before evaluate/aggregate can run."; exit 1; }
           cat > "$RUNNER_TEMP/aggregate.mjs" <<'EOF'
             import fs from "node:fs";
             import { detectStacks, orderMerges } from "./scripts/pr-commander-lib.mjs";
@@ -472,7 +505,12 @@ jobs:
       pull-requests: write
       issues: write
       checks: read
-      actions: write
+      # `actions: read` covers `gh run download` (verdict artifacts).
+      # `actions: write` is deliberately NOT requested: the repository's
+      # workflow-security policy prohibits it, and the only use for it
+      # (dispatching codeql-autofix.yml) is delegated to that workflow's
+      # own scheduled run instead (see the security-findings note below).
+      actions: read
     concurrency:
       group: pr-commander-act
       cancel-in-progress: false
@@ -509,6 +547,7 @@ jobs:
           FOUNDER_PRS: ${{ needs.report.outputs.founder_prs }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          # shellcheck disable=SC2016 -- $owner/$name/$number in the GraphQL query are GraphQL variables, not shell expansions.
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -535,12 +574,24 @@ jobs:
           }
 
           # Re-evaluate a fresh snapshot ARMED and print the verdict.
+          # Takes the recorded repair-attempt count as $1. The old call
+          # sites used `ATTEMPTS="$attempts" verdict=$(armed_verdict)`,
+          # which never reached the `node` process: the assignment is a
+          # shell variable during expansion of the assignment statement,
+          # never exported to the child, so armed re-evaluation silently
+          # ran with attempts=0. (Verified: `ATTEMPTS=7 v=$(g)` leaves
+          # node inside g seeing ATTEMPTS unset; the $1 pattern below
+          # passes it as a real command environment assignment.)
           armed_verdict() {
-            node --input-type=module -e "
+            ATTEMPTS="$1" node --input-type=module -e "
               import fs from 'node:fs';
-              import { evaluateGate } from './scripts/pr-commander-lib.mjs';
-              const snapshot = JSON.parse(fs.readFileSync('fresh.json', 'utf8'));
-              snapshot.attempts = Number(process.env.ATTEMPTS || 0);
+              import { evaluateGate, normalizeSnapshot } from './scripts/pr-commander-lib.mjs';
+              const raw = JSON.parse(fs.readFileSync('fresh.json', 'utf8'));
+              raw.attempts = Number(process.env.ATTEMPTS || 0);
+              // Normalize first: the raw `gh pr view` payload carries
+              // `statusCheckRollup`, not `checks` — evaluateGate on the raw
+              // shape reads zero checks and would never reach MERGE_READY.
+              const snapshot = normalizeSnapshot(raw);
               const verdict = evaluateGate(snapshot, { armed: true });
               fs.writeFileSync('fresh-verdict.json', JSON.stringify(verdict, null, 2));
               console.log(verdict.verdict);
@@ -615,13 +666,12 @@ jobs:
           # this order, one at a time; a stacked PR merges only after its
           # base PR is recorded merged in this run (or was already merged).
           merged=""
-          codeql_dispatched="false"
           for pr in $(echo "$READY_PRS" | jq -r '.[]'); do
             echo "=== PR #$pr (ready, dependency order) ==="
             build_snapshot "$pr" || continue
             head_sha=$(jq -r '.headRefOid' fresh.json)
             attempts=$(recorded_attempts "$pr" "$head_sha")
-            ATTEMPTS="$attempts" verdict=$(armed_verdict)
+            verdict=$(armed_verdict "$attempts")
             echo "Fresh verdict at $head_sha: $verdict (attempts: $attempts)"
             if [ "$verdict" != "MERGE_READY" ]; then
               echo "Verdict changed on re-read; no merge for PR #$pr."
@@ -673,7 +723,7 @@ jobs:
             # report the fresh verdict, nothing else.
             recorded_head=$(jq -r '.headSha' "$file")
             attempts=$(recorded_attempts "$pr" "$head_sha")
-            ATTEMPTS="$attempts" fresh_verdict=$(armed_verdict)
+            fresh_verdict=$(armed_verdict "$attempts")
             echo "Fresh verdict at $head_sha: $fresh_verdict (recorded head: $recorded_head)"
             if [ "$head_sha" != "$recorded_head" ]; then
               echo "Head moved; reporting the fresh verdict only."
@@ -689,14 +739,17 @@ jobs:
               gh pr edit "$pr" --repo "$GITHUB_REPOSITORY" --add-label "pr-commander:needs-founder" || true
               echo "Applied pr-commander:needs-founder to PR #$pr."
             fi
-            # Security findings delegate to the existing CodeQL Autofix
-            # workflow (dispatched once per run, never re-implemented here).
+            # Security findings are NOT dispatched from here: a workflow
+            # dispatch needs `actions: write`, which the repository's
+            # workflow-security policy prohibits. They are delegated to the
+            # existing codeql-autofix.yml SCHEDULED run (every 2h) and
+            # surfaced as founder items in the verdict comment + label
+            # above. On-demand dispatch is a documented v1 gap (see the
+            # workflow header): it needs a policy exception for
+            # `actions: write` (a founder decision) or a `workflow_call`
+            # restructure of codeql-autofix.yml.
             if jq -e '.reasons[]? | test("CodeQL|code scanning|security"; "i")' fresh-verdict.json >/dev/null; then
-              if [ "$codeql_dispatched" = "false" ]; then
-                echo "Security finding on PR #$pr; dispatching codeql-autofix."
-                gh workflow run codeql-autofix.yml --repo "$GITHUB_REPOSITORY" --ref main -f max_alerts=3 || true
-                codeql_dispatched="true"
-              fi
+              echo "Security finding on PR #$pr; delegated to the scheduled codeql-autofix run (no dispatch from this workflow)."
             fi
             # Deterministic repair, narrow tier (the code-quality-autofix
             # pattern, per-PR): ESLint --fix on the PR branch, verified by
