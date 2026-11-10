@@ -251,7 +251,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ matrix.pr }}
         run: |
-          # shellcheck disable=SC2016 -- $owner/$name/$number in the GraphQL query are GraphQL variables, not shell expansions.
+          # $owner/$name/$number in the GraphQL query are GraphQL variables, not shell expansions.
           set -euo pipefail
           mkdir -p verdicts
           # Exact-head snapshot: head SHA, mergeability, review decision,
@@ -262,6 +262,8 @@ jobs:
             > snapshot.json
           owner="${GITHUB_REPOSITORY%%/*}"
           repo="${GITHUB_REPOSITORY##*/}"
+          # $owner/$name/$number are GraphQL variables (and $threads in the jq filter is jq code), not shell expansions.
+          # shellcheck disable=SC2016
           threads=$(gh api graphql \
             -F owner="$owner" -F name="$repo" -F number="$PR_NUMBER" \
             -f query='query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewThreads(first: 100) { nodes { isResolved } pageInfo { hasNextPage } } } } }' \
@@ -314,8 +316,8 @@ jobs:
             import { evaluateGate, normalizeSnapshot } from './scripts/pr-commander-lib.mjs';
             const raw = JSON.parse(fs.readFileSync('snapshot.json', 'utf8'));
             raw.attempts = Number(process.env.ATTEMPTS || 0);
-            // Normalize first: the raw `gh pr view` payload carries
-            // `statusCheckRollup`, not `checks` — evaluateGate on the raw
+            // Normalize first: the raw gh pr view payload carries
+            // 'statusCheckRollup', not 'checks' — evaluateGate on the raw
             // shape reads zero checks and mis-evaluates every PR as
             // BLOCKED on missing required-check evidence.
             const snapshot = normalizeSnapshot(raw);
@@ -547,7 +549,7 @@ jobs:
           FOUNDER_PRS: ${{ needs.report.outputs.founder_prs }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          # shellcheck disable=SC2016 -- $owner/$name/$number in the GraphQL query are GraphQL variables, not shell expansions.
+          # $owner/$name/$number in the GraphQL query are GraphQL variables, not shell expansions.
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -561,6 +563,8 @@ jobs:
               > fresh.json
             local owner="${GITHUB_REPOSITORY%%/*}" repo="${GITHUB_REPOSITORY##*/}"
             local threads
+            # $owner/$name/$number are GraphQL variables (and $threads in the jq filter is jq code), not shell expansions.
+            # shellcheck disable=SC2016
             threads=$(gh api graphql \
               -F owner="$owner" -F name="$repo" -F number="$pr" \
               -f query='query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewThreads(first: 100) { nodes { isResolved } pageInfo { hasNextPage } } } } }' \
@@ -588,8 +592,8 @@ jobs:
               import { evaluateGate, normalizeSnapshot } from './scripts/pr-commander-lib.mjs';
               const raw = JSON.parse(fs.readFileSync('fresh.json', 'utf8'));
               raw.attempts = Number(process.env.ATTEMPTS || 0);
-              // Normalize first: the raw `gh pr view` payload carries
-              // `statusCheckRollup`, not `checks` — evaluateGate on the raw
+              // Normalize first: the raw gh pr view payload carries
+              // 'statusCheckRollup', not 'checks' — evaluateGate on the raw
               // shape reads zero checks and would never reach MERGE_READY.
               const snapshot = normalizeSnapshot(raw);
               const verdict = evaluateGate(snapshot, { armed: true });

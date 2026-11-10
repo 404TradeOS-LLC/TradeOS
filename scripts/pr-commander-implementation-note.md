@@ -316,11 +316,23 @@ first `workflow_dispatch` dry-run (42848887799, PR #953), all on head
    documented v1 gap: it needs a policy exception for `actions: write`
    (a founder decision) or a `workflow_call` restructure of
    `codeql-autofix.yml`.
-6. **actionlint (5 findings, all fixed).** SC2129 (group the three
-   `GITHUB_OUTPUT` echoes), SC2016 ×2 (GraphQL `$owner`/`$name`/`$number`
-   are GraphQL variables — script-wide disable with a comment), SC2012
-   (`ls` → `find`), SC2034 (the `armed_verdict` bug above). Local
-   `actionlint` 1.7.7 exits 0 with no findings.
+6. **actionlint (5 findings at first, then 4 more in CI — all
+   fixed).** SC2129 (group the three `GITHUB_OUTPUT` echoes), SC2016 ×2
+   (GraphQL `$owner`/`$name`/`$number` are GraphQL variables), SC2012
+   (`ls` → `find`), SC2034 (the `armed_verdict` bug above). Two
+   actionlint traps, both learned the hard way: (a) a `# shellcheck
+   disable=SC2016` at the TOP of a `run:` script is NOT honored by
+   actionlint — the directive must sit directly above the flagged
+   command, with no trailing text on the directive line itself (trailing
+   `-- comment` breaks directive parsing, SC1073); (b) a bare local
+   `actionlint` 1.7.7 silently disables its shellcheck rule when no
+   `shellcheck` binary is on `PATH` — the first local run reported 0
+   findings on a file CI then failed with 8. Local verification needs a
+   real `shellcheck` binary (CI's ubuntu runner has one preinstalled);
+   `actionlint -shellcheck <path>` with shellcheck 0.10.0 now exits 0
+   on the repaired file. The SC2006 findings were backticks in JS
+   comments inside double-quoted `node -e` strings — removed, not
+   disabled.
 
 Local end-to-end simulation (live #953 snapshot, head 16bbaafa):
 CLI and the fixed verdict-writer path agree (`REPAIRABLE`, behind
