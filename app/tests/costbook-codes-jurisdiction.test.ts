@@ -123,6 +123,58 @@ describe("resolveJurisdiction", () => {
     expectNoInferredValues(resolution);
   });
 
+  it("rejects same-name out-of-state municipal records even when city and county match", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite(),
+      [record(), municipalRecord({ state: "OH", authority: "Ohio city with same name" })],
+      "sign replacement",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toContain("no_municipal_authority_record");
+    expect(resolution.matched).toEqual([]);
+    expectNoInferredValues(resolution);
+  });
+
+  it("rejects same-name out-of-state county records", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite({ incorporated: false, city: null, signCategory: null }),
+      [record(), countyRecord({ state: "IL", authority: "Out-of-state county" })],
+      "roof repair",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toContain("no_county_authority_record");
+    expect(resolution.matched).toEqual([]);
+    expectNoInferredValues(resolution);
+  });
+
+  it("does not accept municipal authority records without a site state", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite({ state: null }),
+      [record(), municipalRecord()],
+      "sign replacement",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toContain("no_state_authority_record");
+    expect(resolution.reasons).toContain("no_municipal_authority_record");
+    expectNoInferredValues(resolution);
+  });
+
+  it("does not accept county authority records without a site state", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite({ state: null, incorporated: false, city: null, signCategory: null }),
+      [record(), countyRecord()],
+      "roof repair",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toContain("no_state_authority_record");
+    expect(resolution.reasons).toContain("no_county_authority_record");
+    expectNoInferredValues(resolution);
+  });
+
   it("fails closed on ambiguous local authority instead of picking one", () => {
     const resolution = resolveJurisdiction(
       verifiedSite(),
