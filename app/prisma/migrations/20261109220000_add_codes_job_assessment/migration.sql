@@ -70,12 +70,28 @@ FOR INSERT WITH CHECK (
 );
 
 -- Tenant updates: only rows of the session's own org, and org_id may not
--- move to another tenant.
+-- move to another tenant. The WITH CHECK enforces the same parent-reference
+-- invariant as the insert policy, so a same-org row cannot be re-pointed at
+-- another org's project or estimate.
 CREATE POLICY codes_job_assessment_update_policy ON public.codes_job_assessment
 FOR UPDATE USING (
   org_id = (SELECT public.current_app_org_id())
 ) WITH CHECK (
   org_id = (SELECT public.current_app_org_id())
+  AND EXISTS (
+    SELECT 1 FROM public.projects p
+    WHERE p.id = codes_job_assessment.project_id
+      AND p.org_id = (SELECT public.current_app_org_id())
+  )
+  AND (
+    codes_job_assessment.estimate_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM public.estimates e
+      WHERE e.id = codes_job_assessment.estimate_id
+        AND e.project_id = codes_job_assessment.project_id
+        AND e.org_id = (SELECT public.current_app_org_id())
+    )
+  )
 );
 
 -- Tenant deletes: only rows of the session's own org.

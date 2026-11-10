@@ -3012,6 +3012,49 @@ describe("live organization row-level security", () => {
       expect(intact?.status).toBe("needs_review");
       expect(intact?.ownerSignoff).toBe(false);
     });
+
+    it("refuses a same-org update that re-points the assessment at another org's project", async () => {
+      // The update policy WITH CHECK enforces the same parent-reference
+      // invariant as the insert policy: project_id must belong to the
+      // session org. Re-pointing at org B's project must fail outright.
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().codesJobAssessment.updateMany({
+            where: { id: assessmentA },
+            data: { projectId: projectB },
+          }),
+        ),
+      ).rejects.toThrow();
+
+      const intact = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesJobAssessment.findUnique({ where: { id: assessmentA } }),
+      );
+      expect(intact?.projectId).toBe(projectA);
+      expect(intact?.status).toBe("needs_review");
+    });
+
+    it("allows a same-org update that keeps the assessment on its own project", async () => {
+      // Guards the new WITH CHECK against breaking legitimate updates:
+      // the sign-off path updates status/signoff on the same row.
+      const updated = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesJobAssessment.updateMany({
+          where: { id: assessmentA },
+          data: { unknowns: ["Confirm the zoning district.", "Confirm the permit office."] },
+        }),
+      );
+      expect(updated.count).toBe(1);
+
+      const row = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesJobAssessment.findUnique({ where: { id: assessmentA } }),
+      );
+      expect(row?.unknowns).toHaveLength(2);
+      await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesJobAssessment.updateMany({
+          where: { id: assessmentA },
+          data: { unknowns: ["Confirm the zoning district."] },
+        }),
+      );
+    });
   });
 });
 

@@ -54,7 +54,7 @@ export const emptyJurisdictionRecordStore: JurisdictionRecordStore = {
   },
 };
 
-const SIGNAGE_WORK = /sign/i;
+const SIGNAGE_WORK = /\bsigns?\b|\bsignage\b/i;
 const ELECTRICAL_WORK = /electr(ic|rical)|wiring|conduit|circuit/i;
 const STRUCTURAL_WORK = /structur|foundat|footing|sonotube|frost/i;
 
@@ -111,6 +111,8 @@ export function resolveJurisdiction(
   };
 
   // 1. Site identifiability — a street name or highway alone is not a parcel.
+  // Rule 1: a verified parcel ID, or coordinates plus address. An address
+  // alone does not identify the site.
   const hasParcelId = Boolean(site.parcelId?.trim());
   const hasCoordinates =
     typeof site.latitude === "number" &&
@@ -118,7 +120,7 @@ export function resolveJurisdiction(
     typeof site.longitude === "number" &&
     Number.isFinite(site.longitude);
   const hasAddress = Boolean(site.siteAddress?.trim());
-  if (!hasParcelId && !hasCoordinates && !hasAddress) {
+  if (!hasParcelId && !(hasCoordinates && hasAddress)) {
     fail(
       "no_verifiable_site",
       "Provide a verified parcel ID, or a verified site address with coordinates, before jurisdiction can be resolved.",
@@ -166,11 +168,16 @@ export function resolveJurisdiction(
     const county = normalizeCounty(site.county);
     const municipality = (site.city ?? "").trim().toLowerCase();
     if (site.incorporated) {
+      // Fail closed: a missing municipality never matches any municipal
+      // record, and a missing county never matches a record that claims a
+      // county. A record with no county of its own may still match on the
+      // municipality — it claims no county scope to contradict.
       localRecords = current.filter(
         (record) =>
           record.level === "municipal" &&
-          (!municipality || (record.municipality ?? "").trim().toLowerCase() === municipality) &&
-          (!county || normalizeCounty(record.county) === county || !record.county),
+          Boolean(municipality) &&
+          (record.municipality ?? "").trim().toLowerCase() === municipality &&
+          (!record.county || (Boolean(county) && normalizeCounty(record.county) === county)),
       );
       if (localRecords.length === 0) {
         fail(
@@ -179,8 +186,9 @@ export function resolveJurisdiction(
         );
       }
     } else {
+      // Fail closed: a missing county never matches any county record.
       localRecords = current.filter(
-        (record) => record.level === "county" && (!county || normalizeCounty(record.county) === county),
+        (record) => record.level === "county" && Boolean(county) && normalizeCounty(record.county) === county,
       );
       if (localRecords.length === 0) {
         fail(
@@ -255,9 +263,11 @@ export function resolveJurisdiction(
     );
   }
 
-  // 9. Every topic the work type requires must be covered by a current record.
+  // 9. Every topic the work type requires must be covered by a current
+  // record for a matched authority — a record for another state, county,
+  // or level cannot cover a topic for this site.
   const topics = requiredTopics(work, site);
-  const covered = new Set(current.flatMap((record) => record.topics));
+  const covered = new Set([...stateRecords, ...localRecords].flatMap((record) => record.topics));
   const missingTopics = topics.filter((topic) => !covered.has(topic));
   if (missingTopics.length > 0) {
     fail(

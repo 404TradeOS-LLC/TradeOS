@@ -169,10 +169,20 @@ export class CodesJobAssessmentService {
     if (existing.status === "owner_approved" || existing.ownerSignoff) {
       throw new ApiError(409, "Assessment is already owner-approved");
     }
-    const row = (await this.db.codesJobAssessment.update({
-      where: { id },
+    // Atomic conditional write: the unapproved-state predicate is checked by
+    // the database in the same statement as the update, so two concurrent
+    // sign-offs cannot both pass the check above and overwrite each other's
+    // signedOffBy / signedOffAt audit stamp. The update is also org-scoped,
+    // not id-only. A zero count means a concurrent sign-off won the race.
+    const result = await this.db.codesJobAssessment.updateMany({
+      where: { id, orgId, ownerSignoff: false, status: { not: "owner_approved" } },
       data: { status: "owner_approved", ownerSignoff: true, signedOffBy, signedOffAt: new Date() },
-    })) as unknown as AssessmentRow;
+    });
+    if (result.count === 0) throw new ApiError(409, "Assessment is already owner-approved");
+    const row = (await this.db.codesJobAssessment.findFirst({
+      where: { id, orgId },
+    })) as unknown as AssessmentRow | null;
+    if (!row) throw new ApiError(404, "Job assessment not found");
     return toDTO(row);
   }
 }
