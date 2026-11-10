@@ -10,6 +10,7 @@ import { costbookCandidatesController as candidateCtrl } from "../controllers/co
 import { costbookCompositeBenchmarksController as compositeBenchmarkCtrl } from "../controllers/costbookCompositeBenchmarks.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { davisBaconController as davisBaconCtrl } from "../controllers/davisBacon.controller";
+import { costbookCodesJurisdictionController as codesJurisdictionCtrl } from "../controllers/costbookCodesJurisdiction.controller";
 
 export const costbookRouter = Router();
 
@@ -39,6 +40,16 @@ costbookRouter.get("/price-history", asyncHandler(pricingCtrl.history));
 costbookRouter.get("/davis-bacon/determinations", asyncHandler(davisBaconCtrl.listDeterminations));
 costbookRouter.get("/davis-bacon/rates", asyncHandler(davisBaconCtrl.listRates));
 costbookRouter.get("/davis-bacon/county-rates", asyncHandler(davisBaconCtrl.countyRates));
+
+// Codes & Permits jurisdiction matching and job assessments (issue #946,
+// TODO 4). Read-only matching/hints plus the tenant-scoped assessment write
+// path; the matcher fails closed to needs_verification until TODO 2's
+// jurisdiction records land.
+costbookRouter.get("/codes/jurisdiction", asyncHandler(codesJurisdictionCtrl.getJurisdiction));
+costbookRouter.get("/codes/estimates/:estimateId/hints", asyncHandler(codesJurisdictionCtrl.getEstimateHints));
+costbookRouter.get("/codes/assessments", asyncHandler(codesJurisdictionCtrl.listAssessments));
+costbookRouter.post("/codes/assessments", asyncHandler(codesJurisdictionCtrl.createAssessment));
+costbookRouter.post("/codes/assessments/:id/sign-off", asyncHandler(codesJurisdictionCtrl.signOffAssessment));
 
 costbookRouter.get("/cost-items", asyncHandler(costItemCtrl.list));
 costbookRouter.get("/cost-items/search", asyncHandler(costItemCtrl.search));

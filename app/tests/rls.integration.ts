@@ -2880,6 +2880,139 @@ describe("live organization row-level security", () => {
       expect(signed.activity.actorUserId).toBeNull();
     });
   });
+
+  describe("codes_job_assessment row-level security", () => {
+    const assessmentA = "10000000-0000-0000-0000-000000000131";
+
+    beforeAll(async () => {
+      await adminClient.codesJobAssessment.create({
+        data: {
+          id: assessmentA,
+          orgId: orgA,
+          projectId: projectA,
+          estimateId: estimateA,
+          workType: "sign replacement",
+          status: "needs_review",
+          citations: [{ source_id: "vigo-zoning-signs", rationale: "County sign rules must be confirmed." }],
+          unknowns: ["Confirm the zoning district."],
+          createdBy: adminUser,
+        },
+      });
+    });
+
+    it("shows an assessment only to its own org, never across tenants", async () => {
+      const visible = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesJobAssessment.findUnique({ where: { id: assessmentA } }),
+      );
+      expect(visible?.orgId).toBe(orgA);
+      expect(visible?.projectId).toBe(projectA);
+
+      const hiddenCrossOrg = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().codesJobAssessment.findUnique({ where: { id: assessmentA } }),
+      );
+      expect(hiddenCrossOrg).toBeNull();
+    });
+
+    it("allows a same-org insert for the org's own project and estimate", async () => {
+      const inserted = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesJobAssessment.create({
+          data: {
+            id: randomUUID(),
+            orgId: orgA,
+            projectId: projectA,
+            estimateId: estimateA,
+            workType: "electrical run",
+            status: "needs_review",
+            citations: [],
+            unknowns: ["Confirm the authorized connection."],
+            createdBy: adminUser,
+          },
+        }),
+      );
+      expect(inserted.orgId).toBe(orgA);
+      expect(inserted.projectId).toBe(projectA);
+    });
+
+    it("refuses a cross-tenant insert for another org's project", async () => {
+      await expect(
+        inSession(otherUser, orgB, "owner", async () =>
+          currentTransaction().codesJobAssessment.create({
+            data: {
+              id: randomUUID(),
+              orgId: orgB,
+              projectId: projectA,
+              estimateId: estimateA,
+              workType: "sign replacement",
+              status: "needs_review",
+              citations: [],
+              unknowns: [],
+              createdBy: otherUser,
+            },
+          }),
+        ),
+      ).rejects.toThrow();
+    });
+
+    it("refuses an insert that spoofs another org's id from inside a session", async () => {
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().codesJobAssessment.create({
+            data: {
+              id: randomUUID(),
+              orgId: orgB,
+              projectId: projectA,
+              workType: "sign replacement",
+              status: "needs_review",
+              citations: [],
+              unknowns: [],
+              createdBy: adminUser,
+            },
+          }),
+        ),
+      ).rejects.toThrow();
+    });
+
+    it("refuses an insert whose estimate does not belong to the project", async () => {
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().codesJobAssessment.create({
+            data: {
+              id: randomUUID(),
+              orgId: orgA,
+              projectId: projectA,
+              estimateId: randomUUID(),
+              workType: "sign replacement",
+              status: "needs_review",
+              citations: [],
+              unknowns: [],
+              createdBy: adminUser,
+            },
+          }),
+        ),
+      ).rejects.toThrow();
+    });
+
+    it("refuses cross-tenant updates and deletes (zero rows affected)", async () => {
+      const updated = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().codesJobAssessment.updateMany({
+          where: { id: assessmentA },
+          data: { status: "owner_approved", ownerSignoff: true },
+        }),
+      );
+      expect(updated.count).toBe(0);
+
+      const deleted = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().codesJobAssessment.deleteMany({ where: { id: assessmentA } }),
+      );
+      expect(deleted.count).toBe(0);
+
+      const intact = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesJobAssessment.findUnique({ where: { id: assessmentA } }),
+      );
+      expect(intact?.status).toBe("needs_review");
+      expect(intact?.ownerSignoff).toBe(false);
+    });
+  });
 });
 
 function inSession<T>(userId: string, orgId: string, role: SupportedRole, operation: () => Promise<T>): Promise<T> {
