@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { resolveAgentTarget } from './target.mjs';
 
 // Manual, non-production interaction regression for a draft with saved items.
 // Project PATCH responses are intercepted; no scope write reaches the backend.
@@ -11,8 +12,19 @@ if (state) test.use({ storageState: state, trace: 'off', video: 'off' });
 
 test.describe('Estimate stage navigation', () => {
   test.skip(!path, 'Set a sanitized draft route to run the stage matrix.');
-  if (path && (!path.startsWith('/') || path.startsWith('//'))) {
-    throw new Error('TRADEOS_ESTIMATE_STAGE_PATH must be a relative application path');
+  if (path) {
+    // A backslash is a path separator for special-scheme URLs, so a value
+    // like `/\evil.com/x` passes the leading-slash check but resolves to
+    // another origin. Reject backslashes outright, then resolve against the
+    // approved origin (the same resolver the config uses) and require the
+    // result to stay on it.
+    if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) {
+      throw new Error('TRADEOS_ESTIMATE_STAGE_PATH must be a relative application path');
+    }
+    const approvedOrigin = resolveAgentTarget(process.env);
+    if (new URL(path, approvedOrigin).origin !== approvedOrigin) {
+      throw new Error('TRADEOS_ESTIMATE_STAGE_PATH must resolve to the approved origin');
+    }
   }
 
   for (const width of [390, 768, 1024, 1440]) {

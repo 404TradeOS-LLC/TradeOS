@@ -77,6 +77,47 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Validate spec_file resolves to one exact spec
+        if: inputs.spec_file != ''
+        env:
+          SPEC_FILE: ${{ inputs.spec_file }}
+        run: |
+          set -eu
+          # spec_file reaches Playwright as a positional argument, which
+          # Playwright treats as a filter: a substring would silently match
+          # several specs (or none). Require one exact checked-in spec file
+          # under tests/playwright so the run covers exactly what was asked.
+          if [ ! -f "${SPEC_FILE}" ]; then
+            echo "::error::spec_file must name one checked-in Playwright spec file; '${SPEC_FILE}' does not exist."
+            exit 1
+          fi
+          case "${SPEC_FILE}" in
+            tests/playwright/*.spec.ts) ;;
+            *)
+              echo "::error::spec_file must be a Playwright spec under tests/playwright/; got '${SPEC_FILE}'."
+              exit 1
+              ;;
+          esac
+
+      - name: Reject targeted estimate runs without a draft route
+        if: inputs.spec_file != ''
+        env:
+          SPEC_FILE: ${{ inputs.spec_file }}
+          ESTIMATE_STAGE_PATH: ${{ inputs.estimate_stage_path }}
+        run: |
+          set -eu
+          # The estimate specs read TRADEOS_ESTIMATE_STAGE_PATH and skip
+          # every test when it is blank, so a targeted estimate run without
+          # a route would report green while proving nothing. Fail fast.
+          case "${SPEC_FILE}" in
+            *estimate-stage-navigation.spec.ts|*estimate-mapping-resolve.spec.ts)
+              if [ -z "${ESTIMATE_STAGE_PATH}" ]; then
+                echo "::error::spec_file selects an estimate spec ('${SPEC_FILE}') but estimate_stage_path is blank; targeted estimate evidence requires a draft estimate route."
+                exit 1
+              fi
+              ;;
+          esac
+
       - name: Reject unauthenticated estimate evidence
         shell: bash
         run: |
@@ -252,6 +293,9 @@ jobs:
           if [ -n "${SPEC_FILE}" ]; then
             # A hyphen-leading value would be parsed as a Playwright CLI
             # option, not a spec path. Valid spec paths never start with one.
+            # The "Validate spec_file" step already proved this is one exact
+            # checked-in spec file, so the positional argument selects
+            # exactly that file rather than a substring filter.
             case "${SPEC_FILE}" in
               -*)
                 echo "::error::spec_file must be a spec file path, not a Playwright CLI option."

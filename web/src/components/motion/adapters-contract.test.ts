@@ -28,12 +28,12 @@ test("adapter 2: estimate repricing snapshots the last server-confirmed total", 
   );
   assert.match(builder, /import \{ PriceDelta \} from "@\/components\/motion\/price-delta"/);
   assert.match(builder, /import \{ nextRecalculationSnapshot, toMinorUnits \} from "@\/lib\/motion\/price-delta"/);
-  assert.match(builder, /const invalidate = \(reason\?: string\) => \{/);
-  assert.match(builder, /onUpdated\("Line item updated"\)/);
-  assert.match(builder, /onUpdated\("Overhead \/ tax saved"\)/);
-  assert.match(builder, /onAdded\("Line item added"\)/);
-  assert.match(builder, /onAdded\("Custom line item added"\)/);
-  assert.match(builder, /onSuccess: \(\) => invalidate\("Line item removed"\)/);
+  assert.match(builder, /const invalidate = \(reason\?: string, previousTotalMinor\?: number \| null\) => \{/);
+  assert.match(builder, /onUpdated\("Line item updated", context\?\.previousTotalMinor\)/);
+  assert.match(builder, /onUpdated\("Overhead \/ tax saved", context\?\.previousTotalMinor\)/);
+  assert.match(builder, /onAdded\("Line item added", context\?\.previousTotalMinor\)/);
+  assert.match(builder, /onAdded\("Custom line item added", context\?\.previousTotalMinor\)/);
+  assert.match(builder, /onSuccess: \(_data, _variables, context\) => invalidate\("Line item removed", context\?\.previousTotalMinor\)/);
   // USD is the product's existing money convention, not a new assumption.
   assert.match(builder, /currency="USD"/);
   assert.match(builder, /label="Last recalculation"/);
@@ -41,7 +41,7 @@ test("adapter 2: estimate repricing snapshots the last server-confirmed total", 
   // snapshots with its own reason; a pure mode switch moves no total, so
   // the delta render guard (total must move) prevents a fabricated
   // repricing. Finalize must not fabricate one either.
-  assert.match(builder, /onUpdated\("Pricing mode applied"\)/);
+  assert.match(builder, /onUpdated\("Pricing mode applied", context\?\.previousTotalMinor\)/);
   assert.doesNotMatch(builder, /invalidate\("Finaliz/);
   // Concurrent successes before the refetch must not re-attribute their
   // combined change to one edit (see nextRecalculationSnapshot).
@@ -61,8 +61,8 @@ test("adapter 2: estimate repricing snapshots the last server-confirmed total", 
 
 test("adapter 2: Athena suggestion adds carry their own repricing reason", async () => {
   const panel = await readSource("../estimate-assist/contextual-athena-panel.tsx");
-  assert.match(panel, /onAdded\?: \(reason\?: string\) => void;/);
-  assert.match(panel, /onAdded\?\.\("Athena suggestion added"\)/);
+  assert.match(panel, /onAdded\?: \(reason\?: string, previousTotalMinor\?: number \| null\) => void;/);
+  assert.match(panel, /onAdded\?\.\("Athena suggestion added", previousTotalMinor\)/);
 });
 
 test("adapter 3: estimate to proposal connection confirms only on a created record", async () => {

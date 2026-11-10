@@ -154,6 +154,24 @@ test("estimate stage state is exported only for authenticated runs, spec input s
   assert.match(workflow, /BETA_SMOKE_EXPECTED_COSTBOOK_WRITE=true/);
 });
 
+test("evidence workflow validates spec_file to one exact spec and rejects targeted estimate runs without a draft route", () => {
+  // A substring spec_file would silently match several specs (or none)
+  // while Playwright still exits green; require one checked-in file.
+  assert.match(workflow, /Validate spec_file resolves to one exact spec/);
+  assert.match(workflow, /if \[ ! -f "\$\{SPEC_FILE\}" \]; then/);
+  assert.match(workflow, /spec_file must name one checked-in Playwright spec file/);
+  assert.match(workflow, /tests\/playwright\/\*\.spec\.ts\)/);
+  // The estimate specs skip every test when the draft route is blank, so
+  // a targeted run without one would report green while proving nothing.
+  assert.match(workflow, /Reject targeted estimate runs without a draft route/);
+  assert.match(workflow, /\*estimate-stage-navigation\.spec\.ts\|\*estimate-mapping-resolve\.spec\.ts\)/);
+  assert.match(workflow, /if \[ -z "\$\{ESTIMATE_STAGE_PATH\}" \]; then/);
+  assert.match(workflow, /targeted estimate evidence requires a draft estimate route/);
+  // The positional argument is exact only because the validation step ran
+  // first; the run step records that.
+  assert.match(workflow, /The "Validate spec_file" step already proved this is one exact/);
+});
+
 test("evidence workflow rejects unauthenticated estimate runs and CLI-option spec files", () => {
   // An estimate path without a session would run the estimate specs
   // against the login page and report a misleading navigation failure.

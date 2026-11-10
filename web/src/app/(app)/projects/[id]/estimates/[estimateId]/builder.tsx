@@ -106,20 +106,21 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
   // superseded the snapshot by the time a refetch lands.
   const lastRecalculationRef = useRef<{ previousTotalMinor: number; reason: string } | null>(null);
 
-  const invalidate = (reason?: string) => {
-    // Previous-totals source for the Price stage delta: no caller carries
-    // previous totals, so the snapshot is taken here, when a pricing
-    // mutation's onSuccess fires. Query data is still the pre-mutation
-    // record at that point (the refetch lands later), so the snapshot is
-    // the last server-confirmed total, never an invented value. Only
-    // pricing mutations pass a reason; finalize and scope saves do not.
+  const invalidate = (reason?: string, previousTotalMinor?: number | null) => {
+    // Previous-totals source for the Price stage delta: each pricing
+    // mutation captures its pre-write total in onMutate and passes it
+    // here, so the snapshot is the last server-confirmed total even when
+    // an independent refresh lands before the mutation response. Callers
+    // without a captured total fall back to the current query record
+    // (the pre-existing behavior). Only pricing mutations pass a reason;
+    // finalize and scope saves do not.
     // A pricing-mode Apply passes a reason too: changing the percentage
     // reprices the estimate. A pure mode switch with an equivalent
     // percentage moves no total, so the delta render guard (the total
     // must move) prevents a fabricated repricing.
     if (reason && estimate) {
       const next = nextRecalculationSnapshot({
-        currentTotalMinor: toMinorUnits(estimate.totalPrice),
+        currentTotalMinor: previousTotalMinor ?? toMinorUnits(estimate.totalPrice),
         reason,
         pending: lastRecalculationRef.current,
       });
@@ -159,7 +160,10 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
 
   const removeLineItem = useMutation({
     mutationFn: (lineItemId: string) => clientFetch(`/estimates/${estimateId}/line-items/${lineItemId}`, { method: "DELETE" }),
-    onSuccess: () => invalidate("Line item removed"),
+    // Capture the pre-write total before the delete runs: a refresh that
+    // lands before onSuccess would otherwise snapshot the new total.
+    onMutate: () => ({ previousTotalMinor: estimate ? toMinorUnits(estimate.totalPrice) : null }),
+    onSuccess: (_data, _variables, context) => invalidate("Line item removed", context?.previousTotalMinor),
   });
 
   const finalize = useMutation({
@@ -393,7 +397,7 @@ function EstimateStageFlow({
   isDraft: boolean;
   activeStage: EstimateStage;
   onStageChange: (stage: EstimateStage) => void;
-  onUpdated: () => void;
+  onUpdated: (reason?: string, previousTotalMinor?: number | null) => void;
   onRemoveLineItem: (lineItemId: string) => void;
   removeLineItemPending: boolean;
   onFinalize: () => void;
@@ -517,7 +521,7 @@ function EstimateStageFlow({
               <h2 ref={(node) => { stageHeadingRefs.current.items = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Estimate items</h2>
               <p className="mt-1 text-sm text-muted-foreground">{estimate.lineItems.length} saved lines · review sources, quantities and costs before pricing.</p>
             </div>
-            {isDraft ? <LineItemPicker estimateId={estimateId} onAdded={onUpdated} active={activeStage === "items"} /> : null}
+            {isDraft ? <LineItemPicker estimateId={estimateId} onAdded={onUpdated} currentTotalMinor={toMinorUnits(runningTotals.totalPrice)} active={activeStage === "items"} /> : null}
             {estimate.lineItems.length === 0 ? (
               <p className="border-b border-border/70 py-4 text-sm text-muted-foreground">No line items yet.</p>
             ) : (
@@ -538,6 +542,7 @@ function EstimateStageFlow({
                             lineItem={lineItem}
                             isDraft={isDraft}
                             onUpdated={onUpdated}
+                            currentTotalMinor={toMinorUnits(runningTotals.totalPrice)}
                             onRemove={() => onRemoveLineItem(lineItem.id)}
                             removing={removeLineItemPending}
                           />
@@ -640,6 +645,7 @@ function EstimateStageFlow({
             isDraft={isDraft}
             headingId="estimate-contextual-athena-heading"
             onAdded={onUpdated}
+            currentTotalMinor={toMinorUnits(runningTotals.totalPrice)}
             onOpenFullReview={onOpenFullReview}
             fullReviewPending={fullReviewPending}
           />
@@ -706,7 +712,7 @@ function EstimateStageAction({ label, onClick, disabled = false }: { label: stri
 }
 
 
-function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; onAdded: (reason?: string) => void; active: boolean }) {
+function LineItemPicker({ estimateId, onAdded, currentTotalMinor, active }: { estimateId: string; onAdded: (reason?: string, previousTotalMinor?: number | null) => void; currentTotalMinor: number | null; active: boolean }) {
   const queryClient = useQueryClient();
   const catalogPanelId = useId();
   const customPanelId = useId();
@@ -910,7 +916,10 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
         }),
       });
     },
-    onSuccess: () => {
+    // Capture the pre-write total before the add runs: a refresh that
+    // lands before onSuccess would otherwise snapshot the new total.
+    onMutate: () => ({ previousTotalMinor: currentTotalMinor }),
+    onSuccess: (_data, _variables, context) => {
       setSelected(null);
       setQuery("");
       setQuantity("1");
@@ -921,7 +930,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
       setActiveIndex(0);
       quantityInputRef.current?.blur();
       searchInputRef.current?.focus();
-      onAdded("Line item added");
+      onAdded("Line item added", context?.previousTotalMinor);
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to add line item"),
   });
@@ -938,10 +947,13 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
 
   const customAdd = useMutation({
     mutationFn: (payload: { description: string; unitOfMeasure: string; quantity: number; unitCost: number; section: string; costType: LineItem["costType"]; taxable: boolean }) => clientFetch(`/estimates/${estimateId}/line-items`, { method: "POST", body: JSON.stringify(payload) }),
-    onSuccess: () => {
+    // Capture the pre-write total before the add runs: a refresh that
+    // lands before onSuccess would otherwise snapshot the new total.
+    onMutate: () => ({ previousTotalMinor: currentTotalMinor }),
+    onSuccess: (_data, _variables, context) => {
       setCustom({ description: "", unitOfMeasure: "EA", unitCost: "", quantity: "1", section: "Reconstruction / Finish", costType: "labor", taxable: false });
       setError(null);
-      onAdded("Custom line item added");
+      onAdded("Custom line item added", context?.previousTotalMinor);
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to add custom line item"),
   });
@@ -1706,7 +1718,7 @@ function groupLineItems(items: LineItem[]) {
 
 const estimateItemColumns = "lg:grid-cols-[minmax(0,1fr)_5.5rem_6.25rem_7.25rem]";
 
-function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, removing }: { estimateId: string; lineItem: LineItem; isDraft: boolean; onUpdated: (reason?: string) => void; onRemove: () => void; removing: boolean }) {
+function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, currentTotalMinor, onRemove, removing }: { estimateId: string; lineItem: LineItem; isDraft: boolean; onUpdated: (reason?: string, previousTotalMinor?: number | null) => void; currentTotalMinor: number | null; onRemove: () => void; removing: boolean }) {
   const editorId = useId();
   const costHelpId = `${editorId}-cost-help`;
   const [editing, setEditing] = useState(false);
@@ -1721,7 +1733,10 @@ function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, 
       }
       return clientFetch(`/estimates/${estimateId}/line-items/${lineItem.id}`, { method: "PATCH", body: JSON.stringify({ ...form, quantity, unitCost }) });
     },
-    onSuccess: () => { setError(null); setEditing(false); onUpdated("Line item updated"); },
+    // Capture the pre-write total before the update runs: a refresh that
+    // lands before onSuccess would otherwise snapshot the new total.
+    onMutate: () => ({ previousTotalMinor: currentTotalMinor }),
+    onSuccess: (_data, _variables, context) => { setError(null); setEditing(false); onUpdated("Line item updated", context?.previousTotalMinor); },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to update line item"),
   });
   return <li aria-label={lineItem.description} className="border-b border-border/70 px-0 py-4 last:border-b-0">
@@ -1764,7 +1779,7 @@ function PricingPanel({
   hasTaxableLineItems: boolean;
   pricingModeLabel: string;
   isDraft: boolean;
-  onUpdated: (reason?: string) => void;
+  onUpdated: (reason?: string, previousTotalMinor?: number | null) => void;
 }) {
   const [mode, setMode] = useState<"markup" | "targetMargin">(estimate.targetMarginPct != null ? "targetMargin" : "markup");
   const [value, setValue] = useState(String(estimate.targetMarginPct ?? estimate.profitPct ?? 0));
@@ -1790,9 +1805,13 @@ function PricingPanel({
         }),
       });
     },
-    onSuccess: () => {
+    // Capture the pre-write total before the pricing write runs: a
+    // refresh that lands before onSuccess would otherwise snapshot the
+    // new total.
+    onMutate: () => ({ previousTotalMinor: toMinorUnits(estimate.totalPrice) }),
+    onSuccess: (_data, _variables, context) => {
       setError(null);
-      onUpdated("Pricing mode applied");
+      onUpdated("Pricing mode applied", context?.previousTotalMinor);
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to update pricing"),
   });
@@ -1804,7 +1823,11 @@ function PricingPanel({
       if (!Number.isFinite(overheadPct) || overheadPct < 0 || !Number.isFinite(taxPct) || taxPct < 0 || taxPct > 100) throw new Error("Enter valid overhead and tax percentages");
       return clientFetch(`/estimates/${estimateId}`, { method: "PATCH", body: JSON.stringify({ overheadPct, taxPct }) });
     },
-    onSuccess: () => { setError(null); onUpdated("Overhead / tax saved"); },
+    // Capture the pre-write total before the settings write runs: a
+    // refresh that lands before onSuccess would otherwise snapshot the
+    // new total.
+    onMutate: () => ({ previousTotalMinor: toMinorUnits(estimate.totalPrice) }),
+    onSuccess: (_data, _variables, context) => { setError(null); onUpdated("Overhead / tax saved", context?.previousTotalMinor); },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to update estimate settings"),
   });
 
