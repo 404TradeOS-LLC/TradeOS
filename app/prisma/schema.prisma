@@ -824,6 +824,115 @@ model AssemblyItem {
   @@map("assembly_items")
 }
 
+// Codes & Permits registry (issue #946 TODO 2; migration
+// 20261109220000_add_codes_authority_jurisdiction_source). Global reference
+// tables: no org_id, no tenant rows, no pricing / CostItem / estimate data.
+// RLS (raw SQL in the migration, Prisma cannot express it): FORCE ROW LEVEL
+// SECURITY with a SELECT-only policy for authenticated sessions; no
+// INSERT/UPDATE/DELETE policy for tenant roles — writes go only through the
+// governed ingestion path (TODO 3). codes_source_history is append-only.
+// The partial unique index enforcing the unversioned
+// (authority, family, citation) singleton lives in the migration only.
+// Full model-code text is NEVER stored here: citation + URL + hash +
+// metadata only.
+model CodesAuthority {
+  id            String   @id @default(uuid())
+  name          String
+  authorityKind String   @map("authority_kind")
+  state         String   @db.Char(2)
+  county        String?
+  sourceUrl     String?  @map("source_url")
+  contact       String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  jurisdictions CodesJurisdiction[] @relation("CodesAuthorityJurisdictions")
+  sources       CodesSource[]       @relation("CodesAuthoritySources")
+
+  @@unique([name, state, county])
+  @@map("codes_authority")
+}
+
+model CodesJurisdiction {
+  id               String   @id @default(uuid())
+  authorityId      String   @map("authority_id")
+  name             String
+  jurisdictionKind String   @map("jurisdiction_kind")
+  state            String   @db.Char(2)
+  county           String?
+  gisRef           String?  @map("gis_ref")
+  parentId         String?  @map("parent_id")
+  notes            String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  authority CodesAuthority       @relation("CodesAuthorityJurisdictions", fields: [authorityId], references: [id], onDelete: Restrict)
+  parent    CodesJurisdiction?   @relation("CodesJurisdictionParent", fields: [parentId], references: [id], onDelete: SetNull)
+  children  CodesJurisdiction[]  @relation("CodesJurisdictionParent")
+  sources   CodesSource[]        @relation("CodesJurisdictionSources")
+
+  @@unique([authorityId, name, jurisdictionKind])
+  @@index([state, county])
+  @@map("codes_jurisdiction")
+}
+
+model CodesSource {
+  id              String    @id @default(uuid())
+  jurisdictionId  String?   @map("jurisdiction_id")
+  authorityId     String    @map("authority_id")
+  codeFamily      String    @map("code_family")
+  section         String?
+  citation        String
+  title           String
+  sourceUrl       String    @map("source_url")
+  sourceHash      String?   @map("source_hash")
+  licenseNote     String?   @map("license_note")
+  publishedDate   DateTime? @map("published_date") @db.Date
+  amendedDate     DateTime? @map("amended_date") @db.Date
+  effectiveDate   DateTime? @map("effective_date") @db.Date
+  expiryDate      DateTime? @map("expiry_date") @db.Date
+  status          String    @default("research")
+  reviewedAt      DateTime? @map("reviewed_at")
+  reviewedBy      String?   @map("reviewed_by")
+  versionLabel    String?   @map("version_label")
+  supersedesId    String?   @map("supersedes_id")
+  // Presentation text carried over from the #945 pilot registry so the
+  // DB-backed API response stays identical. Nullable: governed ingestion
+  // (TODO 3) is not forced to supply them for every new source.
+  topics          String[]  @default([])
+  summary         String?
+  nextAction      String?   @map("next_action")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  jurisdiction CodesJurisdiction? @relation("CodesJurisdictionSources", fields: [jurisdictionId], references: [id], onDelete: SetNull)
+  authority    CodesAuthority     @relation("CodesAuthoritySources", fields: [authorityId], references: [id], onDelete: Restrict)
+  supersedes   CodesSource?       @relation("CodesSourceSupersedes", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy CodesSource[]      @relation("CodesSourceSupersedes")
+  history      CodesSourceHistory[] @relation("CodesSourceHistory")
+
+  @@unique([authorityId, codeFamily, citation, versionLabel])
+  @@index([jurisdictionId])
+  @@index([authorityId, codeFamily])
+  @@map("codes_source")
+}
+
+model CodesSourceHistory {
+  id            String   @id @default(uuid())
+  sourceId      String   @map("source_id")
+  versionLabel  String   @map("version_label")
+  sourceHash    String?  @map("source_hash")
+  status        String
+  changeSummary String?  @map("change_summary")
+  recordedAt    DateTime @default(now()) @map("recorded_at")
+  recordedBy    String?  @map("recorded_by")
+
+  source CodesSource @relation("CodesSourceHistory", fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@index([sourceId, recordedAt])
+  @@map("codes_source_history")
+}
+
 model Customer {
   id              String   @id @default(uuid())
   orgId           String?  @map("org_id")

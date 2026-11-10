@@ -365,6 +365,18 @@ PR #216 does not add replacement catalog entities. It promotes the existing `Ass
 
 Cost Item and Assembly lookup semantics remain unchanged: both services support case-insensitive substring search across `name` and `code`. PostgreSQL `pg_trgm` GIN indexes cover both searched fields, including additive `code` indexes, so code substring matching has an index path without changing organization scope, RLS, catalog ownership, or DTO behavior.
 
+## Codes & Permits registry (issue #946 TODO 2, draft)
+
+The #945 Codes & Permits advisory pilot's in-code source index moves into four global reference tables (migration `20261109220000_add_codes_authority_jurisdiction_source`). These tables are **not** tenant-scoped: they carry no `org_id`, no pricing, no CostItem, no estimate, no customer and no payment data.
+
+- `codes_authority` stores the governing authority (`name`, kind `county`/`state`/`federal`/`municipality`/`utility`, `state`, `county`, source URL, contact); unique `(name, state, county)`
+- `codes_jurisdiction` stores the geographic/legal scope under one authority (kind `county`/`municipality`/`unincorporated`/`state`/`federal`/`overlay`, `state`, `county`, opaque `gis_ref` with no geometry yet, self-parent, notes); unique `(authority_id, name, jurisdiction_kind)`
+- `codes_source` stores one cited official source version (`code_family`, section, citation, title, source URL, sha256 `source_hash`, license note, published/amended/effective/expiry dates, `status` `research`/`reviewed`/`superseded`, review timestamp/by, `version_label`, self-`supersedes_id`, plus `topics`, `summary`, `next_action` presentation text carried over from the pilot so the API response is unchanged); unique `(authority_id, code_family, citation, version_label)`, with a partial unique index enforcing the unversioned singleton when `version_label IS NULL`
+- `codes_source_history` is the append-only version history for `codes_source` (version label, hash, status, change summary, recorded at/by); no `UPDATE`/`DELETE` policy exists for any role
+- all four tables use forced RLS with a single `SELECT` policy each, readable by any authenticated session (`current_app_org_id() IS NOT NULL`); there is no `INSERT`/`UPDATE`/`DELETE` policy for tenant roles — writes go only through the governed ingestion path (TODO 3). `costbook.read` is enforced at the API layer (`GET /api/v1/costbook/codes`, which serves only `reviewed` rows)
+- the six #945 pilot references are seeded as `reviewed` rows; `source_hash` is NULL until the first governed fetch and no effective date is guessed. Full model-code text is never stored: citation + URL + hash + metadata only
+- this registry does not duplicate Costbook evidence: `provenance.ts` is a trust-state vocabulary for cost data, supplier prices and assemblies store pricing/groupings, and none of them stores authority/jurisdiction/versioned-source records
+
 ## Costbook research candidates (Stage 6 ingestion)
 
 `CostbookResearchCandidate` (new model, 2026-09-08) is the persisted form of the Stage 5 `CostbookResearchCandidate` type contract (`app/modules/costbook/candidateCostItem.ts`), per `docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md`. It is not a production Costbook entity — it is a staged, org-scoped research proposal awaiting a named human review decision, mirroring the `SupplierPriceUpdate` staged-review precedent rather than a new review-queue shape.
