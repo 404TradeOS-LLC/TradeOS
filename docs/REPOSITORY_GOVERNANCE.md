@@ -343,7 +343,8 @@ protected change), `BLOCKED_ESCALATED` (3 repair attempts per head
 exhausted; backoff 60 s / 120 s / 240 s, then stop). Every verdict stands on
 one exact head SHA; the `act` job re-reads the snapshot and re-evaluates
 before any write, and a moved head or changed verdict stops that PR with no
-action. The durable record is the `pr-commander-verdicts` artifact plus one
+action. The durable record is the per-PR `pr-commander-verdict-<n>`
+artifact plus one
 verdict comment per PR (armed runs only), marked
 `<!-- tradeos-pr-commander -->`. There is no repo state file.
 

@@ -244,8 +244,8 @@ Actions tab stops schedule runs as well.
    rather than deciding on partial evidence. The per-head repair-attempt
    counter is read from the verdict comment
    (`repair-attempts:<sha>:<n>`); a new head resets the counter to 0.
-   `evaluateGate` produces the verdict, which is written to the
-   `pr-commander-verdicts` artifact (JSON per PR per run: snapshot +
+   `evaluateGate` produces the verdict, which is written to a per-PR
+   `pr-commander-verdict-<n>` artifact (JSON per PR per run: snapshot +
    verdict + evidence links + plan) and the run summary.
 3. **Report / order.** Job `report` aggregates all verdicts, detects
    stacked PRs, computes the dependency-safe merge order (base-first; a
@@ -359,8 +359,10 @@ trust-boundary changes.
 
 ## State and audit trail
 
-- Workflow artifact `pr-commander-verdicts` (JSON per PR per run: snapshot
-  + verdict + evidence links + plan), retained 30 days.
+- One workflow artifact per evaluated PR, `pr-commander-verdict-<n>`
+  (JSON per PR per run: snapshot + verdict + evidence links + plan),
+  retained 30 days. Per-PR names are required: upload-artifact v4
+  cannot upload to the same artifact name from multiple matrix jobs.
 - One Commander verdict comment per PR, updated in place, marked
   `<!-- tradeos-pr-commander -->` (armed runs only).
 - Run summary aggregating every verdict, the merge order, founder items,
@@ -384,7 +386,7 @@ trust-boundary changes.
   default), then create it only when ready — see the configuration
   document. No agent creates or enables it.
 - [ ] **Review a dry-run sweep.** Dispatch `mode=dry-run` (or wait for an
-  hourly schedule run), inspect the `pr-commander-verdicts` artifact and
+  hourly schedule run), inspect the `pr-commander-verdict-<n>` artifacts and
   the run summary, and confirm the verdicts match the known state of the
   open PRs — and that no write action occurred (no comments, no labels,
   no merges, no repair pushes).

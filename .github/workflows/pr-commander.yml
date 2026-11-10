@@ -93,8 +93,10 @@
 #
 # Audit trail (requirement 12)
 # -----------------------------
-#   - Workflow artifact `pr-commander-verdicts` (JSON per PR per run:
-#     snapshot + verdict + evidence links + plan).
+#   - One workflow artifact per evaluated PR, `pr-commander-verdict-<n>`
+#     (JSON per PR per run: snapshot + verdict + evidence links + plan).
+#     Per-PR names are required: upload-artifact v4 cannot upload to the
+#     same artifact name from multiple matrix jobs (conflict error).
 #   - One Commander verdict comment per PR, updated in place, marked
 #     `<!-- tradeos-pr-commander -->` (armed runs only; see Arming above).
 #   - Run summary aggregating every verdict.
@@ -278,8 +280,12 @@ jobs:
           echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
           # Per-head repair-attempt counter, carried by the verdict comment
           # (no state file in the repo). A new head resets the counter.
+          # Match both logins: `gh pr view` (GraphQL) reports the bot as
+          # `github-actions`, while the REST API reports
+          # `github-actions[bot]` — filtering on either alone misses the
+          # stored count and the per-head cap can never trigger.
           gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json comments \
-            --jq '.comments[]? | select(.author.login == "github-actions[bot]") | .body' > comments.txt || true
+            --jq '.comments[]? | select(.author.login == "github-actions" or .author.login == "github-actions[bot]") | .body' > comments.txt || true
           attempts=$(grep -o "repair-attempts:${head_sha}:[0-9]*" comments.txt | tail -n 1 | cut -d: -f3 || true)
           echo "attempts=${attempts:-0}" >> "$GITHUB_OUTPUT"
           echo "PR #$PR_NUMBER head $head_sha, repair attempts on this head: ${attempts:-0}"
@@ -347,7 +353,7 @@ jobs:
       - name: Upload verdict artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pr-commander-verdicts
+          name: pr-commander-verdict-${{ matrix.pr }}
           path: verdicts/
           if-no-files-found: error
           retention-days: 30
@@ -396,8 +402,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name pr-commander-verdicts --dir verdicts; then
-            echo "Downloaded $(find verdicts -maxdepth 1 -name '*.json' -type f 2>/dev/null | wc -l) verdict file(s)."
+          # Per-PR artifact names (upload-artifact v4 forbids two jobs
+          # uploading the same name in one run). `gh run download
+          # --pattern` extracts each artifact under its own subdirectory
+          # (verdicts/pr-commander-verdict-<n>/pr-<n>.json), or directly
+          # under verdicts/ when only one matches — flatten either layout
+          # so the aggregate step reads verdicts/pr-<n>.json.
+          if gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --pattern 'pr-commander-verdict-*' --dir verdicts; then
+            find verdicts -mindepth 2 -name 'pr-*.json' -exec mv -t verdicts/ {} + 2>/dev/null || true
+            find verdicts -mindepth 1 -type d -empty -delete 2>/dev/null || true
+            echo "Downloaded $(find verdicts -name '*.json' -type f 2>/dev/null | wc -l) verdict file(s)."
           else
             echo "No verdict artifacts for this run (no PRs, or evaluation failed before upload)."
             mkdir -p verdicts
@@ -535,7 +549,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name pr-commander-verdicts --dir verdicts
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --pattern 'pr-commander-verdict-*' --dir verdicts
+          # Same flatten as the report job: `gh run download --pattern`
+          # extracts each artifact under its own subdirectory.
+          find verdicts -mindepth 2 -name 'pr-*.json' -exec mv -t verdicts/ {} + 2>/dev/null || true
+          find verdicts -mindepth 1 -type d -empty -delete 2>/dev/null || true
 
       - name: Apply verdicts in dependency order
         shell: bash
@@ -654,10 +672,12 @@ jobs:
           }
 
           # Read the recorded attempt count for a head from the verdict comment.
+          # (Same GraphQL/REST login split as the evaluate snapshot step:
+          # `gh pr view` reports `github-actions`, REST `github-actions[bot]`.)
           recorded_attempts() {
             local pr="$1" head_sha="$2"
             gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json comments \
-              --jq '.comments[]? | select(.author.login == "github-actions[bot]") | .body' > comments.txt || true
+              --jq '.comments[]? | select(.author.login == "github-actions" or .author.login == "github-actions[bot]") | .body' > comments.txt || true
             local n
             n=$(grep -o "repair-attempts:${head_sha}:[0-9]*" comments.txt | tail -n 1 | cut -d: -f3 || true)
             echo "${n:-0}"
@@ -704,7 +724,11 @@ jobs:
             fi
             ATTEMPTS_RECORDED="$attempts" upsert_verdict_comment "$pr" "$attempts" || true
             echo "Enabling auto-merge for PR #$pr at $head_sha."
-            gh pr merge --auto --squash "$pr" --repo "$GITHUB_REPOSITORY"
+            # Pin the merge to the exact head that was validated above:
+            # without --match-head-commit a push landing between the
+            # re-evaluation and this call would auto-merge an unvalidated
+            # head.
+            gh pr merge --auto --squash --match-head-commit "$head_sha" "$pr" --repo "$GITHUB_REPOSITORY"
             merged="$merged $pr"
           done
 
@@ -767,21 +791,39 @@ jobs:
                 # headRepository is not in the pr-view snapshot payload; fetch it.
                 head_repo=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json headRepository --jq '.headRepository.nameWithOwner')
                 if [ "$head_repo" = "$GITHUB_REPOSITORY" ]; then
-                  echo "Attempting deterministic lint repair on PR #$pr (attempt $((attempts + 1)) of 3)."
                   if gh pr checkout "$pr" --repo "$GITHUB_REPOSITORY" 2>/dev/null; then
+                    # This repair attempt counts exactly once, whatever the
+                    # outcome (no-change, verification failure, or push):
+                    # the per-head cap must advance on every attempt, not
+                    # only on a successful push. It advances here, once the
+                    # attempt has actually begun (checkout succeeded) — a
+                    # checkout failure is not an attempt. The final
+                    # upsert_verdict_comment below records this count for
+                    # every outcome.
+                    attempts=$((attempts + 1))
+                    echo "Attempting deterministic lint repair on PR #$pr (attempt $attempts of 3)."
                     (cd web && npm ci --no-audit --no-fund && npm run lint -- --fix) || true
                     if ! git diff --quiet -- web/; then
-                      git diff --check
-                      if (cd web && npm test && npm run lint -- . && npm run build); then
-                        git add -- web/
-                        git commit -m "fix(web): apply ESLint safe fixes (PR Commander repair, attempt $((attempts + 1)) of 3)"
-                        # Real git push: API-pushed commits emit no push
-                        # event and never trigger pull_request CI.
-                        git push origin "HEAD:$(git branch --show-current)"
-                        echo "Repair pushed; requesting CodeRabbit re-review (rate-limited, best-effort, one attempt)."
-                        sleep 60
-                        gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body "@coderabbitai review" || true
-                        attempts=$((attempts + 1))
+                      # Every fallible command in this block is guarded: a
+                      # failure skips only this PR, it must never abort the
+                      # whole `act` step under `set -e` (which would drop
+                      # the remaining PRs and the summary), and the branch
+                      # is restored at the end of the block.
+                      if git diff --check && (cd web && npm test && npm run lint -- . && npm run build); then
+                        if git add -- web/ && git commit -m "fix(web): apply ESLint safe fixes (PR Commander repair, attempt $attempts of 3)"; then
+                          # Real git push: API-pushed commits emit no push
+                          # event and never trigger pull_request CI.
+                          if git push origin "HEAD:$(git branch --show-current)"; then
+                            echo "Repair pushed; requesting CodeRabbit re-review (rate-limited, best-effort, one attempt)."
+                            sleep 60
+                            gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body "@coderabbitai review" || true
+                          else
+                            echo "Repair push rejected (head moved?); no repair for PR #$pr."
+                          fi
+                        else
+                          echo "Repair commit failed; no push for PR #$pr."
+                          git checkout -- web/ || true
+                        fi
                       else
                         echo "Repair verification failed; no push for PR #$pr."
                         git checkout -- web/ || true

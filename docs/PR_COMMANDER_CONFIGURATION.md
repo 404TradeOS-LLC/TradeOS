@@ -46,15 +46,17 @@ does not exist yet by design.
 
 ### Verify the variable
 
-- List repository variables:
-  `gh api repos/404TradeOS-LLC/TradeOS/actions/variables --jq '.variables[].name'`
-  (the value itself is not secret, but GitHub does not return variable
-  values through the API — confirm the value in Settings, or confirm
-  behavior from a dispatch: a dispatch with `mode=armed` reports
-  `effectively armed: true` in the run summary only when the variable is
-  exactly `"true"`).
-- A variable that returns 404 does not exist — that is the expected
+- Check the value directly through the Actions variables API.
+  Repository variables — unlike secrets — return their value:
+  `gh api repos/404TradeOS-LLC/TradeOS/actions/variables/TRADEOS_PR_COMMANDER_WRITE_ENABLED --jq '{name, value}'`
+  (also list all variables with
+  `gh api repos/404TradeOS-LLC/TradeOS/actions/variables --jq '.variables[].name'`).
+  The Commander is armed only when the value is exactly `"true"`.
+  A variable that returns 404 does not exist — that is the expected
   pre-activation state.
+- Do NOT verify the variable with an armed dispatch: a dispatch with
+  `mode=armed` while the variable is set runs the write job. Verification
+  is a read (the API above, or Settings → Variables), never a dispatch.
 
 ## Workflow inputs
 
@@ -109,8 +111,10 @@ A dry-run must leave **zero** trace on any PR. Check all of these:
 1. **Run summary** — the summary states the mode and
    `effectively armed: false`, and lists each PR's verdict. A
    `DRY_RUN_ONLY` verdict means "all gates pass, nothing may be merged."
-2. **Artifact** — download the `pr-commander-verdicts` artifact (retained
-   30 days). Each `pr-<n>.json` carries `armed: false`, the verdict,
+2. **Artifact** — download the per-PR `pr-commander-verdict-<n>`
+   artifacts (retained 30 days), e.g.
+   `gh run download <run-id> --repo 404TradeOS-LLC/TradeOS --pattern 'pr-commander-verdict-*' --dir verdicts`.
+   Each `pr-<n>.json` carries `armed: false`, the verdict,
    reasons, next actions, founder items, and evidence links. The comment
    body is rendered there as "would post/update verdict comment" — it is
    not posted.
@@ -148,8 +152,8 @@ that PR with no action.
 
 ## How to disable
 
-Either step alone stops all write action; both together fully stop the
-Commander:
+Either step alone stops all write action; all three together fully stop
+the Commander:
 
 1. **Disarm (recommended first step):** delete the repository variable
    `TRADEOS_PR_COMMANDER_WRITE_ENABLED` (Settings → Secrets and variables
@@ -159,6 +163,17 @@ Commander:
 2. **Stop the schedule:** disable the workflow in the Actions tab
    (Actions → PR Commander → ⋯ → Disable workflow). This stops hourly
    sweeps; manual dispatches remain possible until re-enabled.
+3. **Cancel any active runs:** removing the variable and disabling the
+   workflow do NOT stop an `act` job that has already started. Cancel it
+   and verify it stopped:
+   ```bash
+   gh run list --workflow pr-commander.yml --repo 404TradeOS-LLC/TradeOS \
+     --status in_progress --jq '.[].databaseId'
+   gh run cancel <run-id> --repo 404TradeOS-LLC/TradeOS
+   ```
+   Re-list (also `--status queued` for runs waiting to start) until no
+   in-progress or queued PR Commander runs remain. Only then is the
+   Commander fully stopped.
 
 Removing the variable does not remove verdict comments or labels already
 posted by earlier armed runs. Those are ordinary PR comments/labels: the

@@ -158,7 +158,8 @@ object is `{ verdict, reasons[], nextActions[], founderItems[], headSha }`.
     `pr-commander-act` group, in dependency order.
 12. **Durable per-PR state record + audit trail with evidence links** —
     MET (decision: artifacts + verdict comment + summary; NO repo state
-    file). Workflow artifact `pr-commander-verdicts` (JSON per PR per run:
+    file). One workflow artifact per evaluated PR,
+    `pr-commander-verdict-<n>` (JSON per PR per run:
     snapshot + verdict + run/check/PR evidence links + plan); one Commander
     verdict comment per PR updated in place (marker
     `<!-- tradeos-pr-commander -->`); run summary aggregating every
