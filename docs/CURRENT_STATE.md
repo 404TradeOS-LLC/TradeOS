@@ -71,7 +71,7 @@ related_code:
 
 ## Recoverable invoice creation — draft candidate, 2026-11-09
 
-PR #956 adds a commit-confirmed, authenticated draft endpoint and an explicit same-request retry on the mounted New invoice form. The migration has not been applied to a protected environment. PostgreSQL concurrency, tenant denial, and four-width authenticated browser/PDF evidence are still required. See [Invoices and payments](modules/invoices-and-payments.md#recoverable-invoice-draft-creation).
+PR #956 adds a commit-confirmed, authenticated draft endpoint and an explicit same-request retry on the mounted New invoice form. The migration has not been applied to a protected environment. Hosted PostgreSQL on `a3c368a` passed all 197 integration tests, including overlapping retry and tenant-denial coverage. The lock window still requires representative rehearsal and approval; four-width authenticated browser/PDF evidence is pending. See [Invoices and payments](modules/invoices-and-payments.md#recoverable-invoice-draft-creation).
 
 ## Estimate authenticated acceptance — 2026-11-05
 
