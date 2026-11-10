@@ -169,7 +169,7 @@ export function NewInvoiceForm({ projectId, estimates, proposals, createRequestK
             )}
             <div className="flex flex-col gap-2">
               <Label htmlFor="dueDate">Due date</Label>
-              <Input id="dueDate" name="dueDate" value={dueDate} onChange={(event) => setDueDate(event.target.value)} type="text" inputMode="text" autoComplete="off" placeholder="MM/DD/YYYY or YYYY-MM-DD" aria-describedby="dueDate-hint" />
+              <Input id="dueDate" name="dueDate" type="text" inputMode="text" value={dueDate} onChange={(event) => setDueDate(event.target.value)} autoComplete="off" placeholder="MM/DD/YYYY or YYYY-MM-DD" aria-describedby="dueDate-hint" />
               <p id="dueDate-hint" className="text-xs text-muted-foreground">Optional. Type MM/DD/YYYY or YYYY-MM-DD.</p>
             </div>
           </fieldset>
