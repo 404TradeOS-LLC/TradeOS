@@ -277,6 +277,14 @@ Actions tab stops schedule runs as well.
    event and never trigger `pull_request` CI. A repair push happens only
    if the verification passes; otherwise the branch is restored and
    nothing is pushed.
+   **Push-credential requirement:** GitHub's default `GITHUB_TOKEN` does
+   not trigger `pull_request` workflows when it pushes. The armed repair
+   checkout uses the founder-installed, repo-scoped Actions secret
+   `TRADEOS_PR_COMMANDER_PUSH_TOKEN` when present. If it is absent, the
+   checkout persists **no** git credentials and the deterministic repair
+   branch skips without attempting a push or consuming a repair attempt.
+   A warning identifies the missing setup; no agent creates the secret.
+   See [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md#dedicated-repair-push-credential-founder-setup-not-an-arming-control).
 2. **CodeQL Autofix for security findings** — the existing
    `codeql-autofix.yml` is **not dispatched from this workflow and never
    re-implemented here**: a workflow dispatch needs `actions: write`,
