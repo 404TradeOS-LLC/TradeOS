@@ -2,16 +2,32 @@
  * Reviewed index of official sources, not a permit determination or a code-text mirror.
  * Keep this registry independent of CostItem, Assembly, pricing and customer data.
  * Any new jurisdiction requires source/version review before publication.
+ *
+ * SEED SOURCE ONLY (issue #946 TODO 2): the HTTP API (`GET
+ * /api/v1/costbook/codes`) reads the DB tables
+ * (codes_authority/codes_jurisdiction/codes_source) seeded from this file
+ * by migration 20261109220000_add_codes_authority_jurisdiction_source.
+ * Do not add, remove or edit a reference here without the matching DB seed
+ * change and review — this file is not a parallel runtime source for the
+ * API. One documented exception remains: the Athena tool
+ * (`tradeos.athena.tools.costbook.code.references`) still reads this file
+ * directly until TODO 7 migrates it to the DB service; its rows are this
+ * seed verbatim, never a second source of truth.
  */
 export type CodeTopic = "signage" | "permits" | "electrical" | "structural" | "right-of-way";
+
+export const CODE_REFERENCES_DISCLAIMER =
+  "Source links are research leads only. Verify current amendments, parcel jurisdiction, code edition and permit applicability with the authority having jurisdiction before construction or pricing.";
 
 export interface CodeReference {
   id: string;
   title: string;
   issuer: string;
   citation: string;
-  state: "IN";
-  county: "Vigo" | null;
+  // Widened from the pilot's "IN" / "Vigo" literals: the DB-backed
+  // registry serves any state/county the seed holds.
+  state: string;
+  county: string | null;
   sourceUrl: string;
   sourceDate: string | null;
   reviewedAt: string;
@@ -142,7 +158,7 @@ export function listCodeReferences(query: CodeReferenceQuery): {
   });
   return {
     status: "advisory",
-    disclaimer: "Source links are research leads only. Verify current amendments, parcel jurisdiction, code edition and permit applicability with the authority having jurisdiction before construction or pricing.",
+    disclaimer: CODE_REFERENCES_DISCLAIMER,
     items,
     total: items.length,
   };
