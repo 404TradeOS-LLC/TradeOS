@@ -175,6 +175,8 @@ export function resolveJurisdiction(
       localRecords = current.filter(
         (record) =>
           record.level === "municipal" &&
+          Boolean(state) &&
+          record.state.toUpperCase() === state &&
           Boolean(municipality) &&
           (record.municipality ?? "").trim().toLowerCase() === municipality &&
           (!record.county || (Boolean(county) && normalizeCounty(record.county) === county)),
@@ -188,7 +190,12 @@ export function resolveJurisdiction(
     } else {
       // Fail closed: a missing county never matches any county record.
       localRecords = current.filter(
-        (record) => record.level === "county" && Boolean(county) && normalizeCounty(record.county) === county,
+        (record) =>
+          record.level === "county" &&
+          Boolean(state) &&
+          record.state.toUpperCase() === state &&
+          Boolean(county) &&
+          normalizeCounty(record.county) === county,
       );
       if (localRecords.length === 0) {
         fail(
