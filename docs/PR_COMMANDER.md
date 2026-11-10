@@ -393,6 +393,12 @@ trust-boundary changes.
 - [ ] **Verify the variable does not exist yet** (absent = dry-run, the safe
   default), then create it only when ready — see the configuration
   document. No agent creates or enables it.
+- [ ] **Provision the isolated repair-push credential, if automatic repairs
+  are desired.** Create the founder-controlled repo-scoped
+  `TRADEOS_PR_COMMANDER_PUSH_TOKEN` Actions secret with CI-triggering
+  push permissions. If absent, automatic repair pushes must remain
+  disabled, even in an armed run. This secret does not replace the
+  separate explicit arming variable and manual dispatch.
 - [ ] **Review a dry-run sweep.** Dispatch `mode=dry-run` (or wait for an
   hourly schedule run), inspect the `pr-commander-verdict-<n>` artifacts and
   the run summary, and confirm the verdicts match the known state of the
