@@ -62,7 +62,7 @@ Own invoice creation, send and pay state changes, voiding, line items, delivery 
 
 ## Recoverable invoice draft creation
 
-The New invoice form posts to `POST /api/v1/invoices/drafts` with an `Idempotency-Key` UUID. A new draft returns 201 and a matching replay returns 200 with the original invoice ID; both set `Idempotency-Replayed`. A changed payload under the same project/key returns 409. The dedicated path fails without a write on an older API. The existing unkeyed create path remains available.
+The New invoice form posts to `POST /api/v1/invoices/drafts` with an `Idempotency-Key` UUID. A new draft returns 201 and a matching replay returns 200 with the original invoice ID; both set `Idempotency-Replayed`. A changed payload under the same project/key returns 409. The dedicated path fails without a write on an older API. `POST /api/v1/invoices` uses the same recoverable handler when the key is supplied (400 for a malformed key, 200 for a matching replay). Existing unkeyed requests retain their original create behavior.
 
 The recoverable route authenticates before opening its tenant-scoped transaction and sends success only after commit. A known unique or serialization failure can start one fresh tenant-scoped transaction to recover the concurrent winner. The form preserves the original payload and key while it stays open and offers an explicit retry after an uncertain response. If the form was closed or reloaded, check the project’s invoices before creating another draft. Creating a draft never sends it or records payment.
 

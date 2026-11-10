@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { extractPdfText } from "./helpers/extract-pdf-text";
 import { Prisma, PrismaClient } from "@prisma/client";
 import {
   getRequestDatabaseClient,
@@ -2148,6 +2149,18 @@ describe("live organization row-level security", () => {
     expect(persisted.invoices).toHaveLength(1);
     expect(persisted.invoices[0]).toMatchObject({ id, createRequestKey: key, createRequestHash: expect.stringMatching(/^[a-f0-9]{64}$/) });
     expect(persisted.events.map((event) => event.eventType)).toEqual(["invoice.created"]);
+
+    const pdf = await inSession(adminUser, orgA, "admin", () => service.getPdf(id, orgA));
+    expect(pdf.contentType).toBe("application/pdf");
+    expect(pdf.filename.endsWith(`-${first.invoice.invoiceNumber}.pdf`)).toBe(true);
+    expect(pdf.buffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+    const pdfText = extractPdfText(pdf.buffer);
+    expect(pdfText).toContain(`Invoice #${first.invoice.invoiceNumber}`);
+    expect(pdfText).toMatch(/Recovery fixture[^\n]*\$300\.00/);
+    expect(pdfText).toMatch(/Total\s+\$300\.00/);
+    expect(pdfText).toMatch(/Balance due\s+\$300\.00/);
+    await expect(inSession(otherUser, orgB, "owner", () => service.getPdf(id, orgB)))
+      .rejects.toMatchObject({ statusCode: 404 });
 
     await expect(inSession(adminUser, orgA, "admin", () => service.createWithIdempotency({
       ...input, lineItems: [{ ...input.lineItems[0], unitPrice: 175 }],
