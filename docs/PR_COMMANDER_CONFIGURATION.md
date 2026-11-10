@@ -58,6 +58,16 @@ does not exist yet by design.
   `mode=armed` while the variable is set runs the write job. Verification
   is a read (the API above, or Settings → Variables), never a dispatch.
 
+## Dedicated repair-push credential (founder setup, not an arming control)
+
+GitHub suppresses Actions workflow triggers caused by a push authenticated with its default `GITHUB_TOKEN`. Therefore an automated ESLint repair pushed with that token does **not** create the fresh `pull_request` CI required for protected auto-merge. A real `git push` is necessary but not sufficient: its credential must also be permitted to trigger workflows.
+
+Before using automatic **repair pushes**, the founder provisions one narrowly scoped, CI-triggering GitHub App installation token or dedicated fine-grained PAT, with repository **Contents read/write** and any required Pull requests permissions, and configures it as the Actions repository **secret** `TRADEOS_PR_COMMANDER_PUSH_TOKEN`. Use only an authorized credential belonging to this repository, protect its lifecycle and rotate/revoke it under the standard owner process. Never paste token bytes into PRs, logs, Notion, or chat. This guide does not create or provision a credential.
+
+The Commander uses that secret **only in the manual armed `act` job checkout**. When the secret is absent, checkout persists no Git credentials, repair pushes are skipped before checkout of a PR, and the job emits a warning; **it never falls back to pushing with `GITHUB_TOKEN`**. Audit, dry-run, verdict and other permitted non-repair actions remain governed by their usual guards. The separate repository variable `TRADEOS_PR_COMMANDER_WRITE_ENABLED` and manual `mode=armed` are still required for *any* write job; possessing the push token alone arms nothing. No agent may create the secret or enable the variable without the founder's separate authorization.
+
+Verify the secret's **presence only**, using GitHub Actions Secrets metadata or the repository Settings page; the value is not readable and must not be printed. A successful real repair is certified only after a subsequent exact-head required CI run. Absence of this secret is a **blocked repair capability**, not permission to bypass the CI gate.
+
 ## Workflow inputs
 
 `workflow_dispatch` inputs for `.github/workflows/pr-commander.yml`:
