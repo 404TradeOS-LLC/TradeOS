@@ -12,6 +12,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { clientFetch } from "@/lib/clientApi";
 import {
+  isEstimateCodesHintsResponse,
   summarizeCodesHints,
   type EstimateCodesHintsResponse,
 } from "@/lib/costbook-codes-hints";
@@ -25,7 +26,10 @@ export function EstimateCodesHints({ estimateId }: { estimateId: string }) {
     retry: false,
   });
 
-  if (isError || !data) return null;
+  // A truthy-but-malformed payload (e.g. `[]` from a generic list transport
+  // for an unknown GET) must render nothing: summarizing it would throw
+  // during render and unmount the whole estimate stage (PR #961).
+  if (isError || !isEstimateCodesHintsResponse(data)) return null;
   const summary = summarizeCodesHints(data);
 
   return (
