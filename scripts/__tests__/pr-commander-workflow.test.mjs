@@ -83,3 +83,29 @@ test("repair block failures skip only the current PR (set -e guards)", () => {
   assert.equal(barePush, null, "git push must be guarded");
   assert.match(workflow, /git switch main 2>\/dev\/null \|\| true/);
 });
+
+test("repair push uses an explicit CI-triggering credential and fails closed if none is installed", () => {
+  // A real git push authenticated by GITHUB_TOKEN does not generate PR CI
+  // workflow runs; the deterministic repair lane must not use that fallback.
+  assert.match(
+    workflow,
+    /token: \$\{\{ secrets\.TRADEOS_PR_COMMANDER_PUSH_TOKEN \|\| github\.token \}\}/,
+  );
+  assert.match(
+    workflow,
+    /persist-credentials: \$\{\{ secrets\.TRADEOS_PR_COMMANDER_PUSH_TOKEN != '' \}\}/,
+  );
+  assert.match(
+    workflow,
+    /REPAIR_PUSH_TOKEN_AVAILABLE: \$\{\{ secrets\.TRADEOS_PR_COMMANDER_PUSH_TOKEN != '' \}\}/,
+  );
+  const guard = 'if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$attempts" -lt 3 ] && [ "$REPAIR_PUSH_TOKEN_AVAILABLE" = "true" ]; then';
+  const guardIndex = workflow.indexOf(guard);
+  const checkoutIndex = workflow.indexOf('if gh pr checkout "$pr"');
+  const pushIndex = workflow.indexOf('git push origin "HEAD:');
+  assert.ok(guardIndex !== -1 && checkoutIndex > guardIndex && pushIndex > checkoutIndex);
+  assert.match(
+    workflow,
+    /Skipping deterministic repair push: no founder-provisioned CI-triggering credential/,
+  );
+});
