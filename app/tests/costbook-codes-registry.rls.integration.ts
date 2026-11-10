@@ -21,6 +21,15 @@ const marionSource = "94600009-0000-4000-8000-000000000003";
 const seedHistory = "94600009-0000-4000-8000-000000000004";
 const seedSignsSource = "94600003-0000-4000-8000-000000000001";
 
+// RLS denial reaches Prisma in two shapes, and both prove the write was
+// refused: PostgreSQL's 42501 "row-level security" error (INSERT, and
+// UPDATE/DELETE when the statement surfaces the policy violation), or
+// Prisma's P2025 "no record was found" (UPDATE/DELETE on a row the
+// session's RLS hides — the row exists, the tenant session cannot see it
+// for writing). Every use is paired with an admin-client check that the
+// row still exists unchanged, which rules out a genuinely missing row.
+const refusedWritePattern = /row-level security|no record was found for an? (update|delete)/i;
+
 describe("Codes & Permits registry RLS", () => {
   beforeAll(async () => {
     await resetFixtures();
@@ -118,11 +127,15 @@ describe("Codes & Permits registry RLS", () => {
 
     const allA = await runWithDatabaseSession(appClient, actorA, () => listCodeReferencesFromDb({ state: "IN" }), "codes-rls-org-a-all");
     const allB = await runWithDatabaseSession(appClient, actorB, () => listCodeReferencesFromDb({ state: "IN" }), "codes-rls-org-b-all");
-    // Six seed rows plus the Marion fixture; identical for both tenants
-    // because these tables carry no tenant data at all.
-    expect(allA.total).toBe(7);
-    expect(allB.total).toBe(7);
+    // No-county queries return statewide rows only: the four state-level
+    // seed rows (IDHS + INDOT). Identical for both tenants because these
+    // tables carry no tenant data at all.
+    expect(allA.total).toBe(4);
+    expect(allB.total).toBe(4);
     expect(allA.items.map((item) => item.id).sort()).toEqual(allB.items.map((item) => item.id).sort());
+    // All seven rows exist (six seed + Marion fixture); the county filter
+    // is what keeps local rows out of a statewide query.
+    expect(await adminClient.codesSource.count()).toBe(7);
 
     const vigoSignage = await runWithDatabaseSession(
       appClient, actorA, () => listCodeReferencesFromDb({ state: "IN", county: "Vigo", topic: "signage" }), "codes-rls-vigo-signage",
@@ -160,10 +173,10 @@ describe("Codes & Permits registry RLS", () => {
         where: { id: seedSignsSource },
         data: { status: "superseded" },
       }), "codes-rls-refuse-source-update"),
-    ).rejects.toThrow(/row-level security/i);
+    ).rejects.toThrow(refusedWritePattern);
     await expect(
       runWithDatabaseSession(appClient, actor, () => prisma.codesSource.delete({ where: { id: seedSignsSource } }), "codes-rls-refuse-source-delete"),
-    ).rejects.toThrow(/row-level security/i);
+    ).rejects.toThrow(refusedWritePattern);
     await expect(
       runWithDatabaseSession(appClient, actor, () => prisma.codesSourceHistory.create({
         data: { sourceId: seedSignsSource, versionLabel: "tenant", status: "reviewed" },
@@ -181,10 +194,10 @@ describe("Codes & Permits registry RLS", () => {
         where: { id: seedHistory },
         data: { changeSummary: "rewritten" },
       }), "codes-rls-refuse-history-update"),
-    ).rejects.toThrow(/row-level security/i);
+    ).rejects.toThrow(refusedWritePattern);
     await expect(
       runWithDatabaseSession(appClient, actor, () => prisma.codesSourceHistory.delete({ where: { id: seedHistory } }), "codes-rls-refuse-history-delete"),
-    ).rejects.toThrow(/row-level security/i);
+    ).rejects.toThrow(refusedWritePattern);
     const history = await adminClient.codesSourceHistory.findUnique({ where: { id: seedHistory } });
     expect(history?.changeSummary).toBe("Seeded from the #945 pilot registry.");
   });
