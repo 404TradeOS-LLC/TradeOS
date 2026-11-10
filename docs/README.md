@@ -462,3 +462,7 @@ For the live staging migration inventory, checksums, required approvals, command
 ## PDF beta review repair
 
 The [Beta Evidence reference](testing/BETA_EVIDENCE.md) now documents dedicated foreign-owner synthetic fixtures and verified Proposal existence before accepting PDF denial. The [cohort runbook](operations/INVITED_BETA.md) requires exact-release PDF renderer results as well as visual acceptance. These source changes do not provision accounts or authorize release.
+
+## Staging identity and promotion notes — 2026-11-09
+
+[Draft PR #958](https://github.com/404TradeOS-LLC/TradeOS/pull/958) preserves staging's documented public `/ready` data-plane project identifier and pooler-safe read-only Prisma preflight on `main`. See [production health behavior](PRODUCTION_HEALTH.md), [repository governance](REPOSITORY_GOVERNANCE.md), and [beta evidence safeguards](testing/BETA_EVIDENCE.md). Repository source parity and green tests do not independently prove Vercel environment bindings or authorize a protected staging deployment.

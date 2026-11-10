@@ -503,3 +503,7 @@ The new main-only manual `.github/workflows/staging-expenses-migration.yml` and 
 ## PR #933 review repairs
 
 Keep the existing PR/branch for the PDF beta evidence lane. Its foreign Proposal probe must prove owner/admin access in a pinned separate synthetic tenant before and after the smoke-account denial; absent proof remains FAIL. Dedicated foreign-owner secrets are prerequisites, not provisioned by this source repair. Exact-release PDF renderer CI results must be retained before the cohort decision. No product authorization, schema, migration, deployment or release state changes.
+
+## Staging runtime identity parity review — 2026-11-09 (draft PR #958)
+
+Draft [PR #958](https://github.com/404TradeOS-LLC/TradeOS/pull/958) ports the already-existing staging `/ready` public database project-ref contract and the project-bound staging pooler/session-mode preflight onto current `main`. It does not alter schema, tokens, migrations, or deployed runtime. The checked Git trees differ in 23 actual files (despite 79/27 divergent commits). Staging Vercel web/API aliases still target `c800425f`, not main `c1b3cb0e`; Vercel metadata reads return 403. The earlier protected Nov 7 runtime attestation passed for the older deployment and cannot certify a new SHA. Retain draft and reviewer gate before an authorized staging-only promotion; live contractor beta acceptance remains blocked.
