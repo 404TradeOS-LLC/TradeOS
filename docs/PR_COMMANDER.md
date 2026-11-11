@@ -34,7 +34,9 @@ verdict record per PR.
 It **composes** existing pieces and rebuilds none of them: required checks are
 read from `verify-repository.yml`, readiness comes from `merge-readiness.yml`
 (extended with threads, branch currency, ADR-009, and file classification),
-rebases are dispatched to `pr-maintenance.yml`, security fixes are left
+rebases are dispatched to `pr-maintenance.yml` by the armed `act` job
+(founder policy exception for `actions: write`, 2026-11-10; depends on
+PR #965's numeric-input fix in that workflow), security fixes are left
 to the `codeql-autofix.yml` scheduled run (the Commander never dispatches
 it — see "Repair tiers" below), and the lint-autofix pattern comes from
 `code-quality-autofix.yml`. See
@@ -285,16 +287,27 @@ Actions tab stops schedule runs as well.
    branch skips without attempting a push or consuming a repair attempt.
    A warning identifies the missing setup; no agent creates the secret.
    See [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md#dedicated-repair-push-credential-founder-setup-not-an-arming-control).
-2. **CodeQL Autofix for security findings** — the existing
+2. **Rebase for behind branches** — for a `REPAIRABLE` verdict whose
+   branch is behind `main`, the armed `act` job dispatches
+   `pr-maintenance.yml` (`gh workflow run pr-maintenance.yml --ref main
+   -f pr_number=<n>`). The dispatch is async: that workflow validates
+   (open, base `main`, same-repo) and rebases the branch; the Commander
+   re-evaluates at the new head on the next run. One dispatch counts as
+   one repair attempt on the head (cap 3). Fork PRs and non-`main` bases
+   are never dispatched. Requires the founder policy exception for
+   `actions: write` (2026-11-10) on the `act` job and PR #965's
+   numeric-input fix in `pr-maintenance.yml` (a dispatched `pr_number`
+   arrives as `953.0` without it).
+3. **CodeQL Autofix for security findings** — the existing
    `codeql-autofix.yml` is **not dispatched from this workflow and never
-   re-implemented here**: a workflow dispatch needs `actions: write`,
-   which the repository's workflow-security policy prohibits. Security
+   re-implemented here**: the founder policy exception for `actions: write`
+   (2026-11-10) covers the pr-maintenance dispatch only. Security
    findings are surfaced as founder items in the verdict comment and
    handled by the `codeql-autofix.yml` scheduled run (every 2h) on its
-   own cadence. On-demand dispatch is a documented v1 gap: closing it
-   needs a policy exception for `actions: write` (a founder decision)
-   or a `workflow_call` restructure of `codeql-autofix.yml`.
-3. **CodeRabbit re-review** — after a repair push, one best-effort request
+   own cadence. On-demand dispatch is still unwired: wiring it is a
+   separate change, either a wider exception (a founder decision) or a
+   `workflow_call` restructure of `codeql-autofix.yml`.
+4. **CodeRabbit re-review** — after a repair push, one best-effort request
    (`@coderabbitai review`, after a 60 s backoff). CodeRabbit also
    re-reviews automatically on push. Re-review is externally rate-limited:
    one best-effort request with backoff, never a retry loop.
