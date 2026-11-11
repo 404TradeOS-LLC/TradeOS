@@ -570,10 +570,12 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          # The ONLY place the armed variable enters a process environment:
-          # the CLI/library read it through isArmed(). It is "true" here
-          # because this job's `if` already required it.
+          # The armed variables enter the process environment here. The job
+          # `if` compares strings case-insensitively, so it cannot enforce
+          # the exact value — the shell check at the top of `run` below is
+          # the case-sensitive enforcement (bash `=` is case-sensitive).
           TRADEOS_PR_COMMANDER_WRITE_ENABLED: ${{ vars.TRADEOS_PR_COMMANDER_WRITE_ENABLED }}
+          TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED: ${{ vars.TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED }}
           # Never put the secret value into the shell environment or logs.
           REPAIR_PUSH_TOKEN_AVAILABLE: ${{ secrets.TRADEOS_PR_COMMANDER_PUSH_TOKEN != '' }}
           READY_PRS: ${{ needs.report.outputs.ready_prs }}
@@ -582,6 +584,18 @@ jobs:
         run: |
           # $owner/$name/$number in the GraphQL query are GraphQL variables, not shell expansions.
           set -euo pipefail
+          # Exact-value enforcement (case-sensitive bash `=`): the job `if`
+          # compares strings case-insensitively, so a variable set to `TRUE`
+          # would pass it. Require exactly "true" here, before any write.
+          # (CodeRabbit, PR #968.)
+          if [ "$TRADEOS_PR_COMMANDER_WRITE_ENABLED" != "true" ]; then
+            echo "::error::TRADEOS_PR_COMMANDER_WRITE_ENABLED must be exactly 'true'. No writes performed."
+            exit 1
+          fi
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "$TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED" != "true" ]; then
+            echo "::error::TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED must be exactly 'true' for scheduled runs. No writes performed."
+            exit 1
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 

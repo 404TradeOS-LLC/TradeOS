@@ -165,3 +165,31 @@ test("stacked-base guard proceeds only when the base is actually MERGED", () => 
   // summary — only the base guard must not consult it.
   assert.match(workflow, /case " \$merged " in \*" \$pr "\*\) continue ;; esac/);
 });
+
+test("act step enforces exact \"true\" in the shell before any write", () => {
+  // GitHub expression `==` compares strings case-insensitively, so the job
+  // `if` cannot enforce the exact value — a variable set to `TRUE` would
+  // pass it. The case-sensitive enforcement is a bash check at the top of
+  // the "Apply verdicts" step, before any write, for both variables.
+  // (CodeRabbit, PR #968. Corrects the PR #967 rebuttal that claimed the
+  // job `if` was case-sensitive; it is not.)
+  const applyStep = workflow.slice(workflow.indexOf("Apply verdicts in dependency order"));
+  assert.match(
+    applyStep,
+    /TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED: \$\{\{ vars\.TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED \}\}/
+  );
+  assert.match(
+    applyStep,
+    /if \[ "\$TRADEOS_PR_COMMANDER_WRITE_ENABLED" != "true" \]; then/
+  );
+  assert.match(
+    applyStep,
+    /if \[ "\$GITHUB_EVENT_NAME" = "schedule" \] && \[ "\$TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED" != "true" \]; then/
+  );
+  // The exact check must precede the first write (git config is the first
+  // command after it; every gh/git-push write comes later in the step).
+  const checkAt = applyStep.indexOf('if [ "$TRADEOS_PR_COMMANDER_WRITE_ENABLED" != "true" ]');
+  const gitConfigAt = applyStep.indexOf('git config user.name');
+  const firstMergeAt = applyStep.indexOf("gh pr merge");
+  assert.ok(checkAt > -1 && gitConfigAt > checkAt && firstMergeAt > checkAt);
+});

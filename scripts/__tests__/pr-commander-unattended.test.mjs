@@ -34,7 +34,11 @@ test("act gate re-checks the raw variables at job admission (kill-switch)", () =
   // either variable off after discovery but before the act job starts
   // prevents the write job from running. This does NOT abort an
   // already-running act job — cancel that separately. (Codex review, PR #968.)
-  // Exact "true" is enforced here, in discovery, and in isArmed().
+  // Note: the job `if` compares strings case-insensitively, so it alone
+  // does not enforce the exact value — the case-sensitive shell check at
+  // the top of the "Apply verdicts" step is the exact-"true" enforcement
+  // (see the workflow test "act step enforces exact \"true\" in the shell
+  // before any write").
   const actGate = workflow.slice(workflow.indexOf("\n  act:"), workflow.indexOf("\n    runs-on:", workflow.indexOf("\n  act:")));
   assert.match(actGate, /vars\.TRADEOS_PR_COMMANDER_WRITE_ENABLED == 'true'/);
   assert.match(actGate, /vars\.TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED == 'true'/);
