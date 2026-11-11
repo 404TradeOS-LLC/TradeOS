@@ -32,10 +32,10 @@
     "@types/node": "^26",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/three": "0.186.0",
+    "@types/three": "0.187.0",
     "@xmldom/xmldom": "0.9.12",
     "eslint": "^9",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.4.5",
     "shadcn": "^4.23.0",
     "tailwindcss": "^4",
     "typescript": "^6"
