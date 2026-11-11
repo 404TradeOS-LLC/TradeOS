@@ -329,10 +329,9 @@ head SHA. It composes the existing verify/merge-readiness/pr-maintenance/
 CodeQL-autofix pieces and rebuilds none of them; it never assumes the native
 merge queue is live.
 
-**Dry-run is the default.** Schedule and `pull_request` runs can never act.
-Write action additionally requires BOTH the repository variable
+**Dry-run is the default.** `pull_request` runs can never act, and schedule runs can act only when BOTH repository variables are exactly `"true"` (`TRADEOS_PR_COMMANDER_WRITE_ENABLED` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED`); with either variable absent or not exactly `"true"`, scheduled runs are read-only. Write action additionally requires BOTH the repository variable
 `TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly `"true"` AND a manual
-`workflow_dispatch` with `mode=armed`. No agent enables the variable —
+`workflow_dispatch` with `mode=armed` (for dispatch runs) or the scheduled path with both variables set (for schedule runs). No agent enables the variable —
 Billy enables it only after reviewing the configuration and protections.
 In dry-run the Commander emits a verdict + plan per PR (artifact JSON +
 run summary) and takes no write action — not even the verdict comment.

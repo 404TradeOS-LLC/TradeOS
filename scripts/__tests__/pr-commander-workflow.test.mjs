@@ -147,3 +147,21 @@ test("repair push uses an explicit CI-triggering credential and fails closed if 
     /Skipping deterministic repair push: no founder-provisioned CI-triggering credential/,
   );
 });
+
+test("stacked-base guard proceeds only when the base is actually MERGED", () => {
+  // `gh pr merge --auto` returns as soon as auto-merge is enabled, not
+  // when the merge completes, so membership in `merged` (auto-merge enabled
+  // this run) is not proof the base merged. The guard must re-read
+  // base_state from GitHub and proceed only on MERGED; a dependent whose
+  // base is still open waits for the next run. (CodeRabbit, PR #967.)
+  assert.doesNotMatch(workflow, /\*\\" \$base_pr \\"\*/);
+  assert.doesNotMatch(workflow, /Base PR #\$base_pr merged in this run/);
+  assert.match(
+    workflow,
+    /base_state=\$\(gh pr view "\$base_pr" --repo "\$GITHUB_REPOSITORY" --json state --jq \.state\)/
+  );
+  assert.match(workflow, /if \[ "\$base_state" = "MERGED" \]; then/);
+  // The `merged` list is still kept for the repair-loop skip and the run
+  // summary — only the base guard must not consult it.
+  assert.match(workflow, /case " \$merged " in \*" \$pr "\*\) continue ;; esac/);
+});

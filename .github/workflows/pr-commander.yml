@@ -701,7 +701,13 @@ jobs:
           # dependency cycle yields an empty ready list (report job), so
           # nothing merges from a cyclic set. Merges below happen strictly in
           # this order, one at a time; a stacked PR merges only after its
-          # base PR is recorded merged in this run (or was already merged).
+          # base PR is actually MERGED (re-read from GitHub just above).
+          # `gh pr merge --auto` returns as soon as auto-merge is enabled,
+          # not when the merge completes, so membership in `merged` (auto-merge
+          # enabled this run) is NOT proof the base merged — the dependent
+          # waits for the next run if the base is still open. `merged` below
+          # only records which PRs had auto-merge enabled, for the repair-loop
+          # skip and the run summary.
           merged=""
           for pr in $(echo "$READY_PRS" | jq -r '.[]'); do
             echo "=== PR #$pr (ready, dependency order) ==="
@@ -721,18 +727,13 @@ jobs:
               base_pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --state all --head "$base_ref" --json number --jq '.[0].number // empty')
               if [ -n "${base_pr:-}" ]; then
                 base_state=$(gh pr view "$base_pr" --repo "$GITHUB_REPOSITORY" --json state --jq .state)
-                case " $merged " in
-                  *" $base_pr "*) echo "Base PR #$base_pr merged in this run; proceeding." ;;
-                  *)
-                    if [ "$base_state" = "MERGED" ]; then
-                      echo "Base PR #$base_pr already merged; proceeding."
-                    else
-                      echo "Base PR #$base_pr is $base_state, not merged yet; skipping PR #$pr."
-                      ATTEMPTS_RECORDED="$attempts" upsert_verdict_comment "$pr" "$attempts" || true
-                      continue
-                    fi
-                    ;;
-                esac
+                if [ "$base_state" = "MERGED" ]; then
+                  echo "Base PR #$base_pr already merged; proceeding."
+                else
+                  echo "Base PR #$base_pr is $base_state, not merged yet; skipping PR #$pr."
+                  ATTEMPTS_RECORDED="$attempts" upsert_verdict_comment "$pr" "$attempts" || true
+                  continue
+                fi
               fi
             fi
             ATTEMPTS_RECORDED="$attempts" upsert_verdict_comment "$pr" "$attempts" || true
