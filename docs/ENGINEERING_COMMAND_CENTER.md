@@ -35,6 +35,11 @@ related_code:
   - .github/workflows/merge-queue.yml
   - .github/merge-queue-ruleset.json
   - scripts/merge-queue.mjs
+  - .github/workflows/pr-commander.yml
+  - scripts/pr-commander.mjs
+  - scripts/pr-commander-lib.mjs
+  - docs/PR_COMMANDER.md
+  - docs/PR_COMMANDER_CONFIGURATION.md
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
@@ -353,6 +358,39 @@ S030 implementation PR #341 merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`
 ## Automated maintenance lanes
 
 TradeOS includes two governed maintenance workflows: CodeQL remediation runs on a schedule or manual dispatch and opens isolated PRs for bounded alerts; the frontend code-quality lane runs ESLint autofix on a schedule or manual dispatch and opens a PR only after tests, lint, build, and diff validation pass. Neither lane writes directly to `main`, bypasses branch protection, or makes product, schema, authentication, authorization, billing, or production-trust decisions.
+
+### PR Commander — autonomous PR coordination (live, armed) — 2026-11-10
+
+The [PR Commander](PR_COMMANDER.md) (`.github/workflows/pr-commander.yml`,
+merged as PR #964, squash `0526b61f`, main) adds a third, queue-wide
+automation lane: an hourly sweep at :17 UTC plus a read-only fast path on
+every `pull_request` event, evaluating every open PR against the unchanged
+merge bar and enabling native auto-merge only when every gate passes at one
+exact head SHA. It composes the existing verify / merge-readiness /
+pr-maintenance / CodeQL-autofix pieces and rebuilds none of them. **Status:
+live and armed.** Write action requires the repository variable
+`TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly `"true"` **and** a manual
+dispatch with `mode=armed`; the variable is set and the founder-installed
+repair-push secret `TRADEOS_PR_COMMANDER_PUSH_TOKEN` is in place. First
+post-merge dry-run (run 42930226341) and first armed run (42930606887) both
+verified from main on PR #953: dry-run verdict BLOCKED fail-closed on a
+transient unknown merge state with zero writes; armed verdict REPAIRABLE
+(behind branch) with a verdict comment posted and nothing merged. **Policy
+exception (founder, 2026-11-10):** the armed `act` job holds
+`actions: write`, scoped to dispatching `pr-maintenance.yml` for REPAIRABLE
+behind-branch verdicts — the first armed run proved the dispatch was not
+wired in v1 (a behind PR got a verdict comment only). The exception is
+recorded in the `Workflow security` policy script (`POLICY_EXCEPTIONS`) and
+in [Repository governance](REPOSITORY_GOVERNANCE.md); end-to-end rebase
+dispatch depends on PR #965's numeric-input fix in `pr-maintenance.yml`.
+Founder-only boundaries are unchanged: the Commander never dismisses a
+blocking review, never auto-resolves threads in v1, never undrafts a PR,
+never applies migrations or staging-apply gates, never touches production,
+and never changes a ruleset. Copilot Agent Merge is not available as a
+delegation path (0 org seats, quota failures, disabled review ruleset —
+verified 2026-11-10); delegation is deterministic repair, CodeQL Autofix,
+and CodeRabbit re-review. Setup and disable steps are in
+[PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
 
 ### GitHub Actions runtime maintenance
 
