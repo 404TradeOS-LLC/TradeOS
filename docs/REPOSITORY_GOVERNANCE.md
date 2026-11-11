@@ -32,6 +32,11 @@ related_code:
   - .github/workflows/merge-queue.yml
   - .github/merge-queue-ruleset.json
   - scripts/merge-queue.mjs
+  - .github/workflows/pr-commander.yml
+  - scripts/pr-commander.mjs
+  - scripts/pr-commander-lib.mjs
+  - docs/PR_COMMANDER.md
+  - docs/PR_COMMANDER_CONFIGURATION.md
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
@@ -249,12 +254,14 @@ The active `TradeOS Main Branch Protection` ruleset ([ID 18958081](https://githu
 - no configured bypass actors; and
 - `current_user_can_bypass: never` for the connected user during verification.
 
-The desired solo-maintainer policy above is not yet fully reflected in this
-live snapshot: the verified ruleset still reports
-`require_extra_approval_for_unattributed_changes: true` and no bypass actor.
-The repository policy is changed by ADR-009, but an administrator must apply
-the narrow ruleset configuration change before auto-merge can use it. No broad
-ruleset bypass is authorized.
+The desired solo-maintainer policy above is now fully reflected in the
+live snapshot: a read-only live ruleset read on 2026-11-10 (PR Commander
+overlap audit §5) shows `require_extra_approval_for_unattributed_changes:
+false` — the narrow ADR-009 ruleset change the previous paragraph described
+as still pending **has been applied** since the August 2026 verification.
+The earlier statement that the ruleset still reported `true` was stale;
+GitHub is authoritative. No bypass actor exists, and no broad ruleset bypass
+is authorized.
 
 Copilot review is not part of ruleset 18958081 at all — it lives entirely in the separate `Code Quality Copilot review for default branch` ruleset ([ID 19465256](https://github.com/404TradeOS-LLC/TradeOS/rules/19465256)), which is configured for `review_on_push`/`review_draft_pull_requests` but currently shows `enforcement: "disabled"`. Confirmed empirically too: no `Copilot` check run appears in recent PRs' status-check rollups. It must not be described as an active enforcement layer, nor listed alongside ruleset 18958081's controls, unless a later live verification shows it enabled again.
 
@@ -305,6 +312,62 @@ labels or disabling the scheduler do not cancel an existing entry.
 See [testing/MERGE_QUEUE.md](testing/MERGE_QUEUE.md) for activation, the required
 live group-CI trial, cancellation, and rollback. No direct merge, rebase loop,
 ruleset mutation, or admin bypass is implemented by this action.
+
+## PR Commander — autonomous PR coordination (dry-run by default)
+
+`.github/workflows/pr-commander.yml` is the autonomous PR coordinator. It
+sweeps every open pull request hourly at :17 UTC (plus a read-only fast path
+on `pull_request` events for the changed PR only), evaluates each PR against
+the unchanged merge bar — non-draft, the four required checks green, current
+branch, zero unresolved threads, no standing change request, ADR-009 record
+where required — repairs what is deterministically repairable, requests
+CodeRabbit re-review, and enables native auto-merge
+(`gh pr merge --auto --squash`) only when every gate passes at one exact
+head SHA. It composes the existing verify/merge-readiness/pr-maintenance/
+CodeQL-autofix pieces and rebuilds none of them; it never assumes the native
+merge queue is live.
+
+**Dry-run is the default.** Schedule and `pull_request` runs can never act.
+Write action additionally requires BOTH the repository variable
+`TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly `"true"` AND a manual
+`workflow_dispatch` with `mode=armed`. No agent enables the variable —
+Billy enables it only after reviewing the configuration and protections.
+In dry-run the Commander emits a verdict + plan per PR (artifact JSON +
+run summary) and takes no write action — not even the verdict comment.
+
+Verdicts: `MERGE_READY` (all gates pass, run armed), `DRY_RUN_ONLY` (all
+gates pass, run not armed), `REPAIRABLE` (failing check, unresolved threads,
+or behind branch), `BLOCKED` (draft, conflict, missing/pending required
+checks, standing `CHANGES_REQUESTED`, ADR-009 required but absent, or a
+protected change), `BLOCKED_ESCALATED` (3 repair attempts per head
+exhausted; backoff 60 s / 120 s / 240 s, then stop). Every verdict stands on
+one exact head SHA; the `act` job re-reads the snapshot and re-evaluates
+before any write, and a moved head or changed verdict stops that PR with no
+action. The durable record is the per-PR `pr-commander-verdict-<n>`
+artifact plus one
+verdict comment per PR (armed runs only), marked
+`<!-- tradeos-pr-commander -->`. There is no repo state file.
+
+Founder notification is in-repo only: the verdict comment plus the
+`pr-commander:needs-founder` label, applied (armed runs only) when a PR
+carries founder items. The Commander **never** dismisses a blocking review
+(no dismissal path exists anywhere in it), never auto-resolves review
+threads in v1 (deliberate fail-closed omission — the thread-to-fix mapping
+is not established), never undrafts a PR, never applies migrations or
+dispatches staging-apply/migration jobs, never changes RLS/auth on its own
+authority, never touches production, never spends money, and never creates,
+edits, enables, or disables a ruleset. Review dismissals, undraft
+decisions, staging-apply gate clicks, and production touches remain
+founder-only, per PR / per item.
+
+Copilot Agent Merge is not available as a delegation path (0 org seats, no
+billing source, quota failures on review, review ruleset disabled — verified
+live 2026-11-10); the Commander delegates to deterministic repair first,
+CodeQL Autofix for security findings, and CodeRabbit re-review with
+backoff. Full operating documentation is in
+[PR Commander](PR_COMMANDER.md); setup, arming, dry-run verification, and
+disable steps are in
+[PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
 
 ## Manual PR maintenance workflow
 
@@ -748,3 +811,7 @@ Partial migration failures or changed inventory **fail closed** for manual revie
 ## Foreign Proposal isolation proof — PR #933
 
 The existing Beta Evidence workflow gains three `BETA_RC_FOREIGN_OWNER_*` prerequisites (EMAIL, PASSWORD, ORG_ID) for `beta_pdf` only. The foreign identity must be a dedicated synthetic nonproduction owner/admin in the pinned distinct tenant; its session is in memory, never written to artifacts. Successful owner-scoped Proposal reads must surround the smoke PDF denial, and the validator requires that proof rather than accepting a bare 404. Preflight/full gates require the credentials, and credential-handling failures must be redacted. These are evidence inputs only and grant no new product permissions or deployment authority.
+
+## Staging-runtime identity parity gate — 2026-11-09 (draft PR #958)
+
+The `staging-orchestrator.yml` database preflight must accept only the identified TradeOS Staging direct PostgreSQL endpoint or the matching project-bound Supabase pooler identity, with permitted protocol/host/port/path and username suffix; its read-only Prisma migration-status step may use the equivalent session-mode port only after those checks. Staging's runtime API `/ready` may include a **public** data-plane `projectRef`, but this is derived from its configured connection and does not reveal a secret or prove tenant authorization. An API health signal cannot replace authenticated smoke-tenant and cross-tenant-denial evidence. The workflow and field remain subject to normal PR reviews, protected GitHub staging environment approval, exact SHA API/web deployment correlation, and the no-production-mutation boundary. This addendum describes existing staging safeguards being reconciled in [draft PR #958](https://github.com/404TradeOS-LLC/TradeOS/pull/958); no rollout or policy exception is granted.
