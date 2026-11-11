@@ -120,3 +120,72 @@ test("document detail href selection rejects action and nested routes", () => {
     undefined,
   );
 });
+
+test("estimate stage state is exported only for authenticated runs, spec input stays out of the shell, and tenant verification can use the read-only endpoint", () => {
+  // A nonexistent state file makes Playwright fail before creating a page,
+  // so the estimate-stage variable is exported only when the authenticated
+  // bootstrap runs (a failed bootstrap aborts the job first).
+  assert.match(
+    workflow,
+    /TRADEOS_AGENT_AUTHENTICATED === "true"[\s\S]*?TRADEOS_ESTIMATE_STAGE_STATE=/,
+  );
+  // Both outcomes of the export condition: the authenticated branch
+  // exports the state path, and the unauthenticated branch exports
+  // nothing. An unconditional export would fail the second assertion,
+  // and a second export site would fail the count below.
+  assert.match(
+    workflow,
+    /process\.env\.TRADEOS_AGENT_AUTHENTICATED === "true"\s*\n\s*\? \[`TRADEOS_ESTIMATE_STAGE_STATE=\$\{storageStatePath\}`\]\s*\n\s*: \[\]/,
+  );
+  assert.equal(workflow.match(/TRADEOS_ESTIMATE_STAGE_STATE=/g)?.length, 1);
+  // spec_file must reach the shell through the environment only: direct
+  // ${{ inputs.* }} interpolation into a run script is template injection.
+  // (The env assignment itself is the sanctioned passthrough.)
+  assert.doesNotMatch(workflow, /if \[ -n "\$\{\{ inputs\.spec_file \}\}" \]/);
+  assert.doesNotMatch(workflow, /playwright test --project=chromium "\$\{\{ inputs\.spec_file \}\}"/);
+  assert.match(workflow, /SPEC_FILE: \$\{\{ inputs\.spec_file \}\}/);
+  assert.match(workflow, /if \[ -n "\$\{SPEC_FILE\}" \]/);
+  // Supplying the canonical org UUID switches tenant verification to the
+  // read-only Costbook workspace endpoint instead of loading Settings,
+  // which may persist a BrandProfile for legacy-branding tenants.
+  assert.match(workflow, /smoke_org_id:/);
+  assert.match(workflow, /BETA_SMOKE_TENANT_VERIFY_MODE=costbook_read_only/);
+  assert.match(workflow, /BETA_SMOKE_ORG_ID: \$\{\{ inputs\.smoke_org_id \}\}/);
+  assert.match(workflow, /BETA_SMOKE_EXPECTED_COSTBOOK_WRITE=true/);
+});
+
+test("evidence workflow validates spec_file to one exact spec and rejects targeted estimate runs without a draft route", () => {
+  // A substring spec_file would silently match several specs (or none)
+  // while Playwright still exits green; require one checked-in file.
+  assert.match(workflow, /Validate spec_file resolves to one exact spec/);
+  assert.match(workflow, /if \[ ! -f "\$\{SPEC_FILE\}" \]; then/);
+  assert.match(workflow, /spec_file must name one checked-in Playwright spec file/);
+  assert.match(workflow, /tests\/playwright\/\*\.spec\.ts\)/);
+  // The estimate specs skip every test when the draft route is blank, so
+  // a targeted run without one would report green while proving nothing.
+  // The pattern covers every estimate spec (all five carry the skip
+  // guard), not just the two navigation/mapping specs.
+  assert.match(workflow, /Reject targeted estimate runs without a draft route/);
+  assert.match(workflow, /\*estimate-\*\.spec\.ts\)/);
+  assert.match(workflow, /if \[ -z "\$\{ESTIMATE_STAGE_PATH\}" \]; then/);
+  assert.match(workflow, /targeted estimate evidence requires a draft estimate route/);
+  // The positional argument is exact only because the validation step ran
+  // first; the run step records that.
+  assert.match(workflow, /The "Validate spec_file" step already proved this is one exact/);
+});
+
+test("evidence workflow rejects unauthenticated estimate runs and CLI-option spec files", () => {
+  // An estimate path without a session would run the estimate specs
+  // against the login page and report a misleading navigation failure.
+  // The guard fails fast before any install or target resolution.
+  assert.match(workflow, /Reject unauthenticated estimate evidence/);
+  assert.match(
+    workflow,
+    /if \[ "\$\{TRADEOS_AGENT_AUTHENTICATED\}" != "true" \] && \[ -n "\$\{TRADEOS_ESTIMATE_STAGE_PATH\}" \]; then/,
+  );
+  assert.match(workflow, /estimate_stage_path requires authenticated_smoke/);
+  // A hyphen-leading spec_file would be parsed as a Playwright CLI
+  // option instead of a spec path. Valid spec paths never start with one.
+  assert.match(workflow, /case "\$\{SPEC_FILE\}" in/);
+  assert.match(workflow, /spec_file must be a spec file path, not a Playwright CLI option/);
+});

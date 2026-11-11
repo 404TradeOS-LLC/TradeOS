@@ -36,6 +36,7 @@ export function ContextualAthenaPanel({
   isDraft,
   headingId = "contextual-athena-heading",
   onAdded,
+  currentTotalMinor,
   onOpenFullReview,
   fullReviewPending = false,
 }: {
@@ -44,7 +45,8 @@ export function ContextualAthenaPanel({
   projectId: string;
   isDraft: boolean;
   headingId?: string;
-  onAdded?: () => void;
+  onAdded?: (reason?: string, previousTotalMinor?: number | null) => void;
+  currentTotalMinor?: number | null;
   onOpenFullReview?: () => void;
   fullReviewPending?: boolean;
 }) {
@@ -60,6 +62,10 @@ export function ContextualAthenaPanel({
 
   async function addSuggestion(suggestion: ContextualSuggestion) {
     if (!canApplySuggestions || !suggestion.resolution.target || addedIds.has(suggestion.id)) return;
+    // Capture the pre-write total before the add runs: a refresh that
+    // lands before the write resolves would otherwise snapshot the new
+    // total as the previous total.
+    const previousTotalMinor = currentTotalMinor ?? null;
     setAddingId(suggestion.id);
     setError(null);
     try {
@@ -73,7 +79,7 @@ export function ContextualAthenaPanel({
         }),
       });
       setAddedIds((current) => new Set(current).add(suggestion.id));
-      onAdded?.();
+      onAdded?.("Athena suggestion added", previousTotalMinor);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Athena suggestion could not be added.");
     } finally {

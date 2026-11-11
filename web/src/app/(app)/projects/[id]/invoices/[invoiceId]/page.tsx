@@ -9,6 +9,8 @@ import { markInvoicePaidAction, sendInvoiceAction, voidInvoiceAction } from "@/a
 import { ActivityTimeline } from "@/components/shared/activity-timeline";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { LifecycleLine } from "@/components/motion/lifecycle-line";
+import { INVOICE_LIFECYCLE_STAGES, invoiceLifecycle } from "@/lib/motion/adapters";
 import { LineItemRow } from "@/components/shared/line-item-row";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,6 +65,14 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const canEditInvoice = ["owner", "admin", "dispatcher", "estimator"].includes(settings.currentRole);
   const timeline = buildInvoiceTimeline(invoice);
   const displayStatus = getInvoiceDisplayStatus(invoice);
+  // Invoice progress renders only when the record supports an exact
+  // mapping: overdue/voided have no progression position, and a paid
+  // status with a non-zero balance is an inconsistency the line must
+  // not present as complete. The badge and timeline remain authoritative.
+  // The stage is derived from the payment-aware display status, not the
+  // raw record status: a partial payment leaves the backend status as
+  // "sent" while the badge already reads Partially Paid.
+  const invoiceLifecycleState = invoiceLifecycle({ ...invoice, status: displayStatus });
   const paymentCount = invoice.payments.length;
   const hasOpenBalance = invoice.balanceDue > 0;
   const canShowPaymentEntry =
@@ -137,6 +147,16 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Status</p>
                 <div className="mt-1"><StatusBadge status={displayStatus} /></div>
+                {invoiceLifecycleState ? (
+                  <div className="mt-3">
+                    <LifecycleLine
+                      label="Invoice progress"
+                      stages={INVOICE_LIFECYCLE_STAGES}
+                      current={invoiceLifecycleState.current}
+                      completed={invoiceLifecycleState.completed}
+                    />
+                  </div>
+                ) : null}
                 <p className="mt-1 text-xs text-muted-foreground">{dueLabel}</p>
               </div>
             </CardContent>

@@ -188,6 +188,11 @@ that exact tenant-scoped Customer id. This exercises the shipped
 Customer → Project continuity contract directly; it does not depend on the
 Customer also appearing in a generic selector or on list ordering.
 
+After "Create project" the app redirects straight to the new project detail
+page (`/projects/<uuid>`); the project list is never visited. The capture
+script therefore waits for that UUID detail route — not the list URL — and
+takes the project id from the URL, exactly as the customer step does.
+
 Customer email addresses use the `example.invalid` reserved domain so no mail
 can ever be delivered.
 
@@ -201,6 +206,16 @@ Storage state is generated at runtime, not stored:
 4. assert the session is not bounced back to `/login`;
 5. assert the session is scoped to the expected smoke organization;
 6. write storage state to a path outside the repository, `chmod 600`.
+
+Before filling, the script waits (up to 30 s) for the login film to open and
+then dismiss: the CinematicIntro film holds the form's `.entry-content`
+wrapper `inert` while it plays, and filling while inert never lands in React
+state, so the submit is blocked by client-side validation. A pre-navigation
+observer records the `inert` transition even when the film has already
+dismissed by the time navigation reports network idle. The readiness wait
+requires this recorded completion and a non-inert form; a bare "not inert"
+check could pass before hydration. With prefers-reduced-motion the film never
+opens and the wait proceeds when the form exists.
 
 A successful redirect to `/finish-setup` is treated as a provisioning failure,
 not an authentication success — it means the identity has no organization yet.
