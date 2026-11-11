@@ -104,10 +104,9 @@ request, ADR-009 record where required), repairs what is deterministically
 repairable, requests CodeRabbit re-review, and enables native auto-merge
 only when every gate passes. It composes the existing
 verify/merge-readiness/pr-maintenance/CodeQL-autofix pieces and rebuilds none
-of them. It ships **dry-run by default**: schedule and `pull_request` runs
-can never act, and write action additionally requires the repository
+of them. It ships **dry-run by default**: `pull_request` runs can never act, and schedule runs can act only when BOTH repository variables are exactly `"true"` (`TRADEOS_PR_COMMANDER_WRITE_ENABLED` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED`); with either variable absent or not exactly `"true"`, scheduled runs are read-only. Write action additionally requires the repository
 variable `TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly `"true"` **and**
-a manual dispatch with `mode=armed`. The variable is set and the Commander
+a manual dispatch with `mode=armed` (for dispatch runs) or both variables set (for schedule runs). The variable is set and the Commander
 is armed; its first dry-run and armed runs verified from main on PR #953.
 **Policy exception (founder, 2026-11-10):** the armed `act` job holds
 `actions: write`, scoped to dispatching `pr-maintenance.yml` for REPAIRABLE
@@ -512,3 +511,8 @@ The [Beta Evidence reference](testing/BETA_EVIDENCE.md) now documents dedicated 
 ## Staging identity and promotion notes — 2026-11-09
 
 [Draft PR #958](https://github.com/404TradeOS-LLC/TradeOS/pull/958) preserves staging's documented public `/ready` data-plane project identifier and pooler-safe read-only Prisma preflight on `main`. See [production health behavior](PRODUCTION_HEALTH.md), [repository governance](REPOSITORY_GOVERNANCE.md), and [beta evidence safeguards](testing/BETA_EVIDENCE.md). Repository source parity and green tests do not independently prove Vercel environment bindings or authorize a protected staging deployment.
+
+
+### PR Commander unattended execution proposal (PR #967, 2026-11-11)
+
+A draft workflow change proposes optional scheduled write execution gated by **both** `TRADEOS_PR_COMMANDER_WRITE_ENABLED=true` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED=true`. Until the change passes hosted checks, review, a verified manual armed run, and explicit owner activation, scheduled sweeps remain read-only. No migration, staging, production, review, or branch-protection gate is relaxed. See [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
