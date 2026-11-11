@@ -15,6 +15,7 @@ import { assertApprovedRcUrl } from "./lib/rc-target.mjs";
 import { assertStorageStatePathOutsideRepo } from "./lib/storage-state-path.mjs";
 import { assertCostbookEvidenceIdentity } from "./lib/costbook-identity.mjs";
 import { assertAuthenticatedSmokeTenant } from "./lib/tenant-identity.mjs";
+import { captureLoginFailureDiagnostics } from "./lib/login-failure-diagnostics.mjs";
 
 const baseUrlInput = process.env.BETA_RC_BASE_URL_RESOLVED;
 const email = process.env.BETA_SMOKE_EMAIL;
@@ -73,30 +74,6 @@ try {
 
 await fs.mkdir(outDir, { recursive: true });
 
-// Diagnostic capture on login failure: the 60s timeout alone cannot tell a
-// rejected login from a swallowed submit, so persist what the page showed.
-// Carries no credential material: the email field is masked in the
-// screenshot, password inputs render masked, and innerText excludes field
-// values.
-async function captureLoginFailure(page, evidenceDir) {
-  const authDir = path.join(evidenceDir, "auth");
-  await fs.mkdir(authDir, { recursive: true });
-  try {
-    await page.screenshot({
-      path: path.join(authDir, "login-failure.png"),
-      mask: [page.locator('[name="email"]')],
-    });
-  } catch {
-    // Best effort; the timeout error below is the signal.
-  }
-  try {
-    const text = (await page.locator("body").innerText()).trim().slice(0, 4000);
-    await fs.writeFile(path.join(authDir, "login-failure.txt"), `url: ${page.url()}\n\n${text}\n`);
-  } catch {
-    // Best effort; the timeout error below is the signal.
-  }
-}
-
 const steps = [];
 function record(name, passed, detail) {
   steps.push({ name, passed, ...(detail ? { detail } : {}) });
@@ -114,10 +91,36 @@ try {
   );
 }
 let failure = null;
+let loginFailureDiagnostics = null;
 
 try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
+
+  // Collectors for login-failure diagnostics (same shape as
+  // capture-evidence.mjs): a bare timeout cannot tell a rejected login
+  // from a swallowed submit, so console errors and failed requests are
+  // gathered from the start of the login attempt.
+  const consoleErrors = [];
+  const failedRequests = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("requestfailed", (request) => {
+    const requestFailure = request.failure();
+    const requestUrl = new URL(request.url());
+    // Next.js and the browser can cancel stale same-origin navigations or
+    // mutation fetches while a newer route transition wins. These are expected
+    // browser cancellations, not failed product requests; keep real transport
+    // failures fail-closed.
+    if (
+      requestFailure?.errorText === "net::ERR_ABORTED" &&
+      requestUrl.origin === parsedBaseUrl.origin
+    ) {
+      return;
+    }
+    failedRequests.push(`${request.method()} ${request.url()}`);
+  });
 
   // 1. Real login through the shipped form.
   // Watch the intro state from the start of navigation, not after networkidle.
@@ -170,9 +173,13 @@ try {
   try {
     await page.waitForURL(/\/(dashboard|finish-setup)(?:\?|$)/, { timeout: 60_000 });
   } catch {
-    await captureLoginFailure(page, outDir);
+    loginFailureDiagnostics = await captureLoginFailureDiagnostics(page, outDir, {
+      consoleErrors,
+      failedRequests,
+    });
     throw new Error(
-      "Login did not reach an authenticated route within 60s. Check the RC smoke credentials and that the deployment is reachable. Failure screenshot and page text captured under auth/.",
+      "Login did not reach an authenticated route within 60s. Check the RC smoke credentials and that the deployment is reachable. " +
+        "Failure diagnostics captured under auth/ (see auth-setup-report.json).",
     );
   }
 
@@ -265,6 +272,11 @@ try {
         smokeIdentity: email.replace(/^(.).*(@.*)$/, "$1***$2"),
         expectedOrganization: expectedOrg,
         expectedOrganizationId: expectedOrgId ?? null,
+        // Present only when the login wait timed out: the captured page
+        // text, server-error text, console errors, failed requests, and
+        // artifact paths that distinguish a rejected login from a
+        // swallowed submit. Carries no credential material.
+        ...(loginFailureDiagnostics ? { loginFailureDiagnostics } : {}),
         steps,
         result: failure ? "FAIL" : "PASS",
       },

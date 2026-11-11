@@ -831,6 +831,25 @@ test("session state is written outside the repository and removed afterwards", (
   assert.match(storageStatePath, /symbolic link into the repository/);
 });
 
+test("a login timeout captures failure diagnostics instead of only a generic message", () => {
+  // The next auth failure must be diagnosable from the artifact alone:
+  // page body text, the inline server-error text, console errors, and
+  // failed requests, plus a screenshot. The collectors run from the start
+  // of the login attempt; the capture runs on the waitForURL timeout and
+  // its summary lands in the report. Behavioral coverage lives in
+  // app/scripts/beta-evidence/lib/login-failure-diagnostics.test.mjs.
+  assert.match(authSetup, /captureLoginFailureDiagnostics/);
+  assert.match(authSetup, /page\.on\("console"/);
+  assert.match(authSetup, /page\.on\("requestfailed"/);
+  assert.match(authSetup, /loginFailureDiagnostics/);
+  assert.match(authSetup, /Failure diagnostics captured under auth\//);
+  const diagnostics = read("app/scripts/beta-evidence/lib/login-failure-diagnostics.mjs");
+  assert.match(diagnostics, /\.server-error/);
+  assert.match(diagnostics, /login-failure\.png/);
+  assert.match(diagnostics, /login-failure-diagnostics\.json/);
+  assert.match(diagnostics, /no credential material/i);
+});
+
 test("evidence capture fails closed without explicit mutation consent", () => {
   assert.match(capture, /BETA_ALLOW_MUTATIONS=true is required/);
   assert.match(capture, /assertApprovedRcUrl/);
