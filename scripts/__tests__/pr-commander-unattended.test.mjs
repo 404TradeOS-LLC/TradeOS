@@ -27,3 +27,14 @@ test("armed action still revalidates exact head and uses pinned auto merge", () 
   assert.match(workflow, /--match-head-commit "\$head_sha"/);
   assert.match(workflow, /build_snapshot "\$pr"/);
 });
+
+test("act gate re-checks the raw variables at act time (kill-switch)", () => {
+  // The act job must re-derive arming from the repository variables at act
+  // time, not consume discovery's effective_armed output: flipping either
+  // variable off mid-run must stop the write job even after discovery ran.
+  // Exact "true" is enforced here, in discovery, and in isArmed().
+  const actGate = workflow.slice(workflow.indexOf("\n  act:"), workflow.indexOf("\n    runs-on:", workflow.indexOf("\n  act:")));
+  assert.match(actGate, /vars\.TRADEOS_PR_COMMANDER_WRITE_ENABLED == 'true'/);
+  assert.match(actGate, /vars\.TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED == 'true'/);
+  assert.doesNotMatch(actGate, /needs\.\w+\.outputs\.effective_armed/);
+});
