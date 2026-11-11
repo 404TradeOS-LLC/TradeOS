@@ -9,7 +9,10 @@
 #   - Required checks: read from verify-repository.yml (never re-implemented).
 #   - Readiness signal: merge-readiness.yml (extended here with threads,
 #     branch currency, ADR-009, and file classification).
-#   - Rebase: dispatches pr-maintenance.yml (never custom force-push logic).
+#   - Rebase: the `act` job dispatches pr-maintenance.yml for REPAIRABLE
+#     behind-branch verdicts (never custom force-push logic). Requires the
+#     founder policy exception for `actions: write` (see the `act` job)
+#     and PR #965's numeric-input fix in pr-maintenance.yml.
 #   - Branch currency signal: stale-pr-check.yml (read, not duplicated).
 #   - ESLint autofix pattern: code-quality-autofix.yml (fix -> verify ->
 #     push), extended here to per-PR scope.
@@ -45,15 +48,12 @@
 #      API-pushed commits emit no push event and never trigger pull_request CI.
 #   2. CodeQL Autofix for security findings: delegated to the existing
 #      codeql-autofix.yml SCHEDULED run (every 2h), never re-implemented
-#      here. The Commander does NOT dispatch that workflow itself: a
-#      workflow dispatch needs `actions: write`, which the repository's
-#      workflow-security policy prohibits (see the `act` job). Security
-#      findings are surfaced as founder items in the verdict comment, and
-#      the scheduled CodeQL Autofix run picks them up on its own cadence.
-#      On-demand dispatch is a documented v1 gap, not a silent omission:
-#      closing it needs either a policy exception for `actions: write`
-#      (a founder decision) or a `workflow_call` restructure of
-#      codeql-autofix.yml (a separate change to that workflow).
+#      here. The Commander does NOT dispatch that workflow itself: the
+#      founder policy exception for `actions: write` (2026-11-10) covers
+#      the pr-maintenance dispatch only, so the CodeQL on-demand dispatch
+#      is still unwired (a separate change). Security findings are
+#      surfaced as founder items in the verdict comment, and the scheduled
+#      CodeQL Autofix run picks them up on its own cadence.
 #   3. CodeRabbit re-review after repair pushes (it is the reviewer of
 #      record). Re-review is externally rate-limited: one best-effort request
 #      with backoff, never a retry loop.
@@ -521,12 +521,15 @@ jobs:
       pull-requests: write
       issues: write
       checks: read
-      # `actions: read` covers `gh run download` (verdict artifacts).
-      # `actions: write` is deliberately NOT requested: the repository's
-      # workflow-security policy prohibits it, and the only use for it
-      # (dispatching codeql-autofix.yml) is delegated to that workflow's
-      # own scheduled run instead (see the security-findings note below).
-      actions: read
+      # `actions: write` covers dispatching pr-maintenance.yml for
+      # REPAIRABLE behind-branch verdicts (and only that dispatch; the
+      # CodeQL on-demand dispatch remains unwired — see the
+      # security-findings note below). Policy exception granted by the
+      # founder (Billy, 2026-11-10, "Policy exceprion"): the repository
+      # workflow-security policy otherwise prohibits `actions: write`.
+      # Scope: this job only, dispatch of pr-maintenance.yml only. Any
+      # wider use needs a new founder decision.
+      actions: write
     concurrency:
       group: pr-commander-act
       cancel-in-progress: false
@@ -774,14 +777,14 @@ jobs:
               gh pr edit "$pr" --repo "$GITHUB_REPOSITORY" --add-label "pr-commander:needs-founder" || true
               echo "Applied pr-commander:needs-founder to PR #$pr."
             fi
-            # Security findings are NOT dispatched from here: a workflow
-            # dispatch needs `actions: write`, which the repository's
-            # workflow-security policy prohibits. They are delegated to the
+            # Security findings are NOT dispatched from here: the founder
+            # policy exception for `actions: write` (2026-11-10) covers the
+            # pr-maintenance dispatch only. They are delegated to the
             # existing codeql-autofix.yml SCHEDULED run (every 2h) and
             # surfaced as founder items in the verdict comment + label
-            # above. On-demand dispatch is a documented v1 gap (see the
-            # workflow header): it needs a policy exception for
-            # `actions: write` (a founder decision) or a `workflow_call`
+            # above. On-demand CodeQL dispatch is a documented gap (see the
+            # workflow header): wiring it is a separate change, either a
+            # wider exception (a founder decision) or a `workflow_call`
             # restructure of codeql-autofix.yml.
             if jq -e '.reasons[]? | test("CodeQL|code scanning|security"; "i")' fresh-verdict.json >/dev/null; then
               echo "Security finding on PR #$pr; delegated to the scheduled codeql-autofix run (no dispatch from this workflow)."
@@ -848,6 +851,27 @@ jobs:
                 else
                   echo "PR #$pr is from fork $head_repo; no repair push."
                 fi
+              fi
+            fi
+            # Rebase via the governed pr-maintenance workflow for REPAIRABLE
+            # behind-branch verdicts (policy exception, founder 2026-11-10).
+            # The dispatch is async: pr-maintenance validates (open, base
+            # main, same-repo) and rebases the branch; the Commander
+            # re-evaluates at the new head on the next run. Counts as one
+            # repair attempt on this head. Depends on PR #965's numeric-input
+            # fix in pr-maintenance.yml: a dispatched pr_number arrives as
+            # "953.0" without it and the rebase validation fails.
+            if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$attempts" -lt 3 ] && [ "$(jq -r '.snapshot.mergeStateStatus' fresh-verdict.json)" = "BEHIND" ] && [ "$(jq -r '.snapshot.baseRefName' fresh-verdict.json)" = "main" ]; then
+              head_repo=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json headRepository --jq '.headRepository.nameWithOwner')
+              if [ "$head_repo" = "$GITHUB_REPOSITORY" ]; then
+                if gh workflow run pr-maintenance.yml --ref main -f pr_number="$pr" --repo "$GITHUB_REPOSITORY"; then
+                  attempts=$((attempts + 1))
+                  echo "Dispatched pr-maintenance rebase for PR #$pr (attempt $attempts of 3)."
+                else
+                  echo "::warning::pr-maintenance dispatch failed for PR #$pr; no rebase."
+                fi
+              else
+                echo "PR #$pr is from fork $head_repo; no rebase dispatch."
               fi
             fi
             ATTEMPTS_RECORDED="$attempts" upsert_verdict_comment "$pr" "$attempts" || true

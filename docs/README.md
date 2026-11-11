@@ -94,27 +94,33 @@ enforcement. Apply mode requires a dedicated repository token to allow group CI;
 its default workflow token remains read-only. Both required-check providers
 include `merge_group`, and Docs consistency uses the group's immutable base SHA.
 
-## PR Commander — autonomous PR coordination (dry-run by default)
+## PR Commander — autonomous PR coordination (live, armed)
 
-The [PR Commander](PR_COMMANDER.md) (`.github/workflows/pr-commander.yml`)
-sweeps every open pull request hourly at :17 UTC, evaluates each against the
-unchanged merge bar (non-draft, four required checks green, current branch,
-zero unresolved threads, no standing change request, ADR-009 record where
-required), repairs what is deterministically repairable, requests CodeRabbit
-re-review, and enables native auto-merge only when every gate passes. It
-composes the existing verify/merge-readiness/pr-maintenance/CodeQL-autofix
-pieces and rebuilds none of them. It ships **dry-run by default**: schedule
-and `pull_request` runs can never act, and write action additionally requires
-the repository variable `TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly
-`"true"` **and** a manual dispatch with `mode=armed`. No agent enables the
-variable — Billy enables it only after reviewing the configuration and
-protections. Founder-only boundaries are unchanged: the Commander never
-dismisses a blocking review, never undrafts a PR, never applies migrations or
-staging-apply gates, never touches production, and never changes a ruleset.
-Copilot Agent Merge is not available as a delegation path (0 org seats, quota
-failures, disabled review ruleset — verified 2026-11-10); the Commander
-delegates to deterministic repair, CodeQL Autofix, and CodeRabbit re-review.
-Setup, arming, dry-run verification, and disable steps are in
+The [PR Commander](PR_COMMANDER.md) (`.github/workflows/pr-commander.yml`,
+merged as PR #964) sweeps every open pull request hourly at :17 UTC,
+evaluates each against the unchanged merge bar (non-draft, four required
+checks green, current branch, zero unresolved threads, no standing change
+request, ADR-009 record where required), repairs what is deterministically
+repairable, requests CodeRabbit re-review, and enables native auto-merge
+only when every gate passes. It composes the existing
+verify/merge-readiness/pr-maintenance/CodeQL-autofix pieces and rebuilds none
+of them. It ships **dry-run by default**: schedule and `pull_request` runs
+can never act, and write action additionally requires the repository
+variable `TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly `"true"` **and**
+a manual dispatch with `mode=armed`. The variable is set and the Commander
+is armed; its first dry-run and armed runs verified from main on PR #953.
+**Policy exception (founder, 2026-11-10):** the armed `act` job holds
+`actions: write`, scoped to dispatching `pr-maintenance.yml` for REPAIRABLE
+behind-branch verdicts (recorded in the `Workflow security` policy script
+and in `docs/REPOSITORY_GOVERNANCE.md`; end-to-end dispatch depends on
+PR #965's numeric-input fix). Founder-only boundaries are unchanged: the
+Commander never dismisses a blocking review, never undrafts a PR, never
+applies migrations or staging-apply gates, never touches production, and
+never changes a ruleset. Copilot Agent Merge is not available as a
+delegation path (0 org seats, quota failures, disabled review ruleset —
+verified 2026-11-10); the Commander delegates to deterministic repair,
+CodeQL Autofix, and CodeRabbit re-review. Setup, arming, dry-run
+verification, and disable steps are in
 [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
 
 S027's authenticated evidence workflow captures all nine Costbook routes at

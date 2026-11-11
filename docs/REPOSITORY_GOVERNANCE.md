@@ -205,6 +205,8 @@ tests.
 
 Workflow-file changes are also subject to the supplemental `Workflow security` workflow. It runs pinned `actionlint` directly on the GitHub-hosted runner and rejects default-prohibited patterns including `pull_request_target`, `permissions: write-all`, `actions: write`, `id-token: write`, and direct interpolation of untrusted event payload content into shell/script commands. Exceptions require an explicit reviewed governance change. The workflow is not part of the documented required-check set unless live branch protection separately confirms it has been added there.
 
+**Recorded exception (2026-11-10, founder-authorized):** `.github/workflows/pr-commander.yml`, job `act`, `actions: write` — granted by Billy ("Policy exceprion", 2026-11-10) so the armed Commander can dispatch `pr-maintenance.yml` for REPAIRABLE behind-branch verdicts. Scope is exactly that dispatch: the exception does not cover `id-token: write`, `permissions: write-all`, `pull_request_target`, any other job, or any other workflow, and it does not authorize the CodeQL on-demand dispatch (still unwired). The exception is implemented as a named entry in the `Workflow security` policy script (`POLICY_EXCEPTIONS`) so the check itself enforces the scope; widening it requires a new reviewed governance change. End-to-end rebase dispatch additionally depends on PR #965's numeric-input fix in `pr-maintenance.yml`.
+
 ## Solo-maintainer review posture
 
 TradeOS is currently operated by one repository maintainer. The intended solo-maintainer configuration is:
