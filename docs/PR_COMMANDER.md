@@ -102,21 +102,14 @@ repository.
 | Mode | Writes anything? | Verdict comment posted? | When it runs |
 | --- | --- | --- | --- |
 | `audit` | No — read-only even when the arming variable is set | No | `workflow_dispatch` only |
-| `dry-run` | No — emits the verdict + plan (artifact JSON + run summary) and takes no write action | No — the comment body is rendered into the artifact + summary as "would post/update verdict comment" | Default for `workflow_dispatch`; also the only behavior of schedule and `pull_request` runs |
-| `armed` | Yes — but only when the run is *effectively armed* (see below) | Yes — one comment per PR, updated in place | `workflow_dispatch` with `mode=armed` **and** the repository variable set to exactly `"true"` |
+| `dry-run` | No — emits the verdict + plan (artifact JSON + run summary) and takes no write action | No — the comment body is rendered into the artifact + summary as "would post/update verdict comment" | Default for `workflow_dispatch`; also the behavior of `pull_request` runs, and of schedule runs unless both opt-in variables are exactly `true` |
+| `armed` | Yes — but only when the run is *effectively armed* (see below) | Yes — one comment per PR, updated in place | `workflow_dispatch` with `mode=armed` **and** the repository variable set to exactly `"true"`, or a schedule run with **both** opt-in variables set to exactly `"true"` |
 
-**Effectively armed** requires BOTH:
+**Effectively armed** requires the repository variable `TRADEOS_PR_COMMANDER_WRITE_ENABLED` exactly `"true"` (absent, `"false"`, `"1"`, `"yes"`, `"TRUE"` are all dry-run), AND either:
+1. a `workflow_dispatch` with `mode=armed`, OR
+2. a `schedule` run with the second variable `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED` also exactly `"true"` (unattended mode, live since 2026-11-11, PR #967).
 
-1. the repository variable `TRADEOS_PR_COMMANDER_WRITE_ENABLED` is exactly
-   `"true"` (absent, `"false"`, `"1"`, `"yes"`, `"TRUE"` are all dry-run), AND
-2. a `workflow_dispatch` with `mode=armed`.
-
-Schedule runs and `pull_request` runs can **never** act, even if the variable
-is set. `audit` runs can never act either. Every write call in the `act` job
-sits behind a single gate (the job `if:`), and the CLI/library gate
-`isArmed()` is consulted before every write there. The evaluate job always
-evaluates dry-run (`armed: false`), even on armed dispatches; the `act` job
-re-evaluates armed on a fresh head re-read before any write.
+`pull_request` runs can **never** act, even if the variables are set. `audit` runs can never act either. Every write call in the `act` job sits behind a single gate (the job `if:`), and the CLI/library gate `isArmed()` is consulted before every write there. The evaluate job always evaluates dry-run (`armed: false`), even on armed dispatches; the `act` job re-evaluates armed on a fresh head re-read before any write. The `act` job re-checks the raw variables at act time (kill-switch): flipping either variable off mid-run still stops the write job.
 
 **Dry-run is the default, in two layers.** The library evaluator is armed
 unless its caller says otherwise, so the dry-run default lives in the

@@ -235,15 +235,15 @@ scripts/__tests__/pr-commander-order.test.mjs` (48 tests; also wired into
 `npm run pr:test`).
 
 
-## Proposed unattended mode (not active until merged and explicitly enabled)
+## Unattended mode (live since 2026-11-11, PR #967)
 
-This branch adds a **second, independent opt-in** for scheduled write runs:
+Merged 2026-11-11 as PR #967 (main `45faeff6`) and explicitly enabled the same day: **both** repository variables are exactly `true`. The hourly scheduled run can now enter the existing serialized `act` job.
 
 - `TRADEOS_PR_COMMANDER_WRITE_ENABLED=true` — existing write permission gate.
 - `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED=true` — new schedule-specific permission gate.
 
 Only when **both** repository variables are exactly `true` can the hourly scheduled run enter the existing serialized `act` job. A `pull_request` event remains read-only. Manual armed dispatch continues to require only the existing write variable. The existing exact-head recheck, protected-file founder decisions, required checks, reviews, dependency order, bounded repairs, and branch protection remain unchanged. Disarm scheduled writes by setting either variable to `false` or removing it; cancel already-running act jobs separately. Neither step disables a native auto-merge already enabled on an open PR: as part of any rollback, inspect open PRs for a pending auto-merge and disable each one (`gh pr merge --disable-auto <n>`), or the PR can still merge once its checks go green.
 
-**Activation gate:** Do not create the new variable or merge this PR until the existing Commander dry-run is verified on the exact current main, the repair-push secret is present, the workflow-security policy accepts this change, required checks pass on this PR head, and a scoped manual armed test demonstrates correct behavior. Scheduled writes must not be used to work around missing CI, protected staging, migration/RLS, or review evidence. The new variable is absent by default, so this proposed change does not activate scheduled writes by itself.
+**Activation gate (satisfied 2026-11-11):** the existing Commander dry-run was verified on the exact current main, the repair-push secret is present, the workflow-security policy accepted the change, required checks passed on the PR head, and a scoped manual armed run (run 43101793905, PR #945: verdict comment + founder label posted, head unchanged, nothing merged) demonstrated correct behavior. Scheduled writes must not be used to work around missing CI, protected staging, migration/RLS, or review evidence.
 
 **Limitation:** This enables unattended execution of the existing narrow deterministic repair tier and eligible native auto-merge, **not** arbitrary AI-generated fixes. Broader autonomous code repair requires a separately reviewed, test-backed implementation and isolated agent permissions.
