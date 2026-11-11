@@ -830,3 +830,8 @@ The existing Beta Evidence workflow gains three `BETA_RC_FOREIGN_OWNER_*` prereq
 ## Staging-runtime identity parity gate — 2026-11-09 (draft PR #958)
 
 The `staging-orchestrator.yml` database preflight must accept only the identified TradeOS Staging direct PostgreSQL endpoint or the matching project-bound Supabase pooler identity, with permitted protocol/host/port/path and username suffix; its read-only Prisma migration-status step may use the equivalent session-mode port only after those checks. Staging's runtime API `/ready` may include a **public** data-plane `projectRef`, but this is derived from its configured connection and does not reveal a secret or prove tenant authorization. An API health signal cannot replace authenticated smoke-tenant and cross-tenant-denial evidence. The workflow and field remain subject to normal PR reviews, protected GitHub staging environment approval, exact SHA API/web deployment correlation, and the no-production-mutation boundary. This addendum describes existing staging safeguards being reconciled in [draft PR #958](https://github.com/404TradeOS-LLC/TradeOS/pull/958); no rollout or policy exception is granted.
+
+
+### PR Commander unattended execution proposal (PR #967, 2026-11-11)
+
+A draft workflow change proposes optional scheduled write execution gated by **both** `TRADEOS_PR_COMMANDER_WRITE_ENABLED=true` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED=true`. Until the change passes hosted checks, review, a verified manual armed run, and explicit owner activation, scheduled sweeps remain read-only. No migration, staging, production, review, or branch-protection gate is relaxed. See [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
