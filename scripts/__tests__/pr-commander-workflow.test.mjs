@@ -56,20 +56,40 @@ test("auto-merge is pinned to the validated head SHA (TOCTOU)", () => {
 
 test("repair attempt counter advances exactly once per attempt, on attempt start", () => {
   const increments = workflow.match(/attempts=\$\(\(attempts \+ 1\)\)/g);
-  assert.ok(increments, "expected one increment");
-  assert.equal(increments.length, 1, "exactly one increment site");
-  const incrementAt = workflow.indexOf("attempts=$((attempts + 1))");
+  assert.ok(increments, "expected increments");
+  // One increment site per repair path: the lint repair and the rebase
+  // dispatch. Each path advances the counter exactly once, at its attempt
+  // start, and never again — so a single attempt is never double-counted.
+  assert.equal(increments.length, 2, "exactly one increment site per repair path");
+  // Lint path: increment after checkout succeeds, before the fix runs.
+  const lintIncrementAt = workflow.indexOf("attempts=$((attempts + 1))");
   const checkoutAt = workflow.indexOf('if gh pr checkout "$pr"');
   const lintFixAt = workflow.indexOf("npm run lint -- --fix");
   const pushAt = workflow.indexOf('git push origin "HEAD:');
   assert.ok(checkoutAt > -1 && lintFixAt > -1 && pushAt > -1);
   assert.ok(
-    incrementAt > checkoutAt && incrementAt < lintFixAt,
-    "increment happens after checkout succeeds, before the fix runs"
+    lintIncrementAt > checkoutAt && lintIncrementAt < lintFixAt,
+    "lint increment happens after checkout succeeds, before the fix runs"
   );
+  // Rebase path: increment only after a successful pr-maintenance dispatch.
+  const dispatchAt = workflow.indexOf("gh workflow run pr-maintenance.yml");
+  assert.ok(dispatchAt > -1, "expected a pr-maintenance dispatch");
+  const rebaseIncrementAt = workflow.indexOf("attempts=$((attempts + 1))", dispatchAt);
   assert.ok(
-    workflow.indexOf("attempts=$((attempts + 1))", pushAt) === -1,
-    "no increment after a successful push"
+    rebaseIncrementAt > dispatchAt,
+    "rebase increment happens after a successful dispatch"
+  );
+  // The only increment after the push is the rebase dispatch's own, and
+  // nothing increments after it.
+  assert.equal(
+    workflow.indexOf("attempts=$((attempts + 1))", pushAt),
+    rebaseIncrementAt,
+    "the only increment after the push is the rebase dispatch's own"
+  );
+  assert.equal(
+    workflow.indexOf("attempts=$((attempts + 1))", rebaseIncrementAt + 1),
+    -1,
+    "no increment after the rebase dispatch"
   );
 });
 
