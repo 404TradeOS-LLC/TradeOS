@@ -69,16 +69,43 @@ test("nextRecalculationSnapshot snapshots the last server-confirmed total", () =
   );
 });
 
-test("nextRecalculationSnapshot clears a pending delta when a second edit succeeds before the refetch", () => {
+test("nextRecalculationSnapshot marks the baseline ambiguous when a second edit succeeds before the refetch", () => {
   // Two successes against the same pre-mutation total would both snapshot
-  // that baseline; the pending delta is no longer tied to one edit, so no
-  // per-edit delta is shown until a clean single-edit snapshot exists.
-  assert.equal(
+  // that baseline; the pending delta is no longer tied to one edit, so the
+  // baseline is marked ambiguous instead of cleared: clearing it to null
+  // would let a third success re-snapshot the same baseline and
+  // misattribute the combined change to that one edit. No per-edit delta
+  // is shown until a clean single-edit snapshot exists.
+  assert.deepEqual(
     nextRecalculationSnapshot({
       currentTotalMinor: 469200,
       reason: "Line item updated",
       pending: { previousTotalMinor: 469200, reason: "Line item removed" },
     }),
-    null,
+    { previousTotalMinor: 469200, reason: "Line item updated", ambiguous: true },
+  );
+});
+
+test("nextRecalculationSnapshot preserves the ambiguous baseline for a third edit before the refetch", () => {
+  // A third success against the same baseline must not re-snapshot it:
+  // the combined change would then be attributed to the third edit alone.
+  const ambiguous = { previousTotalMinor: 469200, reason: "Line item updated", ambiguous: true };
+  assert.deepEqual(
+    nextRecalculationSnapshot({
+      currentTotalMinor: 469200,
+      reason: "Line item added",
+      pending: ambiguous,
+    }),
+    ambiguous,
+  );
+  // Once the refetch lands and the total moves, a later success snapshots
+  // the new baseline normally.
+  assert.deepEqual(
+    nextRecalculationSnapshot({
+      currentTotalMinor: 486000,
+      reason: "Line item updated",
+      pending: ambiguous,
+    }),
+    { previousTotalMinor: 486000, reason: "Line item updated" },
   );
 });

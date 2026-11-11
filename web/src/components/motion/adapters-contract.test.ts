@@ -44,8 +44,13 @@ test("adapter 2: estimate repricing snapshots the last server-confirmed total", 
   assert.match(builder, /onUpdated\("Pricing mode applied", context\?\.previousTotalMinor\)/);
   assert.doesNotMatch(builder, /invalidate\("Finaliz/);
   // Concurrent successes before the refetch must not re-attribute their
-  // combined change to one edit (see nextRecalculationSnapshot).
+  // combined change to one edit (see nextRecalculationSnapshot): the
+  // baseline is marked ambiguous, never rendered as a per-edit delta,
+  // and cleared once its refetch lands so the next edit snapshots the
+  // new baseline normally.
   assert.match(builder, /nextRecalculationSnapshot\(/);
+  assert.match(builder, /!lastRecalculation\.ambiguous/);
+  assert.match(builder, /mine\.ambiguous/);
   // Refetch completion is tracked independently of whether the total
   // moved: a price-neutral save's pending snapshot is cleared once its
   // refetch lands with the total still equal to the baseline, so it

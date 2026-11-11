@@ -81,6 +81,15 @@ export function toMinorUnits(value: number): number | null {
 export type RecalculationSnapshot = {
   previousTotalMinor: number;
   reason: string;
+  /**
+   * True when two or more pricing mutations succeeded against this same
+   * baseline before the refetch landed, so the pending delta is no longer
+   * tied to one edit. An ambiguous baseline is preserved as a marker (not
+   * cleared to null) until the refetch reconciles it: clearing it would
+   * let a later success re-snapshot the same baseline and misattribute
+   * the combined change to that one edit.
+   */
+  ambiguous?: boolean;
 };
 
 /**
@@ -91,10 +100,13 @@ export type RecalculationSnapshot = {
  * baseline and the second would re-attribute their combined change to
  * itself (or hide offsetting changes). When a snapshot is already pending
  * against this same total, the pending delta is no longer tied to one
- * edit, so return null (clear it) instead of overwriting it: no per-edit
- * delta is shown until a clean single-edit snapshot exists. Once the
- * refetch lands, the current total moves and a later success snapshots
- * normally again.
+ * edit, so mark the baseline ambiguous instead of clearing it: no
+ * per-edit delta is shown until a clean single-edit snapshot exists, and
+ * the marker survives until the refetch reconciles it — clearing it to
+ * null would let a later success re-snapshot the same baseline and
+ * misattribute the combined change to that one edit. Once the refetch
+ * lands, the current total moves and a later success snapshots normally
+ * again.
  */
 export function nextRecalculationSnapshot(input: {
   currentTotalMinor: number | null;
@@ -102,6 +114,9 @@ export function nextRecalculationSnapshot(input: {
   pending: RecalculationSnapshot | null;
 }): RecalculationSnapshot | null {
   if (input.currentTotalMinor === null) return null;
-  if (input.pending && input.pending.previousTotalMinor === input.currentTotalMinor) return null;
+  if (input.pending && input.pending.previousTotalMinor === input.currentTotalMinor) {
+    if (input.pending.ambiguous) return input.pending;
+    return { previousTotalMinor: input.currentTotalMinor, reason: input.reason, ambiguous: true };
+  }
   return { previousTotalMinor: input.currentTotalMinor, reason: input.reason };
 }

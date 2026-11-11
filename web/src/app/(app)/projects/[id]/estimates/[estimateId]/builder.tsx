@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { markerGeometry, type MarkerGeometry } from "@/lib/motion/lifecycle";
 import { PriceDelta } from "@/components/motion/price-delta";
 import { nextRecalculationSnapshot, toMinorUnits } from "@/lib/motion/price-delta";
+import type { RecalculationSnapshot } from "@/lib/motion/price-delta";
 import { groupSavedDirectCosts } from "@/lib/estimate-direct-costs";
 import { canAddReviewedEstimateCatalogItem } from "@/lib/estimate-catalog-review";
 import { createEstimateReviewNavigator } from "@/lib/estimate-review-navigation";
@@ -100,11 +101,11 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
     staleTime: 15_000,
   });
 
-  const [lastRecalculation, setLastRecalculation] = useState<{ previousTotalMinor: number; reason: string } | null>(null);
+  const [lastRecalculation, setLastRecalculation] = useState<RecalculationSnapshot | null>(null);
   // Mirror of lastRecalculation for the async refetch-completion check in
   // invalidate(): state alone cannot identify whether a later edit has
   // superseded the snapshot by the time a refetch lands.
-  const lastRecalculationRef = useRef<{ previousTotalMinor: number; reason: string } | null>(null);
+  const lastRecalculationRef = useRef<RecalculationSnapshot | null>(null);
 
   const invalidate = (reason?: string, previousTotalMinor?: number | null) => {
     // Previous-totals source for the Price stage delta: each pricing
@@ -138,6 +139,10 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         // superseded by a later edit is never cleared by an older
         // refetch. A failed or skipped refetch leaves the snapshot in
         // place (the pre-existing behavior), never invents a clearing.
+        // An ambiguous snapshot is cleared on any successful refetch:
+        // the pending changes are reconciled into the fresh total, no
+        // per-edit delta is ever shown for it, and the next edit must
+        // snapshot the new baseline normally.
         const mine = next;
         const startedAt = Date.now();
         const refetch = queryClient.invalidateQueries({ queryKey: estimateKey });
@@ -147,7 +152,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
           if (!queryState || queryState.error != null || (queryState.dataUpdatedAt ?? 0) < startedAt) return;
           const fresh = queryClient.getQueryData<EstimateDetail>(estimateKey);
           const freshMinor = fresh ? toMinorUnits(fresh.totalPrice) : null;
-          if (freshMinor !== null && freshMinor === mine.previousTotalMinor) {
+          if (freshMinor !== null && (mine.ambiguous || freshMinor === mine.previousTotalMinor)) {
             lastRecalculationRef.current = null;
             setLastRecalculation(null);
           }
@@ -216,10 +221,13 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
   };
 
   // Last repricing delta for the Price stage. Rendered only when the
-  // saved total actually moved; a no-change save shows nothing.
+  // saved total actually moved; a no-change save shows nothing, and an
+  // ambiguous baseline (two or more edits against the same total before
+  // the refetch) shows nothing either — the combined change cannot be
+  // attributed to one edit.
   const currentTotalMinor = toMinorUnits(runningTotals.totalPrice);
   const recalculationDelta =
-    lastRecalculation && currentTotalMinor !== null && currentTotalMinor !== lastRecalculation.previousTotalMinor
+    lastRecalculation && !lastRecalculation.ambiguous && currentTotalMinor !== null && currentTotalMinor !== lastRecalculation.previousTotalMinor
       ? { previousTotalMinor: lastRecalculation.previousTotalMinor, currentTotalMinor, reason: lastRecalculation.reason }
       : null;
 
