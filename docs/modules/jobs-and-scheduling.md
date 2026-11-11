@@ -241,3 +241,30 @@ Conversion now validates the proposal's recorded scope before creating a new
 Job. See [accepted Job scope integrity](../WORKFLOW_LIFECYCLES.md#accepted-job-scope-integrity)
 for the lifecycle rule and [API validation](../API_REFERENCE.md#accepted-scope-conversion-validation--2026-10-30)
 for failure and retry behavior. No schema change is needed.
+
+## Team & Time Edge security and scale contract (staging parity, 2026-11-09)
+
+The existing `supabase/functions/team-time/index.ts` endpoint authenticates the Supabase
+user, verifies active organization membership, and scopes reads and actions to
+that organization. A technician may clock in for a Job only while an active
+assignment exists: an assignment with `removed_at` or `declined_at` set
+is not authority to clock in, even when its database row remains. Bootstrap
+uses bounded pages for the organization roster, assigned Job metadata and
+member profiles, rather than silently dropping records past the first page.
+These are existing staging contracts now proposed for source parity with
+`main` and must be validated with role/tenant-denial tests before release.
+
+The Edge Function reads Supabase's JSON dictionaries
+`SUPABASE_PUBLISHABLE_KEYS` and `SUPABASE_SECRET_KEYS` by their default
+value and retains the legacy-key fallback. Modern secrets are passed as API
+keys, not substituted as access JWTs; a valid caller bearer session remains
+required for authorization. No key, session or service token is returned in
+responses or logged.
+
+**Deployment boundary:** The live `TradeOS Staging` Supabase `team-time`
+Edge Function was still active as version 6, last updated 2026-09-24, when
+inspected read-only on 2026-11-09. Its deployed source did not match the
+repository's staging branch and lacked the `declined_at` predicate. Code
+parity or green CI is not evidence the live function has been updated.
+Protected staging deploy, version/source correlation, authenticated role
+and tenant-denial probes, and separate production approval remain required.

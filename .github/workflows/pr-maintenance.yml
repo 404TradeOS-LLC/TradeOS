@@ -33,6 +33,17 @@ jobs:
         run: |
           set -euo pipefail
 
+          # GitHub Actions can serialize a numeric workflow_dispatch input as
+          # "961.0" instead of "961". Only accept a positive whole-number PR ID.
+          # Validate before any gh command so malformed input is never treated
+          # as a branch name or other ref.
+          if [[ ! "$PR_NUMBER" =~ ^[1-9][0-9]*(\.0+)?$ ]]; then
+            echo "::error::pr_number must be a positive integer" >&2
+            exit 1
+          fi
+          PR_NUMBER="${PR_NUMBER%%.*}"
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
           base_ref="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json baseRefName --jq .baseRefName)"
           head_repo="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json headRepository --jq .headRepository.nameWithOwner)"
           state="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json state --jq .state)"
@@ -55,13 +66,13 @@ jobs:
       - name: Rebase pull request branch onto main
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ inputs.pr_number }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
         run: gh pr update-branch "$PR_NUMBER" --rebase --repo "$GITHUB_REPOSITORY"
 
       - name: Report updated head
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ inputs.pr_number }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
         run: |
           gh pr view "$PR_NUMBER" \
             --repo "$GITHUB_REPOSITORY" \

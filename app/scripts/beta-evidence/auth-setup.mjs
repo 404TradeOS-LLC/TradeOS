@@ -73,6 +73,30 @@ try {
 
 await fs.mkdir(outDir, { recursive: true });
 
+// Diagnostic capture on login failure: the 60s timeout alone cannot tell a
+// rejected login from a swallowed submit, so persist what the page showed.
+// Carries no credential material: the email field is masked in the
+// screenshot, password inputs render masked, and innerText excludes field
+// values.
+async function captureLoginFailure(page, evidenceDir) {
+  const authDir = path.join(evidenceDir, "auth");
+  await fs.mkdir(authDir, { recursive: true });
+  try {
+    await page.screenshot({
+      path: path.join(authDir, "login-failure.png"),
+      mask: [page.locator('[name="email"]')],
+    });
+  } catch {
+    // Best effort; the timeout error below is the signal.
+  }
+  try {
+    const text = (await page.locator("body").innerText()).trim().slice(0, 4000);
+    await fs.writeFile(path.join(authDir, "login-failure.txt"), `url: ${page.url()}\n\n${text}\n`);
+  } catch {
+    // Best effort; the timeout error below is the signal.
+  }
+}
+
 const steps = [];
 function record(name, passed, detail) {
   steps.push({ name, passed, ...(detail ? { detail } : {}) });
@@ -143,11 +167,14 @@ try {
   // The app redirects to /dashboard on success and to /finish-setup when the
   // account has no organization yet — the latter is a provisioning problem, not
   // an authentication success, so it is reported distinctly.
-  await page.waitForURL(/\/(dashboard|finish-setup)(?:\?|$)/, { timeout: 60_000 }).catch(() => {
+  try {
+    await page.waitForURL(/\/(dashboard|finish-setup)(?:\?|$)/, { timeout: 60_000 });
+  } catch {
+    await captureLoginFailure(page, outDir);
     throw new Error(
-      "Login did not reach an authenticated route within 60s. Check the RC smoke credentials and that the deployment is reachable.",
+      "Login did not reach an authenticated route within 60s. Check the RC smoke credentials and that the deployment is reachable. Failure screenshot and page text captured under auth/.",
     );
-  });
+  }
 
   const landedPath = new URL(page.url()).pathname;
   if (landedPath === "/finish-setup") {
