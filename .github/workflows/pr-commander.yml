@@ -861,7 +861,7 @@ jobs:
             # repair attempt on this head. Depends on PR #965's numeric-input
             # fix in pr-maintenance.yml: a dispatched pr_number arrives as
             # "953.0" without it and the rebase validation fails.
-            if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$attempts" -lt 3 ] && [ "$(jq -r '.snapshot.mergeStateStatus' fresh-verdict.json)" = "BEHIND" ] && [ "$(jq -r '.snapshot.baseRefName' fresh-verdict.json)" = "main" ]; then
+            if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$attempts" -lt 3 ] && [ "$(jq -r '.mergeStateStatus' fresh.json)" = "BEHIND" ] && [ "$(jq -r '.baseRefName' fresh.json)" = "main" ]; then
               head_repo=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json headRepository --jq '.headRepository.nameWithOwner')
               if [ "$head_repo" = "$GITHUB_REPOSITORY" ]; then
                 if gh workflow run pr-maintenance.yml --ref main -f pr_number="$pr" --repo "$GITHUB_REPOSITORY"; then

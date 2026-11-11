@@ -93,6 +93,24 @@ test("repair attempt counter advances exactly once per attempt, on attempt start
   );
 });
 
+test("rebase dispatch guard reads merge state from the snapshot, not the verdict", () => {
+  // evaluateGate returns { verdict, reasons, nextActions, founderItems,
+  // headSha } — no `snapshot` field — so fresh-verdict.json has no
+  // `.snapshot`. The rebase guard must read mergeStateStatus/baseRefName
+  // from fresh.json (the build_snapshot payload), or the dispatch would
+  // never fire. (CodeRabbit, PR #966.)
+  assert.doesNotMatch(workflow, /\.snapshot\.mergeStateStatus/);
+  assert.doesNotMatch(workflow, /\.snapshot\.baseRefName/);
+  assert.match(
+    workflow,
+    /jq -r '\.mergeStateStatus' fresh\.json.*" = "BEHIND"/
+  );
+  assert.match(
+    workflow,
+    /jq -r '\.baseRefName' fresh\.json.*" = "main"/
+  );
+});
+
 test("repair block failures skip only the current PR (set -e guards)", () => {
   assert.match(workflow, /if git diff --check && \(cd web && npm test/);
   assert.match(workflow, /if git push origin "HEAD:\$\(git branch --show-current\)"; then/);
