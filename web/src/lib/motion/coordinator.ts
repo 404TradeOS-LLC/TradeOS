@@ -25,6 +25,7 @@ export type MotionRequestKey = {
 
 type EntityState = {
   revision: number;
+  requestId: string;
   controller: AbortController;
   lastAcceptedEvent: string | null;
 };
@@ -58,27 +59,37 @@ export class MotionCoordinator {
     const controller = new AbortController();
     this.states.set(k, {
       revision: key.revision,
+      requestId: key.requestId,
       controller,
       lastAcceptedEvent: previous?.lastAcceptedEvent ?? null,
     });
     return { signal: controller.signal, accepted: true };
   }
 
-  /** True only when this revision is still the newest for its entity. */
+  /**
+   * True only when this request is still the active one for its entity:
+   * the revision must still be the newest AND the request ID must match
+   * the active request. A retry or refresh at an unchanged revision
+   * supersedes the earlier request, so the earlier request's key is no
+   * longer latest even though its revision still matches.
+   */
   isLatest(key: MotionRequestKey): boolean {
     const state = this.states.get(entityKey(key.orgId, key.entity));
-    return state !== undefined && key.revision >= state.revision;
+    return (
+      state !== undefined && key.revision >= state.revision && key.requestId === state.requestId
+    );
   }
 
   /**
    * Deduplicate repeated events and reject stale arrivals. Returns true
    * only the first time a given request + revision is accepted while it is
-   * still the latest revision for its entity.
+   * still the latest revision for its entity. An arrival from a superseded
+   * request (same revision, different request ID) is rejected.
    */
   acceptEvent(key: MotionRequestKey): boolean {
     const k = entityKey(key.orgId, key.entity);
     const state = this.states.get(k);
-    if (!state || key.revision < state.revision) return false;
+    if (!state || key.revision < state.revision || key.requestId !== state.requestId) return false;
     const event = eventKey(key.requestId, key.revision);
     if (state.lastAcceptedEvent === event) return false;
     state.lastAcceptedEvent = event;

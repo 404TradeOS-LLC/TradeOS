@@ -109,8 +109,10 @@ jobs:
           # The estimate specs read TRADEOS_ESTIMATE_STAGE_PATH and skip
           # every test when it is blank, so a targeted estimate run without
           # a route would report green while proving nothing. Fail fast.
+          # Every estimate spec carries that skip guard, so the pattern
+          # covers all of them (and any future estimate spec).
           case "${SPEC_FILE}" in
-            *estimate-stage-navigation.spec.ts|*estimate-mapping-resolve.spec.ts)
+            *estimate-*.spec.ts)
               if [ -z "${ESTIMATE_STAGE_PATH}" ]; then
                 echo "::error::spec_file selects an estimate spec ('${SPEC_FILE}') but estimate_stage_path is blank; targeted estimate evidence requires a draft estimate route."
                 exit 1

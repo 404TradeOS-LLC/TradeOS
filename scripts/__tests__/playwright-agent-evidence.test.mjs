@@ -163,8 +163,10 @@ test("evidence workflow validates spec_file to one exact spec and rejects target
   assert.match(workflow, /tests\/playwright\/\*\.spec\.ts\)/);
   // The estimate specs skip every test when the draft route is blank, so
   // a targeted run without one would report green while proving nothing.
+  // The pattern covers every estimate spec (all five carry the skip
+  // guard), not just the two navigation/mapping specs.
   assert.match(workflow, /Reject targeted estimate runs without a draft route/);
-  assert.match(workflow, /\*estimate-stage-navigation\.spec\.ts\|\*estimate-mapping-resolve\.spec\.ts\)/);
+  assert.match(workflow, /\*estimate-\*\.spec\.ts\)/);
   assert.match(workflow, /if \[ -z "\$\{ESTIMATE_STAGE_PATH\}" \]; then/);
   assert.match(workflow, /targeted estimate evidence requires a draft estimate route/);
   // The positional argument is exact only because the validation step ran

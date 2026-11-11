@@ -21,6 +21,21 @@ test("starting a newer request aborts the previous signal for the same entity", 
   assert.equal(second.signal.aborted, false);
 });
 
+test("a retry at the same revision supersedes the earlier request", () => {
+  const coordinator = createMotionCoordinator();
+  const first = coordinator.start(key());
+  assert.equal(first.accepted, true);
+  const retry = coordinator.start(key({ requestId: "req-2", revision: 1 }));
+  assert.equal(retry.accepted, true);
+  assert.equal(first.signal.aborted, true);
+  // The superseded request is no longer latest and its arrivals are
+  // rejected, even though the revision did not change.
+  assert.equal(coordinator.isLatest(key()), false);
+  assert.equal(coordinator.acceptEvent(key()), false);
+  assert.equal(coordinator.isLatest(key({ requestId: "req-2", revision: 1 })), true);
+  assert.equal(coordinator.acceptEvent(key({ requestId: "req-2", revision: 1 })), true);
+});
+
 test("starting an older revision is refused and keeps the newer request current", () => {
   const coordinator = createMotionCoordinator();
   coordinator.start(key({ revision: 3 }));
