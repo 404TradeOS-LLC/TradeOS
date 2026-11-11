@@ -374,7 +374,7 @@ dispatch with `mode=armed` (for dispatch runs) or both variables exactly
 `"true"` (`TRADEOS_PR_COMMANDER_WRITE_ENABLED` and
 `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED`, for schedule runs); `pull_request`
 runs can never act, and schedule runs are read-only unless both variables are
-set. The variable is set and the founder-installed
+set. Exact `"true"` is enforced by a case-sensitive shell check at the top of the "Apply verdicts" step, before any write — the job `if:` compares strings case-insensitively and cannot enforce it alone. The variable is set and the founder-installed
 repair-push secret `TRADEOS_PR_COMMANDER_PUSH_TOKEN` is in place. First
 post-merge dry-run (run 42930226341) and first armed run (42930606887) both
 verified from main on PR #953: dry-run verdict BLOCKED fail-closed on a
