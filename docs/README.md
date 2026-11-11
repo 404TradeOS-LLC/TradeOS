@@ -46,6 +46,11 @@ related_code:
   - .github/workflows/merge-queue.yml
   - .github/merge-queue-ruleset.json
   - scripts/merge-queue.mjs
+  - .github/workflows/pr-commander.yml
+  - scripts/pr-commander.mjs
+  - scripts/pr-commander-lib.mjs
+  - docs/PR_COMMANDER.md
+  - docs/PR_COMMANDER_CONFIGURATION.md
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
@@ -89,6 +94,29 @@ enforcement. Apply mode requires a dedicated repository token to allow group CI;
 its default workflow token remains read-only. Both required-check providers
 include `merge_group`, and Docs consistency uses the group's immutable base SHA.
 
+## PR Commander — autonomous PR coordination (dry-run by default)
+
+The [PR Commander](PR_COMMANDER.md) (`.github/workflows/pr-commander.yml`)
+sweeps every open pull request hourly at :17 UTC, evaluates each against the
+unchanged merge bar (non-draft, four required checks green, current branch,
+zero unresolved threads, no standing change request, ADR-009 record where
+required), repairs what is deterministically repairable, requests CodeRabbit
+re-review, and enables native auto-merge only when every gate passes. It
+composes the existing verify/merge-readiness/pr-maintenance/CodeQL-autofix
+pieces and rebuilds none of them. It ships **dry-run by default**: schedule
+and `pull_request` runs can never act, and write action additionally requires
+the repository variable `TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly
+`"true"` **and** a manual dispatch with `mode=armed`. No agent enables the
+variable — Billy enables it only after reviewing the configuration and
+protections. Founder-only boundaries are unchanged: the Commander never
+dismisses a blocking review, never undrafts a PR, never applies migrations or
+staging-apply gates, never touches production, and never changes a ruleset.
+Copilot Agent Merge is not available as a delegation path (0 org seats, quota
+failures, disabled review ruleset — verified 2026-11-10); the Commander
+delegates to deterministic repair, CodeQL Autofix, and CodeRabbit re-review.
+Setup, arming, dry-run verification, and disable steps are in
+[PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
+
 S027's authenticated evidence workflow captures all nine Costbook routes at
 1440/1024/768/390px using the existing Beta smoke identity. Required Preview,
 deployment identity, test-tenant, mutation, and artifact controls are described
@@ -115,6 +143,7 @@ Use these files first:
 - `docs/WORKFLOW_LIFECYCLES.md` for status vocabulary and transition rules
 - `docs/ROADMAP.md` for future work only
 - `docs/REPOSITORY_GOVERNANCE.md` for protected-branch policy, required checks, worktree lifecycle, PR templates, issue templates, label taxonomy, review-repair/auto-merge discipline, and manual PR-maintenance controls
+- `docs/PR_COMMANDER.md` for the autonomous PR Commander operating documentation (dry-run by default, modes, verdicts, arming, founder boundaries) and `docs/PR_COMMANDER_CONFIGURATION.md` for its variable, dispatch, and disable instructions
 - `docs/decisions/ADR-009-solo-maintainer-founder-merge-exception.md` for the current founder-authorized solo-maintainer merge-review exception and its non-waivable technical gates
 - `docs/decisions/ADR-010-customer-magic-link-portal.md` for the approved customer-scoped public portal identity and contract-signing boundary
 - `docs/DEPLOYMENT_GUIDE.md` for deployment environment variables, migration rollout, and approved production migration-history reconciliation procedures
