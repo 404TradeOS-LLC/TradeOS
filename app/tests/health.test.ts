@@ -6,7 +6,7 @@ jest.mock("../backend/logging", () => ({ logError: jest.fn() }));
 
 import { basePrisma } from "../db/client";
 import { logError } from "../backend/logging";
-import { buildHealthPayload, checkReadiness } from "../backend/health";
+import { buildHealthPayload, checkReadiness, resolveDatabaseProjectRef } from "../backend/health";
 
 const queryRawUnsafe = basePrisma.$queryRawUnsafe as jest.Mock;
 const mockedLogError = logError as jest.Mock;
@@ -16,6 +16,8 @@ describe("production health surfaces", () => {
     jest.clearAllMocks();
     delete process.env.VERCEL_GIT_COMMIT_SHA;
     delete process.env.GIT_COMMIT_SHA;
+    delete process.env.DATABASE_URL;
+    delete process.env.SUPABASE_URL;
   });
 
   it("builds a dependency-free liveness payload", () => {
@@ -30,6 +32,7 @@ describe("production health surfaces", () => {
   });
 
   it("reports ready when the database probe succeeds", async () => {
+    process.env.DATABASE_URL = "postgresql://app:example@db.qfbgdkbamfaasmtjfyru.supabase.co:5432/postgres";
     queryRawUnsafe.mockResolvedValueOnce([{ "?column?": 1 }]);
     queryRawUnsafe.mockResolvedValueOnce([
       { table_name: "estimates", column_name: "tax_pct" },
@@ -50,9 +53,42 @@ describe("production health surfaces", () => {
     expect(queryRawUnsafe).toHaveBeenCalledWith("SELECT 1");
     expect(payload.status).toBe("ready");
     expect(payload.checks.database.status).toBe("ok");
+    expect(payload.checks.database.projectRef).toBe("qfbgdkbamfaasmtjfyru");
     expect(payload.checks.schema.status).toBe("ok");
     expect(payload.checks.database.latencyMs).toEqual(expect.any(Number));
     expect(mockedLogError).not.toHaveBeenCalled();
+  });
+
+  it("identifies the data plane from a pooled DATABASE_URL or SUPABASE_URL, and omits it when neither parses", () => {
+    expect(resolveDatabaseProjectRef({
+      DATABASE_URL: "postgresql://postgres.qfbgdkbamfaasmtjfyru@aws-0-us-east-1.pooler.supabase.com:6543/postgres",
+    } as NodeJS.ProcessEnv)).toBe("qfbgdkbamfaasmtjfyru");
+    expect(resolveDatabaseProjectRef({
+      SUPABASE_URL: "https://qfbgdkbamfaasmtjfyru.supabase.co",
+    } as NodeJS.ProcessEnv)).toBe("qfbgdkbamfaasmtjfyru");
+    expect(resolveDatabaseProjectRef({} as NodeJS.ProcessEnv)).toBeUndefined();
+    expect(resolveDatabaseProjectRef({ DATABASE_URL: "not-a-url" } as NodeJS.ProcessEnv)).toBeUndefined();
+  });
+
+  it("refuses an unverified DATABASE_URL even when SUPABASE_URL claims staging", () => {
+    const stagingUrl = "https://qfbgdkbamfaasmtjfyru.supabase.co";
+    const ambiguousDatabaseUrls = [
+      "not-a-url",
+      "postgresql://app@db.example.com:5432/postgres",
+      "https://db.qfbgdkbamfaasmtjfyru.supabase.co/postgres",
+      "postgresql://app@aws-0-us-east-2.pooler.supabase.com:6543/postgres",
+      "postgresql://app@db.qfbgdkbamfaasmtjfyru.supabase.co:5432/postgres?host=db.kssaceuetdjwfqnbzhly.supabase.co",
+    ];
+    for (const databaseUrl of ambiguousDatabaseUrls) {
+      expect(resolveDatabaseProjectRef({
+        DATABASE_URL: databaseUrl,
+        SUPABASE_URL: stagingUrl,
+      } as NodeJS.ProcessEnv)).toBeUndefined();
+    }
+    expect(resolveDatabaseProjectRef({
+      DATABASE_URL: "postgresql://app@db.kssaceuetdjwfqnbzhly.supabase.co:5432/postgres",
+      SUPABASE_URL: stagingUrl,
+    } as NodeJS.ProcessEnv)).toBe("kssaceuetdjwfqnbzhly");
   });
 
   it("fails closed and logs when the database probe fails", async () => {

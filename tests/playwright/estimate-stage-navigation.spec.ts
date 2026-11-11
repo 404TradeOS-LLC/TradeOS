@@ -1,16 +1,31 @@
 import { expect, test } from '@playwright/test';
+import { resolveAgentTarget } from './target.mjs';
 
 // Manual, non-production interaction regression for a draft with saved items.
 // Project PATCH responses are intercepted; no scope write reaches the backend.
 const path = process.env.TRADEOS_ESTIMATE_STAGE_PATH;
 const state = process.env.TRADEOS_ESTIMATE_STAGE_STATE;
 
+// trace/video cannot be set via test.use inside a describe group (they force
+// a new worker); hoist to file top level like authenticated.spec.ts.
+if (state) test.use({ storageState: state, trace: 'off', video: 'off' });
+
 test.describe('Estimate stage navigation', () => {
   test.skip(!path, 'Set a sanitized draft route to run the stage matrix.');
-  if (path && (!path.startsWith('/') || path.startsWith('//'))) {
-    throw new Error('TRADEOS_ESTIMATE_STAGE_PATH must be a relative application path');
+  if (path) {
+    // A backslash is a path separator for special-scheme URLs, so a value
+    // like `/\evil.com/x` passes the leading-slash check but resolves to
+    // another origin. Reject backslashes outright, then resolve against the
+    // approved origin (the same resolver the config uses) and require the
+    // result to stay on it.
+    if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) {
+      throw new Error('TRADEOS_ESTIMATE_STAGE_PATH must be a relative application path');
+    }
+    const approvedOrigin = resolveAgentTarget(process.env);
+    if (new URL(path, approvedOrigin).origin !== approvedOrigin) {
+      throw new Error('TRADEOS_ESTIMATE_STAGE_PATH must resolve to the approved origin');
+    }
   }
-  if (state) test.use({ storageState: state, trace: 'off', video: 'off' });
 
   for (const width of [390, 768, 1024, 1440]) {
     test(`keyboard navigation waits for scope save and recovers from failure at ${width}px`, async ({ page }) => {

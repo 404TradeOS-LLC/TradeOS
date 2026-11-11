@@ -46,6 +46,11 @@ related_code:
   - .github/workflows/merge-queue.yml
   - .github/merge-queue-ruleset.json
   - scripts/merge-queue.mjs
+  - .github/workflows/pr-commander.yml
+  - scripts/pr-commander.mjs
+  - scripts/pr-commander-lib.mjs
+  - docs/PR_COMMANDER.md
+  - docs/PR_COMMANDER_CONFIGURATION.md
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
@@ -89,6 +94,35 @@ enforcement. Apply mode requires a dedicated repository token to allow group CI;
 its default workflow token remains read-only. Both required-check providers
 include `merge_group`, and Docs consistency uses the group's immutable base SHA.
 
+## PR Commander — autonomous PR coordination (live, armed)
+
+The [PR Commander](PR_COMMANDER.md) (`.github/workflows/pr-commander.yml`,
+merged as PR #964) sweeps every open pull request hourly at :17 UTC,
+evaluates each against the unchanged merge bar (non-draft, four required
+checks green, current branch, zero unresolved threads, no standing change
+request, ADR-009 record where required), repairs what is deterministically
+repairable, requests CodeRabbit re-review, and enables native auto-merge
+only when every gate passes. It composes the existing
+verify/merge-readiness/pr-maintenance/CodeQL-autofix pieces and rebuilds none
+of them. It ships **dry-run by default**: schedule and `pull_request` runs
+can never act, and write action additionally requires the repository
+variable `TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly `"true"` **and**
+a manual dispatch with `mode=armed`. The variable is set and the Commander
+is armed; its first dry-run and armed runs verified from main on PR #953.
+**Policy exception (founder, 2026-11-10):** the armed `act` job holds
+`actions: write`, scoped to dispatching `pr-maintenance.yml` for REPAIRABLE
+behind-branch verdicts (recorded in the `Workflow security` policy script
+and in `docs/REPOSITORY_GOVERNANCE.md`; end-to-end dispatch depends on
+PR #965's numeric-input fix). Founder-only boundaries are unchanged: the
+Commander never dismisses a blocking review, never undrafts a PR, never
+applies migrations or staging-apply gates, never touches production, and
+never changes a ruleset. Copilot Agent Merge is not available as a
+delegation path (0 org seats, quota failures, disabled review ruleset —
+verified 2026-11-10); the Commander delegates to deterministic repair,
+CodeQL Autofix, and CodeRabbit re-review. Setup, arming, dry-run
+verification, and disable steps are in
+[PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
+
 S027's authenticated evidence workflow captures all nine Costbook routes at
 1440/1024/768/390px using the existing Beta smoke identity. Required Preview,
 deployment identity, test-tenant, mutation, and artifact controls are described
@@ -115,6 +149,7 @@ Use these files first:
 - `docs/WORKFLOW_LIFECYCLES.md` for status vocabulary and transition rules
 - `docs/ROADMAP.md` for future work only
 - `docs/REPOSITORY_GOVERNANCE.md` for protected-branch policy, required checks, worktree lifecycle, PR templates, issue templates, label taxonomy, review-repair/auto-merge discipline, and manual PR-maintenance controls
+- `docs/PR_COMMANDER.md` for the autonomous PR Commander operating documentation (dry-run by default, modes, verdicts, arming, founder boundaries) and `docs/PR_COMMANDER_CONFIGURATION.md` for its variable, dispatch, and disable instructions
 - `docs/decisions/ADR-009-solo-maintainer-founder-merge-exception.md` for the current founder-authorized solo-maintainer merge-review exception and its non-waivable technical gates
 - `docs/decisions/ADR-010-customer-magic-link-portal.md` for the approved customer-scoped public portal identity and contract-signing boundary
 - `docs/DEPLOYMENT_GUIDE.md` for deployment environment variables, migration rollout, and approved production migration-history reconciliation procedures
@@ -152,6 +187,8 @@ certification remains a separate gate.
 Temporary production migration-history workflows are governed by `docs/REPOSITORY_GOVERNANCE.md` and must stay manual, approval-gated, and history-only. If the migration file being reconciled has not merged yet, the workflow may materialize only that exact file from the named pull-request ref and must verify its pinned checksum before any database write.
 
 The `PR maintenance` workflow is also manual-only. It accepts an explicit open same-repository PR number targeting `main` and requests GitHub to rebase that branch onto current `main`; it must not bypass branch protection, required checks, review requirements, fork restrictions, or merge-conflict handling.
+
+The Actions numeric input may be serialized as `961.0` (observed in [run 42915388112](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/42915388112)), so the validation step normalizes a positive whole-number identifier to canonical digits and shares that output with the rebase/report steps. Fractional or malformed inputs fail before `gh` access; this is a workflow parsing fix, not authorization to auto-run maintenance.
 
 ## Current versus archived
 
@@ -374,6 +411,15 @@ bounded authenticated smoke using the existing Beta smoke identity: fresh
 runtime storage state is created outside the repository, the expected smoke
 organization is verified, and read-only checks cover **Today**, **Customers**,
 **Projects**, **Estimates**, **Proposals**, **Contracts**, and **Invoices**.
+Optional inputs (`estimate_stage_path`, `spec_file`, `use_test_org`) let a
+dispatch target a single estimate spec against a seeded draft route using the
+TEST Org staging test account (`TEST_STAGING_EMAIL`/`TEST_STAGING_PASSWORD`)
+instead of the Beta smoke identity. `use_test_org` selects the TEST Org
+credentials only when `authenticated_smoke` is enabled; with authentication
+disabled no TEST Org session is created. When `use_test_org` is enabled,
+operators must set `smoke_tenant_label` to the TEST Org's Settings company
+name when it differs from TradeOS Beta Smoke, so tenant verification passes
+before the spec runs.
 When sanitized records exist, the suite follows their real hrefs to Customer,
 Project, Estimate, Proposal, Contract, and Invoice detail surfaces; otherwise
 it requires truthful empty states. Authenticated trace capture is disabled and
@@ -462,3 +508,7 @@ For the live staging migration inventory, checksums, required approvals, command
 ## PDF beta review repair
 
 The [Beta Evidence reference](testing/BETA_EVIDENCE.md) now documents dedicated foreign-owner synthetic fixtures and verified Proposal existence before accepting PDF denial. The [cohort runbook](operations/INVITED_BETA.md) requires exact-release PDF renderer results as well as visual acceptance. These source changes do not provision accounts or authorize release.
+
+## Staging identity and promotion notes — 2026-11-09
+
+[Draft PR #958](https://github.com/404TradeOS-LLC/TradeOS/pull/958) preserves staging's documented public `/ready` data-plane project identifier and pooler-safe read-only Prisma preflight on `main`. See [production health behavior](PRODUCTION_HEALTH.md), [repository governance](REPOSITORY_GOVERNANCE.md), and [beta evidence safeguards](testing/BETA_EVIDENCE.md). Repository source parity and green tests do not independently prove Vercel environment bindings or authorize a protected staging deployment.

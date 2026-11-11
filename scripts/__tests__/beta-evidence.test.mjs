@@ -799,6 +799,13 @@ test("the tenant assertion cannot be skipped and mutation consent is never impli
   assert.match(authSetup, /tenant assertion cannot be skipped/);
   assert.doesNotMatch(authSetup, /tenant assertion skipped/);
 
+  // The tenant assertion no longer depends on DOM text at all: it verifies
+  // the request-authenticated Settings API response
+  // (assertAuthenticatedSmokeTenant), so there is no General panel to open
+  // and no visible-text fallback to order first. The settingsText-first
+  // fix for the old DOM-based assertion was superseded by that
+  // restructure during the #918 rebase onto main.
+
   // An unset BETA_ALLOW_MUTATIONS previously defaulted to "true".
   const run = read("app/scripts/beta-evidence/run.mjs");
   assert.doesNotMatch(run, /BETA_ALLOW_MUTATIONS \?\? "true"/);
