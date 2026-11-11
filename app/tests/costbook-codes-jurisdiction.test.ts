@@ -339,6 +339,53 @@ describe("resolveJurisdiction", () => {
     expectNoInferredValues(resolution);
   });
 
+  it("rejects a reviewed record whose edition is not yet in force", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite(),
+      [
+        record({ effectiveFrom: "2027-01-01T00:00:00.000Z" }),
+        municipalRecord({ effectiveFrom: "2027-01-01T00:00:00.000Z" }),
+      ],
+      "sign replacement",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toContain("no_reviewed_current_records");
+    expect(resolution.reasons).toContain("unusable_record:rec-state:reviewed");
+    expect(resolution.matched).toEqual([]);
+    expectNoInferredValues(resolution);
+  });
+
+  it("rejects a reviewed record with an invalid effectiveFrom", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite(),
+      [record({ effectiveFrom: "not-a-date" }), municipalRecord()],
+      "sign replacement",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toContain("no_state_authority_record");
+    expect(resolution.matched).toEqual([]);
+    expectNoInferredValues(resolution);
+  });
+
+  it("does not cite expired reviewed records as consulted sources", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite(),
+      [
+        record({ expiresAt: "2026-11-01T00:00:00.000Z" }),
+        municipalRecord({ expiresAt: "2026-11-01T00:00:00.000Z" }),
+      ],
+      "sign replacement",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    // The expired records are reported as unusable, never as citations.
+    expect(resolution.reasons).toContain("unusable_record:rec-state:reviewed");
+    expect(resolution.citations).toEqual([]);
+    expectNoInferredValues(resolution);
+  });
+
   it("fails closed on the state scope when only the local record is current", () => {
     const resolution = resolveJurisdiction(
       verifiedSite(),
@@ -484,6 +531,35 @@ describe("resolveJurisdiction", () => {
       ]),
     );
     expect(resolution.openQuestions.length).toBeGreaterThanOrEqual(4);
+    expectNoInferredValues(resolution);
+  });
+
+  it("accumulates every open question when no record is current, not just the first failure", () => {
+    // Empty record store (the live API path): the site facts alone must
+    // still produce the zoning, ROW, signage, electrical, and topic
+    // questions.
+    const resolution = resolveJurisdiction(
+      verifiedSite({ incorporated: null, zoningDistrict: null, signCategory: null, nearStateRoad: true, rightOfWayBoundaryVerified: false, signDetailsVerified: false, electricalConnectionVerified: false }),
+      [],
+      "sign replacement with electrical run",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toEqual(
+      expect.arrayContaining([
+        "no_reviewed_current_records",
+        "no_state_authority_record",
+        "incorporated_status_unknown",
+        "zoning_district_unknown",
+        "right_of_way_unverified",
+        "sign_category_unknown",
+        "sign_details_unverified",
+        "electrical_connection_unverified",
+        "missing_topics:permits,signage,electrical,right-of-way",
+      ]),
+    );
+    expect(resolution.openQuestions.length).toBeGreaterThanOrEqual(8);
+    expect(resolution.citations).toEqual([]);
     expectNoInferredValues(resolution);
   });
 });

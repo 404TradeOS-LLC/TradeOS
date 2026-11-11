@@ -76,6 +76,12 @@ function isCurrent(record: JurisdictionRecord, now: Date): boolean {
   }
   const reviewed = new Date(record.reviewedAt);
   if (Number.isNaN(reviewed.getTime())) return false;
+  // A reviewed record whose edition is not yet in force cannot verify a
+  // match — otherwise a future code edition would certify today's job.
+  if (record.effectiveFrom) {
+    const effective = new Date(record.effectiveFrom);
+    if (Number.isNaN(effective.getTime()) || effective.getTime() > now.getTime()) return false;
+  }
   return true;
 }
 
@@ -139,7 +145,11 @@ export function resolveJurisdiction(
       "no_reviewed_current_records",
       "No reviewed, current jurisdiction records are available for this site. Confirm the governing authorities with the authority having jurisdiction.",
     );
-    return needsVerificationResult();
+    // No early return: checks 3–9 still run and accumulate every open
+    // question (state scope, incorporation, zoning, ROW, signage,
+    // electrical, topics) so the contractor sees the full checklist even
+    // when no record is current. Checks 3, 4, and 9 already fail closed
+    // on an empty `current` set.
   }
 
   // 3. State scope must be covered by a reviewed state-level record.
@@ -305,14 +315,15 @@ export function resolveJurisdiction(
     return {
       outcome: "needs_verification",
       matched: [],
-      citations: records
-        .filter((record) => record.status === "reviewed")
-        .map((record) =>
-          citationFor(
-            record,
-            `Reviewed source consulted; not sufficient on its own to verify jurisdiction for this site: ${record.citation}.`,
-          ),
+      // Cite only current records: an expired or otherwise unusable record
+      // is reported as `unusable_record` in `reasons` and must not also be
+      // presented as a consulted source.
+      citations: current.map((record) =>
+        citationFor(
+          record,
+          `Reviewed source consulted; not sufficient on its own to verify jurisdiction for this site: ${record.citation}.`,
         ),
+      ),
       openQuestions,
       reasons,
       distinctions,
