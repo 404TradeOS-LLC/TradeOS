@@ -188,6 +188,8 @@ Temporary production migration-history workflows are governed by `docs/REPOSITOR
 
 The `PR maintenance` workflow is also manual-only. It accepts an explicit open same-repository PR number targeting `main` and requests GitHub to rebase that branch onto current `main`; it must not bypass branch protection, required checks, review requirements, fork restrictions, or merge-conflict handling.
 
+The Actions numeric input may be serialized as `961.0` (observed in [run 42915388112](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/42915388112)), so the validation step normalizes a positive whole-number identifier to canonical digits and shares that output with the rebase/report steps. Fractional or malformed inputs fail before `gh` access; this is a workflow parsing fix, not authorization to auto-run maintenance.
+
 ## Current versus archived
 
 Current source-of-truth documents:

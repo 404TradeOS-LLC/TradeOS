@@ -243,6 +243,8 @@ Once a PR exists, use one continuous repair loop rather than waiting for serial 
 
 Regression tests should exercise the actual behavior/failure path whenever practical. Static source-text tests are appropriate only when the source shape itself is the intended convention; review (human or agent) should flag source-text substitutes for behavioral coverage.
 
+The manual PR Maintenance workflow is the protected branch-currency repair route for one explicitly selected open, same-repository PR targeting `main`. GitHub Actions numeric dispatch input can arrive as `961.0`; the workflow validates and canonicalizes the number once before GitHub CLI operations, then passes the validated output to the rebase and report steps. A mocked-CLI regression test checks valid integers and rejects fractional/unsafe values. The workflow stays manual-only and is not a substitute for exact-head CI, review-thread resolution, staging evidence or a separate merge decision. The original parsing failure is recorded in [run 42915388112](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/42915388112).
+
 Production repair should use the health split first:
 
 - `/health` failing → investigate process/deployment/routing/platform availability;

@@ -377,6 +377,8 @@ disable steps are in
 
 The workflow may act only on an open pull request from this repository whose base is `main`. It must reject closed pull requests, fork-originated pull requests, and pull requests targeting another base branch. Its branch update must use GitHub's supported pull-request branch-update/rebase operation rather than custom force-push logic.
 
+GitHub Actions may serialize a `type: number` `workflow_dispatch` input as `961.0`. Before calling `gh`, the validation step must accept only a positive whole-number PR identifier (plain digits or a zero-only fractional suffix), strip that suffix to the canonical digits, and publish that validated number as a step output. The rebase and reporting steps must use only the output, never the raw input. Invalid, fractional, zero, negative or nonnumeric values stop before a GitHub CLI lookup. Regression tests execute the validation shell with a mocked `gh` and prove the command receives `961`.
+
 PR maintenance does not grant merge authority. After a successful rebase, normal rules still apply: the branch must satisfy required checks, review-thread resolution, current-head verification, and all other live branch-protection requirements. Conflicts or unsupported server-side updates remain a stop condition for manual resolution in a normal git workspace.
 
 ## Autonomous maintenance governance
