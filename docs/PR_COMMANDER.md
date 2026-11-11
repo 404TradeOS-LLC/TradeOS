@@ -109,7 +109,7 @@ repository.
 1. a `workflow_dispatch` with `mode=armed`, OR
 2. a `schedule` run with the second variable `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED` also exactly `"true"` (unattended mode, live since 2026-11-11, PR #967).
 
-`pull_request` runs can **never** act, even if the variables are set. `audit` runs can never act either. Every write call in the `act` job sits behind a single gate (the job `if:`), and the CLI/library gate `isArmed()` is consulted before every write there. The evaluate job always evaluates dry-run (`armed: false`), even on armed dispatches; the `act` job re-evaluates armed on a fresh head re-read before any write. The `act` job re-checks the raw variables at act time (kill-switch): flipping either variable off mid-run still stops the write job.
+`pull_request` runs can **never** act, even if the variables are set. `audit` runs can never act either. Every write call in the `act` job sits behind a single gate (the job `if:`), and the CLI/library gate `isArmed()` is consulted before every write there. The evaluate job always evaluates dry-run (`armed: false`), even on armed dispatches; the `act` job re-evaluates armed on a fresh head re-read before any write. The `act` job gate re-checks the raw variables at job admission (after discovery), so flipping either variable off before the act job starts prevents it from running — but it does not abort an already-running act job; cancel a running act job separately (see the rollback instructions in the configuration document).
 
 **Dry-run is the default, in two layers.** The library evaluator is armed
 unless its caller says otherwise, so the dry-run default lives in the
