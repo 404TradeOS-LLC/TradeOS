@@ -75,13 +75,17 @@ await fs.mkdir(outDir, { recursive: true });
 
 // Diagnostic capture on login failure: the 60s timeout alone cannot tell a
 // rejected login from a swallowed submit, so persist what the page showed.
-// Carries no password material: password inputs render masked in a screenshot
-// and innerText excludes field values.
+// Carries no credential material: the email field is masked in the
+// screenshot, password inputs render masked, and innerText excludes field
+// values.
 async function captureLoginFailure(page, evidenceDir) {
   const authDir = path.join(evidenceDir, "auth");
   await fs.mkdir(authDir, { recursive: true });
   try {
-    await page.screenshot({ path: path.join(authDir, "login-failure.png") });
+    await page.screenshot({
+      path: path.join(authDir, "login-failure.png"),
+      mask: [page.locator('[name="email"]')],
+    });
   } catch {
     // Best effort; the timeout error below is the signal.
   }
