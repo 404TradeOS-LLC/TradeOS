@@ -51,6 +51,7 @@ model Organization {
   jobAssignments JobAssignment[]
   jobExpenses    JobExpense[]
   jobExpenseEvents JobExpenseEvent[]
+  codesJobAssessments CodesJobAssessment[]
   estimates      Estimate[]
   serviceAgreements ServiceAgreement[]
   payments       Payment[]
@@ -918,6 +919,7 @@ model Project {
   customer     Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
   region       Region?        @relation(fields: [regionId], references: [id], onDelete: SetNull)
   estimates    Estimate[]
+  codesJobAssessments CodesJobAssessment[]
   changeOrders ChangeOrder[]
   proposals    Proposal[]
   invoices     Invoice[]
@@ -952,6 +954,7 @@ model Estimate {
   organization Organization?       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   project      Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
   lineItems    EstimateLineItem[]
+  codesJobAssessments CodesJobAssessment[]
   changeOrders ChangeOrder[]
   proposals    Proposal[]
   invoices     Invoice[]
@@ -1220,6 +1223,38 @@ model JobExpenseEvent {
 
   @@index([orgId, jobId, expenseId, createdAt], map: "job_expense_events_org_job_expense_created_idx")
   @@map("job_expense_events")
+}
+
+// Tenant-scoped Codes & Permits job assessment (issue #946, TODO 4).
+// Explicit Project/Estimate context, proposed work type, citations with
+// rationale, unknowns, needs-review statuses, owner signoff, audit trail.
+// Citations are {source_id, rationale} JSON arrays; source_id references a
+// TODO 2 codes_source id (or pilot registry id) by string, not by FK, so
+// this table lands independently of TODO 2. RLS: FORCE ROW LEVEL SECURITY,
+// org-scoped policies — see migration 20261109220000_add_codes_job_assessment.
+model CodesJobAssessment {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  projectId    String   @map("project_id")
+  estimateId   String?  @map("estimate_id")
+  workType     String   @map("work_type")
+  status       String   @default("needs_review")
+  citations    Json     @default("[]")
+  unknowns     Json     @default("[]")
+  ownerSignoff Boolean  @default(false) @map("owner_signoff")
+  signedOffBy  String?  @map("signed_off_by")
+  signedOffAt  DateTime? @map("signed_off_at")
+  createdBy    String?  @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  estimate     Estimate?    @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, projectId], map: "codes_job_assessment_org_project_idx")
+  @@index([orgId, estimateId], map: "codes_job_assessment_org_estimate_idx")
+  @@map("codes_job_assessment")
 }
 
 model JobAssignment {
