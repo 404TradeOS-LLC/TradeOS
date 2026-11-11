@@ -81,6 +81,27 @@ The opt-in S053 Beta Evidence run now joins Apply acknowledgements to the retain
 
 # TradeOS Current State
 
+## PR Commander — autonomous PR coordination — 2026-11-10
+
+Branch `feat/pr-commander-autonomous` (base main `2b116767`), draft PR
+pending. `.github/workflows/pr-commander.yml` plus
+`scripts/pr-commander.mjs` / `scripts/pr-commander-lib.mjs` (48/48 unit
+tests passing) sweep every open PR hourly at :17 UTC and on
+`pull_request` events, evaluate each against the unchanged merge bar, repair
+deterministically repairable findings, request CodeRabbit re-review, and
+enable native auto-merge only when every gate passes at one exact head SHA.
+**Status: dry-run only, not activated.** The arming variable
+`TRADEOS_PR_COMMANDER_WRITE_ENABLED` does not exist yet by design; Billy
+enables it only after the activation checklist in
+[PR Commander](PR_COMMANDER.md). Founder-only boundaries unchanged (no
+review dismissals, no undrafts, no staging-apply clicks, no production
+touches, no ruleset changes). Copilot Agent Merge is not available as a
+delegation path (0 org seats, quota failures — verified 2026-11-10).
+Operating docs: [PR Commander](PR_COMMANDER.md) and
+[PR Commander configuration](PR_COMMANDER_CONFIGURATION.md). First live
+dry-run sweep still owed after the PR lands; the workflow has never executed
+on GitHub.
+
 ## Invited PDF beta evidence — local candidate, 2026-11-06
 
 Founder selected a free 1–3-business beta ending at contractor-delivered Proposal PDFs with reviewed AI assist included. A local `beta_pdf` scenario extends the existing evidence runner without changing application APIs, schema, permissions, pricing or existing scenario defaults. It adds authenticated PDF transport/receipt retention, Proposal reload checks and foreign PDF denial, and requires exact SHA/current-run artifacts. S053 assertion-name drift is repaired. This is unmerged source, not deployed acceptance. Clarification persistence, documented deck/Estimate→Proposal discrepancies, environment/RLS/recovery proof and onboarding gates remain HOLD in [the beta runbook](operations/INVITED_BETA.md).
