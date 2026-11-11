@@ -551,3 +551,8 @@ Keep the existing PR/branch for the PDF beta evidence lane. Its foreign Proposal
 ## Staging runtime identity parity review — 2026-11-09 (draft PR #958)
 
 Draft [PR #958](https://github.com/404TradeOS-LLC/TradeOS/pull/958) ports the already-existing staging `/ready` public database project-ref contract and the project-bound staging pooler/session-mode preflight onto current `main`. It does not alter schema, tokens, migrations, or deployed runtime. The checked Git trees differ in 23 actual files (despite 79/27 divergent commits). Staging Vercel web/API aliases still target `c800425f`, not main `c1b3cb0e`; Vercel metadata reads return 403. The earlier protected Nov 7 runtime attestation passed for the older deployment and cannot certify a new SHA. Retain draft and reviewer gate before an authorized staging-only promotion; live contractor beta acceptance remains blocked.
+
+
+### PR Commander unattended execution proposal (PR #967, 2026-11-11)
+
+A draft workflow change proposes optional scheduled write execution gated by **both** `TRADEOS_PR_COMMANDER_WRITE_ENABLED=true` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED=true`. Until the change passes hosted checks, review, a verified manual armed run, and explicit owner activation, scheduled sweeps remain read-only. No migration, staging, production, review, or branch-protection gate is relaxed. See [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
