@@ -181,9 +181,13 @@ jobs:
           DISPATCH_PR: ${{ inputs.pr_number }}
           DISPATCH_MODE: ${{ inputs.mode }}
           VAR_ARMED: ${{ vars.TRADEOS_PR_COMMANDER_WRITE_ENABLED == 'true' }}
+          VAR_UNATTENDED: ${{ vars.TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED == 'true' }}
         run: |
           set -euo pipefail
           mode="${DISPATCH_MODE:-dry-run}"
+          if [ "$EVENT_NAME" = "schedule" ] && [ "$VAR_ARMED" = "true" ] && [ "$VAR_UNATTENDED" = "true" ]; then
+            mode="armed"
+          fi
           if [ "$mode" != "audit" ] && [ "$mode" != "dry-run" ] && [ "$mode" != "armed" ]; then
             echo "Unknown mode: $mode" >&2
             exit 1
@@ -191,7 +195,7 @@ jobs:
           # Arming requires BOTH the repository variable AND an armed dispatch.
           # Schedule and pull_request runs can never be effectively armed.
           effective_armed="false"
-          if [ "$VAR_ARMED" = "true" ] && [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$mode" = "armed" ]; then
+          if [ "$VAR_ARMED" = "true" ] && [ "$mode" = "armed" ] && { [ "$EVENT_NAME" = "workflow_dispatch" ] || { [ "$EVENT_NAME" = "schedule" ] && [ "$VAR_UNATTENDED" = "true" ]; }; }; then
             effective_armed="true"
           fi
           {
@@ -511,9 +515,9 @@ jobs:
     # either. The repository variable alone is not enough — mode=armed is
     # required too. If this `if` is false, no write in this job runs.
     if: >-
-      github.event_name == 'workflow_dispatch' &&
       vars.TRADEOS_PR_COMMANDER_WRITE_ENABLED == 'true' &&
-      inputs.mode == 'armed'
+      ((github.event_name == 'workflow_dispatch' && inputs.mode == 'armed') ||
+       (github.event_name == 'schedule' && vars.TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
