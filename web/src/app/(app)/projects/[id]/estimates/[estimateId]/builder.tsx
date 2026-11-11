@@ -20,6 +20,10 @@ import { FeedbackState } from "@/components/ui/feedback-state";
 import { Textarea } from "@/components/ui/textarea";
 import type { Estimate } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { markerGeometry, type MarkerGeometry } from "@/lib/motion/lifecycle";
+import { PriceDelta } from "@/components/motion/price-delta";
+import { nextRecalculationSnapshot, toMinorUnits } from "@/lib/motion/price-delta";
+import type { RecalculationSnapshot } from "@/lib/motion/price-delta";
 import { groupSavedDirectCosts } from "@/lib/estimate-direct-costs";
 import { canAddReviewedEstimateCatalogItem } from "@/lib/estimate-catalog-review";
 import { createEstimateReviewNavigator } from "@/lib/estimate-review-navigation";
@@ -97,16 +101,81 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
     staleTime: 15_000,
   });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: estimateKey });
+  const [lastRecalculation, setLastRecalculation] = useState<RecalculationSnapshot | null>(null);
+  // Mirror of lastRecalculation for the async refetch-completion check in
+  // invalidate(): state alone cannot identify whether a later edit has
+  // superseded the snapshot by the time a refetch lands.
+  const lastRecalculationRef = useRef<RecalculationSnapshot | null>(null);
+
+  const invalidate = (reason?: string, previousTotalMinor?: number | null) => {
+    // Previous-totals source for the Price stage delta: each pricing
+    // mutation captures its pre-write total in onMutate and passes it
+    // here, so the snapshot is the last server-confirmed total even when
+    // an independent refresh lands before the mutation response. Callers
+    // without a captured total fall back to the current query record
+    // (the pre-existing behavior). Only pricing mutations pass a reason;
+    // finalize and scope saves do not.
+    // A pricing-mode Apply passes a reason too: changing the percentage
+    // reprices the estimate. A pure mode switch with an equivalent
+    // percentage moves no total, so the delta render guard (the total
+    // must move) prevents a fabricated repricing.
+    if (reason && estimate) {
+      const next = nextRecalculationSnapshot({
+        currentTotalMinor: previousTotalMinor ?? toMinorUnits(estimate.totalPrice),
+        reason,
+        pending: lastRecalculationRef.current,
+      });
+      lastRecalculationRef.current = next;
+      setLastRecalculation(next);
+      if (next) {
+        // Track refetch completion independently of whether the total
+        // moved: a price-neutral save leaves a pending snapshot against
+        // an unchanged total, and the old total-equality proxy could not
+        // tell "refetch pending" from "refetch landed". Once this save's
+        // refetch lands with the total still equal to the baseline, the
+        // snapshot can never render — clear it so it does not suppress
+        // the next price-changing edit's delta. A moved total keeps its
+        // snapshot (that is the delta on display), and a snapshot
+        // superseded by a later edit is never cleared by an older
+        // refetch. A failed or skipped refetch leaves the snapshot in
+        // place (the pre-existing behavior), never invents a clearing.
+        // An ambiguous snapshot is cleared on any successful refetch:
+        // the pending changes are reconciled into the fresh total, no
+        // per-edit delta is ever shown for it, and the next edit must
+        // snapshot the new baseline normally.
+        const mine = next;
+        const startedAt = Date.now();
+        const refetch = queryClient.invalidateQueries({ queryKey: estimateKey });
+        void refetch.then(() => {
+          if (lastRecalculationRef.current !== mine) return;
+          const queryState = queryClient.getQueryState(estimateKey);
+          if (!queryState || queryState.error != null || (queryState.dataUpdatedAt ?? 0) < startedAt) return;
+          const fresh = queryClient.getQueryData<EstimateDetail>(estimateKey);
+          const freshMinor = fresh ? toMinorUnits(fresh.totalPrice) : null;
+          if (freshMinor !== null && (mine.ambiguous || freshMinor === mine.previousTotalMinor)) {
+            lastRecalculationRef.current = null;
+            setLastRecalculation(null);
+          }
+        });
+        return;
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: estimateKey });
+  };
 
   const removeLineItem = useMutation({
     mutationFn: (lineItemId: string) => clientFetch(`/estimates/${estimateId}/line-items/${lineItemId}`, { method: "DELETE" }),
-    onSuccess: invalidate,
+    // Capture the pre-write total before the delete runs: a refresh that
+    // lands before onSuccess would otherwise snapshot the new total.
+    onMutate: () => ({ previousTotalMinor: estimate ? toMinorUnits(estimate.totalPrice) : null }),
+    onSuccess: (_data, _variables, context) => invalidate("Line item removed", context?.previousTotalMinor),
   });
 
   const finalize = useMutation({
     mutationFn: () => clientFetch(`/estimates/${estimateId}/finalize`, { method: "POST" }),
-    onSuccess: invalidate,
+    // No reason: finalizing locks the version without changing the price,
+    // and react-query must never feed the mutation result in as a reason.
+    onSuccess: () => invalidate(),
   });
 
   const runningTotals = useMemo(() => {
@@ -150,6 +219,17 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
       isCurrent: () => reviewContext.current?.projectId === projectId && reviewContext.current?.estimateId === estimateId,
     });
   };
+
+  // Last repricing delta for the Price stage. Rendered only when the
+  // saved total actually moved; a no-change save shows nothing, and an
+  // ambiguous baseline (two or more edits against the same total before
+  // the refetch) shows nothing either — the combined change cannot be
+  // attributed to one edit.
+  const currentTotalMinor = toMinorUnits(runningTotals.totalPrice);
+  const recalculationDelta =
+    lastRecalculation && !lastRecalculation.ambiguous && currentTotalMinor !== null && currentTotalMinor !== lastRecalculation.previousTotalMinor
+      ? { previousTotalMinor: lastRecalculation.previousTotalMinor, currentTotalMinor, reason: lastRecalculation.reason }
+      : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -233,6 +313,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         onFinalize={() => { if (!saveScope.isPending && scopeDraft.trim() === persistedScope.trim()) finalize.mutate(); }}
         finalizePending={finalize.isPending || saveScope.isPending}
         finalizeError={finalize.isError ? (finalize.error instanceof Error ? finalize.error.message : "Unable to finalize estimate. Review the items and try again.") : null}
+        recalculationDelta={recalculationDelta}
       />
     </div>
   );
@@ -305,6 +386,7 @@ function EstimateStageFlow({
   onFinalize,
   finalizePending,
   finalizeError,
+  recalculationDelta,
 }: {
   projectId: string;
   projectName: string;
@@ -323,12 +405,13 @@ function EstimateStageFlow({
   isDraft: boolean;
   activeStage: EstimateStage;
   onStageChange: (stage: EstimateStage) => void;
-  onUpdated: () => void;
+  onUpdated: (reason?: string, previousTotalMinor?: number | null) => void;
   onRemoveLineItem: (lineItemId: string) => void;
   removeLineItemPending: boolean;
   onFinalize: () => void;
   finalizePending: boolean;
   finalizeError: string | null;
+  recalculationDelta: { previousTotalMinor: number; currentTotalMinor: number; reason: string } | null;
 }) {
   const stages: Array<{ id: EstimateStage; label: string }> = [
     { id: "scope", label: "Scope" },
@@ -339,6 +422,32 @@ function EstimateStageFlow({
   const stageIndex = stages.findIndex((stage) => stage.id === activeStage);
   const stageHeadingRefs = useRef<Partial<Record<EstimateStage, HTMLHeadingElement | null>>>({});
   const focusOnStageChange = useRef(false);
+  // Advance contract (motion §06): a single copper marker moves to the
+  // acknowledged active stage. Stage changes here are already acknowledged
+  // (goToStage awaits a successful scope save before advancing), so the
+  // marker never moves on a prediction. Geometry is measured from the live
+  // buttons, so grid gaps and responsive widths stay correct; reduced
+  // motion collapses the move to an instant swap via motion.css and the
+  // global reduced-motion override. Focus behavior below is untouched.
+  const stageNavRef = useRef<HTMLOListElement | null>(null);
+  const stageButtonRefs = useRef<Partial<Record<EstimateStage, HTMLButtonElement | null>>>({});
+  const [stageMarker, setStageMarker] = useState<MarkerGeometry | null>(null);
+
+  useEffect(() => {
+    const measure = () => {
+      const nav = stageNavRef.current;
+      const button = stageButtonRefs.current[activeStage];
+      if (!nav || !button) return;
+      const geometry = markerGeometry(
+        { left: button.offsetLeft, width: button.offsetWidth },
+        { left: nav.offsetLeft, width: nav.offsetWidth },
+      );
+      if (geometry) setStageMarker(geometry);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [activeStage]);
 
   useEffect(() => {
     if (!focusOnStageChange.current) return;
@@ -364,26 +473,36 @@ function EstimateStageFlow({
   return (
     <section className="space-y-4" aria-label="Estimate workflow">
       <nav aria-label="Estimate stages">
-        <ol className="grid grid-cols-4 border-b border-border/70 lg:max-w-2xl lg:gap-5">
-          {stages.map((stage, index) => (
-            <li key={stage.id} className="min-w-0">
-              <button
-                type="button"
-                aria-current={activeStage === stage.id ? "step" : undefined}
-                onClick={() => void goToStage(stage.id)}
-                disabled={scopeSavePending && activeStage === "scope" && stage.id !== "scope"}
-                className={cn(
-                  "min-h-11 w-full border-b-2 px-1 text-xs font-semibold transition-colors lg:text-left lg:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                  activeStage === stage.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"
-                )}
-              >
-                <span className="mr-1 text-[10px] tabular-nums" aria-hidden="true">{index + 1}</span>
-                <span className="sr-only">Step {index + 1} of {stages.length}: </span>
-                {stage.label}
-              </button>
-            </li>
-          ))}
-        </ol>
+        <div className="relative">
+          <ol className="grid grid-cols-4 border-b border-border/70 lg:max-w-2xl lg:gap-5" ref={stageNavRef}>
+            {stages.map((stage, index) => (
+              <li key={stage.id} className="min-w-0">
+                <button
+                  ref={(node) => { stageButtonRefs.current[stage.id] = node; }}
+                  type="button"
+                  aria-current={activeStage === stage.id ? "step" : undefined}
+                  onClick={() => void goToStage(stage.id)}
+                  disabled={scopeSavePending && activeStage === "scope" && stage.id !== "scope"}
+                  className={cn(
+                    "min-h-11 w-full border-b-2 border-transparent px-1 text-xs font-semibold transition-colors lg:text-left lg:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                    activeStage === stage.id ? "text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  <span className="mr-1 text-[10px] tabular-nums" aria-hidden="true">{index + 1}</span>
+                  <span className="sr-only">Step {index + 1} of {stages.length}: </span>
+                  {stage.label}
+                </button>
+              </li>
+            ))}
+          </ol>
+          {stageMarker ? (
+            <span
+              aria-hidden="true"
+              className="motion-advance-marker pointer-events-none absolute bottom-0 left-0 h-0.5 bg-primary"
+              style={{ transform: `translateX(${stageMarker.left}px)`, width: `${stageMarker.width}px` }}
+            />
+          ) : null}
+        </div>
       </nav>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)]">
@@ -410,7 +529,7 @@ function EstimateStageFlow({
               <h2 ref={(node) => { stageHeadingRefs.current.items = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Estimate items</h2>
               <p className="mt-1 text-sm text-muted-foreground">{estimate.lineItems.length} saved lines · review sources, quantities and costs before pricing.</p>
             </div>
-            {isDraft ? <LineItemPicker estimateId={estimateId} onAdded={onUpdated} active={activeStage === "items"} /> : null}
+            {isDraft ? <LineItemPicker estimateId={estimateId} onAdded={onUpdated} currentTotalMinor={toMinorUnits(runningTotals.totalPrice)} active={activeStage === "items"} /> : null}
             {estimate.lineItems.length === 0 ? (
               <p className="border-b border-border/70 py-4 text-sm text-muted-foreground">No line items yet.</p>
             ) : (
@@ -431,6 +550,7 @@ function EstimateStageFlow({
                             lineItem={lineItem}
                             isDraft={isDraft}
                             onUpdated={onUpdated}
+                            currentTotalMinor={toMinorUnits(runningTotals.totalPrice)}
                             onRemove={() => onRemoveLineItem(lineItem.id)}
                             removing={removeLineItemPending}
                           />
@@ -447,6 +567,15 @@ function EstimateStageFlow({
           <div hidden={activeStage !== "price"} className="space-y-4 pb-24 lg:pb-0">
             <h2 ref={(node) => { stageHeadingRefs.current.price = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Price the work</h2>
             <p className="text-sm text-muted-foreground">Use Apply or Save overhead / tax to save pricing changes. Review uses the saved estimate total.</p>
+            {recalculationDelta ? (
+              <PriceDelta
+                previousMinor={recalculationDelta.previousTotalMinor}
+                currentMinor={recalculationDelta.currentTotalMinor}
+                currency="USD"
+                reason={recalculationDelta.reason}
+                label="Last recalculation"
+              />
+            ) : null}
             <EstimateDirectCostBreakdown lineItems={estimate.lineItems} />
             <PricingPanel
               estimateId={estimateId}
@@ -524,6 +653,7 @@ function EstimateStageFlow({
             isDraft={isDraft}
             headingId="estimate-contextual-athena-heading"
             onAdded={onUpdated}
+            currentTotalMinor={toMinorUnits(runningTotals.totalPrice)}
             onOpenFullReview={onOpenFullReview}
             fullReviewPending={fullReviewPending}
           />
@@ -590,7 +720,7 @@ function EstimateStageAction({ label, onClick, disabled = false }: { label: stri
 }
 
 
-function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; onAdded: () => void; active: boolean }) {
+function LineItemPicker({ estimateId, onAdded, currentTotalMinor, active }: { estimateId: string; onAdded: (reason?: string, previousTotalMinor?: number | null) => void; currentTotalMinor: number | null; active: boolean }) {
   const queryClient = useQueryClient();
   const catalogPanelId = useId();
   const customPanelId = useId();
@@ -794,7 +924,10 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
         }),
       });
     },
-    onSuccess: () => {
+    // Capture the pre-write total before the add runs: a refresh that
+    // lands before onSuccess would otherwise snapshot the new total.
+    onMutate: () => ({ previousTotalMinor: currentTotalMinor }),
+    onSuccess: (_data, _variables, context) => {
       setSelected(null);
       setQuery("");
       setQuantity("1");
@@ -805,7 +938,7 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
       setActiveIndex(0);
       quantityInputRef.current?.blur();
       searchInputRef.current?.focus();
-      onAdded();
+      onAdded("Line item added", context?.previousTotalMinor);
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to add line item"),
   });
@@ -822,10 +955,13 @@ function LineItemPicker({ estimateId, onAdded, active }: { estimateId: string; o
 
   const customAdd = useMutation({
     mutationFn: (payload: { description: string; unitOfMeasure: string; quantity: number; unitCost: number; section: string; costType: LineItem["costType"]; taxable: boolean }) => clientFetch(`/estimates/${estimateId}/line-items`, { method: "POST", body: JSON.stringify(payload) }),
-    onSuccess: () => {
+    // Capture the pre-write total before the add runs: a refresh that
+    // lands before onSuccess would otherwise snapshot the new total.
+    onMutate: () => ({ previousTotalMinor: currentTotalMinor }),
+    onSuccess: (_data, _variables, context) => {
       setCustom({ description: "", unitOfMeasure: "EA", unitCost: "", quantity: "1", section: "Reconstruction / Finish", costType: "labor", taxable: false });
       setError(null);
-      onAdded();
+      onAdded("Custom line item added", context?.previousTotalMinor);
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to add custom line item"),
   });
@@ -1590,7 +1726,7 @@ function groupLineItems(items: LineItem[]) {
 
 const estimateItemColumns = "lg:grid-cols-[minmax(0,1fr)_5.5rem_6.25rem_7.25rem]";
 
-function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, removing }: { estimateId: string; lineItem: LineItem; isDraft: boolean; onUpdated: () => void; onRemove: () => void; removing: boolean }) {
+function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, currentTotalMinor, onRemove, removing }: { estimateId: string; lineItem: LineItem; isDraft: boolean; onUpdated: (reason?: string, previousTotalMinor?: number | null) => void; currentTotalMinor: number | null; onRemove: () => void; removing: boolean }) {
   const editorId = useId();
   const costHelpId = `${editorId}-cost-help`;
   const [editing, setEditing] = useState(false);
@@ -1605,7 +1741,10 @@ function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, 
       }
       return clientFetch(`/estimates/${estimateId}/line-items/${lineItem.id}`, { method: "PATCH", body: JSON.stringify({ ...form, quantity, unitCost }) });
     },
-    onSuccess: () => { setError(null); setEditing(false); onUpdated(); },
+    // Capture the pre-write total before the update runs: a refresh that
+    // lands before onSuccess would otherwise snapshot the new total.
+    onMutate: () => ({ previousTotalMinor: currentTotalMinor }),
+    onSuccess: (_data, _variables, context) => { setError(null); setEditing(false); onUpdated("Line item updated", context?.previousTotalMinor); },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to update line item"),
   });
   return <li aria-label={lineItem.description} className="border-b border-border/70 px-0 py-4 last:border-b-0">
@@ -1648,7 +1787,7 @@ function PricingPanel({
   hasTaxableLineItems: boolean;
   pricingModeLabel: string;
   isDraft: boolean;
-  onUpdated: () => void;
+  onUpdated: (reason?: string, previousTotalMinor?: number | null) => void;
 }) {
   const [mode, setMode] = useState<"markup" | "targetMargin">(estimate.targetMarginPct != null ? "targetMargin" : "markup");
   const [value, setValue] = useState(String(estimate.targetMarginPct ?? estimate.profitPct ?? 0));
@@ -1674,9 +1813,13 @@ function PricingPanel({
         }),
       });
     },
-    onSuccess: () => {
+    // Capture the pre-write total before the pricing write runs: a
+    // refresh that lands before onSuccess would otherwise snapshot the
+    // new total.
+    onMutate: () => ({ previousTotalMinor: toMinorUnits(estimate.totalPrice) }),
+    onSuccess: (_data, _variables, context) => {
       setError(null);
-      onUpdated();
+      onUpdated("Pricing mode applied", context?.previousTotalMinor);
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to update pricing"),
   });
@@ -1688,7 +1831,11 @@ function PricingPanel({
       if (!Number.isFinite(overheadPct) || overheadPct < 0 || !Number.isFinite(taxPct) || taxPct < 0 || taxPct > 100) throw new Error("Enter valid overhead and tax percentages");
       return clientFetch(`/estimates/${estimateId}`, { method: "PATCH", body: JSON.stringify({ overheadPct, taxPct }) });
     },
-    onSuccess: () => { setError(null); onUpdated(); },
+    // Capture the pre-write total before the settings write runs: a
+    // refresh that lands before onSuccess would otherwise snapshot the
+    // new total.
+    onMutate: () => ({ previousTotalMinor: toMinorUnits(estimate.totalPrice) }),
+    onSuccess: (_data, _variables, context) => { setError(null); onUpdated("Overhead / tax saved", context?.previousTotalMinor); },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to update estimate settings"),
   });
 

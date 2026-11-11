@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { resolveAgentTarget } from './target.mjs';
 
 // Manual, non-production interaction regression for the estimate mapping
 // resolve screen. Catalog, preview and install responses are intercepted;
@@ -25,12 +26,26 @@ const rows = [
 ];
 const unitCosts: Record<string, number> = { 'stud-item': 10, 'plate-item': 15 };
 
+// trace/video cannot be set via test.use inside a describe group (they force
+// a new worker); hoist to file top level like estimate-stage-navigation.spec.ts.
+if (state) test.use({ storageState: state, trace: 'off', video: 'off' });
+
 test.describe('Estimate mapping resolve', () => {
   test.skip(!path, 'Set a sanitized draft route to run the mapping matrix.');
-  if (path && (!path.startsWith('/') || path.startsWith('//'))) {
-    throw new Error('TRADEOS_ESTIMATE_STAGE_PATH must be a relative application path');
+  if (path) {
+    // A backslash is a path separator for special-scheme URLs, so a value
+    // like `/\evil.com/x` passes the leading-slash check but resolves to
+    // another origin. Reject backslashes outright, then resolve against the
+    // approved origin (the same resolver the config uses) and require the
+    // result to stay on it.
+    if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) {
+      throw new Error('TRADEOS_ESTIMATE_STAGE_PATH must be a relative application path');
+    }
+    const approvedOrigin = resolveAgentTarget(process.env);
+    if (new URL(path, approvedOrigin).origin !== approvedOrigin) {
+      throw new Error('TRADEOS_ESTIMATE_STAGE_PATH must resolve to the approved origin');
+    }
   }
-  if (state) test.use({ storageState: state, trace: 'off', video: 'off' });
 
   const openResolveScreen = async (page: import('@playwright/test').Page) => {
     await page.route('**/api/proxy/projects/*', async (route) => {

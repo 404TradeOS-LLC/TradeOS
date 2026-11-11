@@ -439,7 +439,11 @@ HTML report plus browser artifacts. Its authenticated mode creates fresh
 Beta-smoke storage state outside the checkout, verifies the expected
 organization, then exercises **Today**, **Customers**, **Projects**,
 **Estimates**, **Proposals**, **Contracts**, and **Invoices** without mutating
-business or financial records. Existing sanitized records are used to prove the
+business or financial records. Optional inputs (`estimate_stage_path`,
+`spec_file`, `use_test_org`) let a dispatch run a single estimate spec against
+a seeded draft route as the TEST Org staging test account
+(`TEST_STAGING_EMAIL`/`TEST_STAGING_PASSWORD`) instead of the Beta smoke
+identity. Existing sanitized records are used to prove the
 corresponding detail surfaces; missing records must render truthful empty
 states. Authenticated traces are disabled, agent MCP startup remains
 origin-constrained, and session state is removed before artifacts are uploaded.
