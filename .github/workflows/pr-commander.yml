@@ -192,8 +192,8 @@ jobs:
             echo "Unknown mode: $mode" >&2
             exit 1
           fi
-          # Arming requires BOTH the repository variable AND an armed dispatch.
-          # Schedule and pull_request runs can never be effectively armed.
+          # Manual dispatch requires armed mode and the write variable.
+          # Scheduled writes additionally require unattended opt-in; PR events never write.
           effective_armed="false"
           if [ "$VAR_ARMED" = "true" ] && [ "$mode" = "armed" ] && { [ "$EVENT_NAME" = "workflow_dispatch" ] || { [ "$EVENT_NAME" = "schedule" ] && [ "$VAR_UNATTENDED" = "true" ]; }; }; then
             effective_armed="true"
@@ -510,10 +510,9 @@ jobs:
   act:
     name: Apply verdicts (armed only)
     needs: report
-    # THE single arming gate for every write in this workflow. Schedule and
-    # pull_request runs can never satisfy it; audit/dry-run dispatches cannot
-    # either. The repository variable alone is not enough — mode=armed is
-    # required too. If this `if` is false, no write in this job runs.
+    # The sole write-job gate: manual armed dispatch OR a scheduled run with
+    # BOTH repository opt-in variables. pull_request events cannot satisfy it.
+    # All protected gates and exact-head rechecks remain in the act job.
     if: >-
       vars.TRADEOS_PR_COMMANDER_WRITE_ENABLED == 'true' &&
       ((github.event_name == 'workflow_dispatch' && inputs.mode == 'armed') ||
