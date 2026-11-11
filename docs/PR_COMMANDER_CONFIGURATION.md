@@ -233,3 +233,17 @@ never post comments or merge; only the GitHub workflow's `act` job writes.
 Tests: `node --test scripts/__tests__/pr-commander-gate.test.mjs
 scripts/__tests__/pr-commander-order.test.mjs` (48 tests; also wired into
 `npm run pr:test`).
+
+
+## Proposed unattended mode (not active until merged and explicitly enabled)
+
+This branch adds a **second, independent opt-in** for scheduled write runs:
+
+- `TRADEOS_PR_COMMANDER_WRITE_ENABLED=true` — existing write permission gate.
+- `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED=true` — new schedule-specific permission gate.
+
+Only when **both** repository variables are exactly `true` can the hourly scheduled run enter the existing serialized `act` job. A `pull_request` event remains read-only. Manual armed dispatch continues to require only the existing write variable. The existing exact-head recheck, protected-file founder decisions, required checks, reviews, dependency order, bounded repairs, and branch protection remain unchanged. Disarm scheduled writes by setting either variable to `false` or removing it; cancel already-running act jobs separately.
+
+**Activation gate:** Do not create the new variable or merge this PR until the existing Commander dry-run is verified on the exact current main, the repair-push secret is present, the workflow-security policy accepts this change, required checks pass on this PR head, and a scoped manual armed test demonstrates correct behavior. Scheduled writes must not be used to work around missing CI, protected staging, migration/RLS, or review evidence. The new variable is absent by default, so this proposed change does not activate scheduled writes by itself.
+
+**Limitation:** This enables unattended execution of the existing narrow deterministic repair tier and eligible native auto-merge, **not** arbitrary AI-generated fixes. Broader autonomous code repair requires a separately reviewed, test-backed implementation and isolated agent permissions.
