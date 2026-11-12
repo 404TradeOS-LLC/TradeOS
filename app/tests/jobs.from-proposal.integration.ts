@@ -85,6 +85,35 @@ describe("accepted-proposal job conversion in a request-scoped PostgreSQL transa
     expect(jobs[0].id).toBe(results[0].id);
   });
 
+  it("recovers after a competing direct create wins the unique source-proposal index", async () => {
+    const sourceProposal = await adminClient.proposal.create({
+      data: {
+        projectId,
+        status: "accepted",
+        scopeOfWork: "Refinish the bathroom vanity",
+        respondedAt: new Date(),
+      },
+    });
+    const service = new JobsService();
+    const competingService = new JobsService();
+    const originalCreate = service.create.bind(service);
+    const create = jest.spyOn(service, "create").mockImplementationOnce(async (input) => {
+      // The conversion has checked for an existing Job. A direct writer does
+      // not take the conversion lock and commits before the conversion inserts.
+      await runWithDatabaseSession(appClient, auth, () => competingService.create(input));
+      return originalCreate(input);
+    });
+
+    const recovered = await runWithDatabaseSession(appClient, auth, () =>
+      service.createFromAcceptedProposal({ orgId, actor: auth, proposalId: sourceProposal.id, serviceAddressId })
+    );
+
+    expect(create).toHaveBeenCalledTimes(1);
+    await expect(create.mock.results[0].value).rejects.toMatchObject({ code: "P2002" });
+    const jobs = await adminClient.job.findMany({ where: { orgId, sourceProposalId: sourceProposal.id } });
+    expect(jobs.map((job) => job.id)).toEqual([recovered.id]);
+  });
+
   it("rejects a second transition that reuses the same stale expectedUpdatedAt token", async () => {
     const service = new JobsService();
     const job = await runWithDatabaseSession(appClient, auth, () =>

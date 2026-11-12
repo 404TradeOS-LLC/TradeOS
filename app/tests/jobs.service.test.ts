@@ -57,6 +57,7 @@ const mockDb = {
   },
   $queryRaw: jest.fn(),
   $executeRaw: jest.fn(),
+  $executeRawUnsafe: jest.fn(),
 };
 
 import { JobsService } from "../modules/jobs/service";
@@ -1416,11 +1417,11 @@ describe("JobsService", () => {
 
     it("isolates the racing insert in a savepoint so the fallback re-read runs in a live transaction", async () => {
       const previous = { ...scheduledJob, sourceProposalId: "proposal-1" };
-      const executeRawUnsafe = jest.fn().mockResolvedValue(undefined);
       const { getRequestDatabaseClient } = jest.requireMock("../db/requestSession") as {
         getRequestDatabaseClient: jest.Mock;
       };
-      getRequestDatabaseClient.mockReturnValueOnce({ $executeRawUnsafe: executeRawUnsafe });
+      getRequestDatabaseClient.mockReturnValueOnce(mockDb);
+      mockDb.$executeRawUnsafe.mockResolvedValue(undefined);
       mockDb.proposal.findFirst.mockResolvedValue(acceptedProposal);
       mockDb.job.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(previous);
       mockDb.job.create.mockRejectedValueOnce({ code: "P2002" });
@@ -1429,10 +1430,19 @@ describe("JobsService", () => {
       const result = await service.createFromAcceptedProposal(conversionInput);
 
       expect(result.id).toBe("job-1");
-      const statements = executeRawUnsafe.mock.calls.map(([sql]) => String(sql));
-      expect(statements[0]).toMatch(/^SAVEPOINT "job_create_/);
-      expect(statements).toContainEqual(expect.stringMatching(/^ROLLBACK TO SAVEPOINT "job_create_/));
-      expect(statements).toContainEqual(expect.stringMatching(/^RELEASE SAVEPOINT "job_create_/));
+      const sql = mockDb.$executeRawUnsafe;
+      expect(sql.mock.calls.map(([statement]) => statement)).toEqual([
+        expect.stringMatching(/^SAVEPOINT "job_create_/),
+        expect.stringMatching(/^ROLLBACK TO SAVEPOINT "job_create_/),
+        expect.stringMatching(/^RELEASE SAVEPOINT "job_create_/),
+      ]);
+      const [save, rollback, release] = sql.mock.invocationCallOrder;
+      const [insert] = mockDb.job.create.mock.invocationCallOrder;
+      const [, fallbackRead] = mockDb.job.findFirst.mock.invocationCallOrder;
+      expect(save).toBeLessThan(insert);
+      expect(insert).toBeLessThan(rollback);
+      expect(rollback).toBeLessThan(release);
+      expect(release).toBeLessThan(fallbackRead);
     });
 
     describe("optimistic-concurrency guard (expectedUpdatedAt)", () => {
