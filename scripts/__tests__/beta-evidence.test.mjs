@@ -4,6 +4,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import vm from "node:vm";
 
 import {
   StorageStatePathError,
@@ -42,11 +43,22 @@ import { matchesReviewedSavedLine, renderedVerifiedRowMatches, reloadEstimateAnd
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
 
-test("TEST fixture selects secret names without falling back on missing credential values", () => {
+test("TEST fixture uses bounded secret references and cannot fall back on missing selected credentials", () => {
   const workflow = read(".github/workflows/beta-evidence.yml");
-  assert.match(workflow, /secrets\[inputs\.use_test_org && 'TEST_STAGING_EMAIL' \|\| 'BETA_RC_SMOKE_EMAIL'\]/);
-  assert.match(workflow, /secrets\[inputs\.use_test_org && 'TEST_STAGING_PASSWORD' \|\| 'BETA_RC_SMOKE_PASSWORD'\]/);
-  assert.doesNotMatch(workflow, /secrets\.TEST_STAGING_(?:EMAIL|PASSWORD)\s*\|\|/);
+  assert.doesNotMatch(workflow, /secrets\[/);
+  for (const kind of ["EMAIL", "PASSWORD"]) {
+    const expression = workflow.match(new RegExp(`BETA_SMOKE_${kind}: \\$\\{\\{ (.+) \\}\\}`))?.[1];
+    assert.ok(expression);
+    for (const useTest of [true, false]) {
+      for (const selected of ["", "selected-value"]) {
+        const secrets = {
+          [`TEST_STAGING_${kind}`]: useTest ? selected : "other-account-value",
+          [`BETA_RC_SMOKE_${kind}`]: useTest ? "other-account-value" : selected,
+        };
+        assert.equal(vm.runInNewContext(expression, { inputs: { use_test_org: useTest }, secrets }), selected);
+      }
+    }
+  }
   assert.match(workflow, /node scripts\/beta-evidence\/lib\/test-org-fixture\.mjs/);
   assert.match(read(".github/workflows/staging-orchestrator.yml"), /use_test_org: true\n\s+smoke_tenant_label: TEST Org — Delete Me/);
 });
