@@ -441,6 +441,30 @@ excludes them from the old broad task policy before adding the narrow one.
 Legacy estimator identity administration is not widened; regular task status
 updates remain supported. Schema/RLS changes retain PR-only merge posture.
 
+## Staging blockers — bounded issue #759 repair, 2026-11-12
+
+- Classification NEW_WORK_REQUIRED after current open/closed PR and branch
+  reconciliation; #958/#959 are merged and no existing PR owns a web runtime
+  identity endpoint. Base `080ac08d6dd8623b59e2b7496794c761d3034a1f`; isolated
+  worktree `/workspace/TradeOS-staging-identity`, branch `fix/staging-runtime-attestation-759`.
+- Implemented: staging-only, no-store, secret-free public binding/commit evidence
+  endpoint, fail-closed tests and protected rollout runbook. No auth, RLS, schema,
+  credential or protected workflow changes. Authorized staging-only Edge repair
+  deployed reviewed Team & Time source as ACTIVE v7; re-fetched source matches,
+  JWT verification stays enabled and unauthenticated bootstrap returns 401.
+- Prior verified evidence on this base: 46 expense tests, 753 web tests,
+  196 restricted-role PostgreSQL integration tests, all 71 local migrations,
+  396 repository tests; live staging has matching applied inventory and forced RLS.
+- Current candidate validation: 758 web tests, lint/build, 396 repository tests,
+  40 docs tests and ownership checks pass. Built Next HTTP probes verify staging
+  200 with expected public bindings/no-store and production 404. Focused tests
+  cover malformed/foreign destinations, environment gates and credential redaction.
+- Remaining gates: hosted checks/review, approved API/web source
+  promotion, authenticated Team & Time permission acceptance,
+  secret provenance and synthetic authenticated four-width acceptance.
+- Next: publish and verify this PR; review the exact staging promotion; resolve
+  effective runtime identity; deploy approved Edge source; run canonical acceptance.
+
 ## Next Eligible Sprint
 
 Sprint ID: S073
