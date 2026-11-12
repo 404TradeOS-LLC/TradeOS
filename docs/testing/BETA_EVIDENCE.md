@@ -167,6 +167,22 @@ in a different organization.
 
 ## Smoke tenant
 
+The staging orchestrator now explicitly selects the existing synthetic
+`TEST Org — Delete Me` owner fixture (`use_test_org=true`), pinned to organization
+`d86d0874-6ba3-4b06-94b6-bd0ae99fe532`. Its credentials remain in encrypted
+`TEST_STAGING_EMAIL` / `TEST_STAGING_PASSWORD`, already used by the Playwright
+evidence workflow. The selected secret name is resolved before reading its
+value; a missing TEST credential never falls back to a different account.
+Preflight validates this fixture's exact staging environment, UUID and label,
+then the unchanged authenticated API assertion must prove the actual session.
+The 2026-11-12 run `43130359603` logged in but rejected the prior credentials'
+organization mismatch before workflow capture; its failure is retained.
+
+Manual runs default to the original fixture below unless this option is
+explicitly selected. Do not substitute a returned organization ID, rotate keys,
+reassign membership or weaken tenant denial to make a run pass. Only selected
+synthetic fixture records may be created; foreign-resource denials remain required.
+
 One canonical synthetic tenant, obviously non-real:
 
 | Entity | Value |

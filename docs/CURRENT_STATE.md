@@ -1940,3 +1940,13 @@ repository, JWT verification remains enabled, and unauthenticated access returns
 401. Authenticated role/tenant acceptance remains pending.
 All 71 staging migration names/checksums match main;
 do not replay them. See [the staged release sequence](operations/staging-runtime-parity.md).
+
+## Beta evidence fixture mismatch repair — 2026-11-12
+
+Staging run `43130359603` passed runtime and migration gates but failed after
+login because the selected smoke account did not match the configured tenant.
+The proposed repair adds an explicit TEST Org option using existing encrypted
+TEST_STAGING credentials, pinned to a live-verified active synthetic owner org.
+It rejects mismatched environment/UUID/label and never falls back on missing
+credentials. Actual authenticated organization assertion and tenant denial remain
+unchanged. No credential or membership mutation is performed.

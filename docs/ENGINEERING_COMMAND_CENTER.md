@@ -562,3 +562,14 @@ Draft [PR #958](https://github.com/404TradeOS-LLC/TradeOS/pull/958) ports the al
 ### PR Commander unattended execution proposal (PR #967, 2026-11-11)
 
 A draft workflow change proposes optional scheduled write execution gated by **both** `TRADEOS_PR_COMMANDER_WRITE_ENABLED=true` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED=true`. Until the change passes hosted checks, review, a verified manual armed run, and explicit owner activation, scheduled sweeps remain read-only. No migration, staging, production, review, or branch-protection gate is relaxed. See [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
+
+## Staging evidence fixture repair — 2026-11-12
+
+Runtime parity was restored by #971/#973: API/web staging source `3146a920`,
+matching public binding evidence and Team & Time v7. Orchestrator `43130359603`
+passed database/deployment/runtime gates but failed the exact smoke-organization
+assertion after login. The bounded follow-up selects the existing synthetic
+TEST_STAGING owner credential pair, pins verified TEST Org UUID and label, and
+retains the unchanged authenticated tenant check. No credentials are read,
+rotated or copied; no memberships change. Review, CI and a fresh correlated
+staging run remain required before acceptance can pass.

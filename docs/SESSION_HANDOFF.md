@@ -465,6 +465,20 @@ updates remain supported. Schema/RLS changes retain PR-only merge posture.
 - Next: publish and verify this PR; review the exact staging promotion; resolve
   effective runtime identity; deploy approved Edge source; run canonical acceptance.
 
+## Active bounded repair — verified synthetic smoke fixture, 2026-11-12
+
+- Base `8781db8a`; isolated branch `fix/beta-verified-test-fixture-759` and worktree
+  `/workspace/TradeOS-beta-fixture`; NEW_WORK_REQUIRED after open-PR reconciliation.
+- Source parity/metadata blockers repaired in #971/#973, Team & Time v7 deployed
+  and source-verified. Run `43130359603` failed only at the expected-tenant check
+  after login, before workflow capture.
+- Proposed explicit `use_test_org` selection reuses existing encrypted TEST_STAGING
+  credentials and verified active owner fixture `d86d0874-6ba3-4b06-94b6-bd0ae99fe532`.
+  Configuration guard requires exact staging/UUID/label; actual API assertion is
+  unchanged. No credential, account, membership, auth/RLS or migration changes.
+- Next: test/publish, inspect hosted review, promote reviewed workflow source into
+  staging, rerun correlated canonical evidence, retain actual results.
+
 ## Next Eligible Sprint
 
 Sprint ID: S073
