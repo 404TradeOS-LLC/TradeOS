@@ -80,6 +80,8 @@ export interface ScheduleJobInput {
   estimatedDurationMinutes?: number | null;
   overrideConflict?: boolean;
   overrideReason?: string;
+  /** Optimistic-concurrency token: the job's updatedAt as last read by the caller. */
+  expectedUpdatedAt?: Date;
 }
 
 export interface AddJobAssignmentInput {
@@ -105,6 +107,8 @@ export interface JobTransitionInput {
   orgId: string;
   actor: AuthContext;
   reason?: string;
+  /** Optimistic-concurrency token: the job's updatedAt as last read by the caller. */
+  expectedUpdatedAt?: Date;
 }
 
 export interface ReopenJobInput extends JobTransitionInput {

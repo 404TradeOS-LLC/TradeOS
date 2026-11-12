@@ -950,6 +950,564 @@ describe("JobsService", () => {
     });
   });
 
+  describe("field lifecycle transitions", () => {
+    const dispatcher = { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" } as const;
+    const techActor = { userId: "tech-1", orgId: "org-1", role: "technician" } as const;
+    const jobUpdatedAt = new Date("2026-07-14T12:00:00.000Z");
+
+    function rowWith(status: string, overrides: Record<string, unknown> = {}) {
+      return { ...scheduledJob, status, updatedAt: jobUpdatedAt, ...overrides };
+    }
+
+    function assignedTechnician() {
+      mockDb.jobAssignment.findFirst.mockResolvedValue({ id: "assignment-1" });
+    }
+
+    it("pauses an on-site job and resumes it back on site", async () => {
+      mockDb.job.findFirst.mockResolvedValueOnce(rowWith("on_site")).mockResolvedValueOnce(rowWith("paused"));
+      mockDb.job.update
+        .mockResolvedValueOnce(rowWith("paused"))
+        .mockResolvedValueOnce(rowWith("on_site", { actualStart: new Date("2026-07-16T13:10:00.000Z") }));
+      assignedTechnician();
+      const service = new JobsService(mockDb as never);
+
+      const paused = await service.pause("job-1", { orgId: "org-1", actor: techActor, reason: "Waiting on parts" });
+      expect(paused.status).toBe("paused");
+      expect(mockDb.job.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: "paused" }) })
+      );
+      expect(mockDb.activityEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            eventType: "job.paused",
+            metadataJson: { previousStatus: "on_site", newStatus: "paused" },
+          }),
+        })
+      );
+
+      const resumed = await service.resume("job-1", { orgId: "org-1", actor: techActor });
+      expect(resumed.status).toBe("on_site");
+      expect(mockDb.activityEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            eventType: "job.resumed",
+            metadataJson: { previousStatus: "paused", newStatus: "on_site" },
+          }),
+        })
+      );
+    });
+
+    it("rejects pausing a job that is not on site", async () => {
+      mockDb.job.findFirst.mockResolvedValue(rowWith("scheduled"));
+      const service = new JobsService(mockDb as never);
+
+      await expect(
+        service.pause("job-1", { orgId: "org-1", actor: dispatcher, reason: "Waiting on parts" })
+      ).rejects.toMatchObject({ statusCode: 409, message: "Job job-1 cannot transition from scheduled to paused" });
+      expect(mockDb.job.update).not.toHaveBeenCalled();
+      expect(mockDb.activityEvent.create).not.toHaveBeenCalled();
+    });
+
+    it("requires a reason to pause", async () => {
+      mockDb.job.findFirst.mockResolvedValue(rowWith("on_site"));
+      const service = new JobsService(mockDb as never);
+
+      await expect(
+        service.pause("job-1", { orgId: "org-1", actor: dispatcher })
+      ).rejects.toMatchObject({ statusCode: 400, message: "A reason is required for this action" });
+      expect(mockDb.job.update).not.toHaveBeenCalled();
+      expect(mockDb.activityEvent.create).not.toHaveBeenCalled();
+    });
+
+    it("dispatches a scheduled job with at least one active assignment", async () => {
+      mockDb.job.findFirst.mockResolvedValue(rowWith("scheduled"));
+      mockDb.jobAssignment.count.mockResolvedValue(1);
+      mockDb.job.update.mockResolvedValue(rowWith("dispatched"));
+      const service = new JobsService(mockDb as never);
+
+      const job = await service.dispatch("job-1", { orgId: "org-1", actor: dispatcher });
+
+      expect(job.status).toBe("dispatched");
+      expect(mockDb.job.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: "dispatched" }) })
+      );
+      expect(mockDb.activityEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            eventType: "job.dispatched",
+            metadataJson: { previousStatus: "scheduled", newStatus: "dispatched" },
+          }),
+        })
+      );
+    });
+
+    it("rejects dispatch when the job has no schedule", async () => {
+      mockDb.job.findFirst.mockResolvedValue(rowWith("scheduled", { scheduledStart: null, scheduledEnd: null }));
+      const service = new JobsService(mockDb as never);
+
+      await expect(
+        service.dispatch("job-1", { orgId: "org-1", actor: dispatcher })
+      ).rejects.toMatchObject({ statusCode: 409, message: "Job job-1 must be scheduled before dispatch" });
+      expect(mockDb.job.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects dispatch when the job has zero active assignments", async () => {
+      mockDb.job.findFirst.mockResolvedValue(rowWith("scheduled"));
+      mockDb.jobAssignment.count.mockResolvedValue(0);
+      const service = new JobsService(mockDb as never);
+
+      await expect(
+        service.dispatch("job-1", { orgId: "org-1", actor: dispatcher })
+      ).rejects.toMatchObject({ statusCode: 409, message: "Job job-1 must have at least one active assignment before dispatch" });
+      expect(mockDb.job.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects dispatch of an archived job", async () => {
+      mockDb.job.findFirst.mockResolvedValue(rowWith("scheduled", { archivedAt: new Date("2026-07-15T12:00:00.000Z") }));
+      const service = new JobsService(mockDb as never);
+
+      await expect(
+        service.dispatch("job-1", { orgId: "org-1", actor: dispatcher })
+      ).rejects.toMatchObject({ statusCode: 409 });
+      expect(mockDb.job.update).not.toHaveBeenCalled();
+    });
+
+    it("starts travel from dispatched and records arrival with an actual start", async () => {
+      mockDb.job.findFirst.mockResolvedValueOnce(rowWith("dispatched")).mockResolvedValueOnce(rowWith("traveling"));
+      mockDb.job.update
+        .mockResolvedValueOnce(rowWith("traveling"))
+        .mockResolvedValueOnce(rowWith("on_site", { actualStart: new Date("2026-07-16T13:10:00.000Z") }));
+      assignedTechnician();
+      const service = new JobsService(mockDb as never);
+
+      const traveling = await service.startTravel("job-1", { orgId: "org-1", actor: techActor });
+      expect(traveling.status).toBe("traveling");
+
+      const arrived = await service.arrive("job-1", { orgId: "org-1", actor: techActor });
+      expect(arrived.status).toBe("on_site");
+      expect(arrived.actualStart).toBe("2026-07-16T13:10:00.000Z");
+      const arriveCall = mockDb.job.update.mock.calls[1][0];
+      expect(arriveCall.data).toEqual(expect.objectContaining({ status: "on_site", actualStart: expect.any(Date) }));
+    });
+
+    it.each([
+      ["scheduled", undefined],
+      ["dispatched", "Dispatch no longer needed"],
+      ["paused", "Customer asked to stop"],
+    ] as const)("cancels a %s job", async (status, reason) => {
+      mockDb.job.findFirst.mockResolvedValue(rowWith(status));
+      mockDb.job.update.mockResolvedValue(rowWith("cancelled"));
+      const service = new JobsService(mockDb as never);
+
+      const job = await service.cancel("job-1", { orgId: "org-1", actor: dispatcher, reason });
+
+      expect(job.status).toBe("cancelled");
+      expect(mockDb.activityEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            eventType: "job.cancelled",
+            metadataJson: { previousStatus: status, newStatus: "cancelled" },
+          }),
+        })
+      );
+    });
+
+    it.each(["dispatched", "paused"] as const)("requires a reason to cancel a %s job", async (status) => {
+      mockDb.job.findFirst.mockResolvedValue(rowWith(status));
+      const service = new JobsService(mockDb as never);
+
+      await expect(
+        service.cancel("job-1", { orgId: "org-1", actor: dispatcher })
+      ).rejects.toMatchObject({ statusCode: 400, message: "A reason is required for this action" });
+      expect(mockDb.job.update).not.toHaveBeenCalled();
+    });
+
+    it("reopens a completed job to unscheduled, clearing completion fields and writing job.reopened", async () => {
+      const completed = rowWith("completed", {
+        actualStart: new Date("2026-07-16T13:10:00.000Z"),
+        actualEnd: new Date("2026-07-16T15:05:00.000Z"),
+        completedAt: new Date("2026-07-16T15:05:00.000Z"),
+        completedById: "tech-1",
+        readyForInvoiceAt: new Date("2026-07-16T15:10:00.000Z"),
+      });
+      mockDb.job.findFirst.mockResolvedValue(completed);
+      mockDb.job.update.mockResolvedValue(rowWith("unscheduled", {
+        actualStart: null, actualEnd: null, completedAt: null, completedById: null, readyForInvoiceAt: null,
+      }));
+      const service = new JobsService(mockDb as never);
+
+      const job = await service.reopen("job-1", {
+        orgId: "org-1",
+        actor: { userId: "admin-1", orgId: "org-1", role: "admin" },
+        reason: "Customer reported a callback",
+      });
+
+      expect(job.status).toBe("unscheduled");
+      expect(job.completedAt).toBeNull();
+      expect(mockDb.job.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: "unscheduled",
+            actualStart: null,
+            actualEnd: null,
+            completedAt: null,
+            completedById: null,
+            readyForInvoiceAt: null,
+          }),
+        })
+      );
+      expect(mockDb.activityEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            eventType: "job.reopened",
+            metadataJson: { previousStatus: "completed", newStatus: "unscheduled" },
+          }),
+        })
+      );
+    });
+
+    it("reopens a completed job to scheduled when it still has a schedule", async () => {
+      mockDb.job.findFirst.mockResolvedValue(rowWith("completed", {
+        completedAt: new Date("2026-07-16T15:05:00.000Z"),
+        completedById: "tech-1",
+      }));
+      mockDb.job.update.mockResolvedValue(rowWith("scheduled"));
+      const service = new JobsService(mockDb as never);
+
+      const job = await service.reopen("job-1", {
+        orgId: "org-1",
+        actor: { userId: "owner-1", orgId: "org-1", role: "owner" },
+        status: "scheduled",
+      });
+
+      expect(job.status).toBe("scheduled");
+      expect(mockDb.job.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: "scheduled" }) })
+      );
+    });
+
+    it("forbids a dispatcher from reopening a completed job", async () => {
+      mockDb.job.findFirst.mockResolvedValue(rowWith("completed"));
+      const service = new JobsService(mockDb as never);
+
+      await expect(
+        service.reopen("job-1", { orgId: "org-1", actor: dispatcher })
+      ).rejects.toMatchObject({ statusCode: 403, message: "Only owners and admins can reopen completed jobs" });
+      expect(mockDb.job.update).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["dispatch", "unscheduled", "dispatched"],
+      ["startTravel", "scheduled", "traveling"],
+      ["arrive", "dispatched", "on_site"],
+      ["pause", "traveling", "paused"],
+      ["resume", "on_site", "on_site"],
+      ["complete", "paused", "completed"],
+      ["cancel", "on_site", "cancelled"],
+      ["cancel", "traveling", "cancelled"],
+    ] as const)("rejects %s from %s with 409 and no update or activity", async (method, from, to) => {
+      mockDb.job.findFirst.mockResolvedValue(rowWith(from));
+      const service = new JobsService(mockDb as never);
+
+      await expect(
+        service[method]("job-1", { orgId: "org-1", actor: dispatcher, reason: "No longer needed" })
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        message: `Job job-1 cannot transition from ${from} to ${to}`,
+      });
+      expect(mockDb.job.update).not.toHaveBeenCalled();
+      expect(mockDb.activityEvent.create).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["startTravel", "dispatched"],
+      ["arrive", "traveling"],
+      ["pause", "on_site"],
+      ["resume", "paused"],
+    ] as const)("denies an unassigned technician %s from %s with 403 and no update or activity", async (method, from) => {
+      mockDb.job.findFirst.mockResolvedValue(rowWith(from));
+      mockDb.jobAssignment.findFirst.mockResolvedValue(null);
+      const service = new JobsService(mockDb as never);
+
+      await expect(
+        service[method]("job-1", { orgId: "org-1", actor: techActor, reason: "Waiting on parts" })
+      ).rejects.toMatchObject({ statusCode: 403 });
+      expect(mockDb.job.update).not.toHaveBeenCalled();
+      expect(mockDb.activityEvent.create).not.toHaveBeenCalled();
+    });
+
+    it("lets a manager without an assignment run a field transition (current behavior)", async () => {
+      mockDb.job.findFirst.mockResolvedValue(rowWith("dispatched"));
+      mockDb.job.update.mockResolvedValue(rowWith("traveling"));
+      const service = new JobsService(mockDb as never);
+
+      const job = await service.startTravel("job-1", { orgId: "org-1", actor: dispatcher });
+
+      expect(job.status).toBe("traveling");
+      expect(mockDb.jobAssignment.findFirst).not.toHaveBeenCalled();
+    });
+
+    it("writes job.scheduled with previous/new status metadata when scheduling", async () => {
+      mockDb.job.findFirst.mockResolvedValue(rowWith("unscheduled", { scheduledStart: null, scheduledEnd: null }));
+      mockDb.job.update.mockResolvedValue(rowWith("scheduled"));
+      const service = new JobsService(mockDb as never);
+
+      const job = await service.schedule("job-1", {
+        orgId: "org-1",
+        actor: dispatcher,
+        scheduledStart: new Date("2026-07-16T13:00:00.000Z"),
+        scheduledEnd: new Date("2026-07-16T15:00:00.000Z"),
+      });
+
+      expect(job.status).toBe("scheduled");
+      expect(mockDb.activityEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            eventType: "job.scheduled",
+            metadataJson: expect.objectContaining({ previousStatus: "unscheduled", newStatus: "scheduled" }),
+          }),
+        })
+      );
+    });
+
+    it("records self-acceptance activity and rejects another user's assignment with 404", async () => {
+      const assignment = {
+        id: "assignment-1",
+        jobId: "job-1",
+        userId: "tech-1",
+        assignmentRole: "technician",
+        isLead: false,
+        assignedAt: new Date("2026-07-15T12:00:00.000Z"),
+        assignedById: "dispatcher-1",
+        acceptedAt: null,
+        declinedAt: null,
+        removedAt: null,
+        createdAt: new Date("2026-07-15T12:00:00.000Z"),
+        updatedAt: new Date("2026-07-15T12:00:00.000Z"),
+        user: { id: "tech-1", fullName: "Tech One", email: "tech@example.com" },
+      };
+      mockDb.jobAssignment.findFirst.mockResolvedValue(assignment);
+      mockDb.jobAssignment.update.mockResolvedValue({ ...assignment, acceptedAt: new Date("2026-07-16T12:00:00.000Z") });
+      const service = new JobsService(mockDb as never);
+
+      const accepted = await service.acceptAssignment("job-1", "assignment-1", { orgId: "org-1", actor: techActor });
+      expect(accepted.acceptedAt).not.toBeNull();
+      expect(mockDb.jobAssignment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ userId: "tech-1" }) })
+      );
+      expect(mockDb.activityEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            eventType: "job.assignment_accepted",
+            metadataJson: { assignmentId: "assignment-1", userId: "tech-1" },
+          }),
+        })
+      );
+
+      mockDb.jobAssignment.findFirst.mockResolvedValue(null);
+      await expect(
+        service.acceptAssignment("job-1", "assignment-1", { orgId: "org-1", actor: techActor })
+      ).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    it("records a decline with job.assignment_declined activity", async () => {
+      const assignment = {
+        id: "assignment-1",
+        jobId: "job-1",
+        userId: "tech-1",
+        assignmentRole: "technician",
+        isLead: false,
+        assignedAt: new Date("2026-07-15T12:00:00.000Z"),
+        assignedById: "dispatcher-1",
+        acceptedAt: null,
+        declinedAt: null,
+        removedAt: null,
+        createdAt: new Date("2026-07-15T12:00:00.000Z"),
+        updatedAt: new Date("2026-07-15T12:00:00.000Z"),
+        user: { id: "tech-1", fullName: "Tech One", email: "tech@example.com" },
+      };
+      mockDb.jobAssignment.findFirst.mockResolvedValue(assignment);
+      mockDb.jobAssignment.update.mockResolvedValue({ ...assignment, declinedAt: new Date("2026-07-16T12:00:00.000Z") });
+      const service = new JobsService(mockDb as never);
+
+      const declined = await service.declineAssignment("job-1", "assignment-1", {
+        orgId: "org-1", actor: techActor, reason: "Out that day",
+      });
+
+      expect(declined.declinedAt).not.toBeNull();
+      expect(mockDb.activityEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ eventType: "job.assignment_declined" }),
+        })
+      );
+    });
+
+    it("forbids a non-field role from responding to an assignment", async () => {
+      const service = new JobsService(mockDb as never);
+
+      await expect(
+        service.acceptAssignment("job-1", "assignment-1", {
+          orgId: "org-1",
+          actor: { userId: "viewer-1", orgId: "org-1", role: "viewer" },
+        })
+      ).rejects.toMatchObject({ statusCode: 403 });
+      expect(mockDb.job.findFirst).not.toHaveBeenCalled();
+      expect(mockDb.jobAssignment.findFirst).not.toHaveBeenCalled();
+    });
+
+    it.each(["declined", "expired"] as const)("rejects %s proposal conversion with 409", async (status) => {
+      mockDb.proposal.findFirst.mockResolvedValue({ ...acceptedProposal, status });
+      const service = new JobsService(mockDb as never);
+
+      await expect(service.createFromAcceptedProposal(conversionInput)).rejects.toMatchObject({
+        statusCode: 409,
+        message: "Only an accepted proposal can become a field job",
+      });
+      expect(mockDb.job.create).not.toHaveBeenCalled();
+    });
+
+    it("allows two accepted proposals on one project to become two jobs", async () => {
+      const proposal2 = { ...acceptedProposal, id: "proposal-2", scopeOfWork: "Paint the exterior trim" };
+      const job1 = { ...scheduledJob, id: "job-1", sourceProposalId: "proposal-1" };
+      const job2 = { ...scheduledJob, id: "job-2", jobNumber: "JOB-2026-000002", sourceProposalId: "proposal-2" };
+      mockDb.proposal.findFirst.mockImplementation(async ({ where }: { where: { id: string } }) =>
+        where.id === "proposal-2" ? proposal2 : acceptedProposal
+      );
+      mockDb.job.findFirst.mockImplementation(async ({ where }: { where: { sourceProposalId?: string; id?: string } }) => {
+        if (where.sourceProposalId) return null;
+        if (where.id === "job-2") return job2;
+        return job1;
+      });
+      mockDb.job.create.mockImplementation(async ({ data }: { data: { sourceProposalId: string } }) =>
+        data.sourceProposalId === "proposal-2" ? job2 : job1
+      );
+      const service = new JobsService(mockDb as never);
+
+      const first = await service.createFromAcceptedProposal(conversionInput);
+      const second = await service.createFromAcceptedProposal({ ...conversionInput, proposalId: "proposal-2" });
+
+      expect(first.id).toBe("job-1");
+      expect(second.id).toBe("job-2");
+      expect(mockDb.job.create).toHaveBeenCalledTimes(2);
+    });
+
+    it("returns the previous job when creation races into the unique source-proposal index (P2002)", async () => {
+      const previous = { ...scheduledJob, sourceProposalId: "proposal-1" };
+      mockDb.proposal.findFirst.mockResolvedValue(acceptedProposal);
+      mockDb.job.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(previous);
+      mockDb.job.create.mockRejectedValueOnce({ code: "P2002" });
+      const service = new JobsService(mockDb as never);
+
+      const result = await service.createFromAcceptedProposal(conversionInput);
+
+      expect(result.id).toBe("job-1");
+      expect(result.sourceProposalId).toBe("proposal-1");
+      expect(mockDb.job.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("rethrows a P2002 race when no previous job can be re-read", async () => {
+      mockDb.proposal.findFirst.mockResolvedValue(acceptedProposal);
+      mockDb.job.findFirst.mockResolvedValue(null);
+      mockDb.job.create.mockRejectedValueOnce({ code: "P2002" });
+      const service = new JobsService(mockDb as never);
+
+      await expect(service.createFromAcceptedProposal(conversionInput)).rejects.toMatchObject({ code: "P2002" });
+    });
+
+    describe("optimistic-concurrency guard (expectedUpdatedAt)", () => {
+      const staleToken = new Date("2026-07-13T12:00:00.000Z");
+
+      it("rejects a stale token with 409 and no update or activity", async () => {
+        mockDb.job.findFirst.mockResolvedValue(rowWith("scheduled"));
+        const service = new JobsService(mockDb as never);
+
+        await expect(
+          service.dispatch("job-1", { orgId: "org-1", actor: dispatcher, expectedUpdatedAt: staleToken })
+        ).rejects.toMatchObject({
+          statusCode: 409,
+          message: "This job changed since you opened it. Refresh the source workspace before saving again.",
+        });
+        expect(mockDb.job.update).not.toHaveBeenCalled();
+        expect(mockDb.activityEvent.create).not.toHaveBeenCalled();
+      });
+
+      it("accepts a matching token and predicates the write on it", async () => {
+        mockDb.job.findFirst.mockResolvedValue(rowWith("scheduled"));
+        mockDb.jobAssignment.count.mockResolvedValue(1);
+        mockDb.job.update.mockResolvedValue(rowWith("dispatched"));
+        const service = new JobsService(mockDb as never);
+
+        const job = await service.dispatch("job-1", { orgId: "org-1", actor: dispatcher, expectedUpdatedAt: jobUpdatedAt });
+
+        expect(job.status).toBe("dispatched");
+        const updateCall = mockDb.job.update.mock.calls[0][0];
+        expect(updateCall.where).toEqual({ id: "job-1", updatedAt: jobUpdatedAt });
+        expect(updateCall.data.updatedAt).toBeInstanceOf(Date);
+        expect(updateCall.data.updatedAt.getTime()).toBeGreaterThan(jobUpdatedAt.getTime());
+      });
+
+      it("succeeds without a token and still predicates the write on the just-read revision", async () => {
+        mockDb.job.findFirst.mockResolvedValue(rowWith("scheduled"));
+        mockDb.jobAssignment.count.mockResolvedValue(1);
+        mockDb.job.update.mockResolvedValue(rowWith("dispatched"));
+        const service = new JobsService(mockDb as never);
+
+        const job = await service.dispatch("job-1", { orgId: "org-1", actor: dispatcher });
+
+        expect(job.status).toBe("dispatched");
+        const updateCall = mockDb.job.update.mock.calls[0][0];
+        expect(updateCall.where).toEqual({ id: "job-1", updatedAt: jobUpdatedAt });
+        expect(updateCall.data.updatedAt).toBeInstanceOf(Date);
+        expect(updateCall.data.updatedAt.getTime()).toBeGreaterThan(jobUpdatedAt.getTime());
+      });
+
+      it("maps a lost-update (P2025) on the guarded write to the same 409", async () => {
+        mockDb.job.findFirst.mockResolvedValue(rowWith("scheduled"));
+        mockDb.jobAssignment.count.mockResolvedValue(1);
+        mockDb.job.update.mockRejectedValueOnce({ code: "P2025" });
+        const service = new JobsService(mockDb as never);
+
+        await expect(
+          service.dispatch("job-1", { orgId: "org-1", actor: dispatcher, expectedUpdatedAt: jobUpdatedAt })
+        ).rejects.toMatchObject({
+          statusCode: 409,
+          message: "This job changed since you opened it. Refresh the source workspace before saving again.",
+        });
+        expect(mockDb.activityEvent.create).not.toHaveBeenCalled();
+      });
+
+      it("rejects a stale token on reopen with 409 and no update", async () => {
+        mockDb.job.findFirst.mockResolvedValue(rowWith("completed"));
+        const service = new JobsService(mockDb as never);
+
+        await expect(
+          service.reopen("job-1", {
+            orgId: "org-1",
+            actor: { userId: "admin-1", orgId: "org-1", role: "admin" },
+            expectedUpdatedAt: staleToken,
+          })
+        ).rejects.toMatchObject({ statusCode: 409 });
+        expect(mockDb.job.update).not.toHaveBeenCalled();
+      });
+
+      it("rejects a stale token on schedule with 409 and no update", async () => {
+        mockDb.job.findFirst.mockResolvedValue(rowWith("unscheduled", { scheduledStart: null, scheduledEnd: null }));
+        const service = new JobsService(mockDb as never);
+
+        await expect(
+          service.schedule("job-1", {
+            orgId: "org-1",
+            actor: dispatcher,
+            scheduledStart: new Date("2026-07-16T13:00:00.000Z"),
+            scheduledEnd: new Date("2026-07-16T15:00:00.000Z"),
+            expectedUpdatedAt: staleToken,
+          })
+        ).rejects.toMatchObject({ statusCode: 409 });
+        expect(mockDb.job.update).not.toHaveBeenCalled();
+      });
+    });
+  });
+
   describe("getDispatchSummary", () => {
     it("runs count-only queries and derives an org timezone from settingsJson", async () => {
       mockDb.organizationSettings.findUnique.mockResolvedValue({

@@ -52,6 +52,7 @@ const scheduleSchema = z.object({
   estimatedDurationMinutes: z.coerce.number().int().positive().optional(),
   overrideConflict: z.boolean().optional(),
   overrideReason: z.string().trim().optional(),
+  expectedUpdatedAt: z.string().datetime().optional(),
 });
 
 const assignmentSchema = z.object({
@@ -73,7 +74,14 @@ const reasonSchema = z.object({
   reason: z.string().trim().optional(),
 });
 
-const reopenSchema = reasonSchema.extend({
+// Transition endpoints (dispatch/start-travel/arrive/pause/resume/complete/
+// cancel) accept the caller's last-read job revision so the service can
+// reject a write that raced a newer change. Reopen extends this shape.
+const transitionSchema = reasonSchema.extend({
+  expectedUpdatedAt: z.string().datetime().optional(),
+});
+
+const reopenSchema = transitionSchema.extend({
   status: z.enum(["unscheduled", "scheduled"]).optional(),
 });
 
@@ -233,6 +241,7 @@ export const jobsController = {
         estimatedDurationMinutes: body.estimatedDurationMinutes,
         overrideConflict: body.overrideConflict,
         overrideReason: body.overrideReason,
+        expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined,
       })
     );
   },
@@ -251,50 +260,51 @@ export const jobsController = {
         estimatedDurationMinutes: body.estimatedDurationMinutes,
         overrideConflict: body.overrideConflict,
         overrideReason: body.overrideReason,
+        expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined,
       })
     );
   },
 
   async dispatch(req: Request, res: Response) {
     const auth = requireAuthContext(req);
-    const body = reasonSchema.parse(req.body);
-    res.json(await service.dispatch(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason }));
+    const body = transitionSchema.parse(req.body);
+    res.json(await service.dispatch(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason, expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined }));
   },
 
   async startTravel(req: Request, res: Response) {
     const auth = requireAuthContext(req);
-    const body = reasonSchema.parse(req.body);
-    res.json(await service.startTravel(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason }));
+    const body = transitionSchema.parse(req.body);
+    res.json(await service.startTravel(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason, expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined }));
   },
 
   async arrive(req: Request, res: Response) {
     const auth = requireAuthContext(req);
-    const body = reasonSchema.parse(req.body);
-    res.json(await service.arrive(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason }));
+    const body = transitionSchema.parse(req.body);
+    res.json(await service.arrive(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason, expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined }));
   },
 
   async pause(req: Request, res: Response) {
     const auth = requireAuthContext(req);
-    const body = reasonSchema.parse(req.body);
-    res.json(await service.pause(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason }));
+    const body = transitionSchema.parse(req.body);
+    res.json(await service.pause(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason, expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined }));
   },
 
   async resume(req: Request, res: Response) {
     const auth = requireAuthContext(req);
-    const body = reasonSchema.parse(req.body);
-    res.json(await service.resume(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason }));
+    const body = transitionSchema.parse(req.body);
+    res.json(await service.resume(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason, expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined }));
   },
 
   async complete(req: Request, res: Response) {
     const auth = requireAuthContext(req);
-    const body = reasonSchema.parse(req.body);
-    res.json(await service.complete(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason }));
+    const body = transitionSchema.parse(req.body);
+    res.json(await service.complete(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason, expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined }));
   },
 
   async cancel(req: Request, res: Response) {
     const auth = requireAuthContext(req);
-    const body = reasonSchema.parse(req.body);
-    res.json(await service.cancel(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason }));
+    const body = transitionSchema.parse(req.body);
+    res.json(await service.cancel(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason, expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined }));
   },
 
   async reopen(req: Request, res: Response) {
@@ -306,6 +316,7 @@ export const jobsController = {
         actor: auth,
         reason: body.reason,
         status: body.status,
+        expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined,
       })
     );
   },

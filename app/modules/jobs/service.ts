@@ -329,18 +329,34 @@ export class JobsService {
         termsAndConditions: proposal.termsAndConditions,
       };
 
-      return this.create({
-        orgId: input.orgId,
-        actor: input.actor,
-        projectId: proposal.projectId,
-        customerId: proposal.project.customerId,
-        serviceAddressId: input.serviceAddressId,
-        title: proposal.project.name,
-        description: proposal.scopeOfWork,
-        jobType: proposal.project.jobType?.trim() || "Project work",
-        sourceProposalId: proposal.id,
-        acceptedBaselineJson,
-      });
+      try {
+        return await this.create({
+          orgId: input.orgId,
+          actor: input.actor,
+          projectId: proposal.projectId,
+          customerId: proposal.project.customerId,
+          serviceAddressId: input.serviceAddressId,
+          title: proposal.project.name,
+          description: proposal.scopeOfWork,
+          jobType: proposal.project.jobType?.trim() || "Project work",
+          sourceProposalId: proposal.id,
+          acceptedBaselineJson,
+        });
+      } catch (error) {
+        // The advisory lock above serializes concurrent conversions of the
+        // same proposal, so a unique-violation here is a last-resort race
+        // (e.g. the lock was bypassed by a direct create with the same
+        // sourceProposalId). Re-read and return the winning job instead of
+        // surfacing a raw constraint error for a job that already exists.
+        if (!isUniqueConstraintViolation(error)) throw error;
+        const existing = await tx.job.findFirst({
+          where: { orgId: input.orgId, sourceProposalId: proposal.id },
+          include: jobDetailInclude,
+        });
+        if (!existing) throw error;
+        await this.assertJobContext(tx, input.orgId, existing.projectId, existing.customerId, input.serviceAddressId);
+        return this.hydrateJobDTO(tx, input.orgId, existing);
+      }
     });
   }
 
@@ -846,6 +862,7 @@ export class JobsService {
     }
     return runInDatabaseTransaction(this.db, async (tx) => {
       const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, false);
+      assertJobRevision(job, input.expectedUpdatedAt);
       const currentStatus = normalizeJobStatus(job.status);
       if (!isAllowedJobAction("reopen", currentStatus)) {
         throw new ApiError(409, `Job ${job.id} is not completed`);
@@ -857,17 +874,13 @@ export class JobsService {
       if (nextStatus === "scheduled" && (!job.scheduledStart || !job.scheduledEnd)) {
         throw new ApiError(409, `Job ${job.id} cannot reopen to scheduled without an existing schedule`);
       }
-      const row = await tx.job.update({
-        where: { id: job.id },
-        data: {
-          status: nextStatus,
-          actualStart: null,
-          actualEnd: null,
-          completedAt: null,
-          completedById: null,
-          readyForInvoiceAt: null,
-        },
-        include: jobDetailInclude,
+      const row = await updateJobWithRevision(tx, job, input.expectedUpdatedAt, {
+        status: nextStatus,
+        actualStart: null,
+        actualEnd: null,
+        completedAt: null,
+        completedById: null,
+        readyForInvoiceAt: null,
       });
       await this.recordJobEvent(tx, {
         orgId: input.orgId,
@@ -985,6 +998,7 @@ export class JobsService {
   private async applySchedule(jobId: string, input: ScheduleJobInput, isReschedule: boolean): Promise<JobDTO> {
     return runInDatabaseTransaction(this.db, async (tx) => {
       const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, false);
+      assertJobRevision(job, input.expectedUpdatedAt);
       if (job.archivedAt) throw new ApiError(409, `Job ${job.id} is archived`);
       const currentStatus = normalizeJobStatus(job.status);
       if (currentStatus === "completed") {
@@ -1015,17 +1029,13 @@ export class JobsService {
       this.assertConflictsAllowed(conflicts, input.actor.role, input.overrideConflict, input.overrideReason);
 
       const nextStatus = JOB_ACTION_RULES.schedule.target;
-      const row = await tx.job.update({
-        where: { id: job.id },
-        data: {
-          status: nextStatus,
-          scheduledStart: input.scheduledStart,
-          scheduledEnd: input.scheduledEnd,
-          arrivalWindowStart: input.arrivalWindowStart ?? null,
-          arrivalWindowEnd: input.arrivalWindowEnd ?? null,
-          estimatedDurationMinutes: input.estimatedDurationMinutes ?? null,
-        },
-        include: jobDetailInclude,
+      const row = await updateJobWithRevision(tx, job, input.expectedUpdatedAt, {
+        status: nextStatus,
+        scheduledStart: input.scheduledStart,
+        scheduledEnd: input.scheduledEnd,
+        arrivalWindowStart: input.arrivalWindowStart ?? null,
+        arrivalWindowEnd: input.arrivalWindowEnd ?? null,
+        estimatedDurationMinutes: input.estimatedDurationMinutes ?? null,
       });
 
       const eventType = isReschedule ? "job.rescheduled" : "job.scheduled";
@@ -1067,6 +1077,12 @@ export class JobsService {
     input: JobTransitionInput,
     action: "accept" | "decline"
   ): Promise<JobAssignmentDTO> {
+    // The controller is the only caller and assignees are always technicians
+    // by construction (assertAssignableTechnicians enforces the technician
+    // role), so no legitimate caller sits outside the field-worker roles.
+    // Without this, a viewer/estimator role reached the assignment lookup
+    // and only failed with a misleading 404 instead of a 403.
+    assertFieldWorker(input.actor.role);
     return runInDatabaseTransaction(this.db, async (tx) => {
       const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, false);
       const existing = await tx.jobAssignment.findFirst({
@@ -1119,6 +1135,7 @@ export class JobsService {
   ): Promise<JobDTO> {
     return runInDatabaseTransaction(this.db, async (tx) => {
       const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, true);
+      assertJobRevision(job, input.expectedUpdatedAt);
       const currentStatus = normalizeJobStatus(job.status);
       const transition = JOB_ACTION_RULES[action];
       const nextStatus = transition.target;
@@ -1138,13 +1155,9 @@ export class JobsService {
         await options.validate(tx, job);
       }
 
-      const row = await tx.job.update({
-        where: { id: job.id },
-        data: {
-          status: nextStatus,
-          ...(options.data ? options.data(job) : {}),
-        },
-        include: jobDetailInclude,
+      const row = await updateJobWithRevision(tx, job, input.expectedUpdatedAt, {
+        status: nextStatus,
+        ...(options.data ? options.data(job) : {}),
       });
 
       await this.recordJobEvent(tx, {
@@ -1528,6 +1541,59 @@ function assertManager(role: string) {
 function assertFieldWorker(role: string) {
   if (!TECHNICIAN_FIELD_ROLES.has(role)) {
     throw new ApiError(403, "You do not have permission to perform this action");
+  }
+}
+
+const STALE_JOB_MESSAGE =
+  "This job changed since you opened it. Refresh the source workspace before saving again.";
+
+function staleJobConflict(): ApiError {
+  return new ApiError(409, STALE_JOB_MESSAGE);
+}
+
+function isRecordNotFound(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2025");
+}
+
+function isUniqueConstraintViolation(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2002");
+}
+
+// Optimistic-concurrency guard, following the project-tasks pattern
+// (modules/project-tasks/service.ts): an explicit token that no longer
+// matches the just-read revision is a conflict before any other guard runs.
+function assertJobRevision(job: { updatedAt: Date }, expectedUpdatedAt?: Date): void {
+  if (expectedUpdatedAt && job.updatedAt.getTime() !== expectedUpdatedAt.getTime()) {
+    throw staleJobConflict();
+  }
+}
+
+// The write predicate always carries a revision — the caller-supplied token
+// when present, otherwise the just-read updatedAt — so two requests that
+// both read the same revision cannot both land their write. A no-match
+// result (P2025) is a conflict either way. The bumped updatedAt keeps the
+// next read's revision strictly increasing even within the same millisecond.
+async function updateJobWithRevision(
+  tx: Prisma.TransactionClient,
+  job: { id: string; updatedAt: Date },
+  expectedUpdatedAt: Date | undefined,
+  // The same data type tx.job.update accepts (checked XOR unchecked), so
+  // scalar foreign keys such as completedById stay expressible.
+  data: Prisma.JobUpdateArgs["data"]
+): Promise<Prisma.JobGetPayload<{ include: typeof jobDetailInclude }>> {
+  const revision = expectedUpdatedAt ?? job.updatedAt;
+  try {
+    return await tx.job.update({
+      where: { id: job.id, updatedAt: revision },
+      data: {
+        ...data,
+        updatedAt: new Date(Math.max(Date.now(), job.updatedAt.getTime() + 1)),
+      },
+      include: jobDetailInclude,
+    });
+  } catch (error) {
+    if (isRecordNotFound(error)) throw staleJobConflict();
+    throw error;
   }
 }
 
