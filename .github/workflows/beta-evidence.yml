@@ -61,6 +61,10 @@ on:
         description: Commit SHA the RC deployment must have been built from
         required: false
         type: string
+      use_test_org:
+        description: Use the existing TEST_STAGING credential pair for the pinned synthetic TEST Org
+        default: false
+        type: boolean
       require_sha_correlation:
         description: Fail if the deployment SHA cannot be correlated
         required: true
@@ -103,6 +107,10 @@ on:
         description: Commit SHA the RC deployment must have been built from
         required: false
         type: string
+      use_test_org:
+        description: Use the existing TEST_STAGING credential pair for the pinned synthetic TEST Org
+        default: false
+        type: boolean
       require_sha_correlation:
         description: Fail if the deployment SHA cannot be correlated
         default: false
@@ -136,13 +144,16 @@ jobs:
       BETA_SMOKE_TENANT_LABEL: ${{ inputs.smoke_tenant_label }}
       BETA_SMOKE_ORG_LABEL: ${{ inputs.smoke_tenant_label }}
       BETA_SMOKE_ORG_ID: ${{ inputs.smoke_org_id }}
+      BETA_USE_TEST_ORG: ${{ inputs.use_test_org }}
       BETA_EXPECTED_SHA: ${{ inputs.expected_sha }}
       BETA_REQUIRE_SHA_CORRELATION: ${{ inputs.scenario == 's052' || inputs.scenario == 's053' || inputs.scenario == 'beta_pdf' || inputs.require_sha_correlation }}
       BETA_RC_DEPLOYMENT_URL: ${{ vars.BETA_RC_DEPLOYMENT_URL }}
       BETA_RC_DEPLOYMENT_SHA: ${{ vars.BETA_RC_DEPLOYMENT_SHA }}
       BETA_RC_SUPABASE_PROJECT_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF }}
-      BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
-      BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
+      # Explicit, mutually exclusive references avoid exposing the full secrets
+      # context. Missing TEST values cannot fall through to another account.
+      BETA_SMOKE_EMAIL: ${{ inputs.use_test_org && secrets.TEST_STAGING_EMAIL || !inputs.use_test_org && secrets.BETA_RC_SMOKE_EMAIL || '' }}
+      BETA_SMOKE_PASSWORD: ${{ inputs.use_test_org && secrets.TEST_STAGING_PASSWORD || !inputs.use_test_org && secrets.BETA_RC_SMOKE_PASSWORD || '' }}
       BETA_S052_ADMIN_EMAIL: ${{ secrets.BETA_RC_S052_ADMIN_EMAIL }}
       BETA_S052_ADMIN_PASSWORD: ${{ secrets.BETA_RC_S052_ADMIN_PASSWORD }}
       BETA_S052_INACTIVE_EMAIL: ${{ secrets.BETA_RC_S052_INACTIVE_EMAIL }}
@@ -181,7 +192,10 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Resolve and prove the RC target
-        run: node scripts/beta-evidence/resolve-rc-target.mjs
+        # Fixture choice cannot silently change the expected tenant or target.
+        run: |
+          node scripts/beta-evidence/lib/test-org-fixture.mjs
+          node scripts/beta-evidence/resolve-rc-target.mjs
 
       - name: Export the resolved RC base URL
         shell: bash
@@ -194,8 +208,8 @@ jobs:
         if: inputs.mode == 'preflight'
         shell: bash
         env:
-          HAS_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL != '' }}
-          HAS_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD != '' }}
+          HAS_EMAIL: ${{ inputs.use_test_org && secrets.TEST_STAGING_EMAIL != '' || !inputs.use_test_org && secrets.BETA_RC_SMOKE_EMAIL != '' }}
+          HAS_PASSWORD: ${{ inputs.use_test_org && secrets.TEST_STAGING_PASSWORD != '' || !inputs.use_test_org && secrets.BETA_RC_SMOKE_PASSWORD != '' }}
           HAS_DATA_PLANE_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF != '' }}
           HAS_FOREIGN_PROJECT: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' || secrets.BETA_RC_FOREIGN_CUSTOMER_ID != '' }}
           HAS_FOREIGN_RESOURCE: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' || secrets.BETA_RC_FOREIGN_CUSTOMER_ID != '' || secrets.BETA_RC_FOREIGN_ESTIMATE_ID != '' }}
@@ -221,8 +235,8 @@ jobs:
             echo "| Prerequisite | Present |"
             echo "| --- | --- |"
             echo "| RC target resolved | yes (${BETA_RC_BASE_URL_RESOLVED}) |"
-            echo "| BETA_RC_SMOKE_EMAIL | ${HAS_EMAIL} |"
-            echo "| BETA_RC_SMOKE_PASSWORD | ${HAS_PASSWORD} |"
+            echo "| Selected smoke fixture email | ${HAS_EMAIL} |"
+            echo "| Selected smoke fixture password | ${HAS_PASSWORD} |"
             echo "| BETA_RC_SUPABASE_PROJECT_REF | ${HAS_DATA_PLANE_REF} |"
             echo "| BETA_RC_FOREIGN_PROJECT_ID, _CUSTOMER_ID, or _ESTIMATE_ID | ${HAS_FOREIGN_RESOURCE} |"
             echo "| BETA_RC_FOREIGN_ESTIMATE_ID (required for s053) | ${HAS_FOREIGN_ESTIMATE} |"
@@ -275,7 +289,7 @@ jobs:
           set -euo pipefail
           fail=0
           if [ -z "${BETA_SMOKE_EMAIL}" ] || [ -z "${BETA_SMOKE_PASSWORD}" ]; then
-            echo "::error::BETA_RC_SMOKE_EMAIL and BETA_RC_SMOKE_PASSWORD are required for a full evidence run."
+            echo "::error::The selected smoke fixture email and password are required for a full evidence run (TEST_STAGING_* when use_test_org=true, otherwise BETA_RC_SMOKE_*)."
             fail=1
           fi
           if [ -z "${BETA_RC_SUPABASE_PROJECT_REF}" ]; then

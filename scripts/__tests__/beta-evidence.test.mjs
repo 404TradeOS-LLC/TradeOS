@@ -4,6 +4,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import vm from "node:vm";
 
 import {
   StorageStatePathError,
@@ -34,12 +35,33 @@ import {
 } from "../../app/scripts/beta-evidence/lib/evidence-artifacts.mjs";
 
 import { assertAuthenticatedSmokeTenant } from "../../app/scripts/beta-evidence/lib/tenant-identity.mjs";
+import "../../app/scripts/beta-evidence/lib/test-org-fixture.test.mjs";
 import { createdCustomerIdFromUrl } from "../../app/scripts/beta-evidence/lib/customer-detail-url.mjs";
 import { createdProjectIdFromUrl } from "../../app/scripts/beta-evidence/lib/project-detail-url.mjs";
 import { matchesReviewedSavedLine, renderedVerifiedRowMatches, reloadEstimateAndRead } from "../../app/scripts/beta-evidence/lib/saved-line-verification.mjs";
 
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
+
+test("TEST fixture uses bounded secret references and cannot fall back on missing selected credentials", () => {
+  const workflow = read(".github/workflows/beta-evidence.yml");
+  assert.doesNotMatch(workflow, /secrets\[/);
+  for (const kind of ["EMAIL", "PASSWORD"]) {
+    const expression = workflow.match(new RegExp(`BETA_SMOKE_${kind}: \\$\\{\\{ (.+) \\}\\}`))?.[1];
+    assert.ok(expression);
+    for (const useTest of [true, false]) {
+      for (const selected of ["", "selected-value"]) {
+        const secrets = {
+          [`TEST_STAGING_${kind}`]: useTest ? selected : "other-account-value",
+          [`BETA_RC_SMOKE_${kind}`]: useTest ? "other-account-value" : selected,
+        };
+        assert.equal(vm.runInNewContext(expression, { inputs: { use_test_org: useTest }, secrets }), selected);
+      }
+    }
+  }
+  assert.match(workflow, /node scripts\/beta-evidence\/lib\/test-org-fixture\.mjs/);
+  assert.match(read(".github/workflows/staging-orchestrator.yml"), /use_test_org: true\n\s+smoke_tenant_label: TEST Org — Delete Me/);
+});
 
 function codeOf(fn) {
   try {
@@ -717,8 +739,8 @@ test("smoke tenant verification requires canonical authenticated Settings identi
   assert.doesNotMatch(authSetup, /settingsText\.includes\(expectedOrg\)/);
 });
 
-test("staging beta evidence pins the canonical smoke UUID and forwards it to the authenticator", () => {
-  assert.match(stagingOrchestrator, /smoke_org_id:\s+9814bd72-626a-42f4-8871-cd755cb9d685/);
+test("staging beta evidence pins the verified selected TEST UUID and forwards it to the authenticator", () => {
+  assert.match(stagingOrchestrator, /smoke_org_id:\s+d86d0874-6ba3-4b06-94b6-bd0ae99fe532/);
   assert.match(workflow, /smoke_org_id:\s+[\s\S]*?type: string/);
   assert.match(workflow, /BETA_SMOKE_ORG_ID: \$\{\{ inputs\.smoke_org_id \}\}/);
   assert.match(authSetup, /expectedOrgId = process\.env\.BETA_SMOKE_ORG_ID/);
