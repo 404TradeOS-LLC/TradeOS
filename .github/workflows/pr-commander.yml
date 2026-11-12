@@ -57,9 +57,24 @@
 #   3. CodeRabbit re-review after repair pushes (it is the reviewer of
 #      record). Re-review is externally rate-limited: one best-effort request
 #      with backoff, never a retry loop.
-#   4. Copilot Agent Merge is NOT available (org has 0 Copilot seats, no
+#   4. AI repair worker (Phase 4): after the deterministic tier
+#      does not push and no rebase was dispatched, the armed `act` job may
+#      invoke the already-installed ChatGPT Codex GitHub app once per head
+#      with a `@codex address that feedback` comment on a REPAIRABLE
+#      same-repo PR with no protected files (see `isAiRepairEligible` in
+#      scripts/pr-commander-lib.mjs). Codex works in its own cloud
+#      environment and pushes the fix to the PR branch; the Commander
+#      re-evaluates the new head on its next run. One invocation per head,
+#      counted as one of the 3 repair attempts. The worker never approves,
+#      merges, dismisses a review, or resolves a thread, and the merge bar
+#      still decides every merge. Codex's push to a PR branch in THIS repo
+#      is UNCONFIRMED until the end-to-end validation observes it (zero
+#      Codex commits exist in this repo), as is whether Codex responds to
+#      a mention from github-actions[bot] — a no-response is recorded by
+#      the attempt counter, never silently retried.
+#   5. Copilot Agent Merge is NOT available (org has 0 Copilot seats, no
 #      billing source, quota failures on review) — nothing here depends on it.
-#      Copilot / Codex review is optional, best-effort, human-triggered only.
+#      Copilot review is optional, best-effort, human-triggered only.
 #
 # Triggers and concurrency
 # -------------------------
@@ -683,6 +698,8 @@ jobs:
                 '',
                 'repair-attempts:' + verdict.headSha + ':' + process.env.ATTEMPTS_RECORDED,
                 '',
+                'ai-repair:' + verdict.headSha + ':' + (process.env.AI_INVOCATIONS_RECORDED ?? '0'),
+                '',
               ].join('\n');
               fs.writeFileSync('comment.md', body);
             "
@@ -710,6 +727,20 @@ jobs:
             echo "${n:-0}"
           }
 
+          # Read the recorded AI-repair invocation count for a head from the
+          # verdict comment (same login split as recorded_attempts). The AI
+          # worker may be invoked at most once per head; the count lives in
+          # the verdict comment as `ai-repair:<sha>:<n>`, next to the
+          # repair-attempts counter.
+          recorded_ai_invocations() {
+            local pr="$1" head_sha="$2"
+            gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json comments \
+              --jq '.comments[]? | select(.author.login == "github-actions" or .author.login == "github-actions[bot]") | .body' > comments-ai.txt || true
+            local n
+            n=$(grep -o "ai-repair:${head_sha}:[0-9]*" comments-ai.txt | tail -n 1 | cut -d: -f3 || true)
+            echo "${n:-0}"
+          }
+
           # --- main loop -----------------------------------------------------
           # Ready PRs arrive in dependency order from the report job. A
           # dependency cycle yields an empty ready list (report job), so
@@ -728,11 +759,12 @@ jobs:
             build_snapshot "$pr" || continue
             head_sha=$(jq -r '.headRefOid' fresh.json)
             attempts=$(recorded_attempts "$pr" "$head_sha")
+            ai_invocations=$(recorded_ai_invocations "$pr" "$head_sha")
             verdict=$(armed_verdict "$attempts")
             echo "Fresh verdict at $head_sha: $verdict (attempts: $attempts)"
             if [ "$verdict" != "MERGE_READY" ]; then
               echo "Verdict changed on re-read; no merge for PR #$pr."
-              ATTEMPTS_RECORDED="$attempts" upsert_verdict_comment "$pr" "$attempts" || true
+              ATTEMPTS_RECORDED="$attempts" AI_INVOCATIONS_RECORDED="$ai_invocations" upsert_verdict_comment "$pr" "$attempts" || true
               continue
             fi
             # Stacked-base guard: never merge a dependent before its base.
@@ -745,12 +777,12 @@ jobs:
                   echo "Base PR #$base_pr already merged; proceeding."
                 else
                   echo "Base PR #$base_pr is $base_state, not merged yet; skipping PR #$pr."
-                  ATTEMPTS_RECORDED="$attempts" upsert_verdict_comment "$pr" "$attempts" || true
+                  ATTEMPTS_RECORDED="$attempts" AI_INVOCATIONS_RECORDED="$ai_invocations" upsert_verdict_comment "$pr" "$attempts" || true
                   continue
                 fi
               fi
             fi
-            ATTEMPTS_RECORDED="$attempts" upsert_verdict_comment "$pr" "$attempts" || true
+            ATTEMPTS_RECORDED="$attempts" AI_INVOCATIONS_RECORDED="$ai_invocations" upsert_verdict_comment "$pr" "$attempts" || true
             echo "Enabling auto-merge for PR #$pr at $head_sha."
             # Pin the merge to the exact head that was validated above:
             # without --match-head-commit a push landing between the
@@ -779,11 +811,18 @@ jobs:
             # report the fresh verdict, nothing else.
             recorded_head=$(jq -r '.headSha' "$file")
             attempts=$(recorded_attempts "$pr" "$head_sha")
+            ai_invocations=$(recorded_ai_invocations "$pr" "$head_sha")
+            # Per-PR repair outcome flags for this iteration: the AI worker
+            # runs only when the deterministic tier did not push and no
+            # rebase was dispatched (either moves, or is about to move, the
+            # head — invoking Codex on a stale head wastes the invocation).
+            repair_pushed="false"
+            rebase_dispatched="false"
             fresh_verdict=$(armed_verdict "$attempts")
             echo "Fresh verdict at $head_sha: $fresh_verdict (recorded head: $recorded_head)"
             if [ "$head_sha" != "$recorded_head" ]; then
               echo "Head moved; reporting the fresh verdict only."
-              ATTEMPTS_RECORDED="$attempts" upsert_verdict_comment "$pr" "$attempts" || true
+              ATTEMPTS_RECORDED="$attempts" AI_INVOCATIONS_RECORDED="$ai_invocations" upsert_verdict_comment "$pr" "$attempts" || true
               continue
             fi
             founder_count=$(jq '.founderItems | length' fresh-verdict.json)
@@ -845,6 +884,7 @@ jobs:
                           # Real git push: API-pushed commits emit no push
                           # event and never trigger pull_request CI.
                           if git push origin "HEAD:$(git branch --show-current)"; then
+                            repair_pushed="true"
                             echo "Repair pushed; requesting CodeRabbit re-review (rate-limited, best-effort, one attempt)."
                             sleep 60
                             gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body "@coderabbitai review" || true
@@ -884,6 +924,7 @@ jobs:
               if [ "$head_repo" = "$GITHUB_REPOSITORY" ]; then
                 if gh workflow run pr-maintenance.yml --ref main -f pr_number="$pr" --repo "$GITHUB_REPOSITORY"; then
                   attempts=$((attempts + 1))
+                  rebase_dispatched="true"
                   echo "Dispatched pr-maintenance rebase for PR #$pr (attempt $attempts of 3)."
                 else
                   echo "::warning::pr-maintenance dispatch failed for PR #$pr; no rebase."
@@ -892,7 +933,80 @@ jobs:
                 echo "PR #$pr is from fork $head_repo; no rebase dispatch."
               fi
             fi
-            ATTEMPTS_RECORDED="$attempts" upsert_verdict_comment "$pr" "$attempts" || true
+            # AI repair worker (Phase 4): invoke Codex once per head when
+            # the deterministic tier did not push and no rebase was
+            # dispatched. The invocation is a `@codex address that
+            # feedback` comment — the trigger Codex's own review receipt
+            # documents. Codex works in its own cloud environment and
+            # pushes the fix to the PR branch; the Commander re-evaluates
+            # the new head on its next run. Counts as one repair attempt
+            # on this head (cap 3, shared with the other tiers).
+            # Eligibility is enforced by the lib (isAiRepairEligible):
+            # same-repo, no protected files, not draft/conflicting/behind,
+            # attempts remain, no prior AI invocation on this head, and
+            # something to address (a failing check or unresolved
+            # threads). The worker never approves, merges, dismisses, or
+            # resolves — the comment instructs Codex to do none of those,
+            # and the merge bar still decides every merge.
+            # NOTE (validation status): Codex's push to a PR branch in
+            # THIS repo is UNCONFIRMED until the end-to-end validation
+            # observes it (zero Codex commits exist in this repo), as is
+            # whether Codex responds to a mention from github-actions[bot].
+            # A no-response is recorded by the attempt counter, never
+            # silently retried: at most one invocation per head.
+            if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$attempts" -lt 3 ] && [ "$repair_pushed" != "true" ] && [ "$rebase_dispatched" != "true" ]; then
+              head_repo=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json headRepository --jq '.headRepository.nameWithOwner')
+              if [ "$head_repo" = "$GITHUB_REPOSITORY" ]; then
+                # Build the invocation comment with the lib (writes
+                # ai-comment.md only when eligible); an ineligible PR
+                # writes nothing and this block is a no-op. Failing check
+                # names come from the fresh snapshot via failedCheckNames.
+                rm -f ai-comment.md
+                ATTEMPTS="$attempts" AI_INVOCATIONS="$ai_invocations" node --input-type=module -e "
+                  import fs from 'node:fs';
+                  import { buildAiRepairComment, failedCheckNames, isAiRepairEligible, normalizeSnapshot } from './scripts/pr-commander-lib.mjs';
+                  const raw = JSON.parse(fs.readFileSync('fresh.json', 'utf8'));
+                  const snapshot = normalizeSnapshot(raw);
+                  const failing = failedCheckNames(snapshot);
+                  const check = isAiRepairEligible({
+                    files: snapshot.files,
+                    isDraft: snapshot.isDraft,
+                    mergeable: snapshot.mergeable,
+                    mergeStateStatus: snapshot.mergeStateStatus,
+                    failedChecks: failing,
+                    unresolvedThreads: snapshot.threads?.unresolved ?? 0,
+                    attempts: Number(process.env.ATTEMPTS),
+                    aiInvocations: Number(process.env.AI_INVOCATIONS),
+                    sameRepo: true,
+                  });
+                  if (!check.eligible) {
+                    console.log('AI repair ineligible for PR #' + snapshot.number + ': ' + check.reasons.join(' '));
+                  } else {
+                    const body = buildAiRepairComment({
+                      pr: snapshot.number,
+                      headSha: snapshot.headSha,
+                      failingChecks: failing,
+                      unresolvedThreads: snapshot.threads?.unresolved ?? 0,
+                      runUrl: process.env.RUN_URL,
+                    });
+                    fs.writeFileSync('ai-comment.md', body);
+                    console.log('AI repair invocation prepared for PR #' + snapshot.number + ' at ' + snapshot.headSha + '.');
+                  }
+                " || true
+                if [ -s ai-comment.md ]; then
+                  if gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body "$(cat ai-comment.md)"; then
+                    attempts=$((attempts + 1))
+                    ai_invocations=$((ai_invocations + 1))
+                    echo "Invoked Codex AI repair on PR #$pr (attempt $attempts of 3; AI invocation $ai_invocations of 1 on this head)."
+                  else
+                    echo "::warning::Codex invocation comment failed for PR #$pr; no repair attempt consumed."
+                  fi
+                fi
+              else
+                echo "PR #$pr is from fork $head_repo; no AI repair invocation."
+              fi
+            fi
+            ATTEMPTS_RECORDED="$attempts" AI_INVOCATIONS_RECORDED="$ai_invocations" upsert_verdict_comment "$pr" "$attempts" || true
           done
 
           echo "Applied verdicts. Merged (auto-merge enabled):${merged:- none}."
