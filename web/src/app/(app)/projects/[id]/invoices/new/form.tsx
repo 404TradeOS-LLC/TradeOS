@@ -57,6 +57,8 @@ export function NewInvoiceForm({ projectId, estimates, proposals, createRequestK
         <form action={formAction} className="flex flex-col gap-4">
           <input type="hidden" name="projectId" value={projectId} />
           <input type="hidden" name="createRequestKey" value={createRequestKey} />
+          {/* Disabled fields are omitted from FormData; unconfirmed retries must
+              resend the retained attempt.data, not incoming form values. */}
           <fieldset disabled={isPending || Boolean(unconfirmed || confirmed)} className="flex min-w-0 flex-col gap-4">
             <SelectField
               label="Estimate"
