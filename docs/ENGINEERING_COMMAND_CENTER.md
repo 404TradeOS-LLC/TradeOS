@@ -52,6 +52,10 @@ related_code:
 
 Founder-approved first cohort is 1–3 businesses, free, real work, readiness-gated: Customer → Project → manual/reviewed-AI Estimate → Proposal → contractor-delivered PDF. [Invited beta operations](operations/INVITED_BETA.md) owns the gate register and onboarding/incident sequence. The candidate `beta_pdf` scenario reuses Beta Evidence, exact SHA guards and four widths without requiring contract/invoice execution. Existing full-release sprint gates are unchanged; clarification, disputed pricing, shared security/environment parity and actual recovery remain blockers. Source checks do not certify launch.
 
+## Production database target preflight — pending source review (2026-11-12)
+
+The protected production migration workflow currently relies on its Environment and secrets but does not assert the admin URL's target project in-code before running Prisma. A separate draft proposal introduces an exact production Supabase project/region/port check in a nonsecret Node preflight step before schema migration, with negative tests for staging and spoofed pooler URLs. It leaves `main` push triggers and protected approvals unchanged; until reviewed and merged, this hardening is unshipped. It does **not** authorize applying PR #977, suppressing maintenance-window requirements, bypassing Env reviewers, or releasing PR #956.
+
 ## PR #810 staging dependency — proposed protected runner, 2026-10-30
 
 Main-only apply cannot consume the draft feature migration. A separate

@@ -63,6 +63,10 @@ related_code:
 
 [Invited beta operations](operations/INVITED_BETA.md) records the founder-approved free 1–3-business Estimate→Proposal/PDF scope, remaining blockers, evidence procedure, onboarding and stop criteria. The existing [Beta Evidence](testing/BETA_EVIDENCE.md) workflow gains an opt-in `beta_pdf` scenario; it is source support, not release approval or a passed deployed run.
 
+## Production migration destination preflight — draft hardening proposal (2026-11-12)
+
+A separate unmerged security change proposes a fail-closed, pre-DDL destination check for `.github/workflows/deploy-migrations.yml`. It validates the protected main-branch ref and confirms that the elevated PostgreSQL URL targets production Supabase project `kssaceuetdjwfqnbzhly` (in `us-west-2`) through either its exact direct hostname or a project-bound session pooler. A wrong project/region, transaction-mode port, missing credentials or malformed URL must refuse execution without printing secrets. This is **not active on main** until a reviewed merge and does **not** replace current GitHub Environment approvals, release windows, or migration ledger checks; PR #977 remains draft/HOLD.
+
 ## Proposed staging Job migration runner — PR #810 dependency
 
 The proposed `.github/workflows/staging-job-handoff-migration.yml` installs a

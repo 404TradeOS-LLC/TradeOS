@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 
 // Fail closed before any production migration connection or Prisma apply.
 // These identifiers are non-secret project identity, not connection credentials.
