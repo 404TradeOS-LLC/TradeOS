@@ -322,7 +322,9 @@ sweeps every open pull request hourly at :17 UTC (plus a read-only fast path
 on `pull_request` events for the changed PR only), evaluates each PR against
 the unchanged merge bar — non-draft, the four required checks green, current
 branch, zero unresolved threads, no standing change request, ADR-009 record
-where required — repairs what is deterministically repairable, requests
+where required — repairs what is deterministically repairable, invokes the
+installed Codex app once per head for REPAIRABLE PRs the deterministic tier
+could not fix (Phase 4 AI repair worker), requests
 CodeRabbit re-review, and enables native auto-merge
 (`gh pr merge --auto --squash`) only when every gate passes at one exact
 head SHA. It composes the existing verify/merge-readiness/pr-maintenance/
@@ -363,8 +365,10 @@ founder-only, per PR / per item.
 
 Copilot Agent Merge is not available as a delegation path (0 org seats, no
 billing source, quota failures on review, review ruleset disabled — verified
-live 2026-11-10); the Commander delegates to deterministic repair first,
-CodeQL Autofix for security findings, and CodeRabbit re-review with
+live 2026-11-10, re-verified 2026-11-11); the Commander delegates to deterministic repair first,
+the Codex AI repair worker for REPAIRABLE PRs the deterministic tier could
+not fix (once per head; its repair push in this repo is UNCONFIRMED until
+the end-to-end validation observes it), CodeQL Autofix for security findings, and CodeRabbit re-review with
 backoff. Full operating documentation is in
 [PR Commander](PR_COMMANDER.md); setup, arming, dry-run verification, and
 disable steps are in

@@ -57,10 +57,11 @@ test("auto-merge is pinned to the validated head SHA (TOCTOU)", () => {
 test("repair attempt counter advances exactly once per attempt, on attempt start", () => {
   const increments = workflow.match(/attempts=\$\(\(attempts \+ 1\)\)/g);
   assert.ok(increments, "expected increments");
-  // One increment site per repair path: the lint repair and the rebase
-  // dispatch. Each path advances the counter exactly once, at its attempt
-  // start, and never again — so a single attempt is never double-counted.
-  assert.equal(increments.length, 2, "exactly one increment site per repair path");
+  // One increment site per repair path: the lint repair, the rebase
+  // dispatch, and the AI (Codex) invocation. Each path advances the
+  // counter exactly once, at its attempt start, and never again — so a
+  // single attempt is never double-counted.
+  assert.equal(increments.length, 3, "exactly one increment site per repair path");
   // Lint path: increment after checkout succeeds, before the fix runs.
   const lintIncrementAt = workflow.indexOf("attempts=$((attempts + 1))");
   const checkoutAt = workflow.indexOf('if gh pr checkout "$pr"');
@@ -79,18 +80,44 @@ test("repair attempt counter advances exactly once per attempt, on attempt start
     rebaseIncrementAt > dispatchAt,
     "rebase increment happens after a successful dispatch"
   );
-  // The only increment after the push is the rebase dispatch's own, and
-  // nothing increments after it.
-  assert.equal(
-    workflow.indexOf("attempts=$((attempts + 1))", pushAt),
-    rebaseIncrementAt,
-    "the only increment after the push is the rebase dispatch's own"
+  // AI path: the attempt is RESERVED before the Codex invocation
+  // comment posts (fail-closed, same as the lint tier counting at
+  // attempt start). It is the third and last increment site: it runs
+  // after the rebase dispatch (a dispatched rebase skips the AI tier,
+  // since the head is about to move), and nothing increments after it.
+  const aiCommentPostAt = workflow.indexOf('$(cat ai-comment.md)');
+  assert.ok(aiCommentPostAt > -1, "expected the AI invocation comment post");
+  const aiIncrementAt = workflow.indexOf("attempts=$((attempts + 1))", rebaseIncrementAt + 1);
+  assert.ok(aiIncrementAt > -1, "expected an AI invocation increment");
+  assert.ok(
+    aiIncrementAt < aiCommentPostAt,
+    "AI increment (reservation) happens before the Codex invocation comment posts"
+  );
+  // The reservation upsert sits between the increment and the post: the
+  // invocation posts only if the reservation write succeeds.
+  const reservationUpsertAt = workflow.indexOf("upsert_verdict_comment", aiIncrementAt);
+  assert.ok(
+    reservationUpsertAt > aiIncrementAt && reservationUpsertAt < aiCommentPostAt,
+    "reservation upsert happens after the increment, before the post"
+  );
+  // The live head is re-checked before the reservation, so a moved head
+  // skips the invocation without consuming an attempt.
+  const liveHeadAt = workflow.indexOf("live_head=$(gh pr view");
+  assert.ok(liveHeadAt > -1, "expected a live head re-check");
+  assert.ok(
+    liveHeadAt < aiIncrementAt,
+    "live head re-check happens before the reservation"
   );
   assert.equal(
-    workflow.indexOf("attempts=$((attempts + 1))", rebaseIncrementAt + 1),
+    workflow.indexOf("attempts=$((attempts + 1))", aiIncrementAt + 1),
     -1,
-    "no increment after the rebase dispatch"
+    "no increment after the AI invocation"
   );
+  // The AI invocation also advances its own once-per-head counter, via
+  // the reservation variables (committed only when the reservation
+  // write succeeds).
+  assert.match(workflow, /reserved_ai=\$\(\(ai_invocations \+ 1\)\)/);
+  assert.match(workflow, /ai_invocations=\$reserved_ai/);
 });
 
 test("rebase dispatch guard reads merge state from the snapshot, not the verdict", () => {
@@ -164,6 +191,45 @@ test("stacked-base guard proceeds only when the base is actually MERGED", () => 
   // The `merged` list is still kept for the repair-loop skip and the run
   // summary — only the base guard must not consult it.
   assert.match(workflow, /case " \$merged " in \*" \$pr "\*\) continue ;; esac/);
+});
+
+test("AI repair invocation is gated on the repair outcome flags and the lib eligibility", () => {
+  // The AI tier runs only when the deterministic tier did not push and no
+  // rebase was dispatched (either moves, or is about to move, the head).
+  // Eligibility itself is enforced by the lib (isAiRepairEligible); the
+  // workflow only invokes Codex when the lib writes ai-comment.md.
+  assert.match(
+    workflow,
+    /if \[ "\$fresh_verdict" = "REPAIRABLE" \] && \[ "\$attempts" -lt 3 \] && \[ "\$repair_pushed" != "true" \] && \[ "\$rebase_dispatched" != "true" \]; then/
+  );
+  assert.match(workflow, /repair_pushed="true"/);
+  assert.match(workflow, /rebase_dispatched="true"/);
+  assert.match(
+    workflow,
+    /import \{ buildAiRepairComment, failedCheckNames, isAiRepairEligible, normalizeSnapshot \}/
+  );
+  assert.match(workflow, /fs\.writeFileSync\('ai-comment\.md', body\)/);
+  assert.match(workflow, /if \[ -s ai-comment\.md \]; then/);
+  // Fork PRs never get an AI invocation (same-repo only).
+  assert.match(workflow, /PR #\$pr is from fork \$head_repo; no AI repair invocation\./);
+});
+
+test("verdict comment records the AI invocation count per head", () => {
+  // The ai-repair marker rides in the verdict comment next to the
+  // repair-attempts counter, so the once-per-head guard survives across
+  // runs. Every upsert call site must pass the recorded count, or a
+  // re-write would reset the marker to 0 and the guard would never hold.
+  assert.match(workflow, /'ai-repair:' \+ verdict\.headSha \+ ':' \+ \(process\.env\.AI_INVOCATIONS_RECORDED \?\? '0'\)/);
+  const upserts = workflow.match(/AI_INVOCATIONS_RECORDED="\$ai_invocations" upsert_verdict_comment/g);
+  assert.ok(upserts, "expected AI_INVOCATIONS_RECORDED at upsert call sites");
+  assert.equal(upserts.length, 5, "ready loop (3) + repair loop (2)");
+  const reads = workflow.match(/ai_invocations=\$\(recorded_ai_invocations "\$pr" "\$head_sha"\)/g);
+  assert.ok(reads, "expected recorded_ai_invocations reads");
+  assert.equal(reads.length, 2, "ready loop + repair loop");
+  assert.match(
+    workflow,
+    /recorded_ai_invocations\(\) \{[\s\S]*?grep -o "ai-repair:\$\{head_sha\}:\[0-9\]\*"/
+  );
 });
 
 test("act step enforces exact \"true\" in the shell before any write", () => {
