@@ -77,7 +77,13 @@ Commander composes existing pieces and rebuilds none of them.
   `CHANGES_REQUESTED` / ADR-009-required → `BLOCKED` with `founderItems`
   naming the dismissal / ADR-009 item; `DIRTY` / `CONFLICTING` merge state →
   `BLOCKED` (or `BLOCKED_ESCALATED` after 3 attempts), never `REPAIRABLE` or
-  `MERGE_READY`.
+  `MERGE_READY`. A `BLOCKED` merge state is `BLOCKED` only when its cause
+  is a standing change request or is otherwise unexplained: when the block
+  is attributable to failing checks and no change request stands, the
+  verdict is `REPAIRABLE` (GitHub reports `BLOCKED` whenever a required
+  check fails, so an unconditional demotion made the failing-check →
+  `REPAIRABLE` mapping unreachable — proven by the Phase 4 validation on
+  PR #970).
 
 Verdict set (worst-first precedence: `BLOCKED_ESCALATED` > `BLOCKED` >
 `REPAIRABLE` > `DRY_RUN_ONLY` / `MERGE_READY`): `MERGE_READY`,
