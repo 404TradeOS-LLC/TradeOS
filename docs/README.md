@@ -520,3 +520,10 @@ The [Beta Evidence reference](testing/BETA_EVIDENCE.md) now documents dedicated 
 ### PR Commander unattended execution proposal (PR #967, 2026-11-11)
 
 A draft workflow change proposes optional scheduled write execution gated by **both** `TRADEOS_PR_COMMANDER_WRITE_ENABLED=true` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED=true`. Until the change passes hosted checks, review, a verified manual armed run, and explicit owner activation, scheduled sweeps remain read-only. No migration, staging, production, review, or branch-protection gate is relaxed. See [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
+
+## Verified staging test fixture — 2026-11-12
+
+The Beta Evidence workflow exposes the same explicit TEST Org credential option
+as Playwright evidence. The staging orchestrator selects the verified synthetic
+owner and exact UUID; missing credentials fail closed without account fallback.
+See [Beta Evidence fixture selection](testing/BETA_EVIDENCE.md#smoke-tenant).
