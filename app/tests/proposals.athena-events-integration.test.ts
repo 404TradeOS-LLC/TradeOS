@@ -10,7 +10,7 @@ const mockPrisma = {
     create: jest.fn(),
     findMany: jest.fn(),
     findFirst: jest.fn(),
-    updateMany: jest.fn(),
+    update: jest.fn(),
   },
   proposalDelivery: {
     create: jest.fn(),
@@ -83,7 +83,6 @@ function sentProposalDTORow() {
     viewedAt: null,
     respondedAt: null,
     createdAt: new Date(),
-    updatedAt: new Date(),
     deliveries: [],
     project: {
       orgId: "org-1",
@@ -101,7 +100,20 @@ describe("ProposalsService athena-events integration", () => {
     mockPrisma.proposal.findFirst
       .mockResolvedValueOnce(draftProposalRow())
       .mockResolvedValueOnce(sentProposalDTORow());
-    mockPrisma.proposal.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.proposal.update.mockResolvedValue({
+      id: "proposal-1",
+      projectId: "project-1",
+      estimateId: "estimate-1",
+      status: "sent",
+      companyName: null,
+      showLineItemDetail: false,
+      termsAndConditions: null,
+      sentAt: new Date(),
+      viewedAt: null,
+      respondedAt: null,
+      createdAt: new Date(),
+      deliveries: [],
+    });
     mockAthenaEventService.publish.mockResolvedValue({
       event: {},
       deliveriesCreated: 0,
@@ -130,7 +142,20 @@ describe("ProposalsService athena-events integration", () => {
     mockPrisma.proposal.findFirst
       .mockResolvedValueOnce(draftProposalRow())
       .mockResolvedValueOnce(sentProposalDTORow());
-    mockPrisma.proposal.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.proposal.update.mockResolvedValue({
+      id: "proposal-1",
+      projectId: "project-1",
+      estimateId: "estimate-1",
+      status: "sent",
+      companyName: null,
+      showLineItemDetail: false,
+      termsAndConditions: null,
+      sentAt: new Date(),
+      viewedAt: null,
+      respondedAt: null,
+      createdAt: new Date(),
+      deliveries: [],
+    });
     mockAthenaEventService.publish.mockRejectedValue(new Error("athena-events unavailable"));
     const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => undefined);
 
@@ -140,8 +165,8 @@ describe("ProposalsService athena-events integration", () => {
     expect(proposal.status).toBe("sent");
     expect(proposal.sentAt).not.toBeNull();
     expect(mockAthenaEventService.publish).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
-      where: { id: "proposal-1", status: "draft", project: { orgId: "org-1" } },
+    expect(mockPrisma.proposal.update).toHaveBeenCalledWith({
+      where: { id: "proposal-1" },
       data: { status: "sent", sentAt: expect.any(Date) },
     });
 
