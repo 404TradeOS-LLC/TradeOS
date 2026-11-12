@@ -120,7 +120,7 @@ test.describe('Beta readiness role and four-width acceptance (non-production onl
         const landing = await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
         expect(landing?.status()).toBe(200);
         await expect(page).toHaveURL(/dashboard(?:[/?#]|$)/);
-        await requireSyntheticIdentity(page, ['technician']);
+        await requireSyntheticIdentity(page, ['technician'], operatorOrgId);
         await page.getByRole('button', { name: 'Open more menu' }).click();
         await expect(page.getByRole('link', { name: 'Beta readiness' })).toHaveCount(0);
 
