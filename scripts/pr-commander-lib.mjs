@@ -400,9 +400,45 @@ export function evaluateGate(snapshot, opts = {}) {
     nextActions.push("Rebase onto the base via the governed pr-maintenance workflow (armed runs only), then re-evaluate at the new head.");
     demote("REPAIRABLE");
   } else if (mergeState === "BLOCKED") {
-    reasons.push("GitHub reports merge state BLOCKED.");
-    nextActions.push("Read the blocking check or review state at the exact head and clear the underlying cause.");
-    demote("BLOCKED");
+    // BLOCKED merge state has two distinct causes, and they route
+    // differently: a standing CHANGES_REQUESTED review is founder-only
+    // (stays BLOCKED), while failing checks are repairable. GitHub
+    // reports BLOCKED whenever a required check fails, so an
+    // unconditional demotion here made the "failing required check →
+    // REPAIRABLE" mapping unreachable in practice — the repair tiers
+    // could never fire on exactly the PRs they exist for (proven by
+    // the Phase 4 validation on PR #970: failing required check, no
+    // standing change request, verdict BLOCKED). When the block is
+    // attributable to failing checks and no change request stands, do
+    // NOT demote here: the failing-check sections below demote to
+    // REPAIRABLE. A standing change request, or a block with no failing
+    // check and no review to explain it, stays BLOCKED (fail closed).
+    // The reviews section below still demotes to BLOCKED on a standing
+    // change request, so that outcome is preserved there too.
+    const blockedByReview =
+      snapshot?.reviewDecision === "CHANGES_REQUESTED" ||
+      (Array.isArray(snapshot?.reviews) &&
+        snapshot.reviews.some((r) => r?.state === "CHANGES_REQUESTED"));
+    // Scan the DEDUPLICATED check entries (checkByName), not the raw
+    // snapshot list: the downstream sections read the same deduped view,
+    // and real snapshots carry duplicate names (one entry per workflow
+    // run). A raw scan could disagree with the downstream view — e.g. a
+    // stale FAILURE duplicate followed by a SUCCESS for the same check
+    // would look "failed" here while the downstream sections see green.
+    const anyFailedCheck = [...checkByName(snapshot).values()]
+      .some((check) => checkState(check) === "failed");
+    if (!blockedByReview && anyFailedCheck) {
+      reasons.push(
+        "GitHub reports merge state BLOCKED because check(s) are failing; the failing-check evidence below decides repairability.",
+      );
+      nextActions.push(
+        "Repair the failing check(s) on the PR branch, add a regression test for any behavior change, re-run the failing check, and re-evaluate at the new head.",
+      );
+    } else {
+      reasons.push("GitHub reports merge state BLOCKED.");
+      nextActions.push("Read the blocking check or review state at the exact head and clear the underlying cause.");
+      demote("BLOCKED");
+    }
   } else if (mergeState === "UNKNOWN") {
     reasons.push("Merge state UNKNOWN — mergeability evidence is incomplete.");
     nextActions.push("Re-read mergeability at the exact head before any further decision.");
