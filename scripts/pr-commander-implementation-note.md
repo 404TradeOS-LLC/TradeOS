@@ -36,6 +36,29 @@ Commander composes existing pieces and rebuilds none of them.
   `authorization`, `permissions`, `jwt`, `oauth` paths; protected staging
   covers staging/reconcile/deploy workflow files plus `.env.staging` and
   `.env.production`.
+- `failedCheckNames(snapshot)` returns the names of the required checks
+  whose conclusion is `FAILURE` (or a timeout/cancelled/error result) —
+  names are read from `snapshot.checks` and are never invented by the
+  caller.
+- `isAiRepairEligible(input)` is a pure, fail-closed guard for the Phase 4
+  AI repair worker. Input: `{ files, isDraft, mergeable, mergeStateStatus,
+  failedChecks, unresolvedThreads, attempts, aiInvocations, sameRepo }`.
+  Returns `{ eligible, reasons[] }`. Eligible requires: the verdict is
+  addressable (a failing check or unresolved threads), not a draft, not
+  conflicting (`mergeable` false is a hard no), not behind (rebase first),
+  same-repo only, no protected file in `classifyPrFiles(files)`, attempts
+  < 3, and `aiInvocations` < 1 (at most one AI invocation per head).
+  Unknown input (anything that is not a plain object with the required
+  fields) is ineligible with a reason.
+- `buildAiRepairComment(input)` builds the single `@codex address that
+  feedback` invocation comment for a PR (failing check names, run URL,
+  head SHA, scope limits, prohibitions: no approve/merge/dismiss/resolve;
+  push to this PR branch only; migrations/auth/RLS/workflows/production
+  config off-limits; regression test required; chain-dependency clause:
+  if the failure is a chain dependency, say so and push nothing). The
+  caller posts it with `gh pr comment`; a failed post consumes no
+  attempt. The invocation is recorded as `ai-repair:<sha>:<n>` in the
+  verdict comment.
 - `nextRetryDelayMs(attempt)` is 1-based: attempt 1 → 60 s, 2 → 120 s,
   3 → 240 s, 4+ → null (escalate).
 - Verdict mapping: failing required check → `REPAIRABLE`;
@@ -172,7 +195,25 @@ object is `{ verdict, reasons[], nextActions[], founderItems[], headSha }`.
     `pr-commander:needs-founder` label, applied (armed runs only) when
     `founderItems` is non-empty. No email, no Resend, no external message
     anywhere in this code.
-14. **Do NOT bypass branch protection, merge drafts, self-approve, modify
+14. **AI-assisted repair worker (Phase 4)** — MET as a wiring change
+    (worker invocation), VALIDATION PENDING for the repair itself. The
+    armed `act` job invokes the already-installed ChatGPT Codex GitHub
+    app once per head when the deterministic tier did not push and no
+    rebase was dispatched (`isAiRepairEligible` + `buildAiRepairComment`
+    in `scripts/pr-commander-lib.mjs`; `@codex address that feedback`
+    comment). Codex's repair push in THIS repo is UNCONFIRMED until the
+    end-to-end validation observes it — zero Codex commits exist in this
+    repo, and whether Codex responds to a mention from
+    `github-actions[bot]` is unconfirmed. The invocation counts as one
+    of the 3 per-head repair attempts and is recorded as
+    `ai-repair:<sha>:<n>` in the verdict comment; a no-response is
+    recorded, never silently retried. The worker never approves, merges,
+    dismisses a review, or resolves a thread; the merge bar still decides
+    every merge. Copilot remains unavailable (0 seats, quota exhausted);
+    the Claude app has no repo wiring. No new variable, secret, or
+    permission was added — the AI tier rides on the existing armed
+    variables.
+15. **Do NOT bypass branch protection, merge drafts, self-approve, modify
     production, or spend money** — MET as hard guards in
     `evaluateGate`: draft → `BLOCKED`; any required check not green →
     never `MERGE_READY`; no self-approval path exists (there is no

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-11-10
+last_verified: 2026-11-11
 source_of_truth: true
 related_code:
   - .github/workflows/pr-commander.yml
@@ -9,6 +9,7 @@ related_code:
   - scripts/pr-commander-lib.mjs
   - scripts/__tests__/pr-commander-gate.test.mjs
   - scripts/__tests__/pr-commander-order.test.mjs
+  - scripts/__tests__/pr-commander-ai-repair.test.mjs
   - scripts/pr-commander-implementation-note.md
   - .github/workflows/verify-repository.yml
   - .github/workflows/merge-readiness.yml
@@ -54,7 +55,9 @@ it — see "Repair tiers" below), and the lint-autofix pattern comes from
   (via GraphQL — `gh pr view` does not expose them), changed files, and
   reviews.
 - A bounded repair loop: deterministic lint repair on the PR branch
-  (verified by unit tests + lint + build before any push), security
+  (verified by unit tests + lint + build before any push), an AI repair
+  worker that invokes the installed Codex app once per head for
+  REPAIRABLE PRs the deterministic tier could not fix, security
   findings surfaced as founder items and handled by the scheduled
   CodeQL Autofix run (no dispatch from this workflow), and one
   best-effort CodeRabbit re-review request after a repair push.
@@ -300,7 +303,34 @@ Actions tab stops schedule runs as well.
    own cadence. On-demand dispatch is still unwired: wiring it is a
    separate change, either a wider exception (a founder decision) or a
    `workflow_call` restructure of `codeql-autofix.yml`.
-4. **CodeRabbit re-review** — after a repair push, one best-effort request
+4. **AI repair worker (Codex)** — after the deterministic tier does not
+   push and no rebase was dispatched, the armed `act` job may invoke the
+   already-installed ChatGPT Codex GitHub app once per head on a
+   `REPAIRABLE` same-repo PR. The invocation is a single
+   `@codex address that feedback` comment (the trigger Codex's own review
+   receipt documents), built by `buildAiRepairComment` in
+   `scripts/pr-commander-lib.mjs`: the failing check names, the run link,
+   the unresolved-thread count, the scope limits (only the files the fix
+   needs; never migrations, auth, RLS, workflow files, or production
+   config; push to this PR's branch only), and the prohibitions (never
+   approve, merge, dismiss a review, or resolve a thread). Eligibility is
+   enforced by `isAiRepairEligible` in the same module: not a draft, not
+   conflicting, not behind (rebase first), no protected files in the PR
+   (fail-closed via `classifyPrFiles`), same-repo only, repair attempts
+   remain, no prior AI invocation on this head, and something to address
+   (a failing check or unresolved threads). One invocation counts as one
+   of the 3 per-head repair attempts and is recorded as
+   `ai-repair:<sha>:<n>` in the verdict comment. Codex works in its own
+   cloud environment; a push creates a new head, fresh CI runs, and the
+   Commander re-evaluates on its next run. The merge bar still decides
+   every merge — the worker cannot merge anything on its own.
+   **Validation status:** Codex's push to a PR branch in THIS repo is
+   UNCONFIRMED until the end-to-end validation run observes it (zero
+   Codex commits exist in this repo), as is whether Codex responds to a
+   mention from `github-actions[bot]`. A no-response is recorded by the
+   attempt counter, never silently retried. Do not claim the push works
+   until it is observed.
+5. **CodeRabbit re-review** — after a repair push, one best-effort request
    (`@coderabbitai review`, after a 60 s backoff). CodeRabbit also
    re-reviews automatically on push. Re-review is externally rate-limited:
    one best-effort request with backoff, never a retry loop.
@@ -309,15 +339,17 @@ Actions tab stops schedule runs as well.
 
 **Copilot Agent Merge is NOT available as a reliable delegation path, and
 nothing in the Commander depends on it.** Verified live 2026-11-10
-(overlap audit §3): the org has 0 Copilot seats, no billing source, and
-Copilot review quota failures on request; the Copilot code-review ruleset
-(19465256) is disabled; the two prior Copilot agent PRs (#695, #922) both
-closed unmerged (0-for-2). Copilot / Codex review is optional, best-effort,
-human-triggered only — usable only after a founder/owner step (assign at
-least one paid Copilot seat or set the org as the billing source for code
-review, and confirm quota). Until that step happens, the Commander must not
-depend on either. The delegation path above — deterministic repair, CodeQL
-Autofix, CodeRabbit re-review — is what demonstrably works in this repo.
+(overlap audit §3) and re-verified 2026-11-11: the org has 0 Copilot
+seats, no billing source, and Copilot review quota failures on request;
+the Copilot code-review ruleset (19465256) is disabled; the two prior
+Copilot agent PRs (#695, #922) both closed unmerged (0-for-2). The
+Claude GitHub app is installed org-wide but has no repo wiring and zero
+observed activity on TradeOS — it is not a path either. The AI repair
+worker delegates to Codex instead (see "Repair, in order" step 4): the
+Codex connector is installed on this repo and reviews PRs, but its
+repair push is UNCONFIRMED until the end-to-end validation observes it.
+Until that observation, the deterministic tier is the ceiling for
+verified repairs.
 
 ## Founder notification contract
 
@@ -383,7 +415,9 @@ trust-boundary changes.
   and escalated PRs.
 - **No state file in the repo** (churn/conflicts). The per-head
   repair-attempt counter lives in the verdict comment as
-  `repair-attempts:<sha>:<n>`.
+  `repair-attempts:<sha>:<n>`, and the per-head AI invocation counter
+  lives beside it as `ai-repair:<sha>:<n>` (at most one invocation per
+  head; a new head resets both).
 
 ## Activation checklist (Billy must complete before write mode)
 

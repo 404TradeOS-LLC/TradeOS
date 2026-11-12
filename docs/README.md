@@ -101,7 +101,9 @@ merged as PR #964) sweeps every open pull request hourly at :17 UTC,
 evaluates each against the unchanged merge bar (non-draft, four required
 checks green, current branch, zero unresolved threads, no standing change
 request, ADR-009 record where required), repairs what is deterministically
-repairable, requests CodeRabbit re-review, and enables native auto-merge
+repairable, invokes the installed Codex app once per head for REPAIRABLE
+PRs the deterministic tier could not fix (Phase 4 AI repair worker),
+requests CodeRabbit re-review, and enables native auto-merge
 only when every gate passes. It composes the existing
 verify/merge-readiness/pr-maintenance/CodeQL-autofix pieces and rebuilds none
 of them. It ships **dry-run by default**: `pull_request` runs can never act, and schedule runs can act only when BOTH repository variables are exactly `"true"` (`TRADEOS_PR_COMMANDER_WRITE_ENABLED` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED`); with either variable absent or not exactly `"true"`, scheduled runs are read-only. Exact `"true"` is enforced by a case-sensitive shell check at the top of the "Apply verdicts" step, before any write — the job `if:` compares strings case-insensitively and cannot enforce it alone. Write action additionally requires the repository
@@ -117,8 +119,10 @@ Commander never dismisses a blocking review, never undrafts a PR, never
 applies migrations or staging-apply gates, never touches production, and
 never changes a ruleset. Copilot Agent Merge is not available as a
 delegation path (0 org seats, quota failures, disabled review ruleset —
-verified 2026-11-10); the Commander delegates to deterministic repair,
-CodeQL Autofix, and CodeRabbit re-review. Setup, arming, dry-run
+verified 2026-11-10, re-verified 2026-11-11); the Commander delegates to deterministic repair,
+the Codex AI repair worker (once per head, gated by the existing armed
+variables — its repair push in this repo is UNCONFIRMED until the
+end-to-end validation observes it), CodeQL Autofix, and CodeRabbit re-review. Setup, arming, dry-run
 verification, and disable steps are in
 [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
 
