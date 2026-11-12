@@ -32,24 +32,6 @@ artifacts, and security validation — all passing in one run.
 
 ## Architecture
 
-### Saved Customer identity and navigation race (2026-10-30 UTC)
-
-Staging orchestrator run 41007794872 authenticated successfully and created a
-Customer (`POST /api/v1/customers` returned HTTP 201), but the browser capture
-mistook `/customers/new` for a successful detail URL because its old broad
-path regex matched `new`. It then attempted Project creation with customer ID
-`new` and timed out looking for the linked Customer. The corrected capture
-waits for `/customers/<uuid>` before reading the server-created identity,
-checks that the Project form carries that exact Customer ID without changing
-selection, and verifies the persisted Project matches. A generic Customer
-selector and a hidden server-resolved Customer context both remain valid only
-when the ID agrees; S052 additionally requires its stricter resolved context.
-
-This is a focused harness correction. It does not certify the staging browser
-run, change live CRM behavior, or authorize production changes. Re-run the
-protected canonical four-viewport evidence to prove the next checkpoint.
-
-
 ### Progressive Items entry compatibility (2026-10-17 UTC)
 
 After selecting Items, the canonical runner opens the Custom item disclosure before filling its existing synthetic lines. The shared `openEstimateCustomEntry` interaction is also exercised by the four-width isolated Items browser regression, retains an already-open panel, and supports older workbenches whose editor is directly visible. This only reconciles UI navigation; record writes, expected saved amounts, auth/data-plane guards and mutation opt-in remain unchanged. The isolated test is not a successful full authenticated Beta Evidence run.
@@ -206,6 +188,11 @@ that exact tenant-scoped Customer id. This exercises the shipped
 Customer → Project continuity contract directly; it does not depend on the
 Customer also appearing in a generic selector or on list ordering.
 
+After "Create project" the app redirects straight to the new project detail
+page (`/projects/<uuid>`); the project list is never visited. The capture
+script therefore waits for that UUID detail route — not the list URL — and
+takes the project id from the URL, exactly as the customer step does.
+
 Customer email addresses use the `example.invalid` reserved domain so no mail
 can ever be delivered.
 
@@ -219,6 +206,16 @@ Storage state is generated at runtime, not stored:
 4. assert the session is not bounced back to `/login`;
 5. assert the session is scoped to the expected smoke organization;
 6. write storage state to a path outside the repository, `chmod 600`.
+
+Before filling, the script waits (up to 30 s) for the login film to open and
+then dismiss: the CinematicIntro film holds the form's `.entry-content`
+wrapper `inert` while it plays, and filling while inert never lands in React
+state, so the submit is blocked by client-side validation. A pre-navigation
+observer records the `inert` transition even when the film has already
+dismissed by the time navigation reports network idle. The readiness wait
+requires this recorded completion and a non-inert form; a bare "not inert"
+check could pass before hydration. With prefers-reduced-motion the film never
+opens and the wait proceeds when the form exists.
 
 A successful redirect to `/finish-setup` is treated as a provisioning failure,
 not an authentication success — it means the identity has no organization yet.
@@ -443,6 +440,15 @@ beta-evidence/
 Retained for 30 days. Before upload, the bundle is scanned for cookie jars,
 Supabase auth tokens, TradeOS session cookies, and bearer tokens; a match fails
 the run rather than publishing the artifact.
+
+On a login timeout, `auth-setup.mjs` additionally captures
+`auth/login-failure.png`, `auth/login-failure.txt` (page URL + visible body
+text), and `auth/login-failure-diagnostics.json` (URL, body text, the inline
+`.server-error` text, console errors, and failed requests collected during the
+login attempt), and records the summary as `loginFailureDiagnostics` in
+`auth-setup-report.json`. The capture is best-effort and carries no credential
+material: `innerText` excludes field values and password inputs render masked
+in the screenshot.
 
 `metadata.json` records repository, commit, branch, preview URL, environment,
 deployment SHA correlation, workflow, smoke tenant, viewports, timestamps, and

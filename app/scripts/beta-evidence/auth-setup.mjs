@@ -15,6 +15,7 @@ import { assertApprovedRcUrl } from "./lib/rc-target.mjs";
 import { assertStorageStatePathOutsideRepo } from "./lib/storage-state-path.mjs";
 import { assertCostbookEvidenceIdentity } from "./lib/costbook-identity.mjs";
 import { assertAuthenticatedSmokeTenant } from "./lib/tenant-identity.mjs";
+import { captureLoginFailureDiagnostics } from "./lib/login-failure-diagnostics.mjs";
 
 const baseUrlInput = process.env.BETA_RC_BASE_URL_RESOLVED;
 const email = process.env.BETA_SMOKE_EMAIL;
@@ -90,16 +91,78 @@ try {
   );
 }
 let failure = null;
+let loginFailureDiagnostics = null;
 
 try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
 
+  // Collectors for login-failure diagnostics (same shape as
+  // capture-evidence.mjs): a bare timeout cannot tell a rejected login
+  // from a swallowed submit, so console errors and failed requests are
+  // gathered from the start of the login attempt.
+  const consoleErrors = [];
+  const failedRequests = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("requestfailed", (request) => {
+    const requestFailure = request.failure();
+    const requestUrl = new URL(request.url());
+    // Next.js and the browser can cancel stale same-origin navigations or
+    // mutation fetches while a newer route transition wins. These are expected
+    // browser cancellations, not failed product requests; keep real transport
+    // failures fail-closed.
+    if (
+      requestFailure?.errorText === "net::ERR_ABORTED" &&
+      requestUrl.origin === parsedBaseUrl.origin
+    ) {
+      return;
+    }
+    failedRequests.push(`${request.method()} ${request.url()}`);
+  });
+
   // 1. Real login through the shipped form.
+  // Watch the intro state from the start of navigation, not after networkidle.
+  // On a fast load, inert can appear and disappear before a late page-side
+  // wait starts. This observer remembers that full transition without
+  // depending on a fixed animation delay or changing the shipped login UI.
+  await page.addInitScript(() => {
+    const noteIntroState = () => {
+      const entry = document.querySelector(".entry-content");
+      if (!entry) return;
+      if (entry.hasAttribute("inert")) {
+        window.__tradeosLoginFilmSeen = true;
+      } else if (window.__tradeosLoginFilmSeen === true) {
+        window.__tradeosLoginFilmFinished = true;
+      }
+    };
+    new MutationObserver(noteIntroState).observe(document, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["inert"],
+    });
+    noteIntroState();
+  });
   await page.goto(new URL("/login", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
   if (new URL(page.url()).origin !== parsedBaseUrl.origin) {
     throw new Error("Login navigation left the approved RC origin before credentials were entered.");
   }
+  // Do not fill during the film or in the pre-hydration SSR gap.
+  // The init script remembers a finished film even when navigation reaches
+  // networkidle after the intro has already dismissed. Reduced-motion
+  // sessions have no film and are permitted once the form exists.
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector(".entry-content");
+      if (!el || el.hasAttribute("inert")) return false;
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+      return window.__tradeosLoginFilmFinished === true;
+    },
+    undefined,
+    { timeout: 30_000 },
+  );
   await page.locator('[name="email"]').fill(email);
   await page.locator('[name="password"]').fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -107,11 +170,18 @@ try {
   // The app redirects to /dashboard on success and to /finish-setup when the
   // account has no organization yet — the latter is a provisioning problem, not
   // an authentication success, so it is reported distinctly.
-  await page.waitForURL(/\/(dashboard|finish-setup)(?:\?|$)/, { timeout: 60_000 }).catch(() => {
+  try {
+    await page.waitForURL(/\/(dashboard|finish-setup)(?:\?|$)/, { timeout: 60_000 });
+  } catch {
+    loginFailureDiagnostics = await captureLoginFailureDiagnostics(page, outDir, {
+      consoleErrors,
+      failedRequests,
+    });
     throw new Error(
-      "Login did not reach an authenticated route within 60s. Check the RC smoke credentials and that the deployment is reachable.",
+      "Login did not reach an authenticated route within 60s. Check the RC smoke credentials and that the deployment is reachable. " +
+        "Failure diagnostics captured under auth/ (see auth-setup-report.json).",
     );
-  });
+  }
 
   const landedPath = new URL(page.url()).pathname;
   if (landedPath === "/finish-setup") {
@@ -202,6 +272,11 @@ try {
         smokeIdentity: email.replace(/^(.).*(@.*)$/, "$1***$2"),
         expectedOrganization: expectedOrg,
         expectedOrganizationId: expectedOrgId ?? null,
+        // Present only when the login wait timed out: the captured page
+        // text, server-error text, console errors, failed requests, and
+        // artifact paths that distinguish a rejected login from a
+        // swallowed submit. Carries no credential material.
+        ...(loginFailureDiagnostics ? { loginFailureDiagnostics } : {}),
         steps,
         result: failure ? "FAIL" : "PASS",
       },

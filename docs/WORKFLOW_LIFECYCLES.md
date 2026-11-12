@@ -20,7 +20,7 @@ related_code:
 
 ## PDF logo loading does not change commercial state
 
-Invoice, contract and proposal PDF generation may add the authenticated organization's stored PNG/JPEG logo after bounded private Storage validation. This affects only document display and retains all estimate/proposal/contract/invoice workflow states, pricing, acceptance, signatures, payment and authorization behavior. Invalid/missing images fall back safely, and no external URL is accessed. Staging acceptance under issue #870 still requires a seeded same-tenant logo, protected staging credential provenance, and visual PDF inspection.
+Invoice, contract and proposal PDF generation may add the authenticated organization's stored PNG/JPEG logo after bounded private Storage validation. This affects only document display and retains all estimate/proposal/contract/invoice workflow states, pricing, acceptance, signatures, payment and authorization behavior. Invalid/missing images fall back safely, and no external URL is accessed.
 
 ## Tenant PDF logo rendering lifecycle boundary
 

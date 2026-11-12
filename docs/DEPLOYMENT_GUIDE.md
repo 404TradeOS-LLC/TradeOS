@@ -596,3 +596,12 @@ The RC authentication runner uses the visible account control: below the 1536px
 desktop breakpoint it opens the Control Dock More menu before Sign out. It
 still requires redirect to login and denial of a subsequent protected request.
 Database readiness alone does not certify this lifecycle.
+
+## Staging public configuration evidence
+
+The proposed `GET /api/staging-runtime-identity` web endpoint exposes only
+validated public binding metadata on Vercel Preview builds of branch `staging`.
+It returns 404 elsewhere and sanitized 503 on missing/mismatched configuration.
+Correlate its commit/project/backend fields with Vercel metadata and API health
+and readiness. It cannot certify service-role keys, JWT secrets or tenant access.
+See [runtime parity and the protected release sequence](operations/staging-runtime-parity.md).

@@ -1,0 +1,1053 @@
+# PR Commander — autonomous pull-request coordinator (dry-run by default)
+#
+# Purpose
+# -------
+# Sweep every open PR, evaluate it against the merge bar, repair what is
+# deterministically repairable, request independent re-review, and enable
+# auto-merge only when every gate passes — with a durable verdict record per
+# PR. The Commander COMPOSES existing pieces; it does not rebuild them:
+#   - Required checks: read from verify-repository.yml (never re-implemented).
+#   - Readiness signal: merge-readiness.yml (extended here with threads,
+#     branch currency, ADR-009, and file classification).
+#   - Rebase: the `act` job dispatches pr-maintenance.yml for REPAIRABLE
+#     behind-branch verdicts (never custom force-push logic). Requires the
+#     founder policy exception for `actions: write` (see the `act` job)
+#     and PR #965's numeric-input fix in pr-maintenance.yml.
+#   - Branch currency signal: stale-pr-check.yml (read, not duplicated).
+#   - ESLint autofix pattern: code-quality-autofix.yml (fix -> verify ->
+#     push), extended here to per-PR scope.
+#   - Security fixes: codeql-autofix.yml (scheduled run every 2h, never
+#     re-implemented and never dispatched from here — see below).
+#   - Merge queue: merge-queue.yml / scripts/merge-queue.mjs eligibility
+#     policy is the queue path; this workflow uses native auto-merge
+#     (`gh pr merge --auto --squash`) and never assumes the native queue is
+#     live (the queue ruleset was never applied; see the overlap audit).
+#
+# Arming (dry-run by default)
+# ----------------------------
+# This workflow runs in read-only audit + dry-run mode UNLESS it is explicitly
+# armed. Arming requires BOTH:
+#   1. the repository variable TRADEOS_PR_COMMANDER_WRITE_ENABLED == "true"
+#      (exactly "true"; absent or anything else is dry-run), AND
+#   2. a workflow_dispatch with mode=armed.
+# Schedule and pull_request runs can never act, even if the variable is set.
+# NO agent enables the variable — Billy enables it only after reviewing this
+# configuration. The dry-run path PROVES the gates work: it emits the verdict
+# + plan (artifact JSON + run summary) and takes no write action. Every write
+# call in job `act` is behind a single gate (see the `act` job `if:`), and the
+# CLI/library gate `isArmed()` is consulted before every write there.
+# In dry-run, the verdict comment is NOT written either: the comment body is
+# rendered into the artifact + summary as "would post/update verdict comment".
+#
+# Delegation path (requirement 3; per the 2026-11-10 overlap audit)
+# ------------------------------------------------------------------
+#   1. Deterministic repair first, in Actions: lint autofix on the PR branch
+#      (the code-quality-autofix pattern), verified by re-running the failing
+#      check + regression tests before any push. Repair pushes use real
+#      `git push` from the runner — never the REST git-data API, because
+#      API-pushed commits emit no push event and never trigger pull_request CI.
+#   2. CodeQL Autofix for security findings: delegated to the existing
+#      codeql-autofix.yml SCHEDULED run (every 2h), never re-implemented
+#      here. The Commander does NOT dispatch that workflow itself: the
+#      founder policy exception for `actions: write` (2026-11-10) covers
+#      the pr-maintenance dispatch only, so the CodeQL on-demand dispatch
+#      is still unwired (a separate change). Security findings are
+#      surfaced as founder items in the verdict comment, and the scheduled
+#      CodeQL Autofix run picks them up on its own cadence.
+#   3. CodeRabbit re-review after repair pushes (it is the reviewer of
+#      record). Re-review is externally rate-limited: one best-effort request
+#      with backoff, never a retry loop.
+#   4. AI repair worker (Phase 4): after the deterministic tier
+#      does not push and no rebase was dispatched, the armed `act` job may
+#      invoke the already-installed ChatGPT Codex GitHub app once per head
+#      with a `@codex address that feedback` comment on a REPAIRABLE
+#      same-repo PR with no protected files (see `isAiRepairEligible` in
+#      scripts/pr-commander-lib.mjs). Codex works in its own cloud
+#      environment and pushes the fix to the PR branch; the Commander
+#      re-evaluates the new head on its next run. One invocation per head,
+#      counted as one of the 3 repair attempts. The live head is re-checked
+#      immediately before posting (a moved head skips the invocation
+#      without consuming an attempt), and the attempt is reserved in the
+#      verdict comment before the post — the invocation posts only if
+#      that reservation write succeeds, and a failed post keeps the
+#      reservation. The worker never approves,
+#      merges, dismisses a review, or resolves a thread, and the merge bar
+#      still decides every merge. Codex's push to a PR branch in THIS repo
+#      is UNCONFIRMED until the end-to-end validation observes it (zero
+#      Codex commits exist in this repo), as is whether Codex responds to
+#      a mention from github-actions[bot] — a no-response is recorded by
+#      the attempt counter, never silently retried.
+#   5. Copilot Agent Merge is NOT available (org has 0 Copilot seats, no
+#      billing source, quota failures on review) — nothing here depends on it.
+#      Copilot review is optional, best-effort, human-triggered only.
+#
+# Triggers and concurrency
+# -------------------------
+#   - schedule hourly at :17 UTC: frequent enough to keep the queue moving
+#     (a full sweep is ~19 PRs, read-only), sparse enough to bound API and
+#     runner usage; the pull_request fast path covers immediacy, so the sweep
+#     does not need the merge-queue's 15-minute cadence.
+#   - workflow_dispatch with pr_number (0 = all) and mode
+#     (audit | dry-run | armed; default dry-run). `audit` is read-only even
+#     when the variable is set.
+#   - pull_request (opened / synchronize / reopened): fast path on the
+#     changed PR only, read-only.
+#   - Concurrency: per-PR groups (`pr-commander-pr-<n>`) on the evaluate
+#     job, a matrix max-parallel of 4 as the global evaluation cap (bounds
+#     concurrent API + runner use while a ~19-PR sweep finishes in a few
+#     minutes), and a single global `pr-commander-act` group serializing all
+#     write actions — merge actions must be serialized in dependency order.
+#
+# Verdicts (scripts/pr-commander-lib.mjs — evaluateGate, single source of truth)
+# -------------------------------------------------------------------------------
+#   MERGE_READY       all gates pass, run armed.
+#   DRY_RUN_ONLY      all gates pass, run not armed (nothing may be merged).
+#   REPAIRABLE        failing check, unresolved threads, or behind branch.
+#   BLOCKED           draft, conflict, missing/pending required checks,
+#                     standing CHANGES_REQUESTED, ADR-009 required but absent,
+#                     or a protected change needing a founder decision.
+#   BLOCKED_ESCALATED repair attempts exhausted (3 per head); stop.
+# A verdict always stands on one exact head SHA. Before any write, job `act`
+# re-reads the snapshot at the exact head and re-evaluates; a moved head or a
+# changed verdict stops that PR with no action.
+#
+# Audit trail (requirement 12)
+# -----------------------------
+#   - One workflow artifact per evaluated PR, `pr-commander-verdict-<n>`
+#     (JSON per PR per run: snapshot + verdict + evidence links + plan).
+#     Per-PR names are required: upload-artifact v4 cannot upload to the
+#     same artifact name from multiple matrix jobs (conflict error).
+#   - One Commander verdict comment per PR, updated in place, marked
+#     `<!-- tradeos-pr-commander -->` (armed runs only; see Arming above).
+#   - Run summary aggregating every verdict.
+#   - NO state file in the repo (churn/conflicts). The per-head repair-attempt
+#     counter lives in the verdict comment as `repair-attempts:<sha>:<n>`.
+#
+# What this workflow NEVER does (hard guards, encoded in the gate evaluator)
+# ---------------------------------------------------------------------------
+#   - Never bypasses branch protection, never merges a draft, never
+#     self-approves (there is no `gh pr review --approve` anywhere here),
+#     never touches production, never spends money.
+#   - Never dismisses a blocking review: there is NO dismissal path in this
+#     workflow or in the library. A standing CHANGES_REQUESTED (including a
+#     stale CodeRabbit review on a superseded head) is surfaced as a founder
+#     item with the `pr-commander:needs-founder` label.
+#   - Never auto-resolves review threads in v1: no `resolveReviewThread`
+#     call exists here. Threads resolve only after a verified correction on
+#     the current head, by the author/review flow — the thread-to-fix mapping
+#     is not established, and resolving without it would violate the
+#     "verified correction" condition. See the implementation note.
+#   - Never applies migrations, never changes RLS/auth on its own authority,
+#     never dispatches staging-apply or migration jobs. Migration / RLS /
+#     auth / protected-staging files are founder items.
+#   - Never assumes missing CI is green: a DIRTY/CONFLICTING branch gets NO
+#     pull_request workflow runs at all (#918 lesson), so conflicts are
+#     BLOCKED and routed to human resolution.
+#   - No `pull_request_target`, no `write-all`, least-privilege permissions,
+#     SHA-pinned actions, no untrusted interpolation. Works WITH live ruleset
+#     18958081; it never creates, edits, enables, or disables a ruleset.
+#
+# Founder notification (requirement 13): in-repo only — the verdict comment
+# plus the `pr-commander:needs-founder` label. No email, no Resend, no
+# external message of any kind.
+name: PR Commander
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number, or 0 to inspect all open PRs
+        required: false
+        default: 0
+        type: number
+      mode:
+        description: Run mode (audit and dry-run take no write action)
+        required: false
+        default: dry-run
+        type: choice
+        options:
+          - audit
+          - dry-run
+          - armed
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+  actions: read
+
+jobs:
+  discover:
+    name: Discover PRs to evaluate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      prs: ${{ steps.list.outputs.prs }}
+      mode: ${{ steps.list.outputs.mode }}
+      armed: ${{ steps.list.outputs.armed }}
+      effective_armed: ${{ steps.list.outputs.effective_armed }}
+    steps:
+      - name: Resolve mode, arming, and PR list (read-only)
+        id: list
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_PR: ${{ github.event.pull_request.number }}
+          DISPATCH_PR: ${{ inputs.pr_number }}
+          DISPATCH_MODE: ${{ inputs.mode }}
+          VAR_ARMED: ${{ vars.TRADEOS_PR_COMMANDER_WRITE_ENABLED == 'true' }}
+          VAR_UNATTENDED: ${{ vars.TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED == 'true' }}
+        run: |
+          set -euo pipefail
+          mode="${DISPATCH_MODE:-dry-run}"
+          if [ "$EVENT_NAME" = "schedule" ] && [ "$VAR_ARMED" = "true" ] && [ "$VAR_UNATTENDED" = "true" ]; then
+            mode="armed"
+          fi
+          if [ "$mode" != "audit" ] && [ "$mode" != "dry-run" ] && [ "$mode" != "armed" ]; then
+            echo "Unknown mode: $mode" >&2
+            exit 1
+          fi
+          # Manual dispatch requires armed mode and the write variable.
+          # Scheduled writes additionally require unattended opt-in; PR events never write.
+          effective_armed="false"
+          if [ "$VAR_ARMED" = "true" ] && [ "$mode" = "armed" ] && { [ "$EVENT_NAME" = "workflow_dispatch" ] || { [ "$EVENT_NAME" = "schedule" ] && [ "$VAR_UNATTENDED" = "true" ]; }; }; then
+            effective_armed="true"
+          fi
+          {
+            echo "mode=$mode"
+            echo "armed=$VAR_ARMED"
+            echo "effective_armed=$effective_armed"
+          } >> "$GITHUB_OUTPUT"
+          echo "Mode: $mode; variable armed: $VAR_ARMED; effectively armed: $effective_armed"
+          if [ -n "${EVENT_PR:-}" ]; then
+            prs=$(jq -cn --argjson n "$EVENT_PR" '[$n]')
+          elif [ "${DISPATCH_PR:-0}" != "0" ]; then
+            state=$(gh pr view "$DISPATCH_PR" --repo "$GITHUB_REPOSITORY" --json state --jq .state)
+            if [ "$state" != "OPEN" ]; then
+              echo "PR #$DISPATCH_PR is not open (state: $state); nothing to evaluate."
+              prs="[]"
+            else
+              prs=$(jq -cn --argjson n "$DISPATCH_PR" '[$n]')
+            fi
+          else
+            prs=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 50 --json number --jq '[.[].number] | sort')
+          fi
+          echo "prs=$prs" >> "$GITHUB_OUTPUT"
+          echo "PRs to evaluate: $prs"
+
+  evaluate:
+    name: Evaluate PR
+    needs: discover
+    if: needs.discover.outputs.prs != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        pr: ${{ fromJSON(needs.discover.outputs.prs) }}
+    concurrency:
+      group: pr-commander-pr-${{ matrix.pr }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout main (never a PR head)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "20"
+
+      - name: Build exact-head snapshot (read-only)
+        id: snapshot
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ matrix.pr }}
+        run: |
+          # $owner/$name/$number in the GraphQL query are GraphQL variables, not shell expansions.
+          set -euo pipefail
+          mkdir -p verdicts
+          # Exact-head snapshot: head SHA, mergeability, review decision,
+          # required-check rollup, changed files, reviews. Review threads come
+          # from GraphQL — `gh pr view` does not expose them.
+          gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json \
+            number,isDraft,mergeStateStatus,mergeable,reviewDecision,headRefOid,baseRefName,headRefName,files,reviews,statusCheckRollup \
+            > snapshot.json
+          owner="${GITHUB_REPOSITORY%%/*}"
+          repo="${GITHUB_REPOSITORY##*/}"
+          # $owner/$name/$number are GraphQL variables (and $threads in the jq filter is jq code), not shell expansions.
+          # shellcheck disable=SC2016
+          threads=$(gh api graphql \
+            -F owner="$owner" -F name="$repo" -F number="$PR_NUMBER" \
+            -f query='query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewThreads(first: 100) { nodes { isResolved } pageInfo { hasNextPage } } } } }' \
+            --jq '.data.repository.pullRequest.reviewThreads')
+          if [ "$(echo "$threads" | jq -r '.pageInfo.hasNextPage')" != "false" ]; then
+            echo "::error::Review-thread evidence is paginated/incomplete for PR #$PR_NUMBER; refusing to evaluate on partial evidence."
+            exit 1
+          fi
+          jq --argjson threads "$threads" '. + {reviewThreads: $threads}' snapshot.json > snapshot.tmp
+          mv snapshot.tmp snapshot.json
+          head_sha=$(jq -r '.headRefOid' snapshot.json)
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+          # Per-head repair-attempt counter, carried by the verdict comment
+          # (no state file in the repo). A new head resets the counter.
+          # Match both logins: `gh pr view` (GraphQL) reports the bot as
+          # `github-actions`, while the REST API reports
+          # `github-actions[bot]` — filtering on either alone misses the
+          # stored count and the per-head cap can never trigger.
+          gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json comments \
+            --jq '.comments[]? | select(.author.login == "github-actions" or .author.login == "github-actions[bot]") | .body' > comments.txt || true
+          attempts=$(grep -o "repair-attempts:${head_sha}:[0-9]*" comments.txt | tail -n 1 | cut -d: -f3 || true)
+          echo "attempts=${attempts:-0}" >> "$GITHUB_OUTPUT"
+          echo "PR #$PR_NUMBER head $head_sha, repair attempts on this head: ${attempts:-0}"
+
+      - name: Evaluate gate and print the dry-run plan
+        shell: bash
+        env:
+          PR_NUMBER: ${{ matrix.pr }}
+          MODE: ${{ needs.discover.outputs.mode }}
+          ATTEMPTS: ${{ steps.snapshot.outputs.attempts }}
+        run: |
+          set -euo pipefail
+          # Bootstrap: until #964 merges, the scripts do not exist on main.
+          # Fail fast with a clear message instead of a module error.
+          if [ ! -f scripts/pr-commander.mjs ]; then
+            echo "::error::scripts/pr-commander.mjs is not on main yet — the Commander bootstrap requires #964 to be merged before evaluate can run."
+            exit 1
+          fi
+          # The evaluate job is ALWAYS dry-run evaluation: armed=false here.
+          # Job `act` re-evaluates with armed=true before any write.
+          node scripts/pr-commander.mjs --snapshot snapshot.json --mode "$MODE" --attempts "$ATTEMPTS"
+
+      - name: Write verdict artifact JSON
+        shell: bash
+        env:
+          PR_NUMBER: ${{ matrix.pr }}
+          MODE: ${{ needs.discover.outputs.mode }}
+          ATTEMPTS: ${{ steps.snapshot.outputs.attempts }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          node --input-type=module -e "
+            import fs from 'node:fs';
+            import { evaluateGate, normalizeSnapshot } from './scripts/pr-commander-lib.mjs';
+            const raw = JSON.parse(fs.readFileSync('snapshot.json', 'utf8'));
+            raw.attempts = Number(process.env.ATTEMPTS || 0);
+            // Normalize first: the raw gh pr view payload carries
+            // 'statusCheckRollup', not 'checks' — evaluateGate on the raw
+            // shape reads zero checks and mis-evaluates every PR as
+            // BLOCKED on missing required-check evidence.
+            const snapshot = normalizeSnapshot(raw);
+            const verdict = evaluateGate(snapshot, { armed: false });
+            const record = {
+              pr: snapshot.number,
+              headSha: verdict.headSha,
+              verdict: verdict.verdict,
+              reasons: verdict.reasons,
+              nextActions: verdict.nextActions,
+              founderItems: verdict.founderItems,
+              attempts: snapshot.attempts,
+              mode: process.env.MODE,
+              armed: false,
+              evidence: {
+                run: process.env.RUN_URL,
+                checks: 'https://github.com/' + process.env.GITHUB_REPOSITORY + '/pull/' + snapshot.number + '/checks',
+                pr: 'https://github.com/' + process.env.GITHUB_REPOSITORY + '/pull/' + snapshot.number,
+              },
+              snapshot,
+            };
+            fs.mkdirSync('verdicts', { recursive: true });
+            fs.writeFileSync('verdicts/pr-' + snapshot.number + '.json', JSON.stringify(record, null, 2));
+            console.log('Verdict for PR #' + snapshot.number + ': ' + verdict.verdict + ' at ' + verdict.headSha);
+          "
+
+      - name: Upload verdict artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pr-commander-verdict-${{ matrix.pr }}
+          path: verdicts/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Summarize verdict
+        shell: bash
+        env:
+          PR_NUMBER: ${{ matrix.pr }}
+        run: |
+          set -euo pipefail
+          verdict=$(jq -r '.verdict' "verdicts/pr-$PR_NUMBER.json")
+          head_sha=$(jq -r '.headSha' "verdicts/pr-$PR_NUMBER.json")
+          {
+            echo "### PR #$PR_NUMBER — $verdict"
+            echo ""
+            echo "- Head: \`$head_sha\`"
+            echo "- Reasons:"
+            jq -r '.reasons[] | "- \(.)"' "verdicts/pr-$PR_NUMBER.json"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  report:
+    name: Aggregate verdicts
+    needs: [discover, evaluate]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ready_prs: ${{ steps.aggregate.outputs.ready_prs }}
+      founder_prs: ${{ steps.aggregate.outputs.founder_prs }}
+      escalated_prs: ${{ steps.aggregate.outputs.escalated_prs }}
+    steps:
+      - name: Checkout main (never a PR head)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "20"
+
+      - name: Download verdict artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Per-PR artifact names (upload-artifact v4 forbids two jobs
+          # uploading the same name in one run). `gh run download
+          # --pattern` extracts each artifact under its own subdirectory
+          # (verdicts/pr-commander-verdict-<n>/pr-<n>.json), or directly
+          # under verdicts/ when only one matches — flatten either layout
+          # so the aggregate step reads verdicts/pr-<n>.json.
+          if gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --pattern 'pr-commander-verdict-*' --dir verdicts; then
+            find verdicts -mindepth 2 -name 'pr-*.json' -exec mv -t verdicts/ {} + 2>/dev/null || true
+            find verdicts -mindepth 1 -type d -empty -delete 2>/dev/null || true
+            echo "Downloaded $(find verdicts -name '*.json' -type f 2>/dev/null | wc -l) verdict file(s)."
+          else
+            echo "No verdict artifacts for this run (no PRs, or evaluation failed before upload)."
+            mkdir -p verdicts
+          fi
+
+      - name: Aggregate verdicts, order merges, write summary
+        id: aggregate
+        shell: bash
+        env:
+          MODE: ${{ needs.discover.outputs.mode }}
+          EFFECTIVE_ARMED: ${{ needs.discover.outputs.effective_armed }}
+        run: |
+          set -euo pipefail
+          # aggregate.mjs lives in $RUNNER_TEMP, so its relative import
+          # "./scripts/pr-commander-lib.mjs" resolves under $RUNNER_TEMP.
+          # Copy the library next to it. (Bootstrap: until #964 merges,
+          # scripts/ does not exist on main and this copy fails with a
+          # clear message instead of a confusing module error.)
+          mkdir -p "$RUNNER_TEMP/scripts"
+          cp scripts/pr-commander-lib.mjs "$RUNNER_TEMP/scripts/pr-commander-lib.mjs" \
+            || { echo "::error::scripts/pr-commander-lib.mjs is not on main yet — the Commander bootstrap requires #964 to be merged before evaluate/aggregate can run."; exit 1; }
+          cat > "$RUNNER_TEMP/aggregate.mjs" <<'EOF'
+            import fs from "node:fs";
+            import { detectStacks, orderMerges } from "./scripts/pr-commander-lib.mjs";
+            const dir = "verdicts";
+            const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith(".json")) : [];
+            const records = files.map((f) => JSON.parse(fs.readFileSync(`${dir}/${f}`, "utf8")));
+            records.sort((a, b) => a.pr - b.pr);
+            const byVerdict = (v) => records.filter((r) => r.verdict === v);
+            const ready = byVerdict("DRY_RUN_ONLY").map((r) => r.snapshot);
+            const founder = records.filter((r) => r.founderItems.length > 0);
+            const escalated = byVerdict("BLOCKED_ESCALATED");
+            let orderedReady = [];
+            let cycleError = null;
+            try {
+              orderedReady = orderMerges(ready);
+            } catch (error) {
+              cycleError = error.message;
+            }
+            const stacks = detectStacks(records.map((r) => r.snapshot));
+            const lines = [];
+            lines.push("# PR Commander verdicts");
+            lines.push("");
+            lines.push(`Mode: ${process.env.MODE}; effectively armed: ${process.env.EFFECTIVE_ARMED}.`);
+            lines.push(`Evaluated: ${records.length} PR(s).`);
+            lines.push("");
+            lines.push("| PR | Verdict | Head |");
+            lines.push("| --- | --- | --- |");
+            for (const r of records) lines.push(`| #${r.pr} | ${r.verdict} | \`${r.headSha ?? "unknown"}\` |`);
+            lines.push("");
+            if (stacks.length > 0) {
+              lines.push("## Stacked PRs (merge base-first)");
+              for (const stack of stacks) {
+                lines.push(`- ${stack.map((p) => `#${p.number}`).join(" -> ")}`);
+              }
+              lines.push("");
+            }
+            if (cycleError) {
+              lines.push(`## Dependency cycle — NO merges from the cyclic set`);
+              lines.push("");
+              lines.push(cycleError);
+              lines.push("");
+            } else if (orderedReady.length > 0) {
+              lines.push("## Merge order (dependency-safe, base-first)");
+              lines.push("");
+              lines.push(orderedReady.map((p) => `#${p.number}`).join(" -> "));
+              lines.push("");
+              lines.push("Dry-run: auto-merge is NOT enabled for these PRs in this run.");
+              lines.push("");
+            }
+            if (founder.length > 0) {
+              lines.push("## Founder items (need Billy's word)");
+              for (const r of founder) for (const item of r.founderItems) lines.push(`- ${item}`);
+              lines.push("");
+            }
+            if (escalated.length > 0) {
+              lines.push("## Escalated (repair attempts exhausted)");
+              for (const r of escalated) lines.push(`- #${r.pr} at \`${r.headSha}\``);
+              lines.push("");
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
+            const out = process.env.GITHUB_OUTPUT;
+            const write = (k, v) => fs.appendFileSync(out, `${k}=${v}\n`);
+            write("ready_prs", JSON.stringify(cycleError ? [] : orderedReady.map((p) => p.number)));
+            write("founder_prs", JSON.stringify(founder.map((r) => r.pr)));
+            write("escalated_prs", JSON.stringify(escalated.map((r) => r.pr)));
+            console.log(`Aggregated ${records.length} verdict(s); ready (ordered): ${orderedReady.map((p) => p.number).join(", ") || "none"}.`);
+            if (cycleError) console.log(`Cycle detected: ${cycleError}`);
+          EOF
+          node "$RUNNER_TEMP/aggregate.mjs"
+
+  act:
+    name: Apply verdicts (armed only)
+    needs: report
+    # The sole write-job gate: manual armed dispatch OR a scheduled run with
+    # BOTH repository opt-in variables. pull_request events cannot satisfy it.
+    # All protected gates and exact-head rechecks remain in the act job.
+    if: >-
+      vars.TRADEOS_PR_COMMANDER_WRITE_ENABLED == 'true' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.mode == 'armed') ||
+       (github.event_name == 'schedule' && vars.TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED == 'true'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      checks: read
+      # `actions: write` covers dispatching pr-maintenance.yml for
+      # REPAIRABLE behind-branch verdicts (and only that dispatch; the
+      # CodeQL on-demand dispatch remains unwired — see the
+      # security-findings note below). Policy exception granted by the
+      # founder (Billy, 2026-11-10, "Policy exceprion"): the repository
+      # workflow-security policy otherwise prohibits `actions: write`.
+      # Scope: this job only, dispatch of pr-maintenance.yml only. Any
+      # wider use needs a new founder decision.
+      actions: write
+    concurrency:
+      group: pr-commander-act
+      cancel-in-progress: false
+    steps:
+      - name: Checkout main (repair pushes need credentials)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          # Dedicated founder-provisioned token is required for repair pushes:
+          # GitHub's default token does not trigger pull_request CI on push.
+          # When absent, checkout can read main but persists NO git credentials,
+          # and the repair branch below is skipped.
+          token: ${{ secrets.TRADEOS_PR_COMMANDER_PUSH_TOKEN || github.token }}
+          persist-credentials: ${{ secrets.TRADEOS_PR_COMMANDER_PUSH_TOKEN != '' }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "20"
+
+      - name: Download verdict artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --pattern 'pr-commander-verdict-*' --dir verdicts
+          # Same flatten as the report job: `gh run download --pattern`
+          # extracts each artifact under its own subdirectory.
+          find verdicts -mindepth 2 -name 'pr-*.json' -exec mv -t verdicts/ {} + 2>/dev/null || true
+          find verdicts -mindepth 1 -type d -empty -delete 2>/dev/null || true
+
+      - name: Apply verdicts in dependency order
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # The armed variables enter the process environment here. The job
+          # `if` compares strings case-insensitively, so it cannot enforce
+          # the exact value — the shell check at the top of `run` below is
+          # the case-sensitive enforcement (bash `=` is case-sensitive).
+          TRADEOS_PR_COMMANDER_WRITE_ENABLED: ${{ vars.TRADEOS_PR_COMMANDER_WRITE_ENABLED }}
+          TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED: ${{ vars.TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED }}
+          # Never put the secret value into the shell environment or logs.
+          REPAIR_PUSH_TOKEN_AVAILABLE: ${{ secrets.TRADEOS_PR_COMMANDER_PUSH_TOKEN != '' }}
+          READY_PRS: ${{ needs.report.outputs.ready_prs }}
+          FOUNDER_PRS: ${{ needs.report.outputs.founder_prs }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # $owner/$name/$number in the GraphQL query are GraphQL variables, not shell expansions.
+          set -euo pipefail
+          # Exact-value enforcement (case-sensitive bash `=`): the job `if`
+          # compares strings case-insensitively, so a variable set to `TRUE`
+          # would pass it. Require exactly "true" here, before any write.
+          # (CodeRabbit, PR #968.)
+          if [ "$TRADEOS_PR_COMMANDER_WRITE_ENABLED" != "true" ]; then
+            echo "::error::TRADEOS_PR_COMMANDER_WRITE_ENABLED must be exactly 'true'. No writes performed."
+            exit 1
+          fi
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "$TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED" != "true" ]; then
+            echo "::error::TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED must be exactly 'true' for scheduled runs. No writes performed."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # --- helpers -------------------------------------------------------
+          # Build an exact-head snapshot for one PR (same shape as evaluate).
+          build_snapshot() {
+            local pr="$1"
+            gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json \
+              number,isDraft,mergeStateStatus,mergeable,reviewDecision,headRefOid,baseRefName,headRefName,files,reviews,statusCheckRollup \
+              > fresh.json
+            local owner="${GITHUB_REPOSITORY%%/*}" repo="${GITHUB_REPOSITORY##*/}"
+            local threads
+            # $owner/$name/$number are GraphQL variables (and $threads in the jq filter is jq code), not shell expansions.
+            # shellcheck disable=SC2016
+            threads=$(gh api graphql \
+              -F owner="$owner" -F name="$repo" -F number="$pr" \
+              -f query='query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewThreads(first: 100) { nodes { isResolved } pageInfo { hasNextPage } } } } }' \
+              --jq '.data.repository.pullRequest.reviewThreads')
+            if [ "$(echo "$threads" | jq -r '.pageInfo.hasNextPage')" != "false" ]; then
+              echo "::error::Review-thread evidence incomplete for PR #$pr; skipping."
+              return 1
+            fi
+            jq --argjson threads "$threads" '. + {reviewThreads: $threads}' fresh.json > fresh.tmp
+            mv fresh.tmp fresh.json
+          }
+
+          # Re-evaluate a fresh snapshot ARMED and print the verdict.
+          # Takes the recorded repair-attempt count as $1. The old call
+          # sites used `ATTEMPTS="$attempts" verdict=$(armed_verdict)`,
+          # which never reached the `node` process: the assignment is a
+          # shell variable during expansion of the assignment statement,
+          # never exported to the child, so armed re-evaluation silently
+          # ran with attempts=0. (Verified: `ATTEMPTS=7 v=$(g)` leaves
+          # node inside g seeing ATTEMPTS unset; the $1 pattern below
+          # passes it as a real command environment assignment.)
+          armed_verdict() {
+            ATTEMPTS="$1" node --input-type=module -e "
+              import fs from 'node:fs';
+              import { evaluateGate, normalizeSnapshot } from './scripts/pr-commander-lib.mjs';
+              const raw = JSON.parse(fs.readFileSync('fresh.json', 'utf8'));
+              raw.attempts = Number(process.env.ATTEMPTS || 0);
+              // Normalize first: the raw gh pr view payload carries
+              // 'statusCheckRollup', not 'checks' — evaluateGate on the raw
+              // shape reads zero checks and would never reach MERGE_READY.
+              const snapshot = normalizeSnapshot(raw);
+              const verdict = evaluateGate(snapshot, { armed: true });
+              fs.writeFileSync('fresh-verdict.json', JSON.stringify(verdict, null, 2));
+              console.log(verdict.verdict);
+            "
+          }
+
+          # Upsert the single Commander verdict comment (marker in place).
+          # $1 = pr, $2 = attempts to record for this head.
+          upsert_verdict_comment() {
+            local pr="$1" attempts="$2"
+            local head_sha
+            head_sha=$(jq -r '.headSha' fresh-verdict.json)
+            node --input-type=module -e "
+              import fs from 'node:fs';
+              const snapshot = JSON.parse(fs.readFileSync('fresh.json', 'utf8'));
+              const verdict = JSON.parse(fs.readFileSync('fresh-verdict.json', 'utf8'));
+              const bullet = (items) => items.length ? items.map((i) => '- ' + i).join('\n') : '- None.';
+              const body = [
+                '<!-- tradeos-pr-commander -->',
+                '## PR Commander verdict: ' + verdict.verdict,
+                '',
+                '- **PR:** #' + snapshot.number,
+                '- **Head SHA:** \`' + verdict.headSha + '\` — this verdict stands on this exact head; a new push invalidates it.',
+                '- **Run:** ' + process.env.RUN_URL,
+                '- **Mode:** armed',
+                '- **Repair attempts on this head:** ' + process.env.ATTEMPTS_RECORDED + ' of 3',
+                '',
+                '### Reasons',
+                bullet(verdict.reasons),
+                '',
+                '### Next actions',
+                bullet(verdict.nextActions),
+                '',
+                '### Founder items (need Billy\u2019s word)',
+                bullet(verdict.founderItems),
+                '',
+                '### Evidence',
+                '- Checks: https://github.com/' + process.env.GITHUB_REPOSITORY + '/pull/' + snapshot.number + '/checks',
+                '- Artifact: ' + process.env.RUN_URL,
+                '',
+                'repair-attempts:' + verdict.headSha + ':' + process.env.ATTEMPTS_RECORDED,
+                '',
+                'ai-repair:' + verdict.headSha + ':' + (process.env.AI_INVOCATIONS_RECORDED ?? '0'),
+                '',
+              ].join('\n');
+              fs.writeFileSync('comment.md', body);
+            "
+            local comment_id
+            comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$pr/comments?per_page=100" \
+              --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- tradeos-pr-commander -->"))) | .id' | tail -n 1)
+            if [ -n "${comment_id:-}" ]; then
+              gh api "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" --method PATCH \
+                --field body="$(cat comment.md)" --jq '.html_url'
+            else
+              gh api "repos/$GITHUB_REPOSITORY/issues/$pr/comments" --method POST \
+                --field body="$(cat comment.md)" --jq '.html_url'
+            fi
+          }
+
+          # Read the recorded attempt count for a head from the verdict comment.
+          # (Same GraphQL/REST login split as the evaluate snapshot step:
+          # `gh pr view` reports `github-actions`, REST `github-actions[bot]`.)
+          recorded_attempts() {
+            local pr="$1" head_sha="$2"
+            gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json comments \
+              --jq '.comments[]? | select(.author.login == "github-actions" or .author.login == "github-actions[bot]") | .body' > comments.txt || true
+            local n
+            n=$(grep -o "repair-attempts:${head_sha}:[0-9]*" comments.txt | tail -n 1 | cut -d: -f3 || true)
+            echo "${n:-0}"
+          }
+
+          # Read the recorded AI-repair invocation count for a head from the
+          # verdict comment (same login split as recorded_attempts). The AI
+          # worker may be invoked at most once per head; the count lives in
+          # the verdict comment as `ai-repair:<sha>:<n>`, next to the
+          # repair-attempts counter.
+          recorded_ai_invocations() {
+            local pr="$1" head_sha="$2"
+            gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json comments \
+              --jq '.comments[]? | select(.author.login == "github-actions" or .author.login == "github-actions[bot]") | .body' > comments-ai.txt || true
+            local n
+            n=$(grep -o "ai-repair:${head_sha}:[0-9]*" comments-ai.txt | tail -n 1 | cut -d: -f3 || true)
+            echo "${n:-0}"
+          }
+
+          # --- main loop -----------------------------------------------------
+          # Ready PRs arrive in dependency order from the report job. A
+          # dependency cycle yields an empty ready list (report job), so
+          # nothing merges from a cyclic set. Merges below happen strictly in
+          # this order, one at a time; a stacked PR merges only after its
+          # base PR is actually MERGED (re-read from GitHub just above).
+          # `gh pr merge --auto` returns as soon as auto-merge is enabled,
+          # not when the merge completes, so membership in `merged` (auto-merge
+          # enabled this run) is NOT proof the base merged — the dependent
+          # waits for the next run if the base is still open. `merged` below
+          # only records which PRs had auto-merge enabled, for the repair-loop
+          # skip and the run summary.
+          merged=""
+          for pr in $(echo "$READY_PRS" | jq -r '.[]'); do
+            echo "=== PR #$pr (ready, dependency order) ==="
+            build_snapshot "$pr" || continue
+            head_sha=$(jq -r '.headRefOid' fresh.json)
+            attempts=$(recorded_attempts "$pr" "$head_sha")
+            ai_invocations=$(recorded_ai_invocations "$pr" "$head_sha")
+            verdict=$(armed_verdict "$attempts")
+            echo "Fresh verdict at $head_sha: $verdict (attempts: $attempts)"
+            if [ "$verdict" != "MERGE_READY" ]; then
+              echo "Verdict changed on re-read; no merge for PR #$pr."
+              ATTEMPTS_RECORDED="$attempts" AI_INVOCATIONS_RECORDED="$ai_invocations" upsert_verdict_comment "$pr" "$attempts" || true
+              continue
+            fi
+            # Stacked-base guard: never merge a dependent before its base.
+            base_ref=$(jq -r '.baseRefName' fresh.json)
+            if [ "$base_ref" != "main" ]; then
+              base_pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --state all --head "$base_ref" --json number --jq '.[0].number // empty')
+              if [ -n "${base_pr:-}" ]; then
+                base_state=$(gh pr view "$base_pr" --repo "$GITHUB_REPOSITORY" --json state --jq .state)
+                if [ "$base_state" = "MERGED" ]; then
+                  echo "Base PR #$base_pr already merged; proceeding."
+                else
+                  echo "Base PR #$base_pr is $base_state, not merged yet; skipping PR #$pr."
+                  ATTEMPTS_RECORDED="$attempts" AI_INVOCATIONS_RECORDED="$ai_invocations" upsert_verdict_comment "$pr" "$attempts" || true
+                  continue
+                fi
+              fi
+            fi
+            ATTEMPTS_RECORDED="$attempts" AI_INVOCATIONS_RECORDED="$ai_invocations" upsert_verdict_comment "$pr" "$attempts" || true
+            echo "Enabling auto-merge for PR #$pr at $head_sha."
+            # Pin the merge to the exact head that was validated above:
+            # without --match-head-commit a push landing between the
+            # re-evaluation and this call would auto-merge an unvalidated
+            # head.
+            gh pr merge --auto --squash --match-head-commit "$head_sha" "$pr" --repo "$GITHUB_REPOSITORY"
+            merged="$merged $pr"
+          done
+
+          # --- founder items, repairs, and re-review for every other PR ------
+          # Founder label + verdict comment for PRs with founder items, and
+          # bounded deterministic repair for REPAIRABLE PRs. (The ready loop
+          # above already handled MERGE_READY PRs.)
+          for file in verdicts/pr-*.json; do
+            [ -e "$file" ] || continue
+            pr=$(jq -r '.pr' "$file")
+            verdict=$(jq -r '.verdict' "$file")
+            case " $merged " in *" $pr "*) continue ;; esac
+            if [ "$verdict" = "DRY_RUN_ONLY" ] || [ "$verdict" = "MERGE_READY" ]; then
+              continue
+            fi
+            echo "=== PR #$pr ($verdict) ==="
+            build_snapshot "$pr" || continue
+            head_sha=$(jq -r '.headRefOid' fresh.json)
+            # A moved head invalidates the recorded verdict: re-evaluate and
+            # report the fresh verdict, nothing else.
+            recorded_head=$(jq -r '.headSha' "$file")
+            attempts=$(recorded_attempts "$pr" "$head_sha")
+            ai_invocations=$(recorded_ai_invocations "$pr" "$head_sha")
+            # Per-PR repair outcome flags for this iteration: the AI worker
+            # runs only when the deterministic tier did not push and no
+            # rebase was dispatched (either moves, or is about to move, the
+            # head — invoking Codex on a stale head wastes the invocation).
+            repair_pushed="false"
+            rebase_dispatched="false"
+            fresh_verdict=$(armed_verdict "$attempts")
+            echo "Fresh verdict at $head_sha: $fresh_verdict (recorded head: $recorded_head)"
+            if [ "$head_sha" != "$recorded_head" ]; then
+              echo "Head moved; reporting the fresh verdict only."
+              ATTEMPTS_RECORDED="$attempts" AI_INVOCATIONS_RECORDED="$ai_invocations" upsert_verdict_comment "$pr" "$attempts" || true
+              continue
+            fi
+            founder_count=$(jq '.founderItems | length' fresh-verdict.json)
+            if [ "$founder_count" -gt 0 ]; then
+              gh label create pr-commander:needs-founder \
+                --repo "$GITHUB_REPOSITORY" \
+                --description "PR Commander: needs a founder decision (protected approval, exhausted repairs, or material blocker)" \
+                --color "B60205" 2>/dev/null || true
+              gh pr edit "$pr" --repo "$GITHUB_REPOSITORY" --add-label "pr-commander:needs-founder" || true
+              echo "Applied pr-commander:needs-founder to PR #$pr."
+            fi
+            # Security findings are NOT dispatched from here: the founder
+            # policy exception for `actions: write` (2026-11-10) covers the
+            # pr-maintenance dispatch only. They are delegated to the
+            # existing codeql-autofix.yml SCHEDULED run (every 2h) and
+            # surfaced as founder items in the verdict comment + label
+            # above. On-demand CodeQL dispatch is a documented gap (see the
+            # workflow header): wiring it is a separate change, either a
+            # wider exception (a founder decision) or a `workflow_call`
+            # restructure of codeql-autofix.yml.
+            if jq -e '.reasons[]? | test("CodeQL|code scanning|security"; "i")' fresh-verdict.json >/dev/null; then
+              echo "Security finding on PR #$pr; delegated to the scheduled codeql-autofix run (no dispatch from this workflow)."
+            fi
+            # Deterministic repair, narrow tier (the code-quality-autofix
+            # pattern, per-PR): ESLint --fix on the PR branch, verified by
+            # unit tests + lint + build, pushed with a real git push.
+            # Only for same-repo PRs whose failing check is the web lint
+            # check, and only while attempts remain. Behavior changes require
+            # the regression tests run below; the push happens only if they
+            # pass. No thread is auto-resolved (see header).
+            if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$REPAIR_PUSH_TOKEN_AVAILABLE" != "true" ]; then
+              echo "::warning::Skipping deterministic repair push: no founder-provisioned CI-triggering credential (TRADEOS_PR_COMMANDER_PUSH_TOKEN). GITHUB_TOKEN pushes do not trigger pull_request CI."
+            fi
+            if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$attempts" -lt 3 ] && [ "$REPAIR_PUSH_TOKEN_AVAILABLE" = "true" ]; then
+              if jq -e '.reasons[]? | test("Web lint and build")' fresh-verdict.json >/dev/null; then
+                # headRepository is not in the pr-view snapshot payload; fetch it.
+                head_repo=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json headRepository --jq '.headRepository.nameWithOwner')
+                if [ "$head_repo" = "$GITHUB_REPOSITORY" ]; then
+                  if gh pr checkout "$pr" --repo "$GITHUB_REPOSITORY" 2>/dev/null; then
+                    # This repair attempt counts exactly once, whatever the
+                    # outcome (no-change, verification failure, or push):
+                    # the per-head cap must advance on every attempt, not
+                    # only on a successful push. It advances here, once the
+                    # attempt has actually begun (checkout succeeded) — a
+                    # checkout failure is not an attempt. The final
+                    # upsert_verdict_comment below records this count for
+                    # every outcome.
+                    attempts=$((attempts + 1))
+                    echo "Attempting deterministic lint repair on PR #$pr (attempt $attempts of 3)."
+                    (cd web && npm ci --no-audit --no-fund && npm run lint -- --fix) || true
+                    if ! git diff --quiet -- web/; then
+                      # Every fallible command in this block is guarded: a
+                      # failure skips only this PR, it must never abort the
+                      # whole `act` step under `set -e` (which would drop
+                      # the remaining PRs and the summary), and the branch
+                      # is restored at the end of the block.
+                      if git diff --check && (cd web && npm test && npm run lint -- . && npm run build); then
+                        if git add -- web/ && git commit -m "fix(web): apply ESLint safe fixes (PR Commander repair, attempt $attempts of 3)"; then
+                          # Real git push: API-pushed commits emit no push
+                          # event and never trigger pull_request CI.
+                          if git push origin "HEAD:$(git branch --show-current)"; then
+                            repair_pushed="true"
+                            echo "Repair pushed; requesting CodeRabbit re-review (rate-limited, best-effort, one attempt)."
+                            sleep 60
+                            gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body "@coderabbitai review" || true
+                          else
+                            echo "Repair push rejected (head moved?); no repair for PR #$pr."
+                          fi
+                        else
+                          echo "Repair commit failed; no push for PR #$pr."
+                          git checkout -- web/ || true
+                        fi
+                      else
+                        echo "Repair verification failed; no push for PR #$pr."
+                        git checkout -- web/ || true
+                      fi
+                    else
+                      echo "Lint autofix produced no change on PR #$pr."
+                    fi
+                    git switch main 2>/dev/null || true
+                  else
+                    echo "Could not check out PR #$pr; skipping repair."
+                  fi
+                else
+                  echo "PR #$pr is from fork $head_repo; no repair push."
+                fi
+              fi
+            fi
+            # Rebase via the governed pr-maintenance workflow for REPAIRABLE
+            # behind-branch verdicts (policy exception, founder 2026-11-10).
+            # The dispatch is async: pr-maintenance validates (open, base
+            # main, same-repo) and rebases the branch; the Commander
+            # re-evaluates at the new head on the next run. Counts as one
+            # repair attempt on this head. Depends on PR #965's numeric-input
+            # fix in pr-maintenance.yml: a dispatched pr_number arrives as
+            # "953.0" without it and the rebase validation fails.
+            if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$attempts" -lt 3 ] && [ "$(jq -r '.mergeStateStatus' fresh.json)" = "BEHIND" ] && [ "$(jq -r '.baseRefName' fresh.json)" = "main" ]; then
+              head_repo=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json headRepository --jq '.headRepository.nameWithOwner')
+              if [ "$head_repo" = "$GITHUB_REPOSITORY" ]; then
+                if gh workflow run pr-maintenance.yml --ref main -f pr_number="$pr" --repo "$GITHUB_REPOSITORY"; then
+                  attempts=$((attempts + 1))
+                  rebase_dispatched="true"
+                  echo "Dispatched pr-maintenance rebase for PR #$pr (attempt $attempts of 3)."
+                else
+                  echo "::warning::pr-maintenance dispatch failed for PR #$pr; no rebase."
+                fi
+              else
+                echo "PR #$pr is from fork $head_repo; no rebase dispatch."
+              fi
+            fi
+            # AI repair worker (Phase 4): invoke Codex once per head when
+            # the deterministic tier did not push and no rebase was
+            # dispatched. The invocation is a `@codex address that
+            # feedback` comment — the trigger Codex's own review receipt
+            # documents. Codex works in its own cloud environment and
+            # pushes the fix to the PR branch; the Commander re-evaluates
+            # the new head on its next run. Counts as one repair attempt
+            # on this head (cap 3, shared with the other tiers).
+            # Eligibility is enforced by the lib (isAiRepairEligible):
+            # same-repo, no protected files, not draft/conflicting/behind,
+            # attempts remain, no prior AI invocation on this head, and
+            # something to address (a failing check or unresolved
+            # threads). The worker never approves, merges, dismisses, or
+            # resolves — the comment instructs Codex to do none of those,
+            # and the merge bar still decides every merge.
+            # The attempt is RESERVED before posting (fail-closed, same
+            # as the deterministic tier counting at attempt start): the
+            # reservation is written to the verdict comment first, and
+            # the invocation posts only if that write succeeds. A live
+            # head re-check runs before the reservation, so a push
+            # landing after the snapshot was built skips the invocation
+            # without consuming an attempt. If the post fails after a
+            # successful reservation, the reservation stands — the
+            # attempt is consumed, never silently retried on this head.
+            # NOTE (validation status): Codex's push to a PR branch in
+            # THIS repo is UNCONFIRMED until the end-to-end validation
+            # observes it (zero Codex commits exist in this repo), as is
+            # whether Codex responds to a mention from github-actions[bot].
+            # A no-response is recorded by the attempt counter, never
+            # silently retried: at most one invocation per head.
+            if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$attempts" -lt 3 ] && [ "$repair_pushed" != "true" ] && [ "$rebase_dispatched" != "true" ]; then
+              head_repo=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json headRepository --jq '.headRepository.nameWithOwner')
+              if [ "$head_repo" = "$GITHUB_REPOSITORY" ]; then
+                # Build the invocation comment with the lib (writes
+                # ai-comment.md only when eligible); an ineligible PR
+                # writes nothing and this block is a no-op. Failing check
+                # names come from the fresh snapshot via failedCheckNames.
+                rm -f ai-comment.md
+                ATTEMPTS="$attempts" AI_INVOCATIONS="$ai_invocations" node --input-type=module -e "
+                  import fs from 'node:fs';
+                  import { buildAiRepairComment, failedCheckNames, isAiRepairEligible, normalizeSnapshot } from './scripts/pr-commander-lib.mjs';
+                  const raw = JSON.parse(fs.readFileSync('fresh.json', 'utf8'));
+                  const snapshot = normalizeSnapshot(raw);
+                  const failing = failedCheckNames(snapshot);
+                  const check = isAiRepairEligible({
+                    files: snapshot.files,
+                    isDraft: snapshot.isDraft,
+                    mergeable: snapshot.mergeable,
+                    mergeStateStatus: snapshot.mergeStateStatus,
+                    failedChecks: failing,
+                    unresolvedThreads: snapshot.threads?.unresolved ?? 0,
+                    attempts: Number(process.env.ATTEMPTS),
+                    aiInvocations: Number(process.env.AI_INVOCATIONS),
+                    sameRepo: true,
+                  });
+                  if (!check.eligible) {
+                    console.log('AI repair ineligible for PR #' + snapshot.number + ': ' + check.reasons.join(' '));
+                  } else {
+                    const body = buildAiRepairComment({
+                      pr: snapshot.number,
+                      headSha: snapshot.headSha,
+                      failingChecks: failing,
+                      unresolvedThreads: snapshot.threads?.unresolved ?? 0,
+                      runUrl: process.env.RUN_URL,
+                    });
+                    fs.writeFileSync('ai-comment.md', body);
+                    console.log('AI repair invocation prepared for PR #' + snapshot.number + ' at ' + snapshot.headSha + '.');
+                  }
+                " || true
+                if [ -s ai-comment.md ]; then
+                  # Live head re-check (TOCTOU): the snapshot was built at
+                  # the top of this iteration; a push landing since then
+                  # would leave the invocation pointing at a stale head
+                  # and stale protected-file data. Skip the invocation if
+                  # the live head moved or the lookup fails — the next run
+                  # re-evaluates at the new head. No attempt is consumed:
+                  # nothing was posted or reserved.
+                  live_head=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json headRefOid --jq '.headRefOid' 2>/dev/null || true)
+                  if [ -z "${live_head:-}" ] || [ "$live_head" != "$head_sha" ]; then
+                    echo "::warning::Live head for PR #$pr is '${live_head:-unknown}', not $head_sha; skipping AI repair invocation."
+                  else
+                    # Reserve the attempt before posting: record
+                    # attempts+1 / ai_invocations+1 in the verdict
+                    # comment, and post only if that write succeeds.
+                    reserved_attempts=$((attempts + 1))
+                    reserved_ai=$((ai_invocations + 1))
+                    if ATTEMPTS_RECORDED="$reserved_attempts" AI_INVOCATIONS_RECORDED="$reserved_ai" upsert_verdict_comment "$pr" "$reserved_attempts"; then
+                      attempts=$reserved_attempts
+                      ai_invocations=$reserved_ai
+                      if gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body "$(cat ai-comment.md)"; then
+                        echo "Invoked Codex AI repair on PR #$pr (attempt $attempts of 3; AI invocation $ai_invocations of 1 on this head)."
+                      else
+                        echo "::warning::Codex invocation comment failed for PR #$pr; reservation kept (attempt $attempts of 3 consumed)."
+                      fi
+                    else
+                      echo "::warning::Could not record the AI repair reservation for PR #$pr; skipping invocation (no attempt consumed)."
+                    fi
+                  fi
+                fi
+              else
+                echo "PR #$pr is from fork $head_repo; no AI repair invocation."
+              fi
+            fi
+            ATTEMPTS_RECORDED="$attempts" AI_INVOCATIONS_RECORDED="$ai_invocations" upsert_verdict_comment "$pr" "$attempts" || true
+          done
+
+          echo "Applied verdicts. Merged (auto-merge enabled):${merged:- none}."
+          {
+            echo "## PR Commander — armed run applied"
+            echo ""
+            echo "- Auto-merge enabled (in dependency order):${merged:- none}"
+            echo "- Run: $RUN_URL"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -28,9 +28,26 @@ on:
         default: true
         type: boolean
       smoke_tenant_label:
-        description: Sanitized smoke organization label expected after login
+        description: Sanitized smoke organization label expected after login; use the TEST Org's actual name when use_test_org is enabled
         required: true
         default: TradeOS Beta Smoke
+        type: string
+      estimate_stage_path:
+        description: Relative draft estimate route for the estimate stage specs; blank skips them
+        required: false
+        type: string
+      spec_file:
+        description: Single Playwright spec file to run; blank runs the whole agent suite
+        required: false
+        type: string
+      use_test_org:
+        description: Authenticate the TEST Org staging test account (TEST_STAGING_EMAIL/PASSWORD) instead of the Beta Smoke identity
+        required: false
+        default: false
+        type: boolean
+      smoke_org_id:
+        description: Canonical smoke organization UUID; when set, tenant verification uses the read-only Costbook workspace endpoint instead of loading Settings (which may persist a BrandProfile for legacy-branding tenants)
+        required: false
         type: string
 
 permissions:
@@ -51,6 +68,7 @@ jobs:
       TRADEOS_AGENT_SANITIZED_TENANT: ${{ inputs.sanitized_tenant }}
       TRADEOS_AGENT_EVIDENCE: "true"
       TRADEOS_AGENT_AUTHENTICATED: ${{ inputs.authenticated_smoke }}
+      TRADEOS_ESTIMATE_STAGE_PATH: ${{ inputs.estimate_stage_path }}
       BETA_EVIDENCE_DIR: artifacts/playwright-agent-evidence/auth
       BETA_SMOKE_ORG_LABEL: ${{ inputs.smoke_tenant_label }}
 
@@ -58,6 +76,61 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Validate spec_file resolves to one exact spec
+        if: inputs.spec_file != ''
+        env:
+          SPEC_FILE: ${{ inputs.spec_file }}
+        run: |
+          set -eu
+          # spec_file reaches Playwright as a positional argument, which
+          # Playwright treats as a filter: a substring would silently match
+          # several specs (or none). Require one exact checked-in spec file
+          # under tests/playwright so the run covers exactly what was asked.
+          if [ ! -f "${SPEC_FILE}" ]; then
+            echo "::error::spec_file must name one checked-in Playwright spec file; '${SPEC_FILE}' does not exist."
+            exit 1
+          fi
+          case "${SPEC_FILE}" in
+            tests/playwright/*.spec.ts) ;;
+            *)
+              echo "::error::spec_file must be a Playwright spec under tests/playwright/; got '${SPEC_FILE}'."
+              exit 1
+              ;;
+          esac
+
+      - name: Reject targeted estimate runs without a draft route
+        if: inputs.spec_file != ''
+        env:
+          SPEC_FILE: ${{ inputs.spec_file }}
+          ESTIMATE_STAGE_PATH: ${{ inputs.estimate_stage_path }}
+        run: |
+          set -eu
+          # The estimate specs read TRADEOS_ESTIMATE_STAGE_PATH and skip
+          # every test when it is blank, so a targeted estimate run without
+          # a route would report green while proving nothing. Fail fast.
+          # Every estimate spec carries that skip guard, so the pattern
+          # covers all of them (and any future estimate spec).
+          case "${SPEC_FILE}" in
+            *estimate-*.spec.ts)
+              if [ -z "${ESTIMATE_STAGE_PATH}" ]; then
+                echo "::error::spec_file selects an estimate spec ('${SPEC_FILE}') but estimate_stage_path is blank; targeted estimate evidence requires a draft estimate route."
+                exit 1
+              fi
+              ;;
+          esac
+
+      - name: Reject unauthenticated estimate evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The estimate specs need a session: without one they land on the
+          # login page and report a misleading navigation failure. Fail fast
+          # instead of running them unauthenticated.
+          if [ "${TRADEOS_AGENT_AUTHENTICATED}" != "true" ] && [ -n "${TRADEOS_ESTIMATE_STAGE_PATH}" ]; then
+            echo "::error::estimate_stage_path requires authenticated_smoke: the estimate specs need an authenticated session."
+            exit 1
+          fi
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -98,12 +171,23 @@ jobs:
           }
 
           const storageStatePath = `${process.env.RUNNER_TEMP}/playwright-agent-storage-state.json`;
+          // The estimate specs apply TRADEOS_ESTIMATE_STAGE_STATE as a
+          // storageState path; exporting it before authentication would hand
+          // them a file that does not exist yet and Playwright would fail
+          // before creating a page. Export it only for authenticated runs —
+          // a failed bootstrap aborts the job before the specs run, so the
+          // file exists whenever the specs consume it.
+          const estimateStateLine =
+            process.env.TRADEOS_AGENT_AUTHENTICATED === "true"
+              ? [`TRADEOS_ESTIMATE_STAGE_STATE=${storageStatePath}`]
+              : [];
           fs.appendFileSync(
             process.env.GITHUB_ENV,
             [
               `TRADEOS_AGENT_BASE_URL=${target}`,
               `BETA_RC_BASE_URL_RESOLVED=${target}`,
               `TRADEOS_AGENT_STORAGE_STATE=${storageStatePath}`,
+              ...estimateStateLine,
               `BETA_STORAGE_STATE_PATH=${storageStatePath}`,
               "",
             ].join("\n"),
@@ -131,8 +215,21 @@ jobs:
       - name: Install Chromium and Linux dependencies
         run: npx playwright install --with-deps chromium
 
+      - name: Select read-only tenant verification when an org id is supplied
+        if: inputs.authenticated_smoke && inputs.smoke_org_id != ''
+        shell: bash
+        run: |
+          # The Settings tenant assertion may persist a BrandProfile for
+          # legacy-branding tenants (lazy adoption in getSettings), so when
+          # the operator supplies the canonical org UUID, verify through the
+          # genuinely read-only Costbook workspace endpoint instead. The
+          # smoke identities are owner-level, matching the assembly lane's
+          # costbook_read_only owner step (expected write "true").
+          echo "BETA_SMOKE_TENANT_VERIFY_MODE=costbook_read_only" >> "$GITHUB_ENV"
+          echo "BETA_SMOKE_EXPECTED_COSTBOOK_WRITE=true" >> "$GITHUB_ENV"
+
       - name: Require authenticated smoke prerequisites
-        if: inputs.authenticated_smoke
+        if: inputs.authenticated_smoke && !inputs.use_test_org
         shell: bash
         env:
           BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
@@ -149,10 +246,36 @@ jobs:
           fi
 
       - name: Authenticate sanitized smoke tenant
-        if: inputs.authenticated_smoke
+        if: inputs.authenticated_smoke && !inputs.use_test_org
         env:
           BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
           BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
+          BETA_SMOKE_ORG_ID: ${{ inputs.smoke_org_id }}
+        run: node app/scripts/beta-evidence/auth-setup.mjs
+
+      - name: Require TEST org prerequisites
+        if: inputs.authenticated_smoke && inputs.use_test_org
+        shell: bash
+        env:
+          BETA_SMOKE_EMAIL: ${{ secrets.TEST_STAGING_EMAIL }}
+          BETA_SMOKE_PASSWORD: ${{ secrets.TEST_STAGING_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BETA_SMOKE_EMAIL}" ] || [ -z "${BETA_SMOKE_PASSWORD}" ]; then
+            echo "::error::TEST_STAGING_EMAIL and TEST_STAGING_PASSWORD are required for TEST Org Playwright evidence."
+            exit 1
+          fi
+          if [ -z "${BETA_SMOKE_ORG_LABEL}" ]; then
+            echo "::error::smoke_tenant_label is required for authenticated Playwright evidence."
+            exit 1
+          fi
+
+      - name: Authenticate TEST org tenant
+        if: inputs.authenticated_smoke && inputs.use_test_org
+        env:
+          BETA_SMOKE_EMAIL: ${{ secrets.TEST_STAGING_EMAIL }}
+          BETA_SMOKE_PASSWORD: ${{ secrets.TEST_STAGING_PASSWORD }}
+          BETA_SMOKE_ORG_ID: ${{ inputs.smoke_org_id }}
         run: node app/scripts/beta-evidence/auth-setup.mjs
 
       - name: Record Playwright version and discovered tests
@@ -163,7 +286,28 @@ jobs:
           npm run test:e2e:list | tee artifacts/playwright-agent-evidence/test-list.txt
 
       - name: Run Playwright agent suite in Chromium
-        run: npx --no-install playwright test --project=chromium
+        env:
+          # Inputs reach the shell only through the environment: direct
+          # ${{ inputs.* }} interpolation into a run script is a template
+          # injection (a crafted spec_file could execute before Playwright).
+          SPEC_FILE: ${{ inputs.spec_file }}
+        run: |
+          if [ -n "${SPEC_FILE}" ]; then
+            # A hyphen-leading value would be parsed as a Playwright CLI
+            # option, not a spec path. Valid spec paths never start with one.
+            # The "Validate spec_file" step already proved this is one exact
+            # checked-in spec file, so the positional argument selects
+            # exactly that file rather than a substring filter.
+            case "${SPEC_FILE}" in
+              -*)
+                echo "::error::spec_file must be a spec file path, not a Playwright CLI option."
+                exit 1
+                ;;
+            esac
+            npx --no-install playwright test --project=chromium "${SPEC_FILE}"
+          else
+            npx --no-install playwright test --project=chromium
+          fi
 
       - name: Remove runtime storage state
         if: always()

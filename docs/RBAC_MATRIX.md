@@ -229,7 +229,7 @@ This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
 
-## Step 9 proposal-to-job conversion permission (PR #810, merged; promoted to staging 2026-11-07)
+## Step 9 proposal-to-job conversion permission (PR #810, unmerged)
 
 `POST /api/v1/jobs/from-proposal/:proposalId` uses the existing Job manager
 boundary (owner, admin, dispatcher) and request-authenticated `orgId`; no
@@ -250,24 +250,3 @@ Managers (owner/admin/dispatcher) can read the accepted commercial baseline thro
 The existing conversion roles and tenant checks are unchanged. Manager authority
 does not permit replacing missing accepted scope with mutable Project scope;
 see [accepted Job scope integrity](WORKFLOW_LIFECYCLES.md#accepted-job-scope-integrity).
-
-## Job expenses and field page access (PR #891 / #887)
-
-The `/field` page admits all four canonical roles — technician, owner, admin,
-dispatcher (founder decision 2026-11-03, PR #891). This is a UI gate only:
-technicians still see only their assigned jobs, and the API routes below
-enforce their own boundaries. Owner admission to the field page (staging
-#898/#899) is subsumed by the wider gate.
-
-Job-expense endpoints (`/api/v1/jobs/:jobId/expenses`, including `/summary`,
-`/:expenseId/audit`, `/:expenseId/receipt`, PATCH, and DELETE/void) require
-authenticated organization membership (`requireAuth` on `/api/v1` plus
-request-scoped RLS). The service asserts the job belongs to the actor's
-organization (`assertJobInOrg`); forced RLS is the floor. There is no
-additional role gate on these routes: any authenticated member of the owning
-organization can call them, subject to the job's own visibility (technicians
-reach only assigned jobs). Void is a soft-void with actor provenance, not a
-hard delete; receipt existence is verified fail-closed (#926) and never
-treated as present on an unverifiable read. Customer-paid vs contractor-paid
-separation (#891) changes cost accounting (actuals/variance exclude
-customer-paid and voided expenses), not permissions.

@@ -55,74 +55,6 @@ User requested auto-merge. Existing checks were green, but a new unresolved vali
 
 # Session Handoff
 
-## Staging promotion — main into staging, 2026-11-07 (merged as #941)
-
-- Branch `chore/staging-promote-main-2026-11-07` merged `origin/main` (229ebd57) into `origin/staging` (a012ad01) as PR #941 (2026-11-07). Docs were reconciled from both sides: staging promotion and ledger state (ledger 70) plus main's newer work (#810, #891, #932, #936, #939, #940, #934).
-- Merged; staging ledger, binding, and authenticated acceptance evidence still gate release. Do not treat this merge as deployment or production action.
-
-## Staging promotion in flight — main into staging, 2026-11-08
-
-- Branch `chore/staging-promote-main-2026-11-08` merges `origin/main` (58dcb6ac) into `origin/staging` (1205ee8c). Brings #920 (Eve/forge agent), #931 (Resend delivery journal — new migration `20261105220000_add_resend_delivery_journal`, ledger 70→71, protected staging apply still needed), #943 (forge-agent test wiring), plus the evolved estimate-apply verification and shared-/ready attestation.
-- The promotion is in flight — not merged, deployed, or accepted. Staging ledger, binding, and authenticated acceptance evidence still gate release. Do not treat this merge as deployment or production action.
-
-## Accepted-scope repair — 2026-10-30
-
-- Continue existing #837 API-only staging lane and canonical #810 feature.
-  Founder directed #810 ready for review; status verified. Both old heads had
-  green required checks; #837 review found a real mutable-scope fallback.
-- Copied the same bounded repair from #810: reject new null/empty/whitespace
-  accepted scope with409; preserve existing-Job retries even without scope.
-  Three regression cases fail before repair and all44 Job tests pass afterward
-  on #810. Same service/test logic applied here; hosted final-head CI required.
-- No schema, web, workflow, Team & Time, credential or production changes.
-  Migration already applied; do not re-enable the disabled migration runner.
-- Next five: push both repairs; verify exact-head CI; resolve validated #837
-  review after proof; obtain supported protected staging-binding attestation;
-  promote API then web and retain authenticated step-9 and release review.
-
-- Fresh local staging-branch validation:44 Job tests,40 docs tests and docs
-  ownership pass; API source is identical to the feature repair. Final-head
-  hosted checks/review and protected binding attestation remain open.
-
-## Historical continuity
-
-## Job handoff API-only staging promotion — 2026-10-30
-
-- Sprint ID NONE. Existing feature work: draft #810 at
-  `7506e46fd473ed6a82fafcf39a33fbf8e2d78a04`. NEW_WORK_REQUIRED for a distinct
-  staging deployment lane: no open promotion PR; #833 merged into staging as
-  `52117b65741840951e1cb286b86b6c660f10b099`. This is not a replacement feature PR.
-- Worktree: `/workspace/scratch/332cdaafbc27/TradeOS-job-api-staging`; branch
-  `integration/job-handoff-api-staging-20261030`. Main remains
-  `0944b4f7f78d0bb7911f356b78e7d25386360648`. Initial worktrees clean.
-- Scope: seven exact #810 backend/schema/test files plus API owner docs and
-  these evidence records. Preserve staging workflows, #833 security repairs,
-  all web source, credentials, permissions and production. No new migration SQL.
-- Protected staging apply 41065635236 succeeded for exact feature source; fresh
-  read-only capture shows 67 completed / zero unfinished / zero Jobs; Jobs and
-  Team & Time RLS enabled+forced. The manual runner was disabled after explicit
-  founder approval; its source-SHA variable remains. No direct connector write.
-- Current staging API/web builds are READY at staging base52117b65, without
-  the feature. Both Vercel env metadata reads returned HTTP403; CLI unavailable.
-- Next five: validate and publish draft API promotion; reconcile exact-head CI
-  and review; re-attest staging bindings before merge; verify staged API
-  readiness then promote web separately; retain same-runtime step-9 browser
-  evidence and final release review before taking #810 out of draft.
-- Stop on unexpected branch movement, protected approval rejection, binding
-  uncertainty, failing checks or unresolved security/migration review.
-
-## Validation
-
-- API: 321 unit suites / 2,947 tests / one snapshot passed; Job suite 40/40;
-  Prisma generation, typecheck and build passed. Governance 172/172 and docs
-  40/40 passed; ownership/preflight and whitespace passed.
-- Seven promoted backend/schema/test files match #810 source; the test's final
-  blank line was normalized. Web/workflow/Team & Time source is byte-identical
-  to staging base. Full 67-name/checksum live staging comparison matched.
-- Disposable PostgreSQL integration remains delegated to hosted required CI:
-  this executor lacks psql and Docker. Hosted checks and binding attestation
-  must pass before draft promotion can advance. No runtime acceptance claimed.
-
 ## Active bounded mission — Estimate Apply saved-line identity, 2026-11-04
 
 - Sprint ID: NONE; classification `NEW_WORK_REQUIRED`. Repository `404TradeOS-LLC/TradeOS`; rebased exact base `b4c50d0d19cc83425f66c4eb2035a359e9bcf7fc`, tree `425ad2f0d5d9bd5cac7b5f03831252bb6a2e1004`. Open PRs #924/#923/#922/#921/#920/#918/#917/#904/#775 do not overlap the Estimate Apply client/backend contract. The named branch still pointed at its earlier base and is advanced only through an expected-head compare-and-swap after this reconciliation.
@@ -508,6 +440,30 @@ The existing SQL helper includes technicians, so the migration explicitly
 excludes them from the old broad task policy before adding the narrow one.
 Legacy estimator identity administration is not widened; regular task status
 updates remain supported. Schema/RLS changes retain PR-only merge posture.
+
+## Staging blockers — bounded issue #759 repair, 2026-11-12
+
+- Classification NEW_WORK_REQUIRED after current open/closed PR and branch
+  reconciliation; #958/#959 are merged and no existing PR owns a web runtime
+  identity endpoint. Base `080ac08d6dd8623b59e2b7496794c761d3034a1f`; isolated
+  worktree `/workspace/TradeOS-staging-identity`, branch `fix/staging-runtime-attestation-759`.
+- Implemented: staging-only, no-store, secret-free public binding/commit evidence
+  endpoint, fail-closed tests and protected rollout runbook. No auth, RLS, schema,
+  credential or protected workflow changes. Authorized staging-only Edge repair
+  deployed reviewed Team & Time source as ACTIVE v7; re-fetched source matches,
+  JWT verification stays enabled and unauthenticated bootstrap returns 401.
+- Prior verified evidence on this base: 46 expense tests, 753 web tests,
+  196 restricted-role PostgreSQL integration tests, all 71 local migrations,
+  396 repository tests; live staging has matching applied inventory and forced RLS.
+- Current candidate validation: 758 web tests, lint/build, 396 repository tests,
+  40 docs tests and ownership checks pass. Built Next HTTP probes verify staging
+  200 with expected public bindings/no-store and production 404. Focused tests
+  cover malformed/foreign destinations, environment gates and credential redaction.
+- Remaining gates: hosted checks/review, approved API/web source
+  promotion, authenticated Team & Time permission acceptance,
+  secret provenance and synthetic authenticated four-width acceptance.
+- Next: publish and verify this PR; review the exact staging promotion; resolve
+  effective runtime identity; deploy approved Edge source; run canonical acceptance.
 
 ## Next Eligible Sprint
 
