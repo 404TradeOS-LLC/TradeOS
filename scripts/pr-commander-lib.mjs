@@ -582,16 +582,20 @@ export function evaluateGate(snapshot, opts = {}) {
 // Commander verdict comment (same pattern as repair-attempts).
 export const AI_REPAIR_MARKER_PREFIX = "ai-repair:";
 
-// Names of required + non-required checks whose conclusion is a failure
-// (same failure set as checkState). Pure; used by the AI worker prompt so
-// Codex is pointed at the exact failing check(s) instead of the whole run.
+// Names of checks that failed (same failure set as the gate: checkState
+// returns "failed" for them). Pure; used by the AI worker prompt so Codex
+// is pointed at the exact failing check(s) instead of the whole run. The
+// single source of truth is checkState: a conclusion the gate classifies
+// as failed (including unrecognized completed conclusions such as
+// STARTUP_FAILURE, via checkState's fail-closed catch-all) is named here
+// too, so the worker is never invoked with an empty failing-checks list
+// for a check the gate counts as failed.
 export function failedCheckNames(snapshot) {
   const names = [];
   const checks = Array.isArray(snapshot?.checks) ? snapshot.checks : [];
   for (const check of checks) {
     if (!check || typeof check.name !== "string") continue;
-    const conclusion = (check.conclusion ?? "").toUpperCase();
-    if (FAILED_CONCLUSIONS.has(conclusion)) names.push(check.name);
+    if (checkState(check) === "failed") names.push(check.name);
   }
   return names;
 }
@@ -606,10 +610,49 @@ export function failedCheckNames(snapshot) {
 // AI share the cap of 3); `aiInvocations` is the per-head AI count (cap 1).
 export function isAiRepairEligible(input = {}) {
   const reasons = [];
-  const files = classifyPrFiles(input?.files ?? []);
-  if (input?.isDraft === true) reasons.push("PR is a draft; the AI worker never runs on a draft.");
-  const mergeable = input?.mergeable;
-  const mergeState = input?.mergeStateStatus;
+  // Strict input validation first: every required input must be present
+  // and well-formed, or the PR is ineligible. A missing files list, an
+  // unknown draft/mergeability state, or a non-integer attempt counter is
+  // unknown evidence — and unknown evidence never yields "eligible".
+  // (An earlier version defaulted missing values to their eligible
+  // counterparts — e.g. a missing isDraft read as "not a draft" — which
+  // was fail-open despite the doc comment claiming fail-closed.)
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return { eligible: false, reasons: ["AI repair input is missing or invalid; failing closed."] };
+  }
+  if (!Array.isArray(input.files)) {
+    reasons.push("Changed-files list is missing or invalid; cannot establish the PR touches no protected surface.");
+  }
+  if (typeof input.isDraft !== "boolean") {
+    reasons.push("Draft state is unknown; the AI worker never runs on an unknown state.");
+  }
+  const mergeable = input.mergeable;
+  if (typeof mergeable !== "string" || !["MERGEABLE", "CONFLICTING", "UNKNOWN"].includes(mergeable)) {
+    reasons.push("Mergeability is unknown; the AI worker never runs on an unknown mergeability state.");
+  } else if (mergeable === "UNKNOWN") {
+    reasons.push("Mergeability not yet computed by GitHub; re-evaluate once it is known.");
+  }
+  const mergeState = input.mergeStateStatus;
+  if (typeof mergeState !== "string") {
+    reasons.push("Merge state is unknown; the AI worker never runs on an unknown merge state.");
+  } else if (mergeState === "UNKNOWN") {
+    reasons.push("Merge state UNKNOWN — mergeability evidence is incomplete; re-evaluate once it is known.");
+  }
+  if (!Number.isInteger(input.attempts) || input.attempts < 0) {
+    reasons.push("Repair-attempt count is missing or invalid; failing closed.");
+  }
+  if (!Number.isInteger(input.aiInvocations) || input.aiInvocations < 0) {
+    reasons.push("AI-invocation count is missing or invalid; failing closed.");
+  }
+  if (input.failedChecks !== undefined && !Array.isArray(input.failedChecks)) {
+    reasons.push("Failing-check list is invalid; failing closed.");
+  }
+  if (input.unresolvedThreads !== undefined
+    && (!Number.isInteger(input.unresolvedThreads) || input.unresolvedThreads < 0)) {
+    reasons.push("Unresolved-thread count is missing or invalid; failing closed.");
+  }
+  const files = classifyPrFiles(Array.isArray(input.files) ? input.files : []);
+  if (input.isDraft === true) reasons.push("PR is a draft; the AI worker never runs on a draft.");
   if (mergeable === "CONFLICTING" || mergeState === "DIRTY") {
     reasons.push("Branch conflicts with its base; conflicts are routed to human resolution.");
   }
@@ -624,15 +667,15 @@ export function isAiRepairEligible(input = {}) {
     if (files.protectedStaging) kinds.push("protected staging");
     reasons.push(`PR touches protected surface(s): ${kinds.join(", ")}. The AI worker never touches those.`);
   }
-  if (input?.sameRepo !== true) reasons.push("PR is from a fork; the AI worker runs on same-repo branches only.");
-  const attempts = Number.isInteger(input?.attempts) && input.attempts >= 0 ? input.attempts : 0;
+  if (input.sameRepo !== true) reasons.push("PR is from a fork; the AI worker runs on same-repo branches only.");
+  const attempts = Number.isInteger(input.attempts) && input.attempts >= 0 ? input.attempts : 0;
   if (attempts >= MAX_REPAIR_ATTEMPTS) {
     reasons.push(`Repair attempts exhausted (${attempts} of ${MAX_REPAIR_ATTEMPTS} on this head).`);
   }
-  const aiInvocations = Number.isInteger(input?.aiInvocations) && input.aiInvocations >= 0 ? input.aiInvocations : 0;
+  const aiInvocations = Number.isInteger(input.aiInvocations) && input.aiInvocations >= 0 ? input.aiInvocations : 0;
   if (aiInvocations >= 1) reasons.push("The AI worker was already invoked once on this head; at most one invocation per head.");
-  const failedChecks = Array.isArray(input?.failedChecks) ? input.failedChecks : [];
-  const unresolvedThreads = Number.isInteger(input?.unresolvedThreads) && input.unresolvedThreads >= 0
+  const failedChecks = Array.isArray(input.failedChecks) ? input.failedChecks : [];
+  const unresolvedThreads = Number.isInteger(input.unresolvedThreads) && input.unresolvedThreads >= 0
     ? input.unresolvedThreads
     : 0;
   if (failedChecks.length === 0 && unresolvedThreads === 0) {
@@ -656,17 +699,32 @@ export function buildAiRepairComment(input = {}) {
     ? input.unresolvedThreads
     : 0;
   const runUrl = input?.runUrl ?? "";
+  const hasFailingChecks = failingChecks.length > 0;
   const lines = [
     "<!-- tradeos-pr-commander-ai-repair -->",
     "@codex address that feedback",
     "",
-    `PR Commander (automated repair worker): the required check(s) ${failingChecks.length ? failingChecks.map((c) => "`" + c + "`").join(", ") : "(none failing — see review threads)"} are failing on PR #${pr} at head \`${headSha}\`.`,
   ];
-  if (runUrl) lines.push(`Failing CI: ${runUrl}`);
-  if (unresolvedThreads > 0) lines.push(`${unresolvedThreads} unresolved review thread(s) also stand on this PR.`);
+  if (hasFailingChecks) {
+    lines.push(
+      `PR Commander (automated repair worker): the required check(s) ${failingChecks.map((c) => "`" + c + "`").join(", ")} are failing on PR #${pr} at head \`${headSha}\`.`,
+    );
+    if (runUrl) lines.push(`Failing CI: ${runUrl}`);
+  } else {
+    // Thread-only invocation: there is no failing check and no failing
+    // check log to point at. Direct Codex at the unresolved review
+    // threads instead of claiming checks are failing.
+    lines.push(
+      `PR Commander (automated repair worker): no required check is failing on PR #${pr} at head \`${headSha}\`, but ${unresolvedThreads} unresolved review thread(s) stand on it.`,
+    );
+    if (runUrl) lines.push(`Commander run: ${runUrl}`);
+  }
+  if (hasFailingChecks && unresolvedThreads > 0) lines.push(`${unresolvedThreads} unresolved review thread(s) also stand on this PR.`);
   lines.push(
     "",
-    "Please make the minimal fix for the failing check(s): identify the root cause from the failing check log, implement the narrowly scoped fix, and add or update a regression test that fails before the fix and passes after it. Run the relevant unit tests and lint/build before pushing.",
+    hasFailingChecks
+      ? "Please make the minimal fix for the failing check(s): identify the root cause from the failing check log, implement the narrowly scoped fix, and add or update a regression test that fails before the fix and passes after it. Run the relevant unit tests and lint/build before pushing."
+      : "Please inspect the unresolved review thread(s) on this PR and address each finding with the minimal fix: identify the root cause, implement the narrowly scoped fix, and add or update a regression test that fails before the fix and passes after it. Run the relevant unit tests and lint/build before pushing.",
     "",
     "Scope limits (do not exceed them):",
     "- Touch only the files needed for this fix. Do not modify migrations, authentication/authorization, row-level security, workflow files, or production configuration.",

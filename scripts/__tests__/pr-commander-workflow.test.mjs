@@ -80,25 +80,44 @@ test("repair attempt counter advances exactly once per attempt, on attempt start
     rebaseIncrementAt > dispatchAt,
     "rebase increment happens after a successful dispatch"
   );
-  // AI path: increment only after the Codex invocation comment posts
-  // successfully. It is the third and last increment site: it runs after
-  // the rebase dispatch (a dispatched rebase skips the AI tier, since the
-  // head is about to move), and nothing increments after it.
+  // AI path: the attempt is RESERVED before the Codex invocation
+  // comment posts (fail-closed, same as the lint tier counting at
+  // attempt start). It is the third and last increment site: it runs
+  // after the rebase dispatch (a dispatched rebase skips the AI tier,
+  // since the head is about to move), and nothing increments after it.
   const aiCommentPostAt = workflow.indexOf('$(cat ai-comment.md)');
   assert.ok(aiCommentPostAt > -1, "expected the AI invocation comment post");
   const aiIncrementAt = workflow.indexOf("attempts=$((attempts + 1))", rebaseIncrementAt + 1);
   assert.ok(aiIncrementAt > -1, "expected an AI invocation increment");
   assert.ok(
-    aiIncrementAt > aiCommentPostAt,
-    "AI increment happens after the Codex invocation comment posts"
+    aiIncrementAt < aiCommentPostAt,
+    "AI increment (reservation) happens before the Codex invocation comment posts"
+  );
+  // The reservation upsert sits between the increment and the post: the
+  // invocation posts only if the reservation write succeeds.
+  const reservationUpsertAt = workflow.indexOf("upsert_verdict_comment", aiIncrementAt);
+  assert.ok(
+    reservationUpsertAt > aiIncrementAt && reservationUpsertAt < aiCommentPostAt,
+    "reservation upsert happens after the increment, before the post"
+  );
+  // The live head is re-checked before the reservation, so a moved head
+  // skips the invocation without consuming an attempt.
+  const liveHeadAt = workflow.indexOf("live_head=$(gh pr view");
+  assert.ok(liveHeadAt > -1, "expected a live head re-check");
+  assert.ok(
+    liveHeadAt < aiIncrementAt,
+    "live head re-check happens before the reservation"
   );
   assert.equal(
     workflow.indexOf("attempts=$((attempts + 1))", aiIncrementAt + 1),
     -1,
     "no increment after the AI invocation"
   );
-  // The AI invocation also advances its own once-per-head counter.
-  assert.match(workflow, /ai_invocations=\$\(\(ai_invocations \+ 1\)\)/);
+  // The AI invocation also advances its own once-per-head counter, via
+  // the reservation variables (committed only when the reservation
+  // write succeeds).
+  assert.match(workflow, /reserved_ai=\$\(\(ai_invocations \+ 1\)\)/);
+  assert.match(workflow, /ai_invocations=\$reserved_ai/);
 });
 
 test("rebase dispatch guard reads merge state from the snapshot, not the verdict", () => {

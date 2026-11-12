@@ -318,9 +318,17 @@ Actions tab stops schedule runs as well.
    conflicting, not behind (rebase first), no protected files in the PR
    (fail-closed via `classifyPrFiles`), same-repo only, repair attempts
    remain, no prior AI invocation on this head, and something to address
-   (a failing check or unresolved threads). One invocation counts as one
+   (a failing check or unresolved threads) — and every required input must
+   be present and well-formed, or the PR is ineligible (missing evidence
+   never reads as eligible). One invocation counts as one
    of the 3 per-head repair attempts and is recorded as
-   `ai-repair:<sha>:<n>` in the verdict comment. Codex works in its own
+   `ai-repair:<sha>:<n>` in the verdict comment. The attempt is reserved
+   in the verdict comment *before* the invocation posts: the live head is
+   re-checked immediately before posting (a moved head skips the
+   invocation without consuming an attempt), then the reservation is
+   written, and the comment posts only if that write succeeds. If the
+   post fails after a successful reservation, the reservation stands —
+   the attempt is consumed, never silently retried on this head. Codex works in its own
    cloud environment; a push creates a new head, fresh CI runs, and the
    Commander re-evaluates on its next run. The merge bar still decides
    every merge — the worker cannot merge anything on its own.

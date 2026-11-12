@@ -65,7 +65,12 @@
 #      scripts/pr-commander-lib.mjs). Codex works in its own cloud
 #      environment and pushes the fix to the PR branch; the Commander
 #      re-evaluates the new head on its next run. One invocation per head,
-#      counted as one of the 3 repair attempts. The worker never approves,
+#      counted as one of the 3 repair attempts. The live head is re-checked
+#      immediately before posting (a moved head skips the invocation
+#      without consuming an attempt), and the attempt is reserved in the
+#      verdict comment before the post — the invocation posts only if
+#      that reservation write succeeds, and a failed post keeps the
+#      reservation. The worker never approves,
 #      merges, dismisses a review, or resolves a thread, and the merge bar
 #      still decides every merge. Codex's push to a PR branch in THIS repo
 #      is UNCONFIRMED until the end-to-end validation observes it (zero
@@ -948,6 +953,15 @@ jobs:
             # threads). The worker never approves, merges, dismisses, or
             # resolves — the comment instructs Codex to do none of those,
             # and the merge bar still decides every merge.
+            # The attempt is RESERVED before posting (fail-closed, same
+            # as the deterministic tier counting at attempt start): the
+            # reservation is written to the verdict comment first, and
+            # the invocation posts only if that write succeeds. A live
+            # head re-check runs before the reservation, so a push
+            # landing after the snapshot was built skips the invocation
+            # without consuming an attempt. If the post fails after a
+            # successful reservation, the reservation stands — the
+            # attempt is consumed, never silently retried on this head.
             # NOTE (validation status): Codex's push to a PR branch in
             # THIS repo is UNCONFIRMED until the end-to-end validation
             # observes it (zero Codex commits exist in this repo), as is
@@ -994,12 +1008,33 @@ jobs:
                   }
                 " || true
                 if [ -s ai-comment.md ]; then
-                  if gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body "$(cat ai-comment.md)"; then
-                    attempts=$((attempts + 1))
-                    ai_invocations=$((ai_invocations + 1))
-                    echo "Invoked Codex AI repair on PR #$pr (attempt $attempts of 3; AI invocation $ai_invocations of 1 on this head)."
+                  # Live head re-check (TOCTOU): the snapshot was built at
+                  # the top of this iteration; a push landing since then
+                  # would leave the invocation pointing at a stale head
+                  # and stale protected-file data. Skip the invocation if
+                  # the live head moved or the lookup fails — the next run
+                  # re-evaluates at the new head. No attempt is consumed:
+                  # nothing was posted or reserved.
+                  live_head=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json headRefOid --jq '.headRefOid' 2>/dev/null || true)
+                  if [ -z "${live_head:-}" ] || [ "$live_head" != "$head_sha" ]; then
+                    echo "::warning::Live head for PR #$pr is '${live_head:-unknown}', not $head_sha; skipping AI repair invocation."
                   else
-                    echo "::warning::Codex invocation comment failed for PR #$pr; no repair attempt consumed."
+                    # Reserve the attempt before posting: record
+                    # attempts+1 / ai_invocations+1 in the verdict
+                    # comment, and post only if that write succeeds.
+                    reserved_attempts=$((attempts + 1))
+                    reserved_ai=$((ai_invocations + 1))
+                    if ATTEMPTS_RECORDED="$reserved_attempts" AI_INVOCATIONS_RECORDED="$reserved_ai" upsert_verdict_comment "$pr" "$reserved_attempts"; then
+                      attempts=$reserved_attempts
+                      ai_invocations=$reserved_ai
+                      if gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body "$(cat ai-comment.md)"; then
+                        echo "Invoked Codex AI repair on PR #$pr (attempt $attempts of 3; AI invocation $ai_invocations of 1 on this head)."
+                      else
+                        echo "::warning::Codex invocation comment failed for PR #$pr; reservation kept (attempt $attempts of 3 consumed)."
+                      fi
+                    else
+                      echo "::warning::Could not record the AI repair reservation for PR #$pr; skipping invocation (no attempt consumed)."
+                    fi
                   fi
                 fi
               else

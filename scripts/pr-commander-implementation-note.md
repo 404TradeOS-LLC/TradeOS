@@ -36,10 +36,12 @@ Commander composes existing pieces and rebuilds none of them.
   `authorization`, `permissions`, `jwt`, `oauth` paths; protected staging
   covers staging/reconcile/deploy workflow files plus `.env.staging` and
   `.env.production`.
-- `failedCheckNames(snapshot)` returns the names of the required checks
-  whose conclusion is `FAILURE` (or a timeout/cancelled/error result) —
-  names are read from `snapshot.checks` and are never invented by the
-  caller.
+- `failedCheckNames(snapshot)` returns all failed checks, both required
+  and non-required — names are read from `snapshot.checks` and are never
+  invented by the caller. It delegates to `checkState`, so it uses the
+  same failure set as the gate (including unrecognized completed
+  conclusions such as STARTUP_FAILURE, via checkState's fail-closed
+  catch-all); a check the gate counts as failed is always named here.
 - `isAiRepairEligible(input)` is a pure, fail-closed guard for the Phase 4
   AI repair worker. Input: `{ files, isDraft, mergeable, mergeStateStatus,
   failedChecks, unresolvedThreads, attempts, aiInvocations, sameRepo }`.
@@ -48,17 +50,27 @@ Commander composes existing pieces and rebuilds none of them.
   conflicting (`mergeable` false is a hard no), not behind (rebase first),
   same-repo only, no protected file in `classifyPrFiles(files)`, attempts
   < 3, and `aiInvocations` < 1 (at most one AI invocation per head).
-  Unknown input (anything that is not a plain object with the required
-  fields) is ineligible with a reason.
+  Every required input must be present and well-formed — a files array, a
+  boolean `isDraft`, a mergeability value in {MERGEABLE, CONFLICTING,
+  UNKNOWN}, a merge-state string, and nonnegative integer `attempts` /
+  `aiInvocations` — or the PR is ineligible. UNKNOWN mergeability or
+  merge state is ineligible (evidence incomplete). Unknown input
+  (anything that is not a plain object with the required fields) is
+  ineligible with a reason.
 - `buildAiRepairComment(input)` builds the single `@codex address that
   feedback` invocation comment for a PR (failing check names, run URL,
   head SHA, scope limits, prohibitions: no approve/merge/dismiss/resolve;
   push to this PR branch only; migrations/auth/RLS/workflows/production
   config off-limits; regression test required; chain-dependency clause:
-  if the failure is a chain dependency, say so and push nothing). The
-  caller posts it with `gh pr comment`; a failed post consumes no
-  attempt. The invocation is recorded as `ai-repair:<sha>:<n>` in the
-  verdict comment.
+  if the failure is a chain dependency, say so and push nothing). When
+  there is no failing check (threads-only invocation), the task line
+  directs Codex at the unresolved review threads instead of claiming a
+  check is failing. The caller posts it with `gh pr comment` only after
+  reserving the attempt in the verdict comment (and re-checking the live
+  head); a failed reservation write means no invocation and no attempt
+  consumed, while a failed post after a successful reservation keeps the
+  reservation (attempt consumed). The invocation is recorded as
+  `ai-repair:<sha>:<n>` in the verdict comment.
 - `nextRetryDelayMs(attempt)` is 1-based: attempt 1 → 60 s, 2 → 120 s,
   3 → 240 s, 4+ → null (escalate).
 - Verdict mapping: failing required check → `REPAIRABLE`;

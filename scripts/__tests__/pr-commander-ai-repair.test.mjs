@@ -99,6 +99,38 @@ test("AI repair eligibility fails closed on unknown input", () => {
   assert.equal(isAiRepairEligible({ files: ["app/modules/x.ts"] }).eligible, false);
 });
 
+test("AI repair eligibility fails closed on missing or invalid required inputs", () => {
+  // Every required input must be present and well-formed; a missing files
+  // list, an unknown draft/mergeability state, or a non-integer counter
+  // is unknown evidence and never yields "eligible".
+  const cases = [
+    { ...BASE, files: undefined },
+    { ...BASE, files: "web/src/lib/example.ts" },
+    { ...BASE, isDraft: undefined },
+    { ...BASE, mergeable: null },
+    { ...BASE, mergeable: "UNKNOWN" },
+    { ...BASE, mergeable: "MAYBE" },
+    { ...BASE, mergeStateStatus: undefined },
+    { ...BASE, mergeStateStatus: "UNKNOWN" },
+    { ...BASE, attempts: undefined },
+    { ...BASE, attempts: -1 },
+    { ...BASE, attempts: 1.5 },
+    { ...BASE, attempts: "1" },
+    { ...BASE, aiInvocations: -1 },
+    { ...BASE, aiInvocations: "0" },
+    { ...BASE, failedChecks: "App lint, unit tests, and build" },
+    { ...BASE, unresolvedThreads: -1 },
+  ];
+  for (const input of cases) {
+    const result = isAiRepairEligible(input);
+    assert.equal(result.eligible, false, JSON.stringify(input));
+  }
+  // The strictness does not bite on well-formed input: the BASE case
+  // stays eligible, and UNKNOWN merge state is the only new ineligible
+  // shape a live snapshot can produce before GitHub computes mergeability.
+  assert.equal(isAiRepairEligible(BASE).eligible, true);
+});
+
 test("failedCheckNames lists only failed conclusions", () => {
   const names = failedCheckNames({
     checks: [
@@ -110,6 +142,20 @@ test("failedCheckNames lists only failed conclusions", () => {
     ],
   });
   assert.deepEqual(names, ["App lint, unit tests, and build", "App integration tests"]);
+});
+
+test("failedCheckNames names a STARTUP_FAILURE check the gate counts as failed", () => {
+  // Regression: checkState's fail-closed catch-all classifies an
+  // unrecognized completed conclusion (STARTUP_FAILURE) as "failed", so
+  // the gate makes the PR REPAIRABLE — failedCheckNames must name it too,
+  // or the worker would be invoked with no actionable check.
+  const names = failedCheckNames({
+    checks: [
+      { name: "App lint, unit tests, and build", conclusion: "STARTUP_FAILURE", status: "COMPLETED" },
+      { name: "Web lint and build", conclusion: "SUCCESS", status: "COMPLETED" },
+    ],
+  });
+  assert.deepEqual(names, ["App lint, unit tests, and build"]);
 });
 
 test("failedCheckNames returns an empty list when nothing failed", () => {
@@ -148,6 +194,25 @@ test("AI repair comment states the scope limits and prohibitions", () => {
   assert.match(body, /add or update a regression test that fails before the fix and passes after it/);
   assert.match(body, /chain dependency/);
   assert.doesNotMatch(body, /Failing CI: $/m);
+});
+
+test("AI repair comment for a threads-only invocation directs Codex at the threads, not a failing check", () => {
+  // Regression: with no failing check there is no failing-check log to
+  // point at, so the comment must not claim checks are failing.
+  const body = buildAiRepairComment({
+    pr: 1,
+    headSha: "a".repeat(40),
+    failingChecks: [],
+    unresolvedThreads: 2,
+    runUrl: "https://github.com/404TradeOS-LLC/TradeOS/actions/runs/1",
+  });
+  assert.match(body, /no required check is failing/);
+  assert.match(body, /2 unresolved review thread\(s\) stand on it/);
+  assert.match(body, /inspect the unresolved review thread\(s\) on this PR and address each finding/);
+  assert.match(body, /Commander run: https:\/\/github\.com\/404TradeOS-LLC\/TradeOS\/actions\/runs\/1/);
+  assert.doesNotMatch(body, /Failing CI:/);
+  assert.doesNotMatch(body, /failing check log/);
+  assert.doesNotMatch(body, /also stand/);
 });
 
 test("AI repair marker prefix is stable for the verdict-comment counter", () => {
