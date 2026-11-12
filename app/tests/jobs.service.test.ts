@@ -1414,6 +1414,27 @@ describe("JobsService", () => {
       await expect(service.createFromAcceptedProposal(conversionInput)).rejects.toMatchObject({ code: "P2002" });
     });
 
+    it("isolates the racing insert in a savepoint so the fallback re-read runs in a live transaction", async () => {
+      const previous = { ...scheduledJob, sourceProposalId: "proposal-1" };
+      const executeRawUnsafe = jest.fn().mockResolvedValue(undefined);
+      const { getRequestDatabaseClient } = jest.requireMock("../db/requestSession") as {
+        getRequestDatabaseClient: jest.Mock;
+      };
+      getRequestDatabaseClient.mockReturnValueOnce({ $executeRawUnsafe: executeRawUnsafe });
+      mockDb.proposal.findFirst.mockResolvedValue(acceptedProposal);
+      mockDb.job.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(previous);
+      mockDb.job.create.mockRejectedValueOnce({ code: "P2002" });
+      const service = new JobsService(mockDb as never);
+
+      const result = await service.createFromAcceptedProposal(conversionInput);
+
+      expect(result.id).toBe("job-1");
+      const statements = executeRawUnsafe.mock.calls.map(([sql]) => String(sql));
+      expect(statements[0]).toMatch(/^SAVEPOINT "job_create_/);
+      expect(statements).toContainEqual(expect.stringMatching(/^ROLLBACK TO SAVEPOINT "job_create_/));
+      expect(statements).toContainEqual(expect.stringMatching(/^RELEASE SAVEPOINT "job_create_/));
+    });
+
     describe("optimistic-concurrency guard (expectedUpdatedAt)", () => {
       const staleToken = new Date("2026-07-13T12:00:00.000Z");
 

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { prisma } from "../../db/client";
-import { runInDatabaseTransaction } from "../../db/requestSession";
+import { getRequestDatabaseClient, runInDatabaseTransaction } from "../../db/requestSession";
 import { ActivityTimelineService } from "../intelligence/service";
 import { getDefaultAthenaEventService } from "../athena-events/service";
 import { jobStatuses, JobStatus } from "../../domain/contracts";
@@ -329,19 +329,30 @@ export class JobsService {
         termsAndConditions: proposal.termsAndConditions,
       };
 
+      // Narrowed by the guards above; captured as locals because property
+      // narrowing does not survive into the savepoint closure below.
+      const customerId = proposal.project.customerId;
+      const scopeOfWork = proposal.scopeOfWork;
+
       try {
-        return await this.create({
-          orgId: input.orgId,
-          actor: input.actor,
-          projectId: proposal.projectId,
-          customerId: proposal.project.customerId,
-          serviceAddressId: input.serviceAddressId,
-          title: proposal.project.name,
-          description: proposal.scopeOfWork,
-          jobType: proposal.project.jobType?.trim() || "Project work",
-          sourceProposalId: proposal.id,
-          acceptedBaselineJson,
-        });
+        // Isolate the insert in a savepoint: a unique-violation aborts the
+        // enclosing PostgreSQL transaction, so without this the P2002
+        // fallback below could not re-read the winning job in the same tx.
+        // Same pattern as withProposalCreateSavepoint in proposals/service.
+        return await withJobCreateSavepoint(() =>
+          this.create({
+            orgId: input.orgId,
+            actor: input.actor,
+            projectId: proposal.projectId,
+            customerId,
+            serviceAddressId: input.serviceAddressId,
+            title: proposal.project.name,
+            description: scopeOfWork,
+            jobType: proposal.project.jobType?.trim() || "Project work",
+            sourceProposalId: proposal.id,
+            acceptedBaselineJson,
+          })
+        );
       } catch (error) {
         // The advisory lock above serializes concurrent conversions of the
         // same proposal, so a unique-violation here is a last-resort race
@@ -1557,6 +1568,25 @@ function isRecordNotFound(error: unknown): boolean {
 
 function isUniqueConstraintViolation(error: unknown): boolean {
   return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2002");
+}
+
+async function withJobCreateSavepoint<T>(operation: () => Promise<T>): Promise<T> {
+  const activeTransaction = getRequestDatabaseClient();
+  if (!activeTransaction) return operation();
+
+  // A duplicate insert aborts the current PostgreSQL transaction. Isolate
+  // the insert so the caller can read the winner after rollback.
+  const savepoint = `job_create_${randomUUID().replace(/-/g, "")}`;
+  await activeTransaction.$executeRawUnsafe(`SAVEPOINT "${savepoint}"`);
+  try {
+    const result = await operation();
+    await activeTransaction.$executeRawUnsafe(`RELEASE SAVEPOINT "${savepoint}"`);
+    return result;
+  } catch (error) {
+    await activeTransaction.$executeRawUnsafe(`ROLLBACK TO SAVEPOINT "${savepoint}"`);
+    await activeTransaction.$executeRawUnsafe(`RELEASE SAVEPOINT "${savepoint}"`);
+    throw error;
+  }
 }
 
 // Optimistic-concurrency guard, following the project-tasks pattern
