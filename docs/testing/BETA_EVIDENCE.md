@@ -171,8 +171,8 @@ The staging orchestrator now explicitly selects the existing synthetic
 `TEST Org — Delete Me` owner fixture (`use_test_org=true`), pinned to organization
 `d86d0874-6ba3-4b06-94b6-bd0ae99fe532`. Its credentials remain in encrypted
 `TEST_STAGING_EMAIL` / `TEST_STAGING_PASSWORD`, already used by the Playwright
-evidence workflow. The selected secret name is resolved before reading its
-value; a missing TEST credential never falls back to a different account.
+evidence workflow. Only explicit secret references are used, with mutually
+exclusive branches; a missing TEST credential never falls back to another account.
 Preflight validates this fixture's exact staging environment, UUID and label,
 then the unchanged authenticated API assertion must prove the actual session.
 The 2026-11-12 run `43130359603` logged in but rejected the prior credentials'
