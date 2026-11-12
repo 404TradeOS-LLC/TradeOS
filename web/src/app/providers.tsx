@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { GlobalCommandPaletteProvider } from "@/components/shared/global-command-palette";
+import { MotionPreferenceInitializer } from "@/lib/motion/motion-preference-initializer";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -20,6 +21,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
   return (
     <QueryClientProvider client={queryClient}>
+      <MotionPreferenceInitializer />
       <GlobalCommandPaletteProvider>{children}</GlobalCommandPaletteProvider>
     </QueryClientProvider>
   );

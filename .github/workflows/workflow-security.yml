@@ -126,7 +126,23 @@ jobs:
             end
           end
 
-          def inspect_permissions(value, file, scope)
+          # Founder-authorized exceptions to the default workflow policy.
+          # Each entry is scoped to one workflow file, one job, and one
+          # permission key. Record the exception in
+          # docs/REPOSITORY_GOVERNANCE.md and cite the founder decision
+          # here; never widen an entry without a new reviewed governance
+          # change.
+          # - .github/workflows/pr-commander.yml, job `act`, `actions: write`:
+          #   founder policy exception 2026-11-10 (Billy, "Policy exceprion"),
+          #   scoped to dispatching pr-maintenance.yml for REPAIRABLE
+          #   behind-branch verdicts. See docs/PR_COMMANDER.md.
+          POLICY_EXCEPTIONS = {
+            ".github/workflows/pr-commander.yml" => {
+              "act" => ["actions"]
+            }
+          }.freeze
+
+          def inspect_permissions(value, file, scope, job_name = nil)
             return false if value.nil?
             if value.to_s == "write-all"
               puts "::error file=#{file}::#{scope} permissions: write-all is prohibited."
@@ -137,6 +153,10 @@ jobs:
             failed = false
             { "actions" => "actions: write", "id-token" => "id-token: write" }.each do |key, label|
               next unless value[key].to_s == "write"
+              if POLICY_EXCEPTIONS.dig(file, job_name)&.include?(key)
+                puts "Note: #{file} job #{job_name} #{label} is a recorded founder policy exception; allowed."
+                next
+              end
               puts "::error file=#{file}::#{scope} #{label} is prohibited by the default workflow policy."
               failed = true
             end
@@ -186,7 +206,7 @@ jobs:
               if jobs.is_a?(Hash)
                 jobs.each do |job_name, job|
                   next unless job.is_a?(Hash)
-                  failed = true if inspect_permissions(job["permissions"], file, "job #{job_name}")
+                  failed = true if inspect_permissions(job["permissions"], file, "job #{job_name}", job_name)
                 end
               end
             end

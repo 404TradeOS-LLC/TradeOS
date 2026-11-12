@@ -35,6 +35,11 @@ related_code:
   - .github/workflows/merge-queue.yml
   - .github/merge-queue-ruleset.json
   - scripts/merge-queue.mjs
+  - .github/workflows/pr-commander.yml
+  - scripts/pr-commander.mjs
+  - scripts/pr-commander-lib.mjs
+  - docs/PR_COMMANDER.md
+  - docs/PR_COMMANDER_CONFIGURATION.md
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
@@ -238,6 +243,10 @@ Once a PR exists, use one continuous repair loop rather than waiting for serial 
 
 Regression tests should exercise the actual behavior/failure path whenever practical. Static source-text tests are appropriate only when the source shape itself is the intended convention; review (human or agent) should flag source-text substitutes for behavioral coverage.
 
+The manual PR Maintenance workflow is the protected branch-currency repair route for one explicitly selected open, same-repository PR targeting `main`. GitHub Actions numeric dispatch input can arrive as `961.0`; the workflow validates and canonicalizes the number once before GitHub CLI operations, then passes the validated output to the rebase and report steps. A mocked-CLI regression test checks valid integers and rejects fractional/unsafe values. The workflow stays manual-only and is not a substitute for exact-head CI, review-thread resolution, staging evidence or a separate merge decision. The original parsing failure is recorded in [run 42915388112](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/42915388112).
+
+The PR Commander (`.github/workflows/pr-commander.yml`, live and armed since 2026-11-11) adds an unattended repair tier on top of the same merge bar: deterministic lint repair first, then an AI repair worker that invokes the already-installed ChatGPT Codex app once per head on a REPAIRABLE same-repo PR the deterministic tier could not fix (`@codex address that feedback`, with scope limits and prohibitions in the comment; one invocation counts as one of the 3 per-head repair attempts and is recorded as `ai-repair:<sha>:<n>` in the verdict comment). Copilot is unavailable (0 seats, quota exhausted) and the Claude app has no repo wiring, so Codex is the only AI repair path wired. Codex's repair push in this repo is UNCONFIRMED until the end-to-end validation observes it — until then the deterministic tier is the ceiling for verified repairs. The worker never approves, merges, dismisses a review, or resolves a thread; the merge bar still decides every merge. See [PR Commander](PR_COMMANDER.md) and [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
+
 Production repair should use the health split first:
 
 - `/health` failing → investigate process/deployment/routing/platform availability;
@@ -352,6 +361,43 @@ S030 implementation PR #341 merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`
 
 TradeOS includes two governed maintenance workflows: CodeQL remediation runs on a schedule or manual dispatch and opens isolated PRs for bounded alerts; the frontend code-quality lane runs ESLint autofix on a schedule or manual dispatch and opens a PR only after tests, lint, build, and diff validation pass. Neither lane writes directly to `main`, bypasses branch protection, or makes product, schema, authentication, authorization, billing, or production-trust decisions.
 
+### PR Commander — autonomous PR coordination (live, armed) — 2026-11-10
+
+The [PR Commander](PR_COMMANDER.md) (`.github/workflows/pr-commander.yml`,
+merged as PR #964, squash `0526b61f`, main) adds a third, queue-wide
+automation lane: an hourly sweep at :17 UTC plus a read-only fast path on
+every `pull_request` event, evaluating every open PR against the unchanged
+merge bar and enabling native auto-merge only when every gate passes at one
+exact head SHA. It composes the existing verify / merge-readiness /
+pr-maintenance / CodeQL-autofix pieces and rebuilds none of them. **Status:
+live and armed.** Write action requires the repository variable
+`TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly `"true"` **and** a manual
+dispatch with `mode=armed` (for dispatch runs) or both variables exactly
+`"true"` (`TRADEOS_PR_COMMANDER_WRITE_ENABLED` and
+`TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED`, for schedule runs); `pull_request`
+runs can never act, and schedule runs are read-only unless both variables are
+set. Exact `"true"` is enforced by a case-sensitive shell check at the top of the "Apply verdicts" step, before any write — the job `if:` compares strings case-insensitively and cannot enforce it alone. The variable is set and the founder-installed
+repair-push secret `TRADEOS_PR_COMMANDER_PUSH_TOKEN` is in place. First
+post-merge dry-run (run 42930226341) and first armed run (42930606887) both
+verified from main on PR #953: dry-run verdict BLOCKED fail-closed on a
+transient unknown merge state with zero writes; armed verdict REPAIRABLE
+(behind branch) with a verdict comment posted and nothing merged. **Policy
+exception (founder, 2026-11-10):** the armed `act` job holds
+`actions: write`, scoped to dispatching `pr-maintenance.yml` for REPAIRABLE
+behind-branch verdicts — the first armed run proved the dispatch was not
+wired in v1 (a behind PR got a verdict comment only). The exception is
+recorded in the `Workflow security` policy script (`POLICY_EXCEPTIONS`) and
+in [Repository governance](REPOSITORY_GOVERNANCE.md); end-to-end rebase
+dispatch depends on PR #965's numeric-input fix in `pr-maintenance.yml`.
+Founder-only boundaries are unchanged: the Commander never dismisses a
+blocking review, never auto-resolves threads in v1, never undrafts a PR,
+never applies migrations or staging-apply gates, never touches production,
+and never changes a ruleset. Copilot Agent Merge is not available as a
+delegation path (0 org seats, quota failures, disabled review ruleset —
+verified 2026-11-10); delegation is deterministic repair, CodeQL Autofix,
+and CodeRabbit re-review. Setup and disable steps are in
+[PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
+
 ### GitHub Actions runtime maintenance
 
 The CodeQL autofix lane now pins `actions/github-script` v9.0.0 by immutable commit SHA. The embedded script uses only the injected `github`, `context`, and `core` objects, does not call CommonJS `require('@actions/github')`, and does not redeclare the v9-injected `getOctokit` parameter. This is GitHub Actions runtime maintenance only; workflow permissions, triggers, TradeOS workload runtimes, auth/RLS, schema, billing, and product behavior are unchanged.
@@ -399,7 +445,11 @@ HTML report plus browser artifacts. Its authenticated mode creates fresh
 Beta-smoke storage state outside the checkout, verifies the expected
 organization, then exercises **Today**, **Customers**, **Projects**,
 **Estimates**, **Proposals**, **Contracts**, and **Invoices** without mutating
-business or financial records. Existing sanitized records are used to prove the
+business or financial records. Optional inputs (`estimate_stage_path`,
+`spec_file`, `use_test_org`) let a dispatch run a single estimate spec against
+a seeded draft route as the TEST Org staging test account
+(`TEST_STAGING_EMAIL`/`TEST_STAGING_PASSWORD`) instead of the Beta smoke
+identity. Existing sanitized records are used to prove the
 corresponding detail surfaces; missing records must render truthful empty
 states. Authenticated traces are disabled, agent MCP startup remains
 origin-constrained, and session state is removed before artifacts are uploaded.
@@ -480,8 +530,6 @@ For the later staging invoice contract/drop-column migration, independently veri
 
 Deploy workflow pooler support — 2026-10-29: `.github/workflows/deploy-staging-migrations.yml` now accepts the staging Transaction pooler host in addition to the direct host, with the same project-ref-suffixed username requirement as the reconcile workflow, and converts a verified Transaction-pooler URL to session mode (port 5432) for `prisma migrate deploy`; psql checks keep the secret as-is. The invoice-expand reconciliation completed 2026-10-29 (47 applied, 0 unfinished, legacy columns intact); 14 migrations remain, and the contract migration still requires the writer-retirement attestation before dispatch.
 
-Orchestrator migrate-status session mode — 2026-10-29: `.github/workflows/staging-orchestrator.yml`'s preflight migrate-status step now derives a session-mode URL (port 5432) from the staging secret before running `npx prisma migrate status`, mirroring the deploy workflow; the step hung for 40+ minutes against the Transaction pooler URL in run 40939045905 (cancelled) and now also carries a 10-minute timeout. psql steps keep the secret as-is; preflight remains read-only.
-
 ## P0 canonical staging smoke identity — 2026-10-30
 
 For beta browser acceptance, `.github/workflows/staging-orchestrator.yml` passes the verified nonproduction `TradeOS Beta Smoke` organization UUID `9814bd72-626a-42f4-8871-cd755cb9d685` to `.github/workflows/beta-evidence.yml`. The bootstrap checks the authenticated Settings API `orgId`, never editable Settings DOM text; missing or mismatched tenant identity is a hard failure. Run 40962013890 failed this identity stage after successful migration/deployment preflights; no four-viewport PASS is claimed. Confirm the configured smoke identity's membership before rerunning evidence.
@@ -502,8 +550,15 @@ The new main-only manual `.github/workflows/staging-expenses-migration.yml` and 
 
 **Sequence:** independent infrastructure PR review/merge → reviewer-approved protected preflight → separate approved staging apply → postflight proving exact inventory, forced Expense/event RLS and append-only audit → matching staging API-first/web runtime identity → authenticated owner/technician, cross-tenant and receipt browser acceptance → final feature PR review/merge. This runner does not authorize merging PR #891 or production migration. Full operator instructions: [Protected staging Expense migrations](operations/staging-expenses-migrations.md).
 
-**Update 2026-11-06:** the protected staging apply has since completed (ledger 67→70) and the Expense tables now exist on staging; the pre-apply inventory above is retained as the operator record.
-
 ## PR #933 review repairs
 
 Keep the existing PR/branch for the PDF beta evidence lane. Its foreign Proposal probe must prove owner/admin access in a pinned separate synthetic tenant before and after the smoke-account denial; absent proof remains FAIL. Dedicated foreign-owner secrets are prerequisites, not provisioned by this source repair. Exact-release PDF renderer CI results must be retained before the cohort decision. No product authorization, schema, migration, deployment or release state changes.
+
+## Staging runtime identity parity review — 2026-11-09 (draft PR #958)
+
+Draft [PR #958](https://github.com/404TradeOS-LLC/TradeOS/pull/958) ports the already-existing staging `/ready` public database project-ref contract and the project-bound staging pooler/session-mode preflight onto current `main`. It does not alter schema, tokens, migrations, or deployed runtime. The checked Git trees differ in 23 actual files (despite 79/27 divergent commits). Staging Vercel web/API aliases still target `c800425f`, not main `c1b3cb0e`; Vercel metadata reads return 403. The earlier protected Nov 7 runtime attestation passed for the older deployment and cannot certify a new SHA. Retain draft and reviewer gate before an authorized staging-only promotion; live contractor beta acceptance remains blocked.
+
+
+### PR Commander unattended execution proposal (PR #967, 2026-11-11)
+
+A draft workflow change proposes optional scheduled write execution gated by **both** `TRADEOS_PR_COMMANDER_WRITE_ENABLED=true` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED=true`. Until the change passes hosted checks, review, a verified manual armed run, and explicit owner activation, scheduled sweeps remain read-only. No migration, staging, production, review, or branch-protection gate is relaxed. See [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).

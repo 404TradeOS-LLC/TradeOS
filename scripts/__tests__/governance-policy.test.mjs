@@ -77,3 +77,75 @@ test("component-only and runner changes execute the Web browser gate", async () 
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("PR maintenance canonicalizes numeric workflow_dispatch input and rejects malformed PR identifiers", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const { tmpdir } = await import("node:os");
+  const { default: yaml } = await import("js-yaml");
+  const workflow = yaml.load(read(".github/workflows/pr-maintenance.yml"));
+  const steps = workflow.jobs.rebase.steps;
+  const validate = steps.find((step) => step.id === "pr");
+  assert.ok(validate?.run, "PR maintenance must have a validation script");
+  const normalizedRef = "$" + "{{ steps.pr.outputs.pr_number }}";
+  assert.equal(steps.find((step) => step.name === "Rebase pull request branch onto main").env.PR_NUMBER, normalizedRef);
+  assert.equal(steps.find((step) => step.name === "Report updated head").env.PR_NUMBER, normalizedRef);
+
+  const directory = fs.mkdtempSync(path.join(tmpdir(), "tradeos-pr-maintenance-"));
+  const fakeBin = path.join(directory, "bin");
+  fs.mkdirSync(fakeBin);
+  fs.writeFileSync(
+    path.join(fakeBin, "gh"),
+    [
+      "#!/usr/bin/env bash",
+      "set -euo pipefail",
+      "printf '%s\\n' \"$3\" >> \"$GH_CAPTURE\"",
+      "if [ \"$3\" != \"961\" ]; then exit 61; fi",
+      "case \"$*\" in",
+      "  *baseRefName*) printf 'main\\n' ;;",
+      "  *headRepository*) printf '404TradeOS-LLC/TradeOS\\n' ;;",
+      "  *'--json state'*) printf 'OPEN\\n' ;;",
+      "  *) exit 62 ;;",
+      "esac",
+    ].join("\n") + "\n",
+    { mode: 0o755 },
+  );
+  try {
+    for (const [raw, isValid] of [
+      ["961.0", true],
+      ["961", true],
+      ["961.00", true],
+      ["961.5", false],
+      ["0", false],
+      ["-1", false],
+      ["961;echo unsafe", false],
+    ]) {
+      const output = path.join(directory, "output");
+      const capture = path.join(directory, "capture");
+      fs.writeFileSync(output, "");
+      fs.writeFileSync(capture, "");
+      const result = spawnSync("bash", ["-e", "-c", validate.run], {
+        cwd: directory,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PR_NUMBER: raw,
+          GITHUB_OUTPUT: output,
+          GITHUB_REPOSITORY: "404TradeOS-LLC/TradeOS",
+          GH_CAPTURE: capture,
+          PATH: fakeBin + ":" + process.env.PATH,
+        },
+      });
+      const calls = fs.readFileSync(capture, "utf8").trim().split("\n").filter(Boolean);
+      if (isValid) {
+        assert.equal(result.status, 0, raw + ": " + result.stderr);
+        assert.equal(fs.readFileSync(output, "utf8").trim(), "pr_number=961", raw);
+        assert.deepEqual(calls, ["961", "961", "961"], raw);
+      } else {
+        assert.notEqual(result.status, 0, raw + " must be rejected");
+        assert.deepEqual(calls, [], raw + " must be rejected before contacting GitHub");
+      }
+    }
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});

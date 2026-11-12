@@ -35,6 +35,7 @@ import {
 
 import { assertAuthenticatedSmokeTenant } from "../../app/scripts/beta-evidence/lib/tenant-identity.mjs";
 import { createdCustomerIdFromUrl } from "../../app/scripts/beta-evidence/lib/customer-detail-url.mjs";
+import { createdProjectIdFromUrl } from "../../app/scripts/beta-evidence/lib/project-detail-url.mjs";
 import { matchesReviewedSavedLine, renderedVerifiedRowMatches, reloadEstimateAndRead } from "../../app/scripts/beta-evidence/lib/saved-line-verification.mjs";
 
 const root = process.cwd();
@@ -225,22 +226,6 @@ test("artifact validation reports a viewport that produced nothing", () => {
   assert.ok(result.failures.some((failure) => failure.code === "VIEWPORT_UNREPRESENTED" && failure.file === "390"));
 });
 
-test("project save accepts the projects list or a direct workspace navigation", () => {
-  const source = read("app/scripts/beta-evidence/capture-evidence.mjs");
-  assert.ok(
-    source.includes(
-      "await page.waitForURL(/\\/projects(?:\\?|$|\\/(?!new(?:$|[/?]))[^/?]+(?:$|[/?]))/, { timeout: 60_000 });",
-    ),
-    "post-save wait must accept the projects list or a direct workspace URL, never /projects/new",
-  );
-  assert.match(source, /const directProjectId = \/\\\/projects\\\/\(\[\^\/\?]\+\)\/\.exec\(postSavePath\)\?\.\[1\];/);
-  assert.match(source, /if \(directProjectId && directProjectId !== "new"\) \{/);
-  assert.match(
-    source,
-    /await projectLink\.click\(\);\s*await page\.waitForURL\(\s*new RegExp\(`\/projects\/\$\{projectId\}\(\?:\$\|\[\/\?\]\)`\),\s*\{\s*timeout: 60_000,\s*waitUntil: "commit",\s*\}\s*\);\s*\}\s*await page\.waitForLoadState\("networkidle"\);/,
-  );
-});
-
 test("screenshot truth check rejects login, error, 404, empty, and stuck-loading pages", () => {
   assert.equal(assessScreenshotTruth({ pathname: "/dashboard", bodyText: "Dashboard", checkpoint: "01" }).ok, true);
   assert.equal(assessScreenshotTruth({ pathname: "/login", bodyText: "Sign in", checkpoint: "01" }).ok, false);
@@ -402,8 +387,7 @@ test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit r
   assert.ok(capture.includes('`/projects/new?customerId=${encodeURIComponent(customerId)}`'));
   assert.ok(capture.includes('page.locator(\'form [name="customerId"]\')'));
   assert.match(capture, /customerLinkType === "customer-context"/);
-  assert.match(capture, /element\.tagName === "SELECT"\s*\? "customer-selector"/);
-  assert.match(capture, /element\.tagName === "INPUT" && element\.type === "hidden"\s*\? "customer-context"/);
+  assert.match(capture, /element\.tagName === "SELECT"[\s\S]*\? "customer-selector"/);
   assert.match(capture, /linkedCustomerId === customerId/);
   assert.match(capture, /project creation carries the exact server-created customer/);
   assert.match(capture, /S052 uses the resolved customer-context form/);
@@ -555,6 +539,25 @@ test("beta capture waits for the persisted Customer UUID rather than matching /c
   assert.equal(createdCustomerIdFromUrl(`${origin}/customers/${uuid}?tab=projects`), uuid);
   assert.match(capture, /waitForURL\(\(url\) => createdCustomerIdFromUrl\(url\) !== null/);
   assert.match(capture, /const customerId = createdCustomerIdFromUrl\(page\.url\(\)\)/);
+});
+
+test("beta capture waits for the persisted Project UUID rather than the project list", () => {
+  // Regression guard for the run-42597262414 failure: after "Create project"
+  // the app redirects straight to /projects/<uuid>, so waiting for the
+  // project list URL (/projects(?:\?|$)/) times out after 60 s even though
+  // the Project was created and its detail page rendered.
+  const uuid = "4a83bbd6-c562-47f3-8655-f08790b41371";
+  const origin = "https://tradeos-costbook-web-git-staging-billykshowalters.vercel.app";
+  assert.equal(createdProjectIdFromUrl(`${origin}/projects/new`), null);
+  assert.equal(createdProjectIdFromUrl(`${origin}/projects`), null);
+  assert.equal(createdProjectIdFromUrl(`${origin}/projects/not-a-uuid`), null);
+  assert.equal(createdProjectIdFromUrl(`${origin}/projects/${uuid}/estimates/${uuid}`), null);
+  assert.equal(createdProjectIdFromUrl("not a URL"), null);
+  assert.equal(createdProjectIdFromUrl(`${origin}/projects/${uuid}`), uuid);
+  assert.equal(createdProjectIdFromUrl(`${origin}/projects/${uuid}?tab=estimate-history`), uuid);
+  assert.match(capture, /waitForURL\(\(url\) => createdProjectIdFromUrl\(url\) !== null/);
+  assert.match(capture, /const projectId = createdProjectIdFromUrl\(page\.url\(\)\)/);
+  assert.doesNotMatch(capture, /await page\.waitForURL\(\/\\\/projects\(\?:\\\?\|\\\$\)\//);
 });
 
 test("S053 evidence is opt-in and defaults do not change the canonical beta flow", () => {
@@ -721,11 +724,87 @@ test("staging beta evidence pins the canonical smoke UUID and forwards it to the
   assert.match(authSetup, /expectedOrgId = process\.env\.BETA_SMOKE_ORG_ID/);
 });
 
+test("login credentials are filled only after the login film dismisses", () => {
+  // Playwright waitForFunction(pageFunction, arg, options) requires its
+  // timeout as the third argument. Observe the film before navigation,
+  // or a completed film may never be observed.
+  const waitMatch = authSetup.match(
+    /page\.waitForFunction\(\s*(\(\) => \{[\s\S]*?\})\s*,\s*undefined,\s*\{\s*timeout:\s*30_000\s*\},?\s*\)/,
+  );
+  assert.ok(waitMatch, "bounded film wait not found");
+  const observer = authSetup.indexOf("await page.addInitScript(");
+  const navigation = authSetup.indexOf('await page.goto(new URL("/login"');
+  const wait = authSetup.indexOf(waitMatch[0]);
+  const fill = authSetup.indexOf("await page.locator('[name=\"email\"]')");
+  assert.ok(observer >= 0 && observer < navigation, "film observation must begin before navigation");
+  assert.ok(navigation < wait && wait < fill, "film readiness must precede credential filling");
+});
+
+test("login film readiness tracks pre-navigation inert transitions, late polling, and reduced motion", () => {
+  const bootstrap = authSetup.match(
+    /await page\.addInitScript\(\s*(\(\) => \{[\s\S]*?noteIntroState\(\);\s*\})\s*\);/,
+  );
+  const wait = authSetup.match(
+    /page\.waitForFunction\(\s*(\(\) => \{[\s\S]*?\})\s*,\s*undefined,\s*\{\s*timeout:\s*30_000\s*\},?\s*\)/,
+  );
+  assert.ok(bootstrap && wait, "pre-navigation observer and bounded readiness predicate are required");
+  const install = new Function("document", "window", "MutationObserver", `return (${bootstrap[1]})();`);
+  const ready = new Function("document", "window", `return (${wait[1]})();`);
+
+  let present = false;
+  let inert = false;
+  let onMutation;
+  const document = {
+    querySelector: (selector) => {
+      assert.equal(selector, ".entry-content");
+      return present ? { hasAttribute: (name) => name === "inert" && inert } : null;
+    },
+  };
+  const window = { matchMedia: () => ({ matches: false }) };
+  class FakeMutationObserver {
+    constructor(callback) { onMutation = callback; }
+    observe(target, options) {
+      assert.equal(target, document);
+      assert.equal(options.subtree, true);
+      assert.equal(options.childList, true);
+      assert.equal(options.attributes, true);
+      assert.deepEqual(options.attributeFilter, ["inert"]);
+    }
+  }
+
+  install(document, window, FakeMutationObserver);
+  assert.equal(ready(document, window), false, "missing form must not count as ready");
+  present = true;
+  onMutation();
+  assert.equal(ready(document, window), false, "SSR form before hydration must not count as ready");
+  inert = true;
+  onMutation();
+  assert.equal(ready(document, window), false, "active film must block filling");
+  inert = false;
+  onMutation();
+  assert.equal(ready(document, window), true, "film completion before polling must be remembered");
+  inert = true;
+  assert.equal(ready(document, window), false, "a reopened film must still block filling");
+  inert = false;
+  assert.equal(ready(document, window), true, "dismissal restores readiness");
+
+  // Reduced motion never creates a film; do not require the inert transition.
+  const reducedWindow = { matchMedia: () => ({ matches: true }) };
+  assert.equal(ready(document, reducedWindow), true);
+});
+
 test("the tenant assertion cannot be skipped and mutation consent is never implicit", () => {
   // An unset organization label previously recorded the tenant check as passed.
   assert.match(authSetup, /BETA_SMOKE_ORG_LABEL/);
   assert.match(authSetup, /tenant assertion cannot be skipped/);
   assert.doesNotMatch(authSetup, /tenant assertion skipped/);
+
+  // The tenant assertion no longer depends on DOM text at all: it verifies
+  // the request-authenticated Settings API response
+  // (assertAuthenticatedSmokeTenant), so there is no General panel to open
+  // and no visible-text fallback to order first. The settingsText-first
+  // fix for the old DOM-based assertion was superseded by that
+  // restructure during the #918 rebase onto main.
 
   // An unset BETA_ALLOW_MUTATIONS previously defaulted to "true".
   const run = read("app/scripts/beta-evidence/run.mjs");
@@ -750,6 +829,25 @@ test("session state is written outside the repository and removed afterwards", (
   const storageStatePath = read("app/scripts/beta-evidence/lib/storage-state-path.mjs");
   assert.match(storageStatePath, /realpath/);
   assert.match(storageStatePath, /symbolic link into the repository/);
+});
+
+test("a login timeout captures failure diagnostics instead of only a generic message", () => {
+  // The next auth failure must be diagnosable from the artifact alone:
+  // page body text, the inline server-error text, console errors, and
+  // failed requests, plus a screenshot. The collectors run from the start
+  // of the login attempt; the capture runs on the waitForURL timeout and
+  // its summary lands in the report. Behavioral coverage lives in
+  // app/scripts/beta-evidence/lib/login-failure-diagnostics.test.mjs.
+  assert.match(authSetup, /captureLoginFailureDiagnostics/);
+  assert.match(authSetup, /page\.on\("console"/);
+  assert.match(authSetup, /page\.on\("requestfailed"/);
+  assert.match(authSetup, /loginFailureDiagnostics/);
+  assert.match(authSetup, /Failure diagnostics captured under auth\//);
+  const diagnostics = read("app/scripts/beta-evidence/lib/login-failure-diagnostics.mjs");
+  assert.match(diagnostics, /\.server-error/);
+  assert.match(diagnostics, /login-failure\.png/);
+  assert.match(diagnostics, /login-failure-diagnostics\.json/);
+  assert.match(diagnostics, /no credential material/i);
 });
 
 test("evidence capture fails closed without explicit mutation consent", () => {

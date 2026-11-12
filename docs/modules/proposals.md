@@ -25,11 +25,8 @@ A proposed internal loader optionally supplies the authenticated organization's 
 
 Estimate-backed and project-backed PDF renderers accept optional validated PNG/JPEG byte input from the implemented authenticated tenant-owned Storage loader. The source-facing service now attempts private organization-scoped Storage retrieval with protected backend credentials and does not fetch arbitrary external URLs. Missing bytes preserve text-only branding and the controlled `showPoweredByTradeOS` footer. API contract, proposal pricing, and state transitions are unchanged. Issue #870 owns remaining staging credential and customer-PDF visual acceptance.
 
+
 # Proposals
-
-## Organization logo in proposal PDFs — staging promotion of PR #871 and PR #873
-
-Estimate-backed and project-backed proposal PDF renderers accept optional validated PNG/JPEG byte input loaded only from the authenticated organization's current private `SettingsAssetUpload(orgId, logoUrl)` record via a server-only bounded Storage lookup. No arbitrary URL is fetched and no client-submitted bytes are accepted. Missing or invalid images preserve text-only company branding and the controlled `showPoweredByTradeOS` footer. API contract, proposal pricing, and state transitions are unchanged. Staging acceptance with a seeded same-tenant logo and visual inspection remains open under issue #870. PR #868 is included in this promotion, so the staging proposal header now uses the organization brand.
 
 ## Purpose
 

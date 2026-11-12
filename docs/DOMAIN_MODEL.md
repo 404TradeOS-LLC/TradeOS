@@ -106,7 +106,6 @@ A first-class scheduled field-execution record stored in `Job`.
 - `voidedAt`, `voidedById` and `voidReason` preserve a soft-void ledger. Voided records remain visible to authorized staff but do not contribute to active expense totals.
 - Append-only `JobExpenseEvent` records create, edit, receipt-link and void provenance, with forced RLS inherited from the job relationship. Expense-event UPDATE/DELETE is not allowed by policy.
 - The actual-cost summary is integer cents and uses only nonvoid contractor-paid records. The displayed quote comparison is not recognized revenue or accounting profit. `recognizedRevenueCents` and `profitCents` remain null until verified job-level revenue attribution exists.
-- The three expense migrations are applied on staging (ledger 67→70 as of 2026-11-06); authenticated mobile and receipt acceptance remain to be verified.
 - New constraint validation, migrations, receipt Storage and mobile acceptance require staged verification and documented release approval; code committed to a branch is not production deployment.
 
 ## EmailDeliveryMessage and EmailDeliveryEvent

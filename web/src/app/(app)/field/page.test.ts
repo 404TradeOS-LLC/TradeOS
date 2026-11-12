@@ -37,6 +37,10 @@ async function renderDeniedPage(token: string | null, role: string) {
       if (specifier === "@/components/field/field-note-form") return { FieldNoteForm: unusedComponent };
       if (specifier === "@/components/field/job-expense-section") return { JobExpenseSection: unusedComponent };
       if (specifier === "@/components/shared/status-badge") return { StatusBadge: unusedComponent };
+      // The field page renders job progress from the motion adapters; the
+      // gate tests never reach a selected job, so stub both imports.
+      if (specifier === "@/components/motion/lifecycle-line") return { LifecycleLine: unusedComponent };
+      if (specifier === "@/lib/motion/adapters") return { JOB_LIFECYCLE_STAGES: [], jobLifecycle: () => null };
       if (specifier === "@/lib/document-workflow" || specifier === "@/lib/field-workspace") {
         return new Proxy({}, { get: (_target, name) => () => { throw new Error(`Denied page reached ${String(name)}`); } });
       }
@@ -103,6 +107,10 @@ async function renderAllowedPage(token: string, role: string) {
       if (specifier === "@/components/field/field-note-form") return { FieldNoteForm: unusedComponent };
       if (specifier === "@/components/field/job-expense-section") return { JobExpenseSection: unusedComponent };
       if (specifier === "@/components/shared/status-badge") return { StatusBadge: unusedComponent };
+      // The field page renders job progress from the motion adapters; the
+      // allowed-page fixtures select no job, so stub both imports.
+      if (specifier === "@/components/motion/lifecycle-line") return { LifecycleLine: unusedComponent };
+      if (specifier === "@/lib/motion/adapters") return { JOB_LIFECYCLE_STAGES: [], jobLifecycle: () => null };
       if (specifier === "@/lib/document-workflow") return { formatScheduleInZone: (value: string) => value };
       if (specifier === "@/lib/field-workspace") return workspaceExports;
       throw new Error(`Unexpected import: ${specifier}`);

@@ -5,10 +5,13 @@ import { expect, test } from '@playwright/test';
 const path = process.env.TRADEOS_ESTIMATE_STAGE_PATH;
 const state = process.env.TRADEOS_ESTIMATE_STAGE_STATE;
 
+// trace/video cannot be set via test.use inside a describe group (they force
+// a new worker); hoist to file top level like authenticated.spec.ts.
+if (state) test.use({ storageState: state, trace: 'off', video: 'off' });
+
 test.describe('Estimate item cost editing', () => {
   test.skip(!path, 'Set a sanitized draft route containing a saved item.');
   if (path && (!path.startsWith('/') || path.startsWith('//'))) throw new Error('Use a relative draft route');
-  if (state) test.use({ storageState: state, trace: 'off', video: 'off' });
 
   for (const width of [390, 768, 1024, 1440]) {
     test(`blank cost never writes and rejected edits retain input at ${width}px`, async ({ page }) => {

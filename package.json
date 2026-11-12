@@ -17,7 +17,7 @@
     "pr:body-check": "node scripts/pr-body-check.mjs",
     "pr:preflight": "node scripts/pr-preflight.mjs",
     "pr:preflight:run": "node scripts/pr-preflight.mjs --run",
-    "pr:test": "node --test scripts/__tests__/staging-job-handoff-migration.test.mjs scripts/staging-expenses-migration.test.mjs scripts/__tests__/pr-body-check.test.mjs scripts/__tests__/pr-preflight.test.mjs scripts/__tests__/governance-policy.test.mjs scripts/__tests__/github-environment-guard.test.mjs scripts/__tests__/vercel-ignore-command.test.mjs scripts/__tests__/rc-smoke-contract.test.mjs scripts/__tests__/beta-evidence.test.mjs scripts/__tests__/beta-pdf-evidence.test.mjs scripts/__tests__/connection-matrix.test.mjs scripts/__tests__/staging-repair.test.mjs scripts/__tests__/staging-preview-attest.test.mjs scripts/__tests__/merge-queue.test.mjs tests/playwright/target.test.mjs scripts/__tests__/playwright-agent-evidence.test.mjs scripts/__tests__/assembly-catalog-browser-evidence.test.mjs app/scripts/beta-evidence/lib/costbook-identity.test.mjs app/scripts/beta-evidence/lib/proposal-pdf.test.mjs app/scripts/beta-evidence/lib/foreign-proposal.test.mjs scripts/__tests__/forge-gatekeeper.test.mjs forge-worker/test/policy.test.js forge-worker/test/api.test.js forge-agent/test/policy.test.js forge-agent/test/github-client.test.js",
+    "pr:test": "node --test scripts/__tests__/staging-job-handoff-migration.test.mjs scripts/staging-expenses-migration.test.mjs scripts/__tests__/pr-body-check.test.mjs scripts/__tests__/pr-preflight.test.mjs scripts/__tests__/governance-policy.test.mjs scripts/__tests__/github-environment-guard.test.mjs scripts/__tests__/vercel-ignore-command.test.mjs scripts/__tests__/rc-smoke-contract.test.mjs scripts/__tests__/beta-evidence.test.mjs scripts/__tests__/beta-pdf-evidence.test.mjs scripts/__tests__/connection-matrix.test.mjs scripts/__tests__/staging-repair.test.mjs scripts/__tests__/staging-preview-attest.test.mjs scripts/__tests__/merge-queue.test.mjs scripts/__tests__/pr-commander-gate.test.mjs scripts/__tests__/pr-commander-order.test.mjs scripts/__tests__/pr-commander-workflow.test.mjs scripts/__tests__/pr-commander-unattended.test.mjs scripts/__tests__/pr-commander-ai-repair.test.mjs tests/playwright/target.test.mjs scripts/__tests__/playwright-agent-evidence.test.mjs scripts/__tests__/assembly-catalog-browser-evidence.test.mjs app/scripts/beta-evidence/lib/costbook-identity.test.mjs app/scripts/beta-evidence/lib/proposal-pdf.test.mjs app/scripts/beta-evidence/lib/foreign-proposal.test.mjs app/scripts/beta-evidence/lib/login-failure-diagnostics.test.mjs scripts/__tests__/forge-gatekeeper.test.mjs forge-worker/test/policy.test.js forge-worker/test/api.test.js forge-agent/test/policy.test.js forge-agent/test/github-client.test.js",
     "prompt": "node scripts/prompt-manager.mjs",
     "prompts": "node scripts/prompt-manager.mjs",
     "prompt:test": "node --test scripts/__tests__/prompt-manager.test.mjs",
@@ -34,9 +34,9 @@
   },
   "dependencies": {
     "js-yaml": "^4.3.2",
-    "minimatch": "^11.0.3"
+    "minimatch": "^11.0.5"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.1"
+    "@playwright/test": "1.65.0"
   }
 }
