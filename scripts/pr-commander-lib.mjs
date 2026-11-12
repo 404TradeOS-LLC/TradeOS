@@ -419,7 +419,13 @@ export function evaluateGate(snapshot, opts = {}) {
       snapshot?.reviewDecision === "CHANGES_REQUESTED" ||
       (Array.isArray(snapshot?.reviews) &&
         snapshot.reviews.some((r) => r?.state === "CHANGES_REQUESTED"));
-    const anyFailedCheck = (Array.isArray(snapshot?.checks) ? snapshot.checks : [])
+    // Scan the DEDUPLICATED check entries (checkByName), not the raw
+    // snapshot list: the downstream sections read the same deduped view,
+    // and real snapshots carry duplicate names (one entry per workflow
+    // run). A raw scan could disagree with the downstream view — e.g. a
+    // stale FAILURE duplicate followed by a SUCCESS for the same check
+    // would look "failed" here while the downstream sections see green.
+    const anyFailedCheck = [...checkByName(snapshot).values()]
       .some((check) => checkState(check) === "failed");
     if (!blockedByReview && anyFailedCheck) {
       reasons.push(
