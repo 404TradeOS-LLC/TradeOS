@@ -32,7 +32,7 @@ function prepare(rowCount: number): void {
     ALTER TABLE ${schema}.invoices DROP COLUMN create_request_key;
     ALTER TABLE ${schema}.invoices DROP COLUMN create_request_hash;
     INSERT INTO ${schema}.invoices (id, project_id, invoice_number)
-      SELECT gen_random_uuid()::text, '00000000-0000-0000-0000-000000000777', i
+      SELECT gen_random_uuid(), '00000000-0000-0000-0000-000000000777', i
       FROM generate_series(1, ${rowCount}) AS i;
   `);
 }
