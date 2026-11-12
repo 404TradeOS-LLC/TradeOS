@@ -449,7 +449,9 @@ updates remain supported. Schema/RLS changes retain PR-only merge posture.
   worktree `/workspace/TradeOS-staging-identity`, branch `fix/staging-runtime-attestation-759`.
 - Implemented: staging-only, no-store, secret-free public binding/commit evidence
   endpoint, fail-closed tests and protected rollout runbook. No auth, RLS, schema,
-  credential, deployment or protected workflow changes.
+  credential or protected workflow changes. Authorized staging-only Edge repair
+  deployed reviewed Team & Time source as ACTIVE v7; re-fetched source matches,
+  JWT verification stays enabled and unauthenticated bootstrap returns 401.
 - Prior verified evidence on this base: 46 expense tests, 753 web tests,
   196 restricted-role PostgreSQL integration tests, all 71 local migrations,
   396 repository tests; live staging has matching applied inventory and forced RLS.
@@ -457,8 +459,8 @@ updates remain supported. Schema/RLS changes retain PR-only merge posture.
   40 docs tests and ownership checks pass. Built Next HTTP probes verify staging
   200 with expected public bindings/no-store and production 404. Focused tests
   cover malformed/foreign destinations, environment gates and credential redaction.
-- Remaining gates: hosted checks/review, approved source
-  promotion, Team & Time source/version update with JWT verification retained,
+- Remaining gates: hosted checks/review, approved API/web source
+  promotion, authenticated Team & Time permission acceptance,
   secret provenance and synthetic authenticated four-width acceptance.
 - Next: publish and verify this PR; review the exact staging promotion; resolve
   effective runtime identity; deploy approved Edge source; run canonical acceptance.

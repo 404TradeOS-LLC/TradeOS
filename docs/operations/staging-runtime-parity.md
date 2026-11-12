@@ -18,6 +18,19 @@ Both staging Vercel aliases still serve `c800425fd4a94278325193d488b15925a5406d2
 - Vercel metadata listing returns 403 for both projects. No authenticated local
   CLI is available. This PR does not change permissions or secret sensitivity.
 
+## Staging Edge source repair, 2026-11-12 UTC
+
+After the user's instruction to fix the identified staging blockers, the already
+merged and locally tested Team & Time source above was deployed only to
+`qfbgdkbamfaasmtjfyru`. Version **7** is ACTIVE with `verify_jwt=true`.
+The deployed `index.ts` was fetched again and matched the submitted repository
+source byte for byte. An unauthenticated bootstrap request returned HTTP 401
+(`UNAUTHORIZED_NO_AUTH_HEADER`). Existing health/Edge tests passed 19/19.
+The previous v6 source was retained locally for the release recovery record.
+No secret, schema, other Edge Function or production project was changed.
+Authenticated owner/technician/declined/foreign-tenant probes remain pending;
+source parity and unauthenticated denial alone do not certify those behaviors.
+
 ## Secret-free web evidence
 
 `GET /api/staging-runtime-identity` returns configuration evidence only on a
@@ -55,12 +68,14 @@ waive a mismatch in the existing protected attestation workflow.
    builds. Require the web identity endpoint to report that commit, staging
    project and backend alias. Require the API health SHA to match and readiness
    to prove the staging project. Missing, 404 or mismatched evidence is BLOCKED.
-4. Through an explicitly approved staging Edge deployment, replace only
+4. Completed source/version repair on 2026-11-12: through the authorized staging
+   Edge deployment, replaced only
    `team-time` in project `qfbgdkbamfaasmtjfyru` with the reviewed repository file.
    Baseline source path `supabase/functions/team-time/index.ts` at main above
    has SHA-256 `7878039e873e4e1c26f06c1ff6997c4c78a9cbf15b9c2321bfdb1e203edd5530`.
    Preserve `verify_jwt=true`; change no secrets, CORS policy or other function.
-   Re-fetch the deployed source, compare its bytes, and record the new version.
+   Re-fetched source matched byte for byte, version 7, with JWT verification
+   retained. Recheck source/version before subsequent acceptance.
 5. Run authorized synthetic owner/technician, declined/removed/unassigned Job
    and foreign-tenant denial checks, then canonical correlated preflight and
    full acceptance at 1440/1024/768/390. Keep service-key provenance and auth

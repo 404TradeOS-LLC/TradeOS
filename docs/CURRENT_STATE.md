@@ -1934,6 +1934,9 @@ endpoint, available only on Vercel Preview builds of `staging`. It reports a
 validated full commit and allowlisted public Supabase/backend destinations,
 fails closed for unexpected values, and never reads or returns credentials.
 This replaces neither authenticated tenant proof nor key provenance checks.
-Live staging still serves `c800425f`; Team & Time remains v6 without the reviewed
-declined-assignment filter. All 71 staging migration names/checksums match main;
+Live API/web staging still serves `c800425f`. Team & Time was updated to ACTIVE
+v7 with the reviewed declined-assignment filter; fetched source matches the
+repository, JWT verification remains enabled, and unauthenticated access returns
+401. Authenticated role/tenant acceptance remains pending.
+All 71 staging migration names/checksums match main;
 do not replay them. See [the staged release sequence](operations/staging-runtime-parity.md).
