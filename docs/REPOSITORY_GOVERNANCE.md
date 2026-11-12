@@ -838,3 +838,13 @@ The `staging-orchestrator.yml` database preflight must accept only the identifie
 ### PR Commander unattended execution (live since 2026-11-11, PR #967)
 
 Merged 2026-11-11 as PR #967 (main `45faeff6`) and explicitly enabled the same day: scheduled write execution is gated by **both** `TRADEOS_PR_COMMANDER_WRITE_ENABLED=true` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED=true`, each exactly `true`. The rollout gates passed first: hosted checks green on the PR head, review reconciled (CodeRabbit dismissed its change request), a dry-run sweep verified zero writes, the repair-push secret confirmed present, and a scoped manual armed run (run 43101793905) demonstrated correct behavior. No migration, staging, production, review, or branch-protection gate is relaxed. See [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
+
+## Staging fixture selection repair — 2026-11-12
+
+Beta Evidence may explicitly select the existing encrypted TEST_STAGING fixture
+only for the pinned synthetic TEST Org in staging. This is an evidence identity
+choice, not an auth/RLS/role or credential change. Its exact organization UUID
+and label must pass configuration preflight and the existing authenticated API
+assertion; missing selected secrets never trigger fallback to another identity.
+Protected environment, production-denial, source identity, tenant-denial and
+artifact credential scanning gates remain mandatory.
