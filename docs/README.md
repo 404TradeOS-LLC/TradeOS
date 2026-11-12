@@ -101,13 +101,14 @@ merged as PR #964) sweeps every open pull request hourly at :17 UTC,
 evaluates each against the unchanged merge bar (non-draft, four required
 checks green, current branch, zero unresolved threads, no standing change
 request, ADR-009 record where required), repairs what is deterministically
-repairable, requests CodeRabbit re-review, and enables native auto-merge
+repairable, invokes the installed Codex app once per head for REPAIRABLE
+PRs the deterministic tier could not fix (Phase 4 AI repair worker),
+requests CodeRabbit re-review, and enables native auto-merge
 only when every gate passes. It composes the existing
 verify/merge-readiness/pr-maintenance/CodeQL-autofix pieces and rebuilds none
-of them. It ships **dry-run by default**: schedule and `pull_request` runs
-can never act, and write action additionally requires the repository
+of them. It ships **dry-run by default**: `pull_request` runs can never act, and schedule runs can act only when BOTH repository variables are exactly `"true"` (`TRADEOS_PR_COMMANDER_WRITE_ENABLED` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED`); with either variable absent or not exactly `"true"`, scheduled runs are read-only. Exact `"true"` is enforced by a case-sensitive shell check at the top of the "Apply verdicts" step, before any write — the job `if:` compares strings case-insensitively and cannot enforce it alone. Write action additionally requires the repository
 variable `TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly `"true"` **and**
-a manual dispatch with `mode=armed`. The variable is set and the Commander
+a manual dispatch with `mode=armed` (for dispatch runs) or both variables set (for schedule runs). The variable is set and the Commander
 is armed; its first dry-run and armed runs verified from main on PR #953.
 **Policy exception (founder, 2026-11-10):** the armed `act` job holds
 `actions: write`, scoped to dispatching `pr-maintenance.yml` for REPAIRABLE
@@ -118,8 +119,10 @@ Commander never dismisses a blocking review, never undrafts a PR, never
 applies migrations or staging-apply gates, never touches production, and
 never changes a ruleset. Copilot Agent Merge is not available as a
 delegation path (0 org seats, quota failures, disabled review ruleset —
-verified 2026-11-10); the Commander delegates to deterministic repair,
-CodeQL Autofix, and CodeRabbit re-review. Setup, arming, dry-run
+verified 2026-11-10, re-verified 2026-11-11); the Commander delegates to deterministic repair,
+the Codex AI repair worker (once per head, gated by the existing armed
+variables — its repair push in this repo is UNCONFIRMED until the
+end-to-end validation observes it), CodeQL Autofix, and CodeRabbit re-review. Setup, arming, dry-run
 verification, and disable steps are in
 [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
 
@@ -512,3 +515,15 @@ The [Beta Evidence reference](testing/BETA_EVIDENCE.md) now documents dedicated 
 ## Staging identity and promotion notes — 2026-11-09
 
 [Draft PR #958](https://github.com/404TradeOS-LLC/TradeOS/pull/958) preserves staging's documented public `/ready` data-plane project identifier and pooler-safe read-only Prisma preflight on `main`. See [production health behavior](PRODUCTION_HEALTH.md), [repository governance](REPOSITORY_GOVERNANCE.md), and [beta evidence safeguards](testing/BETA_EVIDENCE.md). Repository source parity and green tests do not independently prove Vercel environment bindings or authorize a protected staging deployment.
+
+
+### PR Commander unattended execution proposal (PR #967, 2026-11-11)
+
+A draft workflow change proposes optional scheduled write execution gated by **both** `TRADEOS_PR_COMMANDER_WRITE_ENABLED=true` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED=true`. Until the change passes hosted checks, review, a verified manual armed run, and explicit owner activation, scheduled sweeps remain read-only. No migration, staging, production, review, or branch-protection gate is relaxed. See [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
+
+## Verified staging test fixture — 2026-11-12
+
+The Beta Evidence workflow exposes the same explicit TEST Org credential option
+as Playwright evidence. The staging orchestrator selects the verified synthetic
+owner and exact UUID; missing credentials fail closed without account fallback.
+See [Beta Evidence fixture selection](testing/BETA_EVIDENCE.md#smoke-tenant).

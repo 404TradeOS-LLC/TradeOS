@@ -245,6 +245,8 @@ Regression tests should exercise the actual behavior/failure path whenever pract
 
 The manual PR Maintenance workflow is the protected branch-currency repair route for one explicitly selected open, same-repository PR targeting `main`. GitHub Actions numeric dispatch input can arrive as `961.0`; the workflow validates and canonicalizes the number once before GitHub CLI operations, then passes the validated output to the rebase and report steps. A mocked-CLI regression test checks valid integers and rejects fractional/unsafe values. The workflow stays manual-only and is not a substitute for exact-head CI, review-thread resolution, staging evidence or a separate merge decision. The original parsing failure is recorded in [run 42915388112](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/42915388112).
 
+The PR Commander (`.github/workflows/pr-commander.yml`, live and armed since 2026-11-11) adds an unattended repair tier on top of the same merge bar: deterministic lint repair first, then an AI repair worker that invokes the already-installed ChatGPT Codex app once per head on a REPAIRABLE same-repo PR the deterministic tier could not fix (`@codex address that feedback`, with scope limits and prohibitions in the comment; one invocation counts as one of the 3 per-head repair attempts and is recorded as `ai-repair:<sha>:<n>` in the verdict comment). Copilot is unavailable (0 seats, quota exhausted) and the Claude app has no repo wiring, so Codex is the only AI repair path wired. Codex's repair push in this repo is UNCONFIRMED until the end-to-end validation observes it — until then the deterministic tier is the ceiling for verified repairs. The worker never approves, merges, dismisses a review, or resolves a thread; the merge bar still decides every merge. See [PR Commander](PR_COMMANDER.md) and [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
+
 Production repair should use the health split first:
 
 - `/health` failing → investigate process/deployment/routing/platform availability;
@@ -370,7 +372,11 @@ exact head SHA. It composes the existing verify / merge-readiness /
 pr-maintenance / CodeQL-autofix pieces and rebuilds none of them. **Status:
 live and armed.** Write action requires the repository variable
 `TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly `"true"` **and** a manual
-dispatch with `mode=armed`; the variable is set and the founder-installed
+dispatch with `mode=armed` (for dispatch runs) or both variables exactly
+`"true"` (`TRADEOS_PR_COMMANDER_WRITE_ENABLED` and
+`TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED`, for schedule runs); `pull_request`
+runs can never act, and schedule runs are read-only unless both variables are
+set. Exact `"true"` is enforced by a case-sensitive shell check at the top of the "Apply verdicts" step, before any write — the job `if:` compares strings case-insensitively and cannot enforce it alone. The variable is set and the founder-installed
 repair-push secret `TRADEOS_PR_COMMANDER_PUSH_TOKEN` is in place. First
 post-merge dry-run (run 42930226341) and first armed run (42930606887) both
 verified from main on PR #953: dry-run verdict BLOCKED fail-closed on a
@@ -551,3 +557,19 @@ Keep the existing PR/branch for the PDF beta evidence lane. Its foreign Proposal
 ## Staging runtime identity parity review — 2026-11-09 (draft PR #958)
 
 Draft [PR #958](https://github.com/404TradeOS-LLC/TradeOS/pull/958) ports the already-existing staging `/ready` public database project-ref contract and the project-bound staging pooler/session-mode preflight onto current `main`. It does not alter schema, tokens, migrations, or deployed runtime. The checked Git trees differ in 23 actual files (despite 79/27 divergent commits). Staging Vercel web/API aliases still target `c800425f`, not main `c1b3cb0e`; Vercel metadata reads return 403. The earlier protected Nov 7 runtime attestation passed for the older deployment and cannot certify a new SHA. Retain draft and reviewer gate before an authorized staging-only promotion; live contractor beta acceptance remains blocked.
+
+
+### PR Commander unattended execution proposal (PR #967, 2026-11-11)
+
+A draft workflow change proposes optional scheduled write execution gated by **both** `TRADEOS_PR_COMMANDER_WRITE_ENABLED=true` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED=true`. Until the change passes hosted checks, review, a verified manual armed run, and explicit owner activation, scheduled sweeps remain read-only. No migration, staging, production, review, or branch-protection gate is relaxed. See [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
+
+## Staging evidence fixture repair — 2026-11-12
+
+Runtime parity was restored by #971/#973: API/web staging source `3146a920`,
+matching public binding evidence and Team & Time v7. Orchestrator `43130359603`
+passed database/deployment/runtime gates but failed the exact smoke-organization
+assertion after login. The bounded follow-up selects the existing synthetic
+TEST_STAGING owner credential pair, pins verified TEST Org UUID and label, and
+retains the unchanged authenticated tenant check. No credentials are read,
+rotated or copied; no memberships change. Review, CI and a fresh correlated
+staging run remain required before acceptance can pass.
