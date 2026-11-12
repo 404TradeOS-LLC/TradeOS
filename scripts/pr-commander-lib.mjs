@@ -530,3 +530,151 @@ export function evaluateGate(snapshot, opts = {}) {
   // Keep the returned object to the contracted shape plus the head it stands on.
   return { verdict, reasons, nextActions, founderItems, headSha };
 }
+
+// ---------------------------------------------------------------------------
+// AI repair worker (Phase 4) — Codex mention trigger.
+//
+// The Commander never runs an AI agent itself. The worker is a single
+// mechanical trigger: the armed `act` job posts a `@codex address that
+// feedback` comment on a REPAIRABLE PR, and the already-installed
+// ChatGPT Codex GitHub app (contents:write, pull_requests:write —
+// verified live 2026-11-11) does the repair work in its own cloud
+// environment and pushes the fix to the PR branch. The Commander then
+// re-evaluates the new head on its next run: fresh CI, fresh verdict.
+//
+// What is verified vs assumed (2026-11-11):
+//   - VERIFIED: Codex is installed on this repo (selected repos) and
+//     reviews PRs automatically (review 5865476212 on PR #968). Its own
+//     review receipt documents the triggers: PR open / draft ready /
+//     "@codex review", and "@codex address that feedback" to update a PR.
+//   - UNCONFIRMED until the end-to-end validation run observes it: that
+//     Codex pushes a fix commit to a PR branch in THIS repo, and that it
+//     responds to a mention posted by github-actions[bot] (as opposed to
+//     a human). Zero commits by chatgpt-codex-connector[bot] exist in
+//     this repo. Do not claim the push works until it is observed.
+//   - Copilot is UNAVAILABLE (0 seats, verified live) and is not a path.
+//   - The Claude GitHub app is installed org-wide but has no repo wiring
+//     and zero observed activity on TradeOS — not a path either.
+//
+// Safety invariants (encoded in isAiRepairEligible + the workflow):
+//   - At most ONE AI invocation per exact head SHA (ai-repair marker in
+//     the verdict comment, same pattern as repair-attempts). A new head
+//     resets it. An invocation counts as one of the 3 repair attempts.
+//   - Same-repo PRs only (Codex cannot push to a fork branch on the
+//     Commander's authority, and the Commander never pushes to main).
+//   - No protected files in the PR (migrations / RLS / auth / protected
+//     staging, via classifyPrFiles — fail-closed). A PR touching those
+//     surfaces is never handed to the AI worker.
+//   - Never a draft, never a conflicting branch, never a behind branch
+//     (a behind branch is rebased first; invoking Codex on a stale head
+//     wastes the invocation and its push may conflict).
+//   - The worker never approves, merges, dismisses a review, or resolves
+//     a thread — the comment instructs Codex to do none of those, and the
+//     Commander has no code path that does them on the worker's behalf.
+//     The merge bar (green required checks, zero unresolved threads, no
+//     standing change request) still decides every merge.
+//   - The invocation is a PR comment (the audit trail): posted by
+//     github-actions[bot], timestamped, carrying the exact instruction,
+//     the failing check names, and the head SHA. The verdict comment
+//     records `ai-repair:<sha>:<n>`.
+
+// Marker identifying AI repair invocations on a head, carried by the
+// Commander verdict comment (same pattern as repair-attempts).
+export const AI_REPAIR_MARKER_PREFIX = "ai-repair:";
+
+// Names of required + non-required checks whose conclusion is a failure
+// (same failure set as checkState). Pure; used by the AI worker prompt so
+// Codex is pointed at the exact failing check(s) instead of the whole run.
+export function failedCheckNames(snapshot) {
+  const names = [];
+  const checks = Array.isArray(snapshot?.checks) ? snapshot.checks : [];
+  for (const check of checks) {
+    if (!check || typeof check.name !== "string") continue;
+    const conclusion = (check.conclusion ?? "").toUpperCase();
+    if (FAILED_CONCLUSIONS.has(conclusion)) names.push(check.name);
+  }
+  return names;
+}
+
+// Whether the AI repair worker may be invoked for this PR at this head.
+// Pure and fail-closed: every unknown or unsafe input yields ineligible.
+// `input` shape:
+//   { files, isDraft, mergeable, mergeStateStatus, failedChecks: string[],
+//     unresolvedThreads: number, attempts: number, aiInvocations: number,
+//     sameRepo: boolean }
+// `attempts` is the per-head repair-attempt count (deterministic + rebase +
+// AI share the cap of 3); `aiInvocations` is the per-head AI count (cap 1).
+export function isAiRepairEligible(input = {}) {
+  const reasons = [];
+  const files = classifyPrFiles(input?.files ?? []);
+  if (input?.isDraft === true) reasons.push("PR is a draft; the AI worker never runs on a draft.");
+  const mergeable = input?.mergeable;
+  const mergeState = input?.mergeStateStatus;
+  if (mergeable === "CONFLICTING" || mergeState === "DIRTY") {
+    reasons.push("Branch conflicts with its base; conflicts are routed to human resolution.");
+  }
+  if (mergeState === "BEHIND") {
+    reasons.push("Branch is behind its base; rebase first — invoking Codex on a stale head wastes the invocation.");
+  }
+  if (files.migrations || files.rls || files.auth || files.protectedStaging) {
+    const kinds = [];
+    if (files.migrations) kinds.push("migrations");
+    if (files.rls) kinds.push("row-level security");
+    if (files.auth) kinds.push("authentication/authorization");
+    if (files.protectedStaging) kinds.push("protected staging");
+    reasons.push(`PR touches protected surface(s): ${kinds.join(", ")}. The AI worker never touches those.`);
+  }
+  if (input?.sameRepo !== true) reasons.push("PR is from a fork; the AI worker runs on same-repo branches only.");
+  const attempts = Number.isInteger(input?.attempts) && input.attempts >= 0 ? input.attempts : 0;
+  if (attempts >= MAX_REPAIR_ATTEMPTS) {
+    reasons.push(`Repair attempts exhausted (${attempts} of ${MAX_REPAIR_ATTEMPTS} on this head).`);
+  }
+  const aiInvocations = Number.isInteger(input?.aiInvocations) && input.aiInvocations >= 0 ? input.aiInvocations : 0;
+  if (aiInvocations >= 1) reasons.push("The AI worker was already invoked once on this head; at most one invocation per head.");
+  const failedChecks = Array.isArray(input?.failedChecks) ? input.failedChecks : [];
+  const unresolvedThreads = Number.isInteger(input?.unresolvedThreads) && input.unresolvedThreads >= 0
+    ? input.unresolvedThreads
+    : 0;
+  if (failedChecks.length === 0 && unresolvedThreads === 0) {
+    reasons.push("Nothing for the AI worker to address: no failing check and no unresolved review thread.");
+  }
+  return { eligible: reasons.length === 0, reasons };
+}
+
+// The exact comment the Commander posts to invoke Codex on a PR.
+// Pure: the caller fills in the failing check names, the unresolved-thread
+// count, the head SHA, and the run URL. The trigger phrase is the one
+// Codex's own review receipt documents ("@codex address that feedback").
+// The scope limits and prohibitions are part of the instruction, not
+// commentary: the worker must not exceed them, and the merge bar still
+// decides the merge regardless of what Codex pushes.
+export function buildAiRepairComment(input = {}) {
+  const pr = input?.pr ?? "?";
+  const headSha = input?.headSha ?? "unknown";
+  const failingChecks = Array.isArray(input?.failingChecks) ? input.failingChecks : [];
+  const unresolvedThreads = Number.isInteger(input?.unresolvedThreads) && input.unresolvedThreads >= 0
+    ? input.unresolvedThreads
+    : 0;
+  const runUrl = input?.runUrl ?? "";
+  const lines = [
+    "<!-- tradeos-pr-commander-ai-repair -->",
+    "@codex address that feedback",
+    "",
+    `PR Commander (automated repair worker): the required check(s) ${failingChecks.length ? failingChecks.map((c) => "`" + c + "`").join(", ") : "(none failing — see review threads)"} are failing on PR #${pr} at head \`${headSha}\`.`,
+  ];
+  if (runUrl) lines.push(`Failing CI: ${runUrl}`);
+  if (unresolvedThreads > 0) lines.push(`${unresolvedThreads} unresolved review thread(s) also stand on this PR.`);
+  lines.push(
+    "",
+    "Please make the minimal fix for the failing check(s): identify the root cause from the failing check log, implement the narrowly scoped fix, and add or update a regression test that fails before the fix and passes after it. Run the relevant unit tests and lint/build before pushing.",
+    "",
+    "Scope limits (do not exceed them):",
+    "- Touch only the files needed for this fix. Do not modify migrations, authentication/authorization, row-level security, workflow files, or production configuration.",
+    "- Push the fix to this PR's branch only — never to main.",
+    "- Do not approve this PR, merge it, dismiss any review, or resolve any review thread. A human re-review and the required checks decide the merge.",
+    "- If the failure is a chain dependency (a missing table, type, or module that only lands when another PR merges) rather than a defect in this PR, say so in a comment and push nothing.",
+    "",
+    "The Commander re-evaluates this PR on its next run: a new push creates a new head, fresh CI runs, and the verdict is recomputed.",
+  );
+  return lines.join("\n");
+}
