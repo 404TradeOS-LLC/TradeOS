@@ -6,5 +6,6 @@ const COSTBOOK_RESEARCH_CODE_PREFIX = "RC-";
  * against CostItem's organization-scoped unique code constraint.
  */
 export function candidateCostItemCode(candidateId: string): string {
-  return `${COSTBOOK_RESEARCH_CODE_PREFIX}${candidateId.toUpperCase()}`;
+  // [TEST ONLY — intentional bug for PR Commander AI repair validation]
+  return `${COSTBOOK_RESEARCH_CODE_PREFIX}${candidateId.toLowerCase()}`;
 }
