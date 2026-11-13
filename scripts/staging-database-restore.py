@@ -4,6 +4,7 @@ Never print exception details: PostgreSQL errors may contain restored row values
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -86,7 +87,13 @@ def run():
         local_env = env | {('PGDATABASE' if k == 'dbname' else f'PG{k.upper()}'): str(v) for k, v in local.items()}
         local_env['PGSSLMODE'] = 'disable'
         local_env['PGOPTIONS'] = '-c statement_timeout=600000'
-        command(['pg_restore', '--exit-on-error', '--single-transaction', '--no-owner', '--no-privileges', '--dbname=rehearsal', str(backup)], local_env)
+        # Empty PostgreSQL databases already contain public; retain all archive
+        # objects except that one schema creation (extensions need it first).
+        catalog = subprocess.run(['pg_restore', '--list', str(backup)], env=local_env, check=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=60).stdout.decode()
+        restore_list = work / 'restore.list'
+        restore_list.touch(mode=0o600)
+        restore_list.write_text('\n'.join(line for line in catalog.splitlines() if not re.match(r'^\d+; \d+ \d+ SCHEMA - public ', line)) + '\n')
+        command(['pg_restore', '--use-list=' + str(restore_list), '--exit-on-error', '--single-transaction', '--no-owner', '--no-privileges', '--dbname=rehearsal', str(backup)], local_env)
         with psycopg.connect(**local) as target:
             after = manifest(target)
             if before != after:
