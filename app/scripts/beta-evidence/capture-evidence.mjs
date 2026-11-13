@@ -296,10 +296,12 @@ async function runS053Certification(projectId, estimateId) {
     waitUntil: "networkidle",
     timeout: 60_000,
   });
-  await page.getByRole("heading", { name: "Scope of work" }).waitFor({ timeout: 60_000 });
+  // The shared CardTitle is a div; wait for the actual labelled control,
+  // whose accessible name is the stable interaction contract.
+  const scopeInput = page.getByRole("textbox", { name: "Scope of work", exact: true });
+  await scopeInput.waitFor({ timeout: 60_000 });
 
   const setupScope = `qzxvplm ntrksw unmapped certification scope ${scopeSuffix}`;
-  const scopeInput = page.locator("textarea").first();
 
   async function generateAthenaDraft(scopeValue) {
     await scopeInput.fill(scopeValue);
