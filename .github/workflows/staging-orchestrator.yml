@@ -637,9 +637,10 @@ jobs:
       # host. The guard job just proved the staging head is still the approved SHA.
       rc_base_url: https://tradeos-costbook-web-git-staging-billykshowalters.vercel.app
       target_environment: staging
-      smoke_tenant_label: TradeOS Beta Smoke
+      use_test_org: true
+      smoke_tenant_label: TEST Org — Delete Me
       # Verified non-production fixture UUID in TradeOS Staging, not a credential.
-      smoke_org_id: 9814bd72-626a-42f4-8871-cd755cb9d685
+      smoke_org_id: d86d0874-6ba3-4b06-94b6-bd0ae99fe532
       expected_sha: ${{ needs.record.outputs.sha }}
       # Deliberately false: beta-evidence correlates against the
       # BETA_RC_DEPLOYMENT_SHA repository variable, which is unset, so
