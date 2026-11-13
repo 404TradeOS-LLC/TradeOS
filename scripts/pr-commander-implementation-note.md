@@ -36,13 +36,54 @@ Commander composes existing pieces and rebuilds none of them.
   `authorization`, `permissions`, `jwt`, `oauth` paths; protected staging
   covers staging/reconcile/deploy workflow files plus `.env.staging` and
   `.env.production`.
+- `failedCheckNames(snapshot)` returns all failed checks, both required
+  and non-required — names are read from `snapshot.checks` and are never
+  invented by the caller. It delegates to `checkState`, so it uses the
+  same failure set as the gate (including unrecognized completed
+  conclusions such as STARTUP_FAILURE, via checkState's fail-closed
+  catch-all); a check the gate counts as failed is always named here.
+- `isAiRepairEligible(input)` is a pure, fail-closed guard for the Phase 4
+  AI repair worker. Input: `{ files, isDraft, mergeable, mergeStateStatus,
+  failedChecks, unresolvedThreads, attempts, aiInvocations, sameRepo }`.
+  Returns `{ eligible, reasons[] }`. Eligible requires: the verdict is
+  addressable (a failing check or unresolved threads), not a draft, not
+  conflicting (`mergeable` false is a hard no), not behind (rebase first),
+  same-repo only, no protected file in `classifyPrFiles(files)`, attempts
+  < 3, and `aiInvocations` < 1 (at most one AI invocation per head).
+  Every required input must be present and well-formed — a files array, a
+  boolean `isDraft`, a mergeability value in {MERGEABLE, CONFLICTING,
+  UNKNOWN}, a merge-state string, and nonnegative integer `attempts` /
+  `aiInvocations` — or the PR is ineligible. UNKNOWN mergeability or
+  merge state is ineligible (evidence incomplete). Unknown input
+  (anything that is not a plain object with the required fields) is
+  ineligible with a reason.
+- `buildAiRepairComment(input)` builds the single `@codex address that
+  feedback` invocation comment for a PR (failing check names, run URL,
+  head SHA, scope limits, prohibitions: no approve/merge/dismiss/resolve;
+  push to this PR branch only; migrations/auth/RLS/workflows/production
+  config off-limits; regression test required; chain-dependency clause:
+  if the failure is a chain dependency, say so and push nothing). When
+  there is no failing check (threads-only invocation), the task line
+  directs Codex at the unresolved review threads instead of claiming a
+  check is failing. The caller posts it with `gh pr comment` only after
+  reserving the attempt in the verdict comment (and re-checking the live
+  head); a failed reservation write means no invocation and no attempt
+  consumed, while a failed post after a successful reservation keeps the
+  reservation (attempt consumed). The invocation is recorded as
+  `ai-repair:<sha>:<n>` in the verdict comment.
 - `nextRetryDelayMs(attempt)` is 1-based: attempt 1 → 60 s, 2 → 120 s,
   3 → 240 s, 4+ → null (escalate).
 - Verdict mapping: failing required check → `REPAIRABLE`;
   `CHANGES_REQUESTED` / ADR-009-required → `BLOCKED` with `founderItems`
   naming the dismissal / ADR-009 item; `DIRTY` / `CONFLICTING` merge state →
   `BLOCKED` (or `BLOCKED_ESCALATED` after 3 attempts), never `REPAIRABLE` or
-  `MERGE_READY`.
+  `MERGE_READY`. A `BLOCKED` merge state is `BLOCKED` only when its cause
+  is a standing change request or is otherwise unexplained: when the block
+  is attributable to failing checks and no change request stands, the
+  verdict is `REPAIRABLE` (GitHub reports `BLOCKED` whenever a required
+  check fails, so an unconditional demotion made the failing-check →
+  `REPAIRABLE` mapping unreachable — proven by the Phase 4 validation on
+  PR #970).
 
 Verdict set (worst-first precedence: `BLOCKED_ESCALATED` > `BLOCKED` >
 `REPAIRABLE` > `DRY_RUN_ONLY` / `MERGE_READY`): `MERGE_READY`,
@@ -172,7 +213,25 @@ object is `{ verdict, reasons[], nextActions[], founderItems[], headSha }`.
     `pr-commander:needs-founder` label, applied (armed runs only) when
     `founderItems` is non-empty. No email, no Resend, no external message
     anywhere in this code.
-14. **Do NOT bypass branch protection, merge drafts, self-approve, modify
+14. **AI-assisted repair worker (Phase 4)** — MET as a wiring change
+    (worker invocation), VALIDATION PENDING for the repair itself. The
+    armed `act` job invokes the already-installed ChatGPT Codex GitHub
+    app once per head when the deterministic tier did not push and no
+    rebase was dispatched (`isAiRepairEligible` + `buildAiRepairComment`
+    in `scripts/pr-commander-lib.mjs`; `@codex address that feedback`
+    comment). Codex's repair push in THIS repo is UNCONFIRMED until the
+    end-to-end validation observes it — zero Codex commits exist in this
+    repo, and whether Codex responds to a mention from
+    `github-actions[bot]` is unconfirmed. The invocation counts as one
+    of the 3 per-head repair attempts and is recorded as
+    `ai-repair:<sha>:<n>` in the verdict comment; a no-response is
+    recorded, never silently retried. The worker never approves, merges,
+    dismisses a review, or resolves a thread; the merge bar still decides
+    every merge. Copilot remains unavailable (0 seats, quota exhausted);
+    the Claude app has no repo wiring. No new variable, secret, or
+    permission was added — the AI tier rides on the existing armed
+    variables.
+15. **Do NOT bypass branch protection, merge drafts, self-approve, modify
     production, or spend money** — MET as hard guards in
     `evaluateGate`: draft → `BLOCKED`; any required check not green →
     never `MERGE_READY`; no self-approval path exists (there is no

@@ -167,6 +167,22 @@ in a different organization.
 
 ## Smoke tenant
 
+The staging orchestrator now explicitly selects the existing synthetic
+`TEST Org — Delete Me` owner fixture (`use_test_org=true`), pinned to organization
+`d86d0874-6ba3-4b06-94b6-bd0ae99fe532`. Its credentials remain in encrypted
+`TEST_STAGING_EMAIL` / `TEST_STAGING_PASSWORD`, already used by the Playwright
+evidence workflow. Only explicit secret references are used, with mutually
+exclusive branches; a missing TEST credential never falls back to another account.
+Preflight validates this fixture's exact staging environment, UUID and label,
+then the unchanged authenticated API assertion must prove the actual session.
+The 2026-11-12 run `43130359603` logged in but rejected the prior credentials'
+organization mismatch before workflow capture; its failure is retained.
+
+Manual runs default to the original fixture below unless this option is
+explicitly selected. Do not substitute a returned organization ID, rotate keys,
+reassign membership or weaken tenant denial to make a run pass. Only selected
+synthetic fixture records may be created; foreign-resource denials remain required.
+
 One canonical synthetic tenant, obviously non-real:
 
 | Entity | Value |
@@ -440,6 +456,15 @@ beta-evidence/
 Retained for 30 days. Before upload, the bundle is scanned for cookie jars,
 Supabase auth tokens, TradeOS session cookies, and bearer tokens; a match fails
 the run rather than publishing the artifact.
+
+On a login timeout, `auth-setup.mjs` additionally captures
+`auth/login-failure.png`, `auth/login-failure.txt` (page URL + visible body
+text), and `auth/login-failure-diagnostics.json` (URL, body text, the inline
+`.server-error` text, console errors, and failed requests collected during the
+login attempt), and records the summary as `loginFailureDiagnostics` in
+`auth-setup-report.json`. The capture is best-effort and carries no credential
+material: `innerText` excludes field values and password inputs render masked
+in the screenshot.
 
 `metadata.json` records repository, commit, branch, preview URL, environment,
 deployment SHA correlation, workflow, smoke tenant, viewports, timestamps, and

@@ -322,17 +322,18 @@ sweeps every open pull request hourly at :17 UTC (plus a read-only fast path
 on `pull_request` events for the changed PR only), evaluates each PR against
 the unchanged merge bar — non-draft, the four required checks green, current
 branch, zero unresolved threads, no standing change request, ADR-009 record
-where required — repairs what is deterministically repairable, requests
+where required — repairs what is deterministically repairable, invokes the
+installed Codex app once per head for REPAIRABLE PRs the deterministic tier
+could not fix (Phase 4 AI repair worker), requests
 CodeRabbit re-review, and enables native auto-merge
 (`gh pr merge --auto --squash`) only when every gate passes at one exact
 head SHA. It composes the existing verify/merge-readiness/pr-maintenance/
 CodeQL-autofix pieces and rebuilds none of them; it never assumes the native
 merge queue is live.
 
-**Dry-run is the default.** Schedule and `pull_request` runs can never act.
-Write action additionally requires BOTH the repository variable
+**Dry-run is the default.** `pull_request` runs can never act, and schedule runs can act only when BOTH repository variables are exactly `"true"` (`TRADEOS_PR_COMMANDER_WRITE_ENABLED` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED`); with either variable absent or not exactly `"true"`, scheduled runs are read-only. Write action additionally requires BOTH the repository variable
 `TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly `"true"` AND a manual
-`workflow_dispatch` with `mode=armed`. No agent enables the variable —
+`workflow_dispatch` with `mode=armed` (for dispatch runs) or the scheduled path with both variables set (for schedule runs). No agent enables the variable —
 Billy enables it only after reviewing the configuration and protections.
 In dry-run the Commander emits a verdict + plan per PR (artifact JSON +
 run summary) and takes no write action — not even the verdict comment.
@@ -364,8 +365,10 @@ founder-only, per PR / per item.
 
 Copilot Agent Merge is not available as a delegation path (0 org seats, no
 billing source, quota failures on review, review ruleset disabled — verified
-live 2026-11-10); the Commander delegates to deterministic repair first,
-CodeQL Autofix for security findings, and CodeRabbit re-review with
+live 2026-11-10, re-verified 2026-11-11); the Commander delegates to deterministic repair first,
+the Codex AI repair worker for REPAIRABLE PRs the deterministic tier could
+not fix (once per head; its repair push in this repo is UNCONFIRMED until
+the end-to-end validation observes it), CodeQL Autofix for security findings, and CodeRabbit re-review with
 backoff. Full operating documentation is in
 [PR Commander](PR_COMMANDER.md); setup, arming, dry-run verification, and
 disable steps are in
@@ -830,3 +833,18 @@ The existing Beta Evidence workflow gains three `BETA_RC_FOREIGN_OWNER_*` prereq
 ## Staging-runtime identity parity gate — 2026-11-09 (draft PR #958)
 
 The `staging-orchestrator.yml` database preflight must accept only the identified TradeOS Staging direct PostgreSQL endpoint or the matching project-bound Supabase pooler identity, with permitted protocol/host/port/path and username suffix; its read-only Prisma migration-status step may use the equivalent session-mode port only after those checks. Staging's runtime API `/ready` may include a **public** data-plane `projectRef`, but this is derived from its configured connection and does not reveal a secret or prove tenant authorization. An API health signal cannot replace authenticated smoke-tenant and cross-tenant-denial evidence. The workflow and field remain subject to normal PR reviews, protected GitHub staging environment approval, exact SHA API/web deployment correlation, and the no-production-mutation boundary. This addendum describes existing staging safeguards being reconciled in [draft PR #958](https://github.com/404TradeOS-LLC/TradeOS/pull/958); no rollout or policy exception is granted.
+
+
+### PR Commander unattended execution (live since 2026-11-11, PR #967)
+
+Merged 2026-11-11 as PR #967 (main `45faeff6`) and explicitly enabled the same day: scheduled write execution is gated by **both** `TRADEOS_PR_COMMANDER_WRITE_ENABLED=true` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED=true`, each exactly `true`. The rollout gates passed first: hosted checks green on the PR head, review reconciled (CodeRabbit dismissed its change request), a dry-run sweep verified zero writes, the repair-push secret confirmed present, and a scoped manual armed run (run 43101793905) demonstrated correct behavior. No migration, staging, production, review, or branch-protection gate is relaxed. See [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
+
+## Staging fixture selection repair — 2026-11-12
+
+Beta Evidence may explicitly select the existing encrypted TEST_STAGING fixture
+only for the pinned synthetic TEST Org in staging. This is an evidence identity
+choice, not an auth/RLS/role or credential change. Its exact organization UUID
+and label must pass configuration preflight and the existing authenticated API
+assertion; missing selected secrets never trigger fallback to another identity.
+Protected environment, production-denial, source identity, tenant-denial and
+artifact credential scanning gates remain mandatory.
