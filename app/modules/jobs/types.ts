@@ -116,6 +116,7 @@ export interface ReopenJobInput extends JobTransitionInput {
 }
 
 export interface JobSummaryDTO {
+  updatedAt?: string;
   id: string;
   jobNumber: string;
   title: string;

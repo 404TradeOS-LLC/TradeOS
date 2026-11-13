@@ -115,3 +115,12 @@ test("field route never trusts a caller-provided tenant or unscoped job list", a
   assert.doesNotMatch(actions, /orgId\s*=\s*String\(formData/);
   assert.doesNotMatch(actions, /organizationId\s*=\s*String\(formData/);
 });
+
+
+test("all field transition forms submit the displayed Job revision", async () => {
+  const controls = await readSource("./field-job-actions.tsx");
+  const action = await readSource("../../app/actions/field.ts");
+  assert.equal((controls.match(/name="expectedUpdatedAt" value=\{job.updatedAt \?\? ""\}/g) ?? []).length, 2);
+  assert.match(action, /withJobRevision\(formData.get\("expectedUpdatedAt"\)/);
+  assert.match(action, /body: JSON.stringify\(payload\)/);
+});

@@ -891,6 +891,7 @@ describe("JobsService", () => {
       mockDb.job.findMany.mockResolvedValue([
         {
           id: "job-overdue",
+          updatedAt: new Date("2026-11-13T04:00:00.123Z"),
           jobNumber: "JOB-2026-000010",
           title: "Overdue dispatched job",
           jobType: "HVAC Service",
@@ -931,6 +932,7 @@ describe("JobsService", () => {
       expect(result.items).toHaveLength(2);
 
       const overdueItem = result.items.find((item) => item.id === "job-overdue")!;
+      expect(overdueItem.updatedAt).toBe("2026-11-13T04:00:00.123Z");
       expect(overdueItem.project).toEqual({ id: "project-9", name: "Riverside Remodel", siteAddress: "9 River Rd" });
       expect(overdueItem.customer).toEqual({ id: "customer-9", name: "Riverside Co" });
       expect(overdueItem.assignedTechnicians).toEqual([]);

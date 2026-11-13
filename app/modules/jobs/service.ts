@@ -1693,6 +1693,7 @@ function mapAssignmentConstraintError(error: unknown, userId: string): Error {
 }
 
 function toJobSummaryDTO(row: {
+  updatedAt?: Date;
   id: string;
   jobNumber: string;
   title: string;
@@ -1706,6 +1707,7 @@ function toJobSummaryDTO(row: {
   readyForInvoiceAt: Date | null;
 }): JobSummaryDTO {
   return {
+    updatedAt: row.updatedAt?.toISOString(),
     id: row.id,
     jobNumber: row.jobNumber,
     title: row.title,
@@ -1727,6 +1729,7 @@ function toJobSummaryDTO(row: {
 // and threaded through here so every row in a page is judged consistently.
 function toDispatchAwareJobSummaryDTO(
   row: {
+    updatedAt?: Date;
     id: string;
     jobNumber: string;
     title: string;
