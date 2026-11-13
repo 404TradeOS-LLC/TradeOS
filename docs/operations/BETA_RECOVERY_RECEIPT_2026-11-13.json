@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "runId": "d2c1e73c-e820-4c1f-ab76-7c3cdf27d514",
+  "startedAt": "2026-11-13T09:49:06.789Z",
+  "status": "PASS",
+  "scope": "synthetic local PostgreSQL and S3-compatible private object recovery; no Supabase production/PITR certification",
+  "sourceSha": "0eb3ce15b852fd442d6f75182838b9099ed5bb1f",
+  "runnerSha256": "f4c7680add75cb4fc9680eaeb5e6339246369a7beb6f3322f44372720dff44a9",
+  "sourceDirty": true,
+  "checks": [
+    "database removed before recovery",
+    "source object removed before recovery",
+    "database rows equal snapshot",
+    "post-snapshot write excluded",
+    "foreign-key restored",
+    "RLS enabled and forced restored",
+    "restricted-role same-tenant read passes",
+    "restricted-role foreign and unscoped reads return zero",
+    "foreign-key rejects invalid reference",
+    "object bytes SHA-256 equal",
+    "private object anonymous read denied"
+  ],
+  "objectRuntime": {
+    "adapter": "RustFS local binary",
+    "binarySha256": "1f4b90786123804ed95bf18d9314f5946d8ade1e8ca7588fac226007096a05f9"
+  },
+  "snapshotAt": "2026-11-13T09:49:11.740Z",
+  "backupMs": 162,
+  "simulatedDataLossWindowMs": 248,
+  "incidentAt": "2026-11-13T09:49:11.988Z",
+  "restoreMs": 617,
+  "incidentToVerifiedRecoveryMs": 918,
+  "objectSha256": "f7bf28cf57cd442668fb3d8aaca0f0cef50797534d1ae3a168354b4fb2d347b8",
+  "dumpSha256": "631aa948da1b900202004617491c6b74c2503e313c9b8f8bb5cb688adeaf9900",
+  "objectBytes": 2084,
+  "syntheticRowsAtSnapshot": 1,
+  "postSnapshotWritesExcluded": 1,
+  "images": [
+    "sha256:3cbd775daa28461ef484ed88ca1e5a5a72ff126e196deeebce6fec764edf1200"
+  ],
+  "finishedAt": "2026-11-13T09:49:13.128Z"
+}
