@@ -18,7 +18,7 @@ related_docs:
 - Root cause: `scripts/pr-commander-lib.mjs` classified required `SKIPPED` and `NEUTRAL` conclusions as green, permitting `MERGE_READY` without actual successful required validation.
 - Verified RED: original regression-only head `f1aa52caf4dd65bd6f8a4c5a01c8925d6ff7b39f` failed hosted `npm run pr:test` at the new assertion (411 passing / 1 failing), proving a skipped required Web check incorrectly returned `MERGE_READY`.
 - Fix: only `SUCCESS` is green; regression exercises every required check with `SKIPPED` and `NEUTRAL`. `docs/PR_COMMANDER.md` documents intentional stricter-than-GitHub fail-closed policy. No workflow permission, arming, branch-protection, deployment, secrets, schema, billing, auth or production change.
-- At this handoff: hosted GREEN/review verification still required at the final exact head; do not undraft, enable auto-merge, or merge until checks/reviews are reconciled. Continue this same PR, never create a duplicate.
+- GREEN verification was observed for the four required check names, including PostgreSQL integration, at head `8974c792e1a47079c6238cd5d2275ffe062996d5` before the handoff correction. The final merge still requires fresh exact-head check and review reconciliation; see PR #980 for live merge evidence. Continue the same PR and do not create a duplicate.
 
 ## Autonomous execution policy reconciliation — PR #979 (pending)
 
