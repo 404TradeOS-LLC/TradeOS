@@ -131,11 +131,13 @@ exact head SHA:
 - mergeable, merge state `CLEAN` (current branch — strict required checks
   require it);
 - all four required checks green:
+  - Only a completed `SUCCESS` conclusion counts. `SKIPPED` and `NEUTRAL` are not proof that required validation executed and therefore cannot yield `MERGE_READY`, even when GitHub branch protection itself accepts those conclusions. This is a deliberate fail-closed gate.
   - `Web lint and build`
   - `App lint, unit tests, and build`
   - `App integration tests`
   - `Docs consistency`
 - zero unresolved review threads;
+- complete, validated review-thread evidence is mandatory. A missing GraphQL response, incomplete pagination, or malformed thread totals yields `BLOCKED` (not zero unresolved), including when the standalone CLI reads a PR. Only an explicit complete zero-thread result certifies none are open;
 - no standing `CHANGES_REQUESTED` review. The review gate is ONLY the
   absence of a standing change request: the live ruleset requires zero
   approving reviews, so a null/absent `reviewDecision` (or
