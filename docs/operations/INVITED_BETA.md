@@ -38,6 +38,10 @@ A PDF scenario PASS certifies only that scenario. It does not close clarificatio
 
 Local equivalent (with approved synthetic environment variables already configured): `npm run beta:evidence -- --scenario=beta_pdf --allow-mutations`. A single `--viewport=390` run is debugging only and emits PARTIAL. Never paste credentials into commands, docs or evidence. Full runs create synthetic records; use the existing approved fixture lifecycle, never bulk-delete tenant data.
 
+## Local recovery evidence
+
+A disposable PostgreSQL/private S3 restore was actually executed on 2026-11-13; see [the reproducible runner, receipt and limits](BETA_RECOVERY_REHEARSAL.md). It proves the synthetic snapshot recovery mechanics, measured timings, foreign-key enforcement, forced RLS tenant behavior and private object hash/anonymous denial. It does not close provider/application-specific recovery, production backup/PITR, rollback, alerting or support-owner requirements; the gate above remains UNVERIFIED.
+
 ## Onboarding and support
 
 Before the first invitation, founder records privately the business owner, consent, support address/phone, onboarding date and agreed recovery expectations. Explain free beta scope and that contractors must review AI scope, mapping, quantities, provenance and final prices before applying or sending a PDF. No automatic supplier-price or AI approval is promised.
