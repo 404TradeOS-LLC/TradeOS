@@ -142,9 +142,9 @@ function fetchLiveSnapshot(prNumber) {
     const threads = JSON.parse(gql).data?.repository?.pullRequest?.reviewThreads;
     if (threads && threads.pageInfo?.hasNextPage === false) raw.reviewThreads = threads;
   } catch {
-    // Threads stay unknown; the evaluator treats a missing thread count as
-    // zero only when the snapshot says so — here we leave it absent and the
-    // workflow re-reads threads before any write. Never invent thread data.
+    // Leave thread evidence absent: normalizeSnapshot retains unknown as null
+    // and evaluateGate blocks merge readiness. Never invent zero threads.
+    // The workflow also fetches complete thread evidence before any write.
   }
   return normalizeSnapshot(raw);
 }
