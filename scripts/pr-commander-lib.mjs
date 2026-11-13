@@ -54,7 +54,7 @@ export const FOUNDER_LABEL = "pr-commander:needs-founder";
 export const ARMED_VARIABLE = "TRADEOS_PR_COMMANDER_WRITE_ENABLED";
 
 const VALID_SHA = /^[0-9a-f]{40}$/i;
-const GREEN_CONCLUSIONS = new Set(["SUCCESS", "SKIPPED", "NEUTRAL"]);
+// Required checks must actually execute and succeed. GitHub can consider\n// SKIPPED/NEUTRAL acceptable for branch rules, but they are not test proof.\nconst GREEN_CONCLUSIONS = new Set(["SUCCESS"]);
 const FAILED_CONCLUSIONS = new Set([
   "FAILURE",
   "CANCELLED",
