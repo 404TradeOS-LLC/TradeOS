@@ -22,6 +22,7 @@ const mockTransactionClient = {
     updateMany: jest.fn().mockResolvedValue({ count: 1 }),
   },
   passwordResetToken: {
+    updateMany: jest.fn(),
     create: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
@@ -277,6 +278,38 @@ describe("AuthService", () => {
     });
     expect(mockTransactionClient.authRefreshToken.update).not.toHaveBeenCalled();
     expect(mockTransactionClient.authRefreshToken.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a reset whose token was consumed after lookup without changing credentials", async () => {
+    mockTransactionClient.passwordResetToken.findUnique.mockResolvedValue({
+      id: "reset-1", userId: "user-1", consumedAt: null, expiresAt: new Date(Date.now() + 60_000),
+    });
+    mockTransactionClient.passwordResetToken.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(new AuthService().resetPassword({ token: "synthetic-reset", password: "replacement-password" }))
+      .rejects.toMatchObject({ statusCode: 400, message: "Password reset token is invalid or expired" });
+    expect(mockTransactionClient.appUser.update).not.toHaveBeenCalled();
+    expect(mockTransactionClient.authRefreshToken.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("consumes an unexpired reset token before updating credentials and revokes refresh sessions", async () => {
+    mockTransactionClient.passwordResetToken.findUnique.mockResolvedValue({
+      id: "reset-1", userId: "user-1", consumedAt: null, expiresAt: new Date(Date.now() + 60_000),
+    });
+    mockTransactionClient.passwordResetToken.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(new AuthService().resetPassword({ token: "synthetic-reset", password: "replacement-password" }))
+      .resolves.toEqual({ success: true });
+    expect(mockTransactionClient.passwordResetToken.updateMany).toHaveBeenCalledWith({
+      where: { id: "reset-1", consumedAt: null, expiresAt: { gt: expect.any(Date) } },
+      data: { consumedAt: expect.any(Date) },
+    });
+    expect(mockTransactionClient.passwordResetToken.updateMany.mock.invocationCallOrder[0])
+      .toBeLessThan(mockTransactionClient.appUser.update.mock.invocationCallOrder[0]);
+    expect(mockTransactionClient.authRefreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", revokedAt: null },
+      data: { revokedAt: expect.any(Date), lastUsedAt: expect.any(Date) },
+    });
   });
 
   it("creates password reset tokens without leaking unknown-email status", async () => {

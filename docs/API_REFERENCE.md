@@ -1167,3 +1167,7 @@ It never fills missing accepted scope from the current Project. An existing
 source-linked Job is still returned on retry, without creating another Job.
 
 Resend delivery journal (draft PR #931): internal verified-event processing now validates/normalizes provider occurrence timestamps and prevents older callbacks from overwriting newer delivery status. This creates no public endpoint and does not activate the separate #923 webhook pilot.
+
+## Password-reset single-use boundary
+
+`POST /auth/reset-password` preserves the invalid-or-expired response when another request has already consumed the token. Consumption is conditional and transactional with the password update and refresh-token revocation.

@@ -250,3 +250,7 @@ Managers (owner/admin/dispatcher) can read the accepted commercial baseline thro
 The existing conversion roles and tenant checks are unchanged. Manager authority
 does not permit replacing missing accepted scope with mutable Project scope;
 see [accepted Job scope integrity](WORKFLOW_LIFECYCLES.md#accepted-job-scope-integrity).
+
+## Password-reset single-use boundary
+
+Password-reset possession grants a single transactional password change. Concurrent reuse of a consumed reset token grants no credential update or refresh-session mutation; organization roles and membership permissions are unchanged.

@@ -209,3 +209,7 @@ Authenticated request/background database sessions expose their already-validate
 ## Validation runtime security upgrade
 
 Authentication and portal request schemas use patched Zod 4. UUID-shaped relationship inputs retain the former syntax contract via `z.guid()`; this does not change verified JWT subjects, active membership, portal customer binding, role normalization or forced request-session RLS. body-parser 1.20.9 patches compressed request-body failure handling. HTTP validation remains 400 with correlated structured diagnostics. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
+
+## Password-reset single-use boundary
+
+Password-reset tokens are claimed with a conditional unconsumed/unexpired update inside the password-change transaction. A concurrent replay fails with the existing invalid-or-expired response before credentials or refresh sessions change; transaction failure rolls back the claim.

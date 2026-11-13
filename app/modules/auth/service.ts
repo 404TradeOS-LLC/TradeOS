@@ -245,13 +245,20 @@ export class AuthService {
       }
 
       await transaction.$queryRaw(Prisma.sql`select set_config('app.user_id', ${row.userId}, true)`);
+      // Recheck validity while atomically claiming the token: another reset
+      // transaction may have consumed it since the lookup above. The claim
+      // rolls back with the password change if any later write fails.
+      const consumedAt = new Date();
+      const claimed = await transaction.passwordResetToken.updateMany({
+        where: { id: row.id, consumedAt: null, expiresAt: { gt: consumedAt } },
+        data: { consumedAt },
+      });
+      if (claimed.count !== 1) {
+        throw new ApiError(400, "Password reset token is invalid or expired");
+      }
       await transaction.appUser.update({
         where: { id: row.userId },
         data: { passwordHash },
-      });
-      await transaction.passwordResetToken.update({
-        where: { id: row.id },
-        data: { consumedAt: new Date() },
       });
       await transaction.authRefreshToken.updateMany({
         where: { userId: row.userId, revokedAt: null },
