@@ -202,3 +202,27 @@ payment reconciliation, and organization/RLS boundaries are unchanged.
 ## S022 rendering boundary
 
 Invoice PDF rendering continues to use server-derived invoice and payment semantics. The S022 slice adds deterministic UTC dates, safe finite numeric/currency output, and an explicit empty line-item state without changing payment aggregation, balance presentation, invoice status, authorization, or RLS behavior.
+
+## Invoice recovery controls and project context — 2026-11-13
+
+The new-invoice workspace shows the actual project/customer identity, separates
+invoice details from context, and uses 44 px controls and primary actions.
+Manual quantity and unit-price fields stack on phones, with numbered labels and
+remove actions for additional lines. Shared production primitives are reused;
+these ergonomics do not change invoice payloads, pricing or authorization.
+
+A validation or uncertain-save response moves keyboard focus to its alert.
+Unconfirmed submissions replace the editor with the last submitted details and
+explicit leave/reload guidance; the retained form attempt remains the sole
+source for retry transport. Explicit retry shows the same branch's disabled
+pending editor and resends its original payload/key. Success still navigates to
+the existing invoice detail route using the committed server invoice ID; its
+PDF and separate send/payment actions remain authoritative. No simulated saved
+amount is calculated for the recovery summary.
+
+The isolated browser regression `tests/components/invoice-draft-recovery.spec.ts`
+mounts the real form and shared controls with synthetic transport at
+390/768/1024/1440. It checks target sizes, mobile field stacking, numbered lines,
+validation focus, last-submission recovery and exact retry payload identity.
+This component evidence does not replace authenticated staging persistence,
+foreign-tenant denial, document identity, or full-shell acceptance.

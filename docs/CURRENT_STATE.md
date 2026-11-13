@@ -1958,3 +1958,15 @@ TEST_STAGING credentials, pinned to a live-verified active synthetic owner org.
 It rejects mismatched environment/UUID/label and never falls back on missing
 credentials. Actual authenticated organization assertion and tenant denial remain
 unchanged. No credential or membership mutation is performed.
+
+### Invoice creation recovery ergonomics — 2026-11-13
+
+Existing invoice PR #956 now includes actual project/customer context, the
+approved 680 px maximum workspace, scoped 44 px controls/actions, numbered
+mobile manual-line controls, error-context keyboard focus and a compact
+last-submission summary while a save is unconfirmed. Retry remains explicit and
+uses the retained original payload/key; pending editors are disabled, and
+success opens the existing server-ID invoice detail route. No send/payment or
+pricing authority changes. Figma reference frames: 1179:2800, 1179:3484 and
+1183:3546 in the canonical master. Four-width isolated component regression is
+added; authenticated deployed acceptance remains a separate release gate.
