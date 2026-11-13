@@ -12,6 +12,12 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Autonomous execution policy reconciliation — PR #979 (pending)
+
+- Repository `404TradeOS-LLC/TradeOS`, base `main` at `99ccafcc347ef1902d5dbf6d56fc5bcc755688b0` when PR was opened; existing work: PR #979, branch `docs/autonomous-execution-default-20261113`. Do not make a duplicate PR. Classification: `EXISTING_WORK_FOUND`.
+- Codex review identified real DOC_OWNERSHIP drift: AGENTS and NEXT_SPRINT_PROTOCOL changes require aligned Bible, Backlog, Engineering Command Center, Session Handoff and Repository Governance. These companion edits clarify consecutive independent missions, not bypass of gates or automatic runtime capability.
+- Source-only documentation amendments; no CI, review approval, merge, staging deployment or production acceptance is implied. Recheck final PR head, docs consistency, required hosted CI and review threads before any merge; runtime PR Commander capabilities still require separate implementation and tests.
+
 ## GitHub issue queue — #927 existing PR #931
 
 - User requested working through GitHub issues. PR #933 is merged as `b3a16b58`; 12 open issues and existing PRs were reconciled. EXISTING_WORK_FOUND for #927 in draft PR #931; use `/workspace/TradeOS-email`, branch `feat/resend-delivery-journal-927`, original head `e517a84376f2f4bf7eebb8319247e4881bdcb791`. Current main was merged normally to preserve the original lane, without force push.
