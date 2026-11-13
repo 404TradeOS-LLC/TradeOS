@@ -34,3 +34,20 @@ export function isPreviewFeedbackRequest(raw, method = 'GET') {
       url.pathname === '/_next-live/feedback/feedback.js';
   } catch { return false; }
 }
+
+/** Exclude only a browser load diagnostic correlated to an observed optional request failure. */
+export function partitionPreviewConsoleErrors(entries, failedPreviewRequests) {
+  const consoleErrors = [];
+  const excludedPreviewConsoleErrors = [];
+  for (const entry of entries) {
+    const failure = failedPreviewRequests.find(request =>
+      isPreviewFeedbackRequest(request.url, request.method) &&
+      request.url === entry.url && /^net::ERR_[A-Z_]+$/.test(request.errorText ?? '') &&
+      entry.text === `Failed to load resource: ${request.errorText}`);
+    if (failure) {
+      const url = new URL(entry.url);
+      excludedPreviewConsoleErrors.push({ text: entry.text, url: `${url.origin}${url.pathname}`, reason: 'optional Vercel preview feedback' });
+    } else consoleErrors.push(entry.text);
+  }
+  return { consoleErrors, excludedPreviewConsoleErrors };
+}
