@@ -53,7 +53,38 @@ def manifest(conn):
     return dict(counts=counts, schema_digest=digest([tables, columns, policies, constraints, indexes, triggers, functions]), rls_tables=[name for name, enabled, forced in tables if enabled and forced])
 
 
+PHASE = 'preflight'
+SUPPORTED_EXTENSIONS = {'pgcrypto', 'uuid-ossp', 'btree_gist', 'citext'}
+
+
+def extension_plan(rows):
+    for name, namespace in rows:
+        if name not in SUPPORTED_EXTENSIONS or namespace not in ('public', 'extensions'):
+            raise ValueError('Unsupported extension or namespace')
+    return rows
+
+
+def tenant_probe_columns(columns, tables):
+    return {table: [name for owner, name in columns if owner == table and name in ('org_id', 'organization_id')]
+            for table in tables}
+
+
+def probe_outcome(tenant_count, global_count):
+    if tenant_count != 0:
+        raise ValueError('Restricted role saw tenant rows without membership')
+    return {'status': 'tenant_rows_denied', 'visible_tenant_rows': 0, 'visible_global_rows': global_count}
+
+
+def failure_metadata(error):
+    code = getattr(error, 'sqlstate', None)
+    if not isinstance(code, str) or not re.fullmatch(r'[0-9A-Z]{5}', code):
+        code = 'SUBPROCESS_FAILED' if isinstance(error, subprocess.CalledProcessError) else 'REHEARSAL_FAILED'
+    return {'status': 'failed', 'phase': PHASE, 'code': code}
+
+
 def run():
+    global PHASE
+    PHASE = 'preflight'
     import psycopg
     from psycopg import sql
     if os.environ.get('GITHUB_REF') != 'refs/heads/main':
@@ -70,51 +101,70 @@ def run():
         backup.touch(mode=0o600)
         env = {k: v for k, v in os.environ.items() if not k.startswith('PG') and k != 'STAGING_DATABASE_ADMIN_URL'}
         env.update({('PGDATABASE' if k == 'dbname' else f'PG{k.upper()}'): str(v) for k, v in config.items()})
+        PHASE = 'source_snapshot'
         with psycopg.connect(**config, autocommit=True) as source:
             source.execute('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
             snapshot = source.execute('SELECT pg_export_snapshot()').fetchone()[0]
             before = manifest(source)
             roles = source.execute("SELECT DISTINCT unnest(roles)::text FROM pg_policies WHERE schemaname='public'").fetchall()
-            extensions = source.execute("SELECT extname FROM pg_extension WHERE extname IN ('pgcrypto','uuid-ossp','btree_gist','citext')").fetchall()
+            extensions = extension_plan(source.execute("SELECT e.extname,n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace WHERE e.extname <> 'plpgsql' ORDER BY e.extname").fetchall())
+            columns = source.execute("SELECT table_name,column_name FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name,column_name").fetchall()
+            probe_columns = tenant_probe_columns(columns, before['rls_tables'])
+            PHASE = 'source_dump'
             command(['pg_dump', '--format=custom', '--schema=public', '--no-owner', '--no-privileges', '--snapshot=' + snapshot, '--file=' + str(backup)], env)
         local = dict(host='127.0.0.1', port=5432, dbname='rehearsal', user='postgres', password='disposable-only', connect_timeout=10)
+        PHASE = 'local_bootstrap'
         with psycopg.connect(**local, autocommit=True) as target:
             for (role,) in roles:
                 if role not in ('public', 'postgres'):
                     target.execute(sql.SQL('CREATE ROLE {} NOLOGIN NOSUPERUSER NOBYPASSRLS').format(sql.Identifier(role)))
-            for (extension,) in extensions:
-                target.execute(sql.SQL('CREATE EXTENSION IF NOT EXISTS {}').format(sql.Identifier(extension)))
+            for extension, namespace in extensions:
+                target.execute(sql.SQL('CREATE SCHEMA IF NOT EXISTS {}').format(sql.Identifier(namespace)))
+                target.execute(sql.SQL('CREATE EXTENSION IF NOT EXISTS {} WITH SCHEMA {}').format(sql.Identifier(extension), sql.Identifier(namespace)))
         local_env = env | {('PGDATABASE' if k == 'dbname' else f'PG{k.upper()}'): str(v) for k, v in local.items()}
         local_env['PGSSLMODE'] = 'disable'
         local_env['PGOPTIONS'] = '-c statement_timeout=600000'
         # Empty PostgreSQL databases already contain public; retain all archive
         # objects except that one schema creation (extensions need it first).
+        PHASE = 'archive_catalog'
         catalog = subprocess.run(['pg_restore', '--list', str(backup)], env=local_env, check=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=60).stdout.decode()
         restore_list = work / 'restore.list'
         restore_list.touch(mode=0o600)
         restore_list.write_text('\n'.join(line for line in catalog.splitlines() if not re.match(r'^\d+; \d+ \d+ SCHEMA - public ', line)) + '\n')
+        PHASE = 'local_restore'
         command(['pg_restore', '--use-list=' + str(restore_list), '--exit-on-error', '--single-transaction', '--no-owner', '--no-privileges', '--dbname=rehearsal', str(backup)], local_env)
+        PHASE = 'manifest_comparison'
         with psycopg.connect(**local) as target:
             after = manifest(target)
             if before != after:
                 raise ValueError('Restored manifest mismatch')
             if not before['rls_tables']:
                 raise ValueError('No forced RLS tables')
+            PHASE = 'restricted_role_probe'
             target.execute('CREATE ROLE restore_probe NOLOGIN NOSUPERUSER NOBYPASSRLS')
             target.execute('GRANT USAGE ON SCHEMA public TO restore_probe')
             target.execute('GRANT SELECT ON ALL TABLES IN SCHEMA public TO restore_probe')
             target.execute('SET LOCAL ROLE restore_probe')
             target.execute("SELECT set_config('app.user_id','00000000-0000-0000-0000-000000000000',true),set_config('app.org_id','00000000-0000-0000-0000-000000000000',true),set_config('app.role','viewer',true)")
-            for table in before['rls_tables']:
-                count = target.execute(sql.SQL('SELECT count(*) FROM public.{}').format(sql.Identifier(table))).fetchone()[0]
+            probe_results = {}
+            for table, tenant_columns in probe_columns.items():
+                if not tenant_columns:
+                    probe_results[table] = {'status': 'unverified_no_direct_tenant_column'}
+                    continue
+                predicate = sql.SQL(' OR ').join(sql.SQL('{} IS NOT NULL').format(sql.Identifier(c)) for c in tenant_columns)
+                count = target.execute(sql.SQL('SELECT count(*) FROM public.{} WHERE ').format(sql.Identifier(table)) + predicate).fetchone()[0]
                 if count != 0:
-                    raise ValueError('Restricted role saw rows without membership')
+                    raise ValueError('Restricted role saw tenant rows without membership')
+                global_count = target.execute(sql.SQL('SELECT count(*) FROM public.{} WHERE NOT (').format(sql.Identifier(table)) + predicate + sql.SQL(')')).fetchone()[0]
+                probe_results[table] = probe_outcome(count, global_count)
+            if not any(p['status'] == 'tenant_rows_denied' for p in probe_results.values()):
+                raise ValueError('No direct tenant probe coverage')
             target.rollback()
         receipt = dict(status='passed', scope='actual-staging-public-schema-and-data-only', source_project=REF,
                        commit=os.environ.get('GITHUB_SHA'), run_id=os.environ.get('GITHUB_RUN_ID'),
                        elapsed_seconds=round(time.monotonic()-started, 2), backup_sha256=hashlib.file_digest(backup.open('rb'), 'sha256').hexdigest(),
-                       **before, restricted_role_zero_rows=True,
-                       limitations=['No Supabase auth/storage recovery', 'No production recovery claim', 'ACL/ownership excluded; restricted role independently granted SELECT', 'Snapshot point-in-time only; no WAL/PITR or RPO claim'])
+                       **before, restricted_role_probes=probe_results, extension_namespaces=extensions,
+                       limitations=['Child tables without direct tenant columns are unverified by restricted-role probe', 'No Supabase auth/storage recovery', 'No production recovery claim', 'ACL/ownership excluded; restricted role independently granted SELECT', 'Snapshot point-in-time only; no WAL/PITR or RPO claim'])
         (root / 'staging-restore-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
     finally:
         shutil.rmtree(work)
@@ -124,6 +174,6 @@ if __name__ == '__main__':
     try:
         run()
         print('Staging public database restore rehearsal passed; sanitized receipt retained.')
-    except Exception:
-        print('Staging public database restore rehearsal failed; raw backup cleaned; diagnostics suppressed.')
+    except Exception as error:
+        print(json.dumps(failure_metadata(error), sort_keys=True))
         raise SystemExit(1)

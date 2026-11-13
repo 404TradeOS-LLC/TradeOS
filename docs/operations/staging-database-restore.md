@@ -13,14 +13,14 @@ policies and forced RLS. PostgreSQL 17 `pg_dump` uses that same snapshot. The
 public schema and data archive is restored with `pg_restore --exit-on-error
 --single-transaction` into a separate disposable PostgreSQL 17 service. No
 application migrations replace the dump. Catalog fingerprints and counts must
-match. A local NOSUPERUSER/NOBYPASSRLS role with SELECT grants must see zero
-rows on forced RLS tables with an empty synthetic identity. This is a denial
+match. A local NOSUPERUSER/NOBYPASSRLS role with SELECT grants must see zero tenant-owned
+rows on forced RLS tables with direct `org_id`/`organization_id` columns and an empty synthetic identity. NULL-tenant global rows are permitted and counted; child tables without direct tenant columns remain explicitly unverified by this probe. This is a denial
 probe, not a full application tenant/role certification.
 
 Tracked Prisma migrations do not reference executable `auth.*` or `storage.*`
 objects; they require `btree_gist`. Actual staging can drift: only the supported
-pgcrypto, uuid-ossp, btree_gist and citext extensions and policy role names are
-created in the local service. Any other missing dependency, restore error,
+pgcrypto, uuid-ossp, btree_gist and citext extensions (in their original public or extensions namespace) and policy role names are
+created in the local service. Unknown extensions or namespaces fail closed. Any other missing dependency, restore error,
 manifest mismatch or restricted-role failure fails the rehearsal. No Supabase
 schemas are stubbed, no source roles/ACLs/secrets are exported, and no source
 write is executed. Ownership and ACL restoration is excluded explicitly;
@@ -29,7 +29,7 @@ local grants test RLS separately.
 Raw data stays inside a mode-0700 directory under `RUNNER_TEMP`, with a
 mode-0600 archive. Python `finally` cleanup and an independent `always()` job
 step remove it on failures; runner disposal is the final cancellation boundary.
-No raw dump or subprocess errors are uploaded or printed (errors can contain
+Only fixed phase names and SQLSTATE/fixed error codes diagnose failures. No exception messages, raw dump or subprocess errors are uploaded or printed (errors can contain
 row data). Only the specifically named sanitized JSON receipt is retained for
 seven days: run/commit/project identity, elapsed time, archive digest, table
 counts, catalog digest and probe status. A failed run yields no passing receipt.

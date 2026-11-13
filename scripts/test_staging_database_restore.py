@@ -40,6 +40,27 @@ class GuardTests(unittest.TestCase):
                     m.run()
             self.assertEqual(list(Path(root).iterdir()), [])
 
+    def test_direct_tenant_probes_allow_global_rows_and_mark_children(self):
+        self.assertEqual(m.probe_outcome(0, 9)['visible_global_rows'], 9)
+        with self.assertRaises(ValueError):
+            m.probe_outcome(1, 9)
+        self.assertEqual(m.tenant_probe_columns([('shared', 'org_id'), ('owned', 'organization_id'), ('child', 'parent_id')], ['shared', 'owned', 'child']),
+                         {'shared': ['org_id'], 'owned': ['organization_id'], 'child': []})
+
+    def test_extensions_preserve_source_namespace_and_fail_unsupported(self):
+        self.assertEqual(m.extension_plan([('pgcrypto', 'extensions')]), [('pgcrypto', 'extensions')])
+        for rows in ([('pgcrypto', 'auth')], [('pgcrypto', 'storage')], [('unknown', 'public')]):
+            with self.assertRaises(ValueError):
+                m.extension_plan(rows)
+
+    def test_failure_metadata_never_contains_exception_text(self):
+        error = RuntimeError('password=secret row=email@example.test')
+        error.sqlstate = '42501'
+        self.assertEqual(m.failure_metadata(error)['code'], '42501')
+        error.sqlstate = 'secret'
+        self.assertEqual(m.failure_metadata(error)['code'], 'REHEARSAL_FAILED')
+        self.assertNotIn('secret', str(m.failure_metadata(error)))
+
     def test_cleanup_and_artifact_contract(self):
         script = Path(m.__file__).read_text()
         workflow = Path('.github/workflows/staging-database-restore.yml').read_text()
