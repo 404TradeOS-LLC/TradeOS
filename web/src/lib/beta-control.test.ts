@@ -272,6 +272,18 @@ test('closed superseded staging alternatives are labeled superseded, not active 
   }
 });
 
+test('unknown draft or mergeability evidence cannot create a green PR card', () => {
+  assert.equal(prCardStatus({ ...candidate, mergeable:null }), 'unverified');
+  assert.equal(prCardStatus({ ...candidate, draft:null }), 'unverified');
+  assert.equal(prCardStatus({ ...candidate, mergeable:null, draft:null }), 'unverified');
+  assert.equal(prCardStatus({ ...candidate, mergeable:false }), 'blocked', 'known non-mergeable state stays blocked');
+  assert.equal(prCardStatus({
+    ...candidate,
+    draft:null,
+    checks:[{ name:'CI', status:'completed', conclusion:'failure', url:null }],
+  }), 'blocked', 'observed failed check stays blocked');
+});
+
 test('PR badges never go green for failed collector, unapproved reviews, or conflicting checks', () => {
   assert.equal(prCardStatus({ ...candidate, error:'review source unavailable' }), 'unverified');
   assert.equal(prCardStatus({ ...candidate, review:'unverified' }), 'unverified');
