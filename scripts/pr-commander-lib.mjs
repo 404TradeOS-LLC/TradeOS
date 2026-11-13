@@ -54,6 +54,8 @@ export const FOUNDER_LABEL = "pr-commander:needs-founder";
 export const ARMED_VARIABLE = "TRADEOS_PR_COMMANDER_WRITE_ENABLED";
 
 const VALID_SHA = /^[0-9a-f]{40}$/i;
+// GitHub reports SKIPPED/NEUTRAL for some optional checks. Those statuses
+// are harmless on optional checks, but cannot prove required validation ran.
 const GREEN_CONCLUSIONS = new Set(["SUCCESS", "SKIPPED", "NEUTRAL"]);
 const FAILED_CONCLUSIONS = new Set([
   "FAILURE",
@@ -240,8 +242,10 @@ export function normalizeSnapshot(raw) {
   }
   const threadsRaw = raw.reviewThreads;
   let threads = raw.threads ?? null;
-  if (!threads && threadsRaw) {
-    const nodes = Array.isArray(threadsRaw.nodes) ? threadsRaw.nodes : Array.isArray(threadsRaw) ? threadsRaw : [];
+  // Only a complete GraphQL page can certify zero unresolved conversations.
+  // Missing, malformed or paginated evidence must remain unknown.
+  if (!threads && Array.isArray(threadsRaw?.nodes) && threadsRaw?.pageInfo?.hasNextPage === false) {
+    const nodes = threadsRaw.nodes;
     threads = {
       total: nodes.length,
       unresolved: nodes.filter((t) => t?.isResolved !== true).length,
@@ -260,7 +264,7 @@ export function normalizeSnapshot(raw) {
     mergeable: raw.mergeable ?? null,
     reviewDecision: raw.reviewDecision ?? null,
     checks,
-    threads: threads ?? { total: 0, unresolved: 0 },
+    threads: threads ?? null,
     reviews,
     baseRefName: raw.baseRefName ?? null,
     headRefName: raw.headRefName ?? null,
@@ -282,6 +286,7 @@ function checkByName(snapshot) {
 function checkState(check) {
   if (!check) return "missing";
   const conclusion = (check.conclusion ?? "").toUpperCase();
+  if (REQUIRED_CHECKS.includes(check.name) && (conclusion === "SKIPPED" || conclusion === "NEUTRAL")) return "failed";
   if (GREEN_CONCLUSIONS.has(conclusion)) return "green";
   if (FAILED_CONCLUSIONS.has(conclusion)) return "failed";
   const status = (check.status ?? "").toUpperCase();
@@ -517,9 +522,20 @@ export function evaluateGate(snapshot, opts = {}) {
     demote("REPAIRABLE");
   }
 
-  const unresolved = snapshot?.threads?.unresolved ?? 0;
-  if (unresolved > 0) {
-    reasons.push(`${unresolved} unresolved review thread(s) (of ${snapshot?.threads?.total ?? "?"} total).`);
+  const threads = snapshot?.threads;
+  const completeThreadEvidence =
+    threads &&
+    Number.isInteger(threads.total) &&
+    threads.total >= 0 &&
+    Number.isInteger(threads.unresolved) &&
+    threads.unresolved >= 0 &&
+    threads.unresolved <= threads.total;
+  if (!completeThreadEvidence) {
+    reasons.push("Review-thread evidence missing or incomplete; unresolved conversations cannot be assumed zero.");
+    nextActions.push("Fetch the complete review-thread page at the exact PR head and re-evaluate. Never merge without thread evidence.");
+    demote("BLOCKED");
+  } else if (threads.unresolved > 0) {
+    reasons.push(`${threads.unresolved} unresolved review thread(s) (of ${threads.total} total).`);
     nextActions.push("Address each finding on the PR branch, verify the correction, and resolve the thread only after the fix is verified on the current head. The Commander never auto-resolves a thread in v1 (see implementation note).");
     demote("REPAIRABLE");
   }
