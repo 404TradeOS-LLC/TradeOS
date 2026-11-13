@@ -12,6 +12,14 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Invited-beta disposable recovery evidence — 2026-11-13
+
+- Sprint ID: NONE; resumed existing uncommitted recovery runner/tests in `/workspace/TradeOS-recovery`, branch `test/beta-recovery-rehearsal` (EXISTING_WORK_FOUND). Fetched origin, reconciled open/recent recovery PRs and worktrees, fast-forwarded baseline `99ccafcc` to `0eb3ce15`; no competing restore PR found.
+- Allowed scope: synthetic local runner/tests, root test registration and recovery/runbook evidence. No product schema/migrations, storage/auth policy, production database, provider credentials or paid infrastructure changed.
+- Actual disposable PostgreSQL plus private RustFS S3 recovery passed after source database/object deletion, including exact snapshot rows, later-write exclusion, FK enforcement, enabled/forced RLS and own/foreign/unscoped restricted-role reads, object SHA-256 and anonymous denial. See [the recovery runbook](operations/BETA_RECOVERY_REHEARSAL.md) and its retained JSON receipt for measured timings and runtime identity.
+- MinIO registry pulls failed and its binary endpoint returned 410; full RustFS image exhausted Docker vfs disk. Dependency recovery used checksum-verified upstream RustFS 1.0.5 static binary and a fresh local process, with only the runner's temporary data/container removed. Financial lane database was preserved.
+- Validation: 416 repository tests and 40 docs tests passed; focused recovery tests and documentation ownership check passed. Exact final publication/check state belongs in the PR. This local fixture does not certify TradeOS/Supabase recovery, production backup/PITR or beta GO. Root owns merge/deploy and remaining protected operational evidence.
+
 ## PR #981 — verified review-thread evidence gate
 
 - Founder-authorized independent Commander defect after merged PR #980. Started from `main` at `a7b70cc20e7aa3c3dabb4bab24eb15afbc0b99f2`; semantic overlap search found no active matching PR; branch `fix/pr-commander-thread-evidence-fail-closed`.
