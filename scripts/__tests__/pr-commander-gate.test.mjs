@@ -106,6 +106,64 @@ test("one required check failing flips the verdict to REPAIRABLE", () => {
   assert.ok(result.nextActions.length > 0, "a repairable failure must name a next action");
 });
 
+test("BLOCKED merge state with a failing required check and no change request is REPAIRABLE", () => {
+  // Regression (Phase 4 validation, PR #970): GitHub reports merge state
+  // BLOCKED whenever a required check fails, so the gate must distinguish
+  // the cause — a block attributable to failing checks is repairable, not
+  // a hard stop. The live shape is BLOCKED + failing required check + no
+  // standing change request; the earlier unconditional demotion made the
+  // "failing required check → REPAIRABLE" mapping unreachable.
+  const snapshot = readySnapshot({ mergeStateStatus: "BLOCKED" });
+  snapshot.checks = snapshot.checks.map((check) =>
+    check.name === "App lint, unit tests, and build" ? { ...check, conclusion: "FAILURE" } : check,
+  );
+  const result = evaluateGate(snapshot);
+  assertGateShape(result);
+  assert.equal(result.verdict, "REPAIRABLE");
+  assert.deepEqual(result.founderItems, []);
+});
+
+test("BLOCKED merge state with a standing CHANGES_REQUESTED stays BLOCKED even when a check fails", () => {
+  const snapshot = readySnapshot({
+    mergeStateStatus: "BLOCKED",
+    reviewDecision: "CHANGES_REQUESTED",
+  });
+  snapshot.checks = snapshot.checks.map((check) =>
+    check.name === "App lint, unit tests, and build" ? { ...check, conclusion: "FAILURE" } : check,
+  );
+  const result = evaluateGate(snapshot);
+  assertGateShape(result);
+  assert.equal(result.verdict, "BLOCKED");
+  assert.match(result.founderItems.join(" "), /dismiss/i);
+});
+
+test("BLOCKED merge state with no failing check and no change request stays BLOCKED", () => {
+  // Unknown cause for the block (e.g. a ruleset condition): fail closed.
+  const result = evaluateGate(readySnapshot({ mergeStateStatus: "BLOCKED" }));
+  assertGateShape(result);
+  assert.equal(result.verdict, "BLOCKED");
+  assert.match(result.reasons.join(" "), /merge state BLOCKED/);
+});
+
+test("BLOCKED merge-state cause check reads the deduplicated check view", () => {
+  // Regression: real snapshots carry duplicate check names (one entry per
+  // workflow run). The cause check must agree with the downstream sections,
+  // which read checkByName (last entry per name wins) — a stale FAILURE
+  // duplicate followed by a SUCCESS for the same check is green, not failed.
+  const staleFailure = readySnapshot({ mergeStateStatus: "BLOCKED" });
+  staleFailure.checks = [
+    { name: "Docs consistency", conclusion: "FAILURE" },
+    ...REQUIRED_CHECKS.map((name) => ({ name, conclusion: "SUCCESS" })),
+  ];
+  assert.equal(evaluateGate(staleFailure).verdict, "BLOCKED");
+  const latestFailure = readySnapshot({ mergeStateStatus: "BLOCKED" });
+  latestFailure.checks = [
+    ...REQUIRED_CHECKS.map((name) => ({ name, conclusion: "SUCCESS" })),
+    { name: "Docs consistency", conclusion: "FAILURE" },
+  ];
+  assert.equal(evaluateGate(latestFailure).verdict, "REPAIRABLE");
+});
+
 test("one required check missing/unreported flips the verdict away from MERGE_READY", () => {
   const snapshot = readySnapshot({
     checks: REQUIRED_CHECKS.slice(0, 3).map((name) => ({ name, conclusion: "SUCCESS" })),

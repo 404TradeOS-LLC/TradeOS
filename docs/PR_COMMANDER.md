@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-11-10
+last_verified: 2026-11-11
 source_of_truth: true
 related_code:
   - .github/workflows/pr-commander.yml
@@ -9,6 +9,7 @@ related_code:
   - scripts/pr-commander-lib.mjs
   - scripts/__tests__/pr-commander-gate.test.mjs
   - scripts/__tests__/pr-commander-order.test.mjs
+  - scripts/__tests__/pr-commander-ai-repair.test.mjs
   - scripts/pr-commander-implementation-note.md
   - .github/workflows/verify-repository.yml
   - .github/workflows/merge-readiness.yml
@@ -54,7 +55,9 @@ it — see "Repair tiers" below), and the lint-autofix pattern comes from
   (via GraphQL — `gh pr view` does not expose them), changed files, and
   reviews.
 - A bounded repair loop: deterministic lint repair on the PR branch
-  (verified by unit tests + lint + build before any push), security
+  (verified by unit tests + lint + build before any push), an AI repair
+  worker that invokes the installed Codex app once per head for
+  REPAIRABLE PRs the deterministic tier could not fix, security
   findings surfaced as founder items and handled by the scheduled
   CodeQL Autofix run (no dispatch from this workflow), and one
   best-effort CodeRabbit re-review request after a repair push.
@@ -102,21 +105,14 @@ repository.
 | Mode | Writes anything? | Verdict comment posted? | When it runs |
 | --- | --- | --- | --- |
 | `audit` | No — read-only even when the arming variable is set | No | `workflow_dispatch` only |
-| `dry-run` | No — emits the verdict + plan (artifact JSON + run summary) and takes no write action | No — the comment body is rendered into the artifact + summary as "would post/update verdict comment" | Default for `workflow_dispatch`; also the only behavior of schedule and `pull_request` runs |
-| `armed` | Yes — but only when the run is *effectively armed* (see below) | Yes — one comment per PR, updated in place | `workflow_dispatch` with `mode=armed` **and** the repository variable set to exactly `"true"` |
+| `dry-run` | No — emits the verdict + plan (artifact JSON + run summary) and takes no write action | No — the comment body is rendered into the artifact + summary as "would post/update verdict comment" | Default for `workflow_dispatch`; also the behavior of `pull_request` runs, and of schedule runs unless both opt-in variables are exactly `true` |
+| `armed` | Yes — but only when the run is *effectively armed* (see below) | Yes — one comment per PR, updated in place | `workflow_dispatch` with `mode=armed` **and** the repository variable set to exactly `"true"`, or a schedule run with **both** opt-in variables set to exactly `"true"` |
 
-**Effectively armed** requires BOTH:
+**Effectively armed** requires the repository variable `TRADEOS_PR_COMMANDER_WRITE_ENABLED` exactly `"true"` (absent, `"false"`, `"1"`, `"yes"`, `"TRUE"` are all dry-run), AND either:
+1. a `workflow_dispatch` with `mode=armed`, OR
+2. a `schedule` run with the second variable `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED` also exactly `"true"` (unattended mode, live since 2026-11-11, PR #967).
 
-1. the repository variable `TRADEOS_PR_COMMANDER_WRITE_ENABLED` is exactly
-   `"true"` (absent, `"false"`, `"1"`, `"yes"`, `"TRUE"` are all dry-run), AND
-2. a `workflow_dispatch` with `mode=armed`.
-
-Schedule runs and `pull_request` runs can **never** act, even if the variable
-is set. `audit` runs can never act either. Every write call in the `act` job
-sits behind a single gate (the job `if:`), and the CLI/library gate
-`isArmed()` is consulted before every write there. The evaluate job always
-evaluates dry-run (`armed: false`), even on armed dispatches; the `act` job
-re-evaluates armed on a fresh head re-read before any write.
+`pull_request` runs can **never** act, even if the variables are set. `audit` runs can never act either. Every write call in the `act` job sits behind a single gate (the job `if:`). The `act` job does not call `isArmed()`; its shell steps run `gh` and `git push` directly. Exact `"true"` is enforced by a case-sensitive shell check at the top of the "Apply verdicts" step, before any write — the job `if:` compares strings case-insensitively, so it alone cannot enforce the exact value. The evaluate job always evaluates dry-run (`armed: false`), even on armed dispatches; the `act` job re-evaluates with `armed: true` on a fresh head re-read before any write. The `act` job gate re-checks the raw variables at job admission (after discovery), so flipping `TRADEOS_PR_COMMANDER_WRITE_ENABLED` off before the act job starts prevents it from running; flipping `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED` off prevents scheduled runs only (a manual armed dispatch does not check it) — but neither stops an already-running act job; cancel a running act job separately (see the rollback instructions in the configuration document).
 
 **Dry-run is the default, in two layers.** The library evaluator is armed
 unless its caller says otherwise, so the dry-run default lives in the
@@ -166,13 +162,24 @@ missing CI is never read as green. Missing required-check evidence is
 | `MERGE_READY` | All gates pass **and** the run is armed. | `act` re-reads the head, re-evaluates, and — only if the fresh verdict is still `MERGE_READY` at the same SHA — enables auto-merge (`gh pr merge --auto --squash`). Stacked PRs merge base-first; a stacked PR is skipped until its base PR has merged (in this run or earlier). |
 | `DRY_RUN_ONLY` | All gates pass but the run is not armed. | Nothing is merged. The verdict + plan are recorded in the artifact and summary. This is the proof the gates work. |
 | `REPAIRABLE` | A repairable defect: a failing required check, unresolved review threads, or a behind branch. | Armed runs attempt bounded deterministic repair (see below). Dry-run runs report the plan only. |
-| `BLOCKED` | A hard stop: draft, conflict, missing/pending required-check evidence, a standing `CHANGES_REQUESTED`, an ADR-009 record required but absent, or a protected change needing a founder decision. | No auto-merge from here. Founder items (if any) are surfaced via the verdict comment + `pr-commander:needs-founder` label (armed runs only). |
+| `BLOCKED` | A hard stop: draft, conflict, missing/pending required-check evidence, a standing `CHANGES_REQUESTED`, an ADR-009 record required but absent, or a protected change needing a founder decision. A `BLOCKED` merge state is a hard stop only when its cause is a standing change request or is otherwise unexplained — when the block is attributable to failing checks, the verdict is `REPAIRABLE` (see below). | No auto-merge from here. Founder items (if any) are surfaced via the verdict comment + `pr-commander:needs-founder` label (armed runs only). |
 | `BLOCKED_ESCALATED` | Repair attempts exhausted (3 per head). | The Commander stops repairing that head. Founder item: decide whether to abandon, re-scope, or hand-repair it. |
 
 Every verdict carries `reasons[]`, `nextActions[]`, `founderItems[]`, and
 `headSha`. A verdict that was `DRY_RUN_ONLY` becomes `MERGE_READY` only on a
 fresh head re-read inside the armed job — a moved head or a changed verdict
 stops that PR with no action.
+
+**`BLOCKED` merge state is not always a hard stop.** GitHub reports merge
+state `BLOCKED` whenever a required check fails, so the gate distinguishes
+the cause from the snapshot evidence: a block attributable to failing
+checks, with no standing change request, is `REPAIRABLE` (the repair tiers
+exist for exactly those PRs); a block caused by a standing
+`CHANGES_REQUESTED`, or a block with no failing check and no review to
+explain it, stays `BLOCKED`. An unconditional demotion here previously made
+the "failing required check → `REPAIRABLE`" mapping unreachable in
+practice — proven by the Phase 4 validation on PR #970 (failing required
+check, no standing change request, verdict `BLOCKED` before this fix).
 
 ### ADR-009 gate
 
@@ -307,7 +314,42 @@ Actions tab stops schedule runs as well.
    own cadence. On-demand dispatch is still unwired: wiring it is a
    separate change, either a wider exception (a founder decision) or a
    `workflow_call` restructure of `codeql-autofix.yml`.
-4. **CodeRabbit re-review** — after a repair push, one best-effort request
+4. **AI repair worker (Codex)** — after the deterministic tier does not
+   push and no rebase was dispatched, the armed `act` job may invoke the
+   already-installed ChatGPT Codex GitHub app once per head on a
+   `REPAIRABLE` same-repo PR. The invocation is a single
+   `@codex address that feedback` comment (the trigger Codex's own review
+   receipt documents), built by `buildAiRepairComment` in
+   `scripts/pr-commander-lib.mjs`: the failing check names, the run link,
+   the unresolved-thread count, the scope limits (only the files the fix
+   needs; never migrations, auth, RLS, workflow files, or production
+   config; push to this PR's branch only), and the prohibitions (never
+   approve, merge, dismiss a review, or resolve a thread). Eligibility is
+   enforced by `isAiRepairEligible` in the same module: not a draft, not
+   conflicting, not behind (rebase first), no protected files in the PR
+   (fail-closed via `classifyPrFiles`), same-repo only, repair attempts
+   remain, no prior AI invocation on this head, and something to address
+   (a failing check or unresolved threads) — and every required input must
+   be present and well-formed, or the PR is ineligible (missing evidence
+   never reads as eligible). One invocation counts as one
+   of the 3 per-head repair attempts and is recorded as
+   `ai-repair:<sha>:<n>` in the verdict comment. The attempt is reserved
+   in the verdict comment *before* the invocation posts: the live head is
+   re-checked immediately before posting (a moved head skips the
+   invocation without consuming an attempt), then the reservation is
+   written, and the comment posts only if that write succeeds. If the
+   post fails after a successful reservation, the reservation stands —
+   the attempt is consumed, never silently retried on this head. Codex works in its own
+   cloud environment; a push creates a new head, fresh CI runs, and the
+   Commander re-evaluates on its next run. The merge bar still decides
+   every merge — the worker cannot merge anything on its own.
+   **Validation status:** Codex's push to a PR branch in THIS repo is
+   UNCONFIRMED until the end-to-end validation run observes it (zero
+   Codex commits exist in this repo), as is whether Codex responds to a
+   mention from `github-actions[bot]`. A no-response is recorded by the
+   attempt counter, never silently retried. Do not claim the push works
+   until it is observed.
+5. **CodeRabbit re-review** — after a repair push, one best-effort request
    (`@coderabbitai review`, after a 60 s backoff). CodeRabbit also
    re-reviews automatically on push. Re-review is externally rate-limited:
    one best-effort request with backoff, never a retry loop.
@@ -316,15 +358,17 @@ Actions tab stops schedule runs as well.
 
 **Copilot Agent Merge is NOT available as a reliable delegation path, and
 nothing in the Commander depends on it.** Verified live 2026-11-10
-(overlap audit §3): the org has 0 Copilot seats, no billing source, and
-Copilot review quota failures on request; the Copilot code-review ruleset
-(19465256) is disabled; the two prior Copilot agent PRs (#695, #922) both
-closed unmerged (0-for-2). Copilot / Codex review is optional, best-effort,
-human-triggered only — usable only after a founder/owner step (assign at
-least one paid Copilot seat or set the org as the billing source for code
-review, and confirm quota). Until that step happens, the Commander must not
-depend on either. The delegation path above — deterministic repair, CodeQL
-Autofix, CodeRabbit re-review — is what demonstrably works in this repo.
+(overlap audit §3) and re-verified 2026-11-11: the org has 0 Copilot
+seats, no billing source, and Copilot review quota failures on request;
+the Copilot code-review ruleset (19465256) is disabled; the two prior
+Copilot agent PRs (#695, #922) both closed unmerged (0-for-2). The
+Claude GitHub app is installed org-wide but has no repo wiring and zero
+observed activity on TradeOS — it is not a path either. The AI repair
+worker delegates to Codex instead (see "Repair, in order" step 4): the
+Codex connector is installed on this repo and reviews PRs, but its
+repair push is UNCONFIRMED until the end-to-end validation observes it.
+Until that observation, the deterministic tier is the ceiling for
+verified repairs.
 
 ## Founder notification contract
 
@@ -390,7 +434,9 @@ trust-boundary changes.
   and escalated PRs.
 - **No state file in the repo** (churn/conflicts). The per-head
   repair-attempt counter lives in the verdict comment as
-  `repair-attempts:<sha>:<n>`.
+  `repair-attempts:<sha>:<n>`, and the per-head AI invocation counter
+  lives beside it as `ai-repair:<sha>:<n>` (at most one invocation per
+  head; a new head resets both).
 
 ## Activation checklist (Billy must complete before write mode)
 
