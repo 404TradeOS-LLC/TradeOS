@@ -48,6 +48,10 @@ related_code:
 
 # TradeOS Engineering Command Center
 
+## Autonomous coordinator execution — PR #979 (proposed)
+
+Founder-requested default: `EXECUTE → VERIFY → RECONCILE → ADVANCE` for an approved engineering workstream. One coordinator checks actual connected tool capabilities and permissions, selects the highest-priority independent eligible task, repairs validated code/CI/review findings through the existing PR, runs exact-head gates, and advances after a fresh per-mission preflight. No new commander service, repo boundary, blanket production approval, automatic paid dependency installation, or unverified acceptance is implied. Current proposal updates AGENTS and the canonical next-sprint protocol; it does **not** assert that the PR Commander runtime or schedules now implement autonomous repair/dispatch. Implementing and proving that behavior remains a separate existing-work reconciliation task. See `docs/REPOSITORY_GOVERNANCE.md`.
+
 ## Invited beta mission — 2026-11-06
 
 Founder-approved first cohort is 1–3 businesses, free, real work, readiness-gated: Customer → Project → manual/reviewed-AI Estimate → Proposal → contractor-delivered PDF. [Invited beta operations](operations/INVITED_BETA.md) owns the gate register and onboarding/incident sequence. The candidate `beta_pdf` scenario reuses Beta Evidence, exact SHA guards and four widths without requiring contract/invoice execution. Existing full-release sprint gates are unchanged; clarification, disputed pricing, shared security/environment parity and actual recovery remain blockers. Source checks do not certify launch.
