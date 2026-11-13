@@ -169,4 +169,3 @@ describe("branded PDF renderers", () => {
     expect(text).toContain("Signature:");
   });
 });
-
