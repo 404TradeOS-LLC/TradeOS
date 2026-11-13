@@ -88,7 +88,7 @@ export function prCardStatus(pr: PrStatus): string {
     return hasObservedUnsuccessfulRequiredCheck(pr) ? 'blocked' : 'unverified';
   }
   const checks = evaluateChecks(pr);
-  if (checks.state === 'verified' && (pr.review !== 'approved' || pr.unresolvedThreads !== 0)) return 'unverified';
+  if (checks.state === 'verified' && (pr.review !== 'approved' || pr.unresolvedThreads !== 0 || pr.mergeable !== true || pr.draft !== false)) return 'unverified';
   return checks.state;
 }
 
