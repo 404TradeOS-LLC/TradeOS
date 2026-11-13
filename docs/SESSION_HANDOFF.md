@@ -12,6 +12,14 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## PR #980 — PR Commander required-check success-only gate (in review)
+
+- Founder-authorized CI hardening on existing TradeOS monorepo; `NEW_WORK_REQUIRED` after checking open PR overlap, base `e30b8d4a0cbff6530d8750de96d6b2053afa3ee0`, branch `fix/pr-commander-required-check-conclusions`.
+- Root cause: `scripts/pr-commander-lib.mjs` classified required `SKIPPED` and `NEUTRAL` conclusions as green, permitting `MERGE_READY` without actual successful required validation.
+- Verified RED: original regression-only head `f1aa52caf4dd65bd6f8a4c5a01c8925d6ff7b39f` failed hosted `npm run pr:test` at the new assertion (411 passing / 1 failing), proving a skipped required Web check incorrectly returned `MERGE_READY`.
+- Fix: only `SUCCESS` is green; regression exercises every required check with `SKIPPED` and `NEUTRAL`. `docs/PR_COMMANDER.md` documents intentional stricter-than-GitHub fail-closed policy. No workflow permission, arming, branch-protection, deployment, secrets, schema, billing, auth or production change.
+- At this handoff: hosted GREEN/review verification still required at the final exact head; do not undraft, enable auto-merge, or merge until checks/reviews are reconciled. Continue this same PR, never create a duplicate.
+
 ## Autonomous execution policy reconciliation — PR #979 (pending)
 
 - Repository `404TradeOS-LLC/TradeOS`, base `main` at `99ccafcc347ef1902d5dbf6d56fc5bcc755688b0` when PR was opened; existing work: PR #979, branch `docs/autonomous-execution-default-20261113`. Do not make a duplicate PR. Classification: `EXISTING_WORK_FOUND`.
