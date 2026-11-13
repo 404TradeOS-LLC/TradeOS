@@ -64,6 +64,30 @@ def extension_plan(rows):
     return rows
 
 
+def public_extension_dependencies(seeds, edges, extensions):
+    """Follow catalog references plus internally/automatically owned objects.
+
+    Table defaults, policies, constraints, indexes and rewrite rules can own the
+    extension reference while lacking their own namespace dependency. Follow
+    their ownership edges back from the seeded public table as well.
+    """
+    graph = {}
+    for cls, obj, refcls, refobj, kind in edges:
+        graph.setdefault((cls, obj), set()).add((refcls, refobj))
+        if kind in ('i', 'a'):
+            graph.setdefault((refcls, refobj), set()).add((cls, obj))
+    visited = set()
+    pending = list(seeds)
+    while pending:
+        node = tuple(pending.pop())
+        if node in visited:
+            continue
+        visited.add(node)
+        pending.extend(graph.get(node, set()) - visited)
+    return extension_plan(sorted((name, namespace) for cls, obj, name, namespace in extensions
+                                 if (cls, obj) in visited and name != 'plpgsql'))
+
+
 def tenant_probe_columns(columns, tables):
     return {table: [name for owner, name in columns if owner == table and name in ('org_id', 'organization_id')]
             for table in tables}
@@ -107,7 +131,10 @@ def run():
             snapshot = source.execute('SELECT pg_export_snapshot()').fetchone()[0]
             before = manifest(source)
             roles = source.execute("SELECT DISTINCT unnest(roles)::text FROM pg_policies WHERE schemaname='public'").fetchall()
-            extensions = extension_plan(source.execute("SELECT e.extname,n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace WHERE e.extname <> 'plpgsql' ORDER BY e.extname").fetchall())
+            extension_catalog = source.execute("SELECT 'pg_extension'::regclass::oid,e.oid,e.extname,n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace").fetchall()
+            seeds = source.execute("SELECT d.classid,d.objid FROM pg_depend d WHERE d.refclassid='pg_namespace'::regclass AND d.refobjid='public'::regnamespace AND NOT EXISTS (SELECT 1 FROM pg_depend member WHERE member.classid=d.classid AND member.objid=d.objid AND member.deptype='e')").fetchall()
+            edges = source.execute("SELECT classid,objid,refclassid,refobjid,deptype FROM pg_depend").fetchall()
+            extensions = public_extension_dependencies(seeds, edges, extension_catalog)
             columns = source.execute("SELECT table_name,column_name FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name,column_name").fetchall()
             probe_columns = tenant_probe_columns(columns, before['rls_tables'])
             PHASE = 'source_dump'
