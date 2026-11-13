@@ -1168,6 +1168,10 @@ source-linked Job is still returned on retry, without creating another Job.
 
 Resend delivery journal (draft PR #931): internal verified-event processing now validates/normalizes provider occurrence timestamps and prevents older callbacks from overwriting newer delivery status. This creates no public endpoint and does not activate the separate #923 webhook pilot.
 
-## Password-reset single-use boundary
+## Authentication single-use token boundary
 
 `POST /auth/reset-password` preserves the invalid-or-expired response when another request has already consumed the token. Consumption is conditional and transactional with the password update and refresh-token revocation.
+
+Invitation acceptance likewise conditionally claims a pending, unaccepted, unexpired token before account, membership or refresh-session writes in the same transaction. Concurrent replay returns the existing invalid-or-expired error. Existing invitation roles and inactive-user reactivation behavior are preserved.
+
+After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.

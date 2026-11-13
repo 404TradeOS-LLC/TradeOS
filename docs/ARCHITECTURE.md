@@ -221,6 +221,10 @@ The API now uses Zod 4.6.7 directly, with `$zod` overriding the older nested Ver
 
 Draft Resend journal ordering uses a per-message PostgreSQL row lock before event insertion and a provider-occurrence-time guard on status projection; all unique events remain append-only and bounce/complaint flags are sticky. It preserves existing transactions, tenant attribution and forced-RLS policies; no new migration or pool architecture is introduced.
 
-## Password-reset single-use boundary
+## Authentication single-use token boundary
 
 Password recovery uses an atomic conditional claim of an unconsumed, unexpired reset token before updating credentials, within the same database transaction. This preserves single-use behavior under concurrent requests and rolls consumption back on failure.
+
+Invitation acceptance likewise conditionally claims a pending, unaccepted, unexpired token before account, membership or refresh-session writes in the same transaction. Concurrent replay returns the existing invalid-or-expired error. Existing invitation roles and inactive-user reactivation behavior are preserved.
+
+After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
