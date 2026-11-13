@@ -18,6 +18,8 @@ Status vocabulary: `DONE`, `IN_REVIEW`, `READY`, `BLOCKED`, `PLANNED`, `DEFERRED
 
 This document owns current sprint status and merge evidence. Governance doctrine belongs in `docs/TRADEOS_BIBLE.md`; the sole executable startup and completion flows belong in `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.
 
+- **Autonomous engineering execution contract — PR #979 (proposed, non-numbered):** Standing founder direction permits sequential, separately reconciled eligible bounded missions and safe dependency/tool recovery without routine approval prompts; it does not change any numbered sprint status, dependency, readiness, ownership, release certification, protected approval or review requirement. PR #979 is documentation-only and remains subject to exact-head CI and review. Runtime PR Commander repair orchestration is a separate implementation task; policy text alone is not working automation.
+
 ## Parallel founder-authorized work (non-numbered)
 
 - **Costbook Data Foundation — 2026-10-02:** PR #628 extends the existing Costbook pricing-evidence, supplier-product, research-candidate, RLS, Assembly, and Estimate snapshot systems. It does not create or advance a numbered sprint. The slice is limited to provenance-complete supplier observations, Terre Haute BLS benchmark/fallback and ECEC inference rules, the 12-item canonical pilot matcher/review boundary, PriceResolver v1, freshness/confidence behavior, the read-only Costbook trust contract, tests, and documentation. External QBO/ABC/1build integrations and retail scraping remain outside this slice.

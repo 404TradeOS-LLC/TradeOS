@@ -87,6 +87,23 @@ test("extra green checks beyond the four required do not block MERGE_READY", () 
   assert.equal(evaluateGate(snapshot).verdict, "MERGE_READY");
 });
 
+test("a skipped or neutral required check cannot authorize merge", () => {
+  for (const conclusion of ["SKIPPED", "NEUTRAL"]) {
+    for (const name of REQUIRED_CHECKS) {
+      const snapshot = readySnapshot({
+        checks: REQUIRED_CHECKS.map((required) => ({
+          name: required,
+          conclusion: required === name ? conclusion : "SUCCESS",
+          status: "COMPLETED",
+        })),
+      });
+      const result = evaluateGate(snapshot, { armed: true });
+      assert.notEqual(result.verdict, "MERGE_READY", `${name} was ${conclusion}`);
+      assert.match(result.reasons.join(" "), /Required check|failing|non-success/i);
+    }
+  }
+});
+
 test("draft flips the verdict away from MERGE_READY", () => {
   const result = evaluateGate(readySnapshot({ isDraft: true }));
   assertGateShape(result);
@@ -310,6 +327,31 @@ function rawGhSnapshot(overrides = {}) {
     ...overrides,
   };
 }
+
+test("missing review-thread evidence blocks merge readiness", () => {
+  const raw = rawGhSnapshot({ reviewThreads: undefined });
+  const normalized = normalizeSnapshot(raw);
+  const verdict = evaluateGate(normalized, { armed: true });
+  assert.equal(normalized.threads, null);
+  assert.equal(verdict.verdict, "BLOCKED");
+  assert.match(verdict.reasons.join(" "), /review.thread.*(missing|incomplete|unavailable)/i);
+});
+
+test("paginated or malformed review-thread evidence blocks merge readiness", () => {
+  const partial = rawGhSnapshot({
+    reviewThreads: { nodes: [], pageInfo: { hasNextPage: true } },
+  });
+  const invalid = rawGhSnapshot({
+    reviewThreads: undefined,
+    threads: { total: 0, unresolved: -1 },
+  });
+  for (const raw of [partial, invalid]) {
+    const normalized = normalizeSnapshot(raw);
+    const verdict = evaluateGate(normalized, { armed: true });
+    assert.equal(verdict.verdict, "BLOCKED");
+    assert.match(verdict.reasons.join(" "), /review.thread.*(missing|incomplete|unavailable)/i);
+  }
+});
 
 test("normalizeSnapshot maps a raw gh pr view payload to the lib shape", () => {
   const normalized = normalizeSnapshot(rawGhSnapshot());
