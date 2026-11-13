@@ -16,6 +16,31 @@ related_code:
 
 # TradeOS Deployment Guide
 
+## Costbook frontend preview opt-in — proposed 2026-10-18
+
+The Git deployment gates in both `app/vercel.json` and `web/vercel.json`
+currently disable automatic Vercel deployments for unspecified branches.
+The proposed frontend-only policy adds a narrowly matching
+`feat/costbook-*` true allowlist to **web only**, alongside existing
+`main` and `staging`, retaining `"**": false` for unrelated branches.
+Vercel documents that if a branch matches both a false and a true pattern,
+the true rule wins. This rule is intended to restore reviewable frontend
+previews for Costbook PRs; no production branch setting is changed.
+
+**Backend remains unchanged:** arbitrary backend feature branches must not
+inherit the staging-only `DATABASE_URL` and `SUPABASE_URL` branch secrets.
+Its `deploymentEnabled` stays `main`/`staging` only. Even when a Costbook
+web PR preview is READY, it talks to the shared staging backend, which
+may not include that PR's backend changes. To certify backend-dependent
+assembly installation, deliberately deploy the reviewed code to the
+dedicated staging backend under its guarded change process and verify the
+exact API SHA. Never point preview at Production to make it work.
+
+A GitHub PR change is not itself proof of a Vercel deployment. Verify the
+project/branch/head SHA, READY status, Preview target, staging Supabase
+project ref and backend URL before any authenticated QA. Enabling web
+previews does not waive authentication, RLS or deployment protection.
+
 ## Overview
 
 TradeOS deploys as two applications:
