@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { betaBrowserLaunchOptions, safeEvidenceError } from './browser-runtime.mjs';
+import { betaBrowserLaunchOptions, safeEvidenceError, isPreviewFeedbackRequest } from './browser-runtime.mjs';
 
 test('browser proxy requires explicit environment opt-in and preserves headless behavior', () => {
   assert.deepEqual(betaBrowserLaunchOptions({ HTTPS_PROXY: 'http://proxy:8080' }), { headless: true });
@@ -22,4 +22,11 @@ test('diagnostics redact single-line credentials, authorization and signed URL q
   for (const value of ['request failed Cookie: token=secret-session', 'Authorization: Bearer secret-session', 'https://user:secret-session@example.invalid/path?token=secret-session']) {
     assert.doesNotMatch(safeEvidenceError(new Error(value)), /secret-session/);
   }
+});
+test('only the exact optional preview-feedback GET is classified outside application failures', () => {
+  assert.equal(isPreviewFeedbackRequest('https://vercel.live/_next-live/feedback/feedback.js'), true);
+  for (const url of ['https://vercel.live.evil.invalid/_next-live/feedback/feedback.js', 'https://vercel.live/api/payments', 'https://app.404tradeos.com/_next-live/feedback/feedback.js']) {
+    assert.equal(isPreviewFeedbackRequest(url), false);
+  }
+  assert.equal(isPreviewFeedbackRequest('https://vercel.live/_next-live/feedback/feedback.js', 'POST'), false);
 });

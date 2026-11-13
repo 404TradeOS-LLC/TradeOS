@@ -25,3 +25,12 @@ export function safeEvidenceError(error) {
   message = message.replace(/\b(cookie|set-cookie|authorization|password|access[_-]?token|refresh[_-]?token)\s*[:=].*/gi, '$1=[redacted]');
   return message;
 }
+
+/** Vercel's optional preview toolbar is not an application request. Retain it separately. */
+export function isPreviewFeedbackRequest(raw, method = 'GET') {
+  try {
+    const url = new URL(raw);
+    return method === 'GET' && url.origin === 'https://vercel.live' &&
+      url.pathname === '/_next-live/feedback/feedback.js';
+  } catch { return false; }
+}

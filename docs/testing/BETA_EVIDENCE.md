@@ -606,3 +606,5 @@ PDF signature/end marker, content type and hash prove transport/integrity only. 
 PR #933 follow-up: fixture proof must belong to the same passing foreign-PDF probe; when route/status fields are present, they must match that proof’s Proposal ID and HTTP status. Legacy compact reports may omit those fields. Split proof/PASS entries and mismatched routes/statuses fail validation.
 
 Managed local runs may opt into inherited HTTPS proxy routing with `NODE_USE_ENV_PROXY=1`; both browser navigation and context API requests use that proxy. Multiline Playwright call logs are excluded from retained error messages because they can contain session cookies. Signed URL queries and credential headers are redacted.
+
+Network acceptance blocks all application and unknown external failures. Only the exact GET for Vercel's optional preview-feedback script is classified separately in `excludedPreviewRequests`; that failure is retained, never labelled as a successful request.
