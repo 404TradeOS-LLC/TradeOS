@@ -54,6 +54,8 @@ export const FOUNDER_LABEL = "pr-commander:needs-founder";
 export const ARMED_VARIABLE = "TRADEOS_PR_COMMANDER_WRITE_ENABLED";
 
 const VALID_SHA = /^[0-9a-f]{40}$/i;
+// GitHub reports SKIPPED/NEUTRAL for some optional checks. Those statuses
+// are harmless on optional checks, but cannot prove required validation ran.
 const GREEN_CONCLUSIONS = new Set(["SUCCESS", "SKIPPED", "NEUTRAL"]);
 const FAILED_CONCLUSIONS = new Set([
   "FAILURE",
@@ -282,6 +284,7 @@ function checkByName(snapshot) {
 function checkState(check) {
   if (!check) return "missing";
   const conclusion = (check.conclusion ?? "").toUpperCase();
+  if (REQUIRED_CHECKS.includes(check.name) && (conclusion === "SKIPPED" || conclusion === "NEUTRAL")) return "failed";
   if (GREEN_CONCLUSIONS.has(conclusion)) return "green";
   if (FAILED_CONCLUSIONS.has(conclusion)) return "failed";
   const status = (check.status ?? "").toUpperCase();

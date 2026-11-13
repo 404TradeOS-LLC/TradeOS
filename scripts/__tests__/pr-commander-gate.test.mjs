@@ -87,6 +87,23 @@ test("extra green checks beyond the four required do not block MERGE_READY", () 
   assert.equal(evaluateGate(snapshot).verdict, "MERGE_READY");
 });
 
+test("a skipped or neutral required check cannot authorize merge", () => {
+  for (const conclusion of ["SKIPPED", "NEUTRAL"]) {
+    for (const name of REQUIRED_CHECKS) {
+      const snapshot = readySnapshot({
+        checks: REQUIRED_CHECKS.map((required) => ({
+          name: required,
+          conclusion: required === name ? conclusion : "SUCCESS",
+          status: "COMPLETED",
+        })),
+      });
+      const result = evaluateGate(snapshot, { armed: true });
+      assert.notEqual(result.verdict, "MERGE_READY", `${name} was ${conclusion}`);
+      assert.match(result.reasons.join(" "), /Required check|failing|non-success/i);
+    }
+  }
+});
+
 test("draft flips the verdict away from MERGE_READY", () => {
   const result = evaluateGate(readySnapshot({ isDraft: true }));
   assertGateShape(result);
