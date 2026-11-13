@@ -43,3 +43,13 @@ test('workflow runs identity guard before privileged migration apply and only sc
   assert.ok(preflight > -1 && migrate > preflight, 'target guard must precede migration SQL');
   assert.match(workflow, /name: Verify production migration target[\s\S]*?DATABASE_ADMIN_URL: \$\{\{ secrets\.DATABASE_ADMIN_URL \}\}[\s\S]*?node scripts\/verify-production-migration-target\.mjs/);
 });
+
+
+test('rejects decoded host overrides without leaking query credentials', () => {
+  for (const authority of [direct, session]) {
+    for (const key of ['host', '%68ost', 'h%6fst', '%68%6f%73%74']) {
+      const url = `${authority}&${key}=db.qfbgdkbamfaasmtjfyru.supabase.co`;
+      assert.throws(() => verifyProductionMigrationTarget(env(url)), /identity/);
+    }
+  }
+});

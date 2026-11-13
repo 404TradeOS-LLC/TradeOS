@@ -852,3 +852,8 @@ and label must pass configuration preflight and the existing authenticated API
 assertion; missing selected secrets never trigger fallback to another identity.
 Protected environment, production-denial, source identity, tenant-denial and
 artifact credential scanning gates remain mandatory.
+
+Production migration target preflight also rejects decoded `host` query keys,
+including percent-encoded spellings, because Prisma gives that parameter
+precedence over the validated URL authority. Approved direct and session-pooler
+connections retain their existing validation; errors never include credentials.

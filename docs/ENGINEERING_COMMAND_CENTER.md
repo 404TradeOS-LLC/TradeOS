@@ -577,3 +577,8 @@ TEST_STAGING owner credential pair, pins verified TEST Org UUID and label, and
 retains the unchanged authenticated tenant check. No credentials are read,
 rotated or copied; no memberships change. Review, CI and a fresh correlated
 staging run remain required before acceptance can pass.
+
+Production migration target preflight also rejects decoded `host` query keys,
+including percent-encoded spellings, because Prisma gives that parameter
+precedence over the validated URL authority. Approved direct and session-pooler
+connections retain their existing validation; errors never include credentials.

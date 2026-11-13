@@ -25,6 +25,11 @@ export function verifyProductionMigrationTarget(env) {
       parsed.pathname !== '/postgres' || !parsed.password || parsed.hash) {
     throw new Error('Production database connection identity is not approved.');
   }
+  // Prisma decodes query keys and lets host override the URL authority.
+  // Validate the destination actually used by the migration engine.
+  if (parsed.searchParams.has('host')) {
+    throw new Error('Production database connection identity is not approved.');
+  }
   let username;
   try { username = decodeURIComponent(parsed.username); } catch {
     throw new Error('Production database connection identity is not approved.');

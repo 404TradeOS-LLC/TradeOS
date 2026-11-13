@@ -531,3 +531,8 @@ The Beta Evidence workflow exposes the same explicit TEST Org credential option
 as Playwright evidence. The staging orchestrator selects the verified synthetic
 owner and exact UUID; missing credentials fail closed without account fallback.
 See [Beta Evidence fixture selection](testing/BETA_EVIDENCE.md#smoke-tenant).
+
+Production migration target preflight also rejects decoded `host` query keys,
+including percent-encoded spellings, because Prisma gives that parameter
+precedence over the validated URL authority. Approved direct and session-pooler
+connections retain their existing validation; errors never include credentials.
