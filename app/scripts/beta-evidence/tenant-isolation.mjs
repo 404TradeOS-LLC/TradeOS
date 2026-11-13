@@ -1,3 +1,4 @@
+import { betaBrowserLaunchOptions, safeEvidenceError } from "./lib/browser-runtime.mjs";
 // Phase 14 — prove the smoke identity cannot reach another tenant's resources.
 //
 // The canonical security assertion is made at the authenticated same-origin API
@@ -111,7 +112,7 @@ if (probes.length === 0) {
 const results = [];
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch(betaBrowserLaunchOptions());
 } catch (error) {
   startupFailure(
     `Could not launch Chromium: ${error instanceof Error ? error.message.split("\n")[0] : error}. ` +
@@ -211,7 +212,7 @@ try {
   if (foreignContext) await foreignContext.close();
   await context.close();
 } catch (error) {
-  failure = error;
+  failure = new Error(safeEvidenceError(error));
 } finally {
   await browser.close();
   await fs.writeFile(
