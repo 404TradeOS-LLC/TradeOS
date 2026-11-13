@@ -129,8 +129,10 @@ A dry-run must leave **zero** trace on any PR. Check all of these:
 4. **No label** — no PR gained the `pr-commander:needs-founder` label from
    this run.
 5. **No merges, no repair pushes, no dispatches** — check the run's
-   `act` job: on a dry-run dispatch it is skipped entirely (its `if:`
-   requires `workflow_dispatch` + variable `"true"` + `mode=armed`).
+   `act` job: on a dry-run dispatch it is skipped entirely. Its `if:`
+   admits a manual `workflow_dispatch` only with `mode=armed` and the write
+   variable set to `true`, or an hourly `schedule` with both write and
+   unattended opt-in variables set to `true`; neither permits dry-run writes.
    No PR shows a new commit from `github-actions[bot]`, no auto-merge was
    enabled, and no `codeql-autofix.yml` run was dispatched by this run.
 
