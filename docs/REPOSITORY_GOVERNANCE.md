@@ -56,6 +56,10 @@ related_code:
 
 # Repository Governance
 
+## Autonomous workstream continuity — PR #979 (proposed)
+
+The standing founder direction authorizes routine repository investigation, bounded repairs, branch/PR preparation, exact-head review reconciliation, and permitted low-risk auto-merge *only through the existing protected pull-request path*. At the end of a completed mission, the coordinator may begin a **new** eligible mission with a fresh overlap check, base verification, and branch/worktree; no cross-task branch reuse or duplicate PR. This does not confer new GitHub token permissions, bypass required checks/review conversations or replace ADR-009's per-PR evidence. Read-only tasks remain read-only. Protected environments, schema, secrets, billing, tenant isolation, financial correctness and release certification require their established decisions and approvals. Tools and dependency failures must be classified, safely repaired in scope where possible, or recorded before independently eligible work continues.
+
 ## Invited PDF beta evidence boundary — 2026-11-06
 
 The opt-in `beta_pdf` scenario uses the existing Beta Evidence workflow, concurrency, synthetic identities, nonproduction guards and credential scan. Exact SHA correlation is mandatory; foreign Customer/Project/Estimate/Athena and Proposal PDF denials are required. Retained PDF bytes must match the current run's receipt and saved Proposal identity at all four widths; a single-width result remains PARTIAL. It does not execute downstream Send/Accept/Contract/Invoice operations or grant release approval. Authentication, target and isolation reports now carry run identity; stale reports cannot certify this scenario. The narrower founder-approved cohort scope does not mark numbered sprints complete or waive protected schema/security/deployment/recovery gates. See [the runbook](operations/INVITED_BETA.md).
