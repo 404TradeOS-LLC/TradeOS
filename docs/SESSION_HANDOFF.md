@@ -12,6 +12,14 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## PR #981 — verified review-thread evidence gate
+
+- Founder-authorized independent Commander defect after merged PR #980. Started from `main` at `a7b70cc20e7aa3c3dabb4bab24eb15afbc0b99f2`; semantic overlap search found no active matching PR; branch `fix/pr-commander-thread-evidence-fail-closed`.
+- Verified RED: hosted `npm run pr:test` on regression-only head `136a7e54fea4fb252e7cd1832ad11f9104e1f50d` showed missing thread evidence normalized into zero unresolved and a paginated result incorrectly yielding `MERGE_READY`. These cases must be `BLOCKED`.
+- Repair: shared normalizer retains absent/paginated thread evidence as unknown; evaluator validates complete nonnegative totals and blocks unknown, malformed or incomplete evidence. Explicit complete zero-thread responses remain valid. CLI fallback comment and PR Commander docs aligned; no protected workflow, secrets, environment, schema, RLS, auth, billing or production changes.
+- Follow PR #981 for exact final-head CI, review, merge and landed-SHA proof. Do not infer acceptance from this note or create another overlapping PR.
+
+
 ## PR #980 — PR Commander required-check success-only gate (in review)
 
 - Founder-authorized CI hardening on existing TradeOS monorepo; `NEW_WORK_REQUIRED` after checking open PR overlap, base `e30b8d4a0cbff6530d8750de96d6b2053afa3ee0`, branch `fix/pr-commander-required-check-conclusions`.
