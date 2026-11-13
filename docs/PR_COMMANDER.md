@@ -162,13 +162,24 @@ missing CI is never read as green. Missing required-check evidence is
 | `MERGE_READY` | All gates pass **and** the run is armed. | `act` re-reads the head, re-evaluates, and — only if the fresh verdict is still `MERGE_READY` at the same SHA — enables auto-merge (`gh pr merge --auto --squash`). Stacked PRs merge base-first; a stacked PR is skipped until its base PR has merged (in this run or earlier). |
 | `DRY_RUN_ONLY` | All gates pass but the run is not armed. | Nothing is merged. The verdict + plan are recorded in the artifact and summary. This is the proof the gates work. |
 | `REPAIRABLE` | A repairable defect: a failing required check, unresolved review threads, or a behind branch. | Armed runs attempt bounded deterministic repair (see below). Dry-run runs report the plan only. |
-| `BLOCKED` | A hard stop: draft, conflict, missing/pending required-check evidence, a standing `CHANGES_REQUESTED`, an ADR-009 record required but absent, or a protected change needing a founder decision. | No auto-merge from here. Founder items (if any) are surfaced via the verdict comment + `pr-commander:needs-founder` label (armed runs only). |
+| `BLOCKED` | A hard stop: draft, conflict, missing/pending required-check evidence, a standing `CHANGES_REQUESTED`, an ADR-009 record required but absent, or a protected change needing a founder decision. A `BLOCKED` merge state is a hard stop only when its cause is a standing change request or is otherwise unexplained — when the block is attributable to failing checks, the verdict is `REPAIRABLE` (see below). | No auto-merge from here. Founder items (if any) are surfaced via the verdict comment + `pr-commander:needs-founder` label (armed runs only). |
 | `BLOCKED_ESCALATED` | Repair attempts exhausted (3 per head). | The Commander stops repairing that head. Founder item: decide whether to abandon, re-scope, or hand-repair it. |
 
 Every verdict carries `reasons[]`, `nextActions[]`, `founderItems[]`, and
 `headSha`. A verdict that was `DRY_RUN_ONLY` becomes `MERGE_READY` only on a
 fresh head re-read inside the armed job — a moved head or a changed verdict
 stops that PR with no action.
+
+**`BLOCKED` merge state is not always a hard stop.** GitHub reports merge
+state `BLOCKED` whenever a required check fails, so the gate distinguishes
+the cause from the snapshot evidence: a block attributable to failing
+checks, with no standing change request, is `REPAIRABLE` (the repair tiers
+exist for exactly those PRs); a block caused by a standing
+`CHANGES_REQUESTED`, or a block with no failing check and no review to
+explain it, stays `BLOCKED`. An unconditional demotion here previously made
+the "failing required check → `REPAIRABLE`" mapping unreachable in
+practice — proven by the Phase 4 validation on PR #970 (failing required
+check, no standing change request, verdict `BLOCKED` before this fix).
 
 ### ADR-009 gate
 
