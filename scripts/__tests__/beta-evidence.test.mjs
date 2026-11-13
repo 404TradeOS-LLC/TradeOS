@@ -1,3 +1,4 @@
+import "../../app/scripts/beta-evidence/lib/browser-runtime.test.mjs";
 import "../../app/scripts/beta-evidence/lib/staging-runtime-correlation.test.mjs";
 
 import assert from "node:assert/strict";

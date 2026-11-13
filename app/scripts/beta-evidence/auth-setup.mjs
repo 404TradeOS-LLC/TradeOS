@@ -1,3 +1,4 @@
+import { betaBrowserLaunchOptions, safeEvidenceError } from "./lib/browser-runtime.mjs";
 // Phase 9/10 — generate authenticated Playwright storage state at runtime by
 // driving the real login form, then prove the resulting session is genuinely
 // authenticated before any evidence depends on it.
@@ -83,7 +84,7 @@ function record(name, passed, detail) {
 // instead of surfacing a raw stack trace.
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch(betaBrowserLaunchOptions());
 } catch (error) {
   startupFailure(
     `Could not launch Chromium: ${error instanceof Error ? error.message.split("\n")[0] : error}. ` +
@@ -257,8 +258,8 @@ try {
 
   await context.close();
 } catch (error) {
-  failure = error;
-  record("authentication bootstrap", false, error instanceof Error ? error.message : String(error));
+  failure = new Error(safeEvidenceError(error));
+  record("authentication bootstrap", false, safeEvidenceError(error));
 } finally {
   await browser.close();
   // The report deliberately carries no credential material.

@@ -1,3 +1,4 @@
+import { betaBrowserLaunchOptions, safeEvidenceError } from "./lib/browser-runtime.mjs";
 // Phase 11/12/13/16/17/18/19/23 — drive the canonical contractor workflow at a
 // single viewport, capturing a screenshot checkpoint at each meaningful product
 // state and asserting business meaning rather than DOM presence.
@@ -93,7 +94,7 @@ function assertBusiness(name, condition, detail) {
 // instead of surfacing a raw stack trace.
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch(betaBrowserLaunchOptions());
 } catch (error) {
   startupFailure(
     `Could not launch Chromium: ${error instanceof Error ? error.message.split("\n")[0] : error}. ` +
@@ -995,7 +996,7 @@ try {
     `${JSON.stringify({ runId, viewport: viewport.name, customerId, projectId, estimateId, proposalId, contractId, invoiceId }, null, 2)}\n`,
   );
 } catch (error) {
-  failure = error;
+  failure = new Error(safeEvidenceError(error));
   // Snapshot the visible body text while the page still exists, so a
   // business-assertion failure is directly observable in the report
   // instead of inferred from mechanism. Guarded and time-bounded: the
