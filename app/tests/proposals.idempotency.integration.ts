@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import type { AuthContext } from "../backend/auth/context";
 import { prisma } from "../db/client";
 import { runWithDatabaseSession } from "../db/requestSession";
+import { EstimateEngineService } from "../modules/estimate-engine/service";
 import { ProposalsService } from "../modules/proposals/service";
 
 function requiredEnvironment(name: string): string {
@@ -53,6 +54,65 @@ describe("proposal create idempotency in a request-scoped PostgreSQL transaction
     await adminClient.$disconnect();
   });
 
+  // Synthetic persisted inputs, not the unavailable historical incident payloads.
+  it.each([
+    { quantity: 3, unitCost: 0.7, amount: "2.10" },
+    { quantity: 8, unitCost: 5335, amount: "42680.00" },
+    { quantity: 1, unitCost: 7125.37, amount: "7125.37" },
+  ])(
+    "retains the exact finalized estimate amount $amount across persisted proposal reload and replay",
+    async ({ quantity, unitCost, amount }) => {
+      const fixtureKey = randomUUID();
+      const estimateService = new EstimateEngineService();
+      const draft = await runWithDatabaseSession(appClient, auth, () =>
+        estimateService.create({ orgId, projectId, overheadPct: 0 })
+      );
+      const fixtureEstimateId = draft.id;
+      const line = await runWithDatabaseSession(appClient, auth, () =>
+        estimateService.addLineItem({
+          orgId, estimateId: fixtureEstimateId, description: "Synthetic continuity input",
+          quantity, unitOfMeasure: "ea", unitCost,
+        })
+      );
+      expect(line.lineCost).toBe(Number(amount));
+      const finalized = await runWithDatabaseSession(appClient, auth, () =>
+        estimateService.finalize(fixtureEstimateId, orgId)
+      );
+      expect(finalized.status).toBe("ready");
+      expect(finalized.totalPrice).toBe(Number(amount));
+      const reloadedEstimate = await runWithDatabaseSession(appClient, auth, () =>
+        prisma.estimate.findFirstOrThrow({ where: { id: fixtureEstimateId, orgId } })
+      );
+      expect(reloadedEstimate.totalPrice.toFixed(2)).toBe(amount);
+      const service = new ProposalsService();
+      const input = { orgId, estimateId: fixtureEstimateId };
+      const created = await runWithDatabaseSession(appClient, auth, () =>
+        service.createWithIdempotency(input, fixtureKey)
+      );
+      const readProposal = () => runWithDatabaseSession(appClient, auth, () =>
+        prisma.proposal.findFirstOrThrow({ where: { id: created.proposal.id, project: { orgId } } })
+      );
+      const saved = await readProposal();
+      expect(saved.estimateId).toBe(fixtureEstimateId);
+      expect(saved.projectId).toBe(projectId);
+      expect(saved.finalPrice?.toFixed(2)).toBe(amount);
+      expect(saved.priceLow).toBeNull();
+      expect(saved.priceHigh).toBeNull();
+
+      // A later estimate recalculation is not authority to rewrite a saved
+      // proposal. Replaying its original request must keep that snapshot.
+      await adminClient.estimate.update({
+        where: { id: fixtureEstimateId }, data: { totalPrice: "99999.99" },
+      });
+      const replay = await runWithDatabaseSession(appClient, auth, () =>
+        service.createWithIdempotency(input, fixtureKey)
+      );
+      expect(replay.replayed).toBe(true);
+      expect(replay.proposal.id).toBe(saved.id);
+      expect((await readProposal()).finalPrice?.toFixed(2)).toBe(amount);
+    }
+  );
+
   it("returns one persisted proposal to concurrent identical create attempts", async () => {
     const service = new ProposalsService();
     const results = await Promise.all(
@@ -71,7 +131,7 @@ describe("proposal create idempotency in a request-scoped PostgreSQL transaction
     expect(new Set(results.map((result) => result.proposal.id)).size).toBe(1);
 
     const proposals = await runWithDatabaseSession(appClient, auth, () =>
-      prisma.proposal.findMany({ where: { projectId, project: { orgId } } })
+      prisma.proposal.findMany({ where: { projectId, idempotencyKey: requestKey, project: { orgId } } })
     );
     expect(proposals).toHaveLength(1);
     expect(proposals[0].idempotencyKey).toBe(requestKey);
