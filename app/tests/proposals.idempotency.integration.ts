@@ -62,12 +62,12 @@ describe("proposal create idempotency in a request-scoped PostgreSQL transaction
   ])(
     "retains the exact finalized estimate amount $amount across persisted proposal reload and replay",
     async ({ quantity, unitCost, amount }) => {
-      const fixtureEstimateId = randomUUID();
       const fixtureKey = randomUUID();
-      await adminClient.estimate.create({
-        data: { id: fixtureEstimateId, orgId, projectId, status: "draft", overheadPct: 0, profitPct: 0 },
-      });
       const estimateService = new EstimateEngineService();
+      const draft = await runWithDatabaseSession(appClient, auth, () =>
+        estimateService.create({ orgId, projectId, overheadPct: 0 })
+      );
+      const fixtureEstimateId = draft.id;
       const line = await runWithDatabaseSession(appClient, auth, () =>
         estimateService.addLineItem({
           orgId, estimateId: fixtureEstimateId, description: "Synthetic continuity input",
