@@ -509,14 +509,6 @@ updates remain supported. Schema/RLS changes retain PR-only merge posture.
 - Next: test/publish, inspect hosted review, promote reviewed workflow source into
   staging, rerun correlated canonical evidence, retain actual results.
 
-## Next Eligible Sprint
-
-Sprint ID: S073
-Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit.
-Dependencies: S051 — DONE through merged PR #538.
-Overlap check: Recheck live PRs/branches before starting; this non-numbered repair does not advance S073 or authorize a second active sprint.
-Startup prompt: Execute S073 from current main using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md` after canonical startup/reconciliation; stop on protected policy gaps.
-
 ## Existing invoice PR #956 continuation — 2026-11-13
 
 EXISTING_WORK_FOUND on `feat/figma-to-code-completion` in isolated worktree
@@ -529,3 +521,11 @@ summary and error focus are implemented without changing transport/pricing.
 Next: finish local and exact-head hosted checks, report reviewed candidate to
 the beta coordinator for staging/API/web correlation, authenticated same-draft
 retry/PDF identity and tenant-denial evidence. No merge/deployment is claimed.
+
+## Next Eligible Sprint
+
+Sprint ID: S073
+Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit.
+Dependencies: S051 — DONE through merged PR #538.
+Overlap check: Recheck live PRs/branches before starting; this non-numbered repair does not advance S073 or authorize a second active sprint.
+Startup prompt: Execute S073 from current main using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md` after canonical startup/reconciliation; stop on protected policy gaps.
