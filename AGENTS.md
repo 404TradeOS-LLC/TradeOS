@@ -19,6 +19,39 @@ Read and obey, in order:
 
 If these sources conflict, stop and resolve the higher-authority source rather than inventing a compromise.
 
+## Standing founder authorization for autonomous execution
+
+The founder authorizes AI agents operating in this repository to **continuously select and finish eligible bounded tasks without routine check-ins**. This is an ongoing work-order for repository maintenance, PR preparation, CI investigation, test repair, dependency diagnosis, and low-risk merges where all live gates are met. A user request to "continue", "finish", "fix", or "figure it out" means resume the highest-priority unblocked work in the active approved scope. Do not ask the founder to reapprove routine reads, branch creation, code edits, test runs, reviews of evidence, commits, PR creation or updates, and merge-queue enrollment that are already authorized here.
+
+This grant **does not create credentials, change platform/tool permissions, override service terms, authorize spending, or bypass GitHub and environment protection**. Agents must inspect actual capabilities each session and use available scoped integrations rather than assert tools are missing. Ask only for a specific human-only authorization when a protected operation, genuine product decision, new expense, missing permission, or required independent approval cannot be completed safely.
+
+### Tool and dependency recovery is work, not a reason to stop
+
+1. Discover connected GitHub, terminal/computer, browser, Vercel, Supabase, CI, and Notion capabilities and their writable scopes. Inspect first; never assume disconnected, read-only, or unavailable without checking.
+2. Prefer the existing connected integration. If no local clone exists, use supported GitHub branch/contents/PR actions for bounded changes, and rely on *verified exact-head hosted CI* for commands not executable locally. Never claim those commands ran locally.
+3. Diagnose unavailable tools by classifying: not installed, not connected, insufficient scope, expired authentication, protected resource, unavailable runtime, missing dependency, or transient failure. Attempt safe in-scope repair, approved alternate tool, hosted job, or independent task rather than repeating the same failed action.
+4. Install project dependencies using repository lockfiles and standard package manager commands when the execution environment permits. Install missing non-secret test tools in ephemeral environments where permitted. Do not silently alter version pins, spend money, alter secrets, or modify production infrastructure.
+5. For unavailable protected environment access, capture the exact failing permission or gate and identify the minimum owner action. Continue a non-overlapping eligible task.
+6. Use specialized agents in parallel only for independent files/branches; central coordinator owns prioritization, conflict detection, integration, and final evidence. Parallel subagents do not waive review gates.
+
+### Continuous execution and automatic progression
+
+After every bounded mission, run the canonical completion flow and close or hand off its state. Then **start a fresh canonical preflight for the next independent eligible task** in the same founder-authorized workstream when runtime and tools allow. Never silently broaden an explicit read-only request, run unattended after the interaction ends without a separately configured scheduler, or interpret continuity as authority to merge a protected change.
+
+Select in this order: active verified defect or CI failure; repair an existing overlapping PR; release-critical user-visible defect; next authorized READY task; bounded documentation drift. Do not open duplicate PRs. Maintain a rolling next-five queue. A blocked task is not a global halt: log evidence and proceed to independent work; stop only the unsafe operation.
+
+### Review, reconciliation, and auto-merge controller
+
+For each active low-risk PR, independently reconcile exact head, base freshness, required checks, owner docs, reviewer findings, unresolved threads, and protected risk status. Verify each finding against current code; repair confirmed defects and add regression coverage. Resolve review conversations only after their concerns are addressed or demonstrably obsolete, with a reason. Request or rerun fresh CI when necessary, not repeated deterministic failures. Turn on GitHub auto-merge only for eligible non-draft PRs when the platform permits and all existing requirements remain enforced. If auto-merge cannot be armed, report the actual missing gate and continue another independent item.
+
+A founder-only merge exception is **per PR**, with the complete ADR-009 record; this standing authorization is not a blanket substitute for that record, an independent review, or a required environment approval. Protect JWT, membership, forced RLS, billing correctness, migration safety, and staging/production identities.
+
+### Durable evidence and reporting
+
+Record exact repository, starting/ending SHAs, branch, PR, verified tests/CI, reviewer state, environment/runtime evidence, actual merge result, blocker owner, and next safe action. Save durable project handoff to the authorized private Notion destination when connected, using the approved Agent Operating Guide; keep code and repository technical documentation in GitHub. Treat unverified checks as unverified. Never claim deployment, acceptance, release, or merge without direct evidence.
+
+**Default operating mode:** EXECUTE → VERIFY → RECONCILE → ADVANCE. Ask the founder only when an actual non-delegable decision or protected action is reached; otherwise keep working through the authorized queue.
+
 ## Mission model
 
 TradeOS agents are expected to **complete bounded engineering work**, not merely report on it.
