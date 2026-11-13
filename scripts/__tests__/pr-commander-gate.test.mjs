@@ -328,6 +328,31 @@ function rawGhSnapshot(overrides = {}) {
   };
 }
 
+test("missing review-thread evidence blocks merge readiness", () => {
+  const raw = rawGhSnapshot({ reviewThreads: undefined });
+  const normalized = normalizeSnapshot(raw);
+  const verdict = evaluateGate(normalized, { armed: true });
+  assert.equal(normalized.threads, null);
+  assert.equal(verdict.verdict, "BLOCKED");
+  assert.match(verdict.reasons.join(" "), /review.thread.*(missing|incomplete|unavailable)/i);
+});
+
+test("paginated or malformed review-thread evidence blocks merge readiness", () => {
+  const partial = rawGhSnapshot({
+    reviewThreads: { nodes: [], pageInfo: { hasNextPage: true } },
+  });
+  const invalid = rawGhSnapshot({
+    reviewThreads: undefined,
+    threads: { total: 0, unresolved: -1 },
+  });
+  for (const raw of [partial, invalid]) {
+    const normalized = normalizeSnapshot(raw);
+    const verdict = evaluateGate(normalized, { armed: true });
+    assert.equal(verdict.verdict, "BLOCKED");
+    assert.match(verdict.reasons.join(" "), /review.thread.*(missing|incomplete|unavailable)/i);
+  }
+});
+
 test("normalizeSnapshot maps a raw gh pr view payload to the lib shape", () => {
   const normalized = normalizeSnapshot(rawGhSnapshot());
   assert.equal(normalized.headSha, HEAD_A);
