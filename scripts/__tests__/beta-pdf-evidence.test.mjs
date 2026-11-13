@@ -23,7 +23,7 @@ const assertions = [
   "Estimate Engine persists finalized status and customer total",
   "proposal snapshots selected finalized Estimate identity and exact fixed total",
   "no browser console errors were recorded",
-  "no network requests failed",
+  "no application network requests failed",
   "proposal PDF downloads through authenticated document route",
   "proposal financial snapshot survives reload",
 ];

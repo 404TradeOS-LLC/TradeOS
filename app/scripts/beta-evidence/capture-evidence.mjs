@@ -1,3 +1,4 @@
+import { betaBrowserLaunchOptions, safeEvidenceError, isPreviewFeedbackRequest } from "./lib/browser-runtime.mjs";
 // Phase 11/12/13/16/17/18/19/23 — drive the canonical contractor workflow at a
 // single viewport, capturing a screenshot checkpoint at each meaningful product
 // state and asserting business meaning rather than DOM presence.
@@ -83,6 +84,7 @@ const checkpoints = [];
 const assertions = [];
 const consoleErrors = [];
 const failedRequests = [];
+const excludedPreviewRequests = [];
 
 function assertBusiness(name, condition, detail) {
   assertions.push({ name, passed: Boolean(condition), ...(detail ? { detail } : {}) });
@@ -93,7 +95,7 @@ function assertBusiness(name, condition, detail) {
 // instead of surfacing a raw stack trace.
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch(betaBrowserLaunchOptions());
 } catch (error) {
   startupFailure(
     `Could not launch Chromium: ${error instanceof Error ? error.message.split("\n")[0] : error}. ` +
@@ -295,10 +297,12 @@ async function runS053Certification(projectId, estimateId) {
     waitUntil: "networkidle",
     timeout: 60_000,
   });
-  await page.getByRole("heading", { name: "Scope of work" }).waitFor({ timeout: 60_000 });
+  // The shared CardTitle is a div; wait for the actual labelled control,
+  // whose accessible name is the stable interaction contract.
+  const scopeInput = page.getByRole("textbox", { name: "Scope of work", exact: true });
+  await scopeInput.waitFor({ timeout: 60_000 });
 
   const setupScope = `qzxvplm ntrksw unmapped certification scope ${scopeSuffix}`;
-  const scopeInput = page.locator("textarea").first();
 
   async function generateAthenaDraft(scopeValue) {
     await scopeInput.fill(scopeValue);
@@ -317,14 +321,16 @@ async function runS053Certification(projectId, estimateId) {
       `Athena draft returned HTTP ${response.status()}`,
     );
     await page.getByRole("button", { name: "Run Athena review" }).waitFor({ timeout: 60_000 });
+    return response.json();
   }
 
-  await generateAthenaDraft(setupScope);
+  const setupDraft = await generateAthenaDraft(setupScope);
   await page.getByText("Setup required", { exact: true }).waitFor({ timeout: 60_000 });
   const setupText = await page.locator("body").innerText();
   assertBusiness(
     "unmapped Athena scope fails safe as setup required",
-    /Setup required/i.test(setupText) && /No generated line item is currently tied to an existing estimate target/i.test(setupText),
+    /Setup required/i.test(setupText) && setupDraft.validation?.status === "blocked" &&
+      Array.isArray(setupDraft.lineItems) && setupDraft.lineItems.every((line) => !line.targetId),
     "expected a blocked setup-required draft for the unmapped certification scope",
   );
   const afterSetupDraft = await readEstimateDetail(estimateId);
@@ -531,6 +537,10 @@ try {
       failure?.errorText === "net::ERR_ABORTED" &&
       requestUrl.origin === parsedBaseUrl.origin
     ) {
+      return;
+    }
+    if (isPreviewFeedbackRequest(request.url(), request.method())) {
+      excludedPreviewRequests.push({ method: request.method(), url: `${requestUrl.origin}${requestUrl.pathname}`, reason: "optional Vercel preview feedback" });
       return;
     }
     failedRequests.push(`${request.method()} ${request.url()}`);
@@ -988,14 +998,14 @@ try {
   }
 
   assertBusiness("no browser console errors were recorded", consoleErrors.length === 0, consoleErrors.slice(0, 3).join(" | "));
-  assertBusiness("no network requests failed", failedRequests.length === 0, failedRequests.slice(0, 3).join(" | "));
+  assertBusiness("no application network requests failed", failedRequests.length === 0, failedRequests.slice(0, 3).join(" | "));
 
   await fs.writeFile(
     path.join(outDir, viewport.name, "workflow-records.json"),
     `${JSON.stringify({ runId, viewport: viewport.name, customerId, projectId, estimateId, proposalId, contractId, invoiceId }, null, 2)}\n`,
   );
 } catch (error) {
-  failure = error;
+  failure = new Error(safeEvidenceError(error));
   // Snapshot the visible body text while the page still exists, so a
   // business-assertion failure is directly observable in the report
   // instead of inferred from mechanism. Guarded and time-bounded: the
@@ -1022,6 +1032,7 @@ try {
         assertions,
         consoleErrors,
         failedRequests,
+        excludedPreviewRequests,
         failureDiagnostics,
         failureBodyText,
         result: failure ? "FAIL" : "PASS",
