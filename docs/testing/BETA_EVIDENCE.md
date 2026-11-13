@@ -4,6 +4,27 @@ Canonical reference for the `Beta Evidence` workflow
 (`.github/workflows/beta-evidence.yml`) and the scripts under
 `app/scripts/beta-evidence/`.
 
+
+## Live staging source and data-plane correlation (2026-11-13)
+
+When staging evidence specifies `expected_sha`, the resolver now reads the
+canonical staging web `/api/staging-runtime-identity` plus API `/health` and
+`/ready` before authentication or synthetic writes. Both runtime SHAs must equal
+the full approved 40-character SHA; web branch, public Supabase binding,
+backend origin and the API database project must identify canonical staging.
+Redirects, non-success responses, unavailable identity and any mismatch fail
+closed. Transport errors and fetched payloads are not printed.
+
+This removes the need to populate `BETA_RC_DEPLOYMENT_SHA` merely to run
+`s052`, `s053` or `beta_pdf` on staging. If that variable is supplied and conflicts,
+the resolver still refuses it. `rc-target.json` records
+`shaCorrelationSource=live-staging-web-api`. Preview correlation retains its
+existing configured-metadata path. This is live configuration/source binding,
+not proof of tenant authorization; authenticated owner/admin/inactive/foreign
+checks remain required. The orchestrator's immutable deployment and alias guards
+also remain in force. Older text below about the resolver having no live staging
+identity applies to historical runs only.
+
 ## Purpose
 
 Beta evidence proves that a TradeOS release candidate can execute the real
