@@ -18,6 +18,13 @@ related_code:
   - app/backend/routes
   - app/modules/payments
   - app/modules/costbook
+  - app/modules/costbook/codes
+  - app/backend/controllers/costbookCodesPermitTasks.controller.ts
+  - app/backend/controllers/costbookCodesFeeReviews.controller.ts
+  - app/prisma/migrations/20261110000000_add_codes_permit_tasks_fee_reviews
+  - web/src/app/(app)/costbook/codes/permits
+  - web/src/lib/costbook-permits.ts
+  - web/src/lib/costbook-permits-api.ts
   - app/modules/cost-database
   - app/modules/assemblies-database
   - app/modules/estimate-engine
@@ -68,6 +75,12 @@ related_code:
   - web/src/lib/job-expenses.ts
   - .github/workflows/verify-repository.yml
 ---
+
+## Codes & Permits tasks and fee reviews — issue #946 TODO 5, draft PR 2026-11-09
+
+Draft PR branch `feat/codes-permits-tasks-fees-946` (from `main` `c1b3cb0e`) adds owner-assigned permit/inspection tasks (`codes_permit_task`) and a price-neutral fee-review workflow (`codes_fee_review`), plus Athena jurisdiction/version enrichment, under issue #946. See [Codes & Permits tasks and fees](architecture/COSTBOOK_CODES_PERMITS_TASKS_FEES.md). Permit statuses are explicit only (`not_submitted` through `inspection_failed`) and never inferred; submitting requires an explicit confirm step and there is no auto-submit. Fee reviews are price-neutral by construction: the service contains no estimate write, `costItemId` is set only by an explicit select step on an approved fee, and pending/rejected/unselected fees are financial no-ops (unit + live-RLS tests prove the linked estimate's totals unchanged after approval). Athena enrichment (`app/modules/costbook/codes/jurisdiction.ts`) is pure functions only — missing/stale/ambiguous jurisdiction resolves to `needs_verification`, superseded source versions stay readable, and only citation + SHA-256 hash is stored, never full code text. Forced RLS on both tables; cross-org reads return nothing and cross-org writes are refused.
+
+**Merge order (blocking):** #945 pilot → TODO 2 (PR #960, `feat/codes-permits-registry-946`) → TODO 4 (`codes_job_assessment`; branch `feat/codes-permits-jurisdiction-matching-946` exists, no PR yet as of 2026-11-09) → this PR. The migration's `assessment_id` foreign keys reference TODO 4's table, which does not exist on main yet, so `prisma migrate deploy` for this migration FAILS until TODO 4 lands; the RLS integration lane is expected red until then. The Athena tool-file wiring lands on the rebase after #945 merges. Four-width browser acceptance (390/768/1024/1440, staging test account only) is still owed: no working preview deployment exists for this branch, and the #945 preview is blocked on a stale Preview `DATABASE_URL` only Billy can fix in the Vercel dashboard. No merge, staging migration apply, or production touch without Billy's word and independent review or his ADR-009 authorization.
 
 ## Estimate authenticated acceptance — 2026-11-05
 

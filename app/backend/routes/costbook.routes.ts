@@ -3,6 +3,8 @@ import rateLimit from "express-rate-limit";
 import { SharedSupplierCronRateLimitStore } from "./supplierCronRateLimitStore";
 import { isCatalogEnabled } from "../../modules/supplier-integration/abcCatalog";
 import { costbookController as ctrl } from "../controllers/costbook.controller";
+import { codesPermitTasksController as permitTasksCtrl } from "../controllers/costbookCodesPermitTasks.controller";
+import { codesFeeReviewsController as feeReviewsCtrl } from "../controllers/costbookCodesFeeReviews.controller";
 import { costbookPricingController as pricingCtrl } from "../controllers/costbookPricing.controller";
 import { costDatabaseController as costItemCtrl } from "../controllers/costDatabase.controller";
 import { assembliesDatabaseController as assemblyCtrl } from "../controllers/assembliesDatabase.controller";
@@ -14,6 +16,23 @@ import { davisBaconController as davisBaconCtrl } from "../controllers/davisBaco
 export const costbookRouter = Router();
 
 costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
+// Permit/inspection execution (#946 TODO 5): explicit statuses only, no
+// auto-submit, no estimate mutation. Fee reviews are price-neutral by
+// construction; see app/modules/costbook/codes/feeReviews.service.ts.
+// (The pilot's GET /codes advisory route lands with #945; these paths
+// do not collide with it.)
+costbookRouter.get("/codes/permit-tasks", asyncHandler(permitTasksCtrl.list));
+costbookRouter.post("/codes/permit-tasks", asyncHandler(permitTasksCtrl.create));
+costbookRouter.get("/codes/permit-tasks/:taskId", asyncHandler(permitTasksCtrl.getById));
+costbookRouter.patch("/codes/permit-tasks/:taskId", asyncHandler(permitTasksCtrl.update));
+costbookRouter.post("/codes/permit-tasks/:taskId/submit", asyncHandler(permitTasksCtrl.submit));
+costbookRouter.delete("/codes/permit-tasks/:taskId", asyncHandler(permitTasksCtrl.remove));
+costbookRouter.get("/codes/fee-reviews", asyncHandler(feeReviewsCtrl.list));
+costbookRouter.post("/codes/fee-reviews", asyncHandler(feeReviewsCtrl.create));
+costbookRouter.get("/codes/fee-reviews/:feeReviewId", asyncHandler(feeReviewsCtrl.getById));
+costbookRouter.post("/codes/fee-reviews/:feeReviewId/review", asyncHandler(feeReviewsCtrl.review));
+costbookRouter.post("/codes/fee-reviews/:feeReviewId/select-cost-item", asyncHandler(feeReviewsCtrl.selectCostItem));
+costbookRouter.delete("/codes/fee-reviews/:feeReviewId", asyncHandler(feeReviewsCtrl.remove));
 // Product API browsing and details use one shared global rate-limit budget.
 const abcCatalogLimiter = rateLimit({
   store: new SharedSupplierCronRateLimitStore("abc-catalog"),

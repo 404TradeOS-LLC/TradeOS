@@ -121,6 +121,16 @@ A first-class scheduled field-execution record stored in `Job`.
 - The inbox processor has no caller on `main` until the #923 signed webhook route wiring lands; the outbound journal is live from the journal PR. No webhook is registered by this change, and the staging migration is applied only under a separate approval.
 
 
+## CodesPermitTask and CodesFeeReview
+
+`CodesPermitTask` and `CodesFeeReview` are the Codes & Permits execution records (issue #946, TODO 5; migration `20261110000000_add_codes_permit_tasks_fee_reviews`). They extend the read-only advisory pilot (#945) and must not be confused with generic `ProjectTask` field tasks.
+
+- Each record belongs to one organization and one project; `assessmentId` optionally references TODO 4's `codes_job_assessment` (foreign key in migration SQL only — the table does not exist on main yet, so the migration fails until TODO 4 lands; merge order #945 → TODO 2 → TODO 4 → this PR).
+- `CodesPermitTask` is an owner-assigned permit or inspection task with an explicit permit number/status, official evidence attachment references only, and append-only change history. `permitStatus` is explicit only — one of `not_submitted`, `submitted`, `under_review`, `approved`, `denied`, `inspection_scheduled`, `inspection_passed`, `inspection_failed` — and is never inferred from an address, source link, or AI message. Submitting requires an explicit confirm step on a `not_submitted` task; there is no auto-submit. No source link or AI message counts as a permit.
+- `CodesFeeReview` is a price-neutral permit-fee review: quoted/verified fee → `pending` → human `approved`/`rejected`. `costItemId` is set only by an explicit select step on an approved fee. The fee-review code never mutates an estimate; only an approved fee with an explicitly selected CostItem may ever affect estimated cost, through the existing explicit CostItem write semantics. Pending, rejected, and unselected fees are financial no-ops.
+- Both tables have forced RLS. Task reads are org-scoped; task writes are owner/admin, or the assigned technician on their own task (status/evidence only). Fee-review writes are owner/admin only.
+- No full model-code text is stored in either table: evidence holds official references only, and the Athena enrichment stores citation + SHA-256 source hash only.
+
 ## Estimate
 
 A priced commercial draft stored in `Estimate`.

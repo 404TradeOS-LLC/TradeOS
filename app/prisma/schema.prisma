@@ -51,6 +51,8 @@ model Organization {
   jobAssignments JobAssignment[]
   jobExpenses    JobExpense[]
   jobExpenseEvents JobExpenseEvent[]
+  permitTasks    CodesPermitTask[]
+  feeReviews     CodesFeeReview[]
   estimates      Estimate[]
   serviceAgreements ServiceAgreement[]
   payments       Payment[]
@@ -277,6 +279,7 @@ model AppUser {
   totpCredential UserTotpCredential?
   sentInvites   OrganizationInvite[] @relation("InviteSender")
   createdJobs   Job[]                @relation("JobCreatedBy")
+  assignedPermitTasks CodesPermitTask[] @relation("CodesPermitTaskAssignee")
   createdJobExpenses JobExpense[]   @relation("JobExpenseCreatedBy")
   voidedJobExpenses JobExpense[] @relation("JobExpenseVoidedBy")
   createdJobExpenseEvents JobExpenseEvent[] @relation("JobExpenseEventActor")
@@ -772,6 +775,7 @@ model CostItem {
   assemblyItems    AssemblyItem[]
   estimateLineItems EstimateLineItem[]
   changeOrderLineItems ChangeOrderLineItem[]
+  feeReviews       CodesFeeReview[]
   promotedFromCandidate CostbookResearchCandidate?
 
   @@unique([orgId, code])
@@ -925,6 +929,8 @@ model Project {
   siteVisits   SiteVisit[]
   projectFiles ProjectFile[]
   tasks        ProjectTask[]
+  permitTasks  CodesPermitTask[]
+  feeReviews   CodesFeeReview[]
   jobs         Job[]
   serviceAgreements ServiceAgreement[]
 
@@ -955,6 +961,7 @@ model Estimate {
   changeOrders ChangeOrder[]
   proposals    Proposal[]
   invoices     Invoice[]
+  feeReviews   CodesFeeReview[]
 
   @@index([projectId])
   @@unique([projectId, version])
@@ -1110,6 +1117,74 @@ model ProjectTask {
   @@index([jobId, status])
   @@index([assignedUserId, status, dueDate], map: "idx_project_tasks_assigned_user_status_due")
   @@map("project_tasks")
+}
+
+// Codes & Permits execution (issue #946, TODO 5). Companion to the
+// read-only advisory pilot (#945): these are the only permit-task and
+// fee-review records. permit_status is explicit-only — never inferred —
+// and no row here ever mutates an estimate (see CodesFeeReview).
+// assessmentId is a plain nullable uuid: the foreign key to TODO 4's
+// codes_job_assessment table is enforced by migration SQL only
+// (20261110000000_add_codes_permit_tasks_fee_reviews), because TODO 4's
+// model does not exist on main yet. Do not add a Prisma relation until
+// TODO 4's model lands.
+model CodesPermitTask {
+  id           String    @id @default(uuid())
+  orgId        String    @map("org_id")
+  projectId    String    @map("project_id")
+  assessmentId String?   @map("assessment_id")
+  taskKind     String    @map("task_kind")
+  title        String
+  permitNumber String?   @map("permit_number")
+  permitStatus String    @default("not_submitted") @map("permit_status")
+  assigneeId   String?   @map("assignee_id")
+  dueDate      DateTime? @map("due_date") @db.Date
+  evidence     Json      @default("[]")
+  history      Json      @default("[]")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee     AppUser?     @relation("CodesPermitTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, projectId, createdAt], map: "codes_permit_task_org_project_idx")
+  @@index([orgId, assigneeId, dueDate], map: "codes_permit_task_org_assignee_idx")
+  @@index([assessmentId], map: "codes_permit_task_assessment_idx")
+  @@map("codes_permit_task")
+}
+
+// Price-neutral permit-fee review (issue #946, TODO 5). A fee is research
+// until a human approves it, and even an approved fee affects estimated
+// cost ONLY when a CostItem was explicitly selected — the cost effect
+// itself goes through the existing explicit CostItem write semantics.
+// This model and its service contain no Estimate write of any kind.
+model CodesFeeReview {
+  id           String    @id @default(uuid())
+  orgId        String    @map("org_id")
+  projectId    String    @map("project_id")
+  estimateId   String?   @map("estimate_id")
+  assessmentId String?   @map("assessment_id")
+  feeCents     Int?      @map("fee_cents")
+  feeSource    String?   @map("fee_source")
+  currency     String    @default("USD")
+  status       String    @default("pending")
+  costItemId   String?   @map("cost_item_id")
+  note         String?
+  reviewedBy   String?   @map("reviewed_by")
+  reviewedAt   DateTime? @map("reviewed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  estimate     Estimate?    @relation(fields: [estimateId], references: [id], onDelete: SetNull)
+  costItem     CostItem?    @relation(fields: [costItemId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, projectId, createdAt], map: "codes_fee_review_org_project_idx")
+  @@index([orgId, estimateId], map: "codes_fee_review_org_estimate_idx")
+  @@index([assessmentId], map: "codes_fee_review_assessment_idx")
+  @@map("codes_fee_review")
 }
 
 model Job {
