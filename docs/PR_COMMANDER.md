@@ -131,6 +131,7 @@ exact head SHA:
 - mergeable, merge state `CLEAN` (current branch — strict required checks
   require it);
 - all four required checks green:
+  - Only a completed `SUCCESS` conclusion counts. `SKIPPED` and `NEUTRAL` are not proof that required validation executed and therefore cannot yield `MERGE_READY`, even when GitHub branch protection itself accepts those conclusions. This is a deliberate fail-closed gate.
   - `Web lint and build`
   - `App lint, unit tests, and build`
   - `App integration tests`
