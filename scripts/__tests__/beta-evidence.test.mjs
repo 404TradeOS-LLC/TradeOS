@@ -427,12 +427,16 @@ test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit r
   assert.match(capture, /data-s052-submit-count/);
   assert.match(capture, /invalidSubmitCount === 0/);
   assert.doesNotMatch(capture, /waitForTimeout\(150\)/);
-  assert.match(s052Role, /requiredRoleViewportNames = \["1440", "768", "390"\]/);
+  assert.match(s052Role, /requiredRoleViewportNames = \["1440", "1024", "768", "390"\]/);
   assert.doesNotMatch(s052Role, /BETA_S052_ROLE_VIEWPORTS/);
   assert.match(s052Role, /browser\.close\(\)\.catch\(\(\) => \{\}\)/);
   assert.match(s052Role, /settings\?\.currentRole !== "admin"/);
   assert.match(s052Role, /s052-admin/);
   assert.match(s052Role, /Authenticated user is not provisioned in this organization/);
+  assert.match(s052Role, /User exists but has no active organization membership/);
+  assert.match(s052Role, /getByRole\("alert"\)\.filter/);
+  assert.match(s052Role, /getByLabel\("Select settings section"\)\.selectOption\("general"\)/);
+  assert.match(s052Role, /getByLabel\("Company name", \{ exact: true \}\)\.inputValue/);
   assert.match(s052Role, /bootstrapDenied: true/);
   assert.match(validator, /scenario === "s052"/);
   assert.match(validator, /s052-role-report\.json/);
@@ -582,6 +586,9 @@ test("beta capture waits for the persisted Project UUID rather than the project 
   assert.equal(createdProjectIdFromUrl(`${origin}/projects/${uuid}?tab=estimate-history`), uuid);
   assert.match(capture, /waitForURL\(\(url\) => createdProjectIdFromUrl\(url\) !== null/);
   assert.match(capture, /const projectId = createdProjectIdFromUrl\(page\.url\(\)\)/);
+  assert.match(s052Role, /waitForURL\(\(url\) => createdProjectIdFromUrl\(url\) !== null/);
+  assert.match(s052Role, /const projectId = createdProjectIdFromUrl\(page\.url\(\)\)/);
+  assert.doesNotMatch(s052Role, /const projectLink =/);
   assert.doesNotMatch(capture, /await page\.waitForURL\(\/\\\/projects\(\?:\\\?\|\\\$\)\//);
 });
 
