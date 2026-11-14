@@ -2058,3 +2058,7 @@ preserving only `staff_recorded_offline` so UI can label the customer-visible
 milestone without misrepresenting email delivery. Backend audit history is
 unaltered. Unit regression tests assert both portal paths cannot expose staff
 notes. This is branch work, not a deployed or verified staging behavior.
+
+## Estimate customer materials checklist — proposed source, 2026-11-13
+
+The independent feature branch `feat/estimate-materials-shopping-pdf-20261113` proposes a read-only customer materials panel and tenant-scoped PDF download based on saved explicit material Estimate lines. It omits all stored cost/sell fields, exposes preview/download through the existing authenticated documents proxy, and warns that assemblies are not decomposed. No schema, RLS, financial formulas, or lifecycle transitions change. This is **branch source only** until exact-head hosted CI, review and merge; no deployed four-width/authenticated acceptance or production delivery is claimed.

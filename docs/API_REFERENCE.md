@@ -1220,3 +1220,9 @@ fail closed through authenticated org scope and forced RLS. Successful 200
 returns the accepted proposal; no outgoing email and no `sentAt` mutation.
 This is an internal staff record, **not** an e-signature or customer portal
 assertion.
+
+## Estimate materials checklist PDF (proposed, 2026-11-13)
+
+`GET /api/v1/estimates/:id/materials/pdf` generates a customer-readable shopping checklist from the **saved explicit material lines** of an organization-owned Estimate. Requires existing authenticated `crm.read`. The server reads the Estimate and owning Project with the request organization ID. On success it returns `200 application/pdf` and `Content-Disposition: attachment` with a sanitized project filename, or `inline` only when `?disposition=inline`. The existing authenticated Next.js `GET /api/documents/estimates/:id/materials/pdf` binary proxy forwards the PDF, without leaking bearer tokens to client JavaScript.
+
+The PDF includes project/customer context, material descriptions, quantities, units and sections, plus a note for unexpanded assemblies. No snapshot costs, unit/line pricing, overhead, markup, margins or totals are rendered. Zero material lines or invalid material entries return `409`; foreign/missing Estimate/Project IDs return `404` under the existing tenant guards; callers without `crm.read` receive `403`. The PDF is generated on request without storing or sending a customer document. It is **not** an assembly/material decomposition or supplier quote.
