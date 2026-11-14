@@ -27,9 +27,11 @@ class GuardTests(unittest.TestCase):
     def test_conventional_tls_query_is_normalized_without_libpq_options(self):
         base = f'postgresql://postgres:secret@db.{m.REF}.supabase.co/postgres'
         self.assertEqual(m.source_config(base + '?sslmode=require'), m.source_config(base))
+        self.assertEqual(m.source_config(base + '?schema=public&sslmode=require'), m.source_config(base))
+        self.assertEqual(m.source_config(f'postgres://postgres.{m.REF}:secret@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require&schema=public')['port'], 5432)
         for query in ('sslmode=require&sslmode=require', 'sslmode=require&host=evil',
                       'service=other', 'options=-c+default_transaction_read_only=off',
-                      'hostaddr=127.0.0.1', 'sslmode=disable'):
+                      'hostaddr=127.0.0.1', 'sslmode=disable', 'schema=auth', 'schema=public&schema=public'):
             with self.assertRaises(m.PreflightError) as caught:
                 m.source_config(base + '?' + query)
             self.assertEqual(m.failure_metadata(caught.exception)['code'], 'SOURCE_QUERY_REJECTED')

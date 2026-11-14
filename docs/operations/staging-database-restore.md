@@ -3,8 +3,7 @@
 Dispatch **Rehearse actual staging public database restore** from `main` after
 review of the final merged workflow. The protected `staging` environment and its
 reviewer gate own access to `STAGING_DATABASE_ADMIN_URL`. Only the canonical
-`qfbgdkbamfaasmtjfyru` direct host or existing us-east-2 session pooler on 5432
-is accepted. Supply a connection URI without query parameters or with exactly `sslmode=require`; this conventional TLS option is normalized into the fixed connection configuration. All other options and duplicate query keys remain rejected. The workflow
+`qfbgdkbamfaasmtjfyru` direct host or existing us-east-2 pooler identity is accepted. A pooler URI using 6543 is normalized to session port 5432 on the same verified host/user, matching the existing staging migration contract; the rehearsal never connects through transaction pooling. Only optional `sslmode=require` and `schema=public` query keys are accepted, without duplicates. They are discarded in favor of the fixed TLS/read-only configuration; no supplied query is forwarded to libpq. The workflow
 never fetches a credential or accepts a production/target URL input.
 
 The script opens a repeatable-read, read-only staging transaction, exports its
