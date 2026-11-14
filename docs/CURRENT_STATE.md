@@ -71,7 +71,11 @@ related_code:
 
 ## Recoverable invoice creation — draft candidate, 2026-11-09
 
-PR #956 adds a commit-confirmed, authenticated draft endpoint and an explicit same-request retry on the mounted New invoice form. The migration has not been applied to a protected environment. Hosted PostgreSQL on `a3c368a` passed all 197 integration tests, including overlapping retry and tenant-denial coverage. The lock window still requires representative rehearsal and approval; four-width authenticated browser/PDF evidence is pending. See [Invoices and payments](modules/invoices-and-payments.md#recoverable-invoice-draft-creation).
+PR #956 adds a commit-confirmed, authenticated draft endpoint and an explicit same-request retry on the mounted New invoice form. The additive request-key migration landed separately in #977 and protected Production run `43360847290` and Staging run `43365023839` succeeded; the release coordinator verified the resulting columns, unique index, pair constraint and forced RLS. Hosted PostgreSQL on `a3c368a` passed all 197 integration tests, including overlapping retry and tenant-denial coverage. Four-width authenticated invoice browser/PDF evidence remains pending. See [Invoices and payments](modules/invoices-and-payments.md#recoverable-invoice-draft-creation).
+
+## Proposal-acceptance job verification: stale-state guard, P2002 fallback, assignment-response role check — 2026-11-11
+
+Job transitions, scheduling/rescheduling, and reopen now accept an optional `expectedUpdatedAt` revision token (same pattern as the ProjectTask status guard): a token that no longer matches the job's `updatedAt` fails with HTTP 409, the write predicate always carries a revision (the token, or the just-read `updatedAt` when omitted), and a lost-update (P2025) on the guarded write maps to the same 409. The controller accepts the token as an ISO string on transition/schedule/reschedule/reopen requests; no frontend change sends it yet. `createFromAcceptedProposal` now re-reads and returns the existing job when creation hits the unique `source_proposal_id` index (P2002) instead of surfacing a raw constraint error. Assignment accept/decline now enforces the field-worker role boundary, so non-field roles fail with 403 instead of a misleading 404. Mocked unit coverage added for pause/resume, dispatch/start-travel/arrive, cancel, reopen, the invalid-transition matrix, unassigned-technician denials, and the stale guard; the concurrent-duplicate-conversion and stale-token live tests are written as `app/tests/jobs.from-proposal.integration.ts` for CI (no local Docker PostgreSQL). PR #810 merged 2026-11-04; see API_REFERENCE.md. Hosted PostgreSQL/browser acceptance remains outstanding; authored tests alone are not certification.
 
 ## Estimate authenticated acceptance — 2026-11-05
 
@@ -1970,3 +1974,12 @@ success opens the existing server-ID invoice detail route. No send/payment or
 pricing authority changes. Figma reference frames: 1179:2800, 1179:3484 and
 1183:3546 in the canonical master. Four-width isolated component regression is
 added; authenticated deployed acceptance remains a separate release gate.
+
+## Job revision propagation — 2026-11-13
+
+Field transition forms retain the loaded Job revision and dispatcher schedule,
+reschedule and dispatch actions send the revision from the displayed list row.
+Job list summaries now include `updatedAt`. Missing or malformed revisions fail
+closed with refresh guidance; stale backend responses remain visible as errors.
+This connects the optional Job optimistic-concurrency API to normal UI actions;
+no lifecycle, role, tenant or migration semantics are changed.

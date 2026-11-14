@@ -132,3 +132,10 @@ test("crew grouping uses stable sorted technician identities instead of display 
   assert.ok(board.includes('technicians.map((technician) => technician.userId).join("|")'));
   assert.match(board, /technicians\.map\(\(technician\) => technician\.name\)\.join\(" \+ "\)/);
 });
+
+
+test("dispatcher schedule and dispatch mutations bind the displayed Job revision", async () => {
+  const actions = await readSource("./dispatch-job-actions.tsx");
+  assert.match(actions, /withJobRevision\(job.updatedAt, \{ scheduledStart/);
+  assert.match(actions, /\/dispatch", \{ method: "POST", body: JSON.stringify\(withJobRevision\(job.updatedAt, \{\}\)\)/);
+});

@@ -220,3 +220,11 @@ The Vercel supplier price-sync route uses two independent, database-backed, atom
 The API now uses Zod 4.6.7 directly, with `$zod` overriding the older nested Vercel configuration validator. This removes vulnerable validation implementations without adding an adapter layer or changing the request auth/membership/RLS stack. Controllers and Athena tools preserve legacy UUID-shaped inputs through `z.guid()`, while explicit record and typed pipeline schemas retain existing data semantics. body-parser resolves to patched 1.20.9. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
 
 Draft Resend journal ordering uses a per-message PostgreSQL row lock before event insertion and a provider-occurrence-time guard on status projection; all unique events remain append-only and bounce/complaint flags are sticky. It preserves existing transactions, tenant attribution and forced-RLS policies; no new migration or pool architecture is introduced.
+
+## Authentication single-use token boundary
+
+Password recovery uses an atomic conditional claim of an unconsumed, unexpired reset token before updating credentials, within the same database transaction. This preserves single-use behavior under concurrent requests and rolls consumption back on failure.
+
+Invitation acceptance likewise conditionally claims a pending, unaccepted, unexpired token before account, membership or refresh-session writes in the same transaction. Concurrent replay returns the existing invalid-or-expired error. Existing invitation roles and inactive-user reactivation behavior are preserved.
+
+After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.

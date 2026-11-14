@@ -245,13 +245,20 @@ export class AuthService {
       }
 
       await transaction.$queryRaw(Prisma.sql`select set_config('app.user_id', ${row.userId}, true)`);
+      // Recheck validity while atomically claiming the token: another reset
+      // transaction may have consumed it since the lookup above. The claim
+      // rolls back with the password change if any later write fails.
+      const consumedAt = new Date();
+      const claimed = await transaction.passwordResetToken.updateMany({
+        where: { id: row.id, consumedAt: null, expiresAt: { gt: consumedAt } },
+        data: { consumedAt },
+      });
+      if (claimed.count !== 1) {
+        throw new ApiError(400, "Password reset token is invalid or expired");
+      }
       await transaction.appUser.update({
         where: { id: row.userId },
         data: { passwordHash },
-      });
-      await transaction.passwordResetToken.update({
-        where: { id: row.id },
-        data: { consumedAt: new Date() },
       });
       await transaction.authRefreshToken.updateMany({
         where: { userId: row.userId, revokedAt: null },
@@ -338,7 +345,29 @@ export class AuthService {
         throw new ApiError(400, "Invite is invalid or expired");
       }
 
+      // Claim before any account or membership writes; a concurrent accept
+      // must not change credentials or issue a second refresh session.
+      const acceptedAt = new Date();
+      const claimed = await transaction.organizationInvite.updateMany({
+        where: { id: invite.id, acceptedAt: null, status: "pending", expiresAt: { gt: acceptedAt } },
+        data: { acceptedAt, status: "accepted" },
+      });
+      if (claimed.count !== 1) {
+        throw new ApiError(400, "Invite is invalid or expired");
+      }
+
+      // A valid invitation is the authority for this bounded provisioning
+      // transaction. Existing RLS requires provisioning for user creation and
+      // membership writes, and self identity before an existing-user update.
+      await transaction.$queryRaw(Prisma.sql`
+        select
+          set_config('app.provisioning', 'true', true),
+          set_config('app.org_id', ${invite.orgId}, true)
+      `);
       let user = await transaction.appUser.findUnique({ where: { email: invite.email } });
+      if (user) {
+        await transaction.$queryRaw(Prisma.sql`select set_config('app.user_id', ${user.id}, true)`);
+      }
       if (user && !user.isActive) {
         user = await transaction.appUser.update({
           where: { id: user.id },
@@ -397,11 +426,6 @@ export class AuthService {
           tokenHash: hashOpaqueToken(refreshToken),
           expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
         },
-      });
-
-      await transaction.organizationInvite.update({
-        where: { id: invite.id },
-        data: { acceptedAt: new Date(), status: "accepted" },
       });
 
       return this.buildSessionResult(
