@@ -1987,3 +1987,7 @@ Job list summaries now include `updatedAt`. Missing or malformed revisions fail
 closed with refresh guidance; stale backend responses remain visible as errors.
 This connects the optional Job optimistic-concurrency API to normal UI actions;
 no lifecycle, role, tenant or migration semantics are changed.
+
+## Administrative membership provisioning repair — 2026-11-14
+
+A restricted-role PostgreSQL reproduction confirmed that member upsert failed at application-user RLS for both new users and existing identities outside the organization. The bounded repair uses the existing provisioning policy only after database-backed administrator validation, preserves foreign user profiles, and commits user/membership/audit changes together. Source and disposable-database checks do not establish live staging offboarding acceptance.

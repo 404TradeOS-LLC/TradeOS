@@ -1,4 +1,6 @@
 const mockPrisma = {
+  $transaction: jest.fn(),
+  $queryRaw: jest.fn(),
   organization: {
     findUnique: jest.fn(),
   },
@@ -37,6 +39,13 @@ describe("AdminDashboardService membership management", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (operation: (client: typeof mockPrisma) => Promise<unknown>) => operation(mockPrisma));
+    mockPrisma.$queryRaw.mockResolvedValue([{ value: null }]);
+    mockPrisma.organizationMembership.findFirst.mockImplementation(async ({ where }) => {
+      if (where.userId === "actor-owner") return { role: "owner", user: { isActive: true } };
+      if (where.userId === "actor-admin") return { role: "admin", user: { isActive: true } };
+      return null;
+    });
     mockPrisma.organizationMembership.count.mockResolvedValue(1);
   });
 
