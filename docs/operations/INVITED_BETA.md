@@ -53,3 +53,5 @@ Triage routine feedback every business day in the existing governed issue queue:
 Expand from one business to at most three after seven consecutive days without a critical incident and a founder feedback review. A critical incident restarts that window after verified resolution. Before offboarding, provide the founder-approved authorized export, confirm account suspension/session revocation behavior, and follow the agreed retention/deletion policy; do not improvise destructive database commands.
 
 Actual staging public database recovery can be exercised with the [protected restore rehearsal](staging-database-restore.md). Only a passing merged-main run certifies that bounded scope; Auth/storage recovery, approved RTO/RPO and production recovery remain separate gates.
+
+A bounded [selected-journey export rehearsal](INVITED_BETA_MANUAL_EXPORT.md) demonstrates five-file synthetic staging extraction through existing authenticated GET APIs with identity/relationship guards and a real foreign-owner negative control. It is not a full tenant/Storage export or an offboarding completion claim.
