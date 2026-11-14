@@ -1,6 +1,18 @@
 import { createHmac } from "node:crypto";
+import express from "express";
 import request from "supertest";
+import { jest } from "@jest/globals";
+import * as logging from "../backend/logging";
+
+jest.mock("../db/resendDeliveryJournalStore", () => ({
+  resendDeliveryJournalStore: {
+    recordOutbound: jest.fn(),
+    processVerifiedEvent: jest.fn(() => Promise.resolve({ duplicate: false, matched: false, orgId: null })),
+  },
+}));
+
 import { createServer } from "../backend/server";
+import { createResendWebhookRouter } from "../backend/routes/resendWebhook.routes";
 import { verifyResendWebhook } from "../modules/email/webhook";
 
 const secret = "whsec_" + Buffer.from("a-32-byte-test-secret-for-resend-123").toString("base64");
@@ -25,6 +37,7 @@ const body = JSON.stringify({
 });
 
 afterEach(() => {
+  jest.restoreAllMocks();
   if (oldSecret === undefined) delete process.env.RESEND_WEBHOOK_SECRET;
   else process.env.RESEND_WEBHOOK_SECRET = oldSecret;
 });
@@ -102,5 +115,46 @@ describe("Resend signed webhook ingress", () => {
 
     const invalid = JSON.stringify({ event: "email.delivered", data: {} });
     expect(() => verifyResendWebhook(Buffer.from(invalid), signedHeaders(invalid), secret)).toThrow();
+  });
+
+  it("returns retryable 503 when the durable journal cannot commit", async () => {
+    process.env.RESEND_WEBHOOK_SECRET = secret;
+    const journalWrite = jest.fn(() => Promise.reject(new Error("synthetic database outage")));
+    const store = {
+      recordOutbound: jest.fn(),
+      processVerifiedEvent: journalWrite,
+    } as never;
+    const app = express();
+    app.use(express.raw({ type: "application/json", limit: "64kb" }));
+    app.use(createResendWebhookRouter(store));
+    const response = await request(app)
+      .post("/")
+      .set(signedHeaders(body))
+      .set("Content-Type", "application/json")
+      .send(body);
+    expect(response.status).toBe(503);
+    expect(response.body).toEqual({ error: "Resend webhook could not be durably recorded" });
+    expect(journalWrite).toHaveBeenCalledTimes(1);
+  });
+
+  it("acknowledges an already committed signed event when logging fails", async () => {
+    process.env.RESEND_WEBHOOK_SECRET = secret;
+    const journalWrite = jest.fn(() => Promise.resolve({ duplicate: false, matched: false, orgId: null }));
+    const store = { recordOutbound: jest.fn(), processVerifiedEvent: journalWrite } as never;
+    const logger = jest.spyOn(logging, "logInfo").mockImplementation(() => {
+      throw new Error("synthetic observability outage");
+    });
+    const app = express();
+    app.use(express.raw({ type: "application/json", limit: "64kb" }));
+    app.use(createResendWebhookRouter(store));
+    const response = await request(app)
+      .post("/")
+      .set(signedHeaders(body))
+      .set("Content-Type", "application/json")
+      .send(body);
+    expect(journalWrite).toHaveBeenCalledTimes(1);
+    expect(logger).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ received: true });
   });
 });
