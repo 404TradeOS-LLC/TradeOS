@@ -1182,3 +1182,7 @@ Resend delivery journal (draft PR #931): internal verified-event processing now 
 Invitation acceptance likewise conditionally claims a pending, unaccepted, unexpired token before account, membership or refresh-session writes in the same transaction. Concurrent replay returns the existing invalid-or-expired error. Existing invitation roles and inactive-user reactivation behavior are preserved.
 
 After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
+
+### Administrative member upsert
+
+`POST /api/v1/admin/organizations/:id/members` retains its existing request and response shapes. The service verifies the active administrator membership before provisioning a new application user under forced RLS. Adding an existing identity from another organization attaches a membership without changing its global email, name or active flag. User/membership/audit writes are atomic; denied actor or organization checks do not enable provisioning. See [the shared administrative provisioning boundary](ARCHITECTURE.md#administrative-membership-provisioning-boundary).
