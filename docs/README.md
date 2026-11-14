@@ -63,6 +63,10 @@ related_code:
 
 [Invited beta operations](operations/INVITED_BETA.md) records the founder-approved free 1–3-business Estimate→Proposal/PDF scope, remaining blockers, evidence procedure, onboarding and stop criteria. The existing [Beta Evidence](testing/BETA_EVIDENCE.md) workflow gains an opt-in `beta_pdf` scenario; it is source support, not release approval or a passed deployed run.
 
+## Production migration destination preflight — draft hardening proposal (2026-11-12)
+
+A separate unmerged security change proposes a fail-closed, pre-DDL destination check for `.github/workflows/deploy-migrations.yml`. It validates the protected main-branch ref and confirms that the elevated PostgreSQL URL targets production Supabase project `kssaceuetdjwfqnbzhly` (in `us-west-2`) through either its exact direct hostname or a project-bound session pooler. A wrong project/region, transaction-mode port, missing credentials or malformed URL must refuse execution without printing secrets. This is **not active on main** until a reviewed merge and does **not** replace current GitHub Environment approvals, release windows, or migration ledger checks; PR #977 remains draft/HOLD.
+
 ## Proposed staging Job migration runner — PR #810 dependency
 
 The proposed `.github/workflows/staging-job-handoff-migration.yml` installs a
@@ -527,3 +531,10 @@ The Beta Evidence workflow exposes the same explicit TEST Org credential option
 as Playwright evidence. The staging orchestrator selects the verified synthetic
 owner and exact UUID; missing credentials fail closed without account fallback.
 See [Beta Evidence fixture selection](testing/BETA_EVIDENCE.md#smoke-tenant).
+
+Production migration target preflight also rejects decoded `host` query keys,
+including percent-encoded spellings, because Prisma gives that parameter
+precedence over the validated URL authority. Approved direct and session-pooler
+connections retain their existing validation; errors never include credentials.
+
+The main-only, protected staging [actual public database restore rehearsal](operations/staging-database-restore.md) retains only sanitized seven-day evidence; raw backups stay ephemeral and source access is read-only. Passing this workflow does not certify Auth/storage or production recovery.

@@ -1,0 +1,52 @@
+name: Rehearse actual staging public database restore
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: staging-database-restore
+  cancel-in-progress: false
+jobs:
+  restore:
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: disposable-only
+          POSTGRES_DB: rehearsal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install PostgreSQL 17 client and isolated Python driver
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common python3-venv
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+          python3 -m venv "$RUNNER_TEMP/restore-venv"
+          "$RUNNER_TEMP/restore-venv/bin/pip" install 'psycopg[binary]==3.2.13'
+      - name: Consistent read-only staging dump and independent restore
+        env:
+          STAGING_DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
+        run: |
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          "$RUNNER_TEMP/restore-venv/bin/python" scripts/staging-database-restore.py
+      - name: Remove raw backup even after interruption
+        if: always()
+        run: find "$RUNNER_TEMP" -maxdepth 1 -type d -name 'tradeos-restore-*' -exec rm -rf -- {} +
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: staging-public-restore-receipt
+          path: ${{ runner.temp }}/staging-restore-receipt.json
+          if-no-files-found: error
+          retention-days: 7

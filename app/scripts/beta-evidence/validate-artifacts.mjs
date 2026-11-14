@@ -133,7 +133,7 @@ if (scenario === "beta_pdf") {
       "proposal PDF downloads through authenticated document route",
       "proposal financial snapshot survives reload",
       "no browser console errors were recorded",
-      "no network requests failed",
+      "no application network requests failed",
     ]) {
       if (!report?.assertions?.some((entry) => entry.name === name && entry.passed === true)) scenarioFailures.push(`${viewport.name}: missing ${name}`);
     }

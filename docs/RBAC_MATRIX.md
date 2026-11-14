@@ -98,6 +98,7 @@ Jobs have extra scope restrictions beyond the shared permission map:
 
 - technicians can only access jobs where they have an active assignment
 - technicians can accept or decline only their own assignments
+- assignment accept/decline enforces the field-worker role boundary (`technician`/`owner`/`admin`/`dispatcher`) before the assignment lookup; any other role fails with 403 instead of a misleading 404. Assignees are always technicians by construction, so no legitimate caller is excluded by this check.
 - technicians may move assigned jobs through field states that the service permits
 - owners and admins can override schedule conflicts
 - a conflict override requires a nonempty reason and is recorded with the normal
@@ -229,7 +230,7 @@ This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
 
-## Step 9 proposal-to-job conversion permission (PR #810, unmerged)
+## Step 9 proposal-to-job conversion permission (PR #810, merged 2026-11-04)
 
 `POST /api/v1/jobs/from-proposal/:proposalId` uses the existing Job manager
 boundary (owner, admin, dispatcher) and request-authenticated `orgId`; no
@@ -250,3 +251,11 @@ Managers (owner/admin/dispatcher) can read the accepted commercial baseline thro
 The existing conversion roles and tenant checks are unchanged. Manager authority
 does not permit replacing missing accepted scope with mutable Project scope;
 see [accepted Job scope integrity](WORKFLOW_LIFECYCLES.md#accepted-job-scope-integrity).
+
+## Authentication single-use token boundary
+
+Password-reset possession grants a single transactional password change. Concurrent reuse of a consumed reset token grants no credential update or refresh-session mutation; organization roles and membership permissions are unchanged.
+
+Invitation acceptance likewise conditionally claims a pending, unaccepted, unexpired token before account, membership or refresh-session writes in the same transaction. Concurrent replay returns the existing invalid-or-expired error. Existing invitation roles and inactive-user reactivation behavior are preserved.
+
+After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.

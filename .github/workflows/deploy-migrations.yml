@@ -59,6 +59,12 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Verify production migration target
+        working-directory: .
+        env:
+          DATABASE_ADMIN_URL: ${{ secrets.DATABASE_ADMIN_URL }}
+        run: node scripts/verify-production-migration-target.mjs
+
       - name: Install psql client
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
 
