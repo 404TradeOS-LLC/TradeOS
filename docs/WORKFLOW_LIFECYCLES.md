@@ -281,6 +281,8 @@ and admins may override with a nonempty reason; all other roles fail closed.
 
 ## Invoices
 
+In draft PR #956, recoverable creation confirms the Draft state only after commit. A matching retry returns the existing invoice and does not add a lifecycle event or send it; a mismatched retry is rejected.
+
 Canonical display states:
 
 - `draft`

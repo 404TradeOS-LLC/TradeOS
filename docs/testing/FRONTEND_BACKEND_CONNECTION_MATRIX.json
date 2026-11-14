@@ -918,21 +918,21 @@
           "method": "POST",
           "mount": "/api/v1/invoices",
           "routeFile": "app/backend/routes/invoices.routes.ts",
-          "router": "invoicesRouter",
-          "route": "/",
-          "handler": "ctrl.create",
+          "router": "recoverableInvoiceCreateRouter",
+          "route": "/drafts",
+          "handler": "ctrl.createRecoverable",
           "contractFile": "app/backend/controllers/invoices.controller.ts",
-          "request": "Invoice-create input and source job/project validated by invoice controller.",
-          "response": "Invoice DTO with canonical selling-price line totals and tax fields.",
+          "request": "Invoice input and required Idempotency-Key UUID; retained values and key on explicit retry.",
+          "response": "201 after commit or 200 with the original invoice ID on replay; changed details return 409.",
           "permission": "billing.write",
-          "tenant": "active organization and source job/project; forced RLS",
-          "refresh": "revalidate project, invoice queue, and invoice detail",
-          "evidence": "app/tests/invoices.controller.queue.test.ts",
-          "browser": "invoice total equals approved sell price/tax, not direct cost",
-          "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "\"/api/v1/invoices\"",
+          "tenant": "Active organization and source project; scoped transaction with forced RLS.",
+          "refresh": "Revalidate the project and open the committed invoice detail.",
+          "evidence": "app/tests/rls.integration.ts",
+          "browser": "Verify authoritative invoice totals, same-ID recovery and PDF at all four widths.",
+          "status": "CONNECTED",
+          "frontendPath": "\"/api/v1/invoices/drafts\"",
           "contractSymbols": [
-            "create"
+            "createRecoverable"
           ]
         },
         {

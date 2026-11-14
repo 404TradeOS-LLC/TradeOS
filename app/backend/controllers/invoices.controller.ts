@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
+import { basePrisma } from "../../db/client";
+import { runWithDatabaseSession } from "../../db/requestSession";
 import { InvoicesService } from "../../modules/invoices/service";
 import { sanitizeDownloadFilename } from "../../modules/documents/format";
 import { requireAuthContext, requireOrgId, requirePermissions } from "../requestContext";
@@ -71,7 +73,23 @@ export const invoicesController = {
   },
   async create(req: Request, res: Response) {
     const auth = requireAuthContext(req);
-    res.status(201).json(await service.create({ ...createSchema.parse(req.body), orgId: requireOrgId(req), actorUserId: auth.userId, actorRole: auth.role }));
+    const input = { ...createSchema.parse(req.body), orgId: requireOrgId(req), actorUserId: auth.userId, actorRole: auth.role };
+    res.status(201).json(await service.create(input));
+  },
+  async createRecoverable(req: Request, res: Response) {
+    const auth = requireAuthContext(req);
+    const input = { ...createSchema.parse(req.body), orgId: requireOrgId(req), actorUserId: auth.userId, actorRole: auth.role };
+    const key = z.guid().parse(req.headers["idempotency-key"]).toLowerCase();
+    const create = () => runWithDatabaseSession(basePrisma, auth, () => service.createWithIdempotency(input, key));
+    const { invoice, replayed } = await create().catch((error: unknown) => {
+      // A fresh tenant-scoped snapshot can see the concurrent winner.
+      if (error && typeof error === "object" && "code" in error && (error.code === "P2002" || error.code === "P2034")) {
+        return create();
+      }
+      throw error;
+    });
+    res.setHeader("Idempotency-Replayed", String(replayed));
+    res.status(replayed ? 200 : 201).json(invoice);
   },
   async update(req: Request, res: Response) {
     const auth = requireAuthContext(req);
