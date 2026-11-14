@@ -527,6 +527,13 @@ Next: finish local and exact-head hosted checks, report reviewed candidate to
 the beta coordinator for staging/API/web correlation, authenticated same-draft
 retry/PDF identity and tenant-denial evidence. No merge/deployment is claimed.
 
+## Estimate materials checklist — draft branch handoff, 2026-11-13
+
+- Founder-directed non-numbered, additive read-only feature in `feat/estimate-materials-shopping-pdf-20261113`; base `main` was `31ef992e795a20a862dceea341df239e7c794083`. GitHub connector can read/write branches and PRs; this session has no locally cloned TradeOS worktree or local dependencies (container DNS blocks GitHub clone), so local full-suite acceptance must **not** be asserted.
+- Scoped files: Estimate material projection and PDF module, GET controller/router, Estimate workspace panel, focused app/web regressions and owning docs. No migration, auth/RLS modification, pricing edit, deployment, purchase, email or production action.
+- API: `GET /api/v1/estimates/:id/materials/pdf` requires `crm.read`, scoped Estimate and Project, rejects absent/invalid material takeoff with 409, sends only safe quantity/description/unit/section to PDF. Assemblies are counted but not exploded. Web preview and download route through existing authenticated binary proxy.
+- Before merge, review exact final-head CI/app/web test evidence, code review, docs ownership, preview/download under an approved nonproduction session and branch currency. This feature is **not** an authenticated beta certification or a complete assembly takeoff.
+
 ## Next Eligible Sprint
 
 Sprint ID: S073

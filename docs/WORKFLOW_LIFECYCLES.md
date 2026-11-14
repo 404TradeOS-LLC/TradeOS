@@ -470,3 +470,7 @@ proposal. Its executable description comes only from that accepted scope, never
 from the Project's current `simpleScope`. Missing accepted scope fails closed
 with HTTP 409; an existing conversion remains retrievable on an idempotent retry.
 The guard does not modify the accepted proposal or create replacement terms.
+
+## Estimate material checklist export (proposed, 2026-11-13)
+
+A saved Estimate can generate a read-only, price-free materials checklist from explicitly material-classified lines, before or after Estimate finalization. Export does **not** transition Estimate, Proposal, Job, purchasing, or billing state, does not modify source lines or reserve stock, and does not imply that a list has been delivered to a customer. Assemblies are not decomposed; any assembly lines require review before treating the checklist as complete. Finalization and customer proposal lifecycle rules remain unchanged.
