@@ -57,33 +57,39 @@ router.post("/", resendWebhookRateLimit, async (req, res) => {
     return;
   }
 
+  let outcome: Awaited<ReturnType<typeof processVerifiedResendDeliveryEvent>>;
   try {
-    const outcome = await processVerifiedResendDeliveryEvent(store, {
+    outcome = await processVerifiedResendDeliveryEvent(store, {
       svixId: req.header("svix-id") as string,
       type: event.type,
       createdAt: event.created_at,
       data: event.data,
       rawPayload: req.body,
     });
-
-    // Record only trusted event metadata. Never log recipients, subjects,
-    // private access tokens or the full event payload.
-    const metadata = { eventType: event.type, eventId: req.header("svix-id"), outcome: outcome.outcome };
-    if (ATTENTION_EVENTS.has(event.type)) {
-      logWarn("email.resend_delivery_attention", metadata);
-    } else {
-      logInfo("email.resend_webhook_accepted", metadata);
-    }
-    // The journal transaction has committed before this acknowledgement.
-    res.status(200).json({ received: true });
   } catch (error) {
     if (error instanceof RetryableDeliveryError) {
       // Do not expose database/provider details. Resend will retry this event.
       res.status(503).json({ error: "Resend webhook could not be durably recorded" });
       return;
     }
+    // The signed payload did not meet the delivery-journal envelope contract.
     res.status(400).json({ error: "Invalid Resend webhook" });
+    return;
   }
+
+  // Observability must not turn a successfully committed event into a failure
+  // acknowledgement. No payload, recipient or action token is logged.
+  const metadata = { eventType: event.type, eventId: req.header("svix-id"), outcome: outcome.outcome };
+  try {
+    if (ATTENTION_EVENTS.has(event.type)) {
+      logWarn("email.resend_delivery_attention", metadata);
+    } else {
+      logInfo("email.resend_webhook_accepted", metadata);
+    }
+  } catch {
+    // The event is already durable. A provider retry must not be caused by telemetry.
+  }
+  res.status(200).json({ received: true });
 });
 
   return router;
