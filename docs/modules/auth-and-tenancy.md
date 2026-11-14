@@ -218,4 +218,4 @@ Invitation acceptance likewise conditionally claims a pending, unaccepted, unexp
 
 After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
 
-Refresh rotation records the replacement refresh-row UUID in `replaced_by_id`, while the opaque token hash remains only in `token_hash`. The conditional single-use rotation and replacement row creation remain in one transaction; replay and logout continue to reject revoked refresh sessions.
+Refresh rotation records the replacement refresh-row UUID in `replaced_by_id`, while the opaque token hash remains only in `token_hash`. See the shared [authentication single-use token boundary](../ARCHITECTURE.md#authentication-single-use-token-boundary) for transaction, replay and logout guarantees.
