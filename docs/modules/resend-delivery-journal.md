@@ -75,31 +75,33 @@ safely — a later webhook event for that message is recorded as unmatched
 and updates no tenant. The journal is idempotent on `provider_message_id`;
 a re-record never overwrites kind or org attribution.
 
-## Route wiring (follow-up, after #923 merges)
+## Signed webhook route wiring (proposed in PR #957)
 
-The route in #923's branch must call the processor only after
-`verifyResendWebhook` succeeds, and acknowledge only on a recorded
-outcome:
+The existing `POST /api/v1/webhooks/resend` route is mounted before the
+authenticated API middleware with an explicit 64 KiB raw-body parser and a
+bounded anonymous rate limit. It requires a configured `whsec_` signing
+secret and verifies Svix identity, timestamp and signature against the
+**unmodified raw body** before calling
+`processVerifiedResendDeliveryEvent` with the server-owned journal store.
 
-```ts
-const outcome = await processVerifiedResendDeliveryEvent(
-  resendDeliveryJournalStore,
-  {
-    svixId: req.header("svix-id") ?? "",
-    type: event.type,
-    createdAt: event.created_at,
-    data: event.data,
-    rawPayload: req.body,
-  },
-);
-res.status(200).json({ received: true, outcome: outcome.outcome });
-```
+Only after the journal transaction commits does the route return **200**
+with exactly `{ received: true }`. It does **not** return internal
+delivery outcomes or tenant attribution to the caller. An invalid signature
+or invalid verified-event envelope produces 400; a non-raw body produces
+415; missing signing configuration or a retryable durable-store failure
+produces 503; a rate-limit violation produces 429. Failed journaling never
+receives a successful acknowledgement.
 
-On `RetryableDeliveryError` the route answers 503 so Resend retries;
-on any other error it answers 400 without writing. No webhook may be
-registered (staging or production) until the staging migration is
-applied, the route wiring is reviewed, and a signed staging callback is
-proven end to end. Production registration needs separate approval.
+The post-commit observability log is best effort and sanitized to event
+type, Svix event ID and outcome. Logging failure cannot turn an already
+committed event into a failed callback or trigger needless provider retries.
+No recipient, message content, access token or raw payload is logged.
+
+This source integration is **not** a live webhook activation. No webhook may
+be registered in staging or production until the protected staging journal
+migration is applied, source and deployment identity are verified, independent
+review is complete, and signed duplicate/replay/controlled-failure acceptance
+is retained. Production registration needs separate approval.
 
 ## Tests
 
