@@ -4,7 +4,7 @@ Dispatch **Rehearse actual staging public database restore** from `main` after
 review of the final merged workflow. The protected `staging` environment and its
 reviewer gate own access to `STAGING_DATABASE_ADMIN_URL`. Only the canonical
 `qfbgdkbamfaasmtjfyru` direct host or existing us-east-2 session pooler on 5432
-is accepted. Supply a connection URI without query parameters. The workflow
+is accepted. Supply a connection URI without query parameters or with exactly `sslmode=require`; this conventional TLS option is normalized into the fixed connection configuration. All other options and duplicate query keys remain rejected. The workflow
 never fetches a credential or accepts a production/target URL input.
 
 The script opens a repeatable-read, read-only staging transaction, exports its
@@ -29,7 +29,7 @@ local grants test RLS separately.
 Raw data stays inside a mode-0700 directory under `RUNNER_TEMP`, with a
 mode-0600 archive. Python `finally` cleanup and an independent `always()` job
 step remove it on failures; runner disposal is the final cancellation boundary.
-Only fixed phase names and SQLSTATE/fixed error codes diagnose failures. No exception messages, raw dump or subprocess errors are uploaded or printed (errors can contain
+Only fixed phase names and SQLSTATE/fixed error codes diagnose failures. Preflight failures distinguish malformed URI, format, database, query, host/port, and missing credential without exposing any supplied value. No exception messages, raw dump or subprocess errors are uploaded or printed (errors can contain
 row data). Only the specifically named sanitized JSON receipt is retained for
 seven days: run/commit/project identity, elapsed time, archive digest, table
 counts, catalog digest and probe status. A failed run yields no passing receipt.

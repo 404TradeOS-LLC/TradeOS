@@ -10,20 +10,41 @@ import shutil
 import subprocess
 import tempfile
 import time
-from urllib.parse import urlsplit, unquote
+from urllib.parse import urlsplit, unquote, parse_qsl
 
 REF = 'qfbgdkbamfaasmtjfyru'
 
 
+class PreflightError(ValueError):
+    """Fixed diagnostic codes; never retain a credential or URI component."""
+    def __init__(self, code):
+        self.code = code
+        super().__init__(code)
+
+
 def source_config(value):
-    u = urlsplit(value)
-    user = unquote(u.username or '')
-    direct = u.hostname == f'db.{REF}.supabase.co' and u.port in (None, 5432)
-    pool = u.hostname == 'aws-0-us-east-2.pooler.supabase.com' and u.port == 5432 and user.endswith('.' + REF)
-    # No URI options: libpq host/hostaddr/service/options can redirect or alter safety.
-    if u.scheme not in ('postgres', 'postgresql') or u.path != '/postgres' or u.query or u.fragment or not (direct or pool) or not user or not u.password:
-        raise ValueError('Invalid staging connection identity')
-    return dict(host=u.hostname, port=u.port or 5432, dbname='postgres', user=user,
+    try:
+        u = urlsplit(value)
+        port = u.port
+        user = unquote(u.username or '')
+        query = parse_qsl(u.query, keep_blank_values=True, strict_parsing=True)
+    except ValueError:
+        raise PreflightError('SOURCE_URI_MALFORMED') from None
+    if u.scheme not in ('postgres', 'postgresql') or u.fragment:
+        raise PreflightError('SOURCE_URI_FORMAT')
+    if u.path != '/postgres':
+        raise PreflightError('SOURCE_DATABASE_REJECTED')
+    # Permit only the conventional TLS query. Never pass URI options to libpq:
+    # host/hostaddr/service/options could redirect or change read-only safety.
+    if query not in ([], [('sslmode', 'require')]):
+        raise PreflightError('SOURCE_QUERY_REJECTED')
+    direct = u.hostname == f'db.{REF}.supabase.co' and port in (None, 5432)
+    pool = u.hostname == 'aws-0-us-east-2.pooler.supabase.com' and port == 5432 and user.endswith('.' + REF)
+    if not (direct or pool):
+        raise PreflightError('SOURCE_HOST_OR_PORT_REJECTED')
+    if not user or not u.password:
+        raise PreflightError('SOURCE_CREDENTIAL_MISSING')
+    return dict(host=u.hostname, port=port or 5432, dbname='postgres', user=user,
                 password=unquote(u.password), sslmode='require', connect_timeout=15,
                 options='-c default_transaction_read_only=on -c statement_timeout=600000')
 
@@ -100,6 +121,8 @@ def probe_outcome(tenant_count, global_count):
 
 
 def failure_metadata(error):
+    if isinstance(error, PreflightError):
+        return {'status': 'failed', 'phase': PHASE, 'code': error.code}
     code = getattr(error, 'sqlstate', None)
     if not isinstance(code, str) or not re.fullmatch(r'[0-9A-Z]{5}', code):
         code = 'SUBPROCESS_FAILED' if isinstance(error, subprocess.CalledProcessError) else 'REHEARSAL_FAILED'

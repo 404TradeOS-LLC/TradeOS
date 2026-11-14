@@ -24,6 +24,20 @@ class GuardTests(unittest.TestCase):
                 m.source_config(value)
         self.assertEqual(m.source_config(f'postgres://postgres.{m.REF}:x@aws-0-us-east-2.pooler.supabase.com:5432/postgres')['port'], 5432)
 
+    def test_conventional_tls_query_is_normalized_without_libpq_options(self):
+        base = f'postgresql://postgres:secret@db.{m.REF}.supabase.co/postgres'
+        self.assertEqual(m.source_config(base + '?sslmode=require'), m.source_config(base))
+        for query in ('sslmode=require&sslmode=require', 'sslmode=require&host=evil',
+                      'service=other', 'options=-c+default_transaction_read_only=off',
+                      'hostaddr=127.0.0.1', 'sslmode=disable'):
+            with self.assertRaises(m.PreflightError) as caught:
+                m.source_config(base + '?' + query)
+            self.assertEqual(m.failure_metadata(caught.exception)['code'], 'SOURCE_QUERY_REJECTED')
+            self.assertNotIn('secret', str(m.failure_metadata(caught.exception)))
+        with self.assertRaises(m.PreflightError) as caught:
+            m.source_config(base.replace(':secret', ''))
+        self.assertEqual(caught.exception.code, 'SOURCE_CREDENTIAL_MISSING')
+
     def test_commands_never_emit_database_errors(self):
         with patch.object(m.subprocess, 'run') as run:
             m.command(['pg_dump'], {})
