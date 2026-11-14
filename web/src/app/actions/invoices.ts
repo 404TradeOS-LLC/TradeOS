@@ -12,9 +12,15 @@ import {
 } from "./manual-invoice-lines";
 import { parseInvoiceDueDate } from "./invoice-due-date";
 
-export async function createInvoiceAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+export type CreateInvoiceResult = { invoiceId: string } | { error: string; unconfirmed?: boolean };
+
+export async function createInvoiceAction(formData: FormData): Promise<CreateInvoiceResult> {
   const token = await getSessionToken();
   const projectId = String(formData.get("projectId") ?? "");
+  const key = String(formData.get("createRequestKey") ?? "");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key)) {
+    return { error: "Refresh this form before creating an invoice." };
+  }
   const estimateId = String(formData.get("estimateId") ?? "");
   const proposalId = String(formData.get("proposalId") ?? "").trim();
   const type = String(formData.get("type") ?? "full");
@@ -40,9 +46,10 @@ export async function createInvoiceAction(_prev: FormActionState, formData: Form
 
   let invoice: Invoice;
   try {
-    invoice = await apiFetch<Invoice>("/api/v1/invoices", {
+    invoice = await apiFetch<Invoice>("/api/v1/invoices/drafts", {
       method: "POST",
       token: token ?? undefined,
+      headers: { "Idempotency-Key": key },
       body: JSON.stringify({
         projectId,
         estimateId: estimateId || undefined,
@@ -54,11 +61,16 @@ export async function createInvoiceAction(_prev: FormActionState, formData: Form
       }),
     });
   } catch (err) {
-    return { error: err instanceof ApiClientError ? err.message : "Something went wrong." };
+    if (err instanceof ApiClientError && [400, 401, 403, 404, 422].includes(err.status)) return { error: err.message };
+    if (err instanceof ApiClientError && err.status === 409) return { error: err.message, unconfirmed: true };
+    return { error: "Could not confirm whether the draft was saved.", unconfirmed: true };
   }
 
+  if (!invoice?.id || invoice.projectId !== projectId) {
+    return { error: "Could not confirm whether the draft was saved.", unconfirmed: true };
+  }
   revalidatePath(`/projects/${projectId}`);
-  redirect(`/projects/${projectId}/invoices/${invoice.id}`);
+  return { invoiceId: invoice.id };
 }
 
 export async function updateInvoiceAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {

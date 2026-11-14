@@ -27,7 +27,7 @@ import { estimateEngineRouter } from "./routes/estimateEngine.routes";
 import { aiEstimateAssistRouter } from "./routes/aiEstimateAssist.routes";
 import { proposalGeneratorRouter } from "./routes/proposalGenerator.routes";
 import { proposalsRouter } from "./routes/proposals.routes";
-import { invoicesRouter } from "./routes/invoices.routes";
+import { invoicesRouter, recoverableInvoiceCreateRouter } from "./routes/invoices.routes";
 import { contractsRouter } from "./routes/contracts.routes";
 import { adminDashboardRouter } from "./routes/adminDashboard.routes";
 import { projectCustomerScopeRouter } from "./routes/projectCustomerScope.routes";
@@ -107,7 +107,9 @@ export function createServer() {
   // The single-use state token is the credential; the handler re-enters the
   // tenant-scoped background-session boundary before persisting anything.
   app.use("/api/v1/supplier-integrations", abcOAuthCallbackRouter);
-  app.use("/api/v1", requireAuth, databaseSession);
+  app.use("/api/v1", requireAuth);
+  app.use("/api/v1/invoices", recoverableInvoiceCreateRouter);
+  app.use("/api/v1", databaseSession);
   app.use("/api/v1/account", accountRouter);
   app.use("/api/v1/billing", billingRouter);
   app.use("/api/v1/costbook", costbookRouter);
