@@ -292,7 +292,13 @@ export class ProposalsService {
     const row = await this.findOrThrow(id, orgId);
     if (row.status !== "draft") throw new ApiError(409, `Proposal ${id} has already been sent`);
     this.normalizePaymentSchedule(row.paymentScheduleJson);
-    const updated = await prisma.proposal.update({ where: { id }, data: { status: "sent", sentAt: new Date() } });
+    // Sending and staff-recorded offline approval compete for the same draft.
+    // Require the exact revision we validated so neither can overwrite the other.
+    const updated = await prisma.proposal.updateMany({
+      where: { id, status: "draft", updatedAt: row.updatedAt, project: orgId ? { orgId } : undefined },
+      data: { status: "sent", sentAt: new Date() },
+    });
+    if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before it could be sent`);
     try {
       await getDefaultAthenaEventService().publish({
         orgId: orgId ?? row.project.orgId ?? "",
@@ -317,7 +323,7 @@ export class ProposalsService {
       metadata: { previousStatus: row.status, newStatus: "sent" },
     });
     await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
-    return this.getById(updated.id, orgId);
+    return this.getById(id, orgId);
   }
 
   async markViewed(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
@@ -396,7 +402,7 @@ export class ProposalsService {
     }
     this.normalizePaymentSchedule(row.paymentScheduleJson);
     const updated = await prisma.proposal.updateMany({
-      where: { id, status: "draft", project: { orgId } },
+      where: { id, status: "draft", updatedAt: row.updatedAt, project: { orgId } },
       data: { status: "accepted", respondedAt: new Date() },
     });
     if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before offline acceptance could be recorded`);
