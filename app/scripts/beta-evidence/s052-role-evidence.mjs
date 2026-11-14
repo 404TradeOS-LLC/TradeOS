@@ -7,6 +7,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright";
 import { assertApprovedRcUrl } from "./lib/rc-target.mjs";
+import { createdProjectIdFromUrl } from "./lib/project-detail-url.mjs";
 import {
   VIEWPORTS,
   assessResponsiveQuality,
@@ -20,10 +21,11 @@ const adminPassword = process.env.BETA_S052_ADMIN_PASSWORD;
 const inactiveEmail = process.env.BETA_S052_INACTIVE_EMAIL;
 const inactivePassword = process.env.BETA_S052_INACTIVE_PASSWORD;
 const expectedOrg = process.env.BETA_SMOKE_ORG_LABEL;
+const expectedOrgId = process.env.BETA_SMOKE_ORG_ID;
 const runId = process.env.BETA_RUN_ID;
 const allowMutations = process.env.BETA_ALLOW_MUTATIONS === "true";
 const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
-const requiredRoleViewportNames = ["1440", "768", "390"];
+const requiredRoleViewportNames = ["1440", "1024", "768", "390"];
 const roleViewports = VIEWPORTS.filter((viewport) => requiredRoleViewportNames.includes(viewport.name));
 
 function fail(message) {
@@ -38,13 +40,14 @@ for (const [name, value] of Object.entries({
   BETA_S052_INACTIVE_EMAIL: inactiveEmail,
   BETA_S052_INACTIVE_PASSWORD: inactivePassword,
   BETA_SMOKE_ORG_LABEL: expectedOrg,
+  BETA_SMOKE_ORG_ID: expectedOrgId,
   BETA_RUN_ID: runId,
 })) {
   if (!value) fail(`${name} is required for S052 role evidence.`);
 }
 if (!allowMutations) fail("BETA_ALLOW_MUTATIONS=true is required for S052 admin evidence.");
 if (roleViewports.length !== requiredRoleViewportNames.length) {
-  fail("Required S052 role-evidence viewports 1440/768/390 are not available in the canonical viewport set.");
+  fail("Required S052 role-evidence viewports 1440/1024/768/390 are not available in the canonical viewport set.");
 }
 
 let parsedBaseUrl;
@@ -61,6 +64,7 @@ const report = {
   runId,
   baseUrl: parsedBaseUrl.origin,
   expectedOrganization: expectedOrg,
+  expectedOrganizationId: expectedOrgId,
   admin: [],
   inactiveMembership: null,
   result: "FAIL",
@@ -107,8 +111,19 @@ try {
         throw new Error(`admin settings assertion failed: HTTP ${settingsResponse.status()}, role=${settings?.currentRole ?? "missing"}`);
       }
 
+      if (settings.orgId !== expectedOrgId) {
+        throw new Error("admin settings resolved to an unexpected organization id");
+      }
+
       await page.goto(new URL("/settings", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
-      const companyName = await page.locator('input[id$="-companyName-input"]').first().inputValue().catch(() => "");
+      // Settings opens Costbook by default. Select the visible responsive
+      // General control before reading its Company name field.
+      if (viewport.width >= 1280) {
+        await page.getByRole("button", { name: "General", exact: true }).click();
+      } else {
+        await page.getByLabel("Select settings section").selectOption("general");
+      }
+      const companyName = await page.getByLabel("Company name", { exact: true }).inputValue();
       if (companyName !== expectedOrg) {
         throw new Error(`admin identity resolved to unexpected organization "${companyName}"`);
       }
@@ -121,20 +136,24 @@ try {
       const customerId = /\/customers\/([^/?]+)/.exec(page.url())?.[1];
       if (!customerId) throw new Error("admin-created Customer id was not present in the destination URL");
 
-      await page.goto(new URL("/projects/new", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
-      await page.locator("select[name=customerId]").selectOption({ label: customerName });
+      await page.goto(
+        new URL(`/projects/new?customerId=${encodeURIComponent(customerId)}`, parsedBaseUrl).toString(),
+        { waitUntil: "networkidle", timeout: 60_000 },
+      );
+      const linkedCustomerId = await page.locator('input[type="hidden"][name="customerId"]').inputValue();
+      if (linkedCustomerId !== customerId) {
+        throw new Error("admin Project create form lost the newly created Customer context");
+      }
       await page.locator('[name="name"]').fill(projectName);
       await page.locator('[name="jobType"]').fill("S052 certification");
       await page.locator('[name="siteAddress"]').fill("300 Admin Evidence Way");
       await page.locator('[name="simpleScope"]').fill(scope);
       await page.getByRole("button", { name: "Create project" }).click();
-      await page.waitForURL(/\/projects(?:\?|$)/, { timeout: 60_000 });
-      const projectLink = page.locator('a[href^="/projects/"]').filter({ hasText: projectName }).first();
-      const projectHref = await projectLink.getAttribute("href");
-      const projectId = projectHref ? /\/projects\/([^/?]+)/.exec(projectHref)?.[1] : null;
-      if (!projectId) throw new Error(`admin-created Project id was not found; href=${projectHref ?? "missing"}`);
-      await projectLink.click();
-      await page.waitForURL(new RegExp(`/projects/${projectId}(?:$|[/?])`), { timeout: 60_000 });
+      // Project creation navigates directly to the saved UUID workspace.
+      // Never accept /projects/new or depend on the obsolete list redirect.
+      await page.waitForURL((url) => createdProjectIdFromUrl(url) !== null, { timeout: 60_000 });
+      const projectId = createdProjectIdFromUrl(page.url());
+      if (!projectId) throw new Error("admin-created Project id was not present in the destination URL");
       await page.waitForLoadState("networkidle");
 
       const projectResponse = await context.request.get(new URL(`/api/proxy/projects/${projectId}`, parsedBaseUrl).toString());
@@ -187,13 +206,20 @@ try {
     const page = await context.newPage();
     try {
       await signIn(page, inactiveEmail, inactivePassword);
-      const inactiveAlert = page.getByRole("alert");
+      // Next.js also renders an empty route-announcer alert. Match only the
+      // explicit application membership-denial contract after login settles.
+      const inactiveAlert = page.getByRole("alert").filter({
+        hasText: /^(Authenticated user is not provisioned in this organization|User exists but has no active organization membership)$/,
+      });
       await inactiveAlert.waitFor({ timeout: 60_000 });
       const inactiveMessage = (await inactiveAlert.innerText()).trim();
       const finalPath = new URL(page.url()).pathname;
       const settingsResponse = await context.request.get(new URL("/api/proxy/settings", parsedBaseUrl).toString());
       const denied = settingsResponse.status() === 401 || settingsResponse.status() === 403;
-      const bootstrapDenied = inactiveMessage === "Authenticated user is not provisioned in this organization";
+      const bootstrapDenied = [
+        "Authenticated user is not provisioned in this organization",
+        "User exists but has no active organization membership",
+      ].includes(inactiveMessage);
       if (!bootstrapDenied || !denied || finalPath === "/dashboard") {
         throw new Error(
           `inactive membership was not proven: bootstrapDenied=${bootstrapDenied}, path=${finalPath}, settings HTTP ${settingsResponse.status()}`,
@@ -204,6 +230,7 @@ try {
         finalPath,
         settingsStatus: settingsResponse.status(),
         bootstrapDenied: true,
+        denialMessage: inactiveMessage,
         passed: true,
       };
     } finally {
@@ -211,8 +238,8 @@ try {
     }
   }
 
-  if (!["1440", "768", "390"].every((name) => report.admin.some((entry) => entry.viewport === name && entry.passed))) {
-    throw new Error("admin evidence did not pass all required 1440/768/390 viewports");
+  if (!["1440", "1024", "768", "390"].every((name) => report.admin.some((entry) => entry.viewport === name && entry.passed))) {
+    throw new Error("admin evidence did not pass all required 1440/1024/768/390 viewports");
   }
   if (!report.inactiveMembership?.passed) {
     throw new Error("inactive-membership denial was not proven");
@@ -231,4 +258,4 @@ if (failure) {
   console.error(`::error::[s052-role-evidence] ${failure.message}`);
   process.exit(1);
 }
-console.log("S052 role evidence PASS — admin 1440/768/390 and inactive-membership denial verified");
+console.log("S052 role evidence PASS — admin 1440/1024/768/390 and inactive-membership denial verified");

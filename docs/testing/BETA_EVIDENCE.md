@@ -97,7 +97,7 @@ resolve RC target  ->  authenticate  ->  capture per viewport  ->  validate  -> 
 | Resolve | `resolve-rc-target.mjs` | Decide the RC URL once, prove it is non-production, correlate the deployment SHA |
 | Authenticate | `auth-setup.mjs` | Real login through the shipped form; validate the session; write storage state outside the repo |
 | Capture | `capture-evidence.mjs` | Drive the canonical workflow at one viewport, asserting business meaning and capturing checkpoints |
-| S052 roles | `s052-role-evidence.mjs` | For `s052` only, prove dedicated admin Customer→Project behavior at 1440/768/390 and inactive-membership denial without persisting role storage state |
+| S052 roles | `s052-role-evidence.mjs` | For `s052` only, prove dedicated admin Customer→Project behavior at 1440/1024/768/390 and inactive-membership denial without persisting role storage state |
 | Isolate | `tenant-isolation.mjs` | Prove the smoke identity cannot read another tenant's resources |
 | Validate | `validate-artifacts.mjs` | Verify the artifact bundle, emit `metadata.json` and the Actions summary |
 | Orchestrate | `run.mjs` | Local entrypoint (`npm run beta:evidence`) |
@@ -368,7 +368,7 @@ Runs are serialized (`concurrency: tradeos-beta-evidence`,
 
 The `s052` scenario certifies the already-shipped Customer / ServiceAddress / Project vertical. It does not create a new Customer model, permission policy, or merge policy.
 
-The ordinary smoke identity is the **owner** path. At the required 1440, 768, and 390 viewports it must prove:
+The ordinary smoke identity is the **owner** path. At the required 1440, 1024, 768, and 390 viewports it must prove:
 
 - Customer creation lands on the exact server-created Customer record;
 - Customer edits persist through navigation/reload;
@@ -380,7 +380,7 @@ The ordinary smoke identity is the **owner** path. At the required 1440, 768, an
 
 The scenario also runs `s052-role-evidence.mjs` with **dedicated synthetic identities**:
 
-- `BETA_RC_S052_ADMIN_EMAIL` / `BETA_RC_S052_ADMIN_PASSWORD` must resolve through `/api/proxy/settings` to the `admin` role in the same smoke organization. That identity creates its own Customer and Customer-linked Project at 1440, 768, and 390 and must pass the same responsive truth gate.
+- `BETA_RC_S052_ADMIN_EMAIL` / `BETA_RC_S052_ADMIN_PASSWORD` must resolve through `/api/proxy/settings` to the `admin` role in the same smoke organization. That identity creates its own Customer and Customer-linked Project at 1440, 1024, 768, and 390 and must pass the same responsive truth gate.
 - `BETA_RC_S052_INACTIVE_EMAIL` / `BETA_RC_S052_INACTIVE_PASSWORD` must identify a prepared account whose organization membership is inactive. The evidence is valid only when protected settings access is denied and the identity never reaches the authenticated dashboard.
 
 The generic tenant-isolation probe remains authoritative for cross-tenant resources. S052 requires **both** `BETA_RC_FOREIGN_CUSTOMER_ID` and `BETA_RC_FOREIGN_PROJECT_ID`, each belonging to a separate synthetic tenant, and both API probes must return 403/404.
@@ -608,3 +608,20 @@ PR #933 follow-up: fixture proof must belong to the same passing foreign-PDF pro
 Managed local runs may opt into inherited HTTPS proxy routing with `NODE_USE_ENV_PROXY=1`; both browser navigation and context API requests use that proxy. Multiline Playwright call logs are excluded from retained error messages because they can contain session cookies. Signed URL queries and credential headers are redacted.
 
 Network acceptance blocks all application and unknown external failures. Only the exact GET for Vercel's optional preview-feedback script is classified separately in `excludedPreviewRequests`; that failure is retained, never labelled as a successful request.
+
+
+### S052 role continuity harness repair
+
+The admin capture follows the same saved UUID Project redirect as the owner
+capture, then independently checks the persisted Customer link, address and
+scope through the authenticated API. Settings opens Costbook by default; the
+capture selects General through the visible desktop/mobile navigation before
+checking the exact Company name. Admin proof and artifact validation require
+all four canonical widths, including 1024.
+
+Inactive membership evidence waits for an explicit application denial rather
+than Next.js's empty route-announcer alert. It accepts only the existing
+not-provisioned or no-active-organization-membership messages, still requires
+HTTP 401/403 from Settings, and rejects dashboard navigation. Synthetic
+Supabase fixture subjects must equal the verified JWT subject exactly; a
+fixture-only prefix is not an application identity mapping.
