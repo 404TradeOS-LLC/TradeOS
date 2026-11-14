@@ -228,14 +228,14 @@ if (scenario === "s052") {
   ) {
     scenarioFailures.push("role evidence: inactive-membership bootstrap denial was not proven");
   }
-  for (const requiredAdminViewport of ["1440", "768", "390"]) {
+  for (const requiredAdminViewport of ["1440", "1024", "768", "390"]) {
     if (!(s052RoleEvidence?.admin ?? []).some((entry) => entry.viewport === requiredAdminViewport && entry.passed === true && entry.role === "admin")) {
       scenarioFailures.push(`role evidence: admin happy path missing for ${requiredAdminViewport}px`);
     }
   }
 
   const capturedByName = new Map(captured.map((entry) => [entry.file, entry]));
-  const ownerRequiredViewports = viewports.filter((viewport) => ["1440", "768", "390"].includes(viewport.name));
+  const ownerRequiredViewports = viewports.filter((viewport) => ["1440", "1024", "768", "390"].includes(viewport.name));
   const ownerScreenshots = [
     ["02a", "s052-customer-created"],
     ["02b", "s052-customer-service-address"],
@@ -284,7 +284,7 @@ if (scenario === "s052") {
   }
 
   if (isFullMatrix) {
-    for (const requiredAdminViewport of ["1440", "768", "390"]) {
+    for (const requiredAdminViewport of ["1440", "1024", "768", "390"]) {
       const viewport = VIEWPORTS.find((entry) => entry.name === requiredAdminViewport);
       const file = screenshotFileName(requiredAdminViewport, "02d", "s052-admin");
       const actual = capturedByName.get(file);

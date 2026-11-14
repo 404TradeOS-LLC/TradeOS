@@ -241,13 +241,20 @@ function drawProjectMetaGrid(
   }
 ) {
   const { left, right } = bounds(doc);
-  const top = doc.y;
   const gap = 12;
   const boxWidth = (right - left - gap) / 2;
-  const boxHeight = 84;
+  const customerLines = [data.customerName, data.customerEmail].filter(Boolean).map((line) => normalizeLineBreaks(line!));
+  const projectLines = [data.projectName, data.projectAddress ?? "No address saved"].map(normalizeLineBreaks);
+  doc.font("Helvetica").fontSize(11);
+  const cardHeight = (lines: string[]) => Math.max(84, 32 + lines.reduce(
+    (height, line) => height + doc.heightOfString(line, { width: boxWidth - 28 }) + 6, 0
+  ) + 8);
+  const boxHeight = Math.max(cardHeight(customerLines), cardHeight(projectLines));
+  ensureSpace(doc, boxHeight + 40);
+  const top = doc.y;
 
-  drawInfoCard(doc, left, top, boxWidth, boxHeight, "Customer", [data.customerName, data.customerEmail].filter(Boolean) as string[]);
-  drawInfoCard(doc, left + boxWidth + gap, top, boxWidth, boxHeight, "Project", [data.projectName, data.projectAddress ?? "No address saved"]);
+  drawInfoCard(doc, left, top, boxWidth, boxHeight, "Customer", customerLines);
+  drawInfoCard(doc, left + boxWidth + gap, top, boxWidth, boxHeight, "Project", projectLines);
   doc.y = top + boxHeight + 12;
   doc.fontSize(9).fillColor(BRAND.muted).text(`${data.dateLabel}   •   ${data.statusLabel}`);
   doc.fillColor(BRAND.ink);
@@ -266,7 +273,7 @@ function drawInfoCard(doc: any, x: number, y: number, width: number, height: num
   let cursorY = y + 32;
   for (const line of lines) {
     doc.text(line, x + 14, cursorY, { width: width - 28 });
-    cursorY += 16;
+    cursorY = doc.y + 6;
   }
 }
 
@@ -287,7 +294,7 @@ function drawMoneyPanel(doc: any, input: { title: string; primary: string; secon
 }
 
 function writeTextSection(doc: any, title: string, content: string) {
-  const normalized = content.trim();
+  const normalized = normalizeLineBreaks(content).trim();
   if (!normalized) return;
   ensureSpace(doc, 120);
   doc.font("Helvetica-Bold").fontSize(12).fillColor(BRAND.ink).text(title);
@@ -301,6 +308,12 @@ function writeTextSection(doc: any, title: string, content: string) {
     align: "left",
   });
   doc.moveDown(1.1);
+}
+
+function normalizeLineBreaks(text: string): string {
+  // PDFKit splits on LF; raw CR and Unicode paragraph separators otherwise
+  // enter the standard-font hex text operators as visible control glyphs.
+  return text.replace(/\r\n|\r|\u2028|\u2029/g, "\n");
 }
 
 function writePaymentScheduleSection(doc: any, paymentScheduleJson: unknown) {
