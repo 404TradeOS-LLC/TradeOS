@@ -40,3 +40,5 @@ those beta recovery gates open. Measured elapsed time covers this rehearsal,
 not an approved production RTO.
 
 Local checks: `python3 -m unittest discover -s scripts -p test_staging_database_restore.py`.
+
+Subprocess failures retain only fixed diagnostic categories (for example, missing schema/function or duplicate object). Raw PostgreSQL diagnostics may include SQL and row values; they remain in an anonymous temporary file, are read only for classification, and are never logged or uploaded. Unknown diagnostics remain `SUBPROCESS_FAILED`; a failure is never treated as successful recovery.

@@ -42,10 +42,29 @@ class GuardTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 'SOURCE_CREDENTIAL_MISSING')
 
     def test_commands_never_emit_database_errors(self):
-        with patch.object(m.subprocess, 'run') as run:
+        with patch.object(m.subprocess, 'run', return_value=types.SimpleNamespace(returncode=0)) as run:
             m.command(['pg_dump'], {})
-            self.assertEqual(run.call_args.kwargs['stderr'], m.subprocess.DEVNULL)
+            self.assertTrue(run.call_args.kwargs['stderr'].closed)
             self.assertEqual(run.call_args.kwargs['timeout'], 900)
+
+    def test_command_diagnostics_emit_fixed_codes_not_rows_sql_or_credentials(self):
+        samples = [
+            (b'pg_restore: error: could not execute query: ERROR: schema "auth" does not exist\nCommand was: SECRET SQL', 'COMMAND_SCHEMA_MISSING'),
+            (b'ERROR: function secret_private_name(text) does not exist\npassword=SECRET', 'COMMAND_FUNCTION_MISSING'),
+            (b'ERROR: relation "sensitive" already exists', 'COMMAND_OBJECT_EXISTS'),
+            (b'ERROR: insert or update violates foreign key constraint "private"\nDETAIL: Key (email)=(private@example.invalid)', 'COMMAND_FOREIGN_KEY_VIOLATION'),
+            (b'unknown secret connection failure', 'SUBPROCESS_FAILED'),
+        ]
+        for raw, expected in samples:
+            self.assertEqual(m.command_failure_code(raw), expected)
+        def failed(*args, **kwargs):
+            kwargs['stderr'].write(samples[0][0])
+            return types.SimpleNamespace(returncode=1)
+        with patch.object(m.subprocess, 'run', side_effect=failed):
+            with self.assertRaises(m.CommandFailure) as caught:
+                m.command(['pg_restore', 'SECRET-PATH'], {})
+        self.assertEqual(m.failure_metadata(caught.exception)['code'], 'COMMAND_SCHEMA_MISSING')
+        self.assertNotIn('SECRET', str(caught.exception))
 
     def test_raw_directory_removed_on_connection_failure(self):
         fake = types.SimpleNamespace(connect=lambda **kwargs: (_ for _ in ()).throw(RuntimeError('sensitive')), sql=object())
