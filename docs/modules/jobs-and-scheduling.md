@@ -61,6 +61,7 @@ Important job-specific rules:
 
 - manager roles are `owner`, `admin`, and `dispatcher`
 - technician field access is scoped to active assignments
+- assignment accept/decline enforces the field-worker role boundary (`technician`/`owner`/`admin`/`dispatcher`); other roles fail with 403
 - schedule conflict overrides are owner/admin only
 - dispatcher workflows are in scope today; only advanced optimization and route-planning features remain deferred
 
@@ -99,6 +100,21 @@ progresses `scheduled -> dispatched -> traveling -> on_site`, pause/resume is
 `on_site <-> paused`, completion is `on_site -> completed`, cancellation is
 limited to `scheduled|dispatched|paused`, and owner/admin reopen is
 `completed -> unscheduled|scheduled`. Dispatch attention remains derived.
+
+## Optimistic-concurrency guard (expectedUpdatedAt) — 2026-11-11
+
+Transitions (`dispatch`, `startTravel`, `arrive`, `pause`, `resume`,
+`complete`, `cancel`), scheduling/rescheduling, and reopen accept an optional
+`expectedUpdatedAt` revision token — the job's `updatedAt` as last read by the
+caller, following the ProjectTask status-guard pattern. A token that no longer
+matches the just-read revision fails with HTTP 409
+("This job changed since you opened it. Refresh the source workspace before
+saving again.") before any other guard runs, with no write and no activity
+event. The write predicate always carries a revision (the token, or the
+just-read `updatedAt` when omitted), the write bumps `updatedAt` strictly
+forward, and a lost-update (P2025) on the guarded write maps to the same 409.
+The controller accepts the token as an ISO string; the frontend does not send
+it yet.
 
 ## Emitted activity events
 
@@ -205,7 +221,7 @@ This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
 
-## Accepted-proposal conversion (step 9; PR #810 pending)
+## Accepted-proposal conversion (step 9; PR #810 merged 2026-11-04)
 
 On an accepted proposal, **Create field job from accepted proposal** leads to
 the existing service-address selection UI. Its authenticated backend route
@@ -218,13 +234,15 @@ The service verifies project/customer/address consistency, copies the immutable
 approval snapshot (including decimal-price strings), and uses a transaction
 advisory lock before its existence check. A unique nullable proposal-source
 index enforces one Job even under concurrency. Duplicate submissions return the
-existing job and do not duplicate activity. The generic manual job path
-continues to work. Proposal-derived jobs cannot change their project,
-customer, or address through normal Job updates.
+existing job and do not duplicate activity. A unique-violation race during
+creation (P2002) re-reads and returns the existing job instead of failing.
+The generic manual job path continues to work. Proposal-derived jobs cannot
+change their project, customer, or address through normal Job updates.
 
-The additive `20261028151000_accepted_proposal_job_handoff` migration and
-nonproduction RLS, retry, and browser evidence are release prerequisites;
-nothing in this unmerged slice deploys the migration or dispatches a crew.
+The additive `20261028151000_accepted_proposal_job_handoff` migration is part
+of the tracked migration set and applies through the normal deploy path;
+nonproduction RLS, retry, and browser evidence remain release prerequisites.
+Conversion creates the job only; it does not dispatch a crew.
 
 ## Approved baseline in Job workspace (PR #810)
 
@@ -268,3 +286,12 @@ repository's staging branch and lacked the `declined_at` predicate. Code
 parity or green CI is not evidence the live function has been updated.
 Protected staging deploy, version/source correlation, authenticated role
 and tenant-denial probes, and separate production approval remain required.
+
+## Job revision propagation — 2026-11-13
+
+Field transition forms retain the loaded Job revision and dispatcher schedule,
+reschedule and dispatch actions send the revision from the displayed list row.
+Job list summaries now include `updatedAt`. Missing or malformed revisions fail
+closed with refresh guidance; stale backend responses remain visible as errors.
+This connects the optional Job optimistic-concurrency API to normal UI actions;
+no lifecycle, role, tenant or migration semantics are changed.

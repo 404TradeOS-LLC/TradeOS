@@ -19,4 +19,15 @@ describe("job scheduling migration", () => {
     expect(migration).toContain("alter table project_tasks add column if not exists job_id");
     expect(migration).toContain("alter table site_visits add column if not exists job_id");
   });
+
+  it("adds the accepted-proposal provenance columns with a UNIQUE index on source_proposal_id", () => {
+    const migration = fs.readFileSync(
+      path.join(__dirname, "../prisma/migrations/20261028151000_accepted_proposal_job_handoff/migration.sql"),
+      "utf8"
+    );
+
+    expect(migration).toContain('ALTER TABLE "jobs" ADD COLUMN "source_proposal_id" TEXT');
+    expect(migration).toContain('ALTER TABLE "jobs" ADD COLUMN "accepted_baseline_json" JSONB');
+    expect(migration).toContain('CREATE UNIQUE INDEX "jobs_source_proposal_id_key" ON "jobs"("source_proposal_id")');
+  });
 });

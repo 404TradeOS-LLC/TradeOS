@@ -15,6 +15,7 @@ const scheduleSchema = z.object({
   estimatedDurationMinutes: z.coerce.number().int().positive().optional(),
   overrideConflict: z.boolean().optional(),
   overrideReason: z.string().trim().optional(),
+  expectedUpdatedAt: z.string().datetime().optional(),
 });
 
 const assignmentSchema = z.object({
@@ -27,6 +28,7 @@ const assignmentSchema = z.object({
 
 const reasonSchema = z.object({
   reason: z.string().trim().optional(),
+  expectedUpdatedAt: z.string().datetime().optional(),
 });
 
 export const jobsController = {
@@ -46,6 +48,7 @@ export const jobsController = {
         estimatedDurationMinutes: body.estimatedDurationMinutes,
         overrideConflict: body.overrideConflict,
         overrideReason: body.overrideReason,
+        expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined,
       })
     );
   },
@@ -74,6 +77,7 @@ export const jobsController = {
         orgId: requireOrgId(req),
         actor: auth,
         reason: body.reason,
+        expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined,
       })
     );
   },
