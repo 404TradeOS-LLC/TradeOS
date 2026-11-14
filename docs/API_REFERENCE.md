@@ -12,6 +12,11 @@ related_code:
   - app/backend/middleware/errorHandler.ts
 ---
 
+## Proposal PDF text layout
+
+Existing Proposal PDF endpoints preserve their request/response contract. Rendered Customer/Project metadata now uses measured wrapped field heights; saved narrative line endings are normalized before PDF rendering. No new parameter, pricing computation or tenant-access behavior is introduced.
+
+
 # API Reference
 
 ## PDF logo internal private storage bridge
