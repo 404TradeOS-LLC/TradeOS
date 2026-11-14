@@ -55,6 +55,7 @@ export function FieldJobActions({ job }: { job: FieldJobDetail }) {
       {canPause ? (
         <form action={action} className="grid gap-2 rounded-xl border border-border/70 bg-background/70 p-3">
           <input type="hidden" name="jobId" value={job.id} />
+          <input type="hidden" name="expectedUpdatedAt" value={job.updatedAt ?? ""} />
           <input type="hidden" name="transition" value="pause" />
           <label className="grid gap-1.5 text-sm font-medium text-foreground">
             <span>Need to pause?</span>
@@ -70,6 +71,7 @@ export function FieldJobActions({ job }: { job: FieldJobDetail }) {
         <div className="fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-30 mx-auto max-w-4xl rounded-2xl border border-border/70 bg-card/95 p-2 shadow-(--elev-2) backdrop-blur-xl 2xl:static 2xl:mx-0 2xl:max-w-none 2xl:border-0 2xl:bg-transparent 2xl:p-0 2xl:shadow-none 2xl:backdrop-blur-none">
           <form action={action} className="grid gap-1.5">
             <input type="hidden" name="jobId" value={job.id} />
+          <input type="hidden" name="expectedUpdatedAt" value={job.updatedAt ?? ""} />
             <input type="hidden" name="transition" value={primaryTransition} />
             <Button type="submit" disabled={pending} className="min-h-12 w-full text-sm font-semibold">
               {pending ? "Saving…" : ACTION_COPY[primaryTransition]}

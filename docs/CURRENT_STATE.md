@@ -69,6 +69,10 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Proposal-acceptance job verification: stale-state guard, P2002 fallback, assignment-response role check — 2026-11-11
+
+Job transitions, scheduling/rescheduling, and reopen now accept an optional `expectedUpdatedAt` revision token (same pattern as the ProjectTask status guard): a token that no longer matches the job's `updatedAt` fails with HTTP 409, the write predicate always carries a revision (the token, or the just-read `updatedAt` when omitted), and a lost-update (P2025) on the guarded write maps to the same 409. The controller accepts the token as an ISO string on transition/schedule/reschedule/reopen requests; no frontend change sends it yet. `createFromAcceptedProposal` now re-reads and returns the existing job when creation hits the unique `source_proposal_id` index (P2002) instead of surfacing a raw constraint error. Assignment accept/decline now enforces the field-worker role boundary, so non-field roles fail with 403 instead of a misleading 404. Mocked unit coverage added for pause/resume, dispatch/start-travel/arrive, cancel, reopen, the invalid-transition matrix, unassigned-technician denials, and the stale guard; the concurrent-duplicate-conversion and stale-token live tests are written as `app/tests/jobs.from-proposal.integration.ts` for CI (no local Docker PostgreSQL). PR #810 merged 2026-11-04; see API_REFERENCE.md. Hosted PostgreSQL/browser acceptance remains outstanding; authored tests alone are not certification.
+
 ## Estimate authenticated acceptance — 2026-11-05
 
 The opt-in S053 Beta Evidence run now joins Apply acknowledgements to the retained review payload and authenticated organization-scoped Estimate read, requires visible verified saved-line rows, hard-reloads the builder, and checks exact acknowledged IDs, descriptions, persisted quantities and reviewed target links. The separate tenant-isolation lane requires foreign Estimate detail GET to return 403/404; S053 continues to require foreign Athena draft/apply denials. Source checks do not equal a successful deployed run: exact deployment SHA, approved non-production tenant, synthetic identity and protected operator-dispatched `mode=full` evidence remain required. No RLS or permission policy changed.
@@ -1954,3 +1958,12 @@ TEST_STAGING credentials, pinned to a live-verified active synthetic owner org.
 It rejects mismatched environment/UUID/label and never falls back on missing
 credentials. Actual authenticated organization assertion and tenant denial remain
 unchanged. No credential or membership mutation is performed.
+
+## Job revision propagation — 2026-11-13
+
+Field transition forms retain the loaded Job revision and dispatcher schedule,
+reschedule and dispatch actions send the revision from the displayed list row.
+Job list summaries now include `updatedAt`. Missing or malformed revisions fail
+closed with refresh guidance; stale backend responses remain visible as errors.
+This connects the optional Job optimistic-concurrency API to normal UI actions;
+no lifecycle, role, tenant or migration semantics are changed.

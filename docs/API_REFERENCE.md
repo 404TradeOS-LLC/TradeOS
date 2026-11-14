@@ -1145,7 +1145,7 @@ This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
 
-## Accepted proposal → job API (PR #810, proposed)
+## Accepted proposal → job API (PR #810, merged 2026-11-04)
 
 `POST /api/v1/jobs/from-proposal/:proposalId` requires an authenticated
 owner/admin/dispatcher and a UUID proposal id. JSON body is strictly
@@ -1157,7 +1157,7 @@ Repeated requests return the same job; draft/declined proposals and mismatched
 customer/service-address ownership fail. A successful new job is unscheduled
 and does not automatically dispatch crews or invoice. Migration
 `20261028151000_accepted_proposal_job_handoff` is required before runtime use.
-This API is proposed on an unmerged branch, not yet available on production.
+This API merged with PR #810 on 2026-11-04 and is live on main.
 
 ## Accepted-scope conversion validation — 2026-10-30
 

@@ -98,6 +98,7 @@ Jobs have extra scope restrictions beyond the shared permission map:
 
 - technicians can only access jobs where they have an active assignment
 - technicians can accept or decline only their own assignments
+- assignment accept/decline enforces the field-worker role boundary (`technician`/`owner`/`admin`/`dispatcher`) before the assignment lookup; any other role fails with 403 instead of a misleading 404. Assignees are always technicians by construction, so no legitimate caller is excluded by this check.
 - technicians may move assigned jobs through field states that the service permits
 - owners and admins can override schedule conflicts
 - a conflict override requires a nonempty reason and is recorded with the normal
@@ -229,7 +230,7 @@ This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
 
-## Step 9 proposal-to-job conversion permission (PR #810, unmerged)
+## Step 9 proposal-to-job conversion permission (PR #810, merged 2026-11-04)
 
 `POST /api/v1/jobs/from-proposal/:proposalId` uses the existing Job manager
 boundary (owner, admin, dispatcher) and request-authenticated `orgId`; no

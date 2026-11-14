@@ -1,28 +1,39 @@
 const create = jest.fn();
+const createFromAcceptedProposal = jest.fn();
 const list = jest.fn();
 const getById = jest.fn();
 const schedule = jest.fn();
+const reschedule = jest.fn();
+const dispatch = jest.fn();
+const startTravel = jest.fn();
+const arrive = jest.fn();
+const pause = jest.fn();
+const resume = jest.fn();
+const complete = jest.fn();
+const cancel = jest.fn();
+const reopen = jest.fn();
 const archive = jest.fn();
 const getDispatchSummary = jest.fn();
 
 jest.mock("../modules/jobs/service", () => ({
   JobsService: jest.fn().mockImplementation(() => ({
     create,
+    createFromAcceptedProposal,
     list,
     schedule,
+    reschedule,
+    dispatch,
+    startTravel,
+    arrive,
+    pause,
+    resume,
+    complete,
+    cancel,
+    reopen,
     archive,
     getDispatchSummary,
     getById,
     update: jest.fn(),
-    reschedule: jest.fn(),
-    dispatch: jest.fn(),
-    startTravel: jest.fn(),
-    arrive: jest.fn(),
-    pause: jest.fn(),
-    resume: jest.fn(),
-    complete: jest.fn(),
-    cancel: jest.fn(),
-    reopen: jest.fn(),
     readyForInvoice: jest.fn(),
     listAssignments: jest.fn(),
     addAssignment: jest.fn(),
@@ -349,6 +360,167 @@ describe("jobsController", () => {
     );
     expect((res as any).status).toHaveBeenCalledWith(204);
     expect((res as any).send).toHaveBeenCalled();
+  });
+
+  it.each([
+    ["dispatch", dispatch, "dispatcher", { reason: "Crew is ready" }],
+    ["startTravel", startTravel, "technician", { reason: "En route" }],
+    ["arrive", arrive, "technician", {}],
+    ["pause", pause, "technician", { reason: "Waiting on parts" }],
+    ["resume", resume, "technician", {}],
+    ["complete", complete, "technician", {}],
+    ["cancel", cancel, "dispatcher", { reason: "Customer cancelled" }],
+  ] as const)("maps the %s transition body into service input", async (method, serviceFn, role, body) => {
+    serviceFn.mockResolvedValue({ id: "job-1" });
+    const req = {
+      params: { jobId: "job-1" },
+      body,
+      orgId: "org-1",
+      auth: { userId: "actor-1", orgId: "org-1", role },
+    } as any;
+    const res = responseDouble();
+
+    await (jobsController as any)[method](req, res);
+
+    expect(serviceFn).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({
+        orgId: "org-1",
+        actor: (req as any).auth,
+        reason: (body as { reason?: string }).reason,
+      })
+    );
+    expect(res.json).toHaveBeenCalledWith({ id: "job-1" });
+  });
+
+  it("passes expectedUpdatedAt through the dispatch transition as a Date", async () => {
+    dispatch.mockResolvedValue({ id: "job-1" });
+    const req = {
+      params: { jobId: "job-1" },
+      body: { reason: "Crew is ready", expectedUpdatedAt: "2026-07-14T12:00:00.000Z" },
+      orgId: "org-1",
+      auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+    } as any;
+    const res = responseDouble();
+
+    await jobsController.dispatch(req, res);
+
+    expect(dispatch).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({ expectedUpdatedAt: new Date("2026-07-14T12:00:00.000Z") })
+    );
+  });
+
+  it("passes expectedUpdatedAt through the pause transition as a Date", async () => {
+    pause.mockResolvedValue({ id: "job-1" });
+    const req = {
+      params: { jobId: "job-1" },
+      body: { reason: "Waiting on parts", expectedUpdatedAt: "2026-07-14T12:00:00.000Z" },
+      orgId: "org-1",
+      auth: { userId: "tech-1", orgId: "org-1", role: "technician" },
+    } as any;
+    const res = responseDouble();
+
+    await jobsController.pause(req, res);
+
+    expect(pause).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({ expectedUpdatedAt: new Date("2026-07-14T12:00:00.000Z") })
+    );
+  });
+
+  it("passes expectedUpdatedAt through schedule and reschedule as a Date", async () => {
+    const scheduled = { id: "job-1", status: "scheduled" };
+    schedule.mockResolvedValue(scheduled);
+    reschedule.mockResolvedValue(scheduled);
+    const body = {
+      scheduledStart: "2026-07-16T13:00:00.000Z",
+      scheduledEnd: "2026-07-16T15:00:00.000Z",
+      expectedUpdatedAt: "2026-07-14T12:00:00.000Z",
+    };
+    const auth = { userId: "owner-1", orgId: "org-1", role: "owner" };
+
+    await jobsController.schedule({ params: { jobId: "job-1" }, body, orgId: "org-1", auth } as any, responseDouble());
+    expect(schedule).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({ expectedUpdatedAt: new Date("2026-07-14T12:00:00.000Z") })
+    );
+
+    await jobsController.reschedule({ params: { jobId: "job-1" }, body, orgId: "org-1", auth } as any, responseDouble());
+    expect(reschedule).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({ expectedUpdatedAt: new Date("2026-07-14T12:00:00.000Z") })
+    );
+  });
+
+  it("passes status, reason and expectedUpdatedAt through the reopen endpoint", async () => {
+    reopen.mockResolvedValue({ id: "job-1", status: "scheduled" });
+    const req = {
+      params: { jobId: "job-1" },
+      body: { reason: "Callback work", status: "scheduled", expectedUpdatedAt: "2026-07-14T12:00:00.000Z" },
+      orgId: "org-1",
+      auth: { userId: "admin-1", orgId: "org-1", role: "admin" },
+    } as any;
+    const res = responseDouble();
+
+    await jobsController.reopen(req, res);
+
+    expect(reopen).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({
+        orgId: "org-1",
+        actor: (req as any).auth,
+        reason: "Callback work",
+        status: "scheduled",
+        expectedUpdatedAt: new Date("2026-07-14T12:00:00.000Z"),
+      })
+    );
+    expect(res.json).toHaveBeenCalledWith({ id: "job-1", status: "scheduled" });
+  });
+
+  it("passes a valid service address through the from-proposal route", async () => {
+    createFromAcceptedProposal.mockResolvedValue({ id: "job-1", sourceProposalId: "10000000-0000-0000-0000-000000000001" });
+    const req = {
+      params: { proposalId: "10000000-0000-0000-0000-000000000001" },
+      body: { serviceAddressId: "10000000-0000-0000-0000-000000000003" },
+      orgId: "org-1",
+      auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+    } as any;
+    const res = responseDouble();
+
+    await jobsController.createFromAcceptedProposal(req, res);
+
+    expect(createFromAcceptedProposal).toHaveBeenCalledWith({
+      orgId: "org-1",
+      actor: (req as any).auth,
+      proposalId: "10000000-0000-0000-0000-000000000001",
+      serviceAddressId: "10000000-0000-0000-0000-000000000003",
+    });
+    expect(res.json).toHaveBeenCalledWith({ id: "job-1", sourceProposalId: "10000000-0000-0000-0000-000000000001" });
+  });
+
+  it("rejects a non-UUID proposal id on the from-proposal route", async () => {
+    const req = {
+      params: { proposalId: "not-a-uuid" },
+      body: { serviceAddressId: "10000000-0000-0000-0000-000000000003" },
+      orgId: "org-1",
+      auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+    } as any;
+
+    await expect(jobsController.createFromAcceptedProposal(req, responseDouble())).rejects.toThrow();
+    expect(createFromAcceptedProposal).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-UUID service address on the from-proposal route", async () => {
+    const req = {
+      params: { proposalId: "10000000-0000-0000-0000-000000000001" },
+      body: { serviceAddressId: "not-a-uuid" },
+      orgId: "org-1",
+      auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+    } as any;
+
+    await expect(jobsController.createFromAcceptedProposal(req, responseDouble())).rejects.toThrow();
+    expect(createFromAcceptedProposal).not.toHaveBeenCalled();
   });
 });
 
