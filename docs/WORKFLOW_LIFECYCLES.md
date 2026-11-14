@@ -16,6 +16,11 @@ related_code:
   - app/tests/estimate-costbook-snapshot.test.ts
 ---
 
+## Proposal PDF presentation repair
+
+The existing saved Proposal to contractor PDF handoff preserves its amount and snapshot semantics. The shared renderers now measure wrapped Customer/Project fields and normalize saved line endings so long metadata does not overlap later fields and carriage returns do not print as glyphs. This presentation repair does not certify the complete beta workflow; staged PDF bytes and visual review remain separate evidence.
+
+
 # Workflow Lifecycles
 
 ## PDF logo loading does not change commercial state

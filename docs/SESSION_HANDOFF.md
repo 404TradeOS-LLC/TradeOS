@@ -12,6 +12,11 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Beta Proposal PDF layout repair — 2026-11-14
+
+Sprint ID: NONE. Resumed understood uncommitted renderer and regression tests in `/workspace/TradeOS-pdf`, branch `fix/proposal-pdf-wrapped-content`; existing baseline `eab54f2c` fast-forwarded to reviewed main `6cc54a99`. Live overlap check found no competing Proposal renderer repair. Scope is the shared PDF metadata/narrative layout, its behavioral tests and required owner documentation. No schema, roles, pricing, routes or staging changes. Final command results and exact-head hosted checks belong in the PR; root coordinates staged acceptance. The original rendered beta PDF independently reproduced wrapped-field overlap and CRLF control glyphs; Poppler-only font spacing is excluded from this repair.
+
+
 ## Invited-beta disposable recovery evidence — 2026-11-13
 
 - Sprint ID: NONE; resumed existing uncommitted recovery runner/tests in `/workspace/TradeOS-recovery`, branch `test/beta-recovery-rehearsal` (EXISTING_WORK_FOUND). Fetched origin, reconciled open/recent recovery PRs and worktrees, fast-forwarded baseline `99ccafcc` to `0eb3ce15`; no competing restore PR found.
