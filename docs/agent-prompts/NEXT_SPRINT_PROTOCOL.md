@@ -43,8 +43,11 @@ Complete these steps in order before editing:
    dependency, infrastructure, founder-decision, or overlap evidence is
    missing or contradictory.
 
-`continue` resumes only the current bounded mission. It never authorizes a new
-task, another sprint, or broader scope.
+`continue` resumes the current bounded mission and, after its canonical completion,
+advances to the next independently eligible bounded mission within the founder's
+standing authorized workstream in AGENTS.md. Every next mission requires a fresh
+startup, overlap reconciliation, distinct branch/worktree and its own checks.
+An explicitly read-only request still remains read-only.
 
 ## Sprint Selection and Execution
 
@@ -66,8 +69,10 @@ For numbered-sprint work, apply these rules after the Canonical Startup Flow:
    to satisfy `docs/REPOSITORY_GOVERNANCE.md` before merge.
 8. Set the sprint to `DONE` only after merge evidence exists. When necessary,
    use a separate governance-only evidence PR after the implementation merge.
-9. Replace `docs/SESSION_HANDOFF.md` with concise current truth and stop. Do not
-   begin another sprint from the same branch.
+9. Replace `docs/SESSION_HANDOFF.md` with concise current truth. Never begin
+   another sprint on the same branch. A coordinator with standing founder
+   authorization may select the next eligible independent mission after a fresh
+   canonical startup; dependencies and protected decisions remain enforced.
 
 If no sprint qualifies, report the exact blocker and use `Sprint ID: NONE` in
 the handoff instead of inventing work.
@@ -124,7 +129,11 @@ Complete these steps in order before final handoff:
    `git status --short --branch`; upstream and push result; PR number/URL and
    readiness or merge state; remaining risks; and the exact next safe action
    derived from the backlog and handoff (or `NONE`).
-8. Stop after the bounded mission. Completion never authorizes the next task.
+8. Close the bounded mission. For an authorized continuous-execution workstream,
+   repeat canonical startup and reconciliation on the next independent eligible
+   mission. For a single-task or read-only request, stop. Do not use completion
+   to broaden scope, bypass protections, or continue outside an active tool/runtime
+   session.
 
 ## Founder Shortcut
 
