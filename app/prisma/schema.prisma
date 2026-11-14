@@ -1281,6 +1281,8 @@ model Invoice {
   estimateId      String?   @map("estimate_id")
   proposalId      String?   @map("proposal_id")
   invoiceNumber   Int       @map("invoice_number")
+  createRequestKey  String? @map("create_request_key")
+  createRequestHash String? @map("create_request_hash")
   type            String    @default("full")
   status          String    @default("draft")
   percentComplete Decimal?  @map("percent_complete") @db.Decimal(5, 2)
@@ -1302,6 +1304,7 @@ model Invoice {
   deliveries InvoiceDelivery[]
 
   @@unique([projectId, invoiceNumber])
+  @@unique([projectId, createRequestKey], map: "invoices_project_create_request_key")
   @@index([estimateId])
   @@index([proposalId])
   @@map("invoices")

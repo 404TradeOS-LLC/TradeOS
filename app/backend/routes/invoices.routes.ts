@@ -3,6 +3,14 @@ import { invoicesController as ctrl } from "../controllers/invoices.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
 
 export const invoicesRouter = Router();
+export const recoverableInvoiceCreateRouter = Router();
+
+// This router runs after requireAuth and before the generic response-bound DB session.
+recoverableInvoiceCreateRouter.post("/drafts", asyncHandler(ctrl.createRecoverable));
+recoverableInvoiceCreateRouter.post("/", (req, res, next) => {
+  if (req.headers["idempotency-key"] === undefined) return next();
+  return asyncHandler(ctrl.createRecoverable)(req, res, next);
+});
 
 invoicesRouter.get("/", asyncHandler(ctrl.listOrganizationQueue));
 invoicesRouter.get("/by-project/:projectId", asyncHandler(ctrl.listByProject));

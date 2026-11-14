@@ -922,6 +922,8 @@ The existing AI Estimate Assist routes expose this contract:
 
 ## Estimate-backed invoice value transfer
 
+`POST /api/v1/invoices/drafts` requires an `Idempotency-Key` UUID and billing write access. First commit returns 201; same-project replay returns 200 with the same invoice ID and `Idempotency-Replayed: true`. Within the same project, reusing the key with different details returns 409. The same key in another authorized project is independent and can create a separate draft. Retry the original request against its original project. `POST /api/v1/invoices` also uses the recoverable handler when `Idempotency-Key` is supplied: a malformed key returns 400, a new keyed draft returns 201, and a matching replay returns 200. The unkeyed request still uses the original create handler and returns 201 on success. This contract is in draft PR #956 pending release evidence.
+
 When `POST /api/v1/invoices` is created with an `estimateId`, the persisted
 final customer-facing `Estimate.totalPrice` is the invoice amount, including
 persisted tax, unless the project has an accepted proposal with a non-null
