@@ -12,6 +12,36 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Invited-beta disposable recovery evidence — 2026-11-13
+
+- Sprint ID: NONE; resumed existing uncommitted recovery runner/tests in `/workspace/TradeOS-recovery`, branch `test/beta-recovery-rehearsal` (EXISTING_WORK_FOUND). Fetched origin, reconciled open/recent recovery PRs and worktrees, fast-forwarded baseline `99ccafcc` to `0eb3ce15`; no competing restore PR found.
+- Allowed scope: synthetic local runner/tests, root test registration and recovery/runbook evidence. No product schema/migrations, storage/auth policy, production database, provider credentials or paid infrastructure changed.
+- Actual disposable PostgreSQL plus private RustFS S3 recovery passed after source database/object deletion, including exact snapshot rows, later-write exclusion, FK enforcement, enabled/forced RLS and own/foreign/unscoped restricted-role reads, object SHA-256 and anonymous denial. See [the recovery runbook](operations/BETA_RECOVERY_REHEARSAL.md) and its retained JSON receipt for measured timings and runtime identity.
+- MinIO registry pulls failed and its binary endpoint returned 410; full RustFS image exhausted Docker vfs disk. Dependency recovery used checksum-verified upstream RustFS 1.0.5 static binary and a fresh local process, with only the runner's temporary data/container removed. Financial lane database was preserved.
+- Validation: 416 repository tests and 40 docs tests passed; focused recovery tests and documentation ownership check passed. Exact final publication/check state belongs in the PR. This local fixture does not certify TradeOS/Supabase recovery, production backup/PITR or beta GO. Root owns merge/deploy and remaining protected operational evidence.
+
+## PR #981 — verified review-thread evidence gate
+
+- Founder-authorized independent Commander defect after merged PR #980. Started from `main` at `a7b70cc20e7aa3c3dabb4bab24eb15afbc0b99f2`; semantic overlap search found no active matching PR; branch `fix/pr-commander-thread-evidence-fail-closed`.
+- Verified RED: hosted `npm run pr:test` on regression-only head `136a7e54fea4fb252e7cd1832ad11f9104e1f50d` showed missing thread evidence normalized into zero unresolved and a paginated result incorrectly yielding `MERGE_READY`. These cases must be `BLOCKED`.
+- Repair: shared normalizer retains absent/paginated thread evidence as unknown; evaluator validates complete nonnegative totals and blocks unknown, malformed or incomplete evidence. Explicit complete zero-thread responses remain valid. CLI fallback comment and PR Commander docs aligned; no protected workflow, secrets, environment, schema, RLS, auth, billing or production changes.
+- Follow PR #981 for exact final-head CI, review, merge and landed-SHA proof. Do not infer acceptance from this note or create another overlapping PR.
+
+
+## PR #980 — PR Commander required-check success-only gate (in review)
+
+- Founder-authorized CI hardening on existing TradeOS monorepo; `NEW_WORK_REQUIRED` after checking open PR overlap, base `e30b8d4a0cbff6530d8750de96d6b2053afa3ee0`, branch `fix/pr-commander-required-check-conclusions`.
+- Root cause: `scripts/pr-commander-lib.mjs` classified required `SKIPPED` and `NEUTRAL` conclusions as green, permitting `MERGE_READY` without actual successful required validation.
+- Verified RED: original regression-only head `f1aa52caf4dd65bd6f8a4c5a01c8925d6ff7b39f` failed hosted `npm run pr:test` at the new assertion (411 passing / 1 failing), proving a skipped required Web check incorrectly returned `MERGE_READY`.
+- Fix: only `SUCCESS` is green for required checks; optional `SKIPPED`/`NEUTRAL` remain non-blocking. Regression exercises every required check with `SKIPPED` and `NEUTRAL`. `docs/PR_COMMANDER.md` documents intentional stricter-than-GitHub fail-closed policy. No workflow permission, arming, branch-protection, deployment, secrets, schema, billing, auth or production change.
+- GREEN verification was observed for the four required check names, including PostgreSQL integration, at head `8974c792e1a47079c6238cd5d2275ffe062996d5` before the handoff correction. The final merge still requires fresh exact-head check and review reconciliation; see PR #980 for live merge evidence. Continue the same PR and do not create a duplicate.
+
+## Autonomous execution policy reconciliation — PR #979 (pending)
+
+- Repository `404TradeOS-LLC/TradeOS`, base `main` at `99ccafcc347ef1902d5dbf6d56fc5bcc755688b0` when PR was opened; existing work: PR #979, branch `docs/autonomous-execution-default-20261113`. Do not make a duplicate PR. Classification: `EXISTING_WORK_FOUND`.
+- Codex review identified real DOC_OWNERSHIP drift: AGENTS and NEXT_SPRINT_PROTOCOL changes require aligned Bible, Backlog, Engineering Command Center, Session Handoff and Repository Governance. These companion edits clarify consecutive independent missions, not bypass of gates or automatic runtime capability.
+- Source-only documentation amendments; no CI, review approval, merge, staging deployment or production acceptance is implied. Recheck final PR head, docs consistency, required hosted CI and review threads before any merge; runtime PR Commander capabilities still require separate implementation and tests.
+
 ## GitHub issue queue — #927 existing PR #931
 
 - User requested working through GitHub issues. PR #933 is merged as `b3a16b58`; 12 open issues and existing PRs were reconciled. EXISTING_WORK_FOUND for #927 in draft PR #931; use `/workspace/TradeOS-email`, branch `feat/resend-delivery-journal-927`, original head `e517a84376f2f4bf7eebb8319247e4881bdcb791`. Current main was merged normally to preserve the original lane, without force push.

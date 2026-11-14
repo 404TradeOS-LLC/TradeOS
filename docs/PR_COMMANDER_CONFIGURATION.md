@@ -22,10 +22,7 @@ agent creates or enables the arming variable.**
 
 ## Repository variable setup
 
-The Commander is dry-run by default. It acts only when BOTH of these hold:
-
-1. the repository variable below is exactly `"true"`, AND
-2. a `workflow_dispatch` runs with `mode=armed`.
+The Commander is dry-run by default. Write-capable actions require `TRADEOS_PR_COMMANDER_WRITE_ENABLED` to be exactly `true` **and** either an explicit `workflow_dispatch` with `mode=armed`, or an hourly `schedule` run with `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED` also exactly `true`. `pull_request`, `audit`, and ordinary dry-run dispatches remain read-only. Check the live variable values instead of assuming the Commander is currently armed.
 
 ### Create the variable (founder only, after the activation checklist)
 
@@ -41,8 +38,7 @@ reads only this variable and is true only for exactly `"true"`.
 
 Do not create this variable until the activation checklist in
 [PR Commander](PR_COMMANDER.md#activation-checklist-billy-must-complete-before-write-mode)
-is complete. Absent = dry-run, which is the safe default — the variable
-does not exist yet by design.
+is complete. Absent = dry-run, which is the safe default. Earlier activation notes are historical; verify the live variable value before claiming that it exists or is enabled.
 
 ### Verify the variable
 
@@ -64,7 +60,7 @@ GitHub suppresses Actions workflow triggers caused by a push authenticated with 
 
 Before using automatic **repair pushes**, the founder provisions one narrowly scoped, CI-triggering GitHub App installation token or dedicated fine-grained PAT, with repository **Contents read/write** and any required Pull requests permissions, and configures it as the Actions repository **secret** `TRADEOS_PR_COMMANDER_PUSH_TOKEN`. Use only an authorized credential belonging to this repository, protect its lifecycle and rotate/revoke it under the standard owner process. Never paste token bytes into PRs, logs, Notion, or chat. This guide does not create or provision a credential.
 
-The Commander uses that secret **only in the manual armed `act` job checkout**. When the secret is absent, checkout persists no Git credentials, repair pushes are skipped before checkout of a PR, and the job emits a warning; **it never falls back to pushing with `GITHUB_TOKEN`**. Audit, dry-run, verdict and other permitted non-repair actions remain governed by their usual guards. The separate repository variable `TRADEOS_PR_COMMANDER_WRITE_ENABLED` and manual `mode=armed` are still required for *any* write job; possessing the push token alone arms nothing. No agent may create the secret or enable the variable without the founder's separate authorization.
+The Commander uses that secret **only in an effectively armed `act` job checkout** (manual or unattended schedule). When the secret is absent, checkout persists no Git credentials, repair pushes are skipped before checkout of a PR, and the job emits a warning; **it never falls back to pushing with `GITHUB_TOKEN`**. Audit, dry-run, verdict and other permitted non-repair actions remain governed by their usual guards. The separate repository variable `TRADEOS_PR_COMMANDER_WRITE_ENABLED` plus an eligible manual armed dispatch **or** an unattended scheduled run with its second opt-in variable are required for any write job; possessing the push token alone arms nothing. No agent may create the secret or enable the variable without the founder's separate authorization.
 
 Verify the secret's **presence only**, using GitHub Actions Secrets metadata or the repository Settings page; the value is not readable and must not be printed. A successful real repair is certified only after a subsequent exact-head required CI run. Absence of this secret is a **blocked repair capability**, not permission to bypass the CI gate.
 
@@ -82,8 +78,7 @@ the variable set to exactly `"true"` is still a dry-run.
 
 ## Schedule
 
-- **Hourly sweep at :17 UTC** — cron `"17 * * * *"`. Read-only: schedule
-  runs can never act, even if the variable is set.
+- **Hourly sweep at :17 UTC** — cron `"17 * * * *"`. Read-only unless both repository opt-in variables (`TRADEOS_PR_COMMANDER_WRITE_ENABLED` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED`) are exactly `true`; with both set, the existing serialized `act` job may operate, subject to fresh exact-head merge and repair gates.
 - **Fast path** — `pull_request` events (`opened`, `synchronize`,
   `reopened`) evaluate only the changed PR, read-only. This covers
   immediacy, so the sweep does not need a faster cadence.
@@ -134,8 +129,10 @@ A dry-run must leave **zero** trace on any PR. Check all of these:
 4. **No label** — no PR gained the `pr-commander:needs-founder` label from
    this run.
 5. **No merges, no repair pushes, no dispatches** — check the run's
-   `act` job: on a dry-run dispatch it is skipped entirely (its `if:`
-   requires `workflow_dispatch` + variable `"true"` + `mode=armed`).
+   `act` job: on a dry-run dispatch it is skipped entirely. Its `if:`
+   admits a manual `workflow_dispatch` only with `mode=armed` and the write
+   variable set to `true`, or an hourly `schedule` with both write and
+   unattended opt-in variables set to `true`; neither permits dry-run writes.
    No PR shows a new commit from `github-actions[bot]`, no auto-merge was
    enabled, and no `codeql-autofix.yml` run was dispatched by this run.
 

@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 
+import { withJobRevision } from "@/lib/job-revision";
+
 export type FieldActionState = { error?: string } | undefined;
 
 const TRANSITIONS = {
@@ -27,11 +29,18 @@ export async function transitionFieldJobAction(_previous: FieldActionState, form
   if (!jobId || !(transition in TRANSITIONS)) return { error: "Choose a valid job action." };
   if (transition === "pause" && !reason) return { error: "Add a reason before pausing the job." };
 
+  let payload: ReturnType<typeof withJobRevision>;
+  try {
+    payload = withJobRevision(formData.get("expectedUpdatedAt"), reason ? { reason } : {});
+  } catch {
+    return { error: "Job revision is unavailable. Refresh this workspace before saving." };
+  }
+
   try {
     await apiFetch(`/api/v1/jobs/${jobId}/${TRANSITIONS[transition]}`, {
       method: "POST",
       token,
-      body: JSON.stringify(reason ? { reason } : {}),
+      body: JSON.stringify(payload),
     });
   } catch (error) {
     return { error: error instanceof ApiClientError ? error.message : "Unable to update this job." };

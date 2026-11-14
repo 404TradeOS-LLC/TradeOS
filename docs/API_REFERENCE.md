@@ -1145,7 +1145,7 @@ This is a schema/RLS change requiring governed review and migration rehearsal
 before activation. Unit/type/build and hosted PostgreSQL/browser results must
 be recorded from the final head; authored tests alone are not certification.
 
-## Accepted proposal → job API (PR #810, proposed)
+## Accepted proposal → job API (PR #810, merged 2026-11-04)
 
 `POST /api/v1/jobs/from-proposal/:proposalId` requires an authenticated
 owner/admin/dispatcher and a UUID proposal id. JSON body is strictly
@@ -1157,7 +1157,7 @@ Repeated requests return the same job; draft/declined proposals and mismatched
 customer/service-address ownership fail. A successful new job is unscheduled
 and does not automatically dispatch crews or invoice. Migration
 `20261028151000_accepted_proposal_job_handoff` is required before runtime use.
-This API is proposed on an unmerged branch, not yet available on production.
+This API merged with PR #810 on 2026-11-04 and is live on main.
 
 ## Accepted-scope conversion validation — 2026-10-30
 
@@ -1168,6 +1168,14 @@ source-linked Job is still returned on retry, without creating another Job.
 
 Resend delivery journal (draft PR #931): internal verified-event processing now validates/normalizes provider occurrence timestamps and prevents older callbacks from overwriting newer delivery status. This creates no public endpoint and does not activate the separate #923 webhook pilot.
 
+## Authentication single-use token boundary
+
+`POST /auth/reset-password` preserves the invalid-or-expired response when another request has already consumed the token. Consumption is conditional and transactional with the password update and refresh-token revocation.
+
+Invitation acceptance likewise conditionally claims a pending, unaccepted, unexpired token before account, membership or refresh-session writes in the same transaction. Concurrent replay returns the existing invalid-or-expired error. Existing invitation roles and inactive-user reactivation behavior are preserved.
+
+After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
+
 ## Staff-recorded offline acceptance — proposed
 
 `POST /api/v1/proposals/:id/accept-offline`: authenticated
@@ -1176,7 +1184,7 @@ Resend delivery journal (draft PR #931): internal verified-event processing now 
 "confirmed":true}` (method alternatives: `phone`, `signed_document`).
 Rejects missing confirmation/invalid method or 10–500-character note (400);
 insufficient role (403); non-draft/missing final approved written scope or
-positive final price, concurrent status transition (409); tenant mismatches
+positive final price, concurrent status or draft-terms change (409); tenant mismatches
 fail closed through authenticated org scope and forced RLS. Successful 200
 returns the accepted proposal; no outgoing email and no `sentAt` mutation.
 This is an internal staff record, **not** an e-signature or customer portal

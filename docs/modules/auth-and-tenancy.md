@@ -210,6 +210,14 @@ Authenticated request/background database sessions expose their already-validate
 
 Authentication and portal request schemas use patched Zod 4. UUID-shaped relationship inputs retain the former syntax contract via `z.guid()`; this does not change verified JWT subjects, active membership, portal customer binding, role normalization or forced request-session RLS. body-parser 1.20.9 patches compressed request-body failure handling. HTTP validation remains 400 with correlated structured diagnostics. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
 
+## Authentication single-use token boundary
+
+Password-reset tokens are claimed with a conditional unconsumed/unexpired update inside the password-change transaction. A concurrent replay fails with the existing invalid-or-expired response before credentials or refresh sessions change; transaction failure rolls back the claim.
+
+Invitation acceptance likewise conditionally claims a pending, unaccepted, unexpired token before account, membership or refresh-session writes in the same transaction. Concurrent replay returns the existing invalid-or-expired error. Existing invitation roles and inactive-user reactivation behavior are preserved.
+
+After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
+
 ## Internal out-of-band proposal approval authorization (proposed)
 
 An authenticated staff user with `documents.manage` can record a real

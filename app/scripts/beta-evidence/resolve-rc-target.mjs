@@ -16,6 +16,8 @@ import {
   RcTargetError,
 } from "./lib/rc-target.mjs";
 
+import { correlateStagingRuntime } from "./lib/staging-runtime-correlation.mjs";
+
 const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
 
 function fatal(phase, error) {
@@ -65,10 +67,25 @@ async function main() {
   let deploymentSha = null;
   const expectedSha = process.env.BETA_EXPECTED_SHA;
   const reportedSha = process.env.BETA_RC_DEPLOYMENT_SHA;
-  if (process.env.BETA_REQUIRE_SHA_CORRELATION === "true") {
+  let shaCorrelationSource = null;
+  if (environment === "staging" && expectedSha) {
+    // A repository variable is configuration, not observation of the target.
+    // Still reject contradictory configured metadata; never excuse a mismatch.
+    if (reportedSha) assertDeploymentSha(expectedSha, reportedSha);
+    const live = await correlateStagingRuntime({
+      baseUrl: parsed.origin,
+      expectedSha,
+      projectRef: assertNonProductionDataPlane(process.env.BETA_RC_SUPABASE_PROJECT_REF),
+    });
+    deploymentSha = live.deploymentSha;
+    shaCorrelationSource = live.source;
+    supabaseRef = live.dataPlaneRef;
+  } else if (process.env.BETA_REQUIRE_SHA_CORRELATION === "true") {
     deploymentSha = assertDeploymentSha(expectedSha, reportedSha);
+    shaCorrelationSource = "configured-deployment-metadata";
   } else if (expectedSha && reportedSha) {
     deploymentSha = assertDeploymentSha(expectedSha, reportedSha);
+    shaCorrelationSource = "configured-deployment-metadata";
   }
 
   const target = {
@@ -85,6 +102,7 @@ async function main() {
     expectedCommitSha: expectedSha ?? null,
     deploymentCommitSha: deploymentSha,
     shaCorrelated: deploymentSha !== null,
+    shaCorrelationSource,
   };
 
   const targetPath = path.join(outDir, "rc-target.json");
