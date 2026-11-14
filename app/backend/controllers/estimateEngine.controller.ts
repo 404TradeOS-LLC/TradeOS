@@ -1,4 +1,10 @@
 import { Request, Response } from "express";
+import { prisma } from "../../db/client";
+import { ApiError } from "../middleware/errorHandler";
+import { sanitizeDownloadFilename } from "../../modules/documents/format";
+import { buildEstimateMaterialsList } from "../../modules/estimate-engine/materials-list";
+import { renderEstimateMaterialsPdf } from "../../modules/estimate-engine/materials-pdf";
+
 import { z } from "zod";
 import { TransactionalEstimateEngineService } from "../../modules/athena-events/transactionalPublishers";
 import { ActivityTimelineService } from "../../modules/intelligence/service";
@@ -38,6 +44,41 @@ export const estimateEngineController = {
   async getById(req: Request, res: Response) {
     requirePermissions(req, ["crm.read"]);
     res.json(await service.getById(req.params.id, requireOrgId(req)));
+  },
+
+  async getMaterialsPdf(req: Request, res: Response) {
+    requirePermissions(req, ["crm.read"]);
+    const orgId = requireOrgId(req);
+    const estimate = await service.getById(req.params.id, orgId);
+    let shoppingList;
+    try {
+      shoppingList = buildEstimateMaterialsList(estimate.lineItems);
+    } catch {
+      throw new ApiError(409, "Review saved material descriptions and quantities before downloading");
+    }
+    if (shoppingList.items.length === 0) {
+      throw new ApiError(409, "No individual material lines are saved on this estimate; add or review materials before downloading");
+    }
+
+    const project = await prisma.project.findFirst({
+      where: { id: estimate.projectId, orgId },
+      select: { name: true, siteAddress: true, customer: { select: { name: true } } },
+    });
+    if (!project) throw new ApiError(404, "Project not found");
+
+    const buffer = await renderEstimateMaterialsPdf({
+      ...shoppingList,
+      projectName: project.name,
+      siteAddress: project.siteAddress,
+      customerName: project.customer?.name ?? null,
+      estimateVersion: estimate.version,
+    });
+    const safeProjectName = sanitizeDownloadFilename(project.name).replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 60);
+    const filename = `materials-${safeProjectName || "project"}-estimate-v${estimate.version}.pdf`;
+    const disposition = req.query.disposition === "inline" ? "inline" : "attachment";
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `${disposition}; filename="${filename}"`);
+    res.send(buffer);
   },
 
   async listByProject(req: Request, res: Response) {

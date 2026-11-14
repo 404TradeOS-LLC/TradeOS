@@ -244,3 +244,10 @@ invalid quantity, retained Add errors, retry and confirmed-success reset.
 Only transport is synthetic; full-app authenticated and reload evidence is
 separate. Run with `npx playwright test --config playwright.components.config.ts`.
 
+## Customer materials shopping checklist (proposed branch, 2026-11-13)
+
+On an authenticated estimate workspace, the **Customer materials checklist** panel reads the existing organization-scoped saved Estimate detail. It projects only individual `costType=material` lines into a quantity/unit/description/section preview and offers **Preview PDF** and **Download PDF**. The API GET `/api/v1/estimates/:id/materials/pdf` uses the existing `crm.read` permission and organization-scoped Estimate and Project reads, and streams `application/pdf` through the authenticated `/api/documents/*` binary proxy. `?disposition=inline` previews instead of downloading.
+
+No cost, unit price, line cost, margin, markup or estimate sell total is passed into the PDF renderer. A description that already contains a dollar-denominated amount is redacted. An estimate with no explicit material lines returns 409. Invalid material quantities also return 409. Assembly lines are **not** expanded: a top-level assembly may combine labor and materials and cannot be treated as a purchasable quantity. Such lines are counted for a printed warning and must be reviewed separately. The list is an unpriced purchasing aid, not a verified takeoff, supplier quote, purchase order or automatic customer communication.
+
+This is additive and read-only: no schema, Estimate pricing calculation, status, finalization, proposal, customer portal, or purchase/payment behavior changes. Repository/CI evidence and authenticated nonproduction review remain distinct from release acceptance.

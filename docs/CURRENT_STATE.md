@@ -1987,3 +1987,7 @@ Job list summaries now include `updatedAt`. Missing or malformed revisions fail
 closed with refresh guidance; stale backend responses remain visible as errors.
 This connects the optional Job optimistic-concurrency API to normal UI actions;
 no lifecycle, role, tenant or migration semantics are changed.
+
+## Estimate customer materials checklist — proposed source, 2026-11-13
+
+The independent feature branch `feat/estimate-materials-shopping-pdf-20261113` proposes a read-only customer materials panel and tenant-scoped PDF download based on saved explicit material Estimate lines. It omits all stored cost/sell fields, exposes preview/download through the existing authenticated documents proxy, and warns that assemblies are not decomposed. No schema, RLS, financial formulas, or lifecycle transitions change. This is **branch source only** until exact-head hosted CI, review and merge; no deployed four-width/authenticated acceptance or production delivery is claimed.
