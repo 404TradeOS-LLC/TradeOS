@@ -217,6 +217,54 @@ describe("CustomerPortalService", () => {
     await expect(service.getInvoice(context, "invoice-a")).rejects.toThrow("not found");
   });
 
+  it("does not expose internal offline acceptance notes in customer-portal proposal responses", async () => {
+    const service = new CustomerPortalService() as any;
+    const staffNote = "Customer called staff privately; internal approval case ID 123";
+    const accepted = {
+      id: "proposal-a", status: "accepted", deliveries: [
+        { id: "event-1", eventType: "proposal.accepted", actorUserId: "user-internal-123", recipientEmail: "private@example.invalid", metadata: {
+          source: "staff_recorded_offline", acceptanceNote: staffNote, acceptanceChannel: "phone",
+        } },
+        { id: "event-2", eventType: "proposal.viewed", metadata: { previousStatus: "sent" } },
+      ],
+    };
+    service.proposals = { getById: jest.fn().mockResolvedValue(accepted) };
+    mockPrisma.proposal.findFirst.mockResolvedValue({ id: "proposal-a", status: "accepted" });
+
+    const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
+    const response = await service.getProposal(context, "proposal-a");
+
+    expect(JSON.stringify(response)).not.toContain(staffNote);
+    expect(JSON.stringify(response)).not.toContain("user-internal-123");
+    expect(JSON.stringify(response)).not.toContain("private@example.invalid");
+    expect(response.deliveries[0].actorUserId).toBeNull();
+    expect(response.deliveries[0].recipientEmail).toBeNull();
+    expect(response.deliveries[0].metadata).toEqual({ source: "staff_recorded_offline" });
+    expect(response.deliveries[1].metadata).toEqual({ previousStatus: "sent" });
+    expect(accepted.deliveries[0].metadata.acceptanceNote).toBe(staffNote); // keep internal record untouched
+  });
+
+  it("also redacts staff-only approval metadata from proposal summaries on the portal project", async () => {
+    const service = new CustomerPortalService() as any;
+    const staffNote = "Private staff conversation note not for the portal";
+    service.proposals = {
+      listByProject: jest.fn().mockResolvedValue([
+        { id: "proposal-a", status: "accepted", deliveries: [
+          { eventType: "proposal.accepted", actorUserId: "staff-private-id", recipientEmail: "staff-private@example.invalid", metadata: { source: "staff_recorded_offline", acceptanceNote: staffNote } },
+        ] },
+      ]),
+    };
+    service.invoices = { listByProject: jest.fn().mockResolvedValue([]) };
+    service.contracts = { listByProject: jest.fn().mockResolvedValue([]) };
+    mockPrisma.project.findFirst.mockResolvedValue({ id: "project-a", name: "Synthetic job", status: "estimating", siteAddress: null });
+    const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
+    const response = await service.getProject(context, "project-a");
+    expect(JSON.stringify(response)).not.toContain(staffNote);
+    expect(JSON.stringify(response)).not.toContain("staff-private-id");
+    expect(JSON.stringify(response)).not.toContain("staff-private@example.invalid");
+    expect(response.proposals[0].deliveries[0].metadata).toEqual({ source: "staff_recorded_offline" });
+  });
+
   it("denies expired and revoked sessions before loading customer records", async () => {
     mockTransaction.customerPortalSession.findFirst.mockResolvedValue(null);
     await expect(new CustomerPortalService().resolveSession("F".repeat(43))).rejects.toThrow("invalid or expired");

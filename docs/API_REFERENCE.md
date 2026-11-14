@@ -1175,3 +1175,17 @@ Resend delivery journal (draft PR #931): internal verified-event processing now 
 Invitation acceptance likewise conditionally claims a pending, unaccepted, unexpired token before account, membership or refresh-session writes in the same transaction. Concurrent replay returns the existing invalid-or-expired error. Existing invitation roles and inactive-user reactivation behavior are preserved.
 
 After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
+
+## Staff-recorded offline acceptance — proposed
+
+`POST /api/v1/proposals/:id/accept-offline`: authenticated
+`documents.manage` only. JSON body: `{"channel":"in_person",
+"note":"Customer approved the final scope and price on site.",
+"confirmed":true}` (method alternatives: `phone`, `signed_document`).
+Rejects missing confirmation/invalid method or 10–500-character note (400);
+insufficient role (403); non-draft/missing final approved written scope or
+positive final price, concurrent status or draft-terms change (409); tenant mismatches
+fail closed through authenticated org scope and forced RLS. Successful 200
+returns the accepted proposal; no outgoing email and no `sentAt` mutation.
+This is an internal staff record, **not** an e-signature or customer portal
+assertion.

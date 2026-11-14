@@ -228,3 +228,33 @@ Password recovery uses an atomic conditional claim of an unconsumed, unexpired r
 Invitation acceptance likewise conditionally claims a pending, unaccepted, unexpired token before account, membership or refresh-session writes in the same transaction. Concurrent replay returns the existing invalid-or-expired error. Existing invitation roles and inactive-user reactivation behavior are preserved.
 
 After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
+
+## Staff-recorded offline proposal acceptance (draft implementation)
+
+The Proposals service defines a distinct `draft -> accepted` transition for
+confirmed out-of-band customer approval. The authenticated controller checks
+`documents.manage` and validates method, explicit staff confirmation and a
+bounded audit note. The service reads within the request organization and actor
+context, validates written scope and positive final price, uses an organization-
+scoped status-and-revision conditional update, and records `proposal.accepted` in the
+existing proposal delivery/activity history tagged `staff_recorded_offline`.
+No email, `ProposalSent`, `sentAt` mutation, signature, or schema migration is
+introduced. The accepted status feeds the existing Contract/Job handoff.
+
+The customer-portal boundary strips all private staff metadata from tagged
+offline acceptance journal entries on both proposal detail and project
+summary views; only the source marker is retained for accurate timeline text.
+Internal authorized staff retain the full audit record. This branch is
+unreleased pending exact-head CI, review and protected staging acceptance.
+
+## Internal offline proposal approval versus customer portal projections
+
+The proposed `POST /api/v1/proposals/:id/accept-offline` uses the existing authenticated,
+request-scoped organization tenant and permission boundary; it is not a customer-portal route.
+It records a staff-authorized acceptance in the existing ProposalDelivery/activity journal,
+without creating a send event or an e-signature. The journal is internal evidence: customer
+portal `getProject` and `getProposal` explicitly redact the staff-only acceptance note,
+approval channel, actor user ID, recipient address and any other internal metadata while
+preserving only a harmless `staff_recorded_offline` source marker for a truthful timeline.
+RLS and portal customer/tenant document checks remain mandatory. This is proposed branch
+behavior until protected staging acceptance and merge are complete.

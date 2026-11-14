@@ -52,6 +52,7 @@ function proposalRow(status: string) {
     viewedAt: null,
     respondedAt: null,
     createdAt: new Date(),
+    updatedAt: new Date("2026-11-13T12:00:00.000Z"),
     deliveries: [],
     project: { orgId: "org-1", customer: { id: "customer-1", email: "customer@example.com" } },
   };
@@ -234,6 +235,7 @@ describe("ProposalsService", () => {
         id: "proposal-1",
         projectId: "project-1",
         status: "draft",
+        updatedAt: new Date("2026-11-13T12:00:00.000Z"),
         paymentScheduleJson: [
           { label: "Deposit", amountPercent: 50 },
           { label: "Final", amountPercent: 50 },
@@ -292,14 +294,58 @@ describe("ProposalsService", () => {
       deliveries: [],
     });
 
+    mockPrisma.proposal.updateMany.mockResolvedValue({ count: 1 });
     const service = new ProposalsService();
     const proposal = await service.send("proposal-1", "org-1", "owner-1");
 
     expect(proposal.status).toBe("sent");
     expect(proposal.sentAt).not.toBeNull();
     expect(proposal.deliveries[0]?.eventType).toBe("proposal.sent");
+    expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
+      where: { id: "proposal-1", status: "draft", project: { orgId: "org-1" }, updatedAt: expect.any(Date) },
+      data: { status: "sent", sentAt: expect.any(Date) },
+    });
+    expect(mockPrisma.proposal.update).not.toHaveBeenCalled();
     expect(mockPrisma.proposalDelivery.create).toHaveBeenCalled();
     expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "estimating" } });
+  });
+
+  it("rejects a Send that loses a draft transition without publishing or changing the project", async () => {
+    mockPrisma.proposal.findFirst.mockResolvedValueOnce({
+      ...proposalRow("draft"),
+      paymentScheduleJson: null,
+    });
+    mockPrisma.proposal.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(new ProposalsService().send("proposal-1", "org-1", "owner-1"))
+      .rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
+      where: { id: "proposal-1", status: "draft", project: { orgId: "org-1" }, updatedAt: expect.any(Date) },
+      data: { status: "sent", sentAt: expect.any(Date) },
+    });
+    expect(mockPrisma.proposalDelivery.create).not.toHaveBeenCalled();
+    expect(mockPrisma.project.update).not.toHaveBeenCalled();
+    expect(mockAthenaEventService.publish).not.toHaveBeenCalled();
+  });
+
+  it("guards offline acceptance against draft terms changed since validation", async () => {
+    mockPrisma.proposal.findFirst.mockResolvedValueOnce({
+      ...proposalRow("draft"),
+      finalPrice: 1500,
+      scopeOfWork: "Install a sign",
+    });
+    mockPrisma.proposal.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(new ProposalsService().acceptOffline("proposal-1", {
+      channel: "phone",
+      note: "Customer reviewed and approved written terms by phone.",
+    }, "org-1", "owner-1")).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
+      where: { id: "proposal-1", status: "draft", project: { orgId: "org-1" }, updatedAt: expect.any(Date) },
+      data: { status: "accepted", respondedAt: expect.any(Date) },
+    });
+    expect(mockPrisma.proposalDelivery.create).not.toHaveBeenCalled();
+    expect(mockPrisma.project.update).not.toHaveBeenCalled();
   });
 
   it("rejects sending a proposal that has already been sent", async () => {
@@ -402,6 +448,84 @@ describe("ProposalsService", () => {
         }),
       })
     );
+  });
+
+  it("records an in-person draft acceptance with audit metadata without falsely sending", async () => {
+    const draft = { ...proposalRow("draft"), sentAt: null, finalPrice: 1500, scopeOfWork: "Install a sign" };
+    const accepted = { ...proposalRow("accepted"), sentAt: null, finalPrice: 1500, scopeOfWork: "Install a sign" };
+    mockPrisma.proposal.findFirst.mockResolvedValueOnce(draft).mockResolvedValueOnce(accepted);
+    mockPrisma.proposal.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.proposalDelivery.create.mockResolvedValue({});
+
+    const result = await new ProposalsService().acceptOffline("proposal-1", {
+      channel: "in_person", note: "Customer reviewed the written estimate and approved on site.",
+    }, "org-1", "owner-1");
+
+    expect(result.status).toBe("accepted");
+    expect(result.sentAt).toBeNull();
+    expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
+      where: { id: "proposal-1", status: "draft", project: { orgId: "org-1" }, updatedAt: expect.any(Date) },
+      data: { status: "accepted", respondedAt: expect.any(Date) },
+    });
+    expect(mockPrisma.proposalDelivery.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        eventType: "proposal.accepted",
+        actorUserId: "owner-1",
+        recipientEmail: null,
+        metadataJson: {
+          previousStatus: "draft", newStatus: "accepted",
+          acceptanceChannel: "in_person",
+          acceptanceNote: "Customer reviewed the written estimate and approved on site.",
+          source: "staff_recorded_offline",
+        },
+      }),
+    });
+    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "awarded" } });
+    expect(mockAthenaEventService.publish).not.toHaveBeenCalledWith(expect.objectContaining({ type: "ProposalSent" }));
+  });
+
+  it("rejects offline acceptance of sent, viewed, or accepted proposals", async () => {
+    const service = new ProposalsService();
+    for (const status of ["sent", "viewed", "accepted", "declined"]) {
+      mockPrisma.proposal.findFirst.mockResolvedValueOnce({ ...proposalRow(status), finalPrice: 1500, scopeOfWork: "Install a sign" });
+      await expect(service.acceptOffline("proposal-1", { channel: "phone", note: "Customer approved the proposal by phone." }, "org-1", "owner-1"))
+        .rejects.toMatchObject({ statusCode: 409 });
+    }
+    expect(mockPrisma.proposal.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("requires a finalized price and approved written scope for offline acceptance", async () => {
+    const service = new ProposalsService();
+    for (const patch of [{ finalPrice: null, scopeOfWork: "Sign install" }, { finalPrice: 0, scopeOfWork: "Sign install" }, { finalPrice: 1500, scopeOfWork: "  " }]) {
+      mockPrisma.proposal.findFirst.mockResolvedValueOnce({ ...proposalRow("draft"), ...patch });
+      await expect(service.acceptOffline("proposal-1", { channel: "in_person", note: "Customer approved these terms in person." }, "org-1", "owner-1")).rejects.toMatchObject({ statusCode: 409 });
+    }
+    expect(mockPrisma.proposal.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects offline acceptance when the payment schedule does not total 100%", async () => {
+    mockPrisma.proposal.findFirst.mockResolvedValueOnce({
+      ...proposalRow("draft"),
+      finalPrice: 1500,
+      scopeOfWork: "Install a sign",
+      paymentScheduleJson: [{ label: "Deposit", amountPercent: 50 }],
+    });
+    await expect(new ProposalsService().acceptOffline("proposal-1", {
+      channel: "phone", note: "Customer approved the signed amount over the phone.",
+    }, "org-1", "owner-1")).rejects.toMatchObject({ statusCode: 400 });
+    expect(mockPrisma.proposal.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.proposalDelivery.create).not.toHaveBeenCalled();
+    expect(mockPrisma.project.update).not.toHaveBeenCalled();
+  });
+
+  it("fails closed on a concurrent draft acceptance without recording duplicate activity", async () => {
+    mockPrisma.proposal.findFirst.mockResolvedValueOnce({ ...proposalRow("draft"), finalPrice: 1500, scopeOfWork: "Install sign" });
+    mockPrisma.proposal.updateMany.mockResolvedValueOnce({ count: 0 });
+    await expect(new ProposalsService().acceptOffline("proposal-1", {
+      channel: "phone", note: "Customer approved the signed amount over the phone.",
+    }, "org-1", "owner-1")).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.proposalDelivery.create).not.toHaveBeenCalled();
+    expect(mockPrisma.project.update).not.toHaveBeenCalled();
   });
 
   it("rejects accepting a proposal still in draft", async () => {

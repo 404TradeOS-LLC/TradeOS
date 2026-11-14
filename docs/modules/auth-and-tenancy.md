@@ -217,3 +217,30 @@ Password-reset tokens are claimed with a conditional unconsumed/unexpired update
 Invitation acceptance likewise conditionally claims a pending, unaccepted, unexpired token before account, membership or refresh-session writes in the same transaction. Concurrent replay returns the existing invalid-or-expired error. Existing invitation roles and inactive-user reactivation behavior are preserved.
 
 After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
+
+## Internal out-of-band proposal approval authorization (proposed)
+
+An authenticated staff user with `documents.manage` can record a real
+customer's offline approval using the new `accept-offline` proposal endpoint.
+The server does not trust `orgId`, `userId`, or role from the request body:
+they are derived from `requireOrgId`/`requireAuthContext`, and the proposal
+status update is scoped through its owning Project's organization. Inadequate
+permissions fail before database mutation; stale/concurrent draft transitions
+fail with 409. This staff attestation is not a customer signature or proof of
+delivery, and no email is sent. The authenticated customer portal keeps
+separate customer/organization scope checks; its proposal responses redact
+all staff-only approval metadata except the `staff_recorded_offline` marker.
+No tenant membership, authentication, session, or RLS policy is changed.
+This is PR-stage code, not deployed acceptance evidence.
+
+## Customer portal privacy for staff-recorded offline proposal approvals
+
+The proposed internal offline proposal-acceptance endpoint is protected by bearer-token
+membership, `documents.manage` and request-scoped organization RLS. It is not callable
+with a customer-portal session. Internal ProposalDelivery rows may contain staff notes,
+approval method, actor ID and other audit evidence. The customer portal's project proposal
+list and proposal detail enforce customer+organization scope and project only an offline
+acceptance marker; they redact internal metadata, actorUserId and recipientEmail before
+serializing the result. The internal audit record is not modified. Customer portal PDF,
+normal Send and customer acceptance permissions stay unchanged. This is a source-branch
+security boundary pending exact-head CI and nonproduction acceptance.

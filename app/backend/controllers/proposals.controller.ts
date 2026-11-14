@@ -53,6 +53,12 @@ const updateSchema = z.object({
   termsAndConditions: z.string().optional(),
 });
 
+const offlineAcceptanceSchema = z.object({
+  channel: z.enum(["in_person", "phone", "signed_document"]),
+  note: z.string().trim().min(10).max(500),
+  confirmed: z.literal(true),
+}).strict();
+
 export const proposalsController = {
   async listByProject(req: Request, res: Response) {
     requirePermissions(req, ["billing.read"]);
@@ -127,6 +133,13 @@ export const proposalsController = {
   async accept(req: Request, res: Response) {
     requirePermissions(req, ["documents.manage"]);
     res.json(await service.accept(req.params.id, requireOrgId(req), requireAuthContext(req).userId));
+  },
+  async acceptOffline(req: Request, res: Response) {
+    requirePermissions(req, ["documents.manage"]);
+    const { channel, note } = offlineAcceptanceSchema.parse(req.body);
+    res.json(await service.acceptOffline(
+      req.params.id, { channel, note }, requireOrgId(req), requireAuthContext(req).userId
+    ));
   },
   async reject(req: Request, res: Response) {
     requirePermissions(req, ["documents.manage"]);
