@@ -1,3 +1,4 @@
+import { betaBrowserLaunchOptions, safeEvidenceError } from "./lib/browser-runtime.mjs";
 // S052 — certify admin Customer → Project continuity and inactive-membership denial
 // using dedicated synthetic identities. This script never persists storage state
 // and never logs credentials.
@@ -78,7 +79,7 @@ async function signIn(page, email, password) {
 
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch(betaBrowserLaunchOptions());
 } catch (error) {
   fail(`Could not launch Chromium: ${error instanceof Error ? error.message.split("\n")[0] : error}`);
 }
@@ -219,8 +220,8 @@ try {
 
   report.result = "PASS";
 } catch (error) {
-  failure = error;
-  report.error = error instanceof Error ? error.message : String(error);
+  failure = new Error(safeEvidenceError(error));
+  report.error = safeEvidenceError(error);
 } finally {
   await browser.close().catch(() => {});
   await fs.writeFile(path.join(outDir, "s052-role-report.json"), `${JSON.stringify(report, null, 2)}\n`);
