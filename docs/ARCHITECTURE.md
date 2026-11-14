@@ -230,3 +230,7 @@ Invitation acceptance likewise conditionally claims a pending, unaccepted, unexp
 After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
 
 Refresh rotation records the replacement refresh-row UUID in `replaced_by_id`, while the opaque token hash remains only in `token_hash`. The conditional single-use rotation and replacement row creation remain in one transaction; replay and logout continue to reject revoked refresh sessions.
+
+## Administrative membership provisioning boundary
+
+The membership upsert reuses the request transaction and rechecks the actor against an active database membership, active application user, matching role and administrative permission before entering the existing transaction-local user-provisioning policy. User resolution, membership mutation and audit insertion commit atomically; the prior provisioning setting is restored before returning. A failed operation rolls back with its enclosing transaction. No policy or database-role privilege changes are introduced. Attaching a user who does not yet belong to the active organization preserves that user's global profile and active flag; the existing member-update contract remains in place for users already in that organization.

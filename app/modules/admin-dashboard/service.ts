@@ -3,7 +3,8 @@ import { prisma } from "../../db/client";
 import { AuthContext } from "../../backend/auth/context";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { MaterialDatabaseService } from "../material-database/service";
-import { normalizeRole } from "../../domain";
+import { hasAnyPermission, normalizeRole } from "../../domain";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 import {
   OrganizationDTO,
   OrganizationMembershipAuditDTO,
@@ -183,66 +184,99 @@ export class AdminDashboardService {
   }
 
   async upsertOrganizationMember(orgId: string, input: UpsertOrganizationMemberInput, actor: AuthContext): Promise<OrganizationMemberDTO> {
-    await this.assertOrganizationExists(orgId);
     this.assertActorMatchesOrg(actor, orgId);
+    if (!hasAnyPermission(actor.role, ["team.manage", "company.manage", "settings.manage"])) {
+      throw new ApiError(403, "Admin access required");
+    }
     this.assertCanGrantRole(actor, input.role);
 
-    const existingUser = await prisma.appUser.findUnique({ where: { authSubject: input.authSubject } });
-    const existing = existingUser
-      ? await prisma.organizationMembership.findFirst({
-          where: { orgId, userId: existingUser.id },
-          include: { user: true },
-        })
-      : null;
-    if (existing) {
-      await this.assertCanManageMembership(
-        actor,
-        orgId,
-        existing,
-        input.role,
-        (input.status ?? "active") as OrganizationMemberStatus
-      );
-    }
+    return runInDatabaseTransaction(prisma, async (transaction) => {
+      await this.assertOrganizationExists(orgId);
+      const actorMembership = await transaction.organizationMembership.findFirst({
+        where: { orgId, userId: actor.userId, status: "active" },
+        include: { user: { select: { isActive: true } } },
+      });
+      if (!actorMembership?.user.isActive || actorMembership.role !== actor.role ||
+          !hasAnyPermission(actorMembership.role, ["team.manage", "company.manage", "settings.manage"])) {
+        throw new ApiError(403, "Active organization administrator membership required");
+      }
+      const [prior] = await transaction.$queryRaw<Array<{ value: string | null }>>(Prisma.sql`
+        select current_setting('app.provisioning', true) as value
+      `);
+      const restoreProvisioning = () => transaction.$queryRaw(Prisma.sql`
+        select set_config('app.provisioning', ${prior.value ?? ""}, true)
+      `);
+      try {
+        // Only a database-verified organization administrator enters the
+        // existing user-provisioning policy, within this transaction.
+        await transaction.$queryRaw(Prisma.sql`select set_config('app.provisioning', 'true', true)`);
+        const existingUser = await prisma.appUser.findUnique({ where: { authSubject: input.authSubject } });
+        const existing = existingUser
+          ? await prisma.organizationMembership.findFirst({
+              where: { orgId, userId: existingUser.id },
+              include: { user: true },
+            })
+          : null;
+        if (existing) {
+          await this.assertCanManageMembership(
+            actor,
+            orgId,
+            existing,
+            input.role,
+            (input.status ?? "active") as OrganizationMemberStatus
+          );
+        }
 
-    const user = existingUser
-      ? await prisma.appUser.update({
-          where: { id: existingUser.id },
-          data: { email: input.email.toLowerCase(), fullName: input.fullName, isActive: true },
-        })
-      : await prisma.appUser.create({
-          data: {
-            authSubject: input.authSubject,
-            email: input.email.toLowerCase(),
-            fullName: input.fullName,
+        let user = existingUser;
+        if (!user) {
+          user = await prisma.appUser.create({
+            data: { authSubject: input.authSubject, email: input.email.toLowerCase(), fullName: input.fullName },
+          });
+        } else if (existing) {
+          // Preserve the existing same-organization update contract. Attaching
+          // a first membership must not edit another organization's user profile.
+          user = await prisma.appUser.update({
+            where: { id: user.id },
+            data: { email: input.email.toLowerCase(), fullName: input.fullName, isActive: true },
+          });
+        }
+
+        const membership = await prisma.organizationMembership.upsert({
+          where: {
+            orgId_userId: {
+              orgId,
+              userId: user.id,
+            },
           },
+          update: {
+            role: input.role,
+            status: input.status ?? "active",
+          },
+          create: {
+            orgId,
+            userId: user.id,
+            role: input.role,
+            status: input.status ?? "active",
+          },
+          include: { user: true },
+        });
+        await this.recordMembershipAudit(orgId, {
+          action: existing ? "updated" : "created",
+          actor,
+          beforeState: existing ? toMembershipSnapshot(existing) : null,
+          afterState: toMembershipSnapshot(membership),
         });
 
-    const membership = await prisma.organizationMembership.upsert({
-      where: {
-        orgId_userId: {
-          orgId,
-          userId: user.id,
-        },
-      },
-      update: {
-      role: input.role,
-      status: input.status ?? "active",
-      },
-      create: {
-        orgId,
-        userId: user.id,
-        role: input.role,
-        status: input.status ?? "active",
-      },
-      include: { user: true },
+        const result = toMemberDTO(membership);
+        await restoreProvisioning();
+        return result;
+      } catch (error) {
+        // PostgreSQL errors abort the transaction; preserve the original
+        // failure while its enclosing transaction rolls back every write.
+        await restoreProvisioning().catch(() => undefined);
+        throw error;
+      }
     });
-    await this.recordMembershipAudit(orgId, {
-      action: existing ? "updated" : "created",
-      actor,
-      beforeState: existing ? toMembershipSnapshot(existing) : null,
-      afterState: toMembershipSnapshot(membership),
-    });
-    return toMemberDTO(membership);
   }
 
   async updateOrganizationMember(orgId: string, membershipId: string, input: UpdateOrganizationMemberInput, actor: AuthContext): Promise<OrganizationMemberDTO> {

@@ -527,6 +527,16 @@ Next: finish local and exact-head hosted checks, report reviewed candidate to
 the beta coordinator for staging/API/web correlation, authenticated same-draft
 retry/PDF identity and tenant-denial evidence. No merge/deployment is claimed.
 
+## Administrative member provisioning — bounded beta repair, 2026-11-14
+
+The existing member-upsert route failed under forced user RLS for both new users
+and foreign existing identities. The service now verifies the actor's active
+administrator membership from the database before scoped provisioning, preserves
+foreign global profiles, and writes membership/audit atomically. Five real
+restricted-role PostgreSQL regressions and fourteen focused unit tests pass;
+current-source hosted checks and actual staging create/disable/reactivate evidence
+remain pending. No schema, policy or database-role grants changed.
+
 ## Next Eligible Sprint
 
 Sprint ID: S073
