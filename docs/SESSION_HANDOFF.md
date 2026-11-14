@@ -509,6 +509,19 @@ updates remain supported. Schema/RLS changes retain PR-only merge posture.
 - Next: test/publish, inspect hosted review, promote reviewed workflow source into
   staging, rerun correlated canonical evidence, retain actual results.
 
+## Existing invoice PR #956 continuation — 2026-11-13
+
+EXISTING_WORK_FOUND on `feat/figma-to-code-completion` in isolated worktree
+`/workspace/TradeOS-956`. Merged current main `99ccafc` normally, retaining the
+identical already-landed #977 migration; no second migration is introduced.
+Scope is invoice form ergonomics/recovery plus focused browser regression and
+required docs. Figma source frames 1179:2800, 1179:3484 and 1183:3546 inspected.
+Project/customer context, 44 px targets, mobile numbered lines, uncertainty
+summary and error focus are implemented without changing transport/pricing.
+Next: finish local and exact-head hosted checks, report reviewed candidate to
+the beta coordinator for staging/API/web correlation, authenticated same-draft
+retry/PDF identity and tenant-denial evidence. No merge/deployment is claimed.
+
 ## Next Eligible Sprint
 
 Sprint ID: S073

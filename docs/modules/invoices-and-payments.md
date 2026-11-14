@@ -60,6 +60,21 @@ Own invoice creation, send and pay state changes, voiding, line items, delivery 
 - `/api/v1/invoices/:id/payments`
 - `GET /api/v1/payments/current-week` — read-only organization-scoped ledger of `recorded` Payment rows in the current organization week, with invoice/project/customer context and organization-timezone-aware boundaries
 
+## Recoverable invoice draft creation
+
+The New invoice form posts to `POST /api/v1/invoices/drafts` with an `Idempotency-Key` UUID. A new draft returns 201 and a matching replay returns 200 with the original invoice ID; both set `Idempotency-Replayed`. A changed payload under the same project/key returns 409. The dedicated path fails without a write on an older API. `POST /api/v1/invoices` uses the same recoverable handler when the key is supplied (400 for a malformed key, 200 for a matching replay). Existing unkeyed requests retain their original create behavior.
+
+The recoverable route authenticates before opening its tenant-scoped transaction and sends success only after commit. A known unique or serialization failure can start one fresh tenant-scoped transaction to recover the concurrent winner. The form preserves the original payload and key while it stays open and offers an explicit retry after an uncertain response. If the form was closed or reloaded, check the project’s invoices before creating another draft. Creating a draft never sends it or records payment.
+
+### Required invoice maintenance window
+
+Migration `20261109172000_add_invoice_create_request_key` adds nullable columns and a `NOT VALID` pair check without scanning old rows for that check. Its transactional index build retains an `ACCESS EXCLUSIVE` lock on `invoices` until commit. That can block reads as well as writes; do not run this migration as an unattended rollout during active invoice traffic.
+
+1. On a representative disposable copy, run the normal Prisma deployment path and record the invoice row count, relation size and DDL duration. The hosted synthetic fixture proves correctness, not a production lock budget. If the representative build approaches the 30-second statement limit or exceeds the allowed window, stop and review an alternate migration rather than raising the limits.
+2. Schedule and approve an invoice maintenance window for the specific environment. Pause entry points and jobs that read or write invoices, including create, edit, send, payment reconciliation, and PDF generation. Drain active invoice transactions. Use a read-only check of `pg_locks` for `public.invoices` to confirm no other session holds a granted lock before beginning; this check supplements the traffic pause.
+3. Use the repository's approved migration runner. The SQL aborts when lock acquisition exceeds 3 seconds or a statement exceeds 30 seconds. On failure, keep the candidate API/web disabled, confirm the new columns and index were rolled back, and reconcile any failed Prisma ledger entry through the approved migration recovery process before a retry. Do not manually mark the migration as applied.
+4. Before resuming traffic, verify the exact migration is recorded as successful, both columns and the pair check exist, and the project's request-key index is unique and valid. Deploy the matching API before enabling its web build. In staging, verify replay returns one invoice and one creation event, check tenant denial, and capture same-ID PDF evidence at all four widths. Production approval remains separate.
+
 ## Organization work-queue read
 
 `GET /api/v1/invoices` (`InvoicesService.listOrganizationQueue`) returns every invoice in the caller's organization, newest-activity-first, for dashboard/reporting/future-Athena-tool consumers that need a company-wide view rather than a single project's invoices.
@@ -187,3 +202,27 @@ payment reconciliation, and organization/RLS boundaries are unchanged.
 ## S022 rendering boundary
 
 Invoice PDF rendering continues to use server-derived invoice and payment semantics. The S022 slice adds deterministic UTC dates, safe finite numeric/currency output, and an explicit empty line-item state without changing payment aggregation, balance presentation, invoice status, authorization, or RLS behavior.
+
+## Invoice recovery controls and project context — 2026-11-13
+
+The new-invoice workspace shows the actual project/customer identity, separates
+invoice details from context, and uses 44 px controls and primary actions.
+Manual quantity and unit-price fields stack on phones, with numbered labels and
+remove actions for additional lines. Shared production primitives are reused;
+these ergonomics do not change invoice payloads, pricing or authorization.
+
+A validation or uncertain-save response moves keyboard focus to its alert.
+Unconfirmed submissions replace the editor with the last submitted details and
+explicit leave/reload guidance; the retained form attempt remains the sole
+source for retry transport. Explicit retry shows the same branch's disabled
+pending editor and resends its original payload/key. Success still navigates to
+the existing invoice detail route using the committed server invoice ID; its
+PDF and separate send/payment actions remain authoritative. No simulated saved
+amount is calculated for the recovery summary.
+
+The isolated browser regression `tests/components/invoice-draft-recovery.spec.ts`
+mounts the real form and shared controls with synthetic transport at
+390/768/1024/1440. It checks target sizes, mobile field stacking, numbered lines,
+validation focus, last-submission recovery and exact retry payload identity.
+This component evidence does not replace authenticated staging persistence,
+foreign-tenant denial, document identity, or full-shell acceptance.

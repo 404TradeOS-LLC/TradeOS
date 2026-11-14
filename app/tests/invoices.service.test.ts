@@ -31,6 +31,11 @@ jest.mock("../modules/intelligence/service", () => ({
   })),
 }));
 
+const mockExecuteRaw = jest.fn().mockResolvedValue(undefined);
+jest.mock("../db/requestSession", () => ({
+  runInDatabaseTransaction: (_client: unknown, operation: (tx: unknown) => unknown) => operation({ $executeRawUnsafe: mockExecuteRaw }),
+}));
+
 import { InvoicesService } from "../modules/invoices/service";
 
 describe("InvoicesService", () => {
@@ -92,6 +97,51 @@ describe("InvoicesService", () => {
     expect(mockPrisma.invoiceDelivery.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ eventType: "invoice.created", actorUserId: "user-1" }) })
     );
+  });
+
+  it("replays a committed invoice without repricing or recording another event", async () => {
+    const service = new InvoicesService();
+    const input = {
+      orgId: "org-1", projectId: "project-1", actorRole: "admin",
+      lineItems: [{ description: "Cleanup", quantity: 2, unitOfMeasure: "each", unitPrice: 25 }],
+    };
+    const key = "e47a0e13-431e-45dd-8bbf-f342c4ae32ca";
+    mockPrisma.project.findFirst.mockResolvedValue({ id: input.projectId, orgId: input.orgId });
+    mockPrisma.invoice.findFirst.mockResolvedValueOnce(null);
+    const invoice = { id: "invoice-1" } as Awaited<ReturnType<InvoicesService["getById"]>>;
+    const create = jest.spyOn(service, "create").mockResolvedValue(invoice);
+    const read = jest.spyOn(service, "getById").mockResolvedValue(invoice);
+    await expect(service.createWithIdempotency(input, key)).resolves.toEqual({ invoice, replayed: false });
+    const hash = create.mock.calls[0][1]?.hash;
+    expect(hash).toHaveLength(64);
+    mockPrisma.invoice.findFirst.mockResolvedValue({ id: invoice.id, createRequestHash: hash });
+    await expect(service.createWithIdempotency({ ...input, actorUserId: "retrying-user" }, key))
+      .resolves.toEqual({ invoice, replayed: true });
+    await expect(service.createWithIdempotency({ ...input, lineItems: [{ ...input.lineItems[0], unitPrice: 26 }] }, key))
+      .rejects.toMatchObject({ message: expect.stringContaining("different details") });
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(read).toHaveBeenCalledWith(invoice.id, input.orgId);
+    expect(mockPrisma.invoice.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { projectId: input.projectId, project: { orgId: input.orgId }, createRequestKey: key },
+    }));
+  });
+
+  it("looks up the concurrent winner after rolling back the failed insert", async () => {
+    const service = new InvoicesService();
+    const input = { orgId: "org-1", projectId: "project-1", actorRole: "admin" };
+    const key = "0aa458d3-1834-4e22-9ba7-1c9aa59036bf";
+    const invoice = { id: "winner" } as Awaited<ReturnType<InvoicesService["getById"]>>;
+    mockPrisma.project.findFirst.mockResolvedValue({ id: input.projectId, orgId: input.orgId });
+    mockPrisma.invoice.findFirst.mockResolvedValueOnce(null);
+    jest.spyOn(service, "getById").mockResolvedValue(invoice);
+    jest.spyOn(service, "create").mockImplementation(async (_input, request) => {
+      mockPrisma.invoice.findFirst.mockImplementationOnce(async () => {
+        expect(mockExecuteRaw).toHaveBeenCalledWith(expect.stringMatching(/^ROLLBACK TO SAVEPOINT/));
+        return { id: invoice.id, createRequestHash: request?.hash };
+      });
+      throw Object.assign(new Error("unique constraint"), { code: "P2002" });
+    });
+    await expect(service.createWithIdempotency(input, key)).resolves.toEqual({ invoice, replayed: true });
   });
 
   it("scales line items from an estimate for a progress invoice", async () => {
