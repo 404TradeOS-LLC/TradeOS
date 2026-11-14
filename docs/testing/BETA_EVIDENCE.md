@@ -4,6 +4,27 @@ Canonical reference for the `Beta Evidence` workflow
 (`.github/workflows/beta-evidence.yml`) and the scripts under
 `app/scripts/beta-evidence/`.
 
+
+## Live staging source and data-plane correlation (2026-11-13)
+
+When staging evidence specifies `expected_sha`, the resolver now reads the
+canonical staging web `/api/staging-runtime-identity` plus API `/health` and
+`/ready` before authentication or synthetic writes. Both runtime SHAs must equal
+the full approved 40-character SHA; web branch, public Supabase binding,
+backend origin and the API database project must identify canonical staging.
+Redirects, non-success responses, unavailable identity and any mismatch fail
+closed. Transport errors and fetched payloads are not printed.
+
+This removes the need to populate `BETA_RC_DEPLOYMENT_SHA` merely to run
+`s052`, `s053` or `beta_pdf` on staging. If that variable is supplied and conflicts,
+the resolver still refuses it. `rc-target.json` records
+`shaCorrelationSource=live-staging-web-api`. Preview correlation retains its
+existing configured-metadata path. This is live configuration/source binding,
+not proof of tenant authorization; authenticated owner/admin/inactive/foreign
+checks remain required. The orchestrator's immutable deployment and alias guards
+also remain in force. Older text below about the resolver having no live staging
+identity applies to historical runs only.
+
 ## Purpose
 
 Beta evidence proves that a TradeOS release candidate can execute the real
@@ -583,3 +604,7 @@ PDF signature/end marker, content type and hash prove transport/integrity only. 
 `beta_pdf` also requires dedicated synthetic `BETA_RC_FOREIGN_OWNER_EMAIL`, `BETA_RC_FOREIGN_OWNER_PASSWORD`, and `BETA_RC_FOREIGN_OWNER_ORG_ID`, mapped to the corresponding `BETA_FOREIGN_OWNER_*` runtime variables. Preflight and full-run gates require their presence before capture. The isolation script signs in separately without persisting session state, checks authenticated Settings against the pinned organization and owner/admin role, and requires a different organization from the smoke session. It reads the exact Proposal through its owner's scoped API before and after the smoke PDF request. Missing/deleted fixtures, wrong tenant/role, expired login or readable foreign PDFs fail; a bare 404 is not proof. The validator requires the resulting fixture/tenant proof. Login failures are redacted and no foreign cookies are retained. These fixtures must be provisioned through existing approved nonproduction controls; no permissions or production configuration are changed.
 
 PR #933 follow-up: fixture proof must belong to the same passing foreign-PDF probe; when route/status fields are present, they must match that proof’s Proposal ID and HTTP status. Legacy compact reports may omit those fields. Split proof/PASS entries and mismatched routes/statuses fail validation.
+
+Managed local runs may opt into inherited HTTPS proxy routing with `NODE_USE_ENV_PROXY=1`; both browser navigation and context API requests use that proxy. Multiline Playwright call logs are excluded from retained error messages because they can contain session cookies. Signed URL queries and credential headers are redacted.
+
+Network acceptance blocks all application and unknown external failures. Only the exact GET for Vercel's optional preview-feedback script is classified separately in `excludedPreviewRequests`; that failure is retained, never labelled as a successful request.
