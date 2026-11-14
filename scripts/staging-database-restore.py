@@ -251,7 +251,7 @@ def run():
             if not any(p['status'] == 'tenant_rows_denied' for p in probe_results.values()):
                 raise ValueError('No direct tenant probe coverage')
             target.rollback()
-        receipt = dict(status='passed', scope='actual-staging-public-schema-and-data-only', source_project=REF,
+        receipt = dict(status='passed', scope='actual-staging-public-data-with-private-dependency-ddl', source_project=REF,
                        commit=os.environ.get('GITHUB_SHA'), run_id=os.environ.get('GITHUB_RUN_ID'),
                        elapsed_seconds=round(time.monotonic()-started, 2), backup_sha256=hashlib.file_digest(backup.open('rb'), 'sha256').hexdigest(),
                        **before, restricted_role_probes=probe_results, extension_namespaces=extensions, schema_only_dependency_counts=dependency_counts,
