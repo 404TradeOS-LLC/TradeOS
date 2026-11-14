@@ -82,6 +82,13 @@ class GuardTests(unittest.TestCase):
         # Cycles terminate; extension memberships do not reverse-pull unrelated objects.
         self.assertEqual(m.public_extension_dependencies([(1, 10)], edges + [(3, 30, 2, 20, 'n')], extensions), [('pgcrypto', 'extensions')])
 
+    def test_actual_trigram_index_extension_is_supported_in_public(self):
+        # Live staging catalog closure verified pg_trgm/public and btree_gist/extensions.
+        # public table -> auto-owned index -> operator class -> extension.
+        edges = [(2, 20, 1, 10, 'a'), (2, 20, 3, 30, 'n'), (3, 30, 4, 40, 'e')]
+        self.assertEqual(m.public_extension_dependencies([(1, 10)], edges,
+                         [(4, 40, 'pg_trgm', 'public')]), [('pg_trgm', 'public')])
+
     def test_failure_metadata_never_contains_exception_text(self):
         error = RuntimeError('password=secret row=email@example.test')
         error.sqlstate = '42501'

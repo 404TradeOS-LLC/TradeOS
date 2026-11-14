@@ -79,7 +79,7 @@ def manifest(conn):
 
 
 PHASE = 'preflight'
-SUPPORTED_EXTENSIONS = {'pgcrypto', 'uuid-ossp', 'btree_gist', 'citext'}
+SUPPORTED_EXTENSIONS = {'pgcrypto', 'uuid-ossp', 'btree_gist', 'citext', 'pg_trgm'}
 
 
 def extension_plan(rows):

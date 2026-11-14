@@ -18,8 +18,8 @@ probe, not a full application tenant/role certification.
 
 Tracked Prisma migrations do not reference executable `auth.*` or `storage.*`
 objects; they require `btree_gist`. Actual staging can drift: only the supported
-pgcrypto, uuid-ossp, btree_gist and citext extensions (in their original public or extensions namespace) and policy role names are
-created in the local service. The extension dependency closure starts from public objects and follows catalog references plus internally/automatically owned defaults, policies, constraints and rewrite rules. Unrelated installed Supabase extensions are excluded. Unsupported extensions or namespaces in that closure fail closed. Dynamic or string-bodied function references absent from PostgreSQL catalogs are not certified by dependency analysis; missing dependencies still fail restore or the exercised probes, and unexercised function behavior remains unverified. Any other missing dependency, restore error,
+pgcrypto, uuid-ossp, btree_gist, citext and pg_trgm extensions (in their original public or extensions namespace) and policy role names are
+created in the local service. A read-only staging catalog dependency-closure check on 2026-11-14 found `btree_gist` in `extensions` and `pg_trgm` in `public`; both are supported PostgreSQL extensions, while unrelated `supabase_vault` remains excluded. The extension dependency closure starts from public objects and follows catalog references plus internally/automatically owned defaults, policies, constraints and rewrite rules. Unrelated installed Supabase extensions are excluded. Unsupported extensions or namespaces in that closure fail closed. Dynamic or string-bodied function references absent from PostgreSQL catalogs are not certified by dependency analysis; missing dependencies still fail restore or the exercised probes, and unexercised function behavior remains unverified. Any other missing dependency, restore error,
 manifest mismatch or restricted-role failure fails the rehearsal. No Supabase
 schemas are stubbed, no source roles/ACLs/secrets are exported, and no source
 write is executed. Ownership and ACL restoration is excluded explicitly;
