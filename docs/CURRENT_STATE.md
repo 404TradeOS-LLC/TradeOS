@@ -1987,3 +1987,11 @@ Job list summaries now include `updatedAt`. Missing or malformed revisions fail
 closed with refresh guidance; stale backend responses remain visible as errors.
 This connects the optional Job optimistic-concurrency API to normal UI actions;
 no lifecycle, role, tenant or migration semantics are changed.
+
+## Proposed Costbook Codes & Permits branch — 2026-11-08
+
+Branch `feat/costbook-codes-permits-vigo-pilot` adds a static, cited, read-only Vigo County / Indiana code-reference index, strict authenticated `GET /api/v1/costbook/codes` route, Costbook `Codes & Permits` page and tests. It deliberately marks parcel applicability **unverified** and does not create Cost Items, prices, permits, inspections, migrations, Athena claims, or estimate changes. This is **proposed** work until CI, review, merge, deployment identity and authenticated mobile/desktop acceptance are verified; no live release is claimed. See `docs/architecture/COSTBOOK_CODES_PERMITS_PILOT.md`.
+
+## Athena Codes & Permits pilot integration (proposed 2026-11-08)
+
+This same draft feature branch additionally registers a `costbook.read` gated read-only Athena tool for the shared official-source registry, with SDK contract tests. No new authoritative location provider, pricing writer, approval record, schema/RLS policy, or human-compliance decision is implemented. Hosted app/web/Athena/docs checks **passed** at exact executable-code commit `2f888d7e87d93fae6e36cc098543f1a99b318529` (GitHub run #42462868320). Independent review, protected staging/runtime identity, exact-head authenticated browser verification and source-law currency remain unverified; subsequent docs-only edits need their own current-head checks.

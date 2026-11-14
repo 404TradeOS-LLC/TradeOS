@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
+  BookOpenText,
   Boxes,
   CircleDollarSign,
   FlaskConical,
@@ -251,6 +252,10 @@ export default async function CostbookPage({ searchParams }: { searchParams: Pro
                   <CardDescription>Review evidence before researched pricing becomes production Costbook pricing.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-2">
+                  <Link href="/costbook/codes" className={buttonVariants({ variant: "outline" })}>
+                    <BookOpenText className="size-4" aria-hidden="true" />
+                    Codes &amp; Permits
+                  </Link>
                   <Link href="/costbook/research-review" className={buttonVariants({ variant: "outline" })}>
                     <FlaskConical className="size-4" aria-hidden="true" />
                     Open Research Review

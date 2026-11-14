@@ -476,3 +476,12 @@ No organization-wide “price health” score or stale-age threshold is derived 
 
 The seed intentionally omits the corpus's `canonicalKey` from import input. Only the existing governed matcher may auto-link a newly seen product when current product evidence is unambiguous; otherwise canonical identity remains null/reviewable. Imported observations remain evidence only: they do not change `Material.unitCost`, approve queued supplier price changes, or alter historical Estimate snapshots. Exact replay is idempotent, while changed evidence under an existing observation key fails closed.
 
+## Codes & Permits advisory pilot (proposed, 2026-11-08)
+
+A read-only, curated index of **official code/permit source references** is proposed under `/api/v1/costbook/codes` with a contractor-facing `/costbook/codes` page. It requires `costbook.read` and validates explicit state/county/topic/search inputs. The initial index covers Vigo County zoning §§5/16 and statewide Indiana building/electrical and INDOT permits. Every item includes issuer, citation, URL, source and review dates, a verification action, and `applicability: unverified`. Local zoning is never returned for another county.
+
+This index does **not** mirror copyrighted building codes, assert compliance, choose footing/wiring, determine parcel setbacks, authorize signage, invent permit fees, add estimate lines, change Costbook prices, or write tenant data. It is not a source of automatic legal or engineering approval. See [Codes & Permits pilot](../architecture/COSTBOOK_CODES_PERMITS_PILOT.md) for ownership, provenance and release gates. **Status: proposed branch; no deployed acceptance claimed.**
+
+### Read-only Athena official-reference capability (proposed 2026-11-08)
+
+The same proposed pilot registers `tradeos.athena.tools.costbook.code.references` through the canonical Athena tool registry. It consumes the identical static Costbook reference index as the authenticated browser and responds only with citations, applicability warnings and authority-verification actions. It uses `costbook.read` and creates no Estimate cost or legal approval. Review and release evidence are pending.
