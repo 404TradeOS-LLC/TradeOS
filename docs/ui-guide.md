@@ -158,3 +158,12 @@ instead of copy-pasting a third time.
   radio/segmented-control component — there's no `RadioGroup` in `components/ui/` yet.
 - Shared and route-level loading skeletons exist. New loading states should
   keep an accessible status announcement and match the final layout geometry.
+
+## Job revision propagation — 2026-11-13
+
+Field transition forms retain the loaded Job revision and dispatcher schedule,
+reschedule and dispatch actions send the revision from the displayed list row.
+Job list summaries now include `updatedAt`. Missing or malformed revisions fail
+closed with refresh guidance; stale backend responses remain visible as errors.
+This connects the optional Job optimistic-concurrency API to normal UI actions;
+no lifecycle, role, tenant or migration semantics are changed.

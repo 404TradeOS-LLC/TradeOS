@@ -1294,6 +1294,7 @@ export interface DispatchJobTechnician {
 }
 
 export interface DispatchJob {
+  updatedAt?: string;
   id: string;
   jobNumber: string;
   title: string;

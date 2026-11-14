@@ -157,6 +157,8 @@ A signable commercial agreement stored in `Contract`.
 
 A billing document stored in `Invoice`.
 
+Draft PR #956 adds optional paired create-request key and payload fingerprint fields, unique by project and key. Legacy invoices remain unkeyed; a matching retry resolves the original invoice without creating a second billing document.
+
 - belongs to one project
 - may reference an estimate and proposal
 - stores `subtotal`, `taxPct`, and `taxAmount` so customer documents can itemize the persisted total
@@ -166,6 +168,8 @@ A billing document stored in `Invoice`.
   cost-oriented `unitCost`/`lineCost` fields
 - the canonical physical invoice-line-item columns are `unit_price` and `line_total`; production migration `20260902200000_contract_invoice_line_price_columns` applied successfully on 2026-09-08 and removed the synchronized `unit_cost`/`line_cost` aliases plus their sync trigger/function. Disposable PostgreSQL migration coverage confirms canonical values, the invoice-line index/constraints, and tenant-scoped forced RLS survive; live production schema verification confirms the canonical columns, required indexes, and forced RLS.
 - a fully covered eligible `sent` or existing raw `overdue` invoice may be reconciled to persisted `paid` by recorded payment entry; `partially_paid` and new overdue presentation remain derived, and persisted `paid` is authoritative for follow-up exclusion
+
+- draft migration-only PR #977 proposes nullable physical `create_request_key` and `create_request_hash` columns on `invoices`, paired-field check `NOT VALID`, and a unique `(project_id, create_request_key)` index. A non-null key is independent across projects but must not be reused with a different payload in the **same** project once the separate #956 service code ships. Legacy/unkeyed rows remain allowed via NULL keys. The current Prisma model and invoice API/web are **not changed** by #977; these fields/index are **not yet applied** to staging or production and are not a shipped client contract. Protected migration release and subsequent #956 feature rollout require separate verification and approval.
 
 ## Payment
 

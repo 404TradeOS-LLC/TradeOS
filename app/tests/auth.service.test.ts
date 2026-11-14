@@ -22,11 +22,13 @@ const mockTransactionClient = {
     updateMany: jest.fn().mockResolvedValue({ count: 1 }),
   },
   passwordResetToken: {
+    updateMany: jest.fn(),
     create: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
   },
   organizationInvite: {
+    updateMany: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
   },
@@ -277,6 +279,90 @@ describe("AuthService", () => {
     });
     expect(mockTransactionClient.authRefreshToken.update).not.toHaveBeenCalled();
     expect(mockTransactionClient.authRefreshToken.create).not.toHaveBeenCalled();
+  });
+
+  const pendingInvite = {
+    id: "invite-1", orgId: "org-1", email: "tech@example.com", role: "technician",
+    acceptedAt: null, status: "pending", expiresAt: new Date(Date.now() + 60_000),
+  };
+
+  it("rejects an invite consumed after lookup before account, membership or session writes", async () => {
+    mockTransactionClient.organizationInvite.findUnique.mockResolvedValue(pendingInvite);
+    mockTransactionClient.organizationInvite.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(new AuthService().acceptInvite({ token: "synthetic-invite", password: "replacement-password" }))
+      .rejects.toMatchObject({ statusCode: 400, message: "Invite is invalid or expired" });
+    expect(mockTransactionClient.appUser.findUnique).not.toHaveBeenCalled();
+    // Invalid/losing tokens never enter the provisioning context.
+    expect(mockTransactionClient.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(mockTransactionClient.appUser.update).not.toHaveBeenCalled();
+    expect(mockTransactionClient.appUser.create).not.toHaveBeenCalled();
+    expect(mockTransactionClient.organizationMembership.upsert).not.toHaveBeenCalled();
+    expect(mockTransactionClient.authRefreshToken.create).not.toHaveBeenCalled();
+  });
+
+  it("claims an invite before account writes and preserves inactive-user reactivation", async () => {
+    mockTransactionClient.organizationInvite.findUnique.mockResolvedValue(pendingInvite);
+    mockTransactionClient.organizationInvite.updateMany.mockResolvedValue({ count: 1 });
+    const user = { id: "user-1", authSubject: "local:abc", email: pendingInvite.email, fullName: "Tech", isActive: false };
+    mockTransactionClient.appUser.findUnique.mockResolvedValue(user);
+    mockTransactionClient.appUser.update.mockResolvedValue({ ...user, isActive: true });
+    mockTransactionClient.organizationMembership.upsert.mockResolvedValue({ id: "membership-1", role: "technician" });
+    mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
+
+    const result = await new AuthService().acceptInvite({ token: "synthetic-invite", password: "replacement-password" });
+    expect(result.role).toBe("technician");
+    expect(typeof result.refreshToken).toBe("string");
+    expect(mockTransactionClient.organizationInvite.updateMany).toHaveBeenCalledWith({
+      where: { id: "invite-1", acceptedAt: null, status: "pending", expiresAt: { gt: expect.any(Date) } },
+      data: { acceptedAt: expect.any(Date), status: "accepted" },
+    });
+    expect(mockTransactionClient.organizationInvite.updateMany.mock.invocationCallOrder[0])
+      .toBeLessThan(mockTransactionClient.appUser.update.mock.invocationCallOrder[0]);
+    const contextCalls = mockTransactionClient.$queryRaw.mock.calls.map(([query]) => query.strings.join(""));
+    expect(contextCalls[1]).toContain("app.provisioning");
+    expect(contextCalls[2]).toContain("app.user_id");
+    expect(mockTransactionClient.organizationInvite.updateMany.mock.invocationCallOrder[0])
+      .toBeLessThan(mockTransactionClient.$queryRaw.mock.invocationCallOrder[1]);
+    expect(mockTransactionClient.$queryRaw.mock.invocationCallOrder[2])
+      .toBeLessThan(mockTransactionClient.appUser.update.mock.invocationCallOrder[0]);
+    expect(mockTransactionClient.appUser.update).toHaveBeenCalledWith({
+      where: { id: "user-1" }, data: { isActive: true, passwordHash: expect.any(String), fullName: "Tech" },
+    });
+    expect(mockTransactionClient.organizationMembership.upsert).toHaveBeenCalled();
+    expect(mockTransactionClient.authRefreshToken.create).toHaveBeenCalled();
+  });
+
+  it("rejects a reset whose token was consumed after lookup without changing credentials", async () => {
+    mockTransactionClient.passwordResetToken.findUnique.mockResolvedValue({
+      id: "reset-1", userId: "user-1", consumedAt: null, expiresAt: new Date(Date.now() + 60_000),
+    });
+    mockTransactionClient.passwordResetToken.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(new AuthService().resetPassword({ token: "synthetic-reset", password: "replacement-password" }))
+      .rejects.toMatchObject({ statusCode: 400, message: "Password reset token is invalid or expired" });
+    expect(mockTransactionClient.appUser.update).not.toHaveBeenCalled();
+    expect(mockTransactionClient.authRefreshToken.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("consumes an unexpired reset token before updating credentials and revokes refresh sessions", async () => {
+    mockTransactionClient.passwordResetToken.findUnique.mockResolvedValue({
+      id: "reset-1", userId: "user-1", consumedAt: null, expiresAt: new Date(Date.now() + 60_000),
+    });
+    mockTransactionClient.passwordResetToken.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(new AuthService().resetPassword({ token: "synthetic-reset", password: "replacement-password" }))
+      .resolves.toEqual({ success: true });
+    expect(mockTransactionClient.passwordResetToken.updateMany).toHaveBeenCalledWith({
+      where: { id: "reset-1", consumedAt: null, expiresAt: { gt: expect.any(Date) } },
+      data: { consumedAt: expect.any(Date) },
+    });
+    expect(mockTransactionClient.passwordResetToken.updateMany.mock.invocationCallOrder[0])
+      .toBeLessThan(mockTransactionClient.appUser.update.mock.invocationCallOrder[0]);
+    expect(mockTransactionClient.authRefreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", revokedAt: null },
+      data: { revokedAt: expect.any(Date), lastUsedAt: expect.any(Date) },
+    });
   });
 
   it("creates password reset tokens without leaking unknown-email status", async () => {

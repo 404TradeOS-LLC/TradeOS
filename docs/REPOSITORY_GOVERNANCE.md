@@ -56,6 +56,10 @@ related_code:
 
 # Repository Governance
 
+## Autonomous workstream continuity — PR #979 (proposed)
+
+The standing founder direction authorizes routine repository investigation, bounded repairs, branch/PR preparation, exact-head review reconciliation, and permitted low-risk auto-merge *only through the existing protected pull-request path*. At the end of a completed mission, the coordinator may begin a **new** eligible mission with a fresh overlap check, base verification, and branch/worktree; no cross-task branch reuse or duplicate PR. This does not confer new GitHub token permissions, bypass required checks/review conversations or replace ADR-009's per-PR evidence. Read-only tasks remain read-only. Protected environments, schema, secrets, billing, tenant isolation, financial correctness and release certification require their established decisions and approvals. Tools and dependency failures must be classified, safely repaired in scope where possible, or recorded before independently eligible work continues.
+
 ## Invited PDF beta evidence boundary — 2026-11-06
 
 The opt-in `beta_pdf` scenario uses the existing Beta Evidence workflow, concurrency, synthetic identities, nonproduction guards and credential scan. Exact SHA correlation is mandatory; foreign Customer/Project/Estimate/Athena and Proposal PDF denials are required. Retained PDF bytes must match the current run's receipt and saved Proposal identity at all four widths; a single-width result remains PARTIAL. It does not execute downstream Send/Accept/Contract/Invoice operations or grant release approval. Authentication, target and isolation reports now carry run identity; stale reports cannot certify this scenario. The narrower founder-approved cohort scope does not mark numbered sprints complete or waive protected schema/security/deployment/recovery gates. See [the runbook](operations/INVITED_BETA.md).
@@ -79,6 +83,10 @@ executed or approved by this documentation. See the
 The opt-in S053 path must reconcile the real Apply acknowledgement with the retained reviewed request and authorized organization-scoped Estimate detail read. A saved result is valid only when each visible UI row maps one-to-one to an acknowledged line and the reviewed target, normalized description, and four-decimal persisted quantity agree. After a hard reload of the existing Estimate builder, the same saved IDs, targets, descriptions, and quantities must still match. Unit tests exercise the identity and reload helpers; source-text assertions and CI do not certify a deployed run.
 
 S053 requires a foreign Estimate ID for authenticated API detail GET denial (403/404); that probe runs without a Project fixture. A nested browser-route observation is optional and requires the corresponding foreign Project ID. The same scenario continues to deny foreign Athena draft/apply requests. Canonical and S052 retain their Customer/Project fixture requirements. Do not weaken tenant guards or infer acceptance from a passing harness: full evidence still requires the protected operator workflow, an approved non-production target, exact deployment-SHA correlation, synthetic identities/fixtures, and retained PASS artifacts. No authentication permission, RLS, schema, or financial calculation changes are authorized by this evidence-only workflow.
+
+## Production migration target identity proposal — draft, 2026-11-12
+
+A separate draft security hardening slice proposes a mandatory production-admin URL identity assertion **before** `deploy-migrations.sh` executes. The check must reject staging and arbitrary hosts, unexpected pooler regions/project usernames, transaction pooling port 6543 and non-main refs; only canonical production project `kssaceuetdjwfqnbzhly` (region `us-west-2`) may pass. It must not log credentials. The production workflow retains its existing event triggers and `production` Environment; this guard is additional defense in depth, **not** proof that the current Environment requires reviewers. Current owner verification, protected migration approval, maintenance window and schema/application sequencing remain mandatory. The change is a draft proposal, not applied to production.
 
 ## Staging migration schema-ledger preflight — 2026-10-27
 
@@ -848,3 +856,10 @@ and label must pass configuration preflight and the existing authenticated API
 assertion; missing selected secrets never trigger fallback to another identity.
 Protected environment, production-denial, source identity, tenant-denial and
 artifact credential scanning gates remain mandatory.
+
+Production migration target preflight also rejects decoded `host` query keys,
+including percent-encoded spellings, because Prisma gives that parameter
+precedence over the validated URL authority. Approved direct and session-pooler
+connections retain their existing validation; errors never include credentials.
+
+The main-only, protected staging [actual public database restore rehearsal](operations/staging-database-restore.md) retains only sanitized seven-day evidence; raw backups stay ephemeral and source access is read-only. Passing this workflow does not certify Auth/storage or production recovery.

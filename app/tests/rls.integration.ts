@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { extractPdfText } from "./helpers/extract-pdf-text";
 import { Prisma, PrismaClient } from "@prisma/client";
 import {
   getRequestDatabaseClient,
@@ -2123,6 +2124,54 @@ describe("live organization row-level security", () => {
     expect(Number(adminRows[0].oldUnitCost)).toBe(150);
     expect(Number(adminRows[0].newUnitCost)).toBe(165);
     expect(viewerRows).toEqual([]);
+  });
+
+  it("commits one recoverable invoice and creation event across concurrent retries", async () => {
+    const key = randomUUID();
+    const service = new InvoicesService();
+    const input = {
+      orgId: orgA, projectId: projectA, actorUserId: adminUser, actorRole: "admin",
+      lineItems: [{ description: "Recovery fixture", quantity: 2, unitOfMeasure: "EA", unitPrice: 150 }],
+    };
+    const create = () => inSession(adminUser, orgA, "admin", () => service.createWithIdempotency(input, key));
+    const [first, second] = await Promise.all([create(), create()]);
+    expect([first.replayed, second.replayed].sort()).toEqual([false, true]);
+    const id = first.invoice.id;
+    expect(second.invoice.id).toBe(id);
+    await expect(create()).resolves.toMatchObject({ invoice: { id, amount: 300, status: "draft" }, replayed: true });
+
+    const persisted = await inSession(adminUser, orgA, "admin", async () => {
+      const tx = currentTransaction();
+      const invoices = await tx.invoice.findMany({ where: { projectId: projectA, createRequestKey: key } });
+      const events = await tx.invoiceDelivery.findMany({ where: { invoiceId: id } });
+      return { invoices, events };
+    });
+    expect(persisted.invoices).toHaveLength(1);
+    expect(persisted.invoices[0]).toMatchObject({ id, createRequestKey: key, createRequestHash: expect.stringMatching(/^[a-f0-9]{64}$/) });
+    expect(persisted.events.map((event) => event.eventType)).toEqual(["invoice.created"]);
+
+    const pdf = await inSession(adminUser, orgA, "admin", () => service.getPdf(id, orgA));
+    expect(pdf.contentType).toBe("application/pdf");
+    expect(pdf.filename.endsWith(`-${first.invoice.invoiceNumber}.pdf`)).toBe(true);
+    expect(pdf.buffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+    const pdfText = extractPdfText(pdf.buffer);
+    expect(pdfText).toContain(`Invoice #${first.invoice.invoiceNumber}`);
+    expect(pdfText).toMatch(/Recovery fixture[^\n]*\$300\.00/);
+    expect(pdfText).toMatch(/Total\s+\$300\.00/);
+    expect(pdfText).toMatch(/Balance due\s+\$300\.00/);
+    await expect(inSession(otherUser, orgB, "owner", () => service.getPdf(id, orgB)))
+      .rejects.toMatchObject({ statusCode: 404 });
+
+    await expect(inSession(adminUser, orgA, "admin", () => service.createWithIdempotency({
+      ...input, lineItems: [{ ...input.lineItems[0], unitPrice: 175 }],
+    }, key))).rejects.toMatchObject({ statusCode: 409 });
+    await expect(inSession(viewerUser, orgA, "viewer", () => service.createWithIdempotency({
+      ...input, actorUserId: viewerUser, actorRole: "viewer",
+    }, key))).rejects.toMatchObject({ statusCode: 403 });
+    await expect(inSession(otherUser, orgB, "owner", () => service.createWithIdempotency({
+      ...input, orgId: orgB, actorUserId: otherUser, actorRole: "owner",
+    }, key))).rejects.toMatchObject({ statusCode: 404 });
+    await expect(inSession(otherUser, orgB, "owner", () => service.getById(id, orgB))).rejects.toMatchObject({ statusCode: 404 });
   });
 
   it("enforces project-inherited RLS on proposals, invoices, and contracts end to end", async () => {

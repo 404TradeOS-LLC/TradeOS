@@ -38,6 +38,10 @@ A PDF scenario PASS certifies only that scenario. It does not close clarificatio
 
 Local equivalent (with approved synthetic environment variables already configured): `npm run beta:evidence -- --scenario=beta_pdf --allow-mutations`. A single `--viewport=390` run is debugging only and emits PARTIAL. Never paste credentials into commands, docs or evidence. Full runs create synthetic records; use the existing approved fixture lifecycle, never bulk-delete tenant data.
 
+## Local recovery evidence
+
+A disposable PostgreSQL/private S3 restore was actually executed on 2026-11-13; see [the reproducible runner, receipt and limits](BETA_RECOVERY_REHEARSAL.md). It proves the synthetic snapshot recovery mechanics, measured timings, foreign-key enforcement, forced RLS tenant behavior and private object hash/anonymous denial. It does not close provider/application-specific recovery, production backup/PITR, rollback, alerting or support-owner requirements; the gate above remains UNVERIFIED.
+
 ## Onboarding and support
 
 Before the first invitation, founder records privately the business owner, consent, support address/phone, onboarding date and agreed recovery expectations. Explain free beta scope and that contractors must review AI scope, mapping, quantities, provenance and final prices before applying or sending a PDF. No automatic supplier-price or AI approval is promised.
@@ -47,3 +51,5 @@ Onboard the first business with a guided Customer → Project → Estimate → P
 Triage routine feedback every business day in the existing governed issue queue: workflow location, expected/actual result, severity, owner, redacted reproduction and resolution. Critical means suspected cross-tenant access, wrong financial output, lost/corrupted data or inability to operate safely: stop new invitations immediately, contact founder, preserve redacted diagnostics, and use the reviewed rollback/recovery procedure. Never automatically retry a money/data operation or roll application code back across incompatible schema.
 
 Expand from one business to at most three after seven consecutive days without a critical incident and a founder feedback review. A critical incident restarts that window after verified resolution. Before offboarding, provide the founder-approved authorized export, confirm account suspension/session revocation behavior, and follow the agreed retention/deletion policy; do not improvise destructive database commands.
+
+Actual staging public database recovery can be exercised with the [protected restore rehearsal](staging-database-restore.md). Only a passing merged-main run certifies that bounded scope; Auth/storage recovery, approved RTO/RPO and production recovery remain separate gates.

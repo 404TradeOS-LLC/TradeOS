@@ -15,6 +15,10 @@ related_code:
 
 # TradeOS Bible
 
+## Autonomous execution authorization — PR #979 (proposed)
+
+Founder-directed continuous execution means a coordinator may complete consecutive **independently eligible** bounded missions within the existing authorized workstream, running the canonical startup and completion flows separately for each. It does not promote blocked or unready numbered sprints, waive product decisions, or imply unattended execution without a configured runtime. The sole executable flow remains `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`; `AGENTS.md` explains tool recovery and standing routine-work authorization. Protected merges and releases retain their separate gates.
+
 ## S073 readiness — 2026-10-05
 
 S073 — Release-critical RLS coverage matrix is promoted to `READY` after the founder explicitly authorized the sprint and live overlap found no competing S073 PR or branch. S051 is DONE and supplies the release-critical journey inventory. S073 must reconcile those S052-S060 journeys against current schema/migrations and live PostgreSQL evidence; the older S041 inventory is precedent, not current certification. The bounded sprint may add a matrix, validator, and disposable-PostgreSQL tests only. It may not redesign RLS, add migrations, broaden roles/permissions, change portal identity semantics, or use application filtering as a substitute for database evidence. Any real policy gap must remain a named failing `GAP` until a separately governed security change is authorized. See `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`.
