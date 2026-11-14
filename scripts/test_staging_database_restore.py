@@ -24,11 +24,47 @@ class GuardTests(unittest.TestCase):
                 m.source_config(value)
         self.assertEqual(m.source_config(f'postgres://postgres.{m.REF}:x@aws-0-us-east-2.pooler.supabase.com:5432/postgres')['port'], 5432)
 
+    def test_conventional_tls_query_is_normalized_without_libpq_options(self):
+        base = f'postgresql://postgres:secret@db.{m.REF}.supabase.co/postgres'
+        self.assertEqual(m.source_config(base + '?sslmode=require'), m.source_config(base))
+        self.assertEqual(m.source_config(base + '?schema=public&sslmode=require'), m.source_config(base))
+        self.assertEqual(m.source_config(f'postgres://postgres.{m.REF}:secret@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require&schema=public')['port'], 5432)
+        for query in ('sslmode=require&sslmode=require', 'sslmode=require&host=evil',
+                      'service=other', 'options=-c+default_transaction_read_only=off',
+                      'hostaddr=127.0.0.1', 'sslmode=disable', 'schema=auth', 'schema=public&schema=public',
+                      'schema=public&%73chema=public', 'sslmode=require&%73slmode=require'):
+            with self.assertRaises(m.PreflightError) as caught:
+                m.source_config(base + '?' + query)
+            self.assertEqual(m.failure_metadata(caught.exception)['code'], 'SOURCE_QUERY_REJECTED')
+            self.assertNotIn('secret', str(m.failure_metadata(caught.exception)))
+        with self.assertRaises(m.PreflightError) as caught:
+            m.source_config(base.replace(':secret', ''))
+        self.assertEqual(caught.exception.code, 'SOURCE_CREDENTIAL_MISSING')
+
     def test_commands_never_emit_database_errors(self):
-        with patch.object(m.subprocess, 'run') as run:
+        with patch.object(m.subprocess, 'run', return_value=types.SimpleNamespace(returncode=0)) as run:
             m.command(['pg_dump'], {})
-            self.assertEqual(run.call_args.kwargs['stderr'], m.subprocess.DEVNULL)
+            self.assertTrue(run.call_args.kwargs['stderr'].closed)
             self.assertEqual(run.call_args.kwargs['timeout'], 900)
+
+    def test_command_diagnostics_emit_fixed_codes_not_rows_sql_or_credentials(self):
+        samples = [
+            (b'pg_restore: error: could not execute query: ERROR: schema "auth" does not exist\nCommand was: SECRET SQL', 'COMMAND_SCHEMA_MISSING'),
+            (b'ERROR: function secret_private_name(text) does not exist\npassword=SECRET', 'COMMAND_FUNCTION_MISSING'),
+            (b'ERROR: relation "sensitive" already exists', 'COMMAND_OBJECT_EXISTS'),
+            (b'ERROR: insert or update violates foreign key constraint "private"\nDETAIL: Key (email)=(private@example.invalid)', 'COMMAND_FOREIGN_KEY_VIOLATION'),
+            (b'unknown secret connection failure', 'SUBPROCESS_FAILED'),
+        ]
+        for raw, expected in samples:
+            self.assertEqual(m.command_failure_code(raw), expected)
+        def failed(*args, **kwargs):
+            kwargs['stderr'].write(samples[0][0])
+            return types.SimpleNamespace(returncode=1)
+        with patch.object(m.subprocess, 'run', side_effect=failed):
+            with self.assertRaises(m.CommandFailure) as caught:
+                m.command(['pg_restore', 'SECRET-PATH'], {})
+        self.assertEqual(m.failure_metadata(caught.exception)['code'], 'COMMAND_SCHEMA_MISSING')
+        self.assertNotIn('SECRET', str(caught.exception))
 
     def test_raw_directory_removed_on_connection_failure(self):
         fake = types.SimpleNamespace(connect=lambda **kwargs: (_ for _ in ()).throw(RuntimeError('sensitive')), sql=object())
@@ -64,6 +100,13 @@ class GuardTests(unittest.TestCase):
             m.public_extension_dependencies([(5, 50)], edges, extensions)
         # Cycles terminate; extension memberships do not reverse-pull unrelated objects.
         self.assertEqual(m.public_extension_dependencies([(1, 10)], edges + [(3, 30, 2, 20, 'n')], extensions), [('pgcrypto', 'extensions')])
+
+    def test_actual_trigram_index_extension_is_supported_in_public(self):
+        # Live staging catalog closure verified pg_trgm/public and btree_gist/extensions.
+        # public table -> auto-owned index -> operator class -> extension.
+        edges = [(2, 20, 1, 10, 'a'), (2, 20, 3, 30, 'n'), (3, 30, 4, 40, 'e')]
+        self.assertEqual(m.public_extension_dependencies([(1, 10)], edges,
+                         [(4, 40, 'pg_trgm', 'public')]), [('pg_trgm', 'public')])
 
     def test_failure_metadata_never_contains_exception_text(self):
         error = RuntimeError('password=secret row=email@example.test')

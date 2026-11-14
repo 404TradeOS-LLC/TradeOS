@@ -432,6 +432,8 @@ test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit r
   assert.match(s052Role, /browser\.close\(\)\.catch\(\(\) => \{\}\)/);
   assert.match(s052Role, /settings\?\.currentRole !== "admin"/);
   assert.match(s052Role, /s052-admin/);
+  assert.match(s052Role, /waitForURL\(\(url\) => createdCustomerIdFromUrl\(url\) !== null/);
+  assert.match(s052Role, /const customerId = createdCustomerIdFromUrl\(page\.url\(\)\)/);
   assert.match(s052Role, /Authenticated user is not provisioned in this organization/);
   assert.match(s052Role, /User exists but has no active organization membership/);
   assert.match(s052Role, /getByRole\("alert"\)\.filter/);

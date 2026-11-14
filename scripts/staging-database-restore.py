@@ -10,20 +10,45 @@ import shutil
 import subprocess
 import tempfile
 import time
-from urllib.parse import urlsplit, unquote
+from urllib.parse import urlsplit, unquote, parse_qsl
 
 REF = 'qfbgdkbamfaasmtjfyru'
 
 
+class PreflightError(ValueError):
+    """Fixed diagnostic codes; never retain a credential or URI component."""
+    def __init__(self, code):
+        self.code = code
+        super().__init__(code)
+
+
 def source_config(value):
-    u = urlsplit(value)
-    user = unquote(u.username or '')
-    direct = u.hostname == f'db.{REF}.supabase.co' and u.port in (None, 5432)
-    pool = u.hostname == 'aws-0-us-east-2.pooler.supabase.com' and u.port == 5432 and user.endswith('.' + REF)
-    # No URI options: libpq host/hostaddr/service/options can redirect or alter safety.
-    if u.scheme not in ('postgres', 'postgresql') or u.path != '/postgres' or u.query or u.fragment or not (direct or pool) or not user or not u.password:
-        raise ValueError('Invalid staging connection identity')
-    return dict(host=u.hostname, port=u.port or 5432, dbname='postgres', user=user,
+    try:
+        u = urlsplit(value)
+        port = u.port
+        user = unquote(u.username or '')
+        query = parse_qsl(u.query, keep_blank_values=True, strict_parsing=True)
+    except ValueError:
+        raise PreflightError('SOURCE_URI_MALFORMED') from None
+    if u.scheme not in ('postgres', 'postgresql') or u.fragment:
+        raise PreflightError('SOURCE_URI_FORMAT')
+    if u.path != '/postgres':
+        raise PreflightError('SOURCE_DATABASE_REJECTED')
+    # Permit only conventional TLS/public-schema hints. Never pass URI options to libpq:
+    # host/hostaddr/service/options could redirect or change read-only safety.
+    allowed_query = {'sslmode': 'require', 'schema': 'public'}
+    if len({key for key, _ in query}) != len(query) or any(allowed_query.get(key) != value for key, value in query):
+        raise PreflightError('SOURCE_QUERY_REJECTED')
+    direct = u.hostname == f'db.{REF}.supabase.co' and port in (None, 5432)
+    pool = (u.hostname == 'aws-0-us-east-2.pooler.supabase.com' and port in (5432, 6543)
+            and re.fullmatch(r'[a-zA-Z_][a-zA-Z0-9_]*\.' + REF, user) is not None)
+    if not (direct or pool):
+        raise PreflightError('SOURCE_HOST_OR_PORT_REJECTED')
+    if not user or not u.password:
+        raise PreflightError('SOURCE_CREDENTIAL_MISSING')
+    # Match the existing staging migration contract: same verified pooler host/user,
+    # always session mode. An exported snapshot cannot use transaction pooling.
+    return dict(host=u.hostname, port=5432, dbname='postgres', user=user,
                 password=unquote(u.password), sslmode='require', connect_timeout=15,
                 options='-c default_transaction_read_only=on -c statement_timeout=600000')
 
@@ -32,10 +57,43 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, default=str).encode()).hexdigest()
 
 
+class CommandFailure(RuntimeError):
+    """Only a fixed classification survives a subprocess failure."""
+    def __init__(self, code):
+        self.code = code
+        super().__init__(code)
+
+
+def command_failure_code(diagnostic):
+    # Match only server diagnostic categories, never retain matched identifiers,
+    # SQL, COPY row context, subprocess arguments or connection information.
+    text = diagnostic.decode('utf-8', errors='replace')
+    for kind in ('schema', 'function', 'type', 'role', 'relation', 'operator', 'collation'):
+        if re.search(r'ERROR:\s+' + kind + r' [^\n]* does not exist', text):
+            return 'COMMAND_' + kind.upper() + '_MISSING'
+    for pattern, code in (
+        (r'ERROR:[^\n]* already exists', 'COMMAND_OBJECT_EXISTS'),
+        (r'ERROR:\s+permission denied', 'COMMAND_PERMISSION_DENIED'),
+        (r'ERROR:[^\n]* violates foreign key constraint', 'COMMAND_FOREIGN_KEY_VIOLATION'),
+        (r'ERROR:[^\n]* violates unique constraint', 'COMMAND_UNIQUE_VIOLATION'),
+        (r'ERROR:[^\n]* unrecognized configuration parameter', 'COMMAND_CONFIGURATION_UNSUPPORTED'),
+        (r'ERROR:[^\n]* extension [^\n]* is not available', 'COMMAND_EXTENSION_UNAVAILABLE'),
+    ):
+        if re.search(pattern, text):
+            return code
+    return 'SUBPROCESS_FAILED'
+
+
 def command(args, env):
     # Never inherit PGHOST/PGSERVICE/PGOPTIONS or log subprocess diagnostics.
-    subprocess.run(args, env=env, check=True, stdout=subprocess.DEVNULL,
-                   stderr=subprocess.DEVNULL, timeout=900)
+    # Raw diagnostics remain in a mode-0600 anonymous temporary file and are
+    # closed immediately, including exceptions. Only fixed codes leave here.
+    with tempfile.TemporaryFile() as diagnostics:
+        result = subprocess.run(args, env=env, check=False, stdout=subprocess.DEVNULL,
+                                stderr=diagnostics, timeout=900)
+        if result.returncode:
+            diagnostics.seek(0)
+            raise CommandFailure(command_failure_code(diagnostics.read(131072)))
 
 
 def manifest(conn):
@@ -54,7 +112,7 @@ def manifest(conn):
 
 
 PHASE = 'preflight'
-SUPPORTED_EXTENSIONS = {'pgcrypto', 'uuid-ossp', 'btree_gist', 'citext'}
+SUPPORTED_EXTENSIONS = {'pgcrypto', 'uuid-ossp', 'btree_gist', 'citext', 'pg_trgm'}
 
 
 def extension_plan(rows):
@@ -100,6 +158,8 @@ def probe_outcome(tenant_count, global_count):
 
 
 def failure_metadata(error):
+    if isinstance(error, (PreflightError, CommandFailure)):
+        return {'status': 'failed', 'phase': PHASE, 'code': error.code}
     code = getattr(error, 'sqlstate', None)
     if not isinstance(code, str) or not re.fullmatch(r'[0-9A-Z]{5}', code):
         code = 'SUBPROCESS_FAILED' if isinstance(error, subprocess.CalledProcessError) else 'REHEARSAL_FAILED'

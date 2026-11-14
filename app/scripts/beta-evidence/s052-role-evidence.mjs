@@ -8,6 +8,7 @@ import path from "node:path";
 import { chromium } from "playwright";
 import { assertApprovedRcUrl } from "./lib/rc-target.mjs";
 import { createdProjectIdFromUrl } from "./lib/project-detail-url.mjs";
+import { createdCustomerIdFromUrl } from "./lib/customer-detail-url.mjs";
 import {
   VIEWPORTS,
   assessResponsiveQuality,
@@ -132,8 +133,8 @@ try {
       await page.locator('[name="name"]').fill(customerName);
       await page.locator('[name="email"]').fill(`s052-admin-${suffix}@example.invalid`);
       await page.getByRole("button", { name: "Create customer" }).click();
-      await page.waitForURL(/\/customers\/[^/?]+(?:\?|$)/, { timeout: 60_000 });
-      const customerId = /\/customers\/([^/?]+)/.exec(page.url())?.[1];
+      await page.waitForURL((url) => createdCustomerIdFromUrl(url) !== null, { timeout: 60_000 });
+      const customerId = createdCustomerIdFromUrl(page.url());
       if (!customerId) throw new Error("admin-created Customer id was not present in the destination URL");
 
       await page.goto(

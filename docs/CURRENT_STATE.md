@@ -73,6 +73,9 @@ related_code:
 
 A four-width staging PDF run exposed overlapping wrapped Customer/Project metadata and CRLF control glyphs; independent MuPDF rendering confirmed both defects. The bounded source repair measures shared metadata cards and normalizes saved line endings, with actual-fixture PDF operator regressions. Local/hosted verification and final staged visual acceptance are recorded in the PR; beta GO is not implied.
 
+## Recoverable invoice creation — draft candidate, 2026-11-09
+
+PR #956 adds a commit-confirmed, authenticated draft endpoint and an explicit same-request retry on the mounted New invoice form. The additive request-key migration landed separately in #977 and protected Production run `43360847290` and Staging run `43365023839` succeeded; the release coordinator verified the resulting columns, unique index, pair constraint and forced RLS. Hosted PostgreSQL on `a3c368a` passed all 197 integration tests, including overlapping retry and tenant-denial coverage. Four-width authenticated invoice browser/PDF evidence remains pending. See [Invoices and payments](modules/invoices-and-payments.md#recoverable-invoice-draft-creation).
 
 ## Proposal-acceptance job verification: stale-state guard, P2002 fallback, assignment-response role check — 2026-11-11
 
@@ -1963,6 +1966,18 @@ TEST_STAGING credentials, pinned to a live-verified active synthetic owner org.
 It rejects mismatched environment/UUID/label and never falls back on missing
 credentials. Actual authenticated organization assertion and tenant denial remain
 unchanged. No credential or membership mutation is performed.
+
+### Invoice creation recovery ergonomics — 2026-11-13
+
+Existing invoice PR #956 now includes actual project/customer context, the
+approved 680 px maximum workspace, scoped 44 px controls/actions, numbered
+mobile manual-line controls, error-context keyboard focus and a compact
+last-submission summary while a save is unconfirmed. Retry remains explicit and
+uses the retained original payload/key; pending editors are disabled, and
+success opens the existing server-ID invoice detail route. No send/payment or
+pricing authority changes. Figma reference frames: 1179:2800, 1179:3484 and
+1183:3546 in the canonical master. Four-width isolated component regression is
+added; authenticated deployed acceptance remains a separate release gate.
 
 ## Job revision propagation — 2026-11-13
 
