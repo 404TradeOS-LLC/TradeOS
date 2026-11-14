@@ -31,7 +31,8 @@ class GuardTests(unittest.TestCase):
         self.assertEqual(m.source_config(f'postgres://postgres.{m.REF}:secret@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require&schema=public')['port'], 5432)
         for query in ('sslmode=require&sslmode=require', 'sslmode=require&host=evil',
                       'service=other', 'options=-c+default_transaction_read_only=off',
-                      'hostaddr=127.0.0.1', 'sslmode=disable', 'schema=auth', 'schema=public&schema=public'):
+                      'hostaddr=127.0.0.1', 'sslmode=disable', 'schema=auth', 'schema=public&schema=public',
+                      'schema=public&%73chema=public', 'sslmode=require&%73slmode=require'):
             with self.assertRaises(m.PreflightError) as caught:
                 m.source_config(base + '?' + query)
             self.assertEqual(m.failure_metadata(caught.exception)['code'], 'SOURCE_QUERY_REJECTED')

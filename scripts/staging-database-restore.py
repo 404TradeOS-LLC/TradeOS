@@ -34,7 +34,7 @@ def source_config(value):
         raise PreflightError('SOURCE_URI_FORMAT')
     if u.path != '/postgres':
         raise PreflightError('SOURCE_DATABASE_REJECTED')
-    # Permit only the conventional TLS query. Never pass URI options to libpq:
+    # Permit only conventional TLS/public-schema hints. Never pass URI options to libpq:
     # host/hostaddr/service/options could redirect or change read-only safety.
     allowed_query = {'sslmode': 'require', 'schema': 'public'}
     if len({key for key, _ in query}) != len(query) or any(allowed_query.get(key) != value for key, value in query):
