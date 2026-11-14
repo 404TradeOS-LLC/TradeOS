@@ -57,10 +57,43 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, default=str).encode()).hexdigest()
 
 
+class CommandFailure(RuntimeError):
+    """Only a fixed classification survives a subprocess failure."""
+    def __init__(self, code):
+        self.code = code
+        super().__init__(code)
+
+
+def command_failure_code(diagnostic):
+    # Match only server diagnostic categories, never retain matched identifiers,
+    # SQL, COPY row context, subprocess arguments or connection information.
+    text = diagnostic.decode('utf-8', errors='replace')
+    for kind in ('schema', 'function', 'type', 'role', 'relation', 'operator', 'collation'):
+        if re.search(r'ERROR:\s+' + kind + r' [^\n]* does not exist', text):
+            return 'COMMAND_' + kind.upper() + '_MISSING'
+    for pattern, code in (
+        (r'ERROR:[^\n]* already exists', 'COMMAND_OBJECT_EXISTS'),
+        (r'ERROR:\s+permission denied', 'COMMAND_PERMISSION_DENIED'),
+        (r'ERROR:[^\n]* violates foreign key constraint', 'COMMAND_FOREIGN_KEY_VIOLATION'),
+        (r'ERROR:[^\n]* violates unique constraint', 'COMMAND_UNIQUE_VIOLATION'),
+        (r'ERROR:[^\n]* unrecognized configuration parameter', 'COMMAND_CONFIGURATION_UNSUPPORTED'),
+        (r'ERROR:[^\n]* extension [^\n]* is not available', 'COMMAND_EXTENSION_UNAVAILABLE'),
+    ):
+        if re.search(pattern, text):
+            return code
+    return 'SUBPROCESS_FAILED'
+
+
 def command(args, env):
     # Never inherit PGHOST/PGSERVICE/PGOPTIONS or log subprocess diagnostics.
-    subprocess.run(args, env=env, check=True, stdout=subprocess.DEVNULL,
-                   stderr=subprocess.DEVNULL, timeout=900)
+    # Raw diagnostics remain in a mode-0600 anonymous temporary file and are
+    # closed immediately, including exceptions. Only fixed codes leave here.
+    with tempfile.TemporaryFile() as diagnostics:
+        result = subprocess.run(args, env=env, check=False, stdout=subprocess.DEVNULL,
+                                stderr=diagnostics, timeout=900)
+        if result.returncode:
+            diagnostics.seek(0)
+            raise CommandFailure(command_failure_code(diagnostics.read(131072)))
 
 
 def manifest(conn):
@@ -125,7 +158,7 @@ def probe_outcome(tenant_count, global_count):
 
 
 def failure_metadata(error):
-    if isinstance(error, PreflightError):
+    if isinstance(error, (PreflightError, CommandFailure)):
         return {'status': 'failed', 'phase': PHASE, 'code': error.code}
     code = getattr(error, 'sqlstate', None)
     if not isinstance(code, str) or not re.fullmatch(r'[0-9A-Z]{5}', code):
