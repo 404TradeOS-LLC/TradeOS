@@ -20,6 +20,7 @@ import {
   Plus,
   Receipt,
   Settings,
+  ShieldAlert,
   Sparkles,
   UserPlus,
   Users,
@@ -65,6 +66,15 @@ const TEAM_TIME_NAV_LINK: NavLink = {
   label: "Team & Time",
   shortLabel: "Team",
   icon: Clock3,
+};
+
+// Read-only release intelligence; direct server route continues to enforce
+// the authenticated owner/admin role. Never render this for unknown/field roles.
+const BETA_READINESS_NAV_LINK: NavLink = {
+  href: "/beta-readiness",
+  label: "Beta readiness",
+  shortLabel: "Beta",
+  icon: ShieldAlert,
 };
 
 const ATHENA_NAV_LINK: NavLink = {
@@ -165,9 +175,11 @@ function NavPill({
   );
 }
 
+/** Render navigation for the current role and enabled capabilities. */
 export function AppNav({
   email,
   currentRole = null,
+  betaReadinessVisible = false,
   athenaEnabled = false,
   athenaCapabilityRetryKey = null,
   teamTimeEnabled = false,
@@ -175,6 +187,10 @@ export function AppNav({
 }: {
   email?: string | null;
   currentRole?: string | null;
+  // Server-resolved operator-organization eligibility (see (app)/layout.tsx).
+  // The client must never decide this from role alone: a customer owner/admin
+  // would otherwise see a link whose route always 404s for their org.
+  betaReadinessVisible?: boolean;
   athenaEnabled?: boolean;
   athenaCapabilityRetryKey?: string | null;
   teamTimeEnabled?: boolean;
@@ -191,7 +207,11 @@ export function AppNav({
   const dockMoreButtonRef = useRef<HTMLButtonElement>(null);
   const effectiveDispatchAttentionCount = clientDispatchAttentionCount ?? dispatchAttentionCount;
   const dispatchBadgeCount = Math.max(effectiveDispatchAttentionCount ?? 0, 0);
-  const secondaryLinks = teamTimeEnabled ? [...SECONDARY_NAV_LINKS, TEAM_TIME_NAV_LINK] : SECONDARY_NAV_LINKS;
+  const secondaryLinks = [
+    ...SECONDARY_NAV_LINKS,
+    ...(teamTimeEnabled ? [TEAM_TIME_NAV_LINK] : []),
+    ...(betaReadinessVisible ? [BETA_READINESS_NAV_LINK] : []),
+  ];
 
   const effectiveAthenaEnabled = athenaCapabilityRetryKey
     ? clientAthenaCapability?.key === athenaCapabilityRetryKey && clientAthenaCapability.enabled

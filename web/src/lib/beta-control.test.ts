@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { gatePromotion, nextSafeAction, evaluateChecks, parseRequiredCheckPolicy, commitStatusToCheck, collectLatestCommitStatuses, markReviewFetchFailure, isAuthorizedBetaOperator, loadAuthorizedBetaSnapshot, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
+import { gatePromotion, nextSafeAction, evaluateChecks, prCardStatus, prStatusTileLabel, isBetaReadinessOperatorRole, parseRequiredCheckPolicy, commitStatusToCheck, collectLatestCommitStatuses, markReviewFetchFailure, isAuthorizedBetaOperator, loadAuthorizedBetaSnapshot, firstStagingDeployment, vercelDeploymentsNextCursor, releaseGates, type PrStatus } from './beta-control.ts';
 
 const candidate: PrStatus = { number: 810, title:'Job handoff', url:'https://github.com/404TradeOS-LLC/TradeOS/pull/810', state:'open', head:'a'.repeat(40), base:'b'.repeat(40), draft:false, mergeable:true, behind:0, unresolvedThreads:0, review:'approved', checks:[{name:'CI', status:'completed', conclusion:'success', url:null}], requiredChecksKnown:true, requiredCheckNames:['CI'], error:null };
 
@@ -239,8 +239,132 @@ test('authorized platform-organization owner and admin reach snapshot exactly on
   assert.equal(snapshotCalls, 2);
 });
 
+test('beta readiness navigation link is gated by operator organization, not role alone', () => {
+  const layout = readFileSync(new URL('../app/(app)/layout.tsx', import.meta.url), 'utf8');
+  assert.match(layout, /isAuthorizedBetaOperator\s*\(/);
+  assert.match(layout, /betaReadinessVisible/);
+  assert.match(layout, /process\.env\.TRADEOS_BETA_OPERATOR_ORG_ID/);
+  const nav = readFileSync(new URL('../components/shared/app-nav.tsx', import.meta.url), 'utf8');
+  assert.match(nav, /betaReadinessVisible\s*=\s*false/);
+  assert.doesNotMatch(nav, /isBetaReadinessOperatorRole\(currentRole\)/);
+});
+
 test('BetaReadinessPage cannot bypass the authorized collector boundary', () => {
   const source = readFileSync(new URL('../app/(app)/beta-readiness/page.tsx', import.meta.url), 'utf8');
   assert.match(source, /await loadAuthorizedBetaSnapshot\s*\(/);
   assert.doesNotMatch(source, /await getBetaSnapshot\s*\(/);
+});
+
+test('beta readiness operator access is exactly owner or admin, never field or unknown roles', () => {
+  assert.equal(isBetaReadinessOperatorRole('owner'), true);
+  assert.equal(isBetaReadinessOperatorRole('admin'), true);
+  for (const role of ['technician', 'manager', 'dispatcher', 'office-manager', '', 'OWNER', 'owner ', undefined, null, 1]) {
+    assert.equal(isBetaReadinessOperatorRole(role), false, String(role));
+  }
+});
+
+test('closed superseded staging alternatives are labeled superseded, not active release failures', () => {
+  for (const number of [905, 906]) {
+    const closed: PrStatus = { ...candidate, number, state:'closed', merged:false, mergeable:false };
+    assert.equal(prCardStatus(closed), 'superseded');
+    assert.match(nextSafeAction(closed), /closed|superseded/i);
+    assert.equal(prCardStatus({ ...closed, merged:true }), 'blocked');
+  }
+});
+
+test('unknown draft or mergeability evidence cannot create a green PR card', () => {
+  assert.equal(prCardStatus({ ...candidate, mergeable:null }), 'unverified');
+  assert.equal(prCardStatus({ ...candidate, draft:null }), 'unverified');
+  assert.equal(prCardStatus({ ...candidate, mergeable:null, draft:null }), 'unverified');
+  assert.equal(prCardStatus({ ...candidate, mergeable:false }), 'blocked', 'known non-mergeable state stays blocked');
+  assert.equal(prCardStatus({
+    ...candidate,
+    draft:null,
+    checks:[{ name:'CI', status:'completed', conclusion:'failure', url:null }],
+  }), 'blocked', 'observed failed check stays blocked');
+});
+
+test('PR badges never go green for failed collector, unapproved reviews, or conflicting checks', () => {
+  assert.equal(prCardStatus({ ...candidate, error:'review source unavailable' }), 'unverified');
+  assert.equal(prCardStatus({ ...candidate, review:'unverified' }), 'unverified');
+  assert.equal(prCardStatus({ ...candidate, unresolvedThreads:2 }), 'unverified');
+  assert.equal(prCardStatus({ ...candidate, checks:[{name:'CI',status:'completed',conclusion:'failure',url:null}] }), 'blocked');
+  assert.equal(prCardStatus({ ...candidate, state:'closed', merged:true }), 'merged');
+});
+
+test('closed PRs never recommend a branch update, whatever their recorded currency', () => {
+  for (const number of [810, 891]) {
+    const closedUnmerged: PrStatus = { ...candidate, number, state:'closed', merged:false, behind:3 };
+    assert.match(nextSafeAction(closedUnmerged), /closed without merge/i);
+    assert.doesNotMatch(nextSafeAction(closedUnmerged), /rebase|update/i);
+    assert.doesNotMatch(nextSafeAction({ ...candidate, number, state:'closed', merged:true, behind:3 }), /rebase|update/i);
+  }
+  assert.match(nextSafeAction({ ...candidate, number:810, state:'closed', merged:true, behind:3 }), /attest.*bindings/i);
+  assert.match(nextSafeAction({ ...candidate, number:891, state:'closed', merged:true, behind:3 }), /expense baseline/i);
+  const mergedOther = nextSafeAction({ ...candidate, number:820, state:'closed', merged:true, behind:3 });
+  assert.match(mergedOther, /merged/i);
+  assert.doesNotMatch(mergedOther, /rebase|update/i);
+  // Open PRs still recommend updating when behind.
+  assert.match(nextSafeAction({ ...candidate, number:810, behind:3 }), /rebase|update/i);
+});
+
+test('superseded lane stays actionable even when its historical CI cannot be collected', () => {
+  const closed: PrStatus = { ...candidate, number:905, state:'closed', merged:false, mergeable:false, error:'commit statuses unavailable' };
+  assert.equal(prCardStatus(closed), 'superseded');
+  assert.match(nextSafeAction(closed), /superseded|closed without merge/i);
+  assert.doesNotMatch(nextSafeAction(closed), /restore.*visibility/i);
+});
+
+
+test('closed PR status tile says disposition instead of mergeability', () => {
+  assert.equal(prStatusTileLabel('closed'), 'Disposition');
+  assert.equal(prStatusTileLabel('open'), 'Mergeability');
+  assert.equal(prStatusTileLabel('unknown'), 'Mergeability');
+});
+
+test('known required-check failure remains blocked despite another collector failure', () => {
+  const knownFailure: PrStatus = {
+    ...candidate,
+    error: 'Review submissions unavailable',
+    checks: [{name:'CI',status:'completed',conclusion:'failure',url:null}],
+  };
+  assert.equal(evaluateChecks(knownFailure).state,'blocked');
+  assert.equal(prCardStatus(knownFailure),'blocked');
+  assert.equal(prCardStatus({
+    ...knownFailure,
+    checks:[{name:'CI',status:'completed',conclusion:'success',url:null}],
+  }),'unverified');
+});
+
+test('known draft and non-mergeable states survive a collector failure', () => {
+  assert.equal(prCardStatus({ ...candidate, draft:true, error:'review source unavailable' }), 'draft');
+  assert.equal(prCardStatus({ ...candidate, mergeable:false, error:'review source unavailable' }), 'blocked');
+  assert.equal(prCardStatus({ ...candidate, draft:true, mergeable:false, error:'review source unavailable' }), 'draft');
+  assert.equal(prCardStatus({ ...candidate, error:'review source unavailable' }), 'unverified');
+});
+
+test('missing required evidence is unverified only when the collector failed', () => {
+  const extraRequired: PrStatus = {
+    ...candidate,
+    requiredCheckNames: ['CI', 'Security Gate'],
+    checks: [{name:'CI',status:'completed',conclusion:'success',url:null}],
+  };
+  assert.equal(prCardStatus(extraRequired), 'blocked', 'a known missing required check remains blocking');
+  assert.equal(prCardStatus({...extraRequired,error:'Commit check collection unavailable'}), 'unverified',
+    'missing evidence and a failed collector are uncertainty, not a confirmed failing check');
+
+  const observedRed: PrStatus = {
+    ...extraRequired,
+    error: 'Review submission collection unavailable',
+    checks: [{name:'CI',status:'completed',conclusion:'failure',url:null}],
+  };
+  assert.equal(prCardStatus(observedRed), 'blocked',
+    'an explicitly failing required check remains blocked despite other missing evidence');
+
+  const pending: PrStatus = {
+    ...extraRequired,
+    error: 'Commit statuses unavailable',
+    checks: [{name:'CI',status:'in_progress',conclusion:null,url:null}],
+  };
+  assert.equal(prCardStatus(pending), 'blocked', 'an observed incomplete required check remains blocking');
 });

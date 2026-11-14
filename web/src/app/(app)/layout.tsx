@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/shared/app-nav";
 import { getAthenaCapabilities, getOrganizationSettings } from "@/lib/api";
+import { isAuthorizedBetaOperator } from "@/lib/beta-control";
 import { getSession, getSessionToken } from "@/lib/session";
 import { isTeamTimeEnabled } from "@/lib/team-time-config";
 
@@ -30,14 +31,15 @@ async function resolveAthenaEnabled(token: string | null): Promise<AthenaCapabil
   }
 }
 
-async function resolveCurrentRole(token: string | null): Promise<string | null> {
-  if (!token) return null;
+async function resolveSettingsIdentity(token: string | null): Promise<{ role: string | null; orgId: string | null }> {
+  if (!token) return { role: null, orgId: null };
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), ATHENA_CAPABILITY_TIMEOUT_MS);
   try {
-    return (await getOrganizationSettings(token, controller.signal)).currentRole;
+    const settings = await getOrganizationSettings(token, controller.signal);
+    return { role: settings.currentRole, orgId: settings.orgId };
   } catch {
-    return null;
+    return { role: null, orgId: null };
   } finally {
     clearTimeout(timeoutId);
   }
@@ -48,11 +50,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!session) redirect("/login");
 
   const token = await getSessionToken();
-  const [athenaCapability, currentRole] = await Promise.all([
+  const [athenaCapability, identity] = await Promise.all([
     resolveAthenaEnabled(token),
-    resolveCurrentRole(token),
+    resolveSettingsIdentity(token),
   ]);
   const athenaCapabilityRetryKey = athenaCapability.retryOnClient ? randomUUID() : null;
+  // The Beta readiness link is gated by the same server-side operator
+  // authorization as the route: role alone is never enough, and the
+  // configured operator organization ID never leaves the server. Customer
+  // owners/admins — and everyone else when operator access is unconfigured
+  // — simply never see a link that would always 404 for them.
+  const betaReadinessVisible = isAuthorizedBetaOperator(
+    identity.role,
+    identity.orgId,
+    process.env.TRADEOS_BETA_OPERATOR_ORG_ID,
+  );
 
   return (
     <div className="flex flex-1 flex-col">
@@ -64,7 +76,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </a>
       <AppNav
         email={session.email}
-        currentRole={currentRole}
+        currentRole={identity.role}
+        betaReadinessVisible={betaReadinessVisible}
         athenaEnabled={athenaCapability.enabled}
         athenaCapabilityRetryKey={athenaCapabilityRetryKey}
         teamTimeEnabled={isTeamTimeEnabled()}
