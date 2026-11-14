@@ -587,4 +587,4 @@ including percent-encoded spellings, because Prisma gives that parameter
 precedence over the validated URL authority. Approved direct and session-pooler
 connections retain their existing validation; errors never include credentials.
 
-The main-only, protected staging [actual public database restore rehearsal](operations/staging-database-restore.md) retains only sanitized seven-day evidence; raw backups stay ephemeral and source access is read-only. Passing this workflow does not certify Auth/storage or production recovery.
+The main-only, protected staging [actual public database restore rehearsal](operations/staging-database-restore.md) retains only sanitized seven-day evidence; raw backups stay ephemeral and source access is read-only. Passing this workflow does not certify Auth/storage or production recovery. Actual `tradeos_private` dependency DDL is included without private table data; its restored tables must be empty. Disposable service logging is disabled so cleanup cannot publish failed SQL.

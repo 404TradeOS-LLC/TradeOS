@@ -108,6 +108,17 @@ class GuardTests(unittest.TestCase):
         self.assertEqual(m.public_extension_dependencies([(1, 10)], edges,
                          [(4, 40, 'pg_trgm', 'public')]), [('pg_trgm', 'public')])
 
+    def test_private_trigger_dependency_is_schema_only_and_server_errors_stay_private(self):
+        script = Path(m.__file__).read_text()
+        workflow = Path('.github/workflows/staging-database-restore.yml').read_text()
+        self.assertIn("'--schema=tradeos_private', '--exclude-table-data=tradeos_private.*'", script)
+        self.assertIn('if any(dependency_counts.values()):', script)
+        self.assertIn("schema_only_dependency_counts=dependency_counts", script)
+        self.assertIn('--log-driver none', workflow)
+        self.assertIn('-c log_min_error_statement=panic -c log_min_messages=panic', script)
+        # This is a dependency recovery, not a replacement audit function stub.
+        self.assertNotIn('CREATE FUNCTION', script)
+
     def test_failure_metadata_never_contains_exception_text(self):
         error = RuntimeError('password=secret row=email@example.test')
         error.sqlstate = '42501'

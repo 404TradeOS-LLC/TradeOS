@@ -538,3 +538,5 @@ precedence over the validated URL authority. Approved direct and session-pooler
 connections retain their existing validation; errors never include credentials.
 
 The main-only, protected staging [actual public database restore rehearsal](operations/staging-database-restore.md) retains only sanitized seven-day evidence; raw backups stay ephemeral and source access is read-only. Passing this workflow does not certify Auth/storage or production recovery.
+
+The [staging restore rehearsal](operations/staging-database-restore.md) includes actual private dependency DDL without private table data; only sanitized receipts are retained, and disposable service logs cannot expose failed SQL.
