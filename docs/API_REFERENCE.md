@@ -1184,3 +1184,7 @@ Invitation acceptance likewise conditionally claims a pending, unaccepted, unexp
 After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
 
 Refresh rotation records the replacement refresh-row UUID in `replaced_by_id`, while the opaque token hash remains only in `token_hash`. The conditional single-use rotation and replacement row creation remain in one transaction; replay and logout continue to reject revoked refresh sessions.
+
+### Administrative member upsert
+
+`POST /api/v1/admin/organizations/:id/members` retains its existing request and response shapes. The service verifies the active administrator membership before provisioning a new application user under forced RLS. Adding an existing identity from another organization attaches a membership without changing its global email, name or active flag. User/membership/audit writes are atomic; denied actor or organization checks do not enable provisioning. See [the shared administrative provisioning boundary](ARCHITECTURE.md#administrative-membership-provisioning-boundary).
