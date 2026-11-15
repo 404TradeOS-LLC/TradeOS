@@ -41,6 +41,19 @@ class PostgresRegression(unittest.TestCase):
                     self.assertNotEqual(visible, qualified)
                     after = m.manifest(conn)
                     m.assert_manifest_matches(before, after)
+                    conn.execute('ALTER TABLE public.fixture ADD COLUMN removed text; ALTER TABLE public.fixture ADD COLUMN tail text; ALTER TABLE public.fixture DROP COLUMN removed')
+                    with_gaps = m.manifest(conn)
+                    positions = conn.execute("SELECT ordinal_position FROM information_schema.columns WHERE table_schema='public' AND table_name='fixture' ORDER BY ordinal_position").fetchall()
+                    self.assertEqual(positions, [(1,), (3,)])
+                    # pg_dump rebuilds only live columns, with dense positions.
+                    conn.execute('DROP TABLE public.fixture; CREATE TABLE public.fixture(id int DEFAULT extensions.demo(),tail text); INSERT INTO public.fixture DEFAULT VALUES')
+                    restored = m.manifest(conn)
+                    m.assert_manifest_matches(with_gaps, restored)
+                    # Logical order is still part of the strict schema contract.
+                    conn.execute('DROP TABLE public.fixture; CREATE TABLE public.fixture(tail text,id int DEFAULT extensions.demo()); INSERT INTO public.fixture DEFAULT VALUES')
+                    with self.assertRaises(m.PreflightError) as order_error:
+                        m.assert_manifest_matches(restored, m.manifest(conn))
+                    self.assertEqual(order_error.exception.code, 'MANIFEST_COLUMNS_MISMATCH')
                     conn.execute("CREATE TABLE public.customers(org_id uuid NOT NULL); INSERT INTO public.customers VALUES ('11111111-1111-4111-8111-111111111111'),('22222222-2222-4222-8222-222222222222'); ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY; ALTER TABLE public.customers FORCE ROW LEVEL SECURITY; CREATE POLICY fixture_scope ON public.customers FOR SELECT TO PUBLIC USING (org_id=nullif(current_setting('app.org_id',true),'')::uuid)")
                     conn.execute(sql.SQL('CREATE ROLE {} NOLOGIN NOSUPERUSER NOBYPASSRLS').format(sql.Identifier(role)))
                     role_created = True
