@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import { SharedSupplierCronRateLimitStore } from "./supplierCronRateLimitStore";
 import { isCatalogEnabled } from "../../modules/supplier-integration/abcCatalog";
 import { costbookController as ctrl } from "../controllers/costbook.controller";
+import { costbookCodesController } from "../controllers/costbookCodes.controller";
 import { costbookPricingController as pricingCtrl } from "../controllers/costbookPricing.controller";
 import { costDatabaseController as costItemCtrl } from "../controllers/costDatabase.controller";
 import { assembliesDatabaseController as assemblyCtrl } from "../controllers/assembliesDatabase.controller";
@@ -14,6 +15,8 @@ import { davisBaconController as davisBaconCtrl } from "../controllers/davisBaco
 export const costbookRouter = Router();
 
 costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
+// Advisory official references only: no pricing, permit approval or parcel determination.
+costbookRouter.get("/codes", asyncHandler(costbookCodesController.list));
 // Product API browsing and details use one shared global rate-limit budget.
 const abcCatalogLimiter = rateLimit({
   store: new SharedSupplierCronRateLimitStore("abc-catalog"),
