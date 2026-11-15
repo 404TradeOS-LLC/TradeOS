@@ -6,12 +6,27 @@ import sys
 from unittest.mock import patch
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 spec = importlib.util.spec_from_file_location('restore', Path(__file__).with_name('staging-database-restore.py'))
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
 
 
 class GuardTests(unittest.TestCase):
+    def test_manifest_failure_identifies_only_fixed_component(self):
+        hashes = {name: 'same' for name in ('tables', 'columns', 'policies', 'constraints', 'indexes', 'triggers', 'functions')}
+        before = {'counts': {'private-looking-name': 3}, 'component_digests': hashes, 'schema_digest': 'same'}
+        after = {**before, 'component_digests': {**hashes, 'functions': 'changed'}}
+        with self.assertRaises(m.PreflightError) as caught:
+            m.assert_manifest_matches(before, after)
+        self.assertEqual(m.failure_metadata(caught.exception)['code'], 'MANIFEST_FUNCTIONS_MISMATCH')
+        self.assertNotIn('private-looking-name', str(m.failure_metadata(caught.exception)))
+        with self.assertRaises(m.PreflightError) as caught:
+            m.assert_manifest_matches(before, {**before, 'counts': {'private-looking-name': 4}})
+        self.assertEqual(caught.exception.code, 'MANIFEST_PUBLIC_COUNTS_MISMATCH')
+        m.assert_manifest_matches(before, before)
+
     def test_canonical_direct_and_session_only(self):
         base = f'postgresql://postgres:secret@db.{m.REF}.supabase.co/postgres'
         self.assertEqual(m.source_config(base)['sslmode'], 'require')

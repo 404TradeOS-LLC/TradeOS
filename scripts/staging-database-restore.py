@@ -98,17 +98,48 @@ def command(args, env):
 
 def manifest(conn):
     from psycopg import sql
+    # Catalog deparsers qualify identifiers using search_path. Compare identical
+    # schema under the same transaction-local path on source and target.
+    conn.execute('SET LOCAL search_path = pg_catalog, public, extensions, tradeos_private')
     tables = conn.execute("SELECT c.relname,c.relrowsecurity,c.relforcerowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' ORDER BY c.relname").fetchall()
     if not tables:
         raise ValueError('No public tables')
     counts = {name: conn.execute(sql.SQL('SELECT count(*) FROM public.{}').format(sql.Identifier(name))).fetchone()[0] for name, _, _ in tables}
     columns = conn.execute("SELECT table_schema,table_name,column_name,ordinal_position,data_type,udt_name,is_nullable,column_default FROM information_schema.columns WHERE table_schema IN ('public','tradeos_private') ORDER BY table_schema,table_name,ordinal_position").fetchall()
-    policies = conn.execute("SELECT schemaname,tablename,policyname,permissive,roles::text,cmd,qual,with_check FROM pg_policies WHERE schemaname IN ('public','tradeos_private') ORDER BY schemaname,tablename,policyname").fetchall()
+    policies = conn.execute("SELECT schemaname,tablename,policyname,permissive,ARRAY(SELECT role_name FROM unnest(roles) AS role_name ORDER BY role_name),cmd,qual,with_check FROM pg_policies WHERE schemaname IN ('public','tradeos_private') ORDER BY schemaname,tablename,policyname").fetchall()
     constraints = conn.execute("SELECT n.nspname,c.relname,p.conname,pg_get_constraintdef(p.oid) FROM pg_constraint p JOIN pg_class c ON c.oid=p.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','tradeos_private') ORDER BY n.nspname,c.relname,p.conname").fetchall()
     indexes = conn.execute("SELECT schemaname,tablename,indexname,indexdef FROM pg_indexes WHERE schemaname IN ('public','tradeos_private') ORDER BY schemaname,tablename,indexname").fetchall()
     triggers = conn.execute("SELECT n.nspname,c.relname,t.tgname,pg_get_triggerdef(t.oid) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','tradeos_private') AND NOT t.tgisinternal ORDER BY n.nspname,c.relname,t.tgname").fetchall()
     functions = conn.execute("SELECT n.nspname,p.proname,pg_get_function_identity_arguments(p.oid),pg_get_functiondef(p.oid) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('public','tradeos_private') AND p.prokind IN ('f','p') AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid AND d.deptype='e') ORDER BY n.nspname,p.proname,pg_get_function_identity_arguments(p.oid)").fetchall()
-    return dict(counts=counts, schema_digest=digest([tables, columns, policies, constraints, indexes, triggers, functions]), rls_tables=[name for name, enabled, forced in tables if enabled and forced])
+    components = dict(tables=tables, columns=columns, policies=policies, constraints=constraints, indexes=indexes, triggers=triggers, functions=functions)
+    hashes = {name: digest(value) for name, value in components.items()}
+    return dict(counts=counts, schema_digest=digest(hashes), component_digests=hashes, rls_tables=[name for name, enabled, forced in tables if enabled and forced])
+
+
+def assert_manifest_matches(before, after):
+    if before['counts'] != after['counts']:
+        raise PreflightError('MANIFEST_PUBLIC_COUNTS_MISMATCH')
+    for name in ('tables', 'columns', 'policies', 'constraints', 'indexes', 'triggers', 'functions'):
+        if before['component_digests'][name] != after['component_digests'][name]:
+            raise PreflightError('MANIFEST_' + name.upper() + '_MISMATCH')
+    if before != after:
+        raise PreflightError('MANIFEST_METADATA_MISMATCH')
+
+
+def verify_customer_isolation(target, customer_scopes, role='restore_probe'):
+    from psycopg import sql
+    target.execute(sql.SQL('SET LOCAL ROLE {}').format(sql.Identifier(role)))
+    restricted = target.execute('SELECT rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user').fetchone()
+    if restricted != (False, False):
+        raise PreflightError('RESTRICTED_ROLE_PRIVILEGES_INVALID')
+    scope, expected_count = customer_scopes[0]
+    target.execute("SELECT set_config('app.org_id',%s,true),set_config('app.user_id','00000000-0000-0000-0000-000000000000',true),set_config('app.role','viewer',true)", (str(scope),))
+    own_count = target.execute('SELECT count(*) FROM public.customers WHERE org_id=%s', (scope,)).fetchone()[0]
+    foreign_count = target.execute('SELECT count(*) FROM public.customers WHERE org_id<>%s AND org_id IS NOT NULL', (scope,)).fetchone()[0]
+    if own_count != expected_count or own_count == 0 or foreign_count != 0:
+        raise PreflightError('RESTRICTED_CUSTOMER_ISOLATION_FAILED')
+    customer_isolation = dict(policy_roles='public', superuser=False, bypassrls=False, own_rows_visible=own_count, foreign_rows_denied=True, foreign_rows_exist=True)
+    return customer_isolation
 
 
 PHASE = 'preflight'
@@ -227,15 +258,22 @@ def run():
             dependency_counts = {name: target.execute(sql.SQL('SELECT count(*) FROM tradeos_private.{}').format(sql.Identifier(name))).fetchone()[0] for (name,) in dependency_tables}
             if any(dependency_counts.values()):
                 raise ValueError('Private dependency data must be excluded')
-            if before != after:
-                raise ValueError('Restored manifest mismatch')
+            assert_manifest_matches(before, after)
             if not before['rls_tables']:
                 raise ValueError('No forced RLS tables')
             PHASE = 'restricted_role_probe'
+            # Current restored policies apply to PUBLIC. Reject uncovered named
+            # roles instead of reporting their default-deny behavior as RLS proof.
+            named_policies = target.execute("SELECT count(*) FROM pg_policies WHERE schemaname='public' AND NOT ('public'=ANY(roles))").fetchone()[0]
+            if named_policies:
+                raise PreflightError('RESTRICTED_POLICY_ROLE_COVERAGE_UNVERIFIED')
+            customer_scopes = target.execute('SELECT org_id,count(*) FROM public.customers WHERE org_id IS NOT NULL GROUP BY org_id ORDER BY org_id LIMIT 2').fetchall()
+            if len(customer_scopes) != 2:
+                raise PreflightError('RESTRICTED_POSITIVE_FIXTURE_UNAVAILABLE')
             target.execute('CREATE ROLE restore_probe NOLOGIN NOSUPERUSER NOBYPASSRLS')
             target.execute('GRANT USAGE ON SCHEMA public TO restore_probe')
             target.execute('GRANT SELECT ON ALL TABLES IN SCHEMA public TO restore_probe')
-            target.execute('SET LOCAL ROLE restore_probe')
+            customer_isolation = verify_customer_isolation(target, customer_scopes)
             target.execute("SELECT set_config('app.user_id','00000000-0000-0000-0000-000000000000',true),set_config('app.org_id','00000000-0000-0000-0000-000000000000',true),set_config('app.role','viewer',true)")
             probe_results = {}
             for table, tenant_columns in probe_columns.items():
@@ -254,7 +292,7 @@ def run():
         receipt = dict(status='passed', scope='actual-staging-public-data-with-private-dependency-ddl', source_project=REF,
                        commit=os.environ.get('GITHUB_SHA'), run_id=os.environ.get('GITHUB_RUN_ID'),
                        elapsed_seconds=round(time.monotonic()-started, 2), backup_sha256=hashlib.file_digest(backup.open('rb'), 'sha256').hexdigest(),
-                       **before, restricted_role_probes=probe_results, extension_namespaces=extensions, schema_only_dependency_counts=dependency_counts,
+                       **before, customer_isolation=customer_isolation, restricted_role_probes=probe_results, extension_namespaces=extensions, schema_only_dependency_counts=dependency_counts,
                        limitations=['tradeos_private dependency DDL only; all private table data excluded, not a private vault restore', 'Child tables without direct tenant columns are unverified by restricted-role probe', 'No Supabase auth/storage recovery', 'No production recovery claim', 'ACL/ownership excluded; restricted role independently granted SELECT', 'Snapshot point-in-time only; no WAL/PITR or RPO claim'])
         (root / 'staging-restore-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
     finally:
