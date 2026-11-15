@@ -20,9 +20,9 @@
       "tenantSource": "org_id direct",
       "migration": "20260623180000_enable_org_rls/migration.sql",
       "policy": "organization tenant policy",
-      "sameOrg": "enforces core service tenant boundaries before foreign reads or writes",
-      "crossOrg": "enforces core service tenant boundaries before foreign reads or writes",
-      "scopeTest": "enforces crm foundation tenant boundaries for service addresses, customer equipment, agreements, payments, and notes",
+      "sameOrg": "enforces customer same/cross organization reads directly under RLS",
+      "crossOrg": "enforces customer same/cross organization reads directly under RLS",
+      "scopeTest": "enforces customer same/cross organization reads directly under RLS",
       "status": "COVERED",
       "routeServiceOwner": "app/modules/crm/service.ts"
     },

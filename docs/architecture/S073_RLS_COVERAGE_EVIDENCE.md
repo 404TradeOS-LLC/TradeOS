@@ -10,14 +10,15 @@ Migration entries identify the source that establishes the active RLS contract f
 
 ## Live PostgreSQL evidence
 
-The existing `app/tests/rls.integration.ts` supplies direct database evidence for the previously covered resources and named actor/assignment/customer scopes. The additive `app/tests/s073.rls.integration.ts` adds disposable PostgreSQL fixtures and direct queries for the four previously untested tables:
+The existing `app/tests/rls.integration.ts` supplies direct database evidence for the previously covered resources and named actor/assignment scopes. The additive `app/tests/s073.rls.integration.ts` adds disposable PostgreSQL fixtures and direct queries for Customer and four previously untested tables:
 
 | Resource | Same/cross organization evidence | Narrow scope evidence |
 | --- | --- | --- |
 | `estimate_line_items` | `proves estimate parents are visible while estimate-line RLS remains parent-scoped` | Parent estimate organization inheritance; passed |
 | `invoice_line_items` | `enforces invoice-line reads through the parent invoice and project` | Parent invoice/project organization inheritance; passed |
 | `customer_portal_access_tokens` | `limits portal identity reads to the exact token or session credential` | Exact lookup hash; unrelated hash returns no rows |
-| `customer_portal_sessions` | `limits portal identity reads to the exact token or session credential` passes; `keeps portal session context scoped to its customer and organization` fails | Exact hash lookup passes. Request-context read returns no row because `runWithPortalDatabaseSession` sets `app.portal_session_id` but the forced lookup policy requires `app.portal_session_hash`. |
+| `customers` | `enforces customer same/cross organization reads directly under RLS` | Restricted-role queries prove same-org rows visible and cross-org row hidden |
+| `customer_portal_sessions` | `limits portal identity reads to the exact token or session credential` passes; `excludes a same-organization customer session without its exact credential` passes; `keeps portal session context scoped to its customer and organization` fails | Exact hash lookup excludes unrelated credentials, including a sibling customer in the same organization. Request-context read returns no row because `runWithPortalDatabaseSession` sets `app.portal_session_id` but the forced lookup policy requires `app.portal_session_hash`. |
 
 The matrix also includes S053 Costbook inputs (`CostItem`, `Assembly`, `AssemblyItem`) and the S058 `InvoiceDelivery` journal. Their same/cross tenant test names are drawn from the existing focused Costbook and core integration files, which the validator scans under `app/tests/`.
 
@@ -29,6 +30,8 @@ The tests use the disposable PostgreSQL integration database only. They create u
 
 ## Validation
 
-`npm run s073:rls:check` checks the matrix against the current Prisma model/table mapping, mapped migration, explicit or enumerated ENABLE/FORCE evidence, policy generation, source owner, and named live integration test. `npm run s073:rls:test` covers successful validation and fails closed for an unowned GAP or missing migration. Both are included in `npm run pr:test`.
+`npm run s073:rls:check` checks the matrix against the current Prisma model/table mapping, mapped migration, explicit or same-loop enumerated ENABLE/FORCE and policy evidence, source owner, and named live integration tests for same-org, cross-org, and scope evidence. It also requires the independently maintained S051/S052-S060 table inventory. `npm run s073:rls:test` covers successful validation and fails closed for unowned gaps, missing migration, missing inventory rows, missing scope evidence, and detached loop evidence. Both are included in `npm run pr:test`.
+
+Review-fix verification: root PR tests 450/450; docs tests 40/40; App TypeScript check passed; disposable PostgreSQL integration passed 30 suites and 222/223 tests, with only the owned request-context session GAP failing.
 
 The matrix is evidence inventory, not browser acceptance for S052-S060. Those sprints retain their own authenticated non-production acceptance gates. A newly observed live policy failure must be recorded as an owned `GAP`; this branch does not authorize changing policy or migrations.

@@ -21,3 +21,32 @@ test("S073 matrix rejects an unowned gap and an absent forced-RLS source", () =>
   assert.ok(errors.some((error) => error.includes("GAP requires blockingOwner and blockingTest")));
   assert.ok(errors.some((error) => error.includes("migration directory is missing")));
 });
+
+test("S073 matrix rejects missing required inventory rows and missing scope evidence", () => {
+  const missingResource = structuredClone(matrix);
+  missingResource.resources = missingResource.resources.filter((resource) => resource.table !== "jobs");
+  assert.ok(validateMatrix({ rootDir: root, matrix: missingResource }).some((error) => error.includes("required S051/S052-S060 resource jobs is missing")));
+
+  const missingScopeTest = structuredClone(matrix);
+  missingScopeTest.resources[0].scopeTest = "not a real integration test";
+  assert.ok(validateMatrix({ rootDir: root, matrix: missingScopeTest }).some((error) => error.includes("missing named live PostgreSQL scopeTest evidence")));
+});
+
+test("dynamic tenant policy evidence must be inside the loop that contains the table", () => {
+  const changed = structuredClone(matrix);
+  const costItem = changed.resources.find((resource) => resource.table === "cost_items");
+  costItem.migration = "20260623180000_enable_org_rls/migration.sql";
+  const migration = fs.readFileSync(path.join(root, "app/prisma/migrations", costItem.migration), "utf8");
+  const decoy = migration.replace(/loop\s+execute format\('alter table %I enable row level security', tenant_table\);/i, "loop null;")
+    .replace(/loop\s+execute format\('alter table %I force row level security', tenant_table\);/i, "loop null;");
+  const tempRoot = fs.mkdtempSync(path.join(root, ".s073-validator-"));
+  try {
+    fs.cpSync(path.join(root, "app"), path.join(tempRoot, "app"), { recursive: true });
+    fs.cpSync(path.join(root, "docs"), path.join(tempRoot, "docs"), { recursive: true });
+    fs.cpSync(path.join(root, "scripts"), path.join(tempRoot, "scripts"), { recursive: true });
+    fs.writeFileSync(path.join(tempRoot, "app/prisma/migrations", costItem.migration), decoy);
+    assert.ok(validateMatrix({ rootDir: tempRoot, matrix: changed }).some((error) => error.includes("cost_items: migration lacks explicit or enumerated ENABLE")));
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});

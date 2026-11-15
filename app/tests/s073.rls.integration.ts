@@ -11,6 +11,7 @@ const userB = randomUUID();
 const membershipA = randomUUID();
 const membershipB = randomUUID();
 const customerA = randomUUID();
+const customerSiblingA = randomUUID();
 const customerB = randomUUID();
 const projectA = randomUUID();
 const projectB = randomUUID();
@@ -25,10 +26,12 @@ const invoiceLineB = randomUUID();
 const tokenA = randomUUID();
 const tokenB = randomUUID();
 const sessionA = randomUUID();
+const sessionSiblingA = randomUUID();
 const sessionB = randomUUID();
 const tokenHashA = `s073-token-${randomUUID()}`;
 const tokenHashB = `s073-token-${randomUUID()}`;
 const sessionHashA = `s073-session-${randomUUID()}`;
+const sessionHashSiblingA = `s073-session-${randomUUID()}`;
 const sessionHashB = `s073-session-${randomUUID()}`;
 const farFuture = new Date("2099-01-01T00:00:00.000Z");
 
@@ -45,6 +48,7 @@ describe("S073 release-critical direct row-level security evidence", () => {
     ] });
     await admin.customer.createMany({ data: [
       { id: customerA, orgId: orgA, name: "S073 Customer A" },
+      { id: customerSiblingA, orgId: orgA, name: "S073 Customer A sibling" },
       { id: customerB, orgId: orgB, name: "S073 Customer B" },
     ] });
     await admin.project.createMany({ data: [
@@ -73,19 +77,20 @@ describe("S073 release-critical direct row-level security evidence", () => {
     ] });
     await admin.customerPortalSession.createMany({ data: [
       { id: sessionA, orgId: orgA, customerId: customerA, accessTokenId: tokenA, sessionHash: sessionHashA, expiresAt: farFuture },
+      { id: sessionSiblingA, orgId: orgA, customerId: customerSiblingA, accessTokenId: tokenA, sessionHash: sessionHashSiblingA, expiresAt: farFuture },
       { id: sessionB, orgId: orgB, customerId: customerB, accessTokenId: tokenB, sessionHash: sessionHashB, expiresAt: farFuture },
     ] });
   });
 
   afterAll(async () => {
-    await admin.customerPortalSession.deleteMany({ where: { id: { in: [sessionA, sessionB] } } });
+    await admin.customerPortalSession.deleteMany({ where: { id: { in: [sessionA, sessionSiblingA, sessionB] } } });
     await admin.customerPortalAccessToken.deleteMany({ where: { id: { in: [tokenA, tokenB] } } });
     await admin.invoiceLineItem.deleteMany({ where: { id: { in: [invoiceLineA, invoiceLineB] } } });
     await admin.invoice.deleteMany({ where: { id: { in: [invoiceA, invoiceB] } } });
     await admin.estimateLineItem.deleteMany({ where: { id: { in: [estimateLineA, estimateLineB] } } });
     await admin.estimate.deleteMany({ where: { id: { in: [estimateA, estimateB] } } });
     await admin.project.deleteMany({ where: { id: { in: [projectA, projectB] } } });
-    await admin.customer.deleteMany({ where: { id: { in: [customerA, customerB] } } });
+    await admin.customer.deleteMany({ where: { id: { in: [customerA, customerSiblingA, customerB] } } });
     await admin.organizationMembership.deleteMany({ where: { id: { in: [membershipA, membershipB] } } });
     await admin.appUser.deleteMany({ where: { id: { in: [userA, userB] } } });
     await admin.organization.deleteMany({ where: { id: { in: [orgA, orgB] } } });
@@ -116,6 +121,19 @@ describe("S073 release-critical direct row-level security evidence", () => {
     }, "integration-test");
   });
 
+  it("enforces customer same/cross organization reads directly under RLS", async () => {
+    const authA = { userId: userA, orgId: orgA, role: "admin" as const };
+    const authB = { userId: userB, orgId: orgB, role: "admin" as const };
+    await runWithDatabaseSession(app, authA, async () => {
+      const transaction = getRequestDatabaseClient()!;
+      expect((await transaction.customer.findMany({ where: { id: { in: [customerA, customerSiblingA, customerB] } } })).map((row) => row.id).sort()).toEqual([customerA, customerSiblingA].sort());
+    }, "integration-test");
+    await runWithDatabaseSession(app, authB, async () => {
+      const transaction = getRequestDatabaseClient()!;
+      expect((await transaction.customer.findMany({ where: { id: { in: [customerA, customerSiblingA, customerB] } } })).map((row) => row.id)).toEqual([customerB]);
+    }, "integration-test");
+  });
+
   it("enforces invoice-line reads through the parent invoice and project", async () => {
     expect(await admin.invoice.count({ where: { id: { in: [invoiceA, invoiceB] } } })).toBe(2);
     const authA = { userId: userA, orgId: orgA, role: "admin" as const };
@@ -139,19 +157,28 @@ describe("S073 release-critical direct row-level security evidence", () => {
     });
     const sessionIds = async (hash: string) => app.$transaction(async (tx) => {
       await tx.$queryRaw(Prisma.sql`select set_config('app.portal_session_hash', ${hash}, true)`);
-      return tx.customerPortalSession.findMany({ where: { id: { in: [sessionA, sessionB] } } });
+      return tx.customerPortalSession.findMany({ where: { id: { in: [sessionA, sessionSiblingA, sessionB] } } });
     });
     expect((await tokenIds(tokenHashA)).map((row) => row.id)).toEqual([tokenA]);
     expect((await tokenIds(tokenHashB)).map((row) => row.id)).toEqual([tokenB]);
     expect(await tokenIds(`wrong-${tokenHashA}`)).toEqual([]);
     expect((await sessionIds(sessionHashA)).map((row) => row.id)).toEqual([sessionA]);
+    expect((await sessionIds(sessionHashSiblingA)).map((row) => row.id)).toEqual([sessionSiblingA]);
     expect((await sessionIds(sessionHashB)).map((row) => row.id)).toEqual([sessionB]);
     expect(await sessionIds(`wrong-${sessionHashA}`)).toEqual([]);
   });
 
   it("keeps portal session context scoped to its customer and organization", async () => {
     const visible = await runWithPortalDatabaseSession(app, { orgId: orgA, customerId: customerA, accessTokenId: tokenA, sessionId: sessionA }, async () =>
-      getRequestDatabaseClient()!.customerPortalSession.findMany({ where: { id: { in: [sessionA, sessionB] } } }));
+      getRequestDatabaseClient()!.customerPortalSession.findMany({ where: { id: { in: [sessionA, sessionSiblingA, sessionB] } } }));
+    expect(visible.map((row) => row.id)).toEqual([sessionA]);
+  });
+
+  it("excludes a same-organization customer session without its exact credential", async () => {
+    const visible = await app.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`select set_config('app.portal_session_hash', ${sessionHashA}, true)`);
+      return tx.customerPortalSession.findMany({ where: { id: { in: [sessionA, sessionSiblingA] } } });
+    });
     expect(visible.map((row) => row.id)).toEqual([sessionA]);
   });
 });

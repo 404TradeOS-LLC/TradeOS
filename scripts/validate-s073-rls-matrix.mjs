@@ -3,7 +3,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const matrixPath = path.join(root, "docs/testing/S073_RLS_COVERAGE_MATRIX.json");
+const REQUIRED_TABLES = [
+  "customers", "service_addresses", "projects", "estimates", "estimate_line_items",
+  "athena_generation_runs", "athena_generation_reviews", "proposals", "proposal_deliveries",
+  "contracts", "contract_events", "jobs", "job_assignments", "job_expenses", "job_expense_events",
+  "project_tasks", "activity_events", "invoices", "invoice_line_items", "payments",
+  "customer_portal_access_tokens", "customer_portal_sessions", "cost_items", "assemblies",
+  "assembly_items", "invoice_deliveries",
+];
 
 export function validateMatrix({ rootDir = root, matrix = JSON.parse(fs.readFileSync(path.join(rootDir, "docs/testing/S073_RLS_COVERAGE_MATRIX.json"), "utf8")) } = {}) {
   const errors = [];
@@ -40,13 +47,16 @@ export function validateMatrix({ rootDir = root, matrix = JSON.parse(fs.readFile
       if (!new RegExp(`create\\s+policy\\s+(?:if\\s+not\\s+exists\\s+)?${escapeRegex(policyName)}\\b`, "i").test(migration)) errors.push(`${label}: named policy ${policyName} is absent from mapped migration`);
     }
     if (!fs.existsSync(path.join(rootDir, resource.routeServiceOwner))) errors.push(`${label}: route/service owner source is missing (${resource.routeServiceOwner})`);
-    for (const key of ["sameOrg", "crossOrg"]) {
+    for (const key of ["sameOrg", "crossOrg", "scopeTest"]) {
       const testName = resource[key];
       if (!testName || !integration.includes(`"${testName}"`)) errors.push(`${label}: missing named live PostgreSQL ${key} evidence`);
     }
     if (resource.status === "GAP" && (!resource.blockingOwner || !resource.blockingTest)) errors.push(`${label}: GAP requires blockingOwner and blockingTest`);
     if (resource.status === "GAP" && resource.blockingTest && !integration.includes(`"${resource.blockingTest}"`)) errors.push(`${label}: GAP blockingTest must name a live integration test`);
     if (!["COVERED", "GAP"].includes(resource.status)) errors.push(`${label}: persisted resource status must be COVERED or GAP`);
+  }
+  for (const table of REQUIRED_TABLES) {
+    if (!declaredTables.has(table)) errors.push(`required S051/S052-S060 resource ${table} is missing from the matrix`);
   }
   for (const exclusion of matrix.exclusions ?? []) {
     if (exclusion.status !== "NOT_PERSISTED" || !exclusion.resource || !exclusion.reason) errors.push("each exclusion must explain a NOT_PERSISTED resource");
@@ -65,14 +75,12 @@ function read(rootDir, relative, errors) {
 }
 
 function hasDynamicTenantPolicy(sql, table) {
-  const lower = sql.toLowerCase();
-  const target = `'${table.toLowerCase()}'`;
-  const loops = [...lower.matchAll(/foreach\s+tenant_table\s+in\s+array\s+array\s*\[([\s\S]*?)\]/g)];
-  return loops.some((loop) => loop[1].includes(target)
-    && /execute\s+format\('alter table %i enable row level security',\s*tenant_table\)/.test(lower)
-    && /execute\s+format\('alter table %i force row level security',\s*tenant_table\)/.test(lower)
-    && /create policy %i on %i for select/.test(lower)
-    && /create policy %i on %i for all/.test(lower));
+  const loops = [...sql.matchAll(/foreach\s+tenant_table\s+in\s+array\s+array\s*\[([\s\S]*?)\]\s*loop([\s\S]*?)end\s+loop/gi)];
+  return loops.some((loop) => loop[1].toLowerCase().includes(`'${table.toLowerCase()}'`)
+    && /execute\s+format\('alter table %i enable row level security',\s*tenant_table\)/i.test(loop[2])
+    && /execute\s+format\('alter table %i force row level security',\s*tenant_table\)/i.test(loop[2])
+    && /create policy %i on %i for select/i.test(loop[2])
+    && /create policy %i on %i for all/i.test(loop[2]));
 }
 
 function listIntegrationTests(directory) {
