@@ -1,0 +1,50 @@
+{
+  "capturedAt": "2026-11-14T18:56:14Z",
+  "result": "PASS",
+  "scope": "Selected synthetic staging journey export via existing authenticated GET APIs; not fulltenant/Storage/GDPR export",
+  "deploymentSha": "9cd3813b5a1153a40060d3e2e399bf399cf9ad7b",
+  "helperSha256": "d52363f0c205286a24d031c2321f897af0379d830b1903993711d7b237dada74",
+  "files": [
+    {
+      "name": "customer.json",
+      "bytes": 452,
+      "sha256": "fe97adf7a5c6633a745a957508a221f6672c566970412dbb85bafb1bd445ebd3"
+    },
+    {
+      "name": "project.json",
+      "bytes": 724,
+      "sha256": "58089956285eaa933db0c2abf275f67f098e5399688ce57708fcb3656c3b32ca"
+    },
+    {
+      "name": "estimate.json",
+      "bytes": 1358,
+      "sha256": "ca74df132845c256090d93c0c6c31e7f8d83cc6b652b630fea5cc453c64abd91"
+    },
+    {
+      "name": "proposal.json",
+      "bytes": 2074,
+      "sha256": "596e29c1bdb22436ffcd4620962db436eb8191f55ed095eedbc0805d509e920c"
+    },
+    {
+      "name": "proposal.pdf",
+      "bytes": 6925,
+      "sha256": "ea079a7a37828a0756c5ebda7ac37a4d424b9b17e4937f0d1503e6823d2e77ff"
+    }
+  ],
+  "checks": {
+    "fiveFilesExported": true,
+    "allFileHashesMatch": true,
+    "foreignCustomerOwnerPositiveHttpStatus": 200,
+    "foreignCustomerRejected": true,
+    "foreignAttemptPublishedNoFiles": true
+  },
+  "limitations": [
+    "Selected journey only; not a full tenant, Storage, audit or GDPR export",
+    "Point-in-time API reads, not a transactional database snapshot",
+    "No restoration/import/deletion or email delivery performed",
+    "Existing API representations; related Jobs/invoices and delivery histories excluded",
+    "Synthetic staging rehearsal only; real cohort exports require an explicitly approved data-handling procedure"
+  ],
+  "helperBaseCommit": "dc16d0cce4232ae72833bcd184eb03fbe9ef5428",
+  "helperUncommittedAtCapture": true
+}
