@@ -42,3 +42,7 @@ not an approved production RTO.
 Local checks: `python3 -m unittest discover -s scripts -p test_staging_database_restore.py`.
 
 Subprocess failures retain only fixed diagnostic categories (for example, missing schema/function or duplicate object). Raw PostgreSQL diagnostics may include SQL and row values; they remain in an anonymous temporary file, are read only for classification, and are never logged or uploaded. Unknown diagnostics remain `SUBPROCESS_FAILED`; a failure is never treated as successful recovery.
+
+The public Team & Time audit trigger depends on the actual `tradeos_private` audit function. The same exported snapshot therefore includes that schema's actual DDL while explicitly excluding every private table's data. The restored private tables must all be empty; this is not a supplier credential-vault recovery claim. Public data and schema plus dependency function definitions are compared against the source manifest. No auth/storage stubs are created.
+
+The disposable PostgreSQL service uses Docker's `none` log driver, and local restore connections suppress server-side error/statement logging. GitHub service cleanup cannot publish failed SQL from the source dump. Source connection logging and configuration are not changed.

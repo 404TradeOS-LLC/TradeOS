@@ -102,12 +102,12 @@ def manifest(conn):
     if not tables:
         raise ValueError('No public tables')
     counts = {name: conn.execute(sql.SQL('SELECT count(*) FROM public.{}').format(sql.Identifier(name))).fetchone()[0] for name, _, _ in tables}
-    columns = conn.execute("SELECT table_name,column_name,ordinal_position,data_type,udt_name,is_nullable,column_default FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name,ordinal_position").fetchall()
-    policies = conn.execute("SELECT tablename,policyname,permissive,roles::text,cmd,qual,with_check FROM pg_policies WHERE schemaname='public' ORDER BY tablename,policyname").fetchall()
-    constraints = conn.execute("SELECT c.relname,p.conname,pg_get_constraintdef(p.oid) FROM pg_constraint p JOIN pg_class c ON c.oid=p.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' ORDER BY c.relname,p.conname").fetchall()
-    indexes = conn.execute("SELECT tablename,indexname,indexdef FROM pg_indexes WHERE schemaname='public' ORDER BY tablename,indexname").fetchall()
-    triggers = conn.execute("SELECT c.relname,t.tgname,pg_get_triggerdef(t.oid) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND NOT t.tgisinternal ORDER BY c.relname,t.tgname").fetchall()
-    functions = conn.execute("SELECT p.proname,pg_get_function_identity_arguments(p.oid),pg_get_functiondef(p.oid) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prokind IN ('f','p') AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid AND d.deptype='e') ORDER BY p.proname,pg_get_function_identity_arguments(p.oid)").fetchall()
+    columns = conn.execute("SELECT table_schema,table_name,column_name,ordinal_position,data_type,udt_name,is_nullable,column_default FROM information_schema.columns WHERE table_schema IN ('public','tradeos_private') ORDER BY table_schema,table_name,ordinal_position").fetchall()
+    policies = conn.execute("SELECT schemaname,tablename,policyname,permissive,roles::text,cmd,qual,with_check FROM pg_policies WHERE schemaname IN ('public','tradeos_private') ORDER BY schemaname,tablename,policyname").fetchall()
+    constraints = conn.execute("SELECT n.nspname,c.relname,p.conname,pg_get_constraintdef(p.oid) FROM pg_constraint p JOIN pg_class c ON c.oid=p.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','tradeos_private') ORDER BY n.nspname,c.relname,p.conname").fetchall()
+    indexes = conn.execute("SELECT schemaname,tablename,indexname,indexdef FROM pg_indexes WHERE schemaname IN ('public','tradeos_private') ORDER BY schemaname,tablename,indexname").fetchall()
+    triggers = conn.execute("SELECT n.nspname,c.relname,t.tgname,pg_get_triggerdef(t.oid) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','tradeos_private') AND NOT t.tgisinternal ORDER BY n.nspname,c.relname,t.tgname").fetchall()
+    functions = conn.execute("SELECT n.nspname,p.proname,pg_get_function_identity_arguments(p.oid),pg_get_functiondef(p.oid) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('public','tradeos_private') AND p.prokind IN ('f','p') AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid AND d.deptype='e') ORDER BY n.nspname,p.proname,pg_get_function_identity_arguments(p.oid)").fetchall()
     return dict(counts=counts, schema_digest=digest([tables, columns, policies, constraints, indexes, triggers, functions]), rls_tables=[name for name, enabled, forced in tables if enabled and forced])
 
 
@@ -190,16 +190,16 @@ def run():
             source.execute('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
             snapshot = source.execute('SELECT pg_export_snapshot()').fetchone()[0]
             before = manifest(source)
-            roles = source.execute("SELECT DISTINCT unnest(roles)::text FROM pg_policies WHERE schemaname='public'").fetchall()
+            roles = source.execute("SELECT DISTINCT unnest(roles)::text FROM pg_policies WHERE schemaname IN ('public','tradeos_private')").fetchall()
             extension_catalog = source.execute("SELECT 'pg_extension'::regclass::oid,e.oid,e.extname,n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace").fetchall()
-            seeds = source.execute("SELECT d.classid,d.objid FROM pg_depend d WHERE d.refclassid='pg_namespace'::regclass AND d.refobjid='public'::regnamespace AND NOT EXISTS (SELECT 1 FROM pg_depend member WHERE member.classid=d.classid AND member.objid=d.objid AND member.deptype='e')").fetchall()
+            seeds = source.execute("SELECT d.classid,d.objid FROM pg_depend d WHERE d.refclassid='pg_namespace'::regclass AND d.refobjid IN ('public'::regnamespace,'tradeos_private'::regnamespace) AND NOT EXISTS (SELECT 1 FROM pg_depend member WHERE member.classid=d.classid AND member.objid=d.objid AND member.deptype='e')").fetchall()
             edges = source.execute("SELECT classid,objid,refclassid,refobjid,deptype FROM pg_depend").fetchall()
             extensions = public_extension_dependencies(seeds, edges, extension_catalog)
             columns = source.execute("SELECT table_name,column_name FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name,column_name").fetchall()
             probe_columns = tenant_probe_columns(columns, before['rls_tables'])
             PHASE = 'source_dump'
-            command(['pg_dump', '--format=custom', '--schema=public', '--no-owner', '--no-privileges', '--snapshot=' + snapshot, '--file=' + str(backup)], env)
-        local = dict(host='127.0.0.1', port=5432, dbname='rehearsal', user='postgres', password='disposable-only', connect_timeout=10)
+            command(['pg_dump', '--format=custom', '--schema=public', '--schema=tradeos_private', '--exclude-table-data=tradeos_private.*', '--no-owner', '--no-privileges', '--snapshot=' + snapshot, '--file=' + str(backup)], env)
+        local = dict(host='127.0.0.1', port=5432, dbname='rehearsal', user='postgres', password='disposable-only', connect_timeout=10, options='-c log_min_error_statement=panic -c log_min_messages=panic')
         PHASE = 'local_bootstrap'
         with psycopg.connect(**local, autocommit=True) as target:
             for (role,) in roles:
@@ -210,7 +210,7 @@ def run():
                 target.execute(sql.SQL('CREATE EXTENSION IF NOT EXISTS {} WITH SCHEMA {}').format(sql.Identifier(extension), sql.Identifier(namespace)))
         local_env = env | {('PGDATABASE' if k == 'dbname' else f'PG{k.upper()}'): str(v) for k, v in local.items()}
         local_env['PGSSLMODE'] = 'disable'
-        local_env['PGOPTIONS'] = '-c statement_timeout=600000'
+        local_env['PGOPTIONS'] = '-c statement_timeout=600000 -c log_min_error_statement=panic -c log_min_messages=panic'
         # Empty PostgreSQL databases already contain public; retain all archive
         # objects except that one schema creation (extensions need it first).
         PHASE = 'archive_catalog'
@@ -223,6 +223,10 @@ def run():
         PHASE = 'manifest_comparison'
         with psycopg.connect(**local) as target:
             after = manifest(target)
+            dependency_tables = target.execute("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='tradeos_private' AND c.relkind IN ('r','p') ORDER BY c.relname").fetchall()
+            dependency_counts = {name: target.execute(sql.SQL('SELECT count(*) FROM tradeos_private.{}').format(sql.Identifier(name))).fetchone()[0] for (name,) in dependency_tables}
+            if any(dependency_counts.values()):
+                raise ValueError('Private dependency data must be excluded')
             if before != after:
                 raise ValueError('Restored manifest mismatch')
             if not before['rls_tables']:
@@ -247,11 +251,11 @@ def run():
             if not any(p['status'] == 'tenant_rows_denied' for p in probe_results.values()):
                 raise ValueError('No direct tenant probe coverage')
             target.rollback()
-        receipt = dict(status='passed', scope='actual-staging-public-schema-and-data-only', source_project=REF,
+        receipt = dict(status='passed', scope='actual-staging-public-data-with-private-dependency-ddl', source_project=REF,
                        commit=os.environ.get('GITHUB_SHA'), run_id=os.environ.get('GITHUB_RUN_ID'),
                        elapsed_seconds=round(time.monotonic()-started, 2), backup_sha256=hashlib.file_digest(backup.open('rb'), 'sha256').hexdigest(),
-                       **before, restricted_role_probes=probe_results, extension_namespaces=extensions,
-                       limitations=['Child tables without direct tenant columns are unverified by restricted-role probe', 'No Supabase auth/storage recovery', 'No production recovery claim', 'ACL/ownership excluded; restricted role independently granted SELECT', 'Snapshot point-in-time only; no WAL/PITR or RPO claim'])
+                       **before, restricted_role_probes=probe_results, extension_namespaces=extensions, schema_only_dependency_counts=dependency_counts,
+                       limitations=['tradeos_private dependency DDL only; all private table data excluded, not a private vault restore', 'Child tables without direct tenant columns are unverified by restricted-role probe', 'No Supabase auth/storage recovery', 'No production recovery claim', 'ACL/ownership excluded; restricted role independently granted SELECT', 'Snapshot point-in-time only; no WAL/PITR or RPO claim'])
         (root / 'staging-restore-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
     finally:
         shutil.rmtree(work)

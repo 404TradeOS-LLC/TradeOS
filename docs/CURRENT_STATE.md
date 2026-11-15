@@ -69,6 +69,22 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Costbook PR frontend Preview allowlist — proposed 2026-10-18
+
+Vercel's deployed source configs `web/vercel.json` and `app/vercel.json`
+contain `git.deploymentEnabled["**"]=false`, with only `main` and
+`staging` explicitly allowed. Read-only Vercel queries confirmed no
+deployment for branch heads of draft Costbook PRs #771/#773/#774 in
+either project. This explains why green GitHub CI cannot be treated as a
+working staging preview.
+
+An isolated infrastructure branch `feat/costbook-preview-policy-20261018`
+proposes narrowly enabling `feat/costbook-*` **frontend** preview
+deployments only. The backend deployment restriction and staging-only
+secret inheritance remain unchanged. No production deployment or
+configuration is changed until review/merge; preview READY, identity,
+authenticated backend behavior, and staging RLS remain unverified.
+
 ## Beta Proposal PDF layout repair — source candidate
 
 A four-width staging PDF run exposed overlapping wrapped Customer/Project metadata and CRLF control glyphs; independent MuPDF rendering confirmed both defects. The bounded source repair measures shared metadata cards and normalizes saved line endings, with actual-fixture PDF operator regressions. Local/hosted verification and final staged visual acceptance are recorded in the PR; beta GO is not implied.
