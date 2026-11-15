@@ -10,20 +10,45 @@ import shutil
 import subprocess
 import tempfile
 import time
-from urllib.parse import urlsplit, unquote
+from urllib.parse import urlsplit, unquote, parse_qsl
 
 REF = 'qfbgdkbamfaasmtjfyru'
 
 
+class PreflightError(ValueError):
+    """Fixed diagnostic codes; never retain a credential or URI component."""
+    def __init__(self, code):
+        self.code = code
+        super().__init__(code)
+
+
 def source_config(value):
-    u = urlsplit(value)
-    user = unquote(u.username or '')
-    direct = u.hostname == f'db.{REF}.supabase.co' and u.port in (None, 5432)
-    pool = u.hostname == 'aws-0-us-east-2.pooler.supabase.com' and u.port == 5432 and user.endswith('.' + REF)
-    # No URI options: libpq host/hostaddr/service/options can redirect or alter safety.
-    if u.scheme not in ('postgres', 'postgresql') or u.path != '/postgres' or u.query or u.fragment or not (direct or pool) or not user or not u.password:
-        raise ValueError('Invalid staging connection identity')
-    return dict(host=u.hostname, port=u.port or 5432, dbname='postgres', user=user,
+    try:
+        u = urlsplit(value)
+        port = u.port
+        user = unquote(u.username or '')
+        query = parse_qsl(u.query, keep_blank_values=True, strict_parsing=True)
+    except ValueError:
+        raise PreflightError('SOURCE_URI_MALFORMED') from None
+    if u.scheme not in ('postgres', 'postgresql') or u.fragment:
+        raise PreflightError('SOURCE_URI_FORMAT')
+    if u.path != '/postgres':
+        raise PreflightError('SOURCE_DATABASE_REJECTED')
+    # Permit only conventional TLS/public-schema hints. Never pass URI options to libpq:
+    # host/hostaddr/service/options could redirect or change read-only safety.
+    allowed_query = {'sslmode': 'require', 'schema': 'public'}
+    if len({key for key, _ in query}) != len(query) or any(allowed_query.get(key) != value for key, value in query):
+        raise PreflightError('SOURCE_QUERY_REJECTED')
+    direct = u.hostname == f'db.{REF}.supabase.co' and port in (None, 5432)
+    pool = (u.hostname == 'aws-0-us-east-2.pooler.supabase.com' and port in (5432, 6543)
+            and re.fullmatch(r'[a-zA-Z_][a-zA-Z0-9_]*\.' + REF, user) is not None)
+    if not (direct or pool):
+        raise PreflightError('SOURCE_HOST_OR_PORT_REJECTED')
+    if not user or not u.password:
+        raise PreflightError('SOURCE_CREDENTIAL_MISSING')
+    # Match the existing staging migration contract: same verified pooler host/user,
+    # always session mode. An exported snapshot cannot use transaction pooling.
+    return dict(host=u.hostname, port=5432, dbname='postgres', user=user,
                 password=unquote(u.password), sslmode='require', connect_timeout=15,
                 options='-c default_transaction_read_only=on -c statement_timeout=600000')
 
@@ -32,29 +57,93 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, default=str).encode()).hexdigest()
 
 
+class CommandFailure(RuntimeError):
+    """Only a fixed classification survives a subprocess failure."""
+    def __init__(self, code):
+        self.code = code
+        super().__init__(code)
+
+
+def command_failure_code(diagnostic):
+    # Match only server diagnostic categories, never retain matched identifiers,
+    # SQL, COPY row context, subprocess arguments or connection information.
+    text = diagnostic.decode('utf-8', errors='replace')
+    for kind in ('schema', 'function', 'type', 'role', 'relation', 'operator', 'collation'):
+        if re.search(r'ERROR:\s+' + kind + r' [^\n]* does not exist', text):
+            return 'COMMAND_' + kind.upper() + '_MISSING'
+    for pattern, code in (
+        (r'ERROR:[^\n]* already exists', 'COMMAND_OBJECT_EXISTS'),
+        (r'ERROR:\s+permission denied', 'COMMAND_PERMISSION_DENIED'),
+        (r'ERROR:[^\n]* violates foreign key constraint', 'COMMAND_FOREIGN_KEY_VIOLATION'),
+        (r'ERROR:[^\n]* violates unique constraint', 'COMMAND_UNIQUE_VIOLATION'),
+        (r'ERROR:[^\n]* unrecognized configuration parameter', 'COMMAND_CONFIGURATION_UNSUPPORTED'),
+        (r'ERROR:[^\n]* extension [^\n]* is not available', 'COMMAND_EXTENSION_UNAVAILABLE'),
+    ):
+        if re.search(pattern, text):
+            return code
+    return 'SUBPROCESS_FAILED'
+
+
 def command(args, env):
     # Never inherit PGHOST/PGSERVICE/PGOPTIONS or log subprocess diagnostics.
-    subprocess.run(args, env=env, check=True, stdout=subprocess.DEVNULL,
-                   stderr=subprocess.DEVNULL, timeout=900)
+    # Raw diagnostics remain in a mode-0600 anonymous temporary file and are
+    # closed immediately, including exceptions. Only fixed codes leave here.
+    with tempfile.TemporaryFile() as diagnostics:
+        result = subprocess.run(args, env=env, check=False, stdout=subprocess.DEVNULL,
+                                stderr=diagnostics, timeout=900)
+        if result.returncode:
+            diagnostics.seek(0)
+            raise CommandFailure(command_failure_code(diagnostics.read(131072)))
 
 
 def manifest(conn):
     from psycopg import sql
+    # Catalog deparsers qualify identifiers using search_path. Compare identical
+    # schema under the same transaction-local path on source and target.
+    conn.execute('SET LOCAL search_path = pg_catalog, public, extensions, tradeos_private')
     tables = conn.execute("SELECT c.relname,c.relrowsecurity,c.relforcerowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' ORDER BY c.relname").fetchall()
     if not tables:
         raise ValueError('No public tables')
     counts = {name: conn.execute(sql.SQL('SELECT count(*) FROM public.{}').format(sql.Identifier(name))).fetchone()[0] for name, _, _ in tables}
-    columns = conn.execute("SELECT table_name,column_name,ordinal_position,data_type,udt_name,is_nullable,column_default FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name,ordinal_position").fetchall()
-    policies = conn.execute("SELECT tablename,policyname,permissive,roles::text,cmd,qual,with_check FROM pg_policies WHERE schemaname='public' ORDER BY tablename,policyname").fetchall()
-    constraints = conn.execute("SELECT c.relname,p.conname,pg_get_constraintdef(p.oid) FROM pg_constraint p JOIN pg_class c ON c.oid=p.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' ORDER BY c.relname,p.conname").fetchall()
-    indexes = conn.execute("SELECT tablename,indexname,indexdef FROM pg_indexes WHERE schemaname='public' ORDER BY tablename,indexname").fetchall()
-    triggers = conn.execute("SELECT c.relname,t.tgname,pg_get_triggerdef(t.oid) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND NOT t.tgisinternal ORDER BY c.relname,t.tgname").fetchall()
-    functions = conn.execute("SELECT p.proname,pg_get_function_identity_arguments(p.oid),pg_get_functiondef(p.oid) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prokind IN ('f','p') AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid AND d.deptype='e') ORDER BY p.proname,pg_get_function_identity_arguments(p.oid)").fetchall()
-    return dict(counts=counts, schema_digest=digest([tables, columns, policies, constraints, indexes, triggers, functions]), rls_tables=[name for name, enabled, forced in tables if enabled and forced])
+    columns = conn.execute("SELECT table_schema,table_name,column_name,row_number() OVER (PARTITION BY table_schema,table_name ORDER BY ordinal_position),data_type,udt_name,is_nullable,column_default FROM information_schema.columns WHERE table_schema IN ('public','tradeos_private') ORDER BY table_schema,table_name,ordinal_position").fetchall()
+    policies = conn.execute("SELECT schemaname,tablename,policyname,permissive,ARRAY(SELECT role_name FROM unnest(roles) AS role_name ORDER BY role_name),cmd,qual,with_check FROM pg_policies WHERE schemaname IN ('public','tradeos_private') ORDER BY schemaname,tablename,policyname").fetchall()
+    constraints = conn.execute("SELECT n.nspname,c.relname,p.conname,pg_get_constraintdef(p.oid) FROM pg_constraint p JOIN pg_class c ON c.oid=p.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','tradeos_private') ORDER BY n.nspname,c.relname,p.conname").fetchall()
+    indexes = conn.execute("SELECT schemaname,tablename,indexname,indexdef FROM pg_indexes WHERE schemaname IN ('public','tradeos_private') ORDER BY schemaname,tablename,indexname").fetchall()
+    triggers = conn.execute("SELECT n.nspname,c.relname,t.tgname,pg_get_triggerdef(t.oid) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','tradeos_private') AND NOT t.tgisinternal ORDER BY n.nspname,c.relname,t.tgname").fetchall()
+    functions = conn.execute("SELECT n.nspname,p.proname,pg_get_function_identity_arguments(p.oid),pg_get_functiondef(p.oid) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('public','tradeos_private') AND p.prokind IN ('f','p') AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid AND d.deptype='e') ORDER BY n.nspname,p.proname,pg_get_function_identity_arguments(p.oid)").fetchall()
+    components = dict(tables=tables, columns=columns, policies=policies, constraints=constraints, indexes=indexes, triggers=triggers, functions=functions)
+    hashes = {name: digest(value) for name, value in components.items()}
+    return dict(counts=counts, schema_digest=digest(hashes), component_digests=hashes, rls_tables=[name for name, enabled, forced in tables if enabled and forced])
+
+
+def assert_manifest_matches(before, after):
+    if before['counts'] != after['counts']:
+        raise PreflightError('MANIFEST_PUBLIC_COUNTS_MISMATCH')
+    for name in ('tables', 'columns', 'policies', 'constraints', 'indexes', 'triggers', 'functions'):
+        if before['component_digests'][name] != after['component_digests'][name]:
+            raise PreflightError('MANIFEST_' + name.upper() + '_MISMATCH')
+    if before != after:
+        raise PreflightError('MANIFEST_METADATA_MISMATCH')
+
+
+def verify_customer_isolation(target, customer_scopes, role='restore_probe'):
+    from psycopg import sql
+    target.execute(sql.SQL('SET LOCAL ROLE {}').format(sql.Identifier(role)))
+    restricted = target.execute('SELECT rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user').fetchone()
+    if restricted != (False, False):
+        raise PreflightError('RESTRICTED_ROLE_PRIVILEGES_INVALID')
+    scope, expected_count = customer_scopes[0]
+    target.execute("SELECT set_config('app.org_id',%s,true),set_config('app.user_id','00000000-0000-0000-0000-000000000000',true),set_config('app.role','viewer',true)", (str(scope),))
+    own_count = target.execute('SELECT count(*) FROM public.customers WHERE org_id=%s', (scope,)).fetchone()[0]
+    foreign_count = target.execute('SELECT count(*) FROM public.customers WHERE org_id<>%s AND org_id IS NOT NULL', (scope,)).fetchone()[0]
+    if own_count != expected_count or own_count == 0 or foreign_count != 0:
+        raise PreflightError('RESTRICTED_CUSTOMER_ISOLATION_FAILED')
+    customer_isolation = dict(policy_roles='public', superuser=False, bypassrls=False, own_rows_visible=own_count, foreign_rows_denied=True, foreign_rows_exist=True)
+    return customer_isolation
 
 
 PHASE = 'preflight'
-SUPPORTED_EXTENSIONS = {'pgcrypto', 'uuid-ossp', 'btree_gist', 'citext'}
+SUPPORTED_EXTENSIONS = {'pgcrypto', 'uuid-ossp', 'btree_gist', 'citext', 'pg_trgm'}
 
 
 def extension_plan(rows):
@@ -100,6 +189,8 @@ def probe_outcome(tenant_count, global_count):
 
 
 def failure_metadata(error):
+    if isinstance(error, (PreflightError, CommandFailure)):
+        return {'status': 'failed', 'phase': PHASE, 'code': error.code}
     code = getattr(error, 'sqlstate', None)
     if not isinstance(code, str) or not re.fullmatch(r'[0-9A-Z]{5}', code):
         code = 'SUBPROCESS_FAILED' if isinstance(error, subprocess.CalledProcessError) else 'REHEARSAL_FAILED'
@@ -130,16 +221,16 @@ def run():
             source.execute('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
             snapshot = source.execute('SELECT pg_export_snapshot()').fetchone()[0]
             before = manifest(source)
-            roles = source.execute("SELECT DISTINCT unnest(roles)::text FROM pg_policies WHERE schemaname='public'").fetchall()
+            roles = source.execute("SELECT DISTINCT unnest(roles)::text FROM pg_policies WHERE schemaname IN ('public','tradeos_private')").fetchall()
             extension_catalog = source.execute("SELECT 'pg_extension'::regclass::oid,e.oid,e.extname,n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace").fetchall()
-            seeds = source.execute("SELECT d.classid,d.objid FROM pg_depend d WHERE d.refclassid='pg_namespace'::regclass AND d.refobjid='public'::regnamespace AND NOT EXISTS (SELECT 1 FROM pg_depend member WHERE member.classid=d.classid AND member.objid=d.objid AND member.deptype='e')").fetchall()
+            seeds = source.execute("SELECT d.classid,d.objid FROM pg_depend d WHERE d.refclassid='pg_namespace'::regclass AND d.refobjid IN ('public'::regnamespace,'tradeos_private'::regnamespace) AND NOT EXISTS (SELECT 1 FROM pg_depend member WHERE member.classid=d.classid AND member.objid=d.objid AND member.deptype='e')").fetchall()
             edges = source.execute("SELECT classid,objid,refclassid,refobjid,deptype FROM pg_depend").fetchall()
             extensions = public_extension_dependencies(seeds, edges, extension_catalog)
             columns = source.execute("SELECT table_name,column_name FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name,column_name").fetchall()
             probe_columns = tenant_probe_columns(columns, before['rls_tables'])
             PHASE = 'source_dump'
-            command(['pg_dump', '--format=custom', '--schema=public', '--no-owner', '--no-privileges', '--snapshot=' + snapshot, '--file=' + str(backup)], env)
-        local = dict(host='127.0.0.1', port=5432, dbname='rehearsal', user='postgres', password='disposable-only', connect_timeout=10)
+            command(['pg_dump', '--format=custom', '--schema=public', '--schema=tradeos_private', '--exclude-table-data=tradeos_private.*', '--no-owner', '--no-privileges', '--snapshot=' + snapshot, '--file=' + str(backup)], env)
+        local = dict(host='127.0.0.1', port=5432, dbname='rehearsal', user='postgres', password='disposable-only', connect_timeout=10, options='-c log_min_error_statement=panic -c log_min_messages=panic')
         PHASE = 'local_bootstrap'
         with psycopg.connect(**local, autocommit=True) as target:
             for (role,) in roles:
@@ -150,7 +241,7 @@ def run():
                 target.execute(sql.SQL('CREATE EXTENSION IF NOT EXISTS {} WITH SCHEMA {}').format(sql.Identifier(extension), sql.Identifier(namespace)))
         local_env = env | {('PGDATABASE' if k == 'dbname' else f'PG{k.upper()}'): str(v) for k, v in local.items()}
         local_env['PGSSLMODE'] = 'disable'
-        local_env['PGOPTIONS'] = '-c statement_timeout=600000'
+        local_env['PGOPTIONS'] = '-c statement_timeout=600000 -c log_min_error_statement=panic -c log_min_messages=panic'
         # Empty PostgreSQL databases already contain public; retain all archive
         # objects except that one schema creation (extensions need it first).
         PHASE = 'archive_catalog'
@@ -163,15 +254,26 @@ def run():
         PHASE = 'manifest_comparison'
         with psycopg.connect(**local) as target:
             after = manifest(target)
-            if before != after:
-                raise ValueError('Restored manifest mismatch')
+            dependency_tables = target.execute("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='tradeos_private' AND c.relkind IN ('r','p') ORDER BY c.relname").fetchall()
+            dependency_counts = {name: target.execute(sql.SQL('SELECT count(*) FROM tradeos_private.{}').format(sql.Identifier(name))).fetchone()[0] for (name,) in dependency_tables}
+            if any(dependency_counts.values()):
+                raise ValueError('Private dependency data must be excluded')
+            assert_manifest_matches(before, after)
             if not before['rls_tables']:
                 raise ValueError('No forced RLS tables')
             PHASE = 'restricted_role_probe'
+            # Current restored policies apply to PUBLIC. Reject uncovered named
+            # roles instead of reporting their default-deny behavior as RLS proof.
+            named_policies = target.execute("SELECT count(*) FROM pg_policies WHERE schemaname='public' AND NOT ('public'=ANY(roles))").fetchone()[0]
+            if named_policies:
+                raise PreflightError('RESTRICTED_POLICY_ROLE_COVERAGE_UNVERIFIED')
+            customer_scopes = target.execute('SELECT org_id,count(*) FROM public.customers WHERE org_id IS NOT NULL GROUP BY org_id ORDER BY org_id LIMIT 2').fetchall()
+            if len(customer_scopes) != 2:
+                raise PreflightError('RESTRICTED_POSITIVE_FIXTURE_UNAVAILABLE')
             target.execute('CREATE ROLE restore_probe NOLOGIN NOSUPERUSER NOBYPASSRLS')
             target.execute('GRANT USAGE ON SCHEMA public TO restore_probe')
             target.execute('GRANT SELECT ON ALL TABLES IN SCHEMA public TO restore_probe')
-            target.execute('SET LOCAL ROLE restore_probe')
+            customer_isolation = verify_customer_isolation(target, customer_scopes)
             target.execute("SELECT set_config('app.user_id','00000000-0000-0000-0000-000000000000',true),set_config('app.org_id','00000000-0000-0000-0000-000000000000',true),set_config('app.role','viewer',true)")
             probe_results = {}
             for table, tenant_columns in probe_columns.items():
@@ -187,11 +289,11 @@ def run():
             if not any(p['status'] == 'tenant_rows_denied' for p in probe_results.values()):
                 raise ValueError('No direct tenant probe coverage')
             target.rollback()
-        receipt = dict(status='passed', scope='actual-staging-public-schema-and-data-only', source_project=REF,
+        receipt = dict(status='passed', scope='actual-staging-public-data-with-private-dependency-ddl', source_project=REF,
                        commit=os.environ.get('GITHUB_SHA'), run_id=os.environ.get('GITHUB_RUN_ID'),
                        elapsed_seconds=round(time.monotonic()-started, 2), backup_sha256=hashlib.file_digest(backup.open('rb'), 'sha256').hexdigest(),
-                       **before, restricted_role_probes=probe_results, extension_namespaces=extensions,
-                       limitations=['Child tables without direct tenant columns are unverified by restricted-role probe', 'No Supabase auth/storage recovery', 'No production recovery claim', 'ACL/ownership excluded; restricted role independently granted SELECT', 'Snapshot point-in-time only; no WAL/PITR or RPO claim'])
+                       **before, customer_isolation=customer_isolation, restricted_role_probes=probe_results, extension_namespaces=extensions, schema_only_dependency_counts=dependency_counts,
+                       limitations=['tradeos_private dependency DDL only; all private table data excluded, not a private vault restore', 'Child tables without direct tenant columns are unverified by restricted-role probe', 'No Supabase auth/storage recovery', 'No production recovery claim', 'ACL/ownership excluded; restricted role independently granted SELECT', 'Snapshot point-in-time only; no WAL/PITR or RPO claim'])
         (root / 'staging-restore-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
     finally:
         shutil.rmtree(work)

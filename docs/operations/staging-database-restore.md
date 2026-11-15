@@ -3,8 +3,7 @@
 Dispatch **Rehearse actual staging public database restore** from `main` after
 review of the final merged workflow. The protected `staging` environment and its
 reviewer gate own access to `STAGING_DATABASE_ADMIN_URL`. Only the canonical
-`qfbgdkbamfaasmtjfyru` direct host or existing us-east-2 session pooler on 5432
-is accepted. Supply a connection URI without query parameters. The workflow
+`qfbgdkbamfaasmtjfyru` direct host or existing us-east-2 pooler identity is accepted. A pooler URI using 6543 is normalized to session port 5432 on the same verified host/user, matching the existing staging migration contract; the rehearsal never connects through transaction pooling. Only optional `sslmode=require` and `schema=public` query keys are accepted, without duplicates. They are discarded in favor of the fixed TLS/read-only configuration; no supplied query is forwarded to libpq. The workflow
 never fetches a credential or accepts a production/target URL input.
 
 The script opens a repeatable-read, read-only staging transaction, exports its
@@ -19,8 +18,8 @@ probe, not a full application tenant/role certification.
 
 Tracked Prisma migrations do not reference executable `auth.*` or `storage.*`
 objects; they require `btree_gist`. Actual staging can drift: only the supported
-pgcrypto, uuid-ossp, btree_gist and citext extensions (in their original public or extensions namespace) and policy role names are
-created in the local service. The extension dependency closure starts from public objects and follows catalog references plus internally/automatically owned defaults, policies, constraints and rewrite rules. Unrelated installed Supabase extensions are excluded. Unsupported extensions or namespaces in that closure fail closed. Dynamic or string-bodied function references absent from PostgreSQL catalogs are not certified by dependency analysis; missing dependencies still fail restore or the exercised probes, and unexercised function behavior remains unverified. Any other missing dependency, restore error,
+pgcrypto, uuid-ossp, btree_gist, citext and pg_trgm extensions (in their original public or extensions namespace) and policy role names are
+created in the local service. A read-only staging catalog dependency-closure check on 2026-11-14 found `btree_gist` in `extensions` and `pg_trgm` in `public`; both are supported PostgreSQL extensions, while unrelated `supabase_vault` remains excluded. The extension dependency closure starts from public objects and follows catalog references plus internally/automatically owned defaults, policies, constraints and rewrite rules. Unrelated installed Supabase extensions are excluded. Unsupported extensions or namespaces in that closure fail closed. Dynamic or string-bodied function references absent from PostgreSQL catalogs are not certified by dependency analysis; missing dependencies still fail restore or the exercised probes, and unexercised function behavior remains unverified. Any other missing dependency, restore error,
 manifest mismatch or restricted-role failure fails the rehearsal. No Supabase
 schemas are stubbed, no source roles/ACLs/secrets are exported, and no source
 write is executed. Ownership and ACL restoration is excluded explicitly;
@@ -29,7 +28,7 @@ local grants test RLS separately.
 Raw data stays inside a mode-0700 directory under `RUNNER_TEMP`, with a
 mode-0600 archive. Python `finally` cleanup and an independent `always()` job
 step remove it on failures; runner disposal is the final cancellation boundary.
-Only fixed phase names and SQLSTATE/fixed error codes diagnose failures. No exception messages, raw dump or subprocess errors are uploaded or printed (errors can contain
+Only fixed phase names and SQLSTATE/fixed error codes diagnose failures. Preflight failures distinguish malformed URI, format, database, query, host/port, and missing credential without exposing any supplied value. No exception messages, raw dump or subprocess errors are uploaded or printed (errors can contain
 row data). Only the specifically named sanitized JSON receipt is retained for
 seven days: run/commit/project identity, elapsed time, archive digest, table
 counts, catalog digest and probe status. A failed run yields no passing receipt.
@@ -41,3 +40,39 @@ those beta recovery gates open. Measured elapsed time covers this rehearsal,
 not an approved production RTO.
 
 Local checks: `python3 -m unittest discover -s scripts -p test_staging_database_restore.py`.
+
+Subprocess failures retain only fixed diagnostic categories (for example, missing schema/function or duplicate object). Raw PostgreSQL diagnostics may include SQL and row values; they remain in an anonymous temporary file, are read only for classification, and are never logged or uploaded. Unknown diagnostics remain `SUBPROCESS_FAILED`; a failure is never treated as successful recovery.
+
+The public Team & Time audit trigger depends on the actual `tradeos_private` audit function. The same exported snapshot therefore includes that schema's actual DDL while explicitly excluding every private table's data. The restored private tables must all be empty; this is not a supplier credential-vault recovery claim. Public data and schema plus dependency function definitions are compared against the source manifest. No auth/storage stubs are created.
+
+The disposable PostgreSQL service uses Docker's `none` log driver, and local restore connections suppress server-side error/statement logging. GitHub service cleanup cannot publish failed SQL from the source dump. Source connection logging and configuration are not changed.
+
+## Canonical manifest and positive tenant coverage
+
+Catalog definitions are deparsed with the same transaction-local `search_path`
+(`pg_catalog, public, extensions, tradeos_private`) on source and target. This
+changes no source data or persistent settings. Per-component digests identify a
+failed comparison using fixed category codes without exposing definitions or rows;
+all public counts and schema components must still match exactly.
+
+The disposable restricted role must be neither superuser nor BYPASSRLS. Current
+public policies target PUBLIC; named-role policies fail closed as uncovered.
+Before the all-table unscoped probes, at least two existing Customer tenant scopes
+must be present: one scope must return its exact positive row count, while rows
+known to exist in another scope must be denied. This rejects both blanket default
+denial and a deliberately permissive tenant policy. Child-table coverage limits
+remain explicit. No source policies, role memberships or grants are changed.
+
+Local regressions: `python scripts/test_staging_database_restore.py` checks fixed
+failure classes. `RESTORE_TEST_ADMIN_URL` may point only to a local PostgreSQL
+admin `/postgres` database for `python scripts/test_staging_restore_postgres.py`;
+that test creates and removes its own uniquely named disposable database/role. It
+reproduces the differing catalog deparse and rejects a deliberately broken RLS
+policy. These local results do not claim that a hosted staging restore has passed.
+
+Dropped columns leave gaps in PostgreSQL physical attribute numbers, which
+`information_schema.columns.ordinal_position` exposes. A logical `pg_dump` restore
+recreates only live columns and compresses those gaps. The manifest therefore
+compares the dense relative order of live columns within each schema/table, while
+still comparing every name, type, nullability and default. The real PostgreSQL
+regression proves that gap compression matches and a real column reorder fails.

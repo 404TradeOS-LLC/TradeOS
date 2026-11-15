@@ -136,6 +136,8 @@ export class AuthService {
 
       const replacementToken = createOpaqueToken();
       const replacementHash = hashOpaqueToken(replacementToken);
+      // replaced_by_id stores the replacement row's UUID, not its token hash.
+      const replacementId = randomUUID();
       const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
 
       const rotation = await transaction.authRefreshToken.updateMany({
@@ -143,13 +145,14 @@ export class AuthService {
         data: {
           revokedAt: new Date(),
           lastUsedAt: new Date(),
-          replacedById: replacementHash,
+          replacedById: replacementId,
         },
       });
       if (rotation.count !== 1) throw new ApiError(401, "Invalid refresh token");
 
       await transaction.authRefreshToken.create({
         data: {
+          id: replacementId,
           orgId: existing.orgId,
           userId: existing.userId,
           membershipId: existing.membershipId,

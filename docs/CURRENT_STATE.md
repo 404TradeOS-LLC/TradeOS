@@ -69,6 +69,26 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Costbook PR frontend Preview allowlist — proposed 2026-10-18
+
+Vercel's deployed source configs `web/vercel.json` and `app/vercel.json`
+contain `git.deploymentEnabled["**"]=false`, with only `main` and
+`staging` explicitly allowed. Read-only Vercel queries confirmed no
+deployment for branch heads of draft Costbook PRs #771/#773/#774 in
+either project. This explains why green GitHub CI cannot be treated as a
+working staging preview.
+
+An isolated infrastructure branch `feat/costbook-preview-policy-20261018`
+proposes narrowly enabling `feat/costbook-*` **frontend** preview
+deployments only. The backend deployment restriction and staging-only
+secret inheritance remain unchanged. No production deployment or
+configuration is changed until review/merge; preview READY, identity,
+authenticated backend behavior, and staging RLS remain unverified.
+
+## Beta Proposal PDF layout repair — source candidate
+
+A four-width staging PDF run exposed overlapping wrapped Customer/Project metadata and CRLF control glyphs; independent MuPDF rendering confirmed both defects. The bounded source repair measures shared metadata cards and normalizes saved line endings, with actual-fixture PDF operator regressions. Local/hosted verification and final staged visual acceptance are recorded in the PR; beta GO is not implied.
+
 ## Recoverable invoice creation — draft candidate, 2026-11-09
 
 PR #956 adds a commit-confirmed, authenticated draft endpoint and an explicit same-request retry on the mounted New invoice form. The additive request-key migration landed separately in #977 and protected Production run `43360847290` and Staging run `43365023839` succeeded; the release coordinator verified the resulting columns, unique index, pair constraint and forced RLS. Hosted PostgreSQL on `a3c368a` passed all 197 integration tests, including overlapping retry and tenant-denial coverage. Four-width authenticated invoice browser/PDF evidence remains pending. See [Invoices and payments](modules/invoices-and-payments.md#recoverable-invoice-draft-creation).
@@ -1991,3 +2011,7 @@ Branch `feat/costbook-codes-permits-vigo-pilot` adds a static, cited, read-only 
 ## Athena Codes & Permits pilot integration (proposed 2026-11-08)
 
 This same draft feature branch additionally registers a `costbook.read` gated read-only Athena tool for the shared official-source registry, with SDK contract tests. No new authoritative location provider, pricing writer, approval record, schema/RLS policy, or human-compliance decision is implemented. Hosted app/web/Athena/docs checks **passed** at exact executable-code commit `2f888d7e87d93fae6e36cc098543f1a99b318529` (GitHub run #42462868320). Independent review, protected staging/runtime identity, exact-head authenticated browser verification and source-law currency remain unverified; subsequent docs-only edits need their own current-head checks.
+
+## Administrative membership provisioning repair — 2026-11-14
+
+A restricted-role PostgreSQL reproduction confirmed that member upsert failed at application-user RLS for both new users and existing identities outside the organization. The bounded repair uses the existing provisioning policy only after database-backed administrator validation, preserves foreign user profiles, and commits user/membership/audit changes together. Source and disposable-database checks do not establish live staging offboarding acceptance.

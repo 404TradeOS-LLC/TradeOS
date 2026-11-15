@@ -217,3 +217,5 @@ Password-reset tokens are claimed with a conditional unconsumed/unexpired update
 Invitation acceptance likewise conditionally claims a pending, unaccepted, unexpired token before account, membership or refresh-session writes in the same transaction. Concurrent replay returns the existing invalid-or-expired error. Existing invitation roles and inactive-user reactivation behavior are preserved.
 
 After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
+
+Refresh rotation records the replacement refresh-row UUID in `replaced_by_id`, while the opaque token hash remains only in `token_hash`. See the shared [authentication single-use token boundary](../ARCHITECTURE.md#authentication-single-use-token-boundary) for transaction, replay and logout guarantees.

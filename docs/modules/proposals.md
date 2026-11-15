@@ -11,6 +11,11 @@ related_code:
   - web/src/app/(app)/projects/[id]/proposals
 ---
 
+## Proposal PDF saved-text layout repair
+
+Customer and Project cards in both Proposal PDF renderers measure wrapped field height and place each subsequent field below the preceding rendered text. Their shared card height grows to contain the longer column. Saved CRLF, CR and Unicode paragraph separators are normalized to LF in metadata and narrative sections before PDFKit rendering, preventing visible control glyphs. Regression coverage uses the actual long-name beta fixture and compares alternate saved line endings with LF. Pricing, saved snapshots, authorization and routes are unchanged; final staging visual acceptance remains required.
+
+
 ## Contractor-brand proposal PDF header — merged PR #868
 
 Proposed PDF fix removes the unconditional `TRADEOS` header label from both estimate-backed and project proposal PDFs. Brand Studio organization name/colors and the controlled `showPoweredByTradeOS` footer remain authoritative. Regression tests inspect PDF output with the setting disabled and enabled. The PDFKit renderer supports trusted image bytes and PR #873 implements private Storage retrieval. Live uploaded-logo rendering remains pending staged acceptance.

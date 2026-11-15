@@ -12,6 +12,11 @@ related_code:
   - app/backend/middleware/errorHandler.ts
 ---
 
+## Proposal PDF text layout
+
+Existing Proposal PDF endpoints preserve their request/response contract. Rendered Customer/Project metadata now uses measured wrapped field heights; saved narrative line endings are normalized before PDF rendering. No new parameter, pricing computation or tenant-access behavior is introduced.
+
+
 # API Reference
 
 ## PDF logo internal private storage bridge
@@ -1187,3 +1192,9 @@ Query: required two-letter alphabetic `state`, optional `county` (max 80 charact
 ## Athena source research addendum (proposed 2026-11-08)
 
 The registered Athena tool ID `tradeos.athena.tools.costbook.code.references` is available through the existing governed Athena tool-dispatch contract rather than a new ad-hoc HTTP endpoint. It requires `costbook.read` and accepts a two-letter `state`, optional `county`, optional `topic`, and bounded `q`; responses are advisory source references, a warning when county is omitted, and a separate warning when the selected county has no indexed local sources, independent of search filters. It cannot write prices, permits or estimates. Production invocation/browser verification remains pending.
+
+Refresh rotation records the replacement refresh-row UUID in `replaced_by_id`, while the opaque token hash remains only in `token_hash`. The conditional single-use rotation and replacement row creation remain in one transaction; replay and logout continue to reject revoked refresh sessions.
+
+### Administrative member upsert
+
+`POST /api/v1/admin/organizations/:id/members` retains its existing request and response shapes. The service verifies the active administrator membership before provisioning a new application user under forced RLS. Adding an existing identity from another organization attaches a membership without changing its global email, name or active flag. User/membership/audit writes are atomic; denied actor or organization checks do not enable provisioning. See [the shared administrative provisioning boundary](ARCHITECTURE.md#administrative-membership-provisioning-boundary).
