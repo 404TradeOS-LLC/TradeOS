@@ -105,7 +105,7 @@ def manifest(conn):
     if not tables:
         raise ValueError('No public tables')
     counts = {name: conn.execute(sql.SQL('SELECT count(*) FROM public.{}').format(sql.Identifier(name))).fetchone()[0] for name, _, _ in tables}
-    columns = conn.execute("SELECT table_schema,table_name,column_name,ordinal_position,data_type,udt_name,is_nullable,column_default FROM information_schema.columns WHERE table_schema IN ('public','tradeos_private') ORDER BY table_schema,table_name,ordinal_position").fetchall()
+    columns = conn.execute("SELECT table_schema,table_name,column_name,row_number() OVER (PARTITION BY table_schema,table_name ORDER BY ordinal_position),data_type,udt_name,is_nullable,column_default FROM information_schema.columns WHERE table_schema IN ('public','tradeos_private') ORDER BY table_schema,table_name,ordinal_position").fetchall()
     policies = conn.execute("SELECT schemaname,tablename,policyname,permissive,ARRAY(SELECT role_name FROM unnest(roles) AS role_name ORDER BY role_name),cmd,qual,with_check FROM pg_policies WHERE schemaname IN ('public','tradeos_private') ORDER BY schemaname,tablename,policyname").fetchall()
     constraints = conn.execute("SELECT n.nspname,c.relname,p.conname,pg_get_constraintdef(p.oid) FROM pg_constraint p JOIN pg_class c ON c.oid=p.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','tradeos_private') ORDER BY n.nspname,c.relname,p.conname").fetchall()
     indexes = conn.execute("SELECT schemaname,tablename,indexname,indexdef FROM pg_indexes WHERE schemaname IN ('public','tradeos_private') ORDER BY schemaname,tablename,indexname").fetchall()

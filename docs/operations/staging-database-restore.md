@@ -69,3 +69,10 @@ admin `/postgres` database for `python scripts/test_staging_restore_postgres.py`
 that test creates and removes its own uniquely named disposable database/role. It
 reproduces the differing catalog deparse and rejects a deliberately broken RLS
 policy. These local results do not claim that a hosted staging restore has passed.
+
+Dropped columns leave gaps in PostgreSQL physical attribute numbers, which
+`information_schema.columns.ordinal_position` exposes. A logical `pg_dump` restore
+recreates only live columns and compresses those gaps. The manifest therefore
+compares the dense relative order of live columns within each schema/table, while
+still comparing every name, type, nullability and default. The real PostgreSQL
+regression proves that gap compression matches and a real column reorder fails.
