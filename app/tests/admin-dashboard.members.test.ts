@@ -165,6 +165,32 @@ describe("AdminDashboardService membership management", () => {
     );
   });
 
+  it("denies provisioning to a dispatcher even with an active membership", async () => {
+    // Regression: dispatcher (and legacy estimator) hold company.manage /
+    // settings.manage, so the permission check alone admitted them into the
+    // app.provisioning RLS bypass, which the database predicate
+    // current_app_can_administer() reserves for owner/admin.
+    mockPrisma.organization.findUnique.mockResolvedValue({ id: "org-1" });
+    mockPrisma.organizationMembership.findFirst.mockResolvedValue({
+      id: "membership-1",
+      orgId: "org-1",
+      userId: "actor-dispatcher",
+      role: "dispatcher",
+      status: "active",
+      user: { isActive: true },
+    });
+    const dispatcherActor = { userId: "actor-dispatcher", orgId: "org-1", role: "dispatcher" as const };
+
+    const service = new AdminDashboardService();
+    await expect(service.upsertOrganizationMember("org-1", {
+      authSubject: "subject-1",
+      email: "new@example.com",
+      fullName: "New Member",
+      role: "technician",
+    }, dispatcherActor)).rejects.toThrow("Active organization administrator membership required");
+    expect(mockPrisma.organizationMembership.upsert).not.toHaveBeenCalled();
+  });
+
   it("updates and disables existing memberships", async () => {
     mockPrisma.organizationMembership.findFirst.mockResolvedValue({
       id: "membership-1",
