@@ -408,3 +408,7 @@ The new read-only sandbox Product API Item Availability endpoint is accessible o
 ## Supplier and operations validation runtime
 
 Supplier feed endpoint maps, scheduled organization IDs and internal operation inputs now use patched Zod 4. Existing UUID-shaped identifiers remain accepted with `z.guid()` and malformed IDs remain rejected. Provider host trust, OAuth token handling, supplier activation/review authority, job actors and tenant isolation are unchanged; this migration introduces no production integration or configuration change. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
+
+## Administrative member provisioning repair
+
+The existing member-upsert endpoint now resolves and creates application users using a scoped transaction-local provisioning context. Its module-specific mapping remains `authSubject` → application user → organization membership, with audit snapshots stored alongside the membership write. Attaching an existing foreign identity preserves its global profile. Authorization and transaction guarantees are maintained in the [shared architecture boundary](../ARCHITECTURE.md#administrative-membership-provisioning-boundary); no schema, RLS policy or role grant changes are part of this repair.

@@ -16,6 +16,26 @@ related_docs:
 
 Sprint ID: NONE. Resumed understood uncommitted renderer and regression tests in `/workspace/TradeOS-pdf`, branch `fix/proposal-pdf-wrapped-content`; existing baseline `eab54f2c` fast-forwarded to reviewed main `6cc54a99`. Live overlap check found no competing Proposal renderer repair. Scope is the shared PDF metadata/narrative layout, its behavioral tests and required owner documentation. No schema, roles, pricing, routes or staging changes. Final command results and exact-head hosted checks belong in the PR; root coordinates staged acceptance. The original rendered beta PDF independently reproduced wrapped-field overlap and CRLF control glyphs; Poppler-only font spacing is excluded from this repair.
 
+## Costbook frontend preview isolation — proposed 2026-10-18
+
+- Vercel configuration currently disables PR branch Git deployments for
+  both backend and web by `"**": false`; Vercel read-only lists found
+  no generated deploy for PR #771/#773/#774 feature branches.
+- Branch `feat/costbook-preview-policy-20261018` from main limits new
+  `git.deploymentEnabled` allowlist to web `feat/costbook-*` only.
+  Backend `main`/`staging` gate and branch-scoped secrets are untouched.
+- Source guidance: Vercel's Git configuration specifies that any matching
+  true rule wins over false; verify observed preview behavior at PR SHA
+  after review/merge rather than assuming the source change deployed.
+- No authenticated Costbook→Estimate feature proof is claimed. A frontend
+  Preview still points to the dedicated staging backend, which will
+  not have feature-branch API code until it is approved and deployed there.
+- Next five TODOs: (1) open scoped preview-policy PR, (2) pass tests,
+  docs, CodeRabbit review and founder approval, (3) observe exact-head
+  web preview READY in the Vercel project, (4) stage the API feature
+  code using only reviewed `staging` operations and nonproduction
+  secrets, (5) exercise real tenant-scoped assembly install/estimate
+  persistence, with a separate tenant negative test.
 
 ## Invited-beta disposable recovery evidence — 2026-11-13
 
@@ -526,6 +546,16 @@ summary and error focus are implemented without changing transport/pricing.
 Next: finish local and exact-head hosted checks, report reviewed candidate to
 the beta coordinator for staging/API/web correlation, authenticated same-draft
 retry/PDF identity and tenant-denial evidence. No merge/deployment is claimed.
+
+## Administrative member provisioning — bounded beta repair, 2026-11-14
+
+The existing member-upsert route failed under forced user RLS for both new users
+and foreign existing identities. The service now verifies the actor's active
+administrator membership from the database before scoped provisioning, preserves
+foreign global profiles, and writes membership/audit atomically. Five real
+restricted-role PostgreSQL regressions and fourteen focused unit tests pass;
+current-source hosted checks and actual staging create/disable/reactivate evidence
+remain pending. No schema, policy or database-role grants changed.
 
 ## Next Eligible Sprint
 
