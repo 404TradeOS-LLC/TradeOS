@@ -46,3 +46,26 @@ Subprocess failures retain only fixed diagnostic categories (for example, missin
 The public Team & Time audit trigger depends on the actual `tradeos_private` audit function. The same exported snapshot therefore includes that schema's actual DDL while explicitly excluding every private table's data. The restored private tables must all be empty; this is not a supplier credential-vault recovery claim. Public data and schema plus dependency function definitions are compared against the source manifest. No auth/storage stubs are created.
 
 The disposable PostgreSQL service uses Docker's `none` log driver, and local restore connections suppress server-side error/statement logging. GitHub service cleanup cannot publish failed SQL from the source dump. Source connection logging and configuration are not changed.
+
+## Canonical manifest and positive tenant coverage
+
+Catalog definitions are deparsed with the same transaction-local `search_path`
+(`pg_catalog, public, extensions, tradeos_private`) on source and target. This
+changes no source data or persistent settings. Per-component digests identify a
+failed comparison using fixed category codes without exposing definitions or rows;
+all public counts and schema components must still match exactly.
+
+The disposable restricted role must be neither superuser nor BYPASSRLS. Current
+public policies target PUBLIC; named-role policies fail closed as uncovered.
+Before the all-table unscoped probes, at least two existing Customer tenant scopes
+must be present: one scope must return its exact positive row count, while rows
+known to exist in another scope must be denied. This rejects both blanket default
+denial and a deliberately permissive tenant policy. Child-table coverage limits
+remain explicit. No source policies, role memberships or grants are changed.
+
+Local regressions: `python scripts/test_staging_database_restore.py` checks fixed
+failure classes. `RESTORE_TEST_ADMIN_URL` may point only to a local PostgreSQL
+admin `/postgres` database for `python scripts/test_staging_restore_postgres.py`;
+that test creates and removes its own uniquely named disposable database/role. It
+reproduces the differing catalog deparse and rejects a deliberately broken RLS
+policy. These local results do not claim that a hosted staging restore has passed.
