@@ -75,7 +75,7 @@ safely — a later webhook event for that message is recorded as unmatched
 and updates no tenant. The journal is idempotent on `provider_message_id`;
 a re-record never overwrites kind or org attribution.
 
-## Signed webhook route wiring (proposed in PR #957)
+## Signed webhook route wiring
 
 The existing `POST /api/v1/webhooks/resend` route is mounted before the
 authenticated API middleware with an explicit 64 KiB raw-body parser and a
