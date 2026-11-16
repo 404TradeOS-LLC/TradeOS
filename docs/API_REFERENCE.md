@@ -354,6 +354,14 @@ the request; the contract event records `actorType: customer_portal`, the
 customer id, and portal session id. The portal principal cannot call staff
 `/api/v1/*` routes.
 
+After middleware validates a portal bearer session, the request transaction
+sets transaction-local `app.portal_session_hash` to the SHA-256 digest of that
+session, together with its organization, customer, and session IDs. Forced RLS
+uses that digest to expose only the exact validated session row; sibling and
+cross-organization sessions remain hidden. A missing validated digest exposes
+no portal session rows. The raw bearer value is not attached to the request
+context or logged.
+
 ## Transactional email behavior
 
 - `POST /api/v1/auth/password-reset/request` always returns the same success shape for known and unknown addresses. For an active local user it stores a hashed token and schedules the Resend adapter to deliver a short-lived link after the response; the raw token is returned only outside production for local/test workflows.
