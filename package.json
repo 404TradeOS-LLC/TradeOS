@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "js-yaml": "^4.3.2",
-    "minimatch": "^11.0.5"
+    "minimatch": "^11.0.8"
   },
   "devDependencies": {
     "@playwright/test": "1.65.0"
