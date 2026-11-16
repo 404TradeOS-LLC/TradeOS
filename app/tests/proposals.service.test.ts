@@ -30,6 +30,8 @@ const mockAthenaEventService = {
   publish: jest.fn(),
 };
 
+const proposalUpdatedAt = new Date("2026-11-13T12:00:00.000Z");
+
 function proposalRow(status: string) {
   return {
     id: "proposal-1",
@@ -52,7 +54,7 @@ function proposalRow(status: string) {
     viewedAt: null,
     respondedAt: null,
     createdAt: new Date(),
-    updatedAt: new Date("2026-11-13T12:00:00.000Z"),
+    updatedAt: proposalUpdatedAt,
     deliveries: [],
     project: { orgId: "org-1", customer: { id: "customer-1", email: "customer@example.com" } },
   };
@@ -302,7 +304,7 @@ describe("ProposalsService", () => {
     expect(proposal.sentAt).not.toBeNull();
     expect(proposal.deliveries[0]?.eventType).toBe("proposal.sent");
     expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
-      where: { id: "proposal-1", status: "draft", project: { orgId: "org-1" }, updatedAt: expect.any(Date) },
+      where: { id: "proposal-1", status: "draft", project: { orgId: "org-1" }, updatedAt: proposalUpdatedAt },
       data: { status: "sent", sentAt: expect.any(Date) },
     });
     expect(mockPrisma.proposal.update).not.toHaveBeenCalled();
@@ -320,7 +322,7 @@ describe("ProposalsService", () => {
     await expect(new ProposalsService().send("proposal-1", "org-1", "owner-1"))
       .rejects.toMatchObject({ statusCode: 409 });
     expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
-      where: { id: "proposal-1", status: "draft", project: { orgId: "org-1" }, updatedAt: expect.any(Date) },
+      where: { id: "proposal-1", status: "draft", project: { orgId: "org-1" }, updatedAt: proposalUpdatedAt },
       data: { status: "sent", sentAt: expect.any(Date) },
     });
     expect(mockPrisma.proposalDelivery.create).not.toHaveBeenCalled();
@@ -341,7 +343,7 @@ describe("ProposalsService", () => {
       note: "Customer reviewed and approved written terms by phone.",
     }, "org-1", "owner-1")).rejects.toMatchObject({ statusCode: 409 });
     expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
-      where: { id: "proposal-1", status: "draft", project: { orgId: "org-1" }, updatedAt: expect.any(Date) },
+      where: { id: "proposal-1", status: "draft", project: { orgId: "org-1" }, updatedAt: proposalUpdatedAt },
       data: { status: "accepted", respondedAt: expect.any(Date) },
     });
     expect(mockPrisma.proposalDelivery.create).not.toHaveBeenCalled();
@@ -464,7 +466,7 @@ describe("ProposalsService", () => {
     expect(result.status).toBe("accepted");
     expect(result.sentAt).toBeNull();
     expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
-      where: { id: "proposal-1", status: "draft", project: { orgId: "org-1" }, updatedAt: expect.any(Date) },
+      where: { id: "proposal-1", status: "draft", project: { orgId: "org-1" }, updatedAt: proposalUpdatedAt },
       data: { status: "accepted", respondedAt: expect.any(Date) },
     });
     expect(mockPrisma.proposalDelivery.create).toHaveBeenCalledWith({
