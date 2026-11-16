@@ -198,3 +198,22 @@ This is presentation of the existing `createFromEstimate`/`createFromProject` ru
 
 `tests/playwright/proposal-failure-retention.spec.ts` is an opt-in non-production matrix using `TRADEOS_PROPOSAL_RETENTION_PATH` and optional `TRADEOS_PROPOSAL_RETENTION_STATE` with existing safe target guards. An incomplete payment row deliberately reaches the real server action's validation before its backend create call; two failures at each of four widths preserve edits and focus. Local props are explicitly synthetic. Successful creation, database persistence and authenticated negative permission evidence remain separate.
 
+## Staff-recorded offline proposal acceptance (feature branch; not yet released)
+
+For an approved written quote accepted face-to-face, by telephone, or by an
+externally signed copy, staff can record the approval without simulating a
+delivery. Permission rules are in [RBAC_MATRIX.md](../RBAC_MATRIX.md); eligible
+status, validation, and transition behavior are in
+[WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md). The new
+`POST /api/v1/proposals/:id/accept-offline` endpoint accepts
+`{ "channel": "in_person" | "phone" | "signed_document", "note": "...",
+"confirmed": true }`; the note is 10–500 characters.
+
+This path does **not** set `sentAt`, emit `ProposalSent`, send email, create a
+customer signature, or affect customer-portal acceptance. It writes an
+organization-scoped `proposal.accepted` delivery/activity record with
+`actorUserId`, `acceptanceChannel`, `acceptanceNote`, and
+`source: staff_recorded_offline`. The UI labels it "Customer accepted outside
+TradeOS" and requires explicit staff confirmation. Lifecycle effects and
+related send/acceptance transitions are defined in
+[WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).

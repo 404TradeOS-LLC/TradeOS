@@ -2015,3 +2015,26 @@ This same draft feature branch additionally registers a `costbook.read` gated re
 ## Administrative membership provisioning repair — 2026-11-14
 
 A restricted-role PostgreSQL reproduction confirmed that member upsert failed at application-user RLS for both new users and existing identities outside the organization. The bounded repair uses the existing provisioning policy only after database-backed administrator validation, preserves foreign user profiles, and commits user/membership/audit changes together. Source and disposable-database checks do not establish live staging offboarding acceptance.
+## Proposed direct offline proposal approval — not yet deployed
+
+Following a verified six-step synthetic staging contractor walkthrough, a
+staff-recorded offline acceptance workflow is implemented on
+`feat/proposal-offline-acceptance-audit` (draft PR pending review). It makes
+the field-use case explicit: a customer may approve an already-finalized,
+positive-price written proposal in person, by phone, or via signed copy,
+without staff faking a `Send` action. The separate endpoint uses
+`documents.manage`, org-scoped CAS, an actor/method/required-note audit
+record, and no outgoing email or sent timestamp. Existing portal/customer
+approval and normal `sent -> accepted` remain untouched. Authenticated
+nonproduction acceptance, required CI and independent review are release
+gates; do not interpret presence on a branch as deployed functionality.
+
+## Offline approval privacy correction — proposed, awaiting review
+
+The proposed staff-recorded offline acceptance audit is intentionally
+internal. `CustomerPortalService.getProposal` and the portal project
+proposal-list projection redact internal approval-channel/note metadata,
+preserving only `staff_recorded_offline` so UI can label the customer-visible
+milestone without misrepresenting email delivery. Backend audit history is
+unaltered. Unit regression tests assert both portal paths cannot expose staff
+notes. This is branch work, not a deployed or verified staging behavior.

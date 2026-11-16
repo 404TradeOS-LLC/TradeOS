@@ -229,6 +229,35 @@ export async function acceptProposalSubmit(formData: FormData): Promise<void> {
   redirect(`/projects/${projectId}/proposals/${id}`);
 }
 
+/**
+ * Record a customer's in-person/phone/signed-copy approval without sending
+ * email or pretending that the proposal was delivered through TradeOS.
+ */
+export async function acceptOfflineProposalAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+  const token = await getSessionToken();
+  const proposalId = String(formData.get("proposalId") ?? "");
+  const projectId = String(formData.get("projectId") ?? "");
+  const channel = String(formData.get("channel") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+  const confirmed = formData.get("confirmed") === "true";
+  if (!confirmed || !["in_person", "phone", "signed_document"].includes(channel) || note.length < 10 || note.length > 500) {
+    return { error: "Confirm the customer's approval, select a method, and provide a 10-500 character note." };
+  }
+
+  try {
+    await apiFetch(`/api/v1/proposals/${proposalId}/accept-offline`, {
+      method: "POST",
+      token: token ?? undefined,
+      body: JSON.stringify({ channel, note, confirmed }),
+    });
+  } catch (error) {
+    return { error: error instanceof ApiClientError ? error.message : "Unable to record offline acceptance." };
+  }
+
+  revalidatePath(`/projects/${projectId}/proposals/${proposalId}`);
+  redirect(`/projects/${projectId}/proposals/${proposalId}`);
+}
+
 export async function rejectProposalAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
   const token = await getSessionToken();
   const id = String(formData.get("proposalId") ?? "");
