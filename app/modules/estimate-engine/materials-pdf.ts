@@ -59,6 +59,7 @@ export function renderEstimateMaterialsPdf(input: EstimateMaterialsPdfInput): Pr
         400, y, { width: 160, align: "right" }
       );
       doc.y = y + rowHeight;
+      doc.x = 48;
     }
 
     if (input.unexpandedAssemblyCount > 0) {

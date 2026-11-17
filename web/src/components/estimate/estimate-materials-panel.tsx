@@ -34,7 +34,7 @@ export function EstimateMaterialsPanel({ estimateId, projectId }: { estimateId: 
             <p className="mt-2 text-sm text-warning" role="alert">Review the saved material quantities and descriptions before downloading.</p>
           ) : null}
           {data && data.projectId === projectId && !preview.requiresReview && preview.items.length === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">Add a line categorized as Material to create the checklist.</p>
+            <p className="mt-2 text-sm text-muted-foreground">No explicit material lines are available to create the checklist.</p>
           ) : null}
         </div>
         {available ? (
@@ -64,12 +64,12 @@ export function EstimateMaterialsPanel({ estimateId, projectId }: { estimateId: 
               </li>
             ))}
           </ul>
-          {preview.unexpandedAssemblyCount > 0 ? (
-            <p className="mt-3 text-xs text-warning">
-              {preview.unexpandedAssemblyCount} assembly line(s) may contain additional materials and are not expanded into shopping quantities.
-            </p>
-          ) : null}
         </details>
+      ) : null}
+      {data && data.projectId === projectId && preview.unexpandedAssemblyCount > 0 ? (
+        <p className="mt-3 text-xs text-warning" role="status">
+          {preview.unexpandedAssemblyCount} assembly line(s) may contain additional materials and are not expanded into shopping quantities.
+        </p>
       ) : null}
     </section>
   );

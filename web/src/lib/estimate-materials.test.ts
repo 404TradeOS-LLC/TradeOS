@@ -37,3 +37,12 @@ test("materials checklist preview visibly pairs each item description with its s
   assert.match(rowMarkup, /\{item\.section\}/);
   assert.match(rowMarkup, /\{item\.description\}/);
 });
+
+test("assembly warning stays visible when the checklist has no explicit material lines", async () => {
+  const source = await readFile(new URL("../components/estimate/estimate-materials-panel.tsx", import.meta.url), "utf8");
+  const detailsEnd = source.indexOf("</details>");
+  const warningStart = source.indexOf("preview.unexpandedAssemblyCount > 0 ? (");
+  assert.ok(detailsEnd >= 0 && warningStart > detailsEnd, "assembly warning must sit outside the available-only details block");
+  assert.match(source.slice(warningStart - 90, warningStart), /data && data\.projectId === projectId/);
+  assert.match(source, /No explicit material lines are available to create the checklist\./);
+});

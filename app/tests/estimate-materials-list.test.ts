@@ -48,6 +48,20 @@ describe("customer materials PDF", () => {
     expect(body).not.toContain("0 bag");
   });
 
+  it("restores the full-width body position after the quantity column before later notices", async () => {
+    const list = buildEstimateMaterialsList([{ ...savedLines[0] }]);
+    const pdf = await renderEstimateMaterialsPdf({
+      projectName: "Position test",
+      siteAddress: null,
+      customerName: null,
+      estimateVersion: 1,
+      ...list,
+      unexpandedAssemblyCount: 1,
+    });
+
+    expect(findPdfTextX(pdf, "Assembly materials need separate review")).toBe(48);
+  });
+
   it("renders a downloadable checklist without unit prices, totals, or labor charges", async () => {
     const list = buildEstimateMaterialsList(savedLines);
     const pdf = await renderEstimateMaterialsPdf({
@@ -71,7 +85,26 @@ describe("customer materials PDF", () => {
 });
 
 function extractPdfText(pdf: Buffer): string {
+  const content = extractPdfContent(pdf);
   const text: string[] = [];
+  text.push(...Array.from(content.matchAll(/\[([^\]]*)\]\s*TJ/g), match =>
+    Array.from(match[1].matchAll(/<([0-9a-f]+)>/gi), hex => Buffer.from(hex[1], "hex").toString("latin1")).join("")
+  ));
+  text.push(content);
+  return text.join("\n");
+}
+
+function findPdfTextX(pdf: Buffer, target: string): number | null {
+  const blocks = Array.from(extractPdfContent(pdf).matchAll(/BT\s*1 0 0 1 ([\d.]+) ([\d.]+) Tm([\s\S]*?)ET/g));
+  for (const block of blocks) {
+    const text = Array.from(block[3].matchAll(/<([0-9a-f]+)>/gi), hex => Buffer.from(hex[1], "hex").toString("latin1")).join("");
+    if (text.includes(target)) return Number(block[1]);
+  }
+  return null;
+}
+
+function extractPdfContent(pdf: Buffer): string {
+  const content: string[] = [];
   const streamMarker = Buffer.from("stream");
   const endMarker = Buffer.from("endstream");
   let offset = 0;
@@ -83,13 +116,9 @@ function extractPdfText(pdf: Buffer): string {
     if (contentStart <= 0 || end < 0) break;
     const raw = pdf.subarray(contentStart, end).subarray(0, -1);
     try {
-      const decoded = inflateSync(raw).toString("latin1");
-      text.push(...Array.from(decoded.matchAll(/\[([^\]]*)\]\s*TJ/g), match =>
-        Array.from(match[1].matchAll(/<([0-9a-f]+)>/gi), hex => Buffer.from(hex[1], "hex").toString("latin1")).join("")
-      ));
-      text.push(decoded);
-    } catch { text.push(raw.toString("latin1")); }
+      content.push(inflateSync(raw).toString("latin1"));
+    } catch { content.push(raw.toString("latin1")); }
     offset = end + endMarker.length;
   }
-  return text.join("\n");
+  return content.join("\n");
 }
