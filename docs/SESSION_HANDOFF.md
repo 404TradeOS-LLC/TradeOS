@@ -12,6 +12,31 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Beta Proposal PDF layout repair — 2026-11-14
+
+Sprint ID: NONE. Resumed understood uncommitted renderer and regression tests in `/workspace/TradeOS-pdf`, branch `fix/proposal-pdf-wrapped-content`; existing baseline `eab54f2c` fast-forwarded to reviewed main `6cc54a99`. Live overlap check found no competing Proposal renderer repair. Scope is the shared PDF metadata/narrative layout, its behavioral tests and required owner documentation. No schema, roles, pricing, routes or staging changes. Final command results and exact-head hosted checks belong in the PR; root coordinates staged acceptance. The original rendered beta PDF independently reproduced wrapped-field overlap and CRLF control glyphs; Poppler-only font spacing is excluded from this repair.
+
+## Costbook frontend preview isolation — proposed 2026-10-18
+
+- Vercel configuration currently disables PR branch Git deployments for
+  both backend and web by `"**": false`; Vercel read-only lists found
+  no generated deploy for PR #771/#773/#774 feature branches.
+- Branch `feat/costbook-preview-policy-20261018` from main limits new
+  `git.deploymentEnabled` allowlist to web `feat/costbook-*` only.
+  Backend `main`/`staging` gate and branch-scoped secrets are untouched.
+- Source guidance: Vercel's Git configuration specifies that any matching
+  true rule wins over false; verify observed preview behavior at PR SHA
+  after review/merge rather than assuming the source change deployed.
+- No authenticated Costbook→Estimate feature proof is claimed. A frontend
+  Preview still points to the dedicated staging backend, which will
+  not have feature-branch API code until it is approved and deployed there.
+- Next five TODOs: (1) open scoped preview-policy PR, (2) pass tests,
+  docs, CodeRabbit review and founder approval, (3) observe exact-head
+  web preview READY in the Vercel project, (4) stage the API feature
+  code using only reviewed `staging` operations and nonproduction
+  secrets, (5) exercise real tenant-scoped assembly install/estimate
+  persistence, with a separate tenant negative test.
+
 ## Invited-beta disposable recovery evidence — 2026-11-13
 
 - Sprint ID: NONE; resumed existing uncommitted recovery runner/tests in `/workspace/TradeOS-recovery`, branch `test/beta-recovery-rehearsal` (EXISTING_WORK_FOUND). Fetched origin, reconciled open/recent recovery PRs and worktrees, fast-forwarded baseline `99ccafcc` to `0eb3ce15`; no competing restore PR found.
@@ -509,6 +534,16 @@ updates remain supported. Schema/RLS changes retain PR-only merge posture.
 - Next: test/publish, inspect hosted review, promote reviewed workflow source into
   staging, rerun correlated canonical evidence, retain actual results.
 
+## Codes & Permits advisory pilot (new bounded founder request, 2026-11-08)
+
+- Repository `404TradeOS-LLC/TradeOS`; base `main` `58dcb6acfad3fc05f80f7d72ae1dfe77871dd493`; isolated feature branch `feat/costbook-codes-permits-vigo-pilot`.
+- Classification `NEW_WORK_REQUIRED`: live search found no equivalently scoped municipality-code Costbook implementation or active PR. Existing PR #938 (staging parity) and #921 (beta evidence) are different missions.
+- This branch adds an official-source index and `costbook.read` endpoint, 390px-first page, Costbook navigation, unit/controller tests, and a citation-only read-only Athena tool with SDK contract tests. No schema, migrations, production change, pricing, tenant data, or claims of legal approval.
+- Upstream source verified at 2026-11-08: Vigo official zoning text (dated 1996-10-21); IDHS currently posted building/electrical code register; INDOT sign/ROW permit guidance. Amendments and parcel requirements are unverified by design.
+- Verified GitHub code-head `2f888d7e`: app/web unit, integration, Athena, build, dependency, docs, governance and branch-currency required checks passed; 0 unresolved review threads and 0 behind main. Source: GitHub verify-repository run #42462868320. Subsequent docs-only SHA still requires current-head CI.
+- Remaining gates: independent review; matching nonproduction API/web deployment identity; four-width authenticated navigation/denial and zero-write acceptance; governed merge. Full parcel/version/Estimate/permit automation is tracked separately in issue #946.
+- No local repository clone is mounted in this ChatGPT runtime; direct local app/web test commands were not run. Do not treat repository PR checks as passed until GitHub reports them.
+
 ## Existing invoice PR #956 continuation — 2026-11-13
 
 EXISTING_WORK_FOUND on `feat/figma-to-code-completion` in isolated worktree
@@ -521,6 +556,16 @@ summary and error focus are implemented without changing transport/pricing.
 Next: finish local and exact-head hosted checks, report reviewed candidate to
 the beta coordinator for staging/API/web correlation, authenticated same-draft
 retry/PDF identity and tenant-denial evidence. No merge/deployment is claimed.
+
+## Administrative member provisioning — bounded beta repair, 2026-11-14
+
+The existing member-upsert route failed under forced user RLS for both new users
+and foreign existing identities. The service now verifies the actor's active
+administrator membership from the database before scoped provisioning, preserves
+foreign global profiles, and writes membership/audit atomically. Five real
+restricted-role PostgreSQL regressions and fourteen focused unit tests pass;
+current-source hosted checks and actual staging create/disable/reactivate evidence
+remain pending. No schema, policy or database-role grants changed.
 
 ## Next Eligible Sprint
 

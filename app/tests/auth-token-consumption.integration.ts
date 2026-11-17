@@ -11,6 +11,9 @@ jest.mock("../db/client", () => {
     passwordResetToken: { async findUnique({ args, query }: { args: unknown; query: (args: unknown) => Promise<unknown> }) {
       const result = await query(args); await mockAfterTokenRead(); return result;
     } },
+    authRefreshToken: { async findUnique({ args, query }: { args: unknown; query: (args: unknown) => Promise<unknown> }) {
+      const result = await query(args); await mockAfterTokenRead(); return result;
+    } },
     organizationInvite: { async findUnique({ args, query }: { args: unknown; query: (args: unknown) => Promise<unknown> }) {
       const result = await query(args); await mockAfterTokenRead(); return result;
     } },
@@ -50,9 +53,9 @@ beforeAll(async () => {
   );
   expect(role).toEqual({ rolsuper: false, rolbypassrls: false });
   const tables = await admin.$queryRawUnsafe<Array<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>>(
-    "SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname IN ('password_reset_tokens', 'organization_invites')"
+    "SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname IN ('password_reset_tokens', 'organization_invites', 'auth_refresh_tokens')"
   );
-  expect(tables).toHaveLength(2);
+  expect(tables).toHaveLength(3);
   for (const table of tables) expect(table).toMatchObject({ relrowsecurity: true, relforcerowsecurity: true });
   await admin.organization.create({ data: { id: orgId, name: "Synthetic token race" } });
   await admin.appUser.create({ data: { id: userId, authSubject: `local:${userId}`, email, fullName: "Synthetic user" } });
@@ -152,4 +155,42 @@ test("a later session failure rolls back invite claim, user, membership and refr
   const result = await new AuthService().acceptInvite({ token, password: "synthetic-retry" });
   expect(await admin.organizationMembership.count({ where: { orgId, userId: result.user.id } })).toBe(1);
   expect(await admin.authRefreshToken.count({ where: { orgId, userId: result.user.id } })).toBe(1);
+}, 30_000);
+
+
+test("refresh rotation links a real replacement UUID, rejects replay and honors logout", async () => {
+  mockAfterTokenRead = async () => {};
+  const token = randomUUID();
+  const membership = await admin.organizationMembership.findFirstOrThrow({ where: { orgId, userId } });
+  const original = await admin.authRefreshToken.create({ data: {
+    orgId, userId, membershipId: membership.id, tokenHash: digest(token), expiresAt: new Date(Date.now() + 60_000),
+  } });
+  const service = new AuthService();
+  const result = await service.refresh({ refreshToken: token });
+  expect(result.user.id).toBe(userId);
+  const replacement = await admin.authRefreshToken.findUniqueOrThrow({ where: { tokenHash: digest(result.refreshToken) } });
+  const consumed = await admin.authRefreshToken.findUniqueOrThrow({ where: { id: original.id } });
+  expect(consumed).toMatchObject({ replacedById: replacement.id, revokedAt: expect.any(Date) });
+  expect(replacement.id).toMatch(/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/);
+  await expect(service.refresh({ refreshToken: token })).rejects.toMatchObject({ statusCode: 401 });
+  await service.logout(userId);
+  await expect(service.refresh({ refreshToken: result.refreshToken })).rejects.toMatchObject({ statusCode: 401 });
+}, 30_000);
+
+test("concurrent refresh requests create exactly one replacement session", async () => {
+  const token = randomUUID();
+  const membership = await admin.organizationMembership.findFirstOrThrow({ where: { orgId, userId } });
+  const original = await admin.authRefreshToken.create({ data: {
+    orgId, userId, membershipId: membership.id, tokenHash: digest(token), expiresAt: new Date(Date.now() + 60_000),
+  } });
+  mockAfterTokenRead = rendezvous();
+  const results = await Promise.allSettled([0, 1].map(() => new AuthService().refresh({ refreshToken: token })));
+  expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+  const rejected = results.find((result) => result.status === "rejected") as PromiseRejectedResult;
+  expect(rejected.reason).toMatchObject({ statusCode: 401, message: "Invalid refresh token" });
+  const winner = results.find((result) => result.status === "fulfilled") as PromiseFulfilledResult<Awaited<ReturnType<AuthService["refresh"]>>>;
+  const replacement = await admin.authRefreshToken.findUniqueOrThrow({ where: { tokenHash: digest(winner.value.refreshToken) } });
+  const consumed = await admin.authRefreshToken.findUniqueOrThrow({ where: { id: original.id } });
+  expect(consumed.replacedById).toBe(replacement.id);
+  expect(await admin.authRefreshToken.count({ where: { orgId, userId, revokedAt: null } })).toBe(1);
 }, 30_000);

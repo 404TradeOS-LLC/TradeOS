@@ -69,6 +69,26 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Costbook PR frontend Preview allowlist — proposed 2026-10-18
+
+Vercel's deployed source configs `web/vercel.json` and `app/vercel.json`
+contain `git.deploymentEnabled["**"]=false`, with only `main` and
+`staging` explicitly allowed. Read-only Vercel queries confirmed no
+deployment for branch heads of draft Costbook PRs #771/#773/#774 in
+either project. This explains why green GitHub CI cannot be treated as a
+working staging preview.
+
+An isolated infrastructure branch `feat/costbook-preview-policy-20261018`
+proposes narrowly enabling `feat/costbook-*` **frontend** preview
+deployments only. The backend deployment restriction and staging-only
+secret inheritance remain unchanged. No production deployment or
+configuration is changed until review/merge; preview READY, identity,
+authenticated backend behavior, and staging RLS remain unverified.
+
+## Beta Proposal PDF layout repair — source candidate
+
+A four-width staging PDF run exposed overlapping wrapped Customer/Project metadata and CRLF control glyphs; independent MuPDF rendering confirmed both defects. The bounded source repair measures shared metadata cards and normalizes saved line endings, with actual-fixture PDF operator regressions. Local/hosted verification and final staged visual acceptance are recorded in the PR; beta GO is not implied.
+
 ## Recoverable invoice creation — draft candidate, 2026-11-09
 
 PR #956 adds a commit-confirmed, authenticated draft endpoint and an explicit same-request retry on the mounted New invoice form. The additive request-key migration landed separately in #977 and protected Production run `43360847290` and Staging run `43365023839` succeeded; the release coordinator verified the resulting columns, unique index, pair constraint and forced RLS. Hosted PostgreSQL on `a3c368a` passed all 197 integration tests, including overlapping retry and tenant-denial coverage. Four-width authenticated invoice browser/PDF evidence remains pending. See [Invoices and payments](modules/invoices-and-payments.md#recoverable-invoice-draft-creation).
@@ -1983,3 +2003,38 @@ Job list summaries now include `updatedAt`. Missing or malformed revisions fail
 closed with refresh guidance; stale backend responses remain visible as errors.
 This connects the optional Job optimistic-concurrency API to normal UI actions;
 no lifecycle, role, tenant or migration semantics are changed.
+
+## Proposed Costbook Codes & Permits branch — 2026-11-08
+
+Branch `feat/costbook-codes-permits-vigo-pilot` adds a static, cited, read-only Vigo County / Indiana code-reference index, strict authenticated `GET /api/v1/costbook/codes` route, Costbook `Codes & Permits` page and tests. It deliberately marks parcel applicability **unverified** and does not create Cost Items, prices, permits, inspections, migrations, Athena claims, or estimate changes. This is **proposed** work until CI, review, merge, deployment identity and authenticated mobile/desktop acceptance are verified; no live release is claimed. See `docs/architecture/COSTBOOK_CODES_PERMITS_PILOT.md`.
+
+## Athena Codes & Permits pilot integration (proposed 2026-11-08)
+
+This same draft feature branch additionally registers a `costbook.read` gated read-only Athena tool for the shared official-source registry, with SDK contract tests. No new authoritative location provider, pricing writer, approval record, schema/RLS policy, or human-compliance decision is implemented. Hosted app/web/Athena/docs checks **passed** at exact executable-code commit `2f888d7e87d93fae6e36cc098543f1a99b318529` (GitHub run #42462868320). Independent review, protected staging/runtime identity, exact-head authenticated browser verification and source-law currency remain unverified; subsequent docs-only edits need their own current-head checks.
+
+## Administrative membership provisioning repair — 2026-11-14
+
+A restricted-role PostgreSQL reproduction confirmed that member upsert failed at application-user RLS for both new users and existing identities outside the organization. The bounded repair uses the existing provisioning policy only after database-backed administrator validation, preserves foreign user profiles, and commits user/membership/audit changes together. Source and disposable-database checks do not establish live staging offboarding acceptance.
+## Proposed direct offline proposal approval — not yet deployed
+
+Following a verified six-step synthetic staging contractor walkthrough, a
+staff-recorded offline acceptance workflow is implemented on
+`feat/proposal-offline-acceptance-audit` (draft PR pending review). It makes
+the field-use case explicit: a customer may approve an already-finalized,
+positive-price written proposal in person, by phone, or via signed copy,
+without staff faking a `Send` action. The separate endpoint uses
+`documents.manage`, org-scoped CAS, an actor/method/required-note audit
+record, and no outgoing email or sent timestamp. Existing portal/customer
+approval and normal `sent -> accepted` remain untouched. Authenticated
+nonproduction acceptance, required CI and independent review are release
+gates; do not interpret presence on a branch as deployed functionality.
+
+## Offline approval privacy correction — proposed, awaiting review
+
+The proposed staff-recorded offline acceptance audit is intentionally
+internal. `CustomerPortalService.getProposal` and the portal project
+proposal-list projection redact internal approval-channel/note metadata,
+preserving only `staff_recorded_offline` so UI can label the customer-visible
+milestone without misrepresenting email delivery. Backend audit history is
+unaltered. Unit regression tests assert both portal paths cannot expose staff
+notes. This is branch work, not a deployed or verified staging behavior.

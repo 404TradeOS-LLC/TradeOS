@@ -12,6 +12,11 @@ related_code:
   - app/backend/middleware/errorHandler.ts
 ---
 
+## Proposal PDF text layout
+
+Existing Proposal PDF endpoints preserve their request/response contract. Rendered Customer/Project metadata now uses measured wrapped field heights; saved narrative line endings are normalized before PDF rendering. No new parameter, pricing computation or tenant-access behavior is introduced.
+
+
 # API Reference
 
 ## PDF logo internal private storage bridge
@@ -1177,3 +1182,32 @@ Resend delivery journal (draft PR #931): internal verified-event processing now 
 Invitation acceptance likewise conditionally claims a pending, unaccepted, unexpired token before account, membership or refresh-session writes in the same transaction. Concurrent replay returns the existing invalid-or-expired error. Existing invitation roles and inactive-user reactivation behavior are preserved.
 
 After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
+
+## Costbook Codes & Permits references — proposed 2026-11-08
+
+`GET /api/v1/costbook/codes?state=IN&county=Vigo&topic=signage&q=...` — authenticated, `costbook.read`, read-only, `Cache-Control: private, no-store`.
+
+Query: required two-letter alphabetic `state`, optional `county` (1–80 characters after trimming; omit when no county is selected), `topic` in `signage|permits|electrical|structural|right-of-way`, `q` (max 120). Unknown query fields are rejected. No caller-supplied tenant ID. Result: `{status:"advisory",disclaimer,total,items}`; each item includes source URL, issuer, citation, geographic scope, source/review dates, next verification action and `applicability:"unverified"`. Unknown jurisdictions return no local records; no fees, compliance, permit approval, or Estimate writes. Read-only source-backed Vigo/Indiana pilot, not yet deployed. [Pilot detail](architecture/COSTBOOK_CODES_PERMITS_PILOT.md).
+
+## Athena source research addendum (proposed 2026-11-08)
+
+The registered Athena tool ID `tradeos.athena.tools.costbook.code.references` is available through the existing governed Athena tool-dispatch contract rather than a new ad-hoc HTTP endpoint. It requires `costbook.read` and accepts a two-letter `state`, optional `county`, optional `topic`, and bounded `q`; responses are advisory source references, a warning when county is omitted, and a separate warning when the selected county has no indexed local sources, independent of search filters. It cannot write prices, permits or estimates. Production invocation/browser verification remains pending.
+
+Refresh rotation records the replacement refresh-row UUID in `replaced_by_id`, while the opaque token hash remains only in `token_hash`. The conditional single-use rotation and replacement row creation remain in one transaction; replay and logout continue to reject revoked refresh sessions.
+
+### Administrative member upsert
+
+`POST /api/v1/admin/organizations/:id/members` retains its existing request and response shapes. The service verifies the active administrator membership before provisioning a new application user under forced RLS. Adding an existing identity from another organization attaches a membership without changing its global email, name or active flag. User/membership/audit writes are atomic; denied actor or organization checks do not enable provisioning. See [the shared administrative provisioning boundary](ARCHITECTURE.md#administrative-membership-provisioning-boundary).
+## Staff-recorded offline acceptance — proposed
+
+`POST /api/v1/proposals/:id/accept-offline`: authenticated
+`documents.manage` only. JSON body: `{"channel":"in_person",
+"note":"Customer approved the final scope and price on site.",
+"confirmed":true}` (method alternatives: `phone`, `signed_document`).
+Rejects missing confirmation/invalid method or 10–500-character note (400);
+insufficient role (403); non-draft/missing final approved written scope or
+positive final price, concurrent status transition (409); tenant mismatches
+fail closed through authenticated org scope and forced RLS. Successful 200
+returns the accepted proposal; no outgoing email and no `sentAt` mutation.
+This is an internal staff record, **not** an e-signature or customer portal
+assertion.

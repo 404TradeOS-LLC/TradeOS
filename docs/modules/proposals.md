@@ -11,6 +11,11 @@ related_code:
   - web/src/app/(app)/projects/[id]/proposals
 ---
 
+## Proposal PDF saved-text layout repair
+
+Customer and Project cards in both Proposal PDF renderers measure wrapped field height and place each subsequent field below the preceding rendered text. Their shared card height grows to contain the longer column. Saved CRLF, CR and Unicode paragraph separators are normalized to LF in metadata and narrative sections before PDFKit rendering, preventing visible control glyphs. Regression coverage uses the actual long-name beta fixture and compares alternate saved line endings with LF. Pricing, saved snapshots, authorization and routes are unchanged; final staging visual acceptance remains required.
+
+
 ## Contractor-brand proposal PDF header — merged PR #868
 
 Proposed PDF fix removes the unconditional `TRADEOS` header label from both estimate-backed and project proposal PDFs. Brand Studio organization name/colors and the controlled `showPoweredByTradeOS` footer remain authoritative. Regression tests inspect PDF output with the setting disabled and enabled. The PDFKit renderer supports trusted image bytes and PR #873 implements private Storage retrieval. Live uploaded-logo rendering remains pending staged acceptance.
@@ -193,3 +198,22 @@ This is presentation of the existing `createFromEstimate`/`createFromProject` ru
 
 `tests/playwright/proposal-failure-retention.spec.ts` is an opt-in non-production matrix using `TRADEOS_PROPOSAL_RETENTION_PATH` and optional `TRADEOS_PROPOSAL_RETENTION_STATE` with existing safe target guards. An incomplete payment row deliberately reaches the real server action's validation before its backend create call; two failures at each of four widths preserve edits and focus. Local props are explicitly synthetic. Successful creation, database persistence and authenticated negative permission evidence remain separate.
 
+## Staff-recorded offline proposal acceptance (feature branch; not yet released)
+
+For an approved written quote accepted face-to-face, by telephone, or by an
+externally signed copy, staff can record the approval without simulating a
+delivery. Permission rules are in [RBAC_MATRIX.md](../RBAC_MATRIX.md); eligible
+status, validation, and transition behavior are in
+[WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md). The new
+`POST /api/v1/proposals/:id/accept-offline` endpoint accepts
+`{ "channel": "in_person" | "phone" | "signed_document", "note": "...",
+"confirmed": true }`; the note is 10–500 characters.
+
+This path does **not** set `sentAt`, emit `ProposalSent`, send email, create a
+customer signature, or affect customer-portal acceptance. It writes an
+organization-scoped `proposal.accepted` delivery/activity record with
+`actorUserId`, `acceptanceChannel`, `acceptanceNote`, and
+`source: staff_recorded_offline`. The UI labels it "Customer accepted outside
+TradeOS" and requires explicit staff confirmation. Lifecycle effects and
+related send/acceptance transitions are defined in
+[WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).

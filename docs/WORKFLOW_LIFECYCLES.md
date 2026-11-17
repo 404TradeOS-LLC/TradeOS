@@ -16,6 +16,11 @@ related_code:
   - app/tests/estimate-costbook-snapshot.test.ts
 ---
 
+## Proposal PDF presentation repair
+
+The existing saved Proposal to contractor PDF handoff preserves its amount and snapshot semantics. The shared renderers now measure wrapped Customer/Project fields and normalize saved line endings so long metadata does not overlap later fields and carriage returns do not print as glyphs. This presentation repair does not certify the complete beta workflow; staged PDF bytes and visual review remain separate evidence.
+
+
 # Workflow Lifecycles
 
 ## PDF logo loading does not change commercial state
@@ -465,3 +470,17 @@ proposal. Its executable description comes only from that accepted scope, never
 from the Project's current `simpleScope`. Missing accepted scope fails closed
 with HTTP 409; an existing conversion remains retrievable on an idempotent retry.
 The guard does not modify the accepted proposal or create replacement terms.
+
+## Distinct internal offline proposal acceptance — proposed
+
+The existing customer-facing route keeps `sent|viewed -> accepted`. A
+separate staff-only, explicitly confirmed `draft -> accepted` route is for
+already-approved written scopes/prices that were accepted outside TradeOS.
+The actor, approval channel, and note are recorded in the existing
+tenant-scoped `proposal.accepted` activity/delivery journal, tagged as
+`staff_recorded_offline`. This mode does not manufacture `sentAt`,
+`proposal.sent`, a customer signature, or a customer-portal interaction.
+Concurrent requests still use a compare-and-swap write scoped to the
+authenticated organization; accepted proposals remain immutable. The
+downstream `accepted -> contract/job` baseline remains unchanged. Until
+deployed and accepted in staging, this is an unshipped PR capability.

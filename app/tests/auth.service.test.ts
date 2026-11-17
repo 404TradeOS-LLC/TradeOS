@@ -223,6 +223,12 @@ describe("AuthService", () => {
     expect(result.role).toBe("dispatcher");
     expect(mockTransactionClient.authRefreshToken.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ revokedAt: null }) }));
     expect(mockTransactionClient.authRefreshToken.create).toHaveBeenCalledTimes(1);
+    const replacement = mockTransactionClient.authRefreshToken.create.mock.calls[0][0].data;
+    expect(replacement.id).toMatch(/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/);
+    expect(mockTransactionClient.authRefreshToken.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ replacedById: replacement.id }),
+    }));
+    expect(replacement.tokenHash).not.toBe(replacement.id);
   });
 
   it("rejects a refresh when another request already won the conditional rotation", async () => {
