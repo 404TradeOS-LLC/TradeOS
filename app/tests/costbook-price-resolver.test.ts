@@ -16,6 +16,9 @@ const base: PriceEvidenceCandidate = {
   observedAt: new Date("2026-10-01T12:00:00.000Z"),
   tenantId: "org-a",
   supplierName: "Retail Supplier",
+  marketCode: "terre-haute-in",
+  city: "Terre Haute",
+  state: "IN",
   postalCode: "47802",
   source: "manual_spot_check",
   verifiedVsInferred: "observed",
@@ -105,5 +108,20 @@ describe("Costbook PriceResolver", () => {
       }],
     });
     expect(resolved?.warnings).toContain("Selected price is inferred rather than directly observed.");
+  });
+
+  it("preserves source location metadata on selected and alternative evidence", () => {
+    const resolved = resolvePrice({
+      tenantId: "org-a",
+      canonicalMaterialKey: base.canonicalMaterialKey,
+      now,
+      candidates: [
+        { ...base, id: "a-selected", price: 4.5 },
+        { ...base, id: "z-alternative", price: 4.75, marketCode: null, city: null, state: null },
+      ],
+    });
+
+    expect(resolved).toMatchObject({ marketCode: "terre-haute-in", city: "Terre Haute", state: "IN" });
+    expect(resolved?.alternatives[0]).toMatchObject({ marketCode: null, city: null, state: null });
   });
 });
