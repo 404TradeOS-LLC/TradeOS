@@ -19,6 +19,7 @@ import { ATHENA_ESTIMATE_DRAFT_KEY, makeAthenaEstimateDraft } from "@/lib/athena
 
 interface AthenaWorkspaceProps {
   selectedScope?: AthenaSelectedScope;
+  compact?: boolean;
 }
 
 interface ConversationTurn {
@@ -161,7 +162,7 @@ function ResultCard({ result }: { result: AthenaKernelResult }) {
   );
 }
 
-export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
+export function AthenaWorkspace({ selectedScope, compact = false }: AthenaWorkspaceProps) {
   const router = useRouter();
   const [draft, setDraft] = useState("");
   const [contractorNotes, setContractorNotes] = useState<string[]>([]);
@@ -248,7 +249,8 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
   };
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-5">
+    <div className={cn("mx-auto grid w-full", compact ? "max-w-none gap-3" : "max-w-5xl gap-5")}>
+      {!compact ? (
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border/70 pb-5">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Athena</p>
@@ -258,6 +260,7 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
           </p>
         </div>
       </header>
+      ) : null}
 
       {contractorNotes.length > 0 ? (
         <section aria-label="Estimate handoff" className="rounded-2xl border border-primary/25 bg-primary/5 p-4 sm:p-5">
@@ -277,8 +280,8 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
         </section>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
-        <aside className="grid content-start gap-4">
+      <div className={cn("grid gap-4", !compact && "xl:grid-cols-[220px_minmax(0,1fr)]")}>
+        {!compact ? <aside className="grid content-start gap-4">
           <section className="rounded-2xl border border-border/70 bg-card p-4">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Selected context</p>
@@ -310,7 +313,7 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
               ))}
             </div>
           </section>
-        </aside>
+        </aside> : null}
 
         <section aria-labelledby="athena-workspace-heading" className="min-w-0 rounded-2xl border border-border/70 bg-card">
           <div className="border-b border-border/70 px-4 py-4 sm:px-5">
@@ -319,9 +322,9 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
             <p className="mt-1 text-xs text-muted-foreground">Each submission is independent in this build; include the detail Athena needs in each request.</p>
           </div>
 
-          <div className="grid min-h-[28rem] content-start gap-4 p-4 sm:p-5" aria-live="polite">
+          <div className={cn("grid content-start gap-4 p-4 sm:p-5", compact ? "min-h-0" : "min-h-[28rem]")} aria-live="polite">
             {turns.length === 0 ? (
-              <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 px-5 text-center">
+              compact ? null : <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 px-5 text-center">
                 <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Sparkles className="size-5" aria-hidden="true" />
                 </div>
@@ -378,7 +381,7 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
             ) : null}
           </div>
 
-          <form onSubmit={onSubmit} className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] border-t border-border/70 bg-card/95 p-4 backdrop-blur sm:p-5 2xl:bottom-0">
+          <form onSubmit={onSubmit} className={cn("border-t border-border/70 bg-card/95 p-4 sm:p-5", !compact && "sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] backdrop-blur 2xl:bottom-0")}>
             <label htmlFor="athena-message" className="sr-only">Ask Athena</label>
             <Textarea
               id="athena-message"
@@ -397,7 +400,7 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
           </form>
         </section>
 
-        <aside className="grid content-start gap-4">
+        {!compact ? <aside className="grid content-start gap-4">
           <section className="rounded-2xl border border-border/70 bg-card p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Trust</p>
             <div className="mt-4 grid gap-3">
@@ -422,7 +425,7 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
               The chat result does not yet return a provider-by-provider “context used” list. This workspace does not invent one. Degraded context appears only when the kernel reports it.
             </p>
           </section>
-        </aside>
+        </aside> : null}
       </div>
     </div>
   );
