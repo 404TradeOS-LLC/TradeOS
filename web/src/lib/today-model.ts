@@ -14,6 +14,7 @@ export interface TodayAttentionItem {
   href: string;
   action: string;
   updatedAt?: string;
+  balanceDue?: number;
   status?: string;
   task?: TodayTaskTarget;
 }

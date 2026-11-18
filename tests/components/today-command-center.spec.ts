@@ -105,10 +105,10 @@ test('Needs You filters real source rows, opens context, and preserves unknown t
   await expect(page.getByText('Office manager', { exact: true })).toBeVisible();
   await expect(page.locator('.today-attention .today-count')).toHaveText('—');
   const list = page.locator('.today-attention');
-  await page.getByLabel('Filter by source').selectOption('Proposals');
+  await page.getByRole('group', { name: 'Filter by source' }).getByRole('button', { name: 'Proposals', exact: true }).click();
   await expect(list.getByRole('heading', { name: 'Synthetic deck proposal needs follow-up' })).toBeVisible();
   await expect(list.getByRole('heading', { name: 'Synthetic kitchen task blocked' })).toHaveCount(0);
-  await page.getByLabel('Filter by source').selectOption('all');
+  await page.getByRole('group', { name: 'Filter by source' }).getByRole('button', { name: 'All sources', exact: true }).click();
   await page.getByLabel('Search attention items').fill('kitchen');
   await expect(list.getByRole('heading', { name: 'Synthetic kitchen task blocked' })).toBeVisible();
   await expect(page.getByRole('status')).toHaveText('1 matching loaded records');
@@ -277,4 +277,15 @@ test('field user saves a personally assigned task through the guarded Job route'
   await expect(dialog).not.toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'Task saved as completed' })).toBeVisible();
   expect(writes).toBe(1); await expectNoPageOverflow(page, 390);
+});
+
+
+test('Needs You desktop summary preserves unavailable source coverage', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await openSyntheticToday(page, '?view=attention&role=office&failure=attention');
+  const summary = page.getByRole('complementary', { name: 'Queue summary' });
+  await expect(summary.getByText('Overdue invoices')).toBeVisible();
+  await expect(summary.getByText('Unavailable', { exact: true })).toBeVisible();
+  await expect(summary.getByText('Stale proposals')).toBeVisible();
+  await expect(summary.getByText('1', { exact: true })).toBeVisible();
 });

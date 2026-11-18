@@ -162,7 +162,7 @@ export const loadTodayData = cache(async (): Promise<TodayData | null> => {
     requests.push(read("proposals", "Proposal follow-ups", () => listProposalQueue(token, { unsigned: true, staleBefore: getStaleProposalCutoffIso(new Date(generatedAt)), limit: LIMIT }), (queue) => {
       if (queue.nextCursor) partial("proposals", "Proposal coverage", `${queue.total} stale proposals; the first ${queue.items.length} are loaded.`);
       for (const proposal of buildAttentionProposalRows(queue.items.filter((item) => item.contractId === null && item.sentAt !== null && Date.parse(item.sentAt) <= Date.parse(getStaleProposalCutoffIso(new Date(generatedAt))) && ["sent", "viewed"].includes(item.status)), [])) attention.push({ id: `proposal-${proposal.proposalId}`, title: `${proposal.projectName} · follow-up needed`,
-        context: proposal.customerName, source: "Proposals", priority: "high", assignee: null, dueAt: proposal.sentAt,
+        context: proposal.customerName, status: "Stale", source: "Proposals", priority: "high", assignee: null, dueAt: proposal.sentAt,
         href: `/projects/${proposal.projectId}/proposals/${proposal.proposalId}`, action: "Review proposal" });
     }));
     requests.push(read("estimates", "Estimates in progress", () => listEstimateQueue(token, { status: "draft,ready", limit: LIMIT }), (queue) => {
@@ -174,7 +174,7 @@ export const loadTodayData = cache(async (): Promise<TodayData | null> => {
     if (hasPermission(role, "billing.write")) requests.push(read("invoices", "Overdue invoices", () => listInvoiceQueue(token, { overdue: true, limit: LIMIT }), (queue) => {
       if (queue.nextCursor) partial("invoices", "Invoice coverage", `${queue.total} overdue invoices; the first ${queue.items.length} are loaded.`);
       for (const invoice of buildAttentionInvoiceRows(queue.items.filter((item) => item.balanceDue > 0 && item.dueDate !== null && Date.parse(item.dueDate) < Date.parse(generatedAt) && !["draft", "paid", "voided"].includes(item.status)), [])) attention.push({ id: `invoice-${invoice.invoiceId}`, title: `Invoice #${invoice.documentNumber} overdue`,
-        context: [invoice.projectName, invoice.customerName].join(" · "), source: "Invoices", priority: "high", assignee: null, dueAt: invoice.dueDate,
+        context: [invoice.projectName, invoice.customerName].join(" · "), status: "Overdue", balanceDue: invoice.balanceDue, source: "Invoices", priority: "high", assignee: null, dueAt: invoice.dueDate,
         href: `/projects/${invoice.projectId}/invoices/${invoice.invoiceId}`, action: "Review invoice" });
     }));
   } else {

@@ -113,3 +113,8 @@ workspace now displays Job DTO tasks and directs progress reports to Job notes.
 Task status edits retain existing office permissions. Results at the 50-row cap
 are explicitly partial; a task-source failure leaves job scheduling usable and
 task counts unknown. No schema, RLS policy or mutation authority changed.
+
+
+## Canonical Needs You queue
+
+Figma nodes `652:17076` and `652:17192` inform the dedicated queue. The Needs You route uses source chips alongside search, priority and assignee filters. The desktop rail summarizes overdue invoices and stale proposals from the authenticated snapshot. Unavailable sources are labeled unavailable and partial results show the loaded count. Invoice rows show the saved balance and due date. The queue preserves the existing urgency/date ordering and source workspace actions.

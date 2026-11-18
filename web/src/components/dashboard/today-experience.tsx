@@ -10,6 +10,7 @@ import { AttentionItem } from "./attention-item";
 import { buttonVariants } from "@/components/ui/button";
 import { canUseUniversalCreate } from "@/lib/universal-create-access";
 import { buildUniversalCreateHref } from "@/lib/universal-create";
+import { formatInvoiceCurrency } from "@/lib/document-workflow";
 import type { TodayData, TodayAttentionItem, TodayWorkItem } from "@/lib/today-model";
 import { TodayTaskEditor } from "./today-task-editor";
 import { canUpdateTodayTask, type TodayTaskStatus } from "@/lib/today-task-actions";
@@ -30,10 +31,51 @@ function localTime(value: string | null | undefined, timeZone: string) {
 function localDate(value: string, timeZone: string) {
   return new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric" }).format(new Date(value));
 }
+function AttentionQueueSummary({ data }: { data: TodayData }) {
+  const categories = [
+    { id: "invoices", source: "Invoices", label: "Overdue invoices" },
+    { id: "proposals", source: "Proposals", label: "Stale proposals" },
+  ];
+  const visible = categories.filter(({ id }) =>
+    data.sources.some((source) => source.id === id && source.state !== "restricted"),
+  );
+  if (!visible.length) return null;
+
+  return (
+    <aside className="today-panel today-queue-summary" aria-label="Queue summary">
+      <div className="today-panel-heading"><h2>Queue summary</h2></div>
+      <div className="space-y-4 p-4 text-sm">
+        <dl className="space-y-2">
+          {visible.map(({ id, source, label }) => {
+            const count = data.attention.filter((item) => item.source === source).length;
+            const state = data.sources.find((entry) => entry.id === id)?.state;
+            const partial = state === "partial" || data.sources.some((entry) =>
+              entry.id === `${id}-coverage` && entry.state === "partial",
+            );
+            return (
+              <div key={id} className="flex justify-between gap-3">
+                <dt>{label}</dt>
+                <dd className="text-right tabular-nums">{state === "unavailable" ? "Unavailable" : partial ? `${count} loaded` : count}</dd>
+              </div>
+            );
+          })}
+        </dl>
+        <div className="border-t border-border pt-3">
+          <h3 className="font-medium">Ordering</h3>
+          <p className="mt-1 text-xs text-muted-foreground">Urgency first, then earliest date within each priority.</p>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 function AttentionRow({ item, onOpen }: { item: TodayAttentionItem; onOpen: (item: Selection) => void }) {
   const severity = item.priority === "urgent" ? "urgent" : item.priority === "high" ? "action" : "info";
   const status = item.priority === "urgent" ? "Urgent" : item.priority === "high" ? "Needs action" : "Review";
-  return <AttentionItem title={item.title} description={item.context} meta={`${item.source}${item.assignee ? ` · ${item.assignee}` : ""}`} severity={severity} status={status} action={item.action} onAction={() => onOpen(item)} />;
+  const invoiceDetails = item.balanceDue != null && item.dueAt
+    ? `${formatInvoiceCurrency(item.balanceDue)} due · due date ${localDate(item.dueAt, "UTC")}`
+    : null;
+  return <AttentionItem title={item.title} description={[item.context, invoiceDetails].filter(Boolean).join(" · ")} meta={`${item.source}${item.assignee ? ` · ${item.assignee}` : ""}`} severity={severity} status={item.balanceDue != null || item.source === "Proposals" ? item.status ?? status : status} action={item.action} onAction={() => onOpen(item)} />;
 }
 function WorkRow({ item, onOpen, timeZone, showDate = false }: { item: TodayWorkItem; onOpen: (item: Selection) => void; timeZone: string; showDate?: boolean }) {
   return <li><button type="button" className="today-work-row" onClick={() => onOpen({ ...item, action: item.kind === "task" ? "Open task workspace" : "Open work", source: item.kind })}>
@@ -105,7 +147,7 @@ export function TodayExperience({ data, initialView = "today" }: { data: TodayDa
   const attentionBadge = attentionCount == null ? "—" : String(attentionCount);
   const stale = Date.parse(now) - Date.parse(data.generatedAt) > 180_000;
   const roleLabel = data.viewer.presentation === "owner" ? "Owner" : data.viewer.presentation === "office" ? "Office manager" : "Field crew";
-  const attention = data.attention.filter(item => (source === "all" || item.source === source) && (priority === "all" || item.priority === priority) && (assignee === "all" || item.assignee === assignee) && `${item.title} ${item.context} ${item.assignee || ""}`.toLowerCase().includes(query.toLowerCase()));
+  const attention = data.attention.filter(item => (source === "all" || item.source === source) && (priority === "all" || item.priority === priority) && (assignee === "all" || item.assignee === assignee) && `${item.title} ${item.context} ${item.assignee || ""} ${item.action}`.toLowerCase().includes(query.toLowerCase()));
   const restrictedSources = data.sources.filter(s => s.state === "restricted");
   const work = data.work.filter(item => workKind === "all" || item.kind === workKind);
   const next = data.attention[0] || data.progress[0];
@@ -121,12 +163,13 @@ export function TodayExperience({ data, initialView = "today" }: { data: TodayDa
     {unavailable.length ? <details className="today-service-notice"><summary className="cursor-pointer">{unavailable.length} sources need a refresh · available records remain usable</summary><ul className="mt-2 space-y-2 text-xs">{unavailable.map(s => <li key={s.id}>{s.label}: {s.message || s.state}</li>)}</ul></details> : null}
 
     {initialView === "today" ? <section aria-label="Operational indicators" className="today-stats">{data.stats.map((stat, index) => { const Icon = ICONS[index % ICONS.length]; return <Link href={stat.href} key={stat.id} className="today-stat"><span className="today-record-icon bg-primary/10 text-primary"><Icon size={19} /></span><div><p className="font-heading text-2xl font-semibold tabular-nums">{stat.value == null ? "—" : stat.value}</p><p className="mt-1 text-xs font-medium">{stat.label}</p><p className="mt-1 text-[10px] leading-4 text-muted-foreground">{stat.helper}</p></div><ChevronRight className="ml-auto shrink-0 text-muted-foreground" size={14} /></Link>; })}</section> : null}
-    <div className={cn("today-main-grid", initialView !== "today" && "today-main-grid-expanded")}>
+    <div className={cn("today-main-grid", initialView !== "today" && "today-main-grid-expanded", initialView === "attention" && "today-attention-grid")}>
       {initialView !== "work" ? <section className="today-panel today-attention"><div className="today-panel-heading"><div><h2>Needs You <span className="today-count">{attentionBadge}</span></h2><p>Unresolved actions · loaded records</p></div>{initialView === "today" ? <Link href="/dashboard/needs-you">View all <ChevronRight size={14} /></Link> : <Filter size={17} className="text-muted-foreground" />}</div>
-        {initialView === "attention" ? <div className="today-queue-filters"><label className="today-search"><Search size={16} /><input aria-label="Search attention items" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search work, customer, or action…" /></label><div className="flex flex-wrap gap-2"><select aria-label="Filter by source" value={source} onChange={e => setSource(e.target.value)}><option value="all">All sources</option>{allSources.map(s => <option key={s}>{s}</option>)}</select><select aria-label="Filter by priority" value={priority} onChange={e => setPriority(e.target.value)}><option value="all">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="medium">Medium</option></select><select aria-label="Filter by assignee" value={assignee} onChange={e => setAssignee(e.target.value)}><option value="all">All assignees</option>{assignees.map(s => <option key={s}>{s}</option>)}</select></div><p className="text-xs text-muted-foreground" role="status">{attention.length} matching loaded records</p></div> : null}
+        {initialView === "attention" ? <div className="today-queue-filters"><label className="today-search"><Search size={16} /><input aria-label="Search attention items" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search work, customer, or action…" /></label><div className="flex flex-wrap gap-2"><div className="today-work-tabs today-queue-sources basis-full" role="group" aria-label="Filter by source">{["all", ...allSources].map((value) => <button key={value} type="button" aria-pressed={source === value} onClick={() => setSource(value)}>{value === "all" ? "All sources" : value}</button>)}</div><select aria-label="Filter by priority" value={priority} onChange={e => setPriority(e.target.value)}><option value="all">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="medium">Medium</option></select><select aria-label="Filter by assignee" value={assignee} onChange={e => setAssignee(e.target.value)}><option value="all">All assignees</option>{assignees.map(s => <option key={s}>{s}</option>)}</select></div><p className="text-xs text-muted-foreground" role="status">{attention.length} matching loaded records</p></div> : null}
         {attention.length ? <ul>{attention.slice(0, initialView === "today" ? 4 : undefined).map(item => <AttentionRow key={item.id} item={item} onOpen={setSelected} />)}</ul> : <div className="today-empty"><CheckCheck className="mb-3 text-primary" size={24} /><p>{query || source !== "all" || priority !== "all" || assignee !== "all" ? "No items match these filters." : unavailable.length ? "No attention items loaded from the available sources. Check source status above." : "Nothing is waiting on you in the available sources."}</p></div>}
       </section> : null}
       {initialView !== "attention" ? <section className="today-panel today-work"><div className="today-panel-heading"><div><h2>Today’s Work</h2><p>{data.viewer.presentation === "field" ? "Your assigned field work" : "Jobs, tasks, and site visits"}</p></div><Link href="/dispatch">Dispatch <ChevronRight size={14} /></Link></div><div className="today-work-tabs" role="group" aria-label="Filter today's work">{([["all", "All"], ["job", "Jobs"], ...(data.viewer.presentation !== "field" || data.work.some(item => item.kind === "task") ? [["task", "Tasks"]] : []), ...(data.work.some(item => item.kind === "visit") ? [["visit", "Site visits"]] : [])]).map(([value,label]) => <button type="button" aria-pressed={workKind === value} onClick={() => setWorkKind(value)} key={value}>{label}</button>)}</div>{work.length ? <ul>{work.slice(0, initialView === "today" ? 6 : undefined).map(item => <WorkRow key={item.id} item={item} timeZone={timeZone} onOpen={setSelected} />)}</ul> : <p className="today-empty">No {workKind === "all" ? "work" : workKind === "visit" ? "site visits" : `${workKind}s`} loaded for this view.</p>}<Link href={data.viewer.presentation === "field" ? "/field" : "/dispatch?view=all&status=unscheduled"} className="today-panel-footer">{data.viewer.presentation === "field" ? "Open my field day" : "Review unscheduled work"}<ArrowRight size={15} /></Link></section> : null}
+      {initialView === "attention" ? <AttentionQueueSummary data={data} /> : null}
       {initialView !== "attention" ? <Timeline work={work} timeZone={timeZone} onOpen={setSelected} /> : null}
     </div>
     {initialView !== "attention" && data.upcoming?.length ? <section className="today-panel mt-4"><div className="today-panel-heading"><div><h2>Coming up</h2><p>Next commitments in the organization week</p></div><Link href="/dispatch?mode=week">View week <ChevronRight size={14} /></Link></div><ul>{data.upcoming.slice(0, 6).map(item => <WorkRow key={item.id} item={item} onOpen={setSelected} timeZone={timeZone} showDate />)}</ul></section> : null}
