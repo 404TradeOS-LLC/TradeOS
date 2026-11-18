@@ -567,6 +567,49 @@ restricted-role PostgreSQL regressions and fourteen focused unit tests pass;
 current-source hosted checks and actual staging create/disable/reactivate evidence
 remain pending. No schema, policy or database-role grants changed.
 
+## Customer portal session RLS repair — PR #1001 — 2026-11-16
+
+PR #1001 (`fix/customer-portal-session-rls-context`) carries the validated
+portal-session SHA-256 digest from middleware request state into the
+transaction-local `app.portal_session_hash` setting. The raw bearer stays out
+of request context and logs; forced RLS, tenant/customer/session scope, and
+fail-closed behavior remain in place. Disposable PostgreSQL coverage asserts
+exact-session visibility, sibling and cross-tenant denial, and denial when the
+validated digest is absent.
+
+PR #937 merged before this continuation and released its overlapping owner-doc
+changes. The four required docs (`API_REFERENCE.md`, `ARCHITECTURE.md`,
+`RBAC_MATRIX.md`, and `modules/auth-and-tenancy.md`) are therefore updated on
+#1001 using current `main` content; that overlap is clear. Current `main` was merged into the existing PR branch, preserving its remote
+history for a normal push. PR #1001 retains its draft and do-not-merge protections.
+
+At this handoff, current `main` is `283f14a49fc3903d3f051d68cafbc122f70f65cf`,
+the remote PR head is `8affb2a25c69c9f6ae240d773f2c578953f65526`, and the local
+source candidate includes the merged base and owner-doc updates. The old exact-head hosted run passed App
+integration (219/219), app, web, CodeQL, and database/RLS checks, but failed
+Docs consistency because the now-resolved #937 overlap had not yet been
+updated. No human review is recorded; CodeRabbit reported no actionable code
+finding but withheld automatic security approval because security architecture
+review was unavailable. Fresh hosted checks and independent security review
+remain required after a permitted exact-head update.
+
+Local verification on the candidate: portal middleware/service unit tests
+18/18; portal session RLS disposable-PostgreSQL integration 2/2; app lint and
+build passed; docs tests 40/40; docs ownership, PR preflight, and 446 governance
+tests passed. The full integration suite had 216/219 pass; three unrelated
+invoice migration-lock cases could not start because host `psql` is missing.
+The disposable DB container used for the focused portal suite is isolated from
+any shared environment.
+
+The current #1000 integration test calls `runWithPortalDatabaseSession` without
+the newly required session digest and expects the exact session row to be
+visible. Against #1001, the helper supplies an empty transaction-local digest,
+so forced RLS correctly returns no session rows and that expectation fails. Keep
+#1000 blocked; after #1001 is merged, update that call to pass the validated
+`sessionHashA`, rerun the disposable PostgreSQL S073 integration suite, and
+reconcile its hosted checks. Source-level tests do not establish staging
+acceptance.
+
 ## Next Eligible Sprint
 
 Sprint ID: S073

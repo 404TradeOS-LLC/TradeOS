@@ -2,13 +2,19 @@ import { NextFunction, Request, Response } from "express";
 import { basePrisma } from "../../db/client";
 import { runWithPortalDatabaseSession } from "../../db/requestSession";
 import { ApiError } from "./errorHandler";
-import { CustomerPortalContext, CustomerPortalService, CUSTOMER_PORTAL_SESSION_HEADER } from "../../modules/customer-portal/service";
+import {
+  CustomerPortalContext,
+  CustomerPortalService,
+  CUSTOMER_PORTAL_SESSION_HEADER,
+  hashPortalSecret,
+} from "../../modules/customer-portal/service";
 
 export interface CustomerPortalRequest extends Request {
   customerPortal?: CustomerPortalContext;
   orgId?: string;
 }
 
+const portalSessionHashes = new WeakMap<CustomerPortalRequest, string>();
 const portalService = new CustomerPortalService();
 
 export function requireCustomerPortalSession(req: CustomerPortalRequest, _res: Response, next: NextFunction): void {
@@ -22,6 +28,7 @@ export function requireCustomerPortalSession(req: CustomerPortalRequest, _res: R
     .resolveSession(token)
     .then((context) => {
       req.customerPortal = context;
+      portalSessionHashes.set(req, hashPortalSecret(token));
       req.orgId = context.orgId;
       next();
     })
@@ -29,12 +36,19 @@ export function requireCustomerPortalSession(req: CustomerPortalRequest, _res: R
 }
 
 export function customerPortalDatabaseSession(req: CustomerPortalRequest, res: Response, next: NextFunction): void {
-  if (!req.customerPortal) {
+  const portalSessionHash = portalSessionHashes.get(req);
+  if (!req.customerPortal || !portalSessionHash) {
     next(new ApiError(500, "Customer portal database context is missing"));
     return;
   }
 
-  void runWithPortalDatabaseSession(basePrisma, req.customerPortal, () => waitForResponse(res, next)).catch((error) => {
+  void runWithPortalDatabaseSession(
+    basePrisma,
+    req.customerPortal,
+    () => waitForResponse(res, next),
+    "customer_portal",
+    portalSessionHash,
+  ).catch((error) => {
     if (!res.headersSent) next(error);
   });
 }

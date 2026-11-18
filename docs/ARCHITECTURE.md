@@ -76,8 +76,11 @@ high-entropy magic-link digest is stored in `customer_portal_access_tokens` and
 can be redeemed once. Redemption creates a short-lived hashed
 `customer_portal_sessions` record carrying the organization and customer
 scope. Public requests use a dedicated portal database session with
-`app.org_id`, `app.portal_customer_id`, and `app.portal_session_id`; resource
-lookups re-check the project/customer relationship. The portal does not reuse a
+`app.org_id`, `app.portal_customer_id`, `app.portal_session_id`, and the
+transaction-local `app.portal_session_hash` derived from the validated bearer
+session. Forced RLS limits session-row visibility to that exact digest; absent
+session context fails closed. The raw bearer value stays out of request context
+and logs. Resource lookups re-check the project/customer relationship. The portal does not reuse a
 staff role. Its only write policy is the exact pending-contract signing
 transition, with a separate contract-event insert policy.
 Issuance also schedules the raw one-time value for server-side transactional

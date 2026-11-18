@@ -41,6 +41,7 @@ Request-scoped and service-level database transactions use the shared async-loca
 
 - `app/backend/middleware/auth.ts`
 - `app/backend/middleware/databaseSession.ts`
+- `app/backend/middleware/customerPortal.ts`
 - `app/db/requestSession.ts`
 - `app/modules/auth/*`
 - `app/modules/email/service.ts`
@@ -82,7 +83,11 @@ Special constraints:
 - public auth routes are rate-limited
 - customer portal access values are high-entropy, hashed at rest, single-use,
   and scoped to one organization/customer; portal sessions are short-lived and
-  cannot satisfy staff bearer authentication
+  cannot satisfy staff bearer authentication. Each portal request carries only
+  the SHA-256 digest of its validated session in request-scoped server state;
+  the digest is set as transaction-local `app.portal_session_hash` alongside
+  tenant, customer, and session IDs so forced RLS exposes only that exact
+  session. A missing digest fails closed, and the bearer value is never logged.
 - organization provisioning uses a separate high-entropy secret
 - team invites are currently limited to `dispatcher` and `technician`
 - transactional delivery requires `RESEND_API_KEY`, a verified `EMAIL_FROM`, and `APP_BASE_URL`; the API key remains server-only and email failures never expose tokens to callers
