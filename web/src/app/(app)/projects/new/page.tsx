@@ -1,6 +1,7 @@
 import { getCustomer, listCustomers } from "@/lib/api";
 import { PageHeader } from "@/components/shared/page-header";
 import { getSessionToken } from "@/lib/session";
+import { getAthenaEstimateHandoffAuth } from "@/lib/athena-estimate-handoff-auth";
 import { resolveNewProjectCreateIntent } from "@/lib/universal-create";
 import { NewProjectForm } from "./form";
 
@@ -12,6 +13,7 @@ export default async function NewProjectPage({
   const [token, { customerId, intent }] = await Promise.all([getSessionToken(), searchParams]);
   const createIntent = resolveNewProjectCreateIntent(intent);
   const focusScope = createIntent === "estimate";
+  const handoff = focusScope ? await getAthenaEstimateHandoffAuth() : null;
 
   const [customers, selectedCustomer] = token
     ? await Promise.all([
@@ -44,6 +46,7 @@ export default async function NewProjectPage({
         selectedCustomer={customerContext}
         focusScope={focusScope}
         createIntent={createIntent ?? undefined}
+        estimateHandoffIdentity={handoff?.identity ?? null}
       />
     </div>
   );
