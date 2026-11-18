@@ -46,13 +46,9 @@ test("Project scope form only consumes identity-matched handoff and remains edit
   const form = await source("../../app/(app)/projects/new/form.tsx");
   const route = await source("../../app/(app)/projects/new/page.tsx");
   assert.match(form, /sessionStorage\.removeItem\(ATHENA_ESTIMATE_DRAFT_KEY\)/);
-  assert.match(form, /readAthenaEstimateDraft\(raw, Date\.now\(\), estimateHandoffIdentity\)/);
+  assert.match(form, /readAthenaEstimateDraft\(raw, Date\.now\(\), estimateHandoffIdentity \?\? ""\)/);
   assert.match(form, /value=\{scopeValue\}/);
   assert.match(form, /onChange=\{\(event\) => setScopeValue\(event\.target\.value\)\}/);
   assert.match(form, /action=\{formAction\}/);
   assert.match(route, /getAthenaEstimateHandoffAuth/);
-  assert.doesNotMatch(workspacePlaceholder(), /fake-user/);
 });
-
-// A static marker for prohibiting synthetic authority in the contract tests.
-function workspacePlaceholder() { return "authenticated estimate handoff"; }
