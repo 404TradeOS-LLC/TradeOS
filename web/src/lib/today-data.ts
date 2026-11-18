@@ -8,6 +8,7 @@ import {
   type DispatchJob, type DispatchSummary,
 } from "@/lib/api";
 import { getSession, getSessionToken } from "@/lib/session";
+import { buildAthenaEstimateIdentity } from "@/lib/athena-estimate-handoff";
 import { getStaleProposalCutoffIso, buildAttentionInvoiceRows, buildAttentionProposalRows } from "@/components/dashboard/needs-attention-model";
 import { prioritizeTodayAttention, safeTodayTimeZone, taskNeedsAttention, isTodayTask, type TodayAttentionItem, type TodayData, type TodaySource, type TodayWorkItem } from "./today-model";
 
@@ -209,7 +210,7 @@ export const loadTodayData = cache(async (): Promise<TodayData | null> => {
   const people = new Set(todayJobs.flatMap((job) => job.assignedTechnicians.map((tech) => tech.userId))).size;
   return {
     companyName: settings.settings.companyName?.trim() || "TradeOS",
-    viewer: { name, role, presentation: field ? "field" : owner ? "owner" : "office", timeZone }, generatedAt,
+    viewer: { name, role, presentation: field ? "field" : owner ? "owner" : "office", timeZone, estimateHandoffIdentity: buildAthenaEstimateIdentity(session.sub, settings.orgId) }, generatedAt,
     stats: [
       { id: "active-jobs", label: field ? "My active jobs" : "Active jobs", value: summaryValue?.activeJobs ?? null, href: field ? "/field" : "/dispatch", helper: summaryValue?.scope.source === "assigned_only" ? "Assigned jobs only" : "Organization operational summary" },
       { id: "people", label: "People scheduled", value: todayJobsComplete ? people : null, href: field ? "/field" : "/dispatch?scheduled=today", helper: "Distinct assigned people on today's active jobs; crew groups are unavailable" },
