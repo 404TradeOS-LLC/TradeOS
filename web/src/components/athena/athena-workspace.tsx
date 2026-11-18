@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, CheckCircle2, CircleSlash2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
   type AthenaSelectedScope,
 } from "@/lib/athena-client";
 import { cn } from "@/lib/utils";
+import { ATHENA_ESTIMATE_DRAFT_KEY, makeAthenaEstimateDraft } from "@/lib/athena-estimate-handoff";
 
 interface AthenaWorkspaceProps {
   selectedScope?: AthenaSelectedScope;
@@ -160,12 +162,32 @@ function ResultCard({ result }: { result: AthenaKernelResult }) {
 }
 
 export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
+  const router = useRouter();
   const [draft, setDraft] = useState("");
+  const [contractorNotes, setContractorNotes] = useState<string[]>([]);
+  const [handoffError, setHandoffError] = useState<string | null>(null);
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [retrySubmission, setRetrySubmission] = useState<RetrySubmission | null>(null);
   const nextTurnIdRef = useRef(1);
   const scoped = scopeRows(selectedScope);
+
+  const prepareEstimate = () => {
+    const payload = makeAthenaEstimateDraft(contractorNotes, Date.now());
+    if (!payload) {
+      setHandoffError("These notes are too long or empty to transfer. Shorten them before starting the estimate.");
+      return;
+    }
+    try {
+      // One-tab and short-lived. The receiving form consumes and removes this
+      // data. No business record is saved by preparing the handoff.
+      window.sessionStorage.setItem(ATHENA_ESTIMATE_DRAFT_KEY, payload);
+      setHandoffError(null);
+      router.push("/projects/new?intent=estimate#simpleScope");
+    } catch {
+      setHandoffError("This browser blocked the transfer. Open Create → Estimate and paste your notes manually.");
+    }
+  };
 
   const submitMessage = async (
     message: string,
@@ -179,6 +201,8 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
     if (options.addUserTurn !== false) {
       const userId = nextTurnIdRef.current++;
       setTurns([{ id: userId, role: "user", text: trimmed }]);
+      setContractorNotes((current) => [...current, trimmed]);
+      setHandoffError(null);
     } else {
       // A retry belongs to the same single request/result exchange. Remove the
       // prior transport error before replaying the same idempotent request.
@@ -234,6 +258,24 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
           </p>
         </div>
       </header>
+
+      {contractorNotes.length > 0 ? (
+        <section aria-label="Estimate handoff" className="rounded-2xl border border-primary/25 bg-primary/5 p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Start an estimate from your notes</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Transfers only your typed messages into the existing Project scope form for review.
+                Athena replies and earlier questions are not verified scope or preserved conversation memory.
+              </p>
+            </div>
+            <Button type="button" onClick={prepareEstimate} disabled={isSending}>
+              Review as estimate <ArrowRight className="ml-2 size-4" aria-hidden="true" />
+            </Button>
+          </div>
+          {handoffError ? <p role="alert" className="mt-3 text-sm text-destructive">{handoffError}</p> : null}
+        </section>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="grid content-start gap-4">
