@@ -20,8 +20,8 @@ export function readAthenaEstimateDraft(raw: string | null, now: number): string
     const record: unknown = JSON.parse(raw);
     if (!record || typeof record !== "object") return null;
     const value = record as Record<string, unknown>;
-    if (value.version !== 1 || !Number.isSafeInteger(value.createdAt) ||
-        typeof value.createdAt !== "number" || value.createdAt < 0 ||
+    if (value.version !== 1 || typeof value.createdAt !== "number" ||
+        !Number.isSafeInteger(value.createdAt) || value.createdAt < 0 ||
         value.createdAt > now || now - value.createdAt > MAX_AGE_MS) return null;
     if (typeof value.scope !== "string" || !value.scope.trim() ||
         value.scope.length > MAX_SCOPE_LENGTH) return null;
