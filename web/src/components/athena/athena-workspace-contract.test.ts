@@ -98,5 +98,8 @@ test("Athena root scope normalizes repeated query params and never blocks on ope
   assert.match(rootPage, /invoiceId: validUuid\(query\.invoiceId\)/);
   assert.match(rootPage, /firstQueryValue\(query\.page\)\?\.trim\(\)\.slice\(0, 200\)/);
   assert.doesNotMatch(rootPage, /getAthenaOperatorContext/);
-  assert.match(rootPage, /<AthenaWorkspace selectedScope=\{buildSelectedScope\(query\)\} \/>/);
+  assert.match(rootPage, /selectedScope=\\{buildSelectedScope\\(query\\)\\}/);
+  assert.match(rootPage, /getAthenaEstimateHandoffAuth\\(\\)/);
+  assert.match(rootPage, /estimateHandoffIdentity=\\{handoff\\.identity\\}/);
+  assert.match(rootPage, /canCreateEstimate=\\{handoff\\.canCreateEstimate\\}/);
 });
