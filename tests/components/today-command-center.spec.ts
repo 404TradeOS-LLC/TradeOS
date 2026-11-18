@@ -57,11 +57,12 @@ for (const width of [390, 768, 1024, 1440]) {
       await expect(timeline.getByRole('button', { name: /Synthetic kitchen framing/ })).toBeFocused();
 
       const athena = page.getByRole('button', { name: /Athena Operations partner/ });
-      await expect(athena).toHaveAttribute('aria-expanded', 'false');
-      await athena.click();
+      await expect(athena).toHaveAttribute('aria-expanded', 'true');
       await expect(page.getByText('Athena is unavailable for this workspace.', { exact: false })).toBeVisible();
       await athena.click();
       await expect(athena).toHaveAttribute('aria-expanded', 'false');
+      await athena.click();
+      await expect(athena).toHaveAttribute('aria-expanded', 'true');
 
       const dock = page.getByRole('navigation', { name: '404TradeOS Control Dock' });
       await expect(dock).toBeVisible();
