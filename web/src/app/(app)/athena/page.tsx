@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AthenaWorkspace } from "@/components/athena/athena-workspace";
+import { getAthenaEstimateHandoffAuth } from "@/lib/athena-estimate-handoff-auth";
 import type { AthenaSelectedScope } from "@/lib/athena-client";
 
 export const metadata: Metadata = {
@@ -44,6 +45,12 @@ function buildSelectedScope(query: AthenaWorkspaceSearchParams): AthenaSelectedS
 }
 
 export default async function AthenaPage({ searchParams }: { searchParams: Promise<AthenaWorkspaceSearchParams> }) {
-  const query = await searchParams;
-  return <AthenaWorkspace selectedScope={buildSelectedScope(query)} />;
+  const [query, handoff] = await Promise.all([searchParams, getAthenaEstimateHandoffAuth()]);
+  return (
+    <AthenaWorkspace
+      selectedScope={buildSelectedScope(query)}
+      estimateHandoffIdentity={handoff.identity}
+      canCreateEstimate={handoff.canCreateEstimate}
+    />
+  );
 }
