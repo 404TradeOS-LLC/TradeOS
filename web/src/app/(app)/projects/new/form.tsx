@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { createProjectAction } from "@/app/actions/projects";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,22 +50,39 @@ export function NewProjectForm({
   const [state, formAction, isPending] = useActionState(createProjectAction, undefined);
   const [scopeValue, setScopeValue] = useState("");
   const [athenaScopeLoaded, setAthenaScopeLoaded] = useState(false);
+  // Cache consumed notes across React Strict Mode effect cleanup/replay.
+  // The handoff itself is still removed from browser storage immediately.
+  const athenaDraftRef = useRef<{ inspected: boolean; scope: string | null }>({
+    inspected: false,
+    scope: null,
+  });
 
   useEffect(() => {
     if (createIntent !== "estimate") return;
-    try {
-      const raw = window.sessionStorage.getItem(ATHENA_ESTIMATE_DRAFT_KEY);
-      // Consume before parsing so stale or malformed notes never remain across
-      // account changes, failed form submissions, or later navigation.
-      window.sessionStorage.removeItem(ATHENA_ESTIMATE_DRAFT_KEY);
-      const scope = readAthenaEstimateDraft(raw, Date.now());
-      if (scope) {
-        setScopeValue(scope);
-        setAthenaScopeLoaded(true);
+    const cached = athenaDraftRef.current;
+    if (!cached.inspected) {
+      cached.inspected = true;
+      try {
+        const raw = window.sessionStorage.getItem(ATHENA_ESTIMATE_DRAFT_KEY);
+        window.sessionStorage.removeItem(ATHENA_ESTIMATE_DRAFT_KEY);
+        cached.scope = readAthenaEstimateDraft(raw, Date.now());
+      } catch {
+        // Storage is optional; the normal Project → Estimate form stays usable.
       }
-    } catch {
-      // Storage is optional; the normal Project → Estimate form remains usable.
     }
+    if (!cached.scope) return;
+    let cancelled = false;
+    // Schedule outside the effect's synchronous render path. Strict Mode may
+    // replay the effect; retain the cached scope until the update is applied.
+    queueMicrotask(() => {
+      if (cancelled || !cached.scope) return;
+      setScopeValue(cached.scope);
+      setAthenaScopeLoaded(true);
+      cached.scope = null;
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [createIntent]);
   const validDefaultCustomerId = customers.some((customer) => customer.id === defaultCustomerId)
     ? defaultCustomerId
