@@ -39,7 +39,7 @@ export interface TodaySource {
 export interface TodayStat { id: string; label: string; value: number | null; href: string; helper: string }
 export interface TodayData {
   companyName?: string;
-  viewer: { name: string; role: string; presentation: TodayPresentation; timeZone: string };
+  viewer: { name: string; role: string; presentation: TodayPresentation; timeZone: string; estimateHandoffIdentity?: string | null };
   generatedAt: string;
   stats: TodayStat[];
   attention: TodayAttentionItem[];
