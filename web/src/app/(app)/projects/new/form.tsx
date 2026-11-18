@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { createProjectAction } from "@/app/actions/projects";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
+import { ATHENA_ESTIMATE_DRAFT_KEY, readAthenaEstimateDraft } from "@/lib/athena-estimate-handoff";
 import type { Customer, ServiceAddress } from "@/lib/api";
 import type { NewProjectCreateIntent } from "@/lib/universal-create";
 
@@ -47,6 +48,25 @@ export function NewProjectForm({
   createIntent?: NewProjectCreateIntent;
 }) {
   const [state, formAction, isPending] = useActionState(createProjectAction, undefined);
+  const [scopeValue, setScopeValue] = useState("");
+  const [athenaScopeLoaded, setAthenaScopeLoaded] = useState(false);
+
+  useEffect(() => {
+    if (createIntent !== "estimate") return;
+    try {
+      const raw = window.sessionStorage.getItem(ATHENA_ESTIMATE_DRAFT_KEY);
+      // Consume before parsing so stale or malformed notes never remain across
+      // account changes, failed form submissions, or later navigation.
+      window.sessionStorage.removeItem(ATHENA_ESTIMATE_DRAFT_KEY);
+      const scope = readAthenaEstimateDraft(raw, Date.now());
+      if (scope) {
+        setScopeValue(scope);
+        setAthenaScopeLoaded(true);
+      }
+    } catch {
+      // Storage is optional; the normal Project → Estimate form remains usable.
+    }
+  }, [createIntent]);
   const validDefaultCustomerId = customers.some((customer) => customer.id === defaultCustomerId)
     ? defaultCustomerId
     : selectedCustomer?.id ?? "";
@@ -150,9 +170,15 @@ export function NewProjectForm({
                 name="simpleScope"
                 rows={5}
                 autoFocus={focusScope}
+                value={scopeValue}
+                onChange={(event) => setScopeValue(event.target.value)}
                 placeholder="Replace the existing deck with pressure-treated framing and decking. Remove and dispose of old materials."
               />
-              <p className="text-xs text-muted-foreground">Saved as Project.simpleScope and available to the estimating workflow.</p>
+              <p className="text-xs text-muted-foreground">
+                {athenaScopeLoaded
+                  ? "Athena's contractor-typed notes were transferred for your review. Edit the scope before saving the Project."
+                  : "Saved as Project.simpleScope and available to the estimating workflow."}
+              </p>
             </div>
 
             {state?.error ? (
