@@ -40,12 +40,14 @@ export function NewProjectForm({
   selectedCustomer,
   focusScope = false,
   createIntent,
+  estimateHandoffIdentity,
 }: {
   customers: Customer[];
   defaultCustomerId?: string;
   selectedCustomer?: CustomerProjectContext;
   focusScope?: boolean;
   createIntent?: NewProjectCreateIntent;
+  estimateHandoffIdentity?: string | null;
 }) {
   const [state, formAction, isPending] = useActionState(createProjectAction, undefined);
   const [scopeValue, setScopeValue] = useState("");
@@ -65,7 +67,7 @@ export function NewProjectForm({
       try {
         const raw = window.sessionStorage.getItem(ATHENA_ESTIMATE_DRAFT_KEY);
         window.sessionStorage.removeItem(ATHENA_ESTIMATE_DRAFT_KEY);
-        cached.scope = readAthenaEstimateDraft(raw, Date.now());
+        cached.scope = readAthenaEstimateDraft(raw, Date.now(), estimateHandoffIdentity ?? "");
       } catch {
         // Storage is optional; the normal Project → Estimate form stays usable.
       }
@@ -83,7 +85,7 @@ export function NewProjectForm({
     return () => {
       cancelled = true;
     };
-  }, [createIntent]);
+  }, [createIntent, estimateHandoffIdentity]);
   const validDefaultCustomerId = customers.some((customer) => customer.id === defaultCustomerId)
     ? defaultCustomerId
     : selectedCustomer?.id ?? "";
