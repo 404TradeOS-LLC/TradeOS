@@ -127,6 +127,15 @@ test('Athena discards previous-identity notes before another actor can review th
   const saved = await page.evaluate(() => sessionStorage.getItem('tradeos:athena-estimate-draft:v1'));
   assertAthenaTransfer(saved, JSON.stringify(['user-b', 'org-a']), 'Only synthetic actor B can transfer this scope');
 
+  // Changing organizations under the same account is a separate identity
+  // boundary. The old draft remains bound to org A and must not be accepted.
+  await page.evaluate((identity) => {
+    (window as typeof window & { __testSwapAthenaIdentity?: (value: string | null) => void })
+      .__testSwapAthenaIdentity?.(identity);
+  }, JSON.stringify(['user-b', 'org-b']));
+  await expect(handoff).toHaveCount(0);
+  await expect(composer).toHaveValue('');
+
   await page.evaluate(() => {
     (window as typeof window & { __testSwapAthenaIdentity?: (value: string | null) => void })
       .__testSwapAthenaIdentity?.(null);
