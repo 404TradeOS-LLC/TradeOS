@@ -52,10 +52,12 @@ export async function buildTodayFixture() {
       export const usePathname=()=>window.location.pathname;
     `);
     writeFileSync(join(directory, 'auth.ts'), 'export async function logoutAction(){throw new Error("Authentication mutations are disabled in synthetic component tests");}');
+    writeFileSync(join(directory, 'project-action.ts'), 'export async function createProjectAction(){throw new Error("Project writes are disabled in synthetic component tests");}');
     writeFileSync(join(directory, 'entry.tsx'), `
       import React from 'react';
       import {createRoot} from 'react-dom/client';
       import {TodayExperience} from '@/components/dashboard/today-experience';
+      import {NewProjectForm} from '@/app/(app)/projects/new/form';
       import {AppNav} from '@/components/shared/app-nav';
       import {GlobalCommandPaletteProvider} from '@/components/shared/global-command-palette';
       import {THEME_INIT_SCRIPT} from '@/lib/theme';
@@ -88,7 +90,16 @@ export async function buildTodayFixture() {
       if(!localStorage.getItem('tradeos-theme'))localStorage.setItem('tradeos-theme',params.get('theme')||'light');
       new Function(THEME_INIT_SCRIPT)();
       const root=createRoot(document.getElementById('root'));
-      const render=()=>root.render(<GlobalCommandPaletteProvider><AppNav email="synthetic@example.invalid" currentRole={data.viewer.role} athenaEnabled={data.athenaEnabled}/><main id="main-content" className="mx-auto w-full max-w-[96rem] flex-1 px-4 py-5 pb-28 sm:px-6 lg:px-8"><TodayExperience data={{...data,viewer:{...data.viewer}}} initialView={params.get('view')||'today'}/></main></GlobalCommandPaletteProvider>);
+      const render=()=>root.render(<GlobalCommandPaletteProvider><AppNav email="synthetic@example.invalid" currentRole={data.viewer.role} athenaEnabled={data.athenaEnabled}/><main id="main-content" className="mx-auto w-full max-w-[96rem] flex-1 px-4 py-5 pb-28 sm:px-6 lg:px-8">{params.get('form')==='estimate' ? <NewProjectForm key={data.viewer.estimateHandoffIdentity??'no-estimate-handoff'} customers={[]} focusScope createIntent="estimate" estimateHandoffIdentity={data.viewer.estimateHandoffIdentity} /> : <TodayExperience data={{...data,viewer:{...data.viewer}}} initialView={params.get('view')||'today'}/>}</main></GlobalCommandPaletteProvider>);
+      if(params.get('form')==='estimate'){
+        const actorA=JSON.stringify(['user-a','org-a']);
+        data.viewer.estimateHandoffIdentity=actorA;
+        sessionStorage.setItem('tradeos:athena-estimate-draft:v1',JSON.stringify({version:1,createdAt:Date.now(),identity:actorA,scope:'Private scope captured for actor A'}));
+        window.__testSwapFormIdentity=(nextIdentity)=>{
+          data.viewer={...data.viewer,estimateHandoffIdentity:nextIdentity};
+          render();
+        };
+      }
       if(params.get('athena')==='enabled'){
         data.athenaEnabled=true;
         data.viewer.estimateHandoffIdentity=JSON.stringify(['user-a','org-a']);
@@ -108,7 +119,38 @@ export async function buildTodayFixture() {
       resolve: { extensions: ['.tsx', '.ts', '.js'], alias: {
         'next/link$': join(directory, 'next-link.tsx'),
         'next/navigation$': join(directory, 'next-navigation.ts'),
-        '@/app/actions/auth$': join(directory, 'auth.ts'),
+        '@/app/actions/auth
+        '@': resolve('web/src'),
+      }, modules: [resolve('web/node_modules'), 'node_modules'] },
+      module: { rules: [{ test: /\.tsx?$/, use: join(directory, 'loader.cjs') }, { test: /\.css$/, use: join(directory, 'ignore-css.cjs') }] },
+    }, (error: Error | null, stats: { hasErrors(): boolean; toString(): string }) => error ? fail(error) : stats.hasErrors() ? fail(new Error(stats.toString())) : done()));
+    const result = await webRequire('postcss')([webRequire('@tailwindcss/postcss')({ base: resolve('web') })]).process(readFileSync('web/src/app/globals.css', 'utf8'), { from: resolve('web/src/app/globals.css') });
+    const bundle = readFileSync(join(directory, 'bundle.js'), 'utf8');
+    const css = result.css + '\n' + readFileSync('web/src/components/dashboard/today-experience.css', 'utf8');
+    const html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>' + css + '</style></head><body class="min-h-full flex flex-col"><div id="root"></div><script>' + bundle.replaceAll('</script', '<\\/script') + '</script></body></html>';
+    return { html, bundle, css, directory, cleanup: () => rmSync(directory, { recursive: true, force: true }) };
+  } catch (error) {
+    rmSync(directory, { recursive: true, force: true });
+    throw error;
+  }
+}
+: join(directory, 'auth.ts'),
+        '@/app/actions/projects
+        '@': resolve('web/src'),
+      }, modules: [resolve('web/node_modules'), 'node_modules'] },
+      module: { rules: [{ test: /\.tsx?$/, use: join(directory, 'loader.cjs') }, { test: /\.css$/, use: join(directory, 'ignore-css.cjs') }] },
+    }, (error: Error | null, stats: { hasErrors(): boolean; toString(): string }) => error ? fail(error) : stats.hasErrors() ? fail(new Error(stats.toString())) : done()));
+    const result = await webRequire('postcss')([webRequire('@tailwindcss/postcss')({ base: resolve('web') })]).process(readFileSync('web/src/app/globals.css', 'utf8'), { from: resolve('web/src/app/globals.css') });
+    const bundle = readFileSync(join(directory, 'bundle.js'), 'utf8');
+    const css = result.css + '\n' + readFileSync('web/src/components/dashboard/today-experience.css', 'utf8');
+    const html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>' + css + '</style></head><body class="min-h-full flex flex-col"><div id="root"></div><script>' + bundle.replaceAll('</script', '<\\/script') + '</script></body></html>';
+    return { html, bundle, css, directory, cleanup: () => rmSync(directory, { recursive: true, force: true }) };
+  } catch (error) {
+    rmSync(directory, { recursive: true, force: true });
+    throw error;
+  }
+}
+: join(directory, 'project-action.ts'),
         '@': resolve('web/src'),
       }, modules: [resolve('web/node_modules'), 'node_modules'] },
       module: { rules: [{ test: /\.tsx?$/, use: join(directory, 'loader.cjs') }, { test: /\.css$/, use: join(directory, 'ignore-css.cjs') }] },
