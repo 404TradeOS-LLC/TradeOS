@@ -397,6 +397,18 @@ export function AppNav({
           </div>
 
           <div className="flex items-center gap-2">
+            {effectiveAthenaEnabled ? (
+              <Link
+                href={buildUniversalCreateHref("athena", pathname)}
+                aria-label="Ask Athena"
+                aria-current={pathname === "/athena" ? "page" : undefined}
+                title="Ask Athena"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-2.5 text-foreground outline-none transition-colors hover:bg-primary/10 focus-visible:ring-3 focus-visible:ring-ring/50 sm:px-3"
+              >
+                <Sparkles size={19} className="text-primary" aria-hidden="true" />
+                <span className="hidden text-sm font-semibold sm:inline">Ask Athena</span>
+              </Link>
+            ) : null}
             <div className="hidden 2xl:block">
               <WhatsNewPopover />
             </div>
