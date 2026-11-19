@@ -6,7 +6,7 @@ const read = (path: string) => readFile(new URL(path, import.meta.url), "utf8");
 test("all Today entry points share the authenticated loader and interactive experience", async () => {
   for (const route of ["dashboard/page.tsx", "dashboard/needs-you/page.tsx", "dashboard/work/page.tsx"]) {
     const page = await read(`../../app/(app)/${route}`);
-    assert.match(page, /await loadTodayData\(\)/);
+    assert.match(page, route.includes("needs-you") ? /await loadTodayData\(true\)/ : /await loadTodayData\(\)/);
     assert.match(page, /if \(!data\) return <TodayAccessState/);
     assert.match(page, /TodayExperience data=\{data\}/);
   }

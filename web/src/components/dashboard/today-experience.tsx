@@ -47,7 +47,7 @@ function AttentionQueueSummary({ data }: { data: TodayData }) {
       <div className="space-y-4 p-4 text-sm">
         <dl className="space-y-2">
           {visible.map(({ id, source, label }) => {
-            const count = data.attention.filter((item) => item.source === source).length;
+            const count = data.attention.filter((item) => item.source === source && (id !== "proposals" || item.status !== "Unsigned")).length;
             const state = data.sources.find((entry) => entry.id === id)?.state;
             const partial = state === "partial" || data.sources.some((entry) =>
               entry.id === `${id}-coverage` && entry.state === "partial",
@@ -62,7 +62,7 @@ function AttentionQueueSummary({ data }: { data: TodayData }) {
         </dl>
         <div className="border-t border-border pt-3">
           <h3 className="font-medium">Ordering</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Urgency first, then earliest date within each priority.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Urgency first, then earliest date. Overdue invoices are oldest first, and stale proposals precede other unsigned proposals.</p>
         </div>
       </div>
     </aside>
@@ -75,7 +75,7 @@ function AttentionRow({ item, onOpen }: { item: TodayAttentionItem; onOpen: (ite
   const invoiceDetails = item.balanceDue != null && item.dueAt
     ? `${formatInvoiceCurrency(item.balanceDue)} due · due date ${localDate(item.dueAt, "UTC")}`
     : null;
-  return <AttentionItem title={item.title} description={[item.context, invoiceDetails].filter(Boolean).join(" · ")} meta={`${item.source}${item.assignee ? ` · ${item.assignee}` : ""}`} severity={severity} status={item.balanceDue != null || item.source === "Proposals" ? item.status ?? status : status} action={item.action} onAction={() => onOpen(item)} />;
+  return <AttentionItem title={item.title} description={[item.context, invoiceDetails].filter(Boolean).join(" · ")} meta={`${item.source}${item.assignee ? ` · ${item.assignee}` : ""}`} severity={severity} status={item.balanceDue != null || item.source === "Proposals" ? item.status ?? status : status} action={item.action} actionHref={item.directAction ? item.href : undefined} onAction={() => onOpen(item)} />;
 }
 function WorkRow({ item, onOpen, timeZone, showDate = false }: { item: TodayWorkItem; onOpen: (item: Selection) => void; timeZone: string; showDate?: boolean }) {
   return <li><button type="button" className="today-work-row" onClick={() => onOpen({ ...item, action: item.kind === "task" ? "Open task workspace" : "Open work", source: item.kind })}>

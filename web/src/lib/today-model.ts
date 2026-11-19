@@ -15,6 +15,7 @@ export interface TodayAttentionItem {
   action: string;
   updatedAt?: string;
   balanceDue?: number;
+  directAction?: boolean;
   status?: string;
   task?: TodayTaskTarget;
 }

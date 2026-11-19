@@ -17,7 +17,7 @@ export function RecordPaymentForm({ projectId, invoiceId, balanceDue }: { projec
   const [state, formAction, pending] = useActionState(recordInvoicePaymentAction, undefined);
 
   return (
-    <form action={formAction} className="grid gap-4 rounded-xl border border-border/60 bg-muted/20 p-4">
+    <form id="record-payment" action={formAction} className="scroll-mt-24 grid gap-4 rounded-xl border border-border/60 bg-muted/20 p-4">
       <input type="hidden" name="invoiceId" value={invoiceId} />
       <input type="hidden" name="projectId" value={projectId} />
       <div>

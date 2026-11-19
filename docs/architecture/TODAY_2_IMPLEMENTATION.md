@@ -118,3 +118,5 @@ task counts unknown. No schema, RLS policy or mutation authority changed.
 ## Canonical Needs You queue
 
 Figma nodes `652:17076` and `652:17192` inform the dedicated queue. The Needs You route uses source chips alongside search, priority and assignee filters. The desktop rail summarizes overdue invoices and stale proposals from the authenticated snapshot. Unavailable sources are labeled unavailable and partial results show the loaded count. Invoice rows show the saved balance and due date. The queue preserves the existing urgency/date ordering and source workspace actions.
+
+The dedicated Needs You route also loads recently sent unsigned proposals as a lower priority than stale proposals. Eligible overdue invoices link directly to the role-gated manual payment form in their source workspace. The form still requires deliberate submission.
