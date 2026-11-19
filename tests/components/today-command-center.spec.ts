@@ -150,6 +150,37 @@ function assertAthenaTransfer(raw: string | null, identity: string, scope: strin
   expect(saved).toMatchObject({ identity, scope, version: 1 });
 }
 
+
+test('Project form removes previously applied scope after a same-tab identity change', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await page.route('**/*', route => {
+    const url = new URL(route.request().url());
+    if (url.origin !== 'https://tradeos.component.test') return route.abort('blockedbyclient');
+    return route.fulfill({ contentType: 'text/html; charset=utf-8', body: fixture.html });
+  });
+  await page.goto('https://tradeos.component.test/projects/new?form=estimate');
+
+  const scope = page.getByRole('textbox', { name: 'Scope', exact: true });
+  await expect(scope).toHaveValue('Private scope captured for actor A');
+  expect(await page.evaluate(() => sessionStorage.getItem('tradeos:athena-estimate-draft:v1'))).toBeNull();
+
+  await scope.fill('Actor A edited the notes after handoff');
+  await page.evaluate((identity) => {
+    (window as typeof window & { __testSwapFormIdentity?: (value: string | null) => void })
+      .__testSwapFormIdentity?.(identity);
+  }, JSON.stringify(['user-b', 'org-a']));
+  await expect(scope).toHaveValue('');
+  await expect(page.getByText("Athena's contractor-typed notes were transferred for your review.", { exact: false })).toHaveCount(0);
+
+  await scope.fill('Actor B starts a clean scope');
+  await page.evaluate((identity) => {
+    (window as typeof window & { __testSwapFormIdentity?: (value: string | null) => void })
+      .__testSwapFormIdentity?.(identity);
+  }, JSON.stringify(['user-b', 'org-b']));
+  await expect(scope).toHaveValue('');
+  await expect(page.getByRole('button', { name: 'Create & start estimate' })).toBeEnabled();
+});
+
 test('Needs You filters real source rows, opens context, and preserves unknown total', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 1000 });
   await openSyntheticToday(page, '?view=attention&role=office&failure=attention');
