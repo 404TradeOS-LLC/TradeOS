@@ -100,6 +100,20 @@ for (const width of [390, 768, 1024, 1440]) {
 }
 
 
+test('mobile header opens Athena directly with current page context when available', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await openSyntheticToday(page, '?athena=enabled');
+
+  const shortcut = page.getByRole('link', { name: 'Ask Athena', exact: true });
+  await expect(shortcut).toBeVisible();
+  await expect(shortcut).toHaveAttribute('href', '/athena?page=%2Fdashboard');
+  expect(await shortcut.evaluate(element => getComputedStyle(element).minHeight)).toBe('44px');
+
+  await shortcut.click();
+  expect(await page.evaluate(() => (window as typeof window & { __testNavigation?: string }).__testNavigation))
+    .toBe('/athena?page=%2Fdashboard');
+});
+
 test('Athena discards previous-identity notes before another actor can review them', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 1000 });
   await openSyntheticToday(page, '?athena=enabled');
