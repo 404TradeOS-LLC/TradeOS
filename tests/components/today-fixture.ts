@@ -119,7 +119,8 @@ export async function buildTodayFixture() {
       resolve: { extensions: ['.tsx', '.ts', '.js'], alias: {
         'next/link$': join(directory, 'next-link.tsx'),
         'next/navigation$': join(directory, 'next-navigation.ts'),
-        '@/app/actions/auth
+        '@/app/actions/auth$': join(directory, 'auth.ts'),
+        '@/app/actions/projects$': join(directory, 'project-action.ts'),
         '@': resolve('web/src'),
       }, modules: [resolve('web/node_modules'), 'node_modules'] },
       module: { rules: [{ test: /\.tsx?$/, use: join(directory, 'loader.cjs') }, { test: /\.css$/, use: join(directory, 'ignore-css.cjs') }] },
