@@ -284,8 +284,10 @@ test('Needs You desktop summary preserves unavailable source coverage', async ({
   await page.setViewportSize({ width: 1440, height: 1000 });
   await openSyntheticToday(page, '?view=attention&role=office&failure=attention');
   const summary = page.getByRole('complementary', { name: 'Queue summary' });
-  await expect(summary.getByText('Overdue invoices')).toBeVisible();
-  await expect(summary.getByText('Unavailable', { exact: true })).toBeVisible();
-  await expect(summary.getByText('Stale proposals')).toBeVisible();
-  await expect(summary.getByText('1', { exact: true })).toBeVisible();
+  const summaryValue = (label: string) =>
+    summary.locator('dl > div').filter({
+      has: page.locator('dt').and(page.getByText(label, { exact: true })),
+    }).locator('dd');
+  await expect(summaryValue('Overdue invoices')).toHaveText('Unavailable');
+  await expect(summaryValue('Stale proposals')).toHaveText('1');
 });
