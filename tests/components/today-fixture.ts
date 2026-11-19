@@ -135,34 +135,3 @@ export async function buildTodayFixture() {
     throw error;
   }
 }
-: join(directory, 'auth.ts'),
-        '@/app/actions/projects
-        '@': resolve('web/src'),
-      }, modules: [resolve('web/node_modules'), 'node_modules'] },
-      module: { rules: [{ test: /\.tsx?$/, use: join(directory, 'loader.cjs') }, { test: /\.css$/, use: join(directory, 'ignore-css.cjs') }] },
-    }, (error: Error | null, stats: { hasErrors(): boolean; toString(): string }) => error ? fail(error) : stats.hasErrors() ? fail(new Error(stats.toString())) : done()));
-    const result = await webRequire('postcss')([webRequire('@tailwindcss/postcss')({ base: resolve('web') })]).process(readFileSync('web/src/app/globals.css', 'utf8'), { from: resolve('web/src/app/globals.css') });
-    const bundle = readFileSync(join(directory, 'bundle.js'), 'utf8');
-    const css = result.css + '\n' + readFileSync('web/src/components/dashboard/today-experience.css', 'utf8');
-    const html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>' + css + '</style></head><body class="min-h-full flex flex-col"><div id="root"></div><script>' + bundle.replaceAll('</script', '<\\/script') + '</script></body></html>';
-    return { html, bundle, css, directory, cleanup: () => rmSync(directory, { recursive: true, force: true }) };
-  } catch (error) {
-    rmSync(directory, { recursive: true, force: true });
-    throw error;
-  }
-}
-: join(directory, 'project-action.ts'),
-        '@': resolve('web/src'),
-      }, modules: [resolve('web/node_modules'), 'node_modules'] },
-      module: { rules: [{ test: /\.tsx?$/, use: join(directory, 'loader.cjs') }, { test: /\.css$/, use: join(directory, 'ignore-css.cjs') }] },
-    }, (error: Error | null, stats: { hasErrors(): boolean; toString(): string }) => error ? fail(error) : stats.hasErrors() ? fail(new Error(stats.toString())) : done()));
-    const result = await webRequire('postcss')([webRequire('@tailwindcss/postcss')({ base: resolve('web') })]).process(readFileSync('web/src/app/globals.css', 'utf8'), { from: resolve('web/src/app/globals.css') });
-    const bundle = readFileSync(join(directory, 'bundle.js'), 'utf8');
-    const css = result.css + '\n' + readFileSync('web/src/components/dashboard/today-experience.css', 'utf8');
-    const html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>' + css + '</style></head><body class="min-h-full flex flex-col"><div id="root"></div><script>' + bundle.replaceAll('</script', '<\\/script') + '</script></body></html>';
-    return { html, bundle, css, directory, cleanup: () => rmSync(directory, { recursive: true, force: true }) };
-  } catch (error) {
-    rmSync(directory, { recursive: true, force: true });
-    throw error;
-  }
-}
