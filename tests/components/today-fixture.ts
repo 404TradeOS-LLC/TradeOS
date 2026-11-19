@@ -87,7 +87,19 @@ export async function buildTodayFixture() {
       }
       if(!localStorage.getItem('tradeos-theme'))localStorage.setItem('tradeos-theme',params.get('theme')||'light');
       new Function(THEME_INIT_SCRIPT)();
-      createRoot(document.getElementById('root')).render(<GlobalCommandPaletteProvider><AppNav email="synthetic@example.invalid" currentRole={data.viewer.role} athenaEnabled={false}/><main id="main-content" className="mx-auto w-full max-w-[96rem] flex-1 px-4 py-5 pb-28 sm:px-6 lg:px-8"><TodayExperience data={data} initialView={params.get('view')||'today'}/></main></GlobalCommandPaletteProvider>);
+      const root=createRoot(document.getElementById('root'));
+      const render=()=>root.render(<GlobalCommandPaletteProvider><AppNav email="synthetic@example.invalid" currentRole={data.viewer.role} athenaEnabled={data.athenaEnabled}/><main id="main-content" className="mx-auto w-full max-w-[96rem] flex-1 px-4 py-5 pb-28 sm:px-6 lg:px-8"><TodayExperience data={{...data,viewer:{...data.viewer}}} initialView={params.get('view')||'today'}/></main></GlobalCommandPaletteProvider>);
+      if(params.get('athena')==='enabled'){
+        data.athenaEnabled=true;
+        data.viewer.estimateHandoffIdentity=JSON.stringify(['user-a','org-a']);
+        // Test-only identity swap. Rerenders real production Today/Athena components
+        // in one mounted app shell without any login or network access.
+        window.__testSwapAthenaIdentity=(nextIdentity)=>{
+          data.viewer={...data.viewer,estimateHandoffIdentity:nextIdentity};
+          render();
+        };
+      }
+      render();
     `);
     const webpack = webRequire('next/dist/compiled/webpack/webpack').webpack;
     await new Promise<void>((done, fail) => webpack({
