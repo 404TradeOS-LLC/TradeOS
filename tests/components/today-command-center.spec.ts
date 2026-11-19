@@ -99,6 +99,48 @@ for (const width of [390, 768, 1024, 1440]) {
   }
 }
 
+
+test('Athena discards previous-identity notes before another actor can review them', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await openSyntheticToday(page, '?athena=enabled');
+
+  const handoff = page.getByRole('region', { name: 'Estimate handoff' });
+  const composer = page.getByRole('textbox', { name: 'Ask Athena' });
+  await composer.fill('Private notes for synthetic actor A');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(handoff.getByRole('textbox', { name: 'Estimate note 1' })).toHaveValue('Private notes for synthetic actor A');
+
+  // Simulate a refreshed authenticated Today model under another actor
+  // without navigating away. This deliberately exercises React's real remount.
+  await page.evaluate((identity) => {
+    (window as typeof window & { __testSwapAthenaIdentity?: (value: string | null) => void })
+      .__testSwapAthenaIdentity?.(identity);
+  }, JSON.stringify(['user-b', 'org-a']));
+  await expect(handoff).toHaveCount(0);
+  await expect(composer).toHaveValue('');
+  await expect(page.getByText('Private notes for synthetic actor A')).toHaveCount(0);
+
+  await composer.fill('Only synthetic actor B can transfer this scope');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(handoff.getByRole('textbox', { name: 'Estimate note 1' })).toHaveValue('Only synthetic actor B can transfer this scope');
+  await handoff.getByRole('button', { name: /Review as estimate/ }).click();
+  const saved = await page.evaluate(() => sessionStorage.getItem('tradeos:athena-estimate-draft:v1'));
+  assertAthenaTransfer(saved, JSON.stringify(['user-b', 'org-a']), 'Only synthetic actor B can transfer this scope');
+
+  await page.evaluate(() => {
+    (window as typeof window & { __testSwapAthenaIdentity?: (value: string | null) => void })
+      .__testSwapAthenaIdentity?.(null);
+  });
+  await expect(handoff).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Review as estimate/ })).toHaveCount(0);
+});
+
+function assertAthenaTransfer(raw: string | null, identity: string, scope: string): void {
+  expect(raw).not.toBeNull();
+  const saved: unknown = JSON.parse(raw!);
+  expect(saved).toMatchObject({ identity, scope, version: 1 });
+}
+
 test('Needs You filters real source rows, opens context, and preserves unknown total', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 1000 });
   await openSyntheticToday(page, '?view=attention&role=office&failure=attention');
