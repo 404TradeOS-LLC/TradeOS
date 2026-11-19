@@ -52,3 +52,15 @@ test("Project scope form only consumes identity-matched handoff and remains edit
   assert.match(form, /action=\{formAction\}/);
   assert.match(route, /getAthenaEstimateHandoffAuth/);
 });
+
+// A prop update alone leaves controlled React state intact. The identity key
+// must force a fresh component instance on both sides of the handoff.
+test("actor and organization changes remount both the composer and Project scope form", async () => {
+  const today = await source("../dashboard/today-experience.tsx");
+  const athena = await source("../../app/(app)/athena/page.tsx");
+  const project = await source("../../app/(app)/projects/new/page.tsx");
+
+  assert.match(today, /<AthenaWorkspace key=\{data\.viewer\.estimateHandoffIdentity \?\? "no-estimate-handoff"\}/);
+  assert.match(athena, /<AthenaWorkspace\s+key=\{handoff\.identity \?\? "no-estimate-handoff"\}/);
+  assert.match(project, /<NewProjectForm\s+key=\{handoff\?\.identity \?\? "no-estimate-handoff"\}/);
+});
