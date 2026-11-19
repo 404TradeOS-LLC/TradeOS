@@ -41,6 +41,7 @@ export default async function NewProjectPage({
         backLabel={customerContext ? `Back to ${customerContext.name}` : "Back to projects"}
       />
       <NewProjectForm
+        key={handoff?.identity ?? "no-estimate-handoff"}
         customers={customers}
         defaultCustomerId={customerContext?.id ?? customerId}
         selectedCustomer={customerContext}

@@ -28,7 +28,7 @@ test("context workspace uses native modal focus semantics, restoration and scrol
 test("real Athena component carries page scope and remains capability gated", async () => {
   const ui = await read("./today-experience.tsx");
   assert.match(ui, /data.athenaEnabled \?/);
-  assert.match(ui, /<AthenaWorkspace selectedScope=\{\{ page:/);
+  assert.match(ui, /<AthenaWorkspace key=\{data\.viewer\.estimateHandoffIdentity \?\? "no-estimate-handoff"\} selectedScope=\{\{ page:/);
   assert.doesNotMatch(ui, /approve.*onClick|Action completed successfully|Math.random/);
 });
 test("responsive theme and reduced-motion contracts cover the command center", async () => {

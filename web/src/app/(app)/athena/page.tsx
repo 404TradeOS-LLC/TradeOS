@@ -48,6 +48,7 @@ export default async function AthenaPage({ searchParams }: { searchParams: Promi
   const [query, handoff] = await Promise.all([searchParams, getAthenaEstimateHandoffAuth()]);
   return (
     <AthenaWorkspace
+      key={handoff.identity ?? "no-estimate-handoff"}
       selectedScope={buildSelectedScope(query)}
       estimateHandoffIdentity={handoff.identity}
       canCreateEstimate={handoff.canCreateEstimate}
