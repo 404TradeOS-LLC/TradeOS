@@ -72,7 +72,7 @@ Proof is executable, not just asserted: `app/tests/costbook-codes-registry.migra
 
 ### Contract corrections (minimal, vs the #946 TODO 2 text)
 
-1. `codes_source` gains `topics` (`text[]`), `summary`, `next_action` (all nullable). The pilot API returns those three fields per item and the web page renders `summary`/`nextAction`; without columns the DB-backed API could not reproduce the pilot response. Nullable so governed ingestion (TODO 3) is not forced to supply presentation text for every new source.
+1. `codes_source` gains `topics` (`text[]`), `summary`, `next_action`. The pilot API returns those three fields per item and the web page renders `summary`/`nextAction`; without columns the DB-backed API could not reproduce the pilot response. `topics` is non-null with an empty-array default (`'{}'`), so writers can omit it; only `summary` and `next_action` are nullable, so governed ingestion (TODO 3) is not forced to supply presentation text for every new source.
 2. A partial unique index enforces the `(authority_id, code_family, citation)` singleton when `version_label IS NULL`. PostgreSQL treats NULLs as distinct in the specified `UNIQUE (authority_id, code_family, citation, version_label)`, so without it two unversioned rows for the same citation could coexist.
 3. `CodeReference.state` / `county` were widened from the pilot literals (`"IN"` / `"Vigo"`) to `string` / `string | null`: the DB registry serves any state/county the seed holds.
 4. The API `id` is now the seeded row's stable UUID instead of the pilot slug. Shape is identical; values are stable across environments.
@@ -80,7 +80,7 @@ Proof is executable, not just asserted: `app/tests/costbook-codes-registry.migra
 
 ### Sibling TODOs
 
-TODOs 3/4/5 build against this same table contract (`codes_source` / `codes_source_history` writes, `codes_job_assessment`, `codes_permit_task` + `codes_fee_review`). Added columns above are backward-compatible with that contract (nullable, defaulted); the contract itself is otherwise unchanged.
+TODOs 3/4/5 build against this same table contract (`codes_source` / `codes_source_history` writes, `codes_job_assessment`, `codes_permit_task` + `codes_fee_review`). Added columns above are backward-compatible with that contract (defaulted; `summary` and `next_action` nullable); the contract itself is otherwise unchanged.
 
 ## Route 63 acceptance example
 
