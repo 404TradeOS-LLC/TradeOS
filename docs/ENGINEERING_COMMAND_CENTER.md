@@ -157,6 +157,8 @@ S049 (stale branch/PR/worktree retirement) is `DONE` as of 2026-09-12: a governa
 
 This is the concise operating overview for TradeOS engineering. It does not replace the Bible, Current State, Sprint Backlog, Session Handoff, module contracts, ADRs, or research evidence.
 
+Documentation-ownership note (2026-11-21): routine corrections to the sprint backlog or the startup protocol no longer force a Bible change in the same PR. A Bible edit still requires the backlog, this Command Center, and the handoff to be updated alongside it. The Bible remains the top of the authority hierarchy; this only stops the checker from demanding a Bible touch on every planning-doc correction.
+
 Start with:
 
 1. [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md)
