@@ -849,7 +849,7 @@ test("the tenant assertion cannot be skipped and mutation consent is never impli
 });
 
 test("third-party actions are pinned to an immutable commit", () => {
-  assert.match(workflow, /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7\.0\.1/);
+  assert.match(workflow, /actions\/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7\.0\.2/);
   assert.doesNotMatch(workflow, /actions\/upload-artifact@v7\s*$/m);
 });
 

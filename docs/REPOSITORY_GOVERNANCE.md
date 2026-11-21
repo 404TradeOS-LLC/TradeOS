@@ -176,6 +176,8 @@ Workflow action implementations must stay on supported action-runtime majors. Up
 
 PR #308 applies the same CI-runtime-maintenance principle to `actions/upload-artifact`, moving the existing RC smoke and S027 browser-evidence artifact steps from v6 to v7 while retaining their normal archived artifact names and paths. The workflows do not set `archive: false` or otherwise opt into v7 direct-upload behavior, and the change does not alter workflow permissions, secrets, triggers, explicit TradeOS Node workload versions, auth/RLS, schema, or product behavior.
 
+PR #1007 applies the same CI-runtime-maintenance principle as a patch refresh within the v7 major, moving every `actions/upload-artifact` call site from v7.0.1 to v7.0.2 (SHA-pinned sites to `cf430e030ddbb5b0abf93d22962f4752f3646cd9`, tag-form sites to `@v7.0.2`) while retaining their normal archived artifact names and paths. The workflows do not set `archive: false` or otherwise opt into v7 direct-upload behavior, and the change does not alter workflow permissions, secrets, triggers, explicit TradeOS Node workload versions, auth/RLS, schema, or product behavior.
+
 The S047 RC smoke workflow is an operator-triggered, non-production evidence
 lane. Its workflow inputs offer only Preview and Staging, require a dedicated
 smoke-tenant label, runtime-generated owner/admin state, an organization-matched

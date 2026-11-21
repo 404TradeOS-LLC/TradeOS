@@ -17,7 +17,7 @@ test("Playwright agent evidence workflow stays manual, read-only, and Chromium-o
   assert.match(workflow, /npx playwright install --with-deps chromium/);
   assert.match(workflow, /playwright test --project=chromium/);
   assert.match(workflow, /TRADEOS_AGENT_EVIDENCE: "true"/);
-  assert.match(workflow, /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/);
+  assert.match(workflow, /actions\/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9/);
   assert.match(workflow, /authenticated_smoke:/);
   assert.match(workflow, /Require authenticated smoke prerequisites[\s\S]*?env:[\s\S]*?BETA_SMOKE_EMAIL: \$\{\{ secrets\.BETA_RC_SMOKE_EMAIL \}\}[\s\S]*?BETA_SMOKE_PASSWORD: \$\{\{ secrets\.BETA_RC_SMOKE_PASSWORD \}\}/);
   assert.match(workflow, /Authenticate sanitized smoke tenant[\s\S]*?env:[\s\S]*?BETA_SMOKE_EMAIL: \$\{\{ secrets\.BETA_RC_SMOKE_EMAIL \}\}[\s\S]*?BETA_SMOKE_PASSWORD: \$\{\{ secrets\.BETA_RC_SMOKE_PASSWORD \}\}/);
