@@ -484,3 +484,7 @@ Concurrent requests still use a compare-and-swap write scoped to the
 authenticated organization; accepted proposals remain immutable. The
 downstream `accepted -> contract/job` baseline remains unchanged. Until
 deployed and accepted in staging, this is an unshipped PR capability.
+
+## Estimate material checklist export (proposed, 2026-11-13)
+
+A saved Estimate can generate a read-only, price-free materials checklist from explicitly material-classified lines, before or after Estimate finalization. Export does **not** transition Estimate, Proposal, Job, purchasing, or billing state, does not modify source lines or reserve stock, and does not imply that a list has been delivered to a customer. Assemblies are not decomposed; any assembly lines require review before treating the checklist as complete. Finalization and customer proposal lifecycle rules remain unchanged.

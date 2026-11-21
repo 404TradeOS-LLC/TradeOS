@@ -610,6 +610,13 @@ so forced RLS correctly returns no session rows and that expectation fails. Keep
 reconcile its hosted checks. Source-level tests do not establish staging
 acceptance.
 
+## Estimate materials checklist — draft branch handoff, reconciled 2026-11-17
+
+- Existing PR #988 branch `feat/estimate-materials-shopping-pdf-20261113` was 2 commits ahead and 11 behind current `main` (`283f14a49fc3903d3f051d68cafbc122f70f65cf`). In an isolated worktree, it was rebased onto current main; four documentation conflicts were reconciled by preserving both the newer main sections and checklist references. Local rebased commit: `07058f50` (not yet pushed at the time of this note).
+- Focused app tests pass (2 suites / 10 tests); web preview tests pass (4 tests); app TypeScript check and web TypeScript check pass. Docs ownership check passes, docs tests pass (40/40), and `pr:preflight` reports no missing required docs. Hosted checks listed on the old exact head are historical; rerun and inspect hosted checks on the resulting pushed head.
+- API: `GET /api/v1/estimates/:id/materials/pdf` requires `crm.read`, scoped Estimate and Project, rejects absent/invalid material takeoff with 409, sends only safe quantity/description/unit/section to PDF. Assemblies are counted but not exploded. Web preview and download route through existing authenticated binary proxy.
+- No database/migration, auth/RLS, pricing, deployment, purchase, email or production changes. Authenticated nonproduction preview/download and tenant-denial evidence remain outstanding. Keep PR #988 draft; no independent approval or founder undraft decision is claimed. This is not an authenticated beta certification or a complete assembly takeoff.
+
 ## Next Eligible Sprint
 
 Sprint ID: S073
