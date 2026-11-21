@@ -54,6 +54,9 @@ export interface CostbookResolvedPriceAlternative {
   observedAt: string;
   supplierName: string | null;
   storeName: string | null;
+  marketCode: string | null;
+  city: string | null;
+  state: string | null;
   postalCode: string | null;
   source: string;
   sourceUrl: string | null;
@@ -69,6 +72,9 @@ export interface CostbookResolvedPrice {
   source: string;
   supplierName: string | null;
   storeName: string | null;
+  marketCode: string | null;
+  city: string | null;
+  state: string | null;
   postalCode: string | null;
   observedAt: string;
   confidence: CostbookPriceConfidence;

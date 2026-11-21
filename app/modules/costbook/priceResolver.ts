@@ -25,6 +25,9 @@ export interface PriceEvidenceCandidate {
   supplierId?: string | null;
   supplierName?: string | null;
   storeName?: string | null;
+  marketCode?: string | null;
+  city?: string | null;
+  state?: string | null;
   postalCode?: string | null;
   source: string;
   sourceUrl?: string | null;
@@ -43,6 +46,9 @@ export interface ResolvedPriceAlternative {
   observedAt: string;
   supplierName: string | null;
   storeName: string | null;
+  marketCode: string | null;
+  city: string | null;
+  state: string | null;
   postalCode: string | null;
   source: string;
   sourceUrl: string | null;
@@ -58,6 +64,9 @@ export interface ResolvedPrice {
   source: string;
   supplierName: string | null;
   storeName: string | null;
+  marketCode: string | null;
+  city: string | null;
+  state: string | null;
   postalCode: string | null;
   observedAt: string;
   confidence: PriceConfidence;
@@ -182,6 +191,9 @@ export function resolvePrice(input: ResolvePriceInput): ResolvedPrice | null {
     observedAt: entry.candidate.observedAt.toISOString(),
     supplierName: entry.candidate.supplierName ?? null,
     storeName: entry.candidate.storeName ?? null,
+    marketCode: entry.candidate.marketCode ?? null,
+    city: entry.candidate.city ?? null,
+    state: entry.candidate.state ?? null,
     postalCode: entry.candidate.postalCode ?? null,
     source: entry.candidate.source,
     sourceUrl: entry.candidate.sourceUrl ?? null,
@@ -202,6 +214,9 @@ export function resolvePrice(input: ResolvePriceInput): ResolvedPrice | null {
     source: selected.source,
     supplierName: selected.supplierName ?? null,
     storeName: selected.storeName ?? null,
+    marketCode: selected.marketCode ?? null,
+    city: selected.city ?? null,
+    state: selected.state ?? null,
     postalCode: selected.postalCode ?? null,
     observedAt: selected.observedAt.toISOString(),
     confidence: selected.confidence,
