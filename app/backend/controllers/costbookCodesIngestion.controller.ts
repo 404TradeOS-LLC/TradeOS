@@ -10,7 +10,23 @@ import {
   rejectCodeSource,
 } from "../../modules/costbook/codes/ingestion";
 
-const dateSchema = z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD");
+const dateSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD")
+  .refine((value) => {
+    // Shape alone is not enough: 2026-02-30 matches YYYY-MM-DD but is not
+    // a calendar date, and the ::date cast in the store would fail in
+    // Postgres after the fetch. Round-trip the components instead of
+    // trusting Date parsing (which normalizes invalid dates). setUTCFullYear
+    // — not Date.UTC — so years 0001-0099 are not mapped to 1900-1999;
+    // year 0000 is rejected outright.
+    const [year, month, day] = value.split("-").map(Number);
+    if (year < 1) return false;
+    const probe = new Date(0);
+    probe.setUTCFullYear(year, month - 1, day);
+    return probe.getUTCFullYear() === year && probe.getUTCMonth() === month - 1 && probe.getUTCDate() === day;
+  }, "date must be a valid calendar date");
 
 // Dates are accepted only as source-stated values transcribed by the human
 // trigger; the service stores them as given and never invents one. There is

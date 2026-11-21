@@ -124,4 +124,69 @@ describe("constrained official-source fetch", () => {
     ).rejects.toMatchObject({ statusCode: 502 });
     expect(CODES_SOURCE_MAX_BYTES).toBe(5 * 1024 * 1024);
   });
+
+  it("cancels a declared-oversize body without pulling it", async () => {
+    let pulled = 0;
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 1;
+        controller.enqueue(textEncoder.encode("x".repeat(1024)));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const fetchImpl: typeof fetch = async () =>
+      new Response(stream, { status: 200, headers: { "content-length": String(CODES_SOURCE_MAX_BYTES + 1) } });
+    await expect(
+      fetchOfficialSourceBytes("https://www.in.gov/indot/permits/", { fetchImpl }),
+    ).rejects.toMatchObject({ statusCode: 502 });
+    // The Content-Length gate fires before any read: the body is cancelled
+    // rather than buffered, so a 100 MiB document cannot bypass the memory
+    // cap by declaring its size up front. Undici may pull a single chunk
+    // while attaching/cancelling the stream, so the bound is "at most one
+    // chunk, then cancelled" — not "zero pulls".
+    expect(pulled).toBeLessThanOrEqual(1);
+    expect(cancelled).toBe(true);
+  });
+
+  it("cancels the body when the streamed byte cap is exceeded", async () => {
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.enqueue(textEncoder.encode("1234567890"));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const fetchImpl: typeof fetch = async () => new Response(stream, { status: 200 });
+    await expect(
+      fetchOfficialSourceBytes("https://www.in.gov/indot/permits/", { fetchImpl, maxBytes: 10 }),
+    ).rejects.toMatchObject({ statusCode: 502 });
+    // The second chunk trips the cap; the reader cancels instead of
+    // leaving the unfinished body attached to the connection.
+    expect(cancelled).toBe(true);
+  });
+
+  it("maps a timeout during body consumption to 504", async () => {
+    const fetchImpl: typeof fetch = (_url, init) => {
+      // Headers resolve at once; the body never delivers until the fetch
+      // is aborted, mirroring a spec-compliant fetch implementation.
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          init?.signal?.addEventListener(
+            "abort",
+            () => controller.error(new DOMException("aborted", "AbortError")),
+            { once: true },
+          );
+        },
+      });
+      return Promise.resolve(new Response(stream, { status: 200 }));
+    };
+    await expect(
+      fetchOfficialSourceBytes("https://www.in.gov/indot/permits/", { fetchImpl, timeoutMs: 50 }),
+    ).rejects.toMatchObject({ statusCode: 504 });
+  });
 });

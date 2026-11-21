@@ -87,6 +87,31 @@ describe("Codes & Permits ingestion endpoints", () => {
     expect(mockedIngest).not.toHaveBeenCalled();
   });
 
+  it("rejects calendar-invalid dates before the service runs", async () => {
+    for (const badDate of ["2026-02-30", "2026-13-01", "2026-00-10", "0000-01-01", "2023-02-29"]) {
+      await expect(
+        costbookCodesIngestionController.ingest(
+          request({ body: { ...ingestBody, effectiveDate: badDate } }) as never,
+          response() as never,
+        ),
+      ).rejects.toThrow("valid calendar date");
+    }
+    expect(mockedIngest).not.toHaveBeenCalled();
+  });
+
+  it("accepts a leap-day date", async () => {
+    mockedIngest.mockResolvedValue({ outcome: "created", source: { id: "source-1" } });
+    const res = response();
+    await costbookCodesIngestionController.ingest(
+      request({ body: { ...ingestBody, effectiveDate: "2024-02-29" } }) as never,
+      res as never,
+    );
+    expect(mockedIngest).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "staff-1", orgId: "org-1" }),
+      expect.objectContaining({ effectiveDate: "2024-02-29" }),
+    );
+  });
+
   it("lists sources and the review queue for costbook.read roles with no-store caching", async () => {
     mockedList.mockResolvedValue({ status: "advisory", total: 0, items: [] });
     mockedQueue.mockResolvedValue({ status: "advisory", total: 0, items: [] });
