@@ -1269,6 +1269,16 @@ Landed foundations include:
 
 Athena business tools must preserve service ownership and existing authorization/RLS boundaries. Direct Prisma access from tools, duplicate domain logic, and autonomous Costbook mutation remain outside the intended module boundary.
 
+### Athena-first Today and review-only estimate handoff (draft PR #1009, November 18, 2026)
+
+A founder-authorized [draft PR #1009](https://github.com/404TradeOS-LLC/TradeOS/pull/1009) proposes moving the existing authenticated, capability-gated AthenaWorkspace above the Today hero and operational metrics, opened in a compact layout on Today only. Full /athena remains available, and Needs You/Work keep their existing semantics. No alternate AI service, automatic action or permission boundary is introduced.
+
+Contractor-typed job notes can be transferred only after explicitly selecting **Review as estimate**. A versioned same-tab sessionStorage handoff (5-minute TTL, 4,000-character maximum) is consumed once by the existing /projects/new?intent=estimate form to populate editable Project.simpleScope for human review. The existing authorized Project/Estimate form action remains the only persistence path. Athena-generated responses, amounts, line items or a fictitious conversation ID are never transferred automatically. Browser storage may be unavailable; the existing ordinary estimate entry remains usable.
+
+**Global navigation in this draft:** when the existing Athena capability gate is enabled, the authenticated TradeOS header now renders a one-tap **Ask Athena** link on mobile and desktop. It retains current page/project context through the shared `buildUniversalCreateHref("athena", pathname)` resolver and a 44-pixel minimum hit target. When the capability is disabled or unresolved, the shortcut is absent. This is implemented source only; no matching deployed preview or authenticated phone acceptance has been verified.
+
+**Not yet done:** durable multi-turn contractor conversation context, one-question clarification carry-forward, iPhone voice/photo attachment transport, AI-generated estimate items, authenticated nonproduction acceptance, or production deployment. The [isolated 390px mobile design](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=1245-2446) and [1440px desktop design](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=1245-2492) are editable **drafts**, not approved replacements of canonical Figma screens. Exact-head CI, review, security and functional acceptance remain mandatory before promotion or merge.
+
 ### Contractor Athena workspace
 
 The authenticated web route `/athena` is now the contractor-facing Athena Workspace rather than the owner/admin observability dashboard. It uses one browser kernel client over the existing `POST /api/v1/athena/chat` contract, carries optional validated selected scope (`customerId`, `projectId`, `jobId`, `estimateId`, `invoiceId`, and bounded page context), and renders the kernel's real summary/message, warnings, follow-ups, clarification, degraded, denied, timeout/failure, and telemetry-reference states. The app navigation exposes this contractor workspace to authenticated users; individual Athena tools continue to enforce their existing permission/risk/service boundaries.

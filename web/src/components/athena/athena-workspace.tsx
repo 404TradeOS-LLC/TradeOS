@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, CheckCircle2, CircleSlash2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,9 +15,13 @@ import {
   type AthenaSelectedScope,
 } from "@/lib/athena-client";
 import { cn } from "@/lib/utils";
+import { ATHENA_ESTIMATE_DRAFT_KEY, makeAthenaEstimateDraft } from "@/lib/athena-estimate-handoff";
 
 interface AthenaWorkspaceProps {
   selectedScope?: AthenaSelectedScope;
+  compact?: boolean;
+  canCreateEstimate?: boolean;
+  estimateHandoffIdentity?: string | null;
 }
 
 interface ConversationTurn {
@@ -24,6 +29,11 @@ interface ConversationTurn {
   role: "user" | "athena" | "error";
   text: string;
   result?: AthenaKernelResult;
+}
+
+interface ContractorNote {
+  id: number;
+  text: string;
 }
 
 interface RetrySubmission {
@@ -159,13 +169,49 @@ function ResultCard({ result }: { result: AthenaKernelResult }) {
   );
 }
 
-export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
+export function AthenaWorkspace({ selectedScope, compact = false, canCreateEstimate = false, estimateHandoffIdentity = null }: AthenaWorkspaceProps) {
+  const router = useRouter();
   const [draft, setDraft] = useState("");
+  const [contractorNotes, setContractorNotes] = useState<ContractorNote[]>([]);
+  const [selectedStarter, setSelectedStarter] = useState<string | null>(null);
+  const [handoffError, setHandoffError] = useState<string | null>(null);
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [retrySubmission, setRetrySubmission] = useState<RetrySubmission | null>(null);
   const nextTurnIdRef = useRef(1);
   const scoped = scopeRows(selectedScope);
+
+  const prepareEstimate = () => {
+    if (!canCreateEstimate || !estimateHandoffIdentity) return;
+    const payload = makeAthenaEstimateDraft(
+      contractorNotes.map((note) => note.text),
+      Date.now(),
+      estimateHandoffIdentity
+    );
+    if (!payload) {
+      setHandoffError("These notes exceed the 4,000-character limit or are empty. Edit or remove a note below before retrying.");
+      return;
+    }
+    try {
+      // One-tab and short-lived. The receiving form consumes and removes this
+      // data. No business record is saved by preparing the handoff.
+      window.sessionStorage.setItem(ATHENA_ESTIMATE_DRAFT_KEY, payload);
+      setHandoffError(null);
+      router.push("/projects/new?intent=estimate#simpleScope");
+    } catch {
+      setHandoffError("This browser blocked the transfer. Open Create → Estimate and paste your notes manually.");
+    }
+  };
+
+  const editNote = (id: number, text: string) => {
+    setContractorNotes((current) => current.map((note) => note.id === id ? { ...note, text } : note));
+    setHandoffError(null);
+  };
+
+  const removeNote = (id: number) => {
+    setContractorNotes((current) => current.filter((note) => note.id !== id));
+    setHandoffError(null);
+  };
 
   const submitMessage = async (
     message: string,
@@ -179,6 +225,12 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
     if (options.addUserTurn !== false) {
       const userId = nextTurnIdRef.current++;
       setTurns([{ id: userId, role: "user", text: trimmed }]);
+      // Starter prompts are real chat requests, not contractor-authored scope.
+      if (canCreateEstimate && estimateHandoffIdentity && trimmed !== selectedStarter) {
+        setContractorNotes((current) => [...current, { id: userId, text: trimmed }]);
+      }
+      setSelectedStarter(null);
+      setHandoffError(null);
     } else {
       // A retry belongs to the same single request/result exchange. Remove the
       // prior transport error before replaying the same idempotent request.
@@ -224,7 +276,8 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
   };
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-5">
+    <div className={cn("mx-auto grid w-full", compact ? "max-w-none gap-3" : "max-w-5xl gap-5")}>
+      {!compact ? (
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border/70 pb-5">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Athena</p>
@@ -234,9 +287,59 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
           </p>
         </div>
       </header>
+      ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
-        <aside className="grid content-start gap-4">
+      {canCreateEstimate && estimateHandoffIdentity && contractorNotes.length > 0 ? (
+        <section aria-label="Estimate handoff" className="rounded-2xl border border-primary/25 bg-primary/5 p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Start an estimate from your notes</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Transfers only your typed messages into the existing Project scope form for review.
+                Athena replies and earlier questions are not verified scope or preserved conversation memory.
+              </p>
+            </div>
+            <Button type="button" onClick={prepareEstimate} disabled={isSending}>
+              Review as estimate <ArrowRight className="ml-2 size-4" aria-hidden="true" />
+            </Button>
+          </div>
+          <div className="mt-4 grid gap-3">
+            <p className="text-xs text-muted-foreground">
+              Review and edit the notes selected for the scope. Only these notes move to the Project form.
+              { " " }{contractorNotes.map((note) => note.text.trim()).filter(Boolean).join("\n\n").length} / 4,000 characters
+            </p>
+            {contractorNotes.map((note, index) => (
+              <div key={note.id} className="rounded-xl border border-border/70 bg-card p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <label htmlFor={`athena-note-${note.id}`} className="text-xs font-semibold">
+                    Estimate note {index + 1}
+                  </label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    aria-label={`Remove note ${index + 1}`}
+                    onClick={() => removeNote(note.id)}
+                  >
+                    Remove note
+                  </Button>
+                </div>
+                <Textarea
+                  id={`athena-note-${note.id}`}
+                  aria-label={`Estimate note ${index + 1}`}
+                  value={note.text}
+                  rows={2}
+                  onChange={(event) => editNote(note.id, event.target.value)}
+                />
+              </div>
+            ))}
+          </div>
+          {handoffError ? <p role="alert" className="mt-3 text-sm text-destructive">{handoffError}</p> : null}
+        </section>
+      ) : null}
+
+      <div className={cn("grid gap-4", !compact && "xl:grid-cols-[220px_minmax(0,1fr)]")}>
+        {!compact ? <aside className="grid content-start gap-4">
           <section className="rounded-2xl border border-border/70 bg-card p-4">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Selected context</p>
@@ -259,7 +362,10 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
                 <button
                   key={starter}
                   type="button"
-                  onClick={() => setDraft(starter)}
+                  onClick={() => {
+                    setDraft(starter);
+                    setSelectedStarter(starter);
+                  }}
                   className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-border/70 bg-background/70 px-3 py-2 text-left text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-muted/40"
                 >
                   <span>{starter}</span>
@@ -268,7 +374,7 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
               ))}
             </div>
           </section>
-        </aside>
+        </aside> : null}
 
         <section aria-labelledby="athena-workspace-heading" className="min-w-0 rounded-2xl border border-border/70 bg-card">
           <div className="border-b border-border/70 px-4 py-4 sm:px-5">
@@ -277,9 +383,9 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
             <p className="mt-1 text-xs text-muted-foreground">Each submission is independent in this build; include the detail Athena needs in each request.</p>
           </div>
 
-          <div className="grid min-h-[28rem] content-start gap-4 p-4 sm:p-5" aria-live="polite">
+          <div className={cn("grid content-start gap-4 p-4 sm:p-5", compact ? "min-h-0" : "min-h-[28rem]")} aria-live="polite">
             {turns.length === 0 ? (
-              <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 px-5 text-center">
+              compact ? null : <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 px-5 text-center">
                 <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Sparkles className="size-5" aria-hidden="true" />
                 </div>
@@ -336,12 +442,15 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
             ) : null}
           </div>
 
-          <form onSubmit={onSubmit} className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] border-t border-border/70 bg-card/95 p-4 backdrop-blur sm:p-5 2xl:bottom-0">
+          <form onSubmit={onSubmit} className={cn("border-t border-border/70 bg-card/95 p-4 sm:p-5", !compact && "sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] backdrop-blur 2xl:bottom-0")}>
             <label htmlFor="athena-message" className="sr-only">Ask Athena</label>
             <Textarea
               id="athena-message"
               value={draft}
-              onChange={(event) => setDraft(event.target.value)}
+              onChange={(event) => {
+                setDraft(event.target.value);
+                setSelectedStarter(null);
+              }}
               placeholder={selectedScope ? "Ask about the selected TradeOS work…" : "Ask Athena about your business or describe work to estimate…"}
               rows={3}
               disabled={isSending}
@@ -355,7 +464,7 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
           </form>
         </section>
 
-        <aside className="grid content-start gap-4">
+        {!compact ? <aside className="grid content-start gap-4">
           <section className="rounded-2xl border border-border/70 bg-card p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Trust</p>
             <div className="mt-4 grid gap-3">
@@ -380,7 +489,7 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
               The chat result does not yet return a provider-by-provider “context used” list. This workspace does not invent one. Degraded context appears only when the kernel reports it.
             </p>
           </section>
-        </aside>
+        </aside> : null}
       </div>
     </div>
   );

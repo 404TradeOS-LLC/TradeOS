@@ -98,5 +98,18 @@ test("Athena root scope normalizes repeated query params and never blocks on ope
   assert.match(rootPage, /invoiceId: validUuid\(query\.invoiceId\)/);
   assert.match(rootPage, /firstQueryValue\(query\.page\)\?\.trim\(\)\.slice\(0, 200\)/);
   assert.doesNotMatch(rootPage, /getAthenaOperatorContext/);
-  assert.match(rootPage, /<AthenaWorkspace selectedScope=\{buildSelectedScope\(query\)\} \/>/);
+  assert.match(rootPage, /selectedScope=\{buildSelectedScope\(query\)\}/);
+  assert.match(rootPage, /getAthenaEstimateHandoffAuth\(\)/);
+  assert.match(rootPage, /estimateHandoffIdentity=\{handoff\.identity\}/);
+  assert.match(rootPage, /canCreateEstimate=\{handoff\.canCreateEstimate\}/);
+});
+
+
+test("authenticated app header exposes one-tap, feature-gated Athena access at phone widths", async () => {
+  const nav = await readSource("../shared/app-nav.tsx");
+  assert.match(nav, /\{effectiveAthenaEnabled \? \(\s*<Link/);
+  assert.match(nav, /href=\{buildUniversalCreateHref\("athena", pathname\)\}/);
+  assert.match(nav, /aria-label="Ask Athena"/);
+  assert.match(nav, /min-h-11 min-w-11/);
+  assert.match(nav, /aria-current=\{pathname === "\/athena" \? "page" : undefined\}/);
 });

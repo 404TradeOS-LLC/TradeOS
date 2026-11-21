@@ -57,11 +57,12 @@ for (const width of [390, 768, 1024, 1440]) {
       await expect(timeline.getByRole('button', { name: /Synthetic kitchen framing/ })).toBeFocused();
 
       const athena = page.getByRole('button', { name: /Athena Operations partner/ });
-      await expect(athena).toHaveAttribute('aria-expanded', 'false');
-      await athena.click();
+      await expect(athena).toHaveAttribute('aria-expanded', 'true');
       await expect(page.getByText('Athena is unavailable for this workspace.', { exact: false })).toBeVisible();
       await athena.click();
       await expect(athena).toHaveAttribute('aria-expanded', 'false');
+      await athena.click();
+      await expect(athena).toHaveAttribute('aria-expanded', 'true');
 
       const dock = page.getByRole('navigation', { name: '404TradeOS Control Dock' });
       await expect(dock).toBeVisible();
@@ -98,16 +99,112 @@ for (const width of [390, 768, 1024, 1440]) {
   }
 }
 
+
+test('mobile header opens Athena directly with current page context when available', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await openSyntheticToday(page, '?athena=enabled');
+
+  const shortcut = page.getByRole('link', { name: 'Ask Athena', exact: true });
+  await expect(shortcut).toBeVisible();
+  await expect(shortcut).toHaveAttribute('href', '/athena?page=%2Fdashboard');
+  expect(await shortcut.evaluate(element => getComputedStyle(element).minHeight)).toBe('44px');
+
+  await shortcut.click();
+  expect(await page.evaluate(() => (window as typeof window & { __testNavigation?: string }).__testNavigation))
+    .toBe('/athena?page=%2Fdashboard');
+});
+
+test('Athena discards previous-identity notes before another actor can review them', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await openSyntheticToday(page, '?athena=enabled');
+
+  const handoff = page.getByRole('region', { name: 'Estimate handoff' });
+  const composer = page.getByRole('textbox', { name: 'Ask Athena' });
+  await composer.fill('Private notes for synthetic actor A');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(handoff.getByRole('textbox', { name: 'Estimate note 1' })).toHaveValue('Private notes for synthetic actor A');
+
+  // Simulate a refreshed authenticated Today model under another actor
+  // without navigating away. This deliberately exercises React's real remount.
+  await page.evaluate((identity) => {
+    (window as typeof window & { __testSwapAthenaIdentity?: (value: string | null) => void })
+      .__testSwapAthenaIdentity?.(identity);
+  }, JSON.stringify(['user-b', 'org-a']));
+  await expect(handoff).toHaveCount(0);
+  await expect(composer).toHaveValue('');
+  await expect(page.getByText('Private notes for synthetic actor A')).toHaveCount(0);
+
+  await composer.fill('Only synthetic actor B can transfer this scope');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(handoff.getByRole('textbox', { name: 'Estimate note 1' })).toHaveValue('Only synthetic actor B can transfer this scope');
+  await handoff.getByRole('button', { name: /Review as estimate/ }).click();
+  const saved = await page.evaluate(() => sessionStorage.getItem('tradeos:athena-estimate-draft:v1'));
+  assertAthenaTransfer(saved, JSON.stringify(['user-b', 'org-a']), 'Only synthetic actor B can transfer this scope');
+
+  // Changing organizations under the same account is a separate identity
+  // boundary. The old draft remains bound to org A and must not be accepted.
+  await page.evaluate((identity) => {
+    (window as typeof window & { __testSwapAthenaIdentity?: (value: string | null) => void })
+      .__testSwapAthenaIdentity?.(identity);
+  }, JSON.stringify(['user-b', 'org-b']));
+  await expect(handoff).toHaveCount(0);
+  await expect(composer).toHaveValue('');
+
+  await page.evaluate(() => {
+    (window as typeof window & { __testSwapAthenaIdentity?: (value: string | null) => void })
+      .__testSwapAthenaIdentity?.(null);
+  });
+  await expect(handoff).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Review as estimate/ })).toHaveCount(0);
+});
+
+function assertAthenaTransfer(raw: string | null, identity: string, scope: string): void {
+  expect(raw).not.toBeNull();
+  const saved: unknown = JSON.parse(raw!);
+  expect(saved).toMatchObject({ identity, scope, version: 1 });
+}
+
+
+test('Project form removes previously applied scope after a same-tab identity change', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await page.route('**/*', route => {
+    const url = new URL(route.request().url());
+    if (url.origin !== 'https://tradeos.component.test') return route.abort('blockedbyclient');
+    return route.fulfill({ contentType: 'text/html; charset=utf-8', body: fixture.html });
+  });
+  await page.goto('https://tradeos.component.test/projects/new?form=estimate');
+
+  const scope = page.getByRole('textbox', { name: 'Scope', exact: true });
+  await expect(scope).toHaveValue('Private scope captured for actor A');
+  expect(await page.evaluate(() => sessionStorage.getItem('tradeos:athena-estimate-draft:v1'))).toBeNull();
+
+  await scope.fill('Actor A edited the notes after handoff');
+  await page.evaluate((identity) => {
+    (window as typeof window & { __testSwapFormIdentity?: (value: string | null) => void })
+      .__testSwapFormIdentity?.(identity);
+  }, JSON.stringify(['user-b', 'org-a']));
+  await expect(scope).toHaveValue('');
+  await expect(page.getByText("Athena's contractor-typed notes were transferred for your review.", { exact: false })).toHaveCount(0);
+
+  await scope.fill('Actor B starts a clean scope');
+  await page.evaluate((identity) => {
+    (window as typeof window & { __testSwapFormIdentity?: (value: string | null) => void })
+      .__testSwapFormIdentity?.(identity);
+  }, JSON.stringify(['user-b', 'org-b']));
+  await expect(scope).toHaveValue('');
+  await expect(page.getByRole('button', { name: 'Create & start estimate' })).toBeEnabled();
+});
+
 test('Needs You filters real source rows, opens context, and preserves unknown total', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 1000 });
   await openSyntheticToday(page, '?view=attention&role=office&failure=attention');
   await expect(page.getByText('Office manager', { exact: true })).toBeVisible();
   await expect(page.locator('.today-attention .today-count')).toHaveText('—');
   const list = page.locator('.today-attention');
-  await page.getByLabel('Filter by source').selectOption('Proposals');
+  await page.getByRole('group', { name: 'Filter by source' }).getByRole('button', { name: 'Proposals', exact: true }).click();
   await expect(list.getByRole('heading', { name: 'Synthetic deck proposal needs follow-up' })).toBeVisible();
   await expect(list.getByRole('heading', { name: 'Synthetic kitchen task blocked' })).toHaveCount(0);
-  await page.getByLabel('Filter by source').selectOption('all');
+  await page.getByRole('group', { name: 'Filter by source' }).getByRole('button', { name: 'All sources', exact: true }).click();
   await page.getByLabel('Search attention items').fill('kitchen');
   await expect(list.getByRole('heading', { name: 'Synthetic kitchen task blocked' })).toBeVisible();
   await expect(page.getByRole('status')).toHaveText('1 matching loaded records');
@@ -276,4 +373,17 @@ test('field user saves a personally assigned task through the guarded Job route'
   await expect(dialog).not.toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'Task saved as completed' })).toBeVisible();
   expect(writes).toBe(1); await expectNoPageOverflow(page, 390);
+});
+
+
+test('Needs You desktop summary preserves unavailable source coverage', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await openSyntheticToday(page, '?view=attention&role=office&failure=attention');
+  const summary = page.getByRole('complementary', { name: 'Queue summary' });
+  const summaryValue = (label: string) =>
+    summary.locator('dl > div').filter({
+      has: page.locator('dt').and(page.getByText(label, { exact: true })),
+    }).locator('dd');
+  await expect(summaryValue('Overdue invoices')).toHaveText('Unavailable');
+  await expect(summaryValue('Stale proposals')).toHaveText('1');
 });

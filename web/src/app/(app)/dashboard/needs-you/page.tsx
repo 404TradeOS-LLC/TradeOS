@@ -4,7 +4,7 @@ import { TodayAccessState } from "@/components/dashboard/today-access-state";
 import { loadTodayData } from "@/lib/today-data";
 export const metadata: Metadata = { title: "Needs You | TradeOS" };
 export default async function NeedsYouPage() {
-  const data = await loadTodayData();
+  const data = await loadTodayData(true);
   if (!data) return <TodayAccessState />;
   return <TodayExperience data={data} initialView="attention" />;
 }

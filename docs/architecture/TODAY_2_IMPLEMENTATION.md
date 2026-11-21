@@ -4,6 +4,21 @@
 
 The founder's October 26 brief controls the new Today composition. Figma master `xImUa9CYUjx3Cb3zTrkfnY` nodes 295:9, 295:121 and 48:2 were read with screenshots. They retain the older Now/Needs You/Coming Up/Money layout; the new brief removes Money analytics and adds operational coordination. Existing semantic tokens, components, calendar-day rules and authenticated services remain authoritative.
 
+## Athena-first intake draft — November 18, 2026
+
+Founder decision: [Athena first: conversational job intake and estimate creation](https://app.notion.com/p/41c88b6b382981378b15ec4dbba95b84).
+Implementation review: [draft PR #1009](https://github.com/404TradeOS-LLC/TradeOS/pull/1009).
+Isolated editable Figma drafts: [mobile 390](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=1245-2446), [desktop 1440](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=1245-2492).
+The older canonical Today frames are unchanged; these drafts are not approved replacement specifications.
+
+The proposed Today composition promotes the existing capability-gated AthenaWorkspace above the hero and operational metrics. It opens on the Today route in compact presentation while dedicated /athena keeps its full workspace and Needs You/Work keep their own default states. The same authenticated Athena chat client, server policy and scope contract remain in use. Disabled Athena still produces an honest unavailable state, not a synthetic assistant.
+
+The deliberately bounded first estimate handoff uses only contractor-typed notes from the current browser page. After an explicit **Review as estimate** action, a short-lived one-tab sessionStorage payload (versioned, maximum 4,000 characters, five-minute lifetime) transfers to the existing Project creation form. The form consumes/removes the payload before parsing, prepopulates editable Project.simpleScope only for intent=estimate, and does not save until the existing authenticated form action is submitted. No user, tenant or pricing assertions are imported from the browser; backend permissions and domain services remain authoritative.
+
+This is **not** durable multi-turn Athena conversation memory or a full AI estimate-to-line-items workflow. The kernel's optional conversationId currently has no durable contractor conversation/session lifecycle, so the client does not fabricate one. Contractor notes are not an AI summary and may need revision. No backend endpoint, migration, authorization grant, financial write, automatic line-item insertion or new provider integration is introduced.
+
+Authored test coverage includes bounded draft parsing/expiration, UI/form integration contracts, and updated Today 390/768/1024/1440 light/dark synthetic-browser expectations. Required exact-head CI, review, authenticated nonproduction estimate persistence, field/tenant negative cases and visual Figma fidelity remain release gates. Draft status and historical evidence are not proof of deployment or beta certification.
+
 ## Implemented
 
 | Surface | Connected behavior |
@@ -98,3 +113,10 @@ workspace now displays Job DTO tasks and directs progress reports to Job notes.
 Task status edits retain existing office permissions. Results at the 50-row cap
 are explicitly partial; a task-source failure leaves job scheduling usable and
 task counts unknown. No schema, RLS policy or mutation authority changed.
+
+
+## Canonical Needs You queue
+
+Figma nodes `652:17076` and `652:17192` inform the dedicated queue. The Needs You route uses source chips alongside search, priority and assignee filters. The desktop rail summarizes overdue invoices and stale proposals from the authenticated snapshot. Unavailable sources are labeled unavailable and partial results show the loaded count. Invoice rows show the saved balance and due date. The queue preserves the existing urgency/date ordering and source workspace actions.
+
+The dedicated Needs You route also loads recently sent unsigned proposals as a lower priority than stale proposals. Eligible overdue invoices link directly to the role-gated manual payment form in their source workspace. The form still requires deliberate submission.

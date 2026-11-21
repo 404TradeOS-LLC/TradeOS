@@ -52,10 +52,12 @@ export async function buildTodayFixture() {
       export const usePathname=()=>window.location.pathname;
     `);
     writeFileSync(join(directory, 'auth.ts'), 'export async function logoutAction(){throw new Error("Authentication mutations are disabled in synthetic component tests");}');
+    writeFileSync(join(directory, 'project-action.ts'), 'export async function createProjectAction(){throw new Error("Project writes are disabled in synthetic component tests");}');
     writeFileSync(join(directory, 'entry.tsx'), `
       import React from 'react';
       import {createRoot} from 'react-dom/client';
       import {TodayExperience} from '@/components/dashboard/today-experience';
+      import {NewProjectForm} from '@/app/(app)/projects/new/form';
       import {AppNav} from '@/components/shared/app-nav';
       import {GlobalCommandPaletteProvider} from '@/components/shared/global-command-palette';
       import {THEME_INIT_SCRIPT} from '@/lib/theme';
@@ -87,7 +89,28 @@ export async function buildTodayFixture() {
       }
       if(!localStorage.getItem('tradeos-theme'))localStorage.setItem('tradeos-theme',params.get('theme')||'light');
       new Function(THEME_INIT_SCRIPT)();
-      createRoot(document.getElementById('root')).render(<GlobalCommandPaletteProvider><AppNav email="synthetic@example.invalid" currentRole={data.viewer.role} athenaEnabled={false}/><main id="main-content" className="mx-auto w-full max-w-[96rem] flex-1 px-4 py-5 pb-28 sm:px-6 lg:px-8"><TodayExperience data={data} initialView={params.get('view')||'today'}/></main></GlobalCommandPaletteProvider>);
+      const root=createRoot(document.getElementById('root'));
+      const render=()=>root.render(<GlobalCommandPaletteProvider><AppNav email="synthetic@example.invalid" currentRole={data.viewer.role} athenaEnabled={data.athenaEnabled}/><main id="main-content" className="mx-auto w-full max-w-[96rem] flex-1 px-4 py-5 pb-28 sm:px-6 lg:px-8">{params.get('form')==='estimate' ? <NewProjectForm key={data.viewer.estimateHandoffIdentity??'no-estimate-handoff'} customers={[]} focusScope createIntent="estimate" estimateHandoffIdentity={data.viewer.estimateHandoffIdentity} /> : <TodayExperience data={{...data,viewer:{...data.viewer}}} initialView={params.get('view')||'today'}/>}</main></GlobalCommandPaletteProvider>);
+      if(params.get('form')==='estimate'){
+        const actorA=JSON.stringify(['user-a','org-a']);
+        data.viewer.estimateHandoffIdentity=actorA;
+        sessionStorage.setItem('tradeos:athena-estimate-draft:v1',JSON.stringify({version:1,createdAt:Date.now(),identity:actorA,scope:'Private scope captured for actor A'}));
+        window.__testSwapFormIdentity=(nextIdentity)=>{
+          data.viewer={...data.viewer,estimateHandoffIdentity:nextIdentity};
+          render();
+        };
+      }
+      if(params.get('athena')==='enabled'){
+        data.athenaEnabled=true;
+        data.viewer.estimateHandoffIdentity=JSON.stringify(['user-a','org-a']);
+        // Test-only identity swap. Rerenders real production Today/Athena components
+        // in one mounted app shell without any login or network access.
+        window.__testSwapAthenaIdentity=(nextIdentity)=>{
+          data.viewer={...data.viewer,estimateHandoffIdentity:nextIdentity};
+          render();
+        };
+      }
+      render();
     `);
     const webpack = webRequire('next/dist/compiled/webpack/webpack').webpack;
     await new Promise<void>((done, fail) => webpack({
@@ -97,6 +120,7 @@ export async function buildTodayFixture() {
         'next/link$': join(directory, 'next-link.tsx'),
         'next/navigation$': join(directory, 'next-navigation.ts'),
         '@/app/actions/auth$': join(directory, 'auth.ts'),
+        '@/app/actions/projects$': join(directory, 'project-action.ts'),
         '@': resolve('web/src'),
       }, modules: [resolve('web/node_modules'), 'node_modules'] },
       module: { rules: [{ test: /\.tsx?$/, use: join(directory, 'loader.cjs') }, { test: /\.css$/, use: join(directory, 'ignore-css.cjs') }] },

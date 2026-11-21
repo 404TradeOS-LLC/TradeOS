@@ -1,3 +1,4 @@
+import { buildAthenaEstimateIdentity } from "./athena-estimate-handoff.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { prioritizeTodayAttention, safeTodayTimeZone, taskNeedsAttention, todayDateKey, taskDueBucket, isTodayTask, type TodayAttentionItem } from "./today-model.ts";
@@ -59,7 +60,7 @@ function createLoader(role = "owner", overrides: Record<string, (...args: unknow
   const calls: { method: string; args: unknown[] }[] = [];
   const summary = { generatedAt: FIXTURE_NOW, activeJobs: 3, scheduledToday: 1, scope: { source: role === "technician" ? "assigned_only" : "organization", role }, todayRangeUtc: { start: "2026-10-26T04:00:00Z", end: "2026-10-27T04:00:00Z" }, weekRangeUtc: { start: "2026-10-26T04:00:00Z", end: "2026-11-02T05:00:00Z" }, timezone: { value: "America/Indiana/Indianapolis" } };
   const base: Record<string, (...args: unknown[]) => Promise<unknown>> = {
-    getOrganizationSettings: async () => ({ currentRole: role, currentUserId: "user-a", settings: { companyName: "Acme" }, teamMembers: [{ userId: "user-a", fullName: "Billy Showalter" }] }),
+    getOrganizationSettings: async () => ({ orgId: "org-a", currentRole: role, currentUserId: "user-a", settings: { companyName: "Acme" }, teamMembers: [{ userId: "user-a", fullName: "Billy Showalter" }] }),
     getDispatchSummary: async () => summary,
     getAthenaCapabilities: async () => ({ kernelEnabled: true }),
     listJobsForDispatch: async () => ({ items: [{ id: "job-a", title: "Paint cabinets", jobNumber: "J1", status: "scheduled", archivedAt: null, scheduledStart: "2026-10-26T12:00:00Z", scheduledEnd: "2026-10-26T16:00:00Z", project: { id: "project-a", name: "Kitchen" }, customer: null, assignedTechnicians: [{ userId: "user-a", name: "Billy" }], isOverdue: false }], total: 1 }),
@@ -77,6 +78,7 @@ function createLoader(role = "owner", overrides: Record<string, (...args: unknow
         case "react": return { cache: (fn: unknown) => fn };
         case "../../../app/domain/contracts": return { hasPermission, isSupportedRole, normalizeRole };
         case "@/lib/api": return { ...api, toInclusiveEndBoundary: (value: string) => new Date(Date.parse(value) - 1).toISOString() };
+        case "@/lib/athena-estimate-handoff": return { buildAthenaEstimateIdentity };
         case "@/lib/session": return { getSessionToken: async () => authenticated ? "private-test-token" : null, getSession: async () => authenticated ? { sub: "user-a", email: "billy@example.test" } : null };
         case "@/components/dashboard/needs-attention-model": return attentionModel;
         case "./today-model": return todayModel;
