@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-06
+last_verified: 2026-11-20
 source_of_truth: true
 related_docs:
   - docs/TRADEOS_BIBLE.md
@@ -14,6 +14,14 @@ related_docs:
 ---
 
 # TradeOS Agent Execution and Next Sprint Protocol
+
+> Note (2026-11-20): the continuous-execution wording in this protocol comes
+> from PR #979 (merged 2026-11-13 as `e30b8d4a`). The PR Commander unattended
+> repair lane runs alongside this protocol and is not described here: PR #964
+> (merged 2026-11-11 as `0526b61f`, armed since 2026-11-11), with the
+> fail-closed gates from PR #980 (merged 2026-11-13 as `a7b70cc2`) and PR #981
+> (merged 2026-11-13 as `0eb3ce15`). See `docs/PR_COMMANDER.md`. This note
+> changes no protocol rule.
 
 This file is the sole executable owner of the general agent startup and
 completion flows. The Bible owns doctrine, Repository Governance owns branch,
