@@ -167,6 +167,8 @@ export interface EstimateHints {
   openQuestions: string[];
   citations: AssessmentCitation[];
   disclaimer: string;
+}
+
 /**
  * Codes & Permits governed source registry — contract types (issue #946,
  * TODO 3: official source/review pipeline).
