@@ -7,6 +7,16 @@ source_of_truth: false
 
 # TradeOS Technical Debt Register — 2026-08-13
 
+> Status note (2026-11-20): this register is a dated 2026-08-13 snapshot,
+> retained as a historical record — it is not current truth. Repository state
+> and live GitHub state are authoritative. Verified since the snapshot:
+> TD-007's PR #193 closed unmerged on 2026-08-14 and PR #194 merged on
+> 2026-08-14 as `55c34710`; TD-012's draft PR #191 merged on 2026-08-14 as
+> `57f4fe6d`.
+> The TD-011 branch lists are as of 2026-08-13 and must be revalidated live
+> before any deletion. The front-matter `last_verified` date is intentionally
+> left at the snapshot date.
+
 This register records the evidence-backed findings from the repository-wide technical-debt cleanup sprint that started from `origin/main` at `d4cdbc3c2df5425c399d5459f52aa8c51a9aaf0e`.
 
 The register is deliberately conservative: style preferences and search false positives are not treated as debt. Repository state and live GitHub state remain authoritative after this dated snapshot.
