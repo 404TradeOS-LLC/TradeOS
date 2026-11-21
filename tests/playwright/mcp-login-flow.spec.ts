@@ -207,7 +207,23 @@ test.describe('TradeOS sign-in workflow', () => {
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByText('Enter a valid email address.')).toBeVisible();
 
+    // The returning leg must genuinely select the returning schedule:
+    // LoginEntry remembers the visit on the first leg, so the flag must
+    // be set before the reload — and the reload must not clear it (the
+    // once-only guard above). The wall-clock bounds alone cannot tell a
+    // 4s first-visit film from a 2.5s returning film: a returning leg
+    // has measured 4.3s on a loaded runner, inside the 5s bound. These
+    // flag assertions are the deterministic schedule check; the bounds
+    // below still guard the ~23s overstay.
+    const visitedBeforeReload = await page.evaluate(() =>
+      window.localStorage.getItem('tradeos.entry.visited.v2'),
+    );
+    expect(visitedBeforeReload).toBe('1');
     await page.reload();
+    const visitedAfterReload = await page.evaluate(() =>
+      window.localStorage.getItem('tradeos.entry.visited.v2'),
+    );
+    expect(visitedAfterReload).toBe('1');
     const returning = await waitIntroTiming(page, 'returning intro');
     const returningMs = returning.removed - returning.added;
     console.log(
