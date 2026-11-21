@@ -18,20 +18,18 @@ The existing `app/tests/rls.integration.ts` supplies direct database evidence fo
 | `invoice_line_items` | `enforces invoice-line reads through the parent invoice and project` | Parent invoice/project organization inheritance; passed |
 | `customer_portal_access_tokens` | `limits portal identity reads to the exact token or session credential` | Exact lookup hash; unrelated hash returns no rows |
 | `customers` | `enforces customer same/cross organization reads directly under RLS` | Restricted-role queries prove same-org rows visible and cross-org row hidden |
-| `customer_portal_sessions` | `limits portal identity reads to the exact token or session credential` passes; `excludes a same-organization customer session without its exact credential` passes; `keeps portal session context scoped to its customer and organization` fails | Exact hash lookup excludes unrelated credentials, including a sibling customer in the same organization. Request-context read returns no row because `runWithPortalDatabaseSession` sets `app.portal_session_id` but the forced lookup policy requires `app.portal_session_hash`. |
+| `customer_portal_sessions` | `keeps portal session context scoped to its customer and organization` | The request transaction receives the exact digest and exposes only the matching session. Separate credential tests cover wrong hashes and sibling customers. |
 
 The matrix also includes S053 Costbook inputs (`CostItem`, `Assembly`, `AssemblyItem`) and the S058 `InvoiceDelivery` journal. Their same/cross tenant test names are drawn from the existing focused Costbook and core integration files, which the validator scans under `app/tests/`.
 
 The tests use the disposable PostgreSQL integration database only. They create uniquely identified rows, run queries under the restricted application role and request context, and clean up their own fixtures. They do not access staging or production databases and do not modify schema, migrations, policy, roles, or authentication behavior.
 
-## Blocking gap
+## Portal request-context repair
 
-`CustomerPortalSession` is `GAP`, owned by Platform / Customer Portal. `app/modules/customer-portal/service.ts` hashes the bearer token while resolving a session, but `CustomerPortalContext` does not carry that hash into the middleware's later request transaction. `app/db/requestSession.ts` sets the portal session ID and customer/organization context without setting `app.portal_session_hash`; the current `customer_portal_sessions_lookup_policy` requires that hash. The live test preserves this as a failing assertion. A repair changes authentication/session context, which the S073 plan explicitly forbids without a separate protected decision. Do not mark S073 complete or merge this evidence as a passing certification until that decision and repair are handled.
+Merged PR #1001 makes the validated portal digest available to the request transaction. The S073 test now supplies its fixture digest to that helper and verifies the matching session is visible while sibling and cross-organization sessions are hidden.
 
 ## Validation
 
 `npm run s073:rls:check` checks the matrix against the current Prisma model/table mapping, mapped migration, explicit or same-loop enumerated ENABLE/FORCE and policy evidence, source owner, and named live integration tests for same-org, cross-org, and scope evidence. It also requires the independently maintained S051/S052-S060 table inventory. `npm run s073:rls:test` covers successful validation and fails closed for unowned gaps, missing migration, missing inventory rows, missing scope evidence, and detached loop evidence. Both are included in `npm run pr:test`.
-
-Review-fix verification: root PR tests 450/450; docs tests 40/40; App TypeScript check passed; disposable PostgreSQL integration passed 30 suites and 222/223 tests, with only the owned request-context session GAP failing.
 
 The matrix is evidence inventory, not browser acceptance for S052-S060. Those sprints retain their own authenticated non-production acceptance gates. A newly observed live policy failure must be recorded as an owned `GAP`; this branch does not authorize changing policy or migrations.

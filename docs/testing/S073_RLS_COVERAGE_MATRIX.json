@@ -384,11 +384,8 @@
       "sameOrg": "keeps portal session context scoped to its customer and organization",
       "crossOrg": "keeps portal session context scoped to its customer and organization",
       "scopeTest": "limits portal identity reads to the exact token or session credential",
-      "status": "GAP",
-      "routeServiceOwner": "app/modules/customer-portal/service.ts",
-      "blockingOwner": "Platform / Customer Portal",
-      "blockingTest": "keeps portal session context scoped to its customer and organization",
-      "blocker": "runWithPortalDatabaseSession does not set app.portal_session_hash, which the current forced session SELECT policy requires; updating auth/session behavior is outside S073 authorization."
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/customer-portal/service.ts"
     },
     {
       "model": "CostItem",

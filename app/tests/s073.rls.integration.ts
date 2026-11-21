@@ -169,8 +169,15 @@ describe("S073 release-critical direct row-level security evidence", () => {
   });
 
   it("keeps portal session context scoped to its customer and organization", async () => {
-    const visible = await runWithPortalDatabaseSession(app, { orgId: orgA, customerId: customerA, accessTokenId: tokenA, sessionId: sessionA }, async () =>
-      getRequestDatabaseClient()!.customerPortalSession.findMany({ where: { id: { in: [sessionA, sessionSiblingA, sessionB] } } }));
+    const visible = await runWithPortalDatabaseSession(
+      app,
+      { orgId: orgA, customerId: customerA, accessTokenId: tokenA, sessionId: sessionA },
+      async () => getRequestDatabaseClient()!.customerPortalSession.findMany({
+        where: { id: { in: [sessionA, sessionSiblingA, sessionB] } },
+      }),
+      "customer_portal",
+      sessionHashA
+    );
     expect(visible.map((row) => row.id)).toEqual([sessionA]);
   });
 
