@@ -147,6 +147,12 @@ export interface FetchOfficialSourceOptions {
  * hard byte cap and is returned only for hashing — callers must not persist
  * it (see `./ingestion.ts`).
  *
+ * Each hop's deadline stays armed until that hop's body is fully read or
+ * cancelled, so a slow body cannot outlive the documented timeout; unused
+ * bodies (redirect, non-2xx, declared-oversize) are cancelled, never
+ * buffered. A body that is cut short early is cancelled so it cannot
+ * retain connection resources.
+ *
  * Throws `ApiError` 502 on fetch failure / non-2xx / oversize body, 504 on
  * timeout. The source URL itself is never logged here.
  */
@@ -159,97 +165,117 @@ export async function fetchOfficialSourceBytes(
   const maxBytes = options.maxBytes ?? CODES_SOURCE_MAX_BYTES;
 
   let current = assertOfficialSourceUrl(sourceUrl);
-  let response: Response | null = null;
 
   for (let hop = 0; hop <= CODES_SOURCE_MAX_REDIRECTS; hop += 1) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      response = await fetchImpl(current.toString(), {
+      const response = await fetchImpl(current.toString(), {
         method: "GET",
         headers: { "User-Agent": USER_AGENT, Accept: "*/*" },
         redirect: "manual",
         signal: controller.signal,
       });
+
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        if (!location) {
+          throw new ApiError(502, "Official source redirect had no Location");
+        }
+        if (hop === CODES_SOURCE_MAX_REDIRECTS) {
+          throw new ApiError(502, "Official source redirect limit exceeded");
+        }
+        let next: URL;
+        try {
+          next = new URL(location, current);
+        } catch {
+          throw new ApiError(502, "Official source redirect Location is not a valid URL");
+        }
+        // Re-validate the redirect target before following it. A redirect
+        // off the allowlist is refused, never followed.
+        current = assertOfficialSourceUrl(next.toString());
+        // The redirect body is unused: cancel it instead of buffering it,
+        // so a large redirect body cannot bypass the memory cap.
+        await cancelResponseBody(response);
+        continue;
+      }
+
+      if (!response.ok) {
+        await cancelResponseBody(response);
+        throw new ApiError(502, `Official source fetch failed with HTTP ${response.status}`);
+      }
+
+      const contentLength = response.headers.get("content-length");
+      if (contentLength !== null) {
+        const declared = Number(contentLength);
+        if (!Number.isFinite(declared) || declared < 0 || declared > maxBytes) {
+          // Declared oversize: cancel without reading the body at all.
+          await cancelResponseBody(response);
+          throw new ApiError(502, "Official source response exceeds the maximum fetch size");
+        }
+      }
+
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      const body = response.body;
+      if (!body) {
+        throw new ApiError(502, "Official source response had no body");
+      }
+      const reader = body.getReader();
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            total += value.byteLength;
+            if (total > maxBytes) {
+              throw new ApiError(502, "Official source response exceeds the maximum fetch size");
+            }
+            chunks.push(value);
+          }
+        }
+      } catch (error) {
+        // Early exit (cap exceeded or read failure): cancel the body so an
+        // unfinished response cannot retain connection resources. A
+        // successful read through EOF never reaches this path.
+        await reader.cancel().catch(() => undefined);
+        throw error;
+      } finally {
+        reader.releaseLock();
+      }
+
+      const bytes = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
+      return {
+        bytes,
+        sourceHash: computeSourceHash(bytes),
+        fetchedBytes: total,
+        finalUrl: current.toString(),
+        contentType: response.headers.get("content-type"),
+      };
     } catch (error) {
       if (controller.signal.aborted) {
         throw new ApiError(504, "Official source fetch timed out");
+      }
+      if (error instanceof ApiError) {
+        throw error;
       }
       throw new ApiError(502, `Official source fetch failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       clearTimeout(timeout);
     }
-
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get("location");
-      if (!location) {
-        throw new ApiError(502, "Official source redirect had no Location");
-      }
-      if (hop === CODES_SOURCE_MAX_REDIRECTS) {
-        throw new ApiError(502, "Official source redirect limit exceeded");
-      }
-      let next: URL;
-      try {
-        next = new URL(location, current);
-      } catch {
-        throw new ApiError(502, "Official source redirect Location is not a valid URL");
-      }
-      // Re-validate the redirect target before following it. A redirect
-      // off the allowlist is refused, never followed.
-      current = assertOfficialSourceUrl(next.toString());
-      // Drain the redirect body before the next hop.
-      await response.arrayBuffer().catch(() => undefined);
-      continue;
-    }
-    break;
   }
 
-  if (!response) {
-    throw new ApiError(502, "Official source fetch produced no response");
-  }
-  if (!response.ok) {
-    await response.arrayBuffer().catch(() => undefined);
-    throw new ApiError(502, `Official source fetch failed with HTTP ${response.status}`);
-  }
+  // Unreachable: every hop either returns, throws, or (redirects below the
+  // limit) continues; the final hop throws on a redirect.
+  throw new ApiError(502, "Official source fetch produced no response");
+}
 
-  const contentLength = response.headers.get("content-length");
-  if (contentLength !== null) {
-    const declared = Number(contentLength);
-    if (!Number.isFinite(declared) || declared < 0 || declared > maxBytes) {
-      await response.arrayBuffer().catch(() => undefined);
-      throw new ApiError(502, "Official source response exceeds the maximum fetch size");
-    }
-  }
-
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  const body = response.body;
-  if (!body) {
-    throw new ApiError(502, "Official source response had no body");
-  }
-  const reader = body.getReader();
+/** Best-effort cancel of an unused response body; never throws. */
+async function cancelResponseBody(response: Response): Promise<void> {
   try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        total += value.byteLength;
-        if (total > maxBytes) {
-          throw new ApiError(502, "Official source response exceeds the maximum fetch size");
-        }
-        chunks.push(value);
-      }
-    }
-  } finally {
-    reader.releaseLock();
+    await response.body?.cancel();
+  } catch {
+    // Already consumed, errored, or a test double without a cancellable
+    // body — there is nothing left to release.
   }
-
-  const bytes = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
-  return {
-    bytes,
-    sourceHash: computeSourceHash(bytes),
-    fetchedBytes: total,
-    finalUrl: current.toString(),
-    contentType: response.headers.get("content-type"),
-  };
 }
