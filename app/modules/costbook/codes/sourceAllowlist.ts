@@ -16,7 +16,7 @@
  * - Redirects are followed manually, at most 3 hops, with the allowlist
  *   re-checked on every hop. A redirect off the allowlist is refused, not
  *   followed.
- * - 15 s per-request timeout, 5 MiB response cap. The bytes are hashed
+ * - 15 s timeout per fetch hop, 5 MiB response cap. The bytes are hashed
  *   (sha256) and discarded — full code text is never stored, parsed, or
  *   logged, so copyrighted model-code text cannot leak into the database.
  *
@@ -42,7 +42,7 @@ import { ApiError } from "../../../backend/middleware/errorHandler";
  */
 export const OFFICIAL_CODES_SOURCE_HOSTS = ["vigocounty.in.gov", "in.gov"] as const;
 
-/** Per-request timeout for official-source fetches. */
+/** Per-hop timeout for official-source fetches: each redirect hop gets its own deadline. */
 export const CODES_SOURCE_FETCH_TIMEOUT_MS = 15_000;
 /** Maximum official-source response body accepted for hashing. */
 export const CODES_SOURCE_MAX_BYTES = 5 * 1024 * 1024;

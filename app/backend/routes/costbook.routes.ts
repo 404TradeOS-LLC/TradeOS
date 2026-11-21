@@ -16,6 +16,19 @@ import { costbookCodesIngestionController as codesIngestionCtrl } from "../contr
 
 export const costbookRouter = Router();
 
+/**
+ * Ingest-only router, mounted in server.ts after requireAuth but BEFORE
+ * databaseSession (same pattern as recoverableInvoiceCreateRouter): the
+ * official-source fetch must complete before any database transaction
+ * opens and without holding a pooled connection. The handler is still
+ * JWT-authenticated and permission-gated (costbook.manage); the store
+ * opens its own transaction for the persist phase and satisfies the
+ * ingestion RLS write gate with the transaction-local
+ * app.codes_ingestion flag.
+ */
+export const costbookCodesIngestionRouter = Router();
+costbookCodesIngestionRouter.post("/codes/sources/ingest", asyncHandler(codesIngestionCtrl.ingest));
+
 costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
 // Advisory official references only: no pricing, permit approval or parcel determination.
 costbookRouter.get("/codes", asyncHandler(costbookCodesController.list));
@@ -134,11 +147,15 @@ costbookRouter.post("/candidates/:id/promote", asyncHandler(candidateCtrl.promot
 // Governed Codes & Permits source/review pipeline (issue #946, TODO 3; see
 // docs/architecture/COSTBOOK_CODES_INGESTION.md). The reference tables are
 // global-read, but every write goes through the ingestion service only:
+// approve/reject are the only paths to `reviewed`/`superseded`.
 // POST /ingest fetches exactly one allowlisted official URL (explicit human
 // trigger — no background fetch, scraper, or cron) and versions it as
-// `research`; approve/reject are the only paths to `reviewed`/`superseded`.
+// `research`. It lives in costbookCodesIngestionRouter (mounted in
+// server.ts BEFORE databaseSession) instead of costbookRouter: the fetch
+// must complete before any database transaction opens and without holding a
+// pooled connection, and every route in costbookRouter runs inside the
+// request-scoped database session. Do not move it back here.
 // Static segments must precede "/:id" so they are not parsed as a source id.
-costbookRouter.post("/codes/sources/ingest", asyncHandler(codesIngestionCtrl.ingest));
 costbookRouter.get("/codes/sources/review-queue", asyncHandler(codesIngestionCtrl.reviewQueue));
 costbookRouter.get("/codes/sources", asyncHandler(codesIngestionCtrl.list));
 costbookRouter.get("/codes/sources/:id", asyncHandler(codesIngestionCtrl.getById));

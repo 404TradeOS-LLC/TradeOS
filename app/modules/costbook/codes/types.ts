@@ -217,7 +217,8 @@ export type CodeSourceStatus = "research" | "reviewed" | "superseded";
 /** One version row of `codes_source`, exactly the TODO 2 columns. */
 export interface CodeSourceRow {
   id: string;
-  jurisdictionId: string;
+  /** NULLABLE in TODO 2 (`jurisdiction_id uuid NULL`): a source may have no specific jurisdiction. */
+  jurisdictionId: string | null;
   authorityId: string;
   codeFamily: string;
   section: string | null;

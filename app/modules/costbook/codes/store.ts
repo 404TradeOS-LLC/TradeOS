@@ -127,7 +127,7 @@ export interface CodesSourceStore {
 /** Raw row shape returned by the SELECTs below (pg driver types). */
 interface CodeSourceRawRow {
   id: string;
-  jurisdiction_id: string;
+  jurisdiction_id: string | null;
   authority_id: string;
   code_family: string;
   section: string | null;

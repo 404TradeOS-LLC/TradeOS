@@ -17,6 +17,7 @@ import type {
   SourceIdentity,
 } from "../modules/costbook/codes/store";
 import type { CodeSourceRow, CodeSourceStatus } from "../modules/costbook/codes/types";
+import { toCodeSourceDTO } from "../modules/costbook/codes/types";
 
 const textEncoder = new TextEncoder();
 const JURISDICTION_ID = "10000000-0000-0000-0000-000000000001";
@@ -190,6 +191,33 @@ describe("governed codes source ingestion service", () => {
     expect(Object.keys(stored).sort()).toEqual(
       ["id", "jurisdictionId", "authorityId", "codeFamily", "section", "citation", "title", "sourceUrl", "sourceHash", "licenseNote", "publishedDate", "amendedDate", "effectiveDate", "expiryDate", "status", "reviewedAt", "reviewedBy", "versionLabel", "supersedesId"].sort(),
     );
+  });
+
+  it("preserves a NULL jurisdiction_id through toCodeSourceDTO (TODO 2 column is nullable)", () => {
+    const row: CodeSourceRow = {
+      id: "00000000-0000-4000-8000-000000000001",
+      jurisdictionId: null,
+      authorityId: AUTHORITY_ID,
+      codeFamily: "sign-permits",
+      section: null,
+      citation: "INDOT — Outdoor Advertising Sign Permits",
+      title: "INDOT outdoor advertising sign permits",
+      sourceUrl: SOURCE_URL,
+      sourceHash: "a".repeat(64),
+      licenseNote: null,
+      publishedDate: null,
+      amendedDate: null,
+      effectiveDate: null,
+      expiryDate: null,
+      status: "reviewed",
+      reviewedAt: null,
+      reviewedBy: null,
+      versionLabel: null,
+      supersedesId: null,
+    };
+    const dto = toCodeSourceDTO({ ...row, hasNewerVersion: false });
+    expect(dto.jurisdictionId).toBeNull();
+    expect(dto.warnings).toEqual([]);
   });
 
   it("stores source-stated dates when the caller supplies them", async () => {
