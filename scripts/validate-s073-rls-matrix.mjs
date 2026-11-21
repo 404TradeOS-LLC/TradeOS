@@ -9,7 +9,7 @@ const REQUIRED_TABLES = [
   "contracts", "contract_events", "jobs", "job_assignments", "job_expenses", "job_expense_events",
   "project_tasks", "activity_events", "invoices", "invoice_line_items", "payments",
   "customer_portal_access_tokens", "customer_portal_sessions", "cost_items", "assemblies",
-  "assembly_items", "invoice_deliveries",
+  "assembly_items", "materials", "labor_rates", "equipment", "invoice_deliveries",
 ];
 
 export function validateMatrix({ rootDir = root, matrix = JSON.parse(fs.readFileSync(path.join(rootDir, "docs/testing/S073_RLS_COVERAGE_MATRIX.json"), "utf8")) } = {}) {

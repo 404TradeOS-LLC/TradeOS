@@ -436,6 +436,54 @@
       "routeServiceOwner": "app/modules/assemblies-database/service.ts"
     },
     {
+      "model": "Material",
+      "table": "materials",
+      "journeys": [
+        "scope-estimate"
+      ],
+      "role": "primary",
+      "tenantSource": "org_id direct",
+      "migration": "20260623180000_enable_org_rls/migration.sql",
+      "policy": "materials generated tenant select/write policy family",
+      "sameOrg": "scopes materials by organization at the database layer",
+      "crossOrg": "scopes materials by organization at the database layer",
+      "scopeTest": "scopes materials by organization at the database layer",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/cost-database/service.ts"
+    },
+    {
+      "model": "LaborRate",
+      "table": "labor_rates",
+      "journeys": [
+        "scope-estimate"
+      ],
+      "role": "primary",
+      "tenantSource": "org_id direct",
+      "migration": "20260623180000_enable_org_rls/migration.sql",
+      "policy": "labor_rates generated tenant select/write policy family",
+      "sameOrg": "scopes labor rates by organization at the database layer",
+      "crossOrg": "scopes labor rates by organization at the database layer",
+      "scopeTest": "scopes labor rates by organization at the database layer",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/cost-database/service.ts"
+    },
+    {
+      "model": "Equipment",
+      "table": "equipment",
+      "journeys": [
+        "scope-estimate"
+      ],
+      "role": "primary",
+      "tenantSource": "org_id direct",
+      "migration": "20260623180000_enable_org_rls/migration.sql",
+      "policy": "equipment generated tenant select/write policy family",
+      "sameOrg": "keeps equipment reads scoped to the authenticated organization",
+      "crossOrg": "keeps equipment reads scoped to the authenticated organization",
+      "scopeTest": "keeps equipment reads scoped to the authenticated organization",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/cost-database/service.ts"
+    },
+    {
       "model": "InvoiceDelivery",
       "table": "invoice_deliveries",
       "journeys": [
