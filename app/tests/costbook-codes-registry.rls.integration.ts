@@ -222,7 +222,15 @@ describe("Codes & Permits registry RLS", () => {
       -- 20261109220000_add_codes_job_assessment). Its tenant isolation is
       -- proven by the assessment RLS tests in app/tests/rls.integration.ts,
       -- not by this registry-purity invariant.
+      -- codes_permit_task and codes_fee_review are the same shape (issue
+      -- #946 TODO 5, migration
+      -- 20261110000000_add_codes_permit_tasks_fee_reviews): tenant-scoped
+      -- job data with org_id + FORCE RLS and org-scoped policies; their
+      -- tenant isolation is proven by the permit-task / fee-review RLS
+      -- tests in app/tests/rls.integration.ts, not by this invariant.
       AND table_name <> 'codes_job_assessment'
+      AND table_name <> 'codes_permit_task'
+      AND table_name <> 'codes_fee_review'
     `;
     expect(columns.length).toBeGreaterThan(0);
     for (const column of columns) {
