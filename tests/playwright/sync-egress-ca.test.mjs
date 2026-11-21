@@ -10,6 +10,7 @@ import {
 
 const LIVE_FP = "7D:C1:DA:D3:29:0D:37:85:DD:44:3C:EB:45:62:C5:E0:AB:75:FA:D5:B6:33:2E:A8:33:94:FF:13:EC:53:36:91";
 const STALE_FP = "AE:25:5F:18:02:2D:29:F6:84:74:78:FF:93:6D:47:C5:FC:63:10:AA:F9:41:67:B4:1D:BE:88:62:D3:43:11:D2";
+const ROTATED_FP = "3A:7F:9C:1B:44:2E:88:0D:5A:6B:1C:2D:3E:4F:50:61:72:83:94:A5:B6:C7:D8:E9:F0:01:12:23:34:45:56:67";
 const CA_PATH = "/run/hatch/egress-tls/hatch-egress-ca.pem";
 const PROFILE = "/home/hatch/.config/tradeos-mcp/firefox-profile";
 
@@ -19,29 +20,38 @@ const env = {
 };
 
 // Fake certutil/openssl: the profile holds one nickname whose PEM maps to a
-// fingerprint; the live CA file always maps to LIVE_FP.
-function makeDeps({ profilePem = null, addFails = false, noCertutil = false } = {}) {
+// fingerprint; the live CA file maps to LIVE_FP (or ROTATED_FP after a
+// simulated rotation). `rotateOnDelete` moves the live CA to ROTATED_FP
+// when the old profile certificate is deleted, i.e. between the pre-import
+// check and the import.
+function makeDeps({ profilePem = null, addFails = false, noCertutil = false, noOpenssl = false, rotateOnDelete = false } = {}) {
   let profile = profilePem; // null = nickname absent; "PROFILE-PEM" = stale cert
+  let livePem = "LIVE-PEM";
   const calls = [];
   const deps = {
     calls,
     exists: (path) => path === CA_PATH,
     readFile: (path) => {
       if (path !== CA_PATH) throw new Error(`ENOENT: no such file ${path}`);
-      return "LIVE-PEM";
+      return livePem;
     },
     run: (command, args, options) => {
       calls.push([command, ...args]);
+      if (noOpenssl && command === "openssl") {
+        return { error: new Error("spawn openssl ENOENT"), status: null, stdout: "", stderr: "" };
+      }
       if (noCertutil && command === "certutil") {
         return { error: new Error("spawn certutil ENOENT"), status: null, stdout: "", stderr: "" };
       }
       if (command === "openssl") {
         const input = options?.input ?? "";
-        const fp = input.includes("LIVE-PEM")
-          ? LIVE_FP
-          : input.includes("PROFILE-PEM")
-            ? STALE_FP
-            : "";
+        const fp = input.includes("ROTATED-PEM")
+          ? ROTATED_FP
+          : input.includes("LIVE-PEM")
+            ? LIVE_FP
+            : input.includes("PROFILE-PEM")
+              ? STALE_FP
+              : "";
         return { status: fp ? 0 : 1, stdout: `SHA256 Fingerprint=${fp}\n`, stderr: "" };
       }
       if (command === "certutil" && args[0] === "-L") {
@@ -54,11 +64,12 @@ function makeDeps({ profilePem = null, addFails = false, noCertutil = false } = 
       }
       if (command === "certutil" && args[0] === "-D") {
         profile = null;
+        if (rotateOnDelete) livePem = "ROTATED-PEM";
         return { status: 0, stdout: "", stderr: "" };
       }
       if (command === "certutil" && args[0] === "-A") {
         if (addFails) return { status: 1, stdout: "", stderr: "add failed" };
-        profile = "LIVE-PEM";
+        profile = livePem;
         return { status: 0, stdout: "", stderr: "" };
       }
       return { status: 1, stdout: "", stderr: "unexpected call" };
@@ -128,6 +139,29 @@ test("skipped when no profile directory is configured (live CA still reported)",
   assert.equal(checked.state, "skipped");
   assert.equal(checked.liveFingerprint, LIVE_FP);
   assert.equal(syncEgressCa(noProfile, deps).state, "skipped");
+});
+
+test("sync mode skips before reading the CA when no profile is configured (openssl absent)", () => {
+  // The launcher promises exit 0 without a configured profile, but reading
+  // the CA shells out to openssl — with openssl unavailable the old code
+  // failed the launch even though there was nothing to sync.
+  const deps = makeDeps({ noOpenssl: true });
+  const noProfile = { TRADEOS_EGRESS_CA_PATH: CA_PATH };
+  const synced = syncEgressCa(noProfile, deps);
+  assert.equal(synced.state, "skipped");
+  assert.equal(deps.calls.filter(([c]) => c === "openssl").length, 0);
+});
+
+test("sync verifies against the live CA re-read after import (rotation mid-sync)", () => {
+  // The CA rotates within minutes: it can change between the pre-import
+  // check and the import. The imported certificate is the current one, so
+  // the post-import check must compare against a freshly read live
+  // fingerprint, not the one recorded before the import.
+  const deps = makeDeps({ profilePem: "PROFILE-PEM", rotateOnDelete: true });
+  const synced = syncEgressCa(env, deps);
+  assert.equal(synced.state, "synced");
+  assert.equal(synced.liveFingerprint, ROTATED_FP);
+  assert.equal(synced.profileFingerprint, ROTATED_FP);
 });
 
 test("failed add throws a clear, actionable error", () => {

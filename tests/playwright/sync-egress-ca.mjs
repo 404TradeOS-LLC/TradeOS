@@ -160,9 +160,22 @@ export function checkEgressCa(env = {}, deps = defaultDeps) {
  * clear, actionable message on any hard failure.
  */
 export function syncEgressCa(env = {}, deps = defaultDeps) {
+  const { caPath, profileDir, nickname } = describeSyncTarget(env);
+  // In sync mode, skip before reading the CA when no profile is
+  // configured: reading the CA shells out to openssl, and when openssl is
+  // unavailable the launcher would fail even though there is nothing to
+  // sync (the launcher promises exit 0 without a profile). --check still
+  // reports the live fingerprint through checkEgressCa.
+  if (!profileDir) {
+    return {
+      state: "skipped",
+      reason: `${PROFILE_ENV_VAR} is not set; no persistent Firefox profile to sync`,
+      liveFingerprint: "",
+      profileFingerprint: "",
+    };
+  }
   const checked = checkEgressCa(env, deps);
   if (checked.state !== "stale") return checked;
-  const { caPath, profileDir, nickname } = describeSyncTarget(env);
   if (checked.profileFingerprint) {
     // certutil -A refuses to replace an existing nickname, so delete first.
     deps.run("certutil", ["-D", "-d", `sql:${profileDir}`, "-n", nickname]);
@@ -189,14 +202,19 @@ export function syncEgressCa(env = {}, deps = defaultDeps) {
     );
   }
   const after = profileFingerprint(profileDir, nickname, deps);
-  if (!after || normalizeFingerprint(after) !== normalizeFingerprint(checked.liveFingerprint)) {
+  // Re-read the live CA after the import: the CA rotates within minutes,
+  // so the fingerprint recorded by the pre-import check can already be
+  // stale. Comparing the profile against that value would report a
+  // successful re-sync as a failure whenever the CA rotated mid-sync.
+  const freshLive = liveFingerprint(caPath, deps);
+  if (!after || normalizeFingerprint(after) !== normalizeFingerprint(freshLive)) {
     throw new Error(
       `sync-egress-ca: re-sync did not take effect; the profile CA still does not match ${caPath}. Re-run with --check to diagnose.`,
     );
   }
   return {
     state: "synced",
-    liveFingerprint: checked.liveFingerprint,
+    liveFingerprint: freshLive,
     profileFingerprint: after,
     reason: "profile CA re-synced to the live egress CA",
   };
