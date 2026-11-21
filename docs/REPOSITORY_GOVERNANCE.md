@@ -737,6 +737,21 @@ write authority or release certification. The standard `playwright.config.ts`,
 GitHub Actions evidence workflows, environment approvals, and governed
 authenticated release path retain their independent validation requirements.
 
+The MCP Firefox browser is portable and environment-aware: the config reads
+its egress proxy from `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` (either
+case) at runtime and never hardcodes a proxy address or credential, the seed
+forwards the resolved proxy into the persistent Firefox context (which does
+not inherit the config's `use.proxy`), proxy credentials travel as separate
+`username` / `password` fields because Playwright drops userinfo from
+`server`, and the sandbox egress CA is re-synced into the persistent Firefox
+profile at every MCP launch (`tests/playwright/sync-egress-ca.mjs`, run by
+`mcp-server.mjs` before the server starts) because that CA rotates within
+minutes — a profile synced once at setup time goes stale and every HTTPS
+navigation fails with `SEC_ERROR_UNKNOWN`. Diagnose staleness in seconds with
+`node tests/playwright/sync-egress-ca.mjs --check` (exit 2 when stale).
+TLS validation stays fully on: never add `ignoreHTTPSErrors`, and never
+commit a temporary local relay.
+
 ## Production Costbook 47802 supplier evidence seed
 
 **Restricted-role connection invariant:** The seed must never run supplier writes under `DATABASE_ADMIN_URL`. Use `DATABASE_URL` when it points to the restricted app role; otherwise derive an app-role URL only when both the elevated connection reference and app-role password are present in the protected production environment. A Supavisor session-pooler URL must preserve the tenant project-ref suffix when substituting the `tradeos_app` (or explicitly provisioned app role) username. Reject missing credentials, a PostgreSQL URL with an invalid protocol, malformed pooler usernames, and any attempted reuse of the administrative role. Keep URLs and passwords out of logs and PRs. Exact workflow regression tests must prove direct and pooler cases, and the production import still requires its separate explicit confirmation and owner/admin membership boundary.

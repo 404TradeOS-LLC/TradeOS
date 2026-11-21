@@ -9,6 +9,8 @@ const launcher = fs.readFileSync("tests/playwright/mcp-server.mjs", "utf8");
 const mcpConfig = fs.readFileSync("playwright.mcp.config.ts", "utf8");
 const repoMcpConfig = JSON.parse(fs.readFileSync(".mcp.json", "utf8"));
 const authenticated = fs.readFileSync("tests/playwright/authenticated.spec.ts", "utf8");
+const seed = fs.readFileSync("tests/playwright/seed.spec.ts", "utf8");
+const proxyEnv = fs.readFileSync("tests/playwright/proxy-env.mjs", "utf8");
 
 test("Playwright agent evidence workflow stays manual, read-only, and Chromium-only", () => {
   assert.match(workflow, /workflow_dispatch:/);
@@ -58,6 +60,25 @@ test("agent MCP project selects Firefox, not Chromium", () => {
   assert.match(mcpConfig, /name: 'firefox'/);
   assert.match(mcpConfig, /devices\['Desktop Firefox'\]/);
   assert.doesNotMatch(mcpConfig, /Desktop Chrome/);
+});
+
+test("agent MCP proxy reaches the interactive page, not just the config", () => {
+  // launchPersistentContext builds its own options and does not inherit the
+  // config's `use.proxy`, so the seed must forward the resolved proxy into
+  // both contexts explicitly — otherwise the interactive page would browse
+  // without the environment proxy while the config claims it is set.
+  assert.match(mcpConfig, /resolveMcpProxy\(process\.env\)/);
+  assert.match(mcpConfig, /proxy: mcpProxy/);
+  assert.match(seed, /import \{ resolveMcpProxy \} from '\.\/proxy-env\.mjs'/);
+  assert.match(seed, /const mcpProxy = resolveMcpProxy\(process\.env\)/);
+  assert.match(seed, /launchPersistentContext\(userDataDir, \{[\s\S]*?\.\.\.\(mcpProxy \? \{ proxy: mcpProxy \} : \{\}\)/);
+  assert.match(seed, /browser\.newContext\(\{[\s\S]*?\.\.\.\(mcpProxy \? \{ proxy: mcpProxy \} : \{\}\)/);
+  // Credentials travel as Playwright's username/password fields, never as
+  // userinfo in `server`: Playwright's normalization rebuilds `server`
+  // from protocol + host and would silently drop embedded credentials.
+  assert.match(proxyEnv, /proxy\.username = decodeURIComponent\(parsed\.username\)/);
+  assert.match(proxyEnv, /proxy\.password = decodeURIComponent\(parsed\.password\)/);
+  assert.doesNotMatch(proxyEnv, /server: found\.value/);
 });
 
 test("Codex test agents can write the plans and specs they are assigned to create", () => {
