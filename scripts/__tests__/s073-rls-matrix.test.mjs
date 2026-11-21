@@ -68,7 +68,11 @@ test("named policy on the wrong table fails the ON-target check", () => {
   assert.notEqual(decoy, migration);
   const tempRoot = fs.mkdtempSync(path.join(root, ".s073-validator-"));
   try {
-    fs.cpSync(path.join(root, "app"), path.join(tempRoot, "app"), { recursive: true });
+    // Same exclusion as the loop-null test: the validator only reads schema,
+    // migrations, integration sources, and referenced owner files.
+    const excludedDirs = new Set(["node_modules", ".next", "dist", "coverage", "out"]);
+    const copyFilter = (src) => !src.split(path.sep).some((part) => excludedDirs.has(part));
+    fs.cpSync(path.join(root, "app"), path.join(tempRoot, "app"), { recursive: true, filter: copyFilter });
     fs.cpSync(path.join(root, "docs"), path.join(tempRoot, "docs"), { recursive: true });
     fs.cpSync(path.join(root, "scripts"), path.join(tempRoot, "scripts"), { recursive: true });
     fs.writeFileSync(path.join(tempRoot, migrationRel), decoy);
