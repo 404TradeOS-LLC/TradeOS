@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-03
+last_verified: 2026-11-20
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -18,7 +18,7 @@ Status vocabulary: `DONE`, `IN_REVIEW`, `READY`, `BLOCKED`, `PLANNED`, `DEFERRED
 
 This document owns current sprint status and merge evidence. Governance doctrine belongs in `docs/TRADEOS_BIBLE.md`; the sole executable startup and completion flows belong in `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.
 
-- **Autonomous engineering execution contract — PR #979 (proposed, non-numbered):** Standing founder direction permits sequential, separately reconciled eligible bounded missions and safe dependency/tool recovery without routine approval prompts; it does not change any numbered sprint status, dependency, readiness, ownership, release certification, protected approval or review requirement. PR #979 is documentation-only and remains subject to exact-head CI and review. Runtime PR Commander repair orchestration is a separate implementation task; policy text alone is not working automation.
+- **Autonomous engineering execution contract — PR #979 (merged 2026-11-13 as `e30b8d4a`, non-numbered):** Standing founder direction permits sequential, separately reconciled eligible bounded missions and safe dependency/tool recovery without routine approval prompts; it does not change any numbered sprint status, dependency, readiness, ownership, release certification, protected approval or review requirement. PR #979 is documentation-only. The PR Commander runtime is live since PR #964 (merged 2026-11-11 as `0526b61f`, armed since 2026-11-11), with the fail-closed gates from PR #980 (merged 2026-11-13 as `a7b70cc2`) and PR #981 (merged 2026-11-13 as `0eb3ce15`); see `docs/PR_COMMANDER.md`.
 
 ## Parallel founder-authorized work (non-numbered)
 
@@ -753,7 +753,7 @@ Release certification prerequisites: S056
 Objective: Connect schedule visits, Jobs, technician assignments, conflicts, and rescheduling into one consistent calendar experience.
 Acceptance: create/edit/move actions share canonical time/conflict rules and refresh Today, Dispatch, project, and field surfaces consistently.
 Readiness reconciliation (2026-10-04): current main `a74519f68100c04f5c0c42134c21e6fb64a05e42`; no open S067 PR or remote S067 branch exists. The existing `/dispatch` workspace already owns Day/Week/Crew schedule views, an unscheduled Job planning tray, technician assignment actions, conflict preview, and schedule/reschedule mutations against the canonical Job scheduling contract. `SiteVisit` already has an optional `jobId`; the backend accepts only an unarchived Job in the authenticated organization and same Project, but the current web Site Visit DTO/capture flow does not link a visit to that Job. Universal Create's existing `schedule` destination opens Dispatch rather than inventing another calendar model. S067 implementation must therefore keep Job `scheduledStart`/`scheduledEnd`, assignment state, and the existing conflict engine as the sole scheduling authority; treat a future site visit as scheduled Job work and use the existing `SiteVisit.jobId` link when capture is performed from that Job. Preserve project-only intake when no Job context exists. Do not add a second visit-calendar table, schema/migration, new Job status, new role/permission, auth/RBAC/RLS policy, route optimization, GPS tracking, notification system, external-calendar sync, or drag-and-drop-only write path. A "move" is a normal conflict-aware reschedule through the established Job mutation, regardless of UI affordance. Founder decision: NO for this bounded continuity work; stop if implementation requires new scheduling policy, a new persistence model, or broader authorization. Required validation: focused schedule/visit continuity tests, existing Job conflict and controller/service tests when touched, full Web unit/lint/build coverage, docs ownership/governance, exact-head review/checks, and retained responsive/permission/tenant-negative/refresh evidence before DONE.
-Implementation status (2026-10-04): draft PR #644 is the sole S067 implementation lane. Its first bounded slice exposes the existing `SiteVisit.jobId` contract to the web DTO, lets owner/admin/dispatcher users open linked Site Visit capture from scheduled Dispatch/Project Job context, validates requested Job context against the Project's loaded unarchived Jobs before rendering, preserves Project-only intake when no valid Job context exists, forwards `jobId` through the existing Site Visit endpoint, revalidates Project/Today/Dispatch/Field after save, and labels linked Job history in the Project workspace. Focused helper/action/Dispatch/Site Visit contract tests are included. No backend scheduling rule, schema/migration, Job lifecycle, role/permission, auth/RBAC/RLS, provider, GPS/route, notification, or external-calendar behavior changes. Hosted verification/review and retained browser/permission/tenant-negative/refresh evidence remain open; S067 is not DONE or release-certified.
+Implementation status (2026-10-04): draft PR #644 is the sole S067 implementation lane. (Reconciliation 2026-11-20: PR #644 merged 2026-10-04 as `4824d61f`; it was the sole S067 implementation lane. The Status field above is unchanged by this note — completion-evidence reconciliation is a separate governance step.) Its first bounded slice exposes the existing `SiteVisit.jobId` contract to the web DTO, lets owner/admin/dispatcher users open linked Site Visit capture from scheduled Dispatch/Project Job context, validates requested Job context against the Project's loaded unarchived Jobs before rendering, preserves Project-only intake when no valid Job context exists, forwards `jobId` through the existing Site Visit endpoint, revalidates Project/Today/Dispatch/Field after save, and labels linked Job history in the Project workspace. Focused helper/action/Dispatch/Site Visit contract tests are included. No backend scheduling rule, schema/migration, Job lifecycle, role/permission, auth/RBAC/RLS, provider, GPS/route, notification, or external-calendar behavior changes. Hosted verification/review and retained browser/permission/tenant-negative/refresh evidence remain open; S067 is not DONE or release-certified.
 
 ### S068 — Change-order customer workflow
 
@@ -800,7 +800,7 @@ Status: READY
 Dependencies: S051
 Objective: Map every S052-S060 persisted resource to forced-RLS policy and live same-org/cross-org evidence.
 Acceptance: no critical resource is certified from application filters or mocks alone; gaps create blocking test ownership.
-Readiness reconciliation (2026-10-05): founder explicitly authorized S073. Current `main` at readiness start is `37deee0bad44d8c3ca4ad65f7e89d15190d7cae3`; S051 is DONE; live GitHub overlap found no S073 PR or branch. The S051 connection matrix is the journey inventory source, while current schema/migrations and route/service code are authoritative for the actual persisted-resource set. S041's repository-wide RLS inventory remains useful precedent but was last verified 2026-08-25 and predates later release-critical persistence including `customer_portal_access_tokens` and `customer_portal_sessions`, so S073 cannot certify from that dated document alone. Current PostgreSQL integration already proves several core Customer/Project/Estimate/Proposal/Contract/Job/Invoice/Task/Activity boundaries, but direct live evidence is absent in `app/tests/rls.integration.ts` for at least portal identity rows, `estimate_line_items`, and `invoice_line_items`. S073 is bounded to a current S052-S060 matrix, deterministic validation, and additive disposable-PostgreSQL evidence. No schema/migration, RLS-policy, role/permission, authentication, portal-principal, or product-behavior change is authorized by this readiness promotion. If evidence exposes a real policy defect, record a blocking `GAP` with an owned failing test and stop before any protected policy/migration change. See `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`.
+Readiness reconciliation (2026-10-05): founder explicitly authorized S073. Current `main` at readiness start is `37deee0bad44d8c3ca4ad65f7e89d15190d7cae3`; S051 is DONE; live GitHub overlap found no S073 PR or branch. (Reconciliation 2026-11-20: PR #1000 is now the S073 lane — draft, head `f0b70642`, CONFLICTING, labelled `status:do-not-merge`, App integration tests failing on head run `43771945332`. The "no S073 PR or branch" statement was true at readiness time only. Sprint status is unchanged by this note; repair-vs-demote is a founder decision.) The S051 connection matrix is the journey inventory source, while current schema/migrations and route/service code are authoritative for the actual persisted-resource set. S041's repository-wide RLS inventory remains useful precedent but was last verified 2026-08-25 and predates later release-critical persistence including `customer_portal_access_tokens` and `customer_portal_sessions`, so S073 cannot certify from that dated document alone. Current PostgreSQL integration already proves several core Customer/Project/Estimate/Proposal/Contract/Job/Invoice/Task/Activity boundaries, but direct live evidence is absent in `app/tests/rls.integration.ts` for at least portal identity rows, `estimate_line_items`, and `invoice_line_items`. S073 is bounded to a current S052-S060 matrix, deterministic validation, and additive disposable-PostgreSQL evidence. No schema/migration, RLS-policy, role/permission, authentication, portal-principal, or product-behavior change is authorized by this readiness promotion. If evidence exposes a real policy defect, record a blocking `GAP` with an owned failing test and stop before any protected policy/migration change. See `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`.
 Founder-decision boundary: NO for the bounded inventory/validator/additive live evidence; YES before any RLS policy, migration, role/permission, authentication, portal-principal, or production database change.
 Required validation: matrix/validator tests; focused `app/tests/rls.integration.ts` PostgreSQL evidence; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; and applicable App typecheck/unit/build/integration exact-head CI.
 
@@ -815,7 +815,7 @@ Acceptance: a transactional outbox or approved equivalent proves idempotent deli
 
 Status: BLOCKED
 Dependencies: S051
-Blocked by: open security PR #532 must be reviewed, merged or superseded, and deployed-environment bucket posture must be verified.
+Blocked by: open security PR #532 must be reviewed, merged or superseded, and deployed-environment bucket posture must be verified. (Reconciliation 2026-11-20: PR #532 merged 2026-09-22 as `cd304359`; the remaining blocker is the deployed-environment bucket posture verification.)
 Objective: Finish private-by-default project photo/document delivery and legacy-record handling.
 Acceptance: same-tenant authorized access works, guessed/cross-tenant paths fail, deletes are exact and recoverable, and live bucket/runtime configuration is proven.
 
@@ -870,7 +870,7 @@ Acceptance: precedence, effective dates, permissions, audit, historical estimate
 
 Status: BLOCKED
 Dependencies: S073
-Blocked by: dependency S073 remains PLANNED. PR #531 is no longer an implementation blocker; it merged on 2026-09-22 as `bfbca7f4cfc01dbd1c80bcae1c5e3b3ecdb249ed` and landed the tenant-scoped schema/RLS/import foundation.
+Blocked by: dependency S073 is READY but not DONE. PR #531 is no longer an implementation blocker; it merged on 2026-09-22 as `bfbca7f4cfc01dbd1c80bcae1c5e3b3ecdb249ed` and landed the tenant-scoped schema/RLS/import foundation.
 Objective: Land tenant-scoped regional supplier observations without silently changing current Material costs.
 Acceptance: migration/RLS rehearsal, idempotent import, unavailable observations, Carter catalog-only handling, review UI, and provenance pass before price promotion is considered.
 Reconciled continuation: PR #531 and the non-numbered Costbook Data Foundation PR #628 provide the persisted evidence, canonical-match, append-only observation, and provenance-aware resolver foundations. The bounded supplier-evidence review UI may advance independently as non-numbered Costbook product work, but S082 must remain BLOCKED until S073 is complete and the full S082 acceptance/evidence set is reconciled.
@@ -915,7 +915,7 @@ Acceptance: read context, recommendation, approval, execution, event/audit, refr
 
 Status: BLOCKED
 Dependencies: S058, S060
-Blocked by: open draft PR #507 is the single existing financial-summary lane and must be rebased, verified, and advanced rather than duplicated.
+Blocked by: open draft PR #507 is the single existing financial-summary lane and must be rebased, verified, and advanced rather than duplicated. (Reconciliation 2026-11-20: PR #507 merged 2026-10-02 as `2b0474cc`, so the open-draft lane no longer exists; the acceptance set in this record still needs a lane — advance from current `main`, do not duplicate the merged work.)
 Objective: Complete truthful cash, receivables, unsigned opportunity, and projected-margin intelligence with explicit coverage metadata.
 Acceptance: exact aggregation, missing-data semantics, tenant/RLS evidence, degraded UI, and current-head browser proof pass without claiming unavailable actual job margin.
 
@@ -930,7 +930,7 @@ Acceptance: source, quantity/rate, correction, attribution, audit, permissions, 
 
 Status: BLOCKED
 Dependencies: S071, S073, S079
-Blocked by: protected billing/schema PR #491 and sandbox provider configuration/evidence.
+Blocked by: protected billing/schema PR #491 and sandbox provider configuration/evidence. (Reconciliation 2026-11-20: PR #491 merged 2026-09-22 as `263243f4`; the remaining blocker is the sandbox provider configuration/evidence.)
 Objective: Resolve the existing Stripe subscription lane and certify Checkout, webhook projection, entitlements, portal, cancellation, retry, and tenant isolation.
 Acceptance: provider amounts match the server catalog, webhooks are authentic/idempotent, entitlements fail closed, migration/RLS pass, and sandbox lifecycle evidence is retained before live-mode consideration.
 
@@ -1017,21 +1017,21 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Costbook Data Foundation PR #628 is now landed on `main` as `8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf`. This was founder-authorized non-numbered work and therefore does not promote, complete, block, or otherwise change any numbered sprint. The landed foundation establishes the governed canonical pilot matcher, supplier-price evidence/resolution, and BLS benchmark boundaries described in the Costbook docs. QBO, ABC, 1build, broad retail ingestion/scraping, and any automatic repricing remain separate follow-up work and require their own governed implementation lane.
 
-S036 is complete through PR #476. PR #470 (the Costbook/Knowledge Engine audit) closed unmerged on 2026-09-12 without landing its findings. The 2026-09-22 successor-backlog reconciliation found 17 open PRs. Explicit gates are recorded where they overlap successor work: #520 gates S064; #532 gates S075; #531 gates S082; #507 gates S088; and #491 gates S090. Routine Dependabot and post-merge documentation PRs do not authorize or complete a numbered sprint. No open PR implements S051's repository-wide action-to-route matrix and drift validator.
+S036 is complete through PR #476. PR #470 (the Costbook/Knowledge Engine audit) closed unmerged on 2026-09-12 without landing its findings. The 2026-09-22 successor-backlog reconciliation found 17 open PRs. (Reconciliation 2026-11-20: 10 open PRs — #921, #960, #961, #962, #963, #988, #1000, #1007, #1008, #1009.) Explicit gates are recorded where they overlap successor work: #520 gates S064; #532 gates S075; #531 gates S082; #507 gates S088; and #491 gates S090. (Reconciliation 2026-11-20: all five gating PRs have since merged — #520 on 2026-09-22 as `cc12074e`, #532 on 2026-09-22 as `cd304359`, #531 on 2026-09-22 as `bfbca7f4`, #507 on 2026-10-02 as `2b0474cc`, #491 on 2026-09-22 as `263243f4`. The per-sprint `Blocked by` lines above carry the current blockers; this dated list is retained as the 2026-09-22 record.) Routine Dependabot and post-merge documentation PRs do not authorize or complete a numbered sprint. No open PR implements S051's repository-wide action-to-route matrix and drift validator.
 
 ## Active Sprint and Next Eligibility
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Active Sprint: S064 — Embedded assembly picker in estimate Items
-Completion status: S064 is `IN_REVIEW` in draft PR #624. The first slice adds installed-assembly cost/component preview and starter-recipe setup-required gating; inline mapping/install remains active work on the same branch. S053 remains `IN_REVIEW` as a separate release-certification prerequisite.
+Completion status: S064 is `IN_REVIEW`. Its implementation PR #624 merged 2026-10-02 as `8efb5f8d`. (Reconciliation 2026-11-20: the "draft PR #624" wording was stale; the Status field is unchanged — completion-evidence reconciliation is a separate governance step.) The first slice adds installed-assembly cost/component preview and starter-recipe setup-required gating; inline mapping/install remains active work on the same branch. S053 remains `IN_REVIEW` as a separate release-certification prerequisite.
 Dependencies: S064 depends on S051 for sprint governance; PR #520 and PR #560 are merged implementation prerequisites.
 Protected boundary: S064 must preserve explicit reviewed writes through Estimate Engine, provenance, setup-required behavior, pricing truth, and tenant isolation. No pricing-policy, schema, auth/RLS, or unreviewed AI-write expansion is authorized.
 
 ## Next Eligible Sprint
 
 Sprint ID: S073
-Eligibility: S073 is `READY`; dependency S051 is `DONE`; founder authorization is explicit; live overlap found no S073 PR or branch.
+Eligibility: S073 is `READY`; dependency S051 is `DONE`; founder authorization is explicit; live overlap found no S073 PR or branch. (Reconciliation 2026-11-20: PR #1000 is now the S073 lane — draft, head `f0b70642`, CONFLICTING, labelled `status:do-not-merge`, App integration tests failing. Status unchanged; repair-vs-demote is a founder decision.)
 Dependencies: S051 — DONE through merged PR #538.
 Overlap check: create one isolated S073 implementation branch only after this readiness PR merges. Existing S052/S053/S064/S066/S067 evidence or review lanes remain separate and must not be duplicated.
 Startup prompt: Execute S073 from current `main` using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`: derive the S052-S060 persisted-resource inventory from the S051 connection matrix/current route-service code, map each resource to exact forced-RLS policy/migration evidence, add missing disposable-PostgreSQL same-org/cross-org tests and deterministic matrix validation, and stop with an owned `GAP` before any schema/migration/RLS-policy/auth/permission change.

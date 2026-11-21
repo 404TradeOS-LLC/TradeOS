@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-03
+last_verified: 2026-11-20
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -48,9 +48,9 @@ related_code:
 
 # TradeOS Engineering Command Center
 
-## Autonomous coordinator execution — PR #979 (proposed)
+## Autonomous coordinator execution — PR #979 (merged 2026-11-13)
 
-Founder-requested default: `EXECUTE → VERIFY → RECONCILE → ADVANCE` for an approved engineering workstream. One coordinator checks actual connected tool capabilities and permissions, selects the highest-priority independent eligible task, repairs validated code/CI/review findings through the existing PR, runs exact-head gates, and advances after a fresh per-mission preflight. No new commander service, repo boundary, blanket production approval, automatic paid dependency installation, or unverified acceptance is implied. Current proposal updates AGENTS and the canonical next-sprint protocol; it does **not** assert that the PR Commander runtime or schedules now implement autonomous repair/dispatch. Implementing and proving that behavior remains a separate existing-work reconciliation task. See `docs/REPOSITORY_GOVERNANCE.md`.
+Founder-requested default: `EXECUTE → VERIFY → RECONCILE → ADVANCE` for an approved engineering workstream. One coordinator checks actual connected tool capabilities and permissions, selects the highest-priority independent eligible task, repairs validated code/CI/review findings through the existing PR, runs exact-head gates, and advances after a fresh per-mission preflight. No new commander service, repo boundary, blanket production approval, automatic paid dependency installation, or unverified acceptance is implied. PR #979 merged 2026-11-13 (`e30b8d4a`). The PR Commander runtime that implements autonomous repair/dispatch is live since PR #964 (merged 2026-11-11 as `0526b61f`, armed since 2026-11-11), with the fail-closed gates from PR #980 (merged 2026-11-13 as `a7b70cc2`) and PR #981 (merged 2026-11-13 as `0eb3ce15`). See `docs/PR_COMMANDER.md` and `docs/REPOSITORY_GOVERNANCE.md`.
 
 ## Invited beta mission — 2026-11-06
 
@@ -58,18 +58,16 @@ Founder-approved first cohort is 1–3 businesses, free, real work, readiness-ga
 
 ## Production database target preflight — pending source review (2026-11-12)
 
-The protected production migration workflow currently relies on its Environment and secrets but does not assert the admin URL's target project in-code before running Prisma. A separate draft proposal introduces an exact production Supabase project/region/port check in a nonsecret Node preflight step before schema migration, with negative tests for staging and spoofed pooler URLs. It leaves `main` push triggers and protected approvals unchanged; until reviewed and merged, this hardening is unshipped. It does **not** authorize applying PR #977, suppressing maintenance-window requirements, bypassing Env reviewers, or releasing PR #956.
+The protected production migration workflow currently relies on its Environment and secrets but does not assert the admin URL's target project in-code before running Prisma. A separate draft proposal introduces an exact production Supabase project/region/port check in a nonsecret Node preflight step before schema migration, with negative tests for staging and spoofed pooler URLs. It leaves `main` push triggers and protected approvals unchanged; until reviewed and merged, this hardening is unshipped. (Reconciliation 2026-11-20: the original clause about PR #977/#956 is spent — #977 merged 2026-11-13 as `99ccafcc` and #956 merged 2026-11-14 as `dfbe335d`. The preflight hardening itself remains unverified.)
 
-## PR #810 staging dependency — proposed protected runner, 2026-10-30
+## PR #810 staging dependency — protected runner on main, 2026-10-30
 
-Main-only apply cannot consume the draft feature migration. A separate
-infrastructure-only PR proposes `staging-job-handoff-migration.yml`: trusted main
+Main-only apply cannot consume the draft feature migration. The infrastructure-only workflow `staging-job-handoff-migration.yml` is on `main`: trusted main
 tooling, exact SQL checksum, manual preflight by default, protected staging
 source-SHA approval plus typed apply confirmation, no feature-code execution
 under credentials. This branch changes no Prisma migration or production
 workflow and does not queue production migrations by its path changes.
-Live read-only inventory matches all 66 completed staging migration names and
-checksums; only the Job handoff is pending against main plus the reviewed SQL.
+PR #810 merged 2026-11-04 (`93ab60b3`). As of the 2026-11-17 reconciliation, staging holds 72 tracked migrations with the ledger reconciled 72/72.
 Jobs RLS is enabled and forced. No apply or step-9 browser PASS is claimed.
 See [the operator plan](operations/staging-job-handoff-runner.md).
 
@@ -86,7 +84,7 @@ Staging invoice-expand reconciliation — 2026-10-28: the `main`-restricted, con
 
 TradeOS retains an isolated Supabase Staging project (`qfbgdkbamfaasmtjfyru`) and two separate Vercel Preview deployments for backend `tradeos-costbook` and frontend `tradeos-costbook-web`. The manual `.github/workflows/repair-staging-supabase-auth.yml` job is a privileged recovery workflow: execute it only from `main`, inside the existing `staging` GitHub Environment approval gate, with its explicitly typed confirmation. Inject `VERCEL_TOKEN` only into the four required steps, not checkout or dependency installation, and use environment-based CLI authentication instead of a token command argument. Do not weaken production protections to make staging tests pass.
 
-The October 27 staging read audit found an active/healthy database, 46 applied Prisma migrations (no unfinished/rolled-back entries), and three Team & Time tables with RLS enabled but not FORCE RLS. Current `main` has 61 tracked migration folders, so **15 migrations require review and staging-only preflight** before a newer runtime may be called schema-compatible. Older immutable Preview builds pass backend `/health` and `/ready` and render the web login, but use different old commits. The newer staging commit `959e3ef4` triggered builds that Vercel intentionally ignored because `vercel-ignore-build.sh` found no relevant source diff. This is not a successful staging deployment.
+The October 27 staging read audit found an active/healthy database, 46 applied Prisma migrations (no unfinished/rolled-back entries), and three Team & Time tables with RLS enabled but not FORCE RLS. Current `main` had 61 tracked migration folders at that audit, so **15 migrations required review and staging-only preflight** before a newer runtime could be called schema-compatible. (Reconciliation 2026-11-20: `main` now has 72 tracked migrations and the staging ledger reconciled 72/72 on 2026-11-17.) Older immutable Preview builds pass backend `/health` and `/ready` and render the web login, but use different old commits. The newer staging commit `959e3ef4` triggered builds that Vercel intentionally ignored because `vercel-ignore-build.sh` found no relevant source diff. This is not a successful staging deployment.
 
 **Blocked as of this audit:** Vercel Preview environment-variable metadata responds HTTP 403 for both projects, preventing independent proof that the URL, application database and service-role credentials target staging rather than production. Do not push a potentially incompatible runtime, promote a stale Preview, or apply migrations by guessing credentials. First restore scoped read access, validate both deployment target bundles without exposing secrets, then use the dedicated `main`-restricted staging migration workflow, record its ledger/RLS evidence, explicitly redeploy matching reviewed API/web commits, and capture owner/office/technician authenticated journeys. See `docs/QA_PREVIEW_DEPLOYMENT_CHECKLIST.md` and the October 23 environment audit.
 
@@ -94,7 +92,7 @@ The October 27 staging read audit found an active/healthy database, 46 applied P
 
 `.github/workflows/staging-orchestrator.yml` replaces ad-hoc staging certification with one run identity: push to `staging` (or dispatch the staging head) and the run records one approved SHA, preflights the staging database read-only, waits for both Vercel Git deployments of that SHA to reach READY, verifies runtime identity, re-verifies the staging head, captures canonical beta evidence, and publishes one PASS/FAIL verdict naming the first failing dependency and its repair. The diverged staging branch was archived at `archive/staging-20261005` (old head `959e3ef4`) and recreated from current `main`; it now takes fast-forwards from approved SHAs only. The Vercel ignore scripts unconditionally proceed on the `staging` branch, so one staging push builds both apps at one SHA instead of the previous path-filtered mismatch (a docs-only staging push previously skipped one app entirely).
 
-What the orchestrator does NOT do yet, stated plainly: it has not demonstrated a live full PASS. Its first real run will fail closed at the database preflight until the two staging secrets are entered, and at the Vercel wait until a team-scoped token exists; beta evidence additionally needs its provisioned smoke identity (present by name) and its data-plane/tenant-isolation prerequisites (`BETA_RC_SUPABASE_PROJECT_REF` and either `BETA_RC_FOREIGN_PROJECT_ID` or `BETA_RC_FOREIGN_CUSTOMER_ID`, both present by name); for S052/S053 scenarios, identities that do not currently exist. Do not present the workflow file, a READY badge, or a branch alias as staging acceptance. When those three blockers clear, the next staging push is the demonstration: one SHA, two READY deployments, verified `/health`/`/ready`, and a beta-evidence bundle under one run.
+What the orchestrator does NOT do yet, stated plainly: it has demonstrated a live full PASS — orchestrator run `43629423429` succeeded 2026-11-14 at staging head `7c428acd` (9/9 jobs) — but a PASS at one SHA does not certify a later SHA. Its first real run failed closed at the database preflight until the two staging secrets were entered, and at the Vercel wait until a team-scoped token exists; beta evidence additionally needs its provisioned smoke identity (present by name) and its data-plane/tenant-isolation prerequisites (`BETA_RC_SUPABASE_PROJECT_REF` and either `BETA_RC_FOREIGN_PROJECT_ID` or `BETA_RC_FOREIGN_CUSTOMER_ID`, both present by name); for S052/S053 scenarios, identities that do not currently exist. Do not present the workflow file, a READY badge, or a branch alias as staging acceptance. The next staging push is the demonstration for its own SHA: one SHA, two READY deployments, verified `/health`/`/ready`, and a beta-evidence bundle under one run.
 
 
 ## ABC Supply material activation pilot — 2026-10-09
@@ -104,7 +102,7 @@ Production SQL read verification after the 47802 evidence seed reports 3,188 Sup
 
 ## S073 release-critical RLS coverage — READY 2026-10-05
 
-Founder authorization starts S073 from current `main` `37deee0bad44d8c3ca4ad65f7e89d15190d7cae3`. Dependency S051 is DONE and no live S073 implementation lane exists. The implementation target is evidence, not policy redesign: derive every S052-S060 persisted resource from the S051 matrix/current route-service code, map it to current forced-RLS migration/policy evidence, and require disposable-PostgreSQL same-org/cross-org proof. Existing `rls.integration.ts` covers many core records, but direct live coverage is absent for at least customer-portal token/session rows, estimate line items, and invoice line items. If testing exposes a policy defect, record a blocking owner and stop before schema/migration/RLS/auth changes.
+Founder authorization starts S073 from current `main` `37deee0bad44d8c3ca4ad65f7e89d15190d7cae3`. Dependency S051 is DONE. (Reconciliation 2026-11-20: PR #1000 is now the S073 implementation lane — draft, head `f0b70642`, CONFLICTING, labelled `status:do-not-merge`, App integration tests failing. Status unchanged; repair-vs-demote is a founder decision.) The implementation target is evidence, not policy redesign: derive every S052-S060 persisted resource from the S051 matrix/current route-service code, map it to current forced-RLS migration/policy evidence, and require disposable-PostgreSQL same-org/cross-org proof. Existing `rls.integration.ts` covers many core records, but direct live coverage is absent for at least customer-portal token/session rows, estimate line items, and invoice line items. If testing exposes a policy defect, record a blocking owner and stop before schema/migration/RLS/auth changes.
 
 
 Costbook Data Foundation (merged 2026-10-04): founder-authorized non-numbered PR #628 landed on `main` as `8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf`, extending the existing Costbook supplier-evidence, canonical-key, BLS research-candidate, forced-RLS, Assembly, and Estimate snapshot boundaries. It does not create a second Costbook or change the numbered-sprint selector.
@@ -136,7 +134,7 @@ frontend/backend seam is substantial and historically exercised, but the
 current head is not beta-certified across every contractor/customer journey.
 The audit and limitations are recorded in
 `docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md`. The Sprint Backlog
-now owns S051-S100; S051 is `DONE` through merged PR #538, and S053's implementation is landed while its final browser certification remains `IN_REVIEW`. S064 is the active `IN_REVIEW` implementation sprint in PR #624 under the evidence-decoupling rule. S051 added an
+now owns S051-S100; S051 is `DONE` through merged PR #538, and S053's implementation is landed while its final browser certification remains `IN_REVIEW`. S064 is `IN_REVIEW`; its implementation PR #624 merged 2026-10-02 (`8efb5f8d`). S051 added an
 executable action-to-route/permission/RLS/refresh/evidence matrix plus drift
 validation. It does not certify rendered browser behavior or current-head
 browser evidence, and must not repair application behavior or absorb later
@@ -210,7 +208,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-S047 is DONE through implementation PR #397 and the completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`; its bounded smoke-suite implementation requires no founder decision or product-runtime dependency. S043 is DONE through implementation PR #395 and `docs/architecture/S043_COMPLETION_EVIDENCE.md`. ADR-010 customer magic-link portal implementation PR #402 merged on 2026-08-28 as `9adb89e59e259adda037c9851657d0ea9f337a74`; completion evidence is recorded in `docs/architecture/ADR-010_COMPLETION_EVIDENCE.md`. Its public customer identity, scoped portal routes, replay/revocation controls, forced-RLS policy coverage, and customer contract attribution are complete; rendered-browser/deployment verification remains external and no beta-readiness claim is made. S051 is `DONE` through merged PR #538. S053 remains `IN_REVIEW` for scope-to-estimate browser certification, while S064 is active `IN_REVIEW` in PR #624; S039/S044/S045 and their dependent production operations remain blocked.
+S047 is DONE through implementation PR #397 and the completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`; its bounded smoke-suite implementation requires no founder decision or product-runtime dependency. S043 is DONE through implementation PR #395 and `docs/architecture/S043_COMPLETION_EVIDENCE.md`. ADR-010 customer magic-link portal implementation PR #402 merged on 2026-08-28 as `9adb89e59e259adda037c9851657d0ea9f337a74`; completion evidence is recorded in `docs/architecture/ADR-010_COMPLETION_EVIDENCE.md`. Its public customer identity, scoped portal routes, replay/revocation controls, forced-RLS policy coverage, and customer contract attribution are complete; rendered-browser/deployment verification remains external and no beta-readiness claim is made. S051 is `DONE` through merged PR #538. S053 remains `IN_REVIEW` for scope-to-estimate browser certification, while S064 is `IN_REVIEW` (implementation PR #624 merged 2026-10-02 as `8efb5f8d`); S039/S044/S045 and their dependent production operations remain blocked.
 
 Prioritize existing authorized work before inventing new scope. S025, S026, S027, S028, S030, S031, S032, S033, S034, S035, S036, S037, S038, S040, S041, S042, S043, and S047 are DONE with merged evidence. S034 completion evidence is recorded in `docs/architecture/S034_COMPLETION_EVIDENCE.md`; S035 completion evidence and final status reconciliation are recorded in `docs/architecture/S035_COMPLETION_EVIDENCE.md` and PR #384; S037 completion evidence is recorded in `docs/architecture/S037_COMPLETION_EVIDENCE.md`; S038 completion evidence is recorded in `docs/architecture/S038_COMPLETION_EVIDENCE.md`; S043 completion evidence is recorded in `docs/architecture/S043_COMPLETION_EVIDENCE.md`; S047 completion evidence is recorded in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. S036 is now DONE after PR #476 merged; S044/S045 remain blocked on production access.
 
@@ -355,7 +353,7 @@ S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, an
 
 ## S026 completion
 
-S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded Estimate Engine change serializes persisted line-item sort-order allocation on the parent Estimate row while preserving existing RLS, draft-only, pricing, idempotency, and API boundaries. S027 is now DONE after authenticated rendered Costbook browser evidence run `#22`; S036 is DONE after PR #476. S051 is `DONE` through merged PR #538. S053 remains `IN_REVIEW`, while S064 is active `IN_REVIEW` in PR #624 under the evidence-decoupling rule.
+S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded Estimate Engine change serializes persisted line-item sort-order allocation on the parent Estimate row while preserving existing RLS, draft-only, pricing, idempotency, and API boundaries. S027 is now DONE after authenticated rendered Costbook browser evidence run `#22`; S036 is DONE after PR #476. S051 is `DONE` through merged PR #538. S053 remains `IN_REVIEW`, while S064 is `IN_REVIEW` (implementation PR #624 merged 2026-10-02 as `8efb5f8d`) under the evidence-decoupling rule.
 
 ## S028 completion
 
@@ -414,7 +412,7 @@ The CodeQL autofix lane now pins `actions/github-script` v9.0.0 by immutable com
 
 ## S053 certification update — 2026-10-02
 
-The structured scope-to-estimate implementation is already on `main`; S053 is `IN_REVIEW` because authenticated browser certification is still required. That unresolved certification remains a release gate but no longer blocks independent Phase 12 implementation, so S064 can continue independently and is now `IN_REVIEW` in PR #624. The active evidence lane is `test/s053-browser-certification`: it adds an opt-in `s053` mode to the existing Beta Evidence workflow so a full non-production run can prove no silent write before Apply, visible confidence/provenance, explicit reviewed apply through Estimate Engine, pricing refresh, persistence after reload, and the required viewport behavior. This tooling does not mark S053 complete until a passing full run is retained.
+The structured scope-to-estimate implementation is already on `main`; S053 is `IN_REVIEW` because authenticated browser certification is still required. That unresolved certification remains a release gate but no longer blocks independent Phase 12 implementation, so S064 can continue independently and is `IN_REVIEW` (implementation PR #624 merged 2026-10-02 as `8efb5f8d`). The active evidence lane is `test/s053-browser-certification`: it adds an opt-in `s053` mode to the existing Beta Evidence workflow so a full non-production run can prove no silent write before Apply, visible confidence/provenance, explicit reviewed apply through Estimate Engine, pricing refresh, persistence after reload, and the required viewport behavior. This tooling does not mark S053 complete until a passing full run is retained.
 
 
 ## S062 Universal Create reconciliation — 2026-10-02
@@ -428,7 +426,7 @@ Current `main` already contains S061's structural implementation through merged 
 
 ## S052 certification harness merged — 2026-10-03
 
-Readiness PR #636 merged as `ee714a38c52ef59ab97d1218d70bdab2af2ad35f`; certification PR #637 merged as `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60`. The `s052` Beta Evidence harness is now on `main` and preserves the existing Customer/ServiceAddress/Project, auth, membership, and tenant-isolation contracts. Exact-head required CI, branch currency, workflow security/governance, dependency review, live-document reconciliation, and review-thread resolution passed before merge. S052 remains `IN_REVIEW` because one retained full non-production evidence run is still required. The merge-SHA production deployment was canceled and staging remains on an older SHA, so no matching approved non-production frontend is currently available; dedicated synthetic role/foreign-tenant fixture availability is also unverified through the available secret-safe integrations. Treat this as a certification-environment blocker, not a reason to reopen product implementation.
+Readiness PR #636 merged as `ee714a38c52ef59ab97d1218d70bdab2af2ad35f`; certification PR #637 merged as `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60`. The `s052` Beta Evidence harness is now on `main` and preserves the existing Customer/ServiceAddress/Project, auth, membership, and tenant-isolation contracts. Exact-head required CI, branch currency, workflow security/governance, dependency review, live-document reconciliation, and review-thread resolution passed before merge. S052 remains `IN_REVIEW` because one retained full non-production evidence run is still required. Staging is now at `7c428acd` with READY web/API deployments (verified 2026-11-20); dedicated synthetic role/foreign-tenant fixture availability is also unverified through the available secret-safe integrations. Treat this as a certification-environment blocker, not a reason to reopen product implementation.
 
 
 ## S066 mobile field implementation — 2026-10-03
@@ -507,7 +505,7 @@ Issue #735 owns the full catalog requirement. PR #736 merged a sandbox-only, dis
 
 Do not start any durable ABC Get All Items import or seven-day delta storage until ABC explicitly authorizes the intended retention and searchable display model. Keep issue #735 open until full persistence/sync (where permitted), browser evidence, customer-authenticated pricing, Material review, and Estimate handoff are actually verified.
 
-Staging Prisma migration execution is wired through `.github/workflows/deploy-staging-migrations.yml` on branch `ops/staging-prisma-migrations-20261018` (PR pending). It is manual-only, checks the exact TradeOS Staging Supabase host and invoice migration precondition, uses the existing Prisma deployment script, and verifies the resulting ledger. Before dispatch, configure the dedicated `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` secrets in GitHub Environment `staging`. No database migration has been run by this workflow setup.
+Staging Prisma migration execution is wired through `.github/workflows/deploy-staging-migrations.yml`, which is on `main`. It is manual-only, checks the exact TradeOS Staging Supabase host and invoice migration precondition, uses the existing Prisma deployment script, and verifies the resulting ledger. Before dispatch, configure the dedicated `STAGING_DATABASE_ADMIN_URL` and `STAGING_APP_DB_ROLE_PASSWORD` secrets in GitHub Environment `staging`. No database migration has been run by this workflow setup.
 
 
 ## Protected staging Preview binding attestation
@@ -559,18 +557,18 @@ The new main-only manual `.github/workflows/staging-expenses-migration.yml` and 
 
 **Sequence:** independent infrastructure PR review/merge → reviewer-approved protected preflight → separate approved staging apply → postflight proving exact inventory, forced Expense/event RLS and append-only audit → matching staging API-first/web runtime identity → authenticated owner/technician, cross-tenant and receipt browser acceptance → final feature PR review/merge. This runner does not authorize merging PR #891 or production migration. Full operator instructions: [Protected staging Expense migrations](operations/staging-expenses-migrations.md).
 
-## PR #933 review repairs
+## PR #933 review repairs — merged 2026-11-06
 
-Keep the existing PR/branch for the PDF beta evidence lane. Its foreign Proposal probe must prove owner/admin access in a pinned separate synthetic tenant before and after the smoke-account denial; absent proof remains FAIL. Dedicated foreign-owner secrets are prerequisites, not provisioned by this source repair. Exact-release PDF renderer CI results must be retained before the cohort decision. No product authorization, schema, migration, deployment or release state changes.
+PR #933 merged 2026-11-06 (`b3a16b58`). Keep the existing PR/branch for the PDF beta evidence lane. Its foreign Proposal probe must prove owner/admin access in a pinned separate synthetic tenant before and after the smoke-account denial; absent proof remains FAIL. Dedicated foreign-owner secrets are prerequisites, not provisioned by this source repair. Exact-release PDF renderer CI results must be retained before the cohort decision. No product authorization, schema, migration, deployment or release state changes.
 
-## Staging runtime identity parity review — 2026-11-09 (draft PR #958)
+## Staging runtime identity parity review — merged PR #958, 2026-11-10
 
-Draft [PR #958](https://github.com/404TradeOS-LLC/TradeOS/pull/958) ports the already-existing staging `/ready` public database project-ref contract and the project-bound staging pooler/session-mode preflight onto current `main`. It does not alter schema, tokens, migrations, or deployed runtime. The checked Git trees differ in 23 actual files (despite 79/27 divergent commits). Staging Vercel web/API aliases still target `c800425f`, not main `c1b3cb0e`; Vercel metadata reads return 403. The earlier protected Nov 7 runtime attestation passed for the older deployment and cannot certify a new SHA. Retain draft and reviewer gate before an authorized staging-only promotion; live contractor beta acceptance remains blocked.
+PR #958 (merged 2026-11-10 as `4d6a726d`) ports the already-existing staging `/ready` public database project-ref contract and the project-bound staging pooler/session-mode preflight onto current `main`. It does not alter schema, tokens, migrations, or deployed runtime. The checked Git trees differ in 23 actual files (despite 79/27 divergent commits). Staging web/API aliases now target `7c428acd` (verified 2026-11-20; the `c800425f` reference below is stale); Vercel metadata reads return 403. The earlier protected Nov 7 runtime attestation passed for the older deployment and cannot certify a new SHA. Live contractor beta acceptance remains blocked.
 
 
-### PR Commander unattended execution proposal (PR #967, 2026-11-11)
+### PR Commander unattended execution — merged PR #967, 2026-11-11
 
-A draft workflow change proposes optional scheduled write execution gated by **both** `TRADEOS_PR_COMMANDER_WRITE_ENABLED=true` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED=true`. Until the change passes hosted checks, review, a verified manual armed run, and explicit owner activation, scheduled sweeps remain read-only. No migration, staging, production, review, or branch-protection gate is relaxed. See [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
+PR #967 merged 2026-11-11 (`45faeff6`): optional scheduled write execution gated by **both** `TRADEOS_PR_COMMANDER_WRITE_ENABLED=true` and `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED=true`. The first live scheduled unattended run succeeded 2026-11-11 at 23:29:47Z. No migration, staging, production, review, or branch-protection gate is relaxed. See [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
 
 ## Staging evidence fixture repair — 2026-11-12
 

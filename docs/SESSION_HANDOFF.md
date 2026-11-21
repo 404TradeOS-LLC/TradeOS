@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-21
+last_verified: 2026-11-20
 source_of_truth: true
 related_docs:
   - docs/TRADEOS_BIBLE.md
@@ -12,16 +12,34 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
-## Beta Proposal PDF layout repair — 2026-11-14
+## Reconciliation note — 2026-11-20
+
+This handoff is a historical record; entries below describe branch/PR state
+as of their own dates and are not rewritten. Verified 2026-11-20 against
+live GitHub state: PR #979, #980 and #981 merged 2026-11-13; PR #991 merged
+2026-11-14; PR #997 merged 2026-11-15; PR #931 merged 2026-11-08; PR #933
+merged 2026-11-06; PR #904 merged 2026-11-06; PR #810 merged 2026-11-04;
+PR #837 merged 2026-11-01; PR #830 merged 2026-11-01; PR #775 closed
+unmerged 2026-11-15 (superseded by #997); PR #798 merged 2026-10-28;
+PR #785 merged 2026-10-23; PR #974 merged 2026-11-12; PR #1001 merged
+2026-11-18 as `6f860f34` (current `main`). PR #1000 is now the S073
+implementation lane (draft, head `f0b70642`, CONFLICTING, labelled
+`status:do-not-merge`, App integration tests failing); S073 status is
+unchanged and repair-vs-demote is a founder decision. Where an entry below still says
+one of those PRs is draft, pending, or unmerged, read it as the state at
+the time of writing, corrected by this note. Targeted inline corrections
+follow in the affected sections; no entry's history is otherwise altered.
+
+## Beta Proposal PDF layout repair — merged PR #991, 2026-11-14
 
 Sprint ID: NONE. Resumed understood uncommitted renderer and regression tests in `/workspace/TradeOS-pdf`, branch `fix/proposal-pdf-wrapped-content`; existing baseline `eab54f2c` fast-forwarded to reviewed main `6cc54a99`. Live overlap check found no competing Proposal renderer repair. Scope is the shared PDF metadata/narrative layout, its behavioral tests and required owner documentation. No schema, roles, pricing, routes or staging changes. Final command results and exact-head hosted checks belong in the PR; root coordinates staged acceptance. The original rendered beta PDF independently reproduced wrapped-field overlap and CRLF control glyphs; Poppler-only font spacing is excluded from this repair.
 
-## Costbook frontend preview isolation — proposed 2026-10-18
+## Costbook frontend preview isolation — landed via PR #997, 2026-11-15
 
-- Vercel configuration currently disables PR branch Git deployments for
+- Vercel configuration disabled PR branch Git deployments for
   both backend and web by `"**": false`; Vercel read-only lists found
   no generated deploy for PR #771/#773/#774 feature branches.
-- Branch `feat/costbook-preview-policy-20261018` from main limits new
+- PR #997 (merged 2026-11-15 as `d09f51a1`) limits the new
   `git.deploymentEnabled` allowlist to web `feat/costbook-*` only.
   Backend `main`/`staging` gate and branch-scoped secrets are untouched.
 - Source guidance: Vercel's Git configuration specifies that any matching
@@ -30,11 +48,10 @@ Sprint ID: NONE. Resumed understood uncommitted renderer and regression tests in
 - No authenticated Costbook→Estimate feature proof is claimed. A frontend
   Preview still points to the dedicated staging backend, which will
   not have feature-branch API code until it is approved and deployed there.
-- Next five TODOs: (1) open scoped preview-policy PR, (2) pass tests,
-  docs, CodeRabbit review and founder approval, (3) observe exact-head
-  web preview READY in the Vercel project, (4) stage the API feature
+- Next five TODOs: (1) observe exact-head
+  web preview READY in the Vercel project, (2) stage the API feature
   code using only reviewed `staging` operations and nonproduction
-  secrets, (5) exercise real tenant-scoped assembly install/estimate
+  secrets, (3) exercise real tenant-scoped assembly install/estimate
   persistence, with a separate tenant negative test.
 
 ## Invited-beta disposable recovery evidence — 2026-11-13
@@ -53,23 +70,23 @@ Sprint ID: NONE. Resumed understood uncommitted renderer and regression tests in
 - Follow PR #981 for exact final-head CI, review, merge and landed-SHA proof. Do not infer acceptance from this note or create another overlapping PR.
 
 
-## PR #980 — PR Commander required-check success-only gate (in review)
+## PR #980 — PR Commander required-check success-only gate (merged 2026-11-13)
 
 - Founder-authorized CI hardening on existing TradeOS monorepo; `NEW_WORK_REQUIRED` after checking open PR overlap, base `e30b8d4a0cbff6530d8750de96d6b2053afa3ee0`, branch `fix/pr-commander-required-check-conclusions`.
 - Root cause: `scripts/pr-commander-lib.mjs` classified required `SKIPPED` and `NEUTRAL` conclusions as green, permitting `MERGE_READY` without actual successful required validation.
 - Verified RED: original regression-only head `f1aa52caf4dd65bd6f8a4c5a01c8925d6ff7b39f` failed hosted `npm run pr:test` at the new assertion (411 passing / 1 failing), proving a skipped required Web check incorrectly returned `MERGE_READY`.
 - Fix: only `SUCCESS` is green for required checks; optional `SKIPPED`/`NEUTRAL` remain non-blocking. Regression exercises every required check with `SKIPPED` and `NEUTRAL`. `docs/PR_COMMANDER.md` documents intentional stricter-than-GitHub fail-closed policy. No workflow permission, arming, branch-protection, deployment, secrets, schema, billing, auth or production change.
-- GREEN verification was observed for the four required check names, including PostgreSQL integration, at head `8974c792e1a47079c6238cd5d2275ffe062996d5` before the handoff correction. The final merge still requires fresh exact-head check and review reconciliation; see PR #980 for live merge evidence. Continue the same PR and do not create a duplicate.
+- GREEN verification was observed for the four required check names, including PostgreSQL integration, at head `8974c792e1a47079c6238cd5d2275ffe062996d5` before the handoff correction. PR #980 merged 2026-11-13 as `a7b70cc2`. See PR #980 for live merge evidence.
 
-## Autonomous execution policy reconciliation — PR #979 (pending)
+## Autonomous execution policy reconciliation — PR #979 (merged 2026-11-13)
 
 - Repository `404TradeOS-LLC/TradeOS`, base `main` at `99ccafcc347ef1902d5dbf6d56fc5bcc755688b0` when PR was opened; existing work: PR #979, branch `docs/autonomous-execution-default-20261113`. Do not make a duplicate PR. Classification: `EXISTING_WORK_FOUND`.
 - Codex review identified real DOC_OWNERSHIP drift: AGENTS and NEXT_SPRINT_PROTOCOL changes require aligned Bible, Backlog, Engineering Command Center, Session Handoff and Repository Governance. These companion edits clarify consecutive independent missions, not bypass of gates or automatic runtime capability.
-- Source-only documentation amendments; no CI, review approval, merge, staging deployment or production acceptance is implied. Recheck final PR head, docs consistency, required hosted CI and review threads before any merge; runtime PR Commander capabilities still require separate implementation and tests.
+- Source-only documentation amendments; no CI, review approval, merge, staging deployment or production acceptance is implied. PR #979 merged 2026-11-13 as `e30b8d4a`. The PR Commander runtime is live since PR #964 (merged 2026-11-11, armed since 2026-11-11); see `docs/PR_COMMANDER.md`.
 
 ## GitHub issue queue — #927 existing PR #931
 
-- User requested working through GitHub issues. PR #933 is merged as `b3a16b58`; 12 open issues and existing PRs were reconciled. EXISTING_WORK_FOUND for #927 in draft PR #931; use `/workspace/TradeOS-email`, branch `feat/resend-delivery-journal-927`, original head `e517a84376f2f4bf7eebb8319247e4881bdcb791`. Current main was merged normally to preserve the original lane, without force push.
+- User requested working through GitHub issues. PR #933 is merged as `b3a16b58`; 12 open issues and existing PRs were reconciled. EXISTING_WORK_FOUND for #927 in PR #931 (merged 2026-11-08 as `53e01c38`); use `/workspace/TradeOS-email`, branch `feat/resend-delivery-journal-927`, original head `e517a84376f2f4bf7eebb8319247e4881bdcb791`. Current main was merged normally to preserve the original lane, without force push.
 - Reproduced out-of-order delivery-status regression in three actual PostgreSQL adapter tests: delivered was replaced by delayed sent/bounce callbacks, including concurrent timezone-offset events. Repair locks known-message rows, validates/normalizes occurrence dates, and prevents older known events from replacing current status. All events and suppression candidates are retained. No schema/RLS, pool, sender, credentials, webhook registration or deployment changes.
 - Suspected shared-pool deadlock was not established on normal auth routes (delivery is scheduled after response), so no pool architecture change was made.
 - Disposable PostgreSQL 16 container `tradeos-issue927-db`, loopback port 55433, hosts only synthetic test data. Tracked migrations and restricted app-role provisioning were rehearsed there; local psql compatibility wrapper is outside the repo. No staging/production database was touched.
@@ -78,11 +95,11 @@ Sprint ID: NONE. Resumed understood uncommitted renderer and regression tests in
 
 ## PR #933 auto-merge follow-through
 
-User requested auto-merge. Existing checks were green, but a new unresolved validator thread showed fixture proof could be detached from the passing denial entry. Reproduced three failures, repaired same-probe PASS plus optional route/status consistency, and added matching/compact-report compatibility coverage. Continue this PR only; no product or deployment change. Enable normal GitHub auto-merge after publishing and resolving the verified repair; never bypass checks or merge a draft.
+User requested auto-merge. Existing checks were green, but a new unresolved validator thread showed fixture proof could be detached from the passing denial entry. Reproduced three failures, repaired same-probe PASS plus optional route/status consistency, and added matching/compact-report compatibility coverage. PR #933 merged 2026-11-06 (`b3a16b58`); no product or deployment change is claimed by this note.
 
-## PR #933 findings repair — current bounded mission
+## PR #933 findings repair — merged 2026-11-06
 
-- EXISTING_WORK_FOUND: continue clean branch/worktree `feat/invited-beta-pdf-evidence` at `/workspace/TradeOS-beta`; original PR head `300b30bf831297b21845c717844ef19c3467c767`, main `376a089b57a21e9c39d3eb0172411f95b9ff7380`. Live PR identity and remote fetch verified. User explicitly requested fixing both reviewed findings.
+- EXISTING_WORK_FOUND: continue clean branch/worktree `feat/invited-beta-pdf-evidence` at `/workspace/TradeOS-beta`; original PR head `300b30bf831297b21845c717844ef19c3467c767`, main `376a089b57a21e9c39d3eb0172411f95b9ff7380`. Live PR identity and remote fetch verified. User explicitly requested fixing both reviewed findings. PR #933 merged 2026-11-06 (`b3a16b58`).
 - Foreign Proposal denial now requires dedicated synthetic owner/admin login, pinned distinct organization membership and exact owner-scoped Proposal reads before/after the smoke denial. No foreign session persistence or credential-bearing error output. Artifact validation requires fixture proof; workflow preflight/full checks and capture startup require the new foreign-owner inputs.
 - Verification for the repair: 261 repository tests, 33 focused ownership/PDF/validator tests, 40 docs tests, 331 backend suites / 3,037 tests and one snapshot passed. Backend lint/typecheck/build, script syntax, documentation ownership and whitespace checks passed. Hosted exact-head checks remain pending after push.
 - Runbook now explicitly requires retained passing PDF renderer tests on the exact release SHA. No product APIs, auth/RLS policy, schema, migrations, dependencies, production settings or deployments are changed.
@@ -91,13 +108,13 @@ User requested auto-merge. Existing checks were green, but a new unresolved vali
 ## Invited beta PDF evidence — local implementation, 2026-11-06
 
 - Sprint ID: NONE; bounded slice of founder-approved beta implementation. Repository `/workspace/TradeOS`, clean base `376a089b57a21e9c39d3eb0172411f95b9ff7380`; linked worktree `/workspace/TradeOS-beta`, branch `feat/invited-beta-pdf-evidence`, inherited upstream `origin/main`. No other local worktrees or unexplained changes at startup.
-- Classification: NEW_WORK_REQUIRED for the opt-in PDF-ending evidence scenario and cohort runbook. Live open PRs #931/#924/#923/#922/#921/#920/#918/#904/#775 and recent #929/#930 were reconciled; saved-line fixes are already landed, email/readiness/staging lanes remain separate. No branch was deleted or competing PR created.
+- Classification: NEW_WORK_REQUIRED for the opt-in PDF-ending evidence scenario and cohort runbook. Live open PRs #931/#924/#923/#922/#921/#920/#918/#904/#775 and recent #929/#930 were reconciled at the time; saved-line fixes are already landed, email/readiness/staging lanes remain separate. No branch was deleted or competing PR created. (Reconciliation 2026-11-20: #931, #918, #904 and #775 have since merged/closed — see the note at the top of this handoff.)
 - Implemented `beta_pdf` in existing workflow/runner/capture/isolation/validator: reuses S053 review/Apply/reload plus manual financial fixture through Proposal, authenticates PDF download, retains bytes/hash/Proposal/run receipt, checks Proposal reload, requires foreign Customer/Project/Estimate/Athena/PDF denials, stops before downstream mutations. Canonical/S052/S053 defaults remain. Existing S053 assertion-name mismatch is repaired.
 - Added behavioral PDF transport tests, actual artifact-validator positive/negative fixtures, and execution of the workflow's preflight/full shell gates with synthetic environment values. No real browser/deployment PASS is claimed from these tests. New operator fixture: `BETA_RC_FOREIGN_PROPOSAL_ID` → runtime `BETA_FOREIGN_PROPOSAL_ID`.
-- Allowed paths: existing Beta Evidence scripts/workflow, focused tests/root test registration and owner docs. No product schema, pricing, auth/RLS policy, secret, dependency, production or deployment changes. Code commit `db3cc95f26a20033fee2528cc00400a76fd6ce9f` is pushed in draft [PR #933](https://github.com/404TradeOS-LLC/TradeOS/pull/933), tracking `origin/feat/invited-beta-pdf-evidence`. No merge, deployment or hosted-CI pass is claimed.
+- Allowed paths: existing Beta Evidence scripts/workflow, focused tests/root test registration and owner docs. No product schema, pricing, auth/RLS policy, secret, dependency, production or deployment changes. Code commit `db3cc95f26a20033fee2528cc00400a76fd6ce9f` is pushed in PR #933 (merged 2026-11-06 as `b3a16b58`), tracking `origin/feat/invited-beta-pdf-evidence`. No deployment or hosted-CI pass is claimed.
 - See [Invited beta operations](operations/INVITED_BETA.md) for cohort scope, remaining gates, onboarding, support and incident/recovery procedures. HOLD remains mandatory until actual environment/security/financial/recovery evidence passes.
 - Verification: app unit tests 331 suites / 3,037 tests and one snapshot passed; app lint/typecheck and build passed; 248 repository tests, 40 documentation tests and final 69 focused evidence tests passed; docs ownership, connection matrix (10 journeys / 52 actions), script syntax and whitespace passed. Live PostgreSQL integration, authenticated staging/browser/PDF visual evidence and hosted exact-head CI remain unrun.
-- Next safe actions: review draft PR #933 and its exact-head CI; retain HOLD until protected evidence and independent review pass; provision synthetic foreign Proposal fixture and exact-source isolated target through the existing protected operator workflow; run full `beta_pdf` plus S052 role evidence. Obtain staging reproduction IDs/inputs for the two documented pricing discrepancies before changing calculations. Implement the footing clarification contract in a separately bounded domain slice; do not simulate it or mark it complete here.
+- Next safe actions: PR #933 merged 2026-11-06 (`b3a16b58`); retain HOLD until protected evidence and independent review pass; provision synthetic foreign Proposal fixture and exact-source isolated target through the existing protected operator workflow; run full `beta_pdf` plus S052 role evidence. Obtain staging reproduction IDs/inputs for the two documented pricing discrepancies before changing calculations. Implement the footing clarification contract in a separately bounded domain slice; do not simulate it or mark it complete here.
 
 ## Estimate authenticated saved-line acceptance — 2026-11-05
 
@@ -112,7 +129,7 @@ User requested auto-merge. Existing checks were green, but a new unresolved vali
 
 ## Active bounded mission — Estimate Apply saved-line identity, 2026-11-04
 
-- Sprint ID: NONE; classification `NEW_WORK_REQUIRED`. Repository `404TradeOS-LLC/TradeOS`; rebased exact base `b4c50d0d19cc83425f66c4eb2035a359e9bcf7fc`, tree `425ad2f0d5d9bd5cac7b5f03831252bb6a2e1004`. Open PRs #924/#923/#922/#921/#920/#918/#917/#904/#775 do not overlap the Estimate Apply client/backend contract. The named branch still pointed at its earlier base and is advanced only through an expected-head compare-and-swap after this reconciliation.
+- Sprint ID: NONE; classification `NEW_WORK_REQUIRED`. Repository `404TradeOS-LLC/TradeOS`; rebased exact base `b4c50d0d19cc83425f66c4eb2035a359e9bcf7fc`, tree `425ad2f0d5d9bd5cac7b5f03831252bb6a2e1004`. Open PRs #924/#923/#922/#921/#920/#918/#917/#904/#775 did not overlap the Estimate Apply client/backend contract at the time (reconciliation 2026-11-20: #918 and #904 have since merged; #775 closed unmerged). The named branch still pointed at its earlier base and is advanced only through an expected-head compare-and-swap after this reconciliation.
 - Branch: `feat/figma-to-code-completion`. Publication uses exact GitHub base-tree commits. Allowed scope: structured Apply acknowledgement, authorized saved-line verification, focused tests, existing acknowledged Figma result states and owned docs. Excluded: schema/migration, auth/RLS permission changes, pricing calculations, dependencies, secrets/environments and deployment.
 - Implemented in the rebased candidate: idempotent source-key and exact-line skips return their existing `lineItemId`; the client reads the authorized Estimate after POST acknowledgement and verifies saved ID, target, quantity and normalized description against the frozen request. Read failure or mismatch remains conservative/unconfirmed. Rejected/unresolved skips stay review-only. No automatic retry or new endpoint.
 - Figma: existing result roots 390 `1064:28688`, 768 `1064:28782`, 1024 `1073:29301`, 1440 `1065:28715` distinguish Saved & verified identity from unverified pricing evidence. Four renders were inspected; Inter/Space Grotesk, existing StatusBadge/PricingProvenance instances, zero UI rasters and the same Items actions are retained.
@@ -122,7 +139,7 @@ User requested auto-merge. Existing checks were green, but a new unresolved vali
 ## Accepted-proposal handoff #810 — branch reconciliation, 2026-11-02
 
 - The feature is open for review but not release-certified. Three CodeRabbit findings were repaired; GitHub reports zero unresolved review threads. New-head hosted CI and current-main currency require verification.
-- Staging's accepted-proposal migration was previously applied exactly once; the staging backend feature came via merged PR #837. New staged web source is prepared in draft PR #904; it has not been merged or accepted.
+- Staging's accepted-proposal migration was previously applied exactly once; the staging backend feature came via merged PR #837. New staged web source was prepared in PR #904; PR #904 merged 2026-11-06 (`a012ad01`).
 - Run 41106407474 succeeded for protected, secret-safe binding isolation. It does not substitute for authenticated tenant or service-key provenance evidence.
 - The separate Job Expenses migration remains missing from staging's applied 67 of 68 source inventory. Do not repeat the handoff migration to repair that difference.
 - Next: reconcile exact-head checks, separately reviewed staging inventory parity, coherent staging web/API deployment, authenticated Step 9 tenant/concurrency/rollback and four-width evidence, then final release review. No production action.
@@ -130,7 +147,7 @@ User requested auto-merge. Existing checks were green, but a new unresolved vali
 
 ## Active bounded mission — Frozen Estimate Apply recovery, 2026-10-31
 
-- Sprint ID: NONE; classification NEW_WORK_REQUIRED. Main `ed97db6b908f3113bd319eab7875e8003d3e3e43`, tree `48ab6d6ccd7a64f69f225515cc5d755ee42cde68`. Four open PRs (#837/#830/#810/#775) do not own this fix. The old named feature branch was absent. The older estimate-review recovery branch has identical Assist source and later Proposal-only recovery changes; current Assist history #569/#542 and merged #839 do not freeze Apply.
+- Sprint ID: NONE; classification NEW_WORK_REQUIRED. Main `ed97db6b908f3113bd319eab7875e8003d3e3e43`, tree `48ab6d6ccd7a64f69f225515cc5d755ee42cde68`. Four PRs (#837/#830/#810/#775) were open at the time and did not own this fix; all four have since merged or closed (#837 2026-11-01, #830 2026-11-01, #810 2026-11-04, #775 closed unmerged 2026-11-15). The old named feature branch was absent. The older estimate-review recovery branch has identical Assist source and later Proposal-only recovery changes; current Assist history #569/#542 and merged #839 do not freeze Apply.
 - Branch: `feat/figma-to-code-completion`, created from exact main after reconciliation. Local path `/workspace/scratch/5c7f3e9dcd3e/tradeos-apply-snapshot` is a fetched source snapshot, not an authenticated Git checkout; no local upstream/worktree or full-repository cleanliness result is invented. Publication uses the connected GitHub API and exact base tree.
 - Scope: existing Assist client/page, bounded request-session helper/unit tests, responsive real-component browser cases and owned docs. Backend, schema, auth/RLS/RBAC, pricing/financial calculations, dependencies, secrets/environments, deployment and other active missions are excluded.
 - Implemented on branch: one serialized request body; synchronous duplicate lock; review/generation lock during pending and unconfirmed Apply; explicit identical-body retry; saved-Items navigation; acknowledgement unlock; nonintrusive keyboard recovery focus; summary invalidation on suggestion edits; record-keyed remount and late callback suppression. No automatic retry, scope in URL/storage or invented status endpoint.
@@ -142,7 +159,7 @@ User requested auto-merge. Existing checks were green, but a new unresolved vali
 
 ## Active bounded mission — Estimate full-review scope continuity, 2026-10-31
 
-- Sprint ID: NONE. `NEW_WORK_REQUIRED` after inspecting main `6a19766f3865262c37ddc37c7f8794363d45e3f0`, four open PRs (#837/#830/#810/#775), relevant branches and prior #751/#569/#542. None owns the current scope handoff defect; the historical `feat/figma-to-code-completion` branch is absent.
+- Sprint ID: NONE. `NEW_WORK_REQUIRED` after inspecting main `6a19766f3865262c37ddc37c7f8794363d45e3f0`, four PRs (#837/#830/#810/#775) that were open at the time (all four have since merged or closed), relevant branches and prior #751/#569/#542. None owns the current scope handoff defect; the historical `feat/figma-to-code-completion` branch is absent.
 - Repository: `404TradeOS-LLC/TradeOS`; exact fetched source snapshot `/workspace/scratch/5c7f3e9dcd3e/tradeos-review-snapshot`, no authenticated local Git checkout/upstream/worktree. The connected GitHub API is the publication path. No local full-repository status or test result is invented.
 - Branch: `feat/figma-to-code-completion`, based on that exact main. Scope is builder/contextual navigation, authorized full-review saved-scope loading, bounded helper/tests and owned docs. Backend, schema/migration, auth/RLS policy, financial calculations, secrets/environments and production operations are excluded.
 - Implemented: await existing Project scope-save acknowledgement before both review entries; retain scope on failure, block duplicate entry and late navigation; load saved scope only for the authorized Project/Estimate pair; keep initial suggestions and structured draft empty. Key builder state by record IDs. No URL/local-storage scope transfer or automatic generation.
@@ -241,11 +258,11 @@ User requested auto-merge. Existing checks were green, but a new unresolved vali
   explicit word.
 ## Today 2.0 dependency audit continuation — 2026-10-27
 
-- `EXISTING_WORK_FOUND`, Sprint ID NONE. Preserve Today PR #798 at `d431ac5`; its final 26 Chromium cases passed in hosted run 40430809189, alongside 525 Web, 2873 API and 174 real PostgreSQL tests. Its backend build/audit fails on existing vulnerable dependencies.
+- `EXISTING_WORK_FOUND`, Sprint ID NONE. Preserve Today PR #798 (merged 2026-10-28 as `0e870008`); its final 26 Chromium cases passed in hosted run 40430809189, alongside 525 Web, 2873 API and 174 real PostgreSQL tests. Its backend build/audit fails on existing vulnerable dependencies.
 - Extend existing runtime PR #795 in `/workspace/scratch/4360a72ccbf4/TradeOS-api-runtime-security`; reconcile main `93d1fff`. Preserve #799's exact body-parser patch and close it as superseded only after the consolidated repair merges. Leave independent moderate ip-address work to #786.
 - Patch Zod directly and transitively to 4.6.7, preserve legacy identifier syntax with GUID validators, migrate one-argument records and typed enum pipelines. No role, tenant, RLS, schema, financial or production environment change. Major-upgrade review remains governed by AGENTS.md; no independent approval is claimed.
 - Local focused 72/72 and high-severity audit pass; full exact-head source and hosted PostgreSQL evidence must be recorded in the runtime upgrade document/PR.
-- Next five: finish full compatibility checks; publish/review #795 on the existing branch; clear dependency audit through normal required gates; reconcile/retest #798 on the landed security baseline; resume authenticated/field/domain/Athena acceptance without retrying the declined sign-in automatically.
+- Next five: finish full compatibility checks; publish/review #795 on the existing branch; clear dependency audit through normal required gates; reconcile/retest the merged #798 scope on the landed security baseline; resume authenticated/field/domain/Athena acceptance without retrying the declined sign-in automatically.
 
 
 ## Costbook picker ergonomics and browser recovery — 2026-10-23
@@ -277,7 +294,7 @@ User requested auto-merge. Existing checks were green, but a new unresolved vali
 - Sprint ID: NONE; `NEW_WORK_REQUIRED` for founder-supplied Today 2.0 brief. Repository `404TradeOS-LLC/TradeOS`, isolated branch `feat/today-2-command-center`, base `e17a166` (merged #774). Historical Today #585/#643 are already on main; no open Today implementation PR or remote branch overlapped. #793 entry work is separate and preserved.
 - Implemented authenticated Today/Needs You/Work data contract, operational UI, contextual source navigation, Athena reuse, two themes, Today timeline, upcoming work and persistent dock/Task creation. New interfaces and supported/unsupported boundaries are recorded in `architecture/TODAY_2_IMPLEMENTATION.md`.
 - Preserve JWT, membership and forced RLS; no policy/schema/financial mutation changes. Field ProjectTask assignment/write is unsupported, so field views do not read organization task or commercial queues.
-- Continuation: current repo `/workspace/scratch/4360a72ccbf4/TradeOS-resume` tracks the existing PR #798. `EXISTING_WORK_FOUND` confirmed against live PR and fetched main `f5fac882`. Prior head `fdcc63cc` passed hosted verification run 40427077847 including 20 Chromium component tests and PostgreSQL/migration rehearsal. All six original review threads were resolved.
+- Continuation: current repo `/workspace/scratch/4360a72ccbf4/TradeOS-resume` tracks the merged PR #798 (merged 2026-10-28 as `0e870008`). `EXISTING_WORK_FOUND` confirmed against live PR and fetched main `f5fac882`. Prior head `fdcc63cc` passed hosted verification run 40427077847 including 20 Chromium component tests and PostgreSQL/migration rehearsal. All six original review threads were resolved.
 - The real Vercel Preview at https://tradeos-costbook-9vrksg8yo-billykshowalters.vercel.app/login is READY for `fdcc63cc`; dashboard redirects to login. Secure sign-in was declined. Do not retry sign-in without a new user request; live authenticated role journeys remain unverified.
 - New continuation adds permission-aware task status editing using the existing authenticated PATCH/audit path. Success requires confirmed source identity/status, then server refresh; errors/offline preserve the queue and pending saves prevent duplicate submission/dismissal. A backward-compatible backend revision precondition now makes Today task saves atomic against concurrent edits; legacy callers may omit it. New real PostgreSQL concurrent-save and tenant/read-only regressions require hosted verification. Fresh verification is recorded in `architecture/TODAY_2_IMPLEMENTATION.md` and the PR.
 - Next five: verify the new contextual task save in a permitted authenticated session; implement a reviewed field assignment/write contract; add genuine visit/crew/milestone source capabilities; connect Athena permitted execution and confirmation recovery; complete all acceptance/review gates before marking ready or merging. Keep PR draft while these gaps remain.
@@ -366,7 +383,7 @@ numbered sprint or release-certification claim.
   component tests/config, root runner manifests and the workflow in Web scope.
   A real temporary-Git regression fails before the repair and passes after it.
   Current-head CI/review for this follow-up remains pending; do not merge
-  based only on the prior green head. PR #785 is ready for review, not merged.
+  based only on the prior green head. PR #785 merged 2026-10-23 (`762bb992`); the follow-up's exact-head CI/review state is not recorded here — verify live before relying on it.
 - The local autonomy helper could not query PRs because `gh` is absent;
   authenticated GitHub connector reads supplied current open/recently-closed
   PR reconciliation instead. No repository guard was weakened.
@@ -418,7 +435,7 @@ context at 390px) and the new live PostgreSQL test. These are not local passes.
 ## Today review follow-through — 2026-10-27
 
 `EXISTING_WORK_FOUND`: extend #800 on `feat/field-assigned-job-tasks`; parent
-#798 remains draft at `23a9cd1d`. Review identified missing destination-page
+#798 merged 2026-10-28 (`0e870008`); it was draft at `23a9cd1d` at the time of writing. Review identified missing destination-page
 coverage. Added actual async FieldPage rendering tests for populated task
 information, empty tasks, unavailable tasks, safe text, stored due dates and
 continued job usability. No runtime or permission change. Prior final head
@@ -427,7 +444,7 @@ New web test/lint/build and exact-head hosted verification precede integration.
 
 ## Remaining Today contracts — 2026-10-27
 
-`EXISTING_WORK_FOUND`: extend draft Today #798 after child #800 merged at
+`EXISTING_WORK_FOUND`: extend Today #798 (merged 2026-10-28 as `0e870008`) after child #800 merged at
 `c7c7c19b` (tree verified equal to reviewed child). Proposal:
 `architecture/TODAY_FIELD_SCHEDULING_CONTRACTS.md`. It concretely defines the
 recommended personal task identity/status-only write boundary, RLS/column
@@ -455,7 +472,7 @@ Two regression cases initially failed: same-key replay created another task,
 and changed input with a reused key executed. Optional engine receipts repair
 both; 57 focused tool/action tests pass. Legacy unkeyed calls, independent
 tenant keys and technician denial are covered. Complete API/Athena/hosted RLS
-verification is required before merge. Today #800 is merged into parent #798
+verification is required before merge. Today #800 is merged into parent #798 (merged 2026-10-28 as `0e870008`)
 as `c7c7c19b`; it is not on main or deployed.
 
 
@@ -527,10 +544,11 @@ updates remain supported. Schema/RLS changes retain PR-only merge posture.
 - Source parity/metadata blockers repaired in #971/#973, Team & Time v7 deployed
   and source-verified. Run `43130359603` failed only at the expected-tenant check
   after login, before workflow capture.
-- Proposed explicit `use_test_org` selection reuses existing encrypted TEST_STAGING
+- The explicit `use_test_org` selection reuses existing encrypted TEST_STAGING
   credentials and verified active owner fixture `d86d0874-6ba3-4b06-94b6-bd0ae99fe532`.
   Configuration guard requires exact staging/UUID/label; actual API assertion is
   unchanged. No credential, account, membership, auth/RLS or migration changes.
+  PR #974 merged 2026-11-12 (`bfd2f66b`).
 - Next: test/publish, inspect hosted review, promote reviewed workflow source into
   staging, rerun correlated canonical evidence, retain actual results.
 
@@ -605,10 +623,10 @@ The current #1000 integration test calls `runWithPortalDatabaseSession` without
 the newly required session digest and expects the exact session row to be
 visible. Against #1001, the helper supplies an empty transaction-local digest,
 so forced RLS correctly returns no session rows and that expectation fails. Keep
-#1000 blocked; after #1001 is merged, update that call to pass the validated
-`sessionHashA`, rerun the disposable PostgreSQL S073 integration suite, and
-reconcile its hosted checks. Source-level tests do not establish staging
-acceptance.
+#1000 blocked; PR #1001 merged 2026-11-18 as `6f860f34`, so the update step is
+now unblocked: update that call to pass the validated `sessionHashA`, rerun the
+disposable PostgreSQL S073 integration suite, and reconcile its hosted checks.
+Source-level tests do not establish staging acceptance.
 
 ## Next Eligible Sprint
 
