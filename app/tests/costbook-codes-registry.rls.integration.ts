@@ -216,6 +216,13 @@ describe("Codes & Permits registry RLS", () => {
     const columns = await adminClient.$queryRaw<{ table_name: string; column_name: string }[]>`
       SELECT table_name, column_name FROM information_schema.columns
       WHERE table_schema = 'public' AND table_name LIKE 'codes\_%'
+      -- codes_job_assessment is tenant-scoped job data, not registry data:
+      -- one row per explicit Project/Estimate assessment, org_id + FORCE
+      -- RLS with org-scoped policies (migration
+      -- 20261109220000_add_codes_job_assessment). Its tenant isolation is
+      -- proven by the assessment RLS tests in app/tests/rls.integration.ts,
+      -- not by this registry-purity invariant.
+      AND table_name <> 'codes_job_assessment'
     `;
     expect(columns.length).toBeGreaterThan(0);
     for (const column of columns) {

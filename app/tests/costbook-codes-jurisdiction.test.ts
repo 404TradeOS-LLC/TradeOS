@@ -227,6 +227,19 @@ describe("resolveJurisdiction", () => {
     expectNoInferredValues(resolution);
   });
 
+  it("rejects coordinates outside geographic bounds as an identifiable site", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite({ parcelId: null, latitude: 999, longitude: 999 }),
+      [record(), municipalRecord()],
+      "sign replacement",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toContain("no_verifiable_site");
+    expect(resolution.distinctions.parcelBoundary).toBe("unknown");
+    expectNoInferredValues(resolution);
+  });
+
   it("does not treat 'design' as signage work — the sign match needs word boundaries", () => {
     const resolution = resolveJurisdiction(
       verifiedSite({ signCategory: null, signDetailsVerified: false }),
@@ -369,6 +382,60 @@ describe("resolveJurisdiction", () => {
     expectNoInferredValues(resolution);
   });
 
+  it("rejects a reviewed record whose effectiveFrom is a calendar-invalid date", () => {
+    // 2026-02-30 does not exist; native parsing normalizes it to March 2,
+    // which would otherwise pass the future-edition check for a Nov 9 clock.
+    const resolution = resolveJurisdiction(
+      verifiedSite(),
+      [record({ effectiveFrom: "2026-02-30T00:00:00.000Z" }), municipalRecord()],
+      "sign replacement",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toContain("unusable_record:rec-state:reviewed");
+    expect(resolution.reasons).toContain("no_state_authority_record");
+    expect(resolution.matched).toEqual([]);
+    // The invalid record is reported as unusable, never as a citation.
+    expect(resolution.citations.map((citation) => citation.source_id)).toEqual(["rec-municipal"]);
+    expectNoInferredValues(resolution);
+  });
+
+  it("accepts a real leap-day effectiveFrom and rejects a non-leap February 29", () => {
+    const leap = resolveJurisdiction(
+      verifiedSite(),
+      [record({ effectiveFrom: "2024-02-29T00:00:00.000Z" }), municipalRecord()],
+      "sign replacement",
+      NOW,
+    );
+    expect(leap.outcome).toBe("verified");
+    expect(leap.matched.map((item) => item.id)).toEqual(["rec-state", "rec-municipal"]);
+
+    const nonLeap = resolveJurisdiction(
+      verifiedSite(),
+      [record({ effectiveFrom: "2026-02-29T00:00:00.000Z" }), municipalRecord()],
+      "sign replacement",
+      NOW,
+    );
+    expect(nonLeap.outcome).toBe("needs_verification");
+    expect(nonLeap.reasons).toContain("unusable_record:rec-state:reviewed");
+    expect(nonLeap.matched).toEqual([]);
+    expectNoInferredValues(nonLeap);
+  });
+
+  it("rejects a reviewed record whose expiresAt is a calendar-invalid date", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite(),
+      [record({ expiresAt: "2026-02-30T00:00:00.000Z" }), municipalRecord()],
+      "sign replacement",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("needs_verification");
+    expect(resolution.reasons).toContain("unusable_record:rec-state:reviewed");
+    expect(resolution.reasons).toContain("no_state_authority_record");
+    expect(resolution.matched).toEqual([]);
+    expectNoInferredValues(resolution);
+  });
+
   it("does not cite expired reviewed records as consulted sources", () => {
     const resolution = resolveJurisdiction(
       verifiedSite(),
@@ -433,6 +500,31 @@ describe("resolveJurisdiction", () => {
     );
     expect(surveyed.outcome).toBe("verified");
     expect(surveyed.distinctions.rightOfWay).toBe("verified");
+  });
+
+  it("does not report rightOfWay as not_applicable for explicit right-of-way work", () => {
+    const resolution = resolveJurisdiction(
+      verifiedSite({ nearStateRoad: null, crossesRoadEdge: null, signCategory: null }),
+      [
+        record({ topics: ["permits", "right-of-way"] }),
+        municipalRecord({ topics: ["permits", "right-of-way"] }),
+      ],
+      "right-of-way trenching",
+      NOW,
+    );
+    expect(resolution.outcome).toBe("verified");
+    expect(resolution.distinctions.rightOfWay).toBe("unknown");
+    expectNoInferredValues(resolution);
+
+    // The same unknown flags are genuinely not applicable for other work.
+    const other = resolveJurisdiction(
+      verifiedSite({ nearStateRoad: null, crossesRoadEdge: null }),
+      [record(), municipalRecord()],
+      "roof repair",
+      NOW,
+    );
+    expect(other.outcome).toBe("verified");
+    expect(other.distinctions.rightOfWay).toBe("not_applicable");
   });
 
   it("fails closed when incorporated status is unknown, even with a county record on file", () => {

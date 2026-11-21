@@ -57,30 +57,60 @@ export const emptyJurisdictionRecordStore: JurisdictionRecordStore = {
 const SIGNAGE_WORK = /\bsigns?\b|\bsignage\b/i;
 const ELECTRICAL_WORK = /electr(ic|rical)|wiring|conduit|circuit/i;
 const STRUCTURAL_WORK = /structur|foundat|footing|sonotube|frost/i;
+const RIGHT_OF_WAY_WORK = /right-of-way|right of way|\brow\b/i;
+
+/** The same work-type classification `requiredTopics` uses for right-of-way. */
+function requiresRightOfWay(workType: string): boolean {
+  return RIGHT_OF_WAY_WORK.test(workType);
+}
 
 function requiredTopics(workType: string, site: SiteInput): string[] {
   const topics: string[] = ["permits"];
   if (SIGNAGE_WORK.test(workType)) topics.push("signage");
   if (ELECTRICAL_WORK.test(workType)) topics.push("electrical");
   if (STRUCTURAL_WORK.test(workType)) topics.push("structural");
-  if (/right-of-way|right of way|\brow\b/i.test(workType)) topics.push("right-of-way");
+  if (requiresRightOfWay(workType)) topics.push("right-of-way");
   if (site.nearStateRoad === true || site.crossesRoadEdge === true) topics.push("right-of-way");
   return [...new Set(topics)];
+}
+
+/**
+ * Strict calendar-date check. Native `new Date(...)` silently normalizes
+ * calendar-invalid dates (`2026-02-30` becomes 2026-03-02), which would
+ * let a record with an impossible edition date count as current. An ISO
+ * date prefix must round-trip through its year/month/day components
+ * (leap years included); any other string keeps the native NaN check.
+ */
+function isValidCalendarDate(value: string): boolean {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!match) return true;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const roundTripped = new Date(Date.UTC(year, month - 1, day));
+  return (
+    roundTripped.getUTCFullYear() === year &&
+    roundTripped.getUTCMonth() === month - 1 &&
+    roundTripped.getUTCDate() === day
+  );
 }
 
 function isCurrent(record: JurisdictionRecord, now: Date): boolean {
   if (record.status !== "reviewed") return false;
   if (record.expiresAt) {
+    if (!isValidCalendarDate(record.expiresAt)) return false;
     const expiry = new Date(record.expiresAt);
-    if (Number.isNaN(expiry.getTime()) || expiry.getTime() <= now.getTime()) return false;
+    if (expiry.getTime() <= now.getTime()) return false;
   }
-  const reviewed = new Date(record.reviewedAt);
-  if (Number.isNaN(reviewed.getTime())) return false;
+  if (!isValidCalendarDate(record.reviewedAt)) return false;
   // A reviewed record whose edition is not yet in force cannot verify a
   // match — otherwise a future code edition would certify today's job.
   if (record.effectiveFrom) {
+    if (!isValidCalendarDate(record.effectiveFrom)) return false;
     const effective = new Date(record.effectiveFrom);
-    if (Number.isNaN(effective.getTime()) || effective.getTime() > now.getTime()) return false;
+    if (effective.getTime() > now.getTime()) return false;
   }
   return true;
 }
@@ -118,13 +148,18 @@ export function resolveJurisdiction(
 
   // 1. Site identifiability — a street name or highway alone is not a parcel.
   // Rule 1: a verified parcel ID, or coordinates plus address. An address
-  // alone does not identify the site.
+  // alone does not identify the site. Coordinates must be geographically
+  // possible: latitude within [-90, 90], longitude within [-180, 180].
   const hasParcelId = Boolean(site.parcelId?.trim());
   const hasCoordinates =
     typeof site.latitude === "number" &&
     Number.isFinite(site.latitude) &&
+    site.latitude >= -90 &&
+    site.latitude <= 90 &&
     typeof site.longitude === "number" &&
-    Number.isFinite(site.longitude);
+    Number.isFinite(site.longitude) &&
+    site.longitude >= -180 &&
+    site.longitude <= 180;
   const hasAddress = Boolean(site.siteAddress?.trim());
   if (!hasParcelId && !(hasCoordinates && hasAddress)) {
     fail(
@@ -247,7 +282,11 @@ export function resolveJurisdiction(
       distinctions.rightOfWay = "verified";
     }
   } else {
-    distinctions.rightOfWay = "not_applicable";
+    // Explicit right-of-way work is never "not applicable" — the road
+    // flags are simply unknown, so the distinction stays unknown. The
+    // surveyed-boundary confirmation stays tied to road-edge proximity
+    // (the `nearRoad` branch above), not to the work-type classification.
+    distinctions.rightOfWay = requiresRightOfWay(work) ? "unknown" : "not_applicable";
   }
 
   // 7. Signage work needs an explicit on- vs off-premises classification,
