@@ -16,7 +16,7 @@ import {
 import { buildHealthPayload, checkReadiness } from "./health";
 import { adminUiRouter } from "./routes/adminUi.routes";
 import { davisBaconSyncCronRouter } from "./routes/davisBaconSyncCron.routes";
-import { costbookRouter } from "./routes/costbook.routes";
+import { costbookCodesIngestionRouter, costbookRouter } from "./routes/costbook.routes";
 import { costDatabaseRouter } from "./routes/costDatabase.routes";
 import { laborDatabaseRouter } from "./routes/laborDatabase.routes";
 import { materialDatabaseRouter } from "./routes/materialDatabase.routes";
@@ -109,6 +109,12 @@ export function createServer() {
   app.use("/api/v1/supplier-integrations", abcOAuthCallbackRouter);
   app.use("/api/v1", requireAuth);
   app.use("/api/v1/invoices", recoverableInvoiceCreateRouter);
+  // Governed Codes & Permits ingestion (issue #946, TODO 3): the ingest
+  // fetch must complete before any database transaction opens and without
+  // holding a pooled connection, so this route is mounted after requireAuth
+  // but before databaseSession. The store opens its own transaction for the
+  // persist phase; the request-scoped session is not needed here.
+  app.use("/api/v1/costbook", costbookCodesIngestionRouter);
   app.use("/api/v1", databaseSession);
   app.use("/api/v1/account", accountRouter);
   app.use("/api/v1/billing", billingRouter);
