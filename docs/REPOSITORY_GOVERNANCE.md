@@ -739,12 +739,15 @@ authenticated release path retain their independent validation requirements.
 
 The MCP Firefox browser is portable and environment-aware: the config reads
 its egress proxy from `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` (either
-case) at runtime and never hardcodes a proxy address or credential, and the
-sandbox egress CA is re-synced into the persistent Firefox profile at every
-MCP launch (`tests/playwright/sync-egress-ca.mjs`, run by `mcp-server.mjs`
-before the server starts) because that CA rotates within minutes — a
-profile synced once at setup time goes stale and every HTTPS navigation
-fails with `SEC_ERROR_UNKNOWN`. Diagnose staleness in seconds with
+case) at runtime and never hardcodes a proxy address or credential, the seed
+forwards the resolved proxy into the persistent Firefox context (which does
+not inherit the config's `use.proxy`), proxy credentials travel as separate
+`username` / `password` fields because Playwright drops userinfo from
+`server`, and the sandbox egress CA is re-synced into the persistent Firefox
+profile at every MCP launch (`tests/playwright/sync-egress-ca.mjs`, run by
+`mcp-server.mjs` before the server starts) because that CA rotates within
+minutes — a profile synced once at setup time goes stale and every HTTPS
+navigation fails with `SEC_ERROR_UNKNOWN`. Diagnose staleness in seconds with
 `node tests/playwright/sync-egress-ca.mjs --check` (exit 2 when stale).
 TLS validation stays fully on: never add `ignoreHTTPSErrors`, and never
 commit a temporary local relay.

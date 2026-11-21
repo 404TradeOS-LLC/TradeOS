@@ -7,9 +7,14 @@
 // returns undefined and the browser falls back to its own defaults (system
 // proxy settings), which is how the sandbox egress is reached today.
 //
-// Callers must treat the returned `server` value as secret material: pass it
-// to Playwright, never print it. Error messages name the variable, never the
+// Callers must treat the returned value as secret material: pass it to
+// Playwright, never print it. Error messages name the variable, never the
 // value.
+//
+// Credentials are split into Playwright's `username` / `password` fields:
+// Playwright's own normalization rebuilds `server` from protocol + host and
+// discards any userinfo embedded in the URL, so a `user:pass@host` server
+// alone would silently lose proxy authentication.
 
 const PROXY_VARIABLES = [
   "HTTPS_PROXY",
@@ -57,7 +62,13 @@ export function resolveMcpProxy(env = {}) {
   }
 
   const bypass = firstSet(env, BYPASS_VARIABLES);
-  const proxy = { server: found.value };
+  // Strip credentials out of `server`: Playwright keeps `username` /
+  // `password` fields but rebuilds `server` from protocol + host.
+  const proxy = { server: `${parsed.protocol}//${parsed.host}` };
+  if (parsed.username) {
+    proxy.username = decodeURIComponent(parsed.username);
+    proxy.password = decodeURIComponent(parsed.password);
+  }
   if (bypass) proxy.bypass = bypass.value;
   return proxy;
 }

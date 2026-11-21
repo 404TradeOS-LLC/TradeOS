@@ -54,10 +54,16 @@ test("passes NO_PROXY through as the Playwright bypass list", () => {
   );
 });
 
-test("keeps credentials in the server URL (Playwright needs them for proxy auth)", () => {
+test("splits credentials into username/password and keeps them out of server", () => {
   assert.deepEqual(
     resolveMcpProxy({ HTTPS_PROXY: "http://user:pass@proxy.example:3128" }),
-    { server: "http://user:pass@proxy.example:3128" },
+    { server: "http://proxy.example:3128", username: "user", password: "pass" },
+  );
+  // Percent-encoded credentials are URL-decoded, matching Playwright's own
+  // handling of proxy URLs.
+  assert.deepEqual(
+    resolveMcpProxy({ HTTPS_PROXY: "http://user:p%40ss%3Aword@proxy.example:3128" }),
+    { server: "http://proxy.example:3128", username: "user", password: "p@ss:word" },
   );
 });
 
