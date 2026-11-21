@@ -44,7 +44,7 @@ export function validateMatrix({ rootDir = root, matrix = JSON.parse(fs.readFile
     if (!migration.toLowerCase().includes(resource.table.toLowerCase()) || (!/create\s+policy/i.test(migration) && !dynamicFamily)) errors.push(`${label}: mapped migration lacks policy/table evidence`);
     const namedPolicies = resource.policy.match(/[a-z][a-z0-9_]*_policy/g) ?? [];
     for (const policyName of namedPolicies) {
-      if (!new RegExp(`create\\s+policy\\s+(?:if\\s+not\\s+exists\\s+)?${escapeRegex(policyName)}\\b`, "i").test(migration)) errors.push(`${label}: named policy ${policyName} is absent from mapped migration`);
+      if (!new RegExp(`create\\s+policy\\s+(?:if\\s+not\\s+exists\\s+)?${escapeRegex(policyName)}\\s+on\\s+(?:public\\.)?"?${escapeRegex(resource.table)}"?\\b`, "i").test(migration)) errors.push(`${label}: named policy ${policyName} is absent from mapped migration or is not on ${resource.table}`);
     }
     if (!fs.existsSync(path.join(rootDir, resource.routeServiceOwner))) errors.push(`${label}: route/service owner source is missing (${resource.routeServiceOwner})`);
     for (const key of ["sameOrg", "crossOrg", "scopeTest"]) {

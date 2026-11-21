@@ -41,11 +41,38 @@ test("dynamic tenant policy evidence must be inside the loop that contains the t
     .replace(/loop\s+execute format\('alter table %I force row level security', tenant_table\);/i, "loop null;");
   const tempRoot = fs.mkdtempSync(path.join(root, ".s073-validator-"));
   try {
-    fs.cpSync(path.join(root, "app"), path.join(tempRoot, "app"), { recursive: true });
+    // The validator only reads schema, migrations, integration sources, and
+    // referenced owner files — skip node_modules and generated output so the
+    // fixture copy stays small and deterministic.
+    const excludedDirs = new Set(["node_modules", ".next", "dist", "coverage", "out"]);
+    const copyFilter = (src) => !src.split(path.sep).some((part) => excludedDirs.has(part));
+    fs.cpSync(path.join(root, "app"), path.join(tempRoot, "app"), { recursive: true, filter: copyFilter });
     fs.cpSync(path.join(root, "docs"), path.join(tempRoot, "docs"), { recursive: true });
     fs.cpSync(path.join(root, "scripts"), path.join(tempRoot, "scripts"), { recursive: true });
     fs.writeFileSync(path.join(tempRoot, "app/prisma/migrations", costItem.migration), decoy);
     assert.ok(validateMatrix({ rootDir: tempRoot, matrix: changed }).some((error) => error.includes("cost_items: migration lacks explicit or enumerated ENABLE")));
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("named policy on the wrong table fails the ON-target check", () => {
+  const changed = structuredClone(matrix);
+  const lineItem = changed.resources.find((resource) => resource.table === "estimate_line_items");
+  const migrationRel = path.join("app/prisma/migrations", lineItem.migration);
+  const migration = fs.readFileSync(path.join(root, migrationRel), "utf8");
+  const decoy = migration.replace(
+    /create policy estimate_line_items_select_policy on estimate_line_items/i,
+    "create policy estimate_line_items_select_policy on jobs",
+  );
+  assert.notEqual(decoy, migration);
+  const tempRoot = fs.mkdtempSync(path.join(root, ".s073-validator-"));
+  try {
+    fs.cpSync(path.join(root, "app"), path.join(tempRoot, "app"), { recursive: true });
+    fs.cpSync(path.join(root, "docs"), path.join(tempRoot, "docs"), { recursive: true });
+    fs.cpSync(path.join(root, "scripts"), path.join(tempRoot, "scripts"), { recursive: true });
+    fs.writeFileSync(path.join(tempRoot, migrationRel), decoy);
+    assert.ok(validateMatrix({ rootDir: tempRoot, matrix: changed }).some((error) => error.includes("named policy estimate_line_items_select_policy is absent from mapped migration or is not on estimate_line_items")));
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
