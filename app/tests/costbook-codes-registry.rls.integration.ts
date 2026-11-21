@@ -20,6 +20,16 @@ const marionJurisdiction = "94600009-0000-4000-8000-000000000002";
 const marionSource = "94600009-0000-4000-8000-000000000003";
 const seedHistory = "94600009-0000-4000-8000-000000000004";
 const seedSignsSource = "94600003-0000-4000-8000-000000000001";
+// The six migration-seeded source rows (fixed UUIDs, 94600003-0000-4000-8000-000000000001
+// through ...000006). Prisma's UuidFilter has no `startsWith`, so select them by id.
+const seedSourceIds = [
+  "94600003-0000-4000-8000-000000000001",
+  "94600003-0000-4000-8000-000000000002",
+  "94600003-0000-4000-8000-000000000003",
+  "94600003-0000-4000-8000-000000000004",
+  "94600003-0000-4000-8000-000000000005",
+  "94600003-0000-4000-8000-000000000006",
+];
 
 // RLS denial reaches Prisma in two shapes, and both prove the write was
 // refused: PostgreSQL's 42501 "row-level security" error (INSERT, and
@@ -92,7 +102,7 @@ describe("Codes & Permits registry RLS", () => {
 
   it("serves the six reviewed seed rows with pilot provenance and no guessed dates", async () => {
     const seeds = await adminClient.codesSource.findMany({
-      where: { id: { startsWith: "94600003-" } },
+      where: { id: { in: seedSourceIds } },
       orderBy: { id: "asc" },
     });
     expect(seeds).toHaveLength(6);
