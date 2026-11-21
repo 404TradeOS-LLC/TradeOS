@@ -27,6 +27,7 @@ import type { RecalculationSnapshot } from "@/lib/motion/price-delta";
 import { groupSavedDirectCosts } from "@/lib/estimate-direct-costs";
 import { canAddReviewedEstimateCatalogItem } from "@/lib/estimate-catalog-review";
 import { createEstimateReviewNavigator } from "@/lib/estimate-review-navigation";
+import { EstimateCodesHints } from "@/components/estimate/estimate-codes-hints";
 
 interface LineItem {
   id: string;
@@ -521,6 +522,7 @@ function EstimateStageFlow({
             <div className="text-sm text-muted-foreground">
               Athena suggestions are review-first. Nothing is added automatically; open Athena review for deeper scope analysis.
             </div>
+            <EstimateCodesHints estimateId={estimateId} />
             <EstimateStageAction label={scopeSavePending ? "Saving scope…" : "Continue to items"} onClick={advance} disabled={scopeSavePending} />
           </div>
 
@@ -623,6 +625,7 @@ function EstimateStageFlow({
               </div>
               <p className="mt-2 text-sm text-muted-foreground">{formatPercent(runningTotals.marginPct)} gross margin · {runningTotals.lineItemCount} line items</p>
             </div>
+            <EstimateCodesHints estimateId={estimateId} />
             {isDraft ? (
               <>
                 <p className="text-sm text-muted-foreground">Finalizing locks this reviewed estimate version. The next step is creating the customer proposal. Nothing is sent to the customer by finalizing.</p>
