@@ -444,11 +444,16 @@ export interface JurisdictionOutcome {
  * status, authority, and source citation + version. Anything else —
  * missing parcel, unknown incorporated status, missing authority or
  * version — is `needs_verification`. County or state alone never
- * verifies a parcel's jurisdiction. When the registry is supplied, a
- * jurisdiction source known to be superseded also fails verification —
- * the check applies only to the jurisdiction's own source citation, so
- * unrelated superseded reference items never invalidate a current
- * jurisdiction source.
+ * verifies a parcel's jurisdiction. When the registry is supplied, the
+ * check applies to the edition the input names — matched by effective
+ * date via the input's sourceEffectiveDate or a date-like sourceVersion
+ * — and only to the jurisdiction's own source citation, so unrelated
+ * superseded reference items never invalidate a current jurisdiction
+ * source. A named edition that is superseded, or older than the newest
+ * known edition for the same citation, fails verification; an
+ * equal-date current edition stays verified. When the named edition
+ * cannot be matched to a registry entry and the citation has a
+ * superseded entry, verification fails closed.
  */
 export function resolveAdvisoryJurisdiction(
   input: JurisdictionInput,
@@ -478,23 +483,61 @@ export function resolveAdvisoryJurisdiction(
     };
   }
   const sourceCitation = input.sourceCitation!.trim();
-  const supersededSource = knownVersions.find(
-    (version) => version.citation.trim() === sourceCitation && version.status === "superseded",
+  const sameCitation = knownVersions.filter((version) => version.citation.trim() === sourceCitation);
+  // The registry entry for the edition the input names, matched on
+  // effective date via the input's sourceEffectiveDate or a date-like
+  // sourceVersion. Matching by citation alone would reject an input
+  // that names the current edition whenever an older superseded entry
+  // shares the citation, and would miss a stale edition the input
+  // does name. The newest entry is never the match: selecting it
+  // would verify an input that names the superseded edition.
+  const namedEntry = sameCitation.find(
+    (version) =>
+      !!version.effectiveDate &&
+      (version.effectiveDate === input.sourceEffectiveDate?.trim() ||
+        version.effectiveDate === asDate(input.sourceVersion)),
   );
-  if (supersededSource) {
+  const supersededOutcome = (entry: KnownSourceVersion): JurisdictionOutcome => ({
+    resolution: "needs_verification",
+    jurisdiction: null,
+    missing: [
+      `jurisdiction source ${sourceCitation} is superseded${
+        entry.supersededByCitation ? ` by ${entry.supersededByCitation}` : ""
+      }`,
+    ],
+    whyItMatters,
+    nextHumanAction: entry.supersededByCitation
+      ? `Use the superseding source ${entry.supersededByCitation} and confirm the parcel jurisdiction with the issuing authority.`
+      : "Ask the issuer which version superseded this jurisdiction source and confirm the parcel jurisdiction.",
+  });
+  if (namedEntry?.status === "superseded") {
+    return supersededOutcome(namedEntry);
+  }
+  // A named edition older than the newest known edition for the same
+  // citation is stale, even when no entry is marked superseded — the
+  // same comparison resolveSourceVersion makes. An equal-date current
+  // edition stays valid.
+  const newest = newestByEffectiveDate(sameCitation);
+  const editionDate = namedEntry?.effectiveDate ?? asDate(input.sourceEffectiveDate) ?? asDate(input.sourceVersion);
+  if (editionDate && newest?.effectiveDate && editionDate < newest.effectiveDate) {
     return {
       resolution: "needs_verification",
       jurisdiction: null,
       missing: [
-        `jurisdiction source ${sourceCitation} is superseded${
-          supersededSource.supersededByCitation ? ` by ${supersededSource.supersededByCitation}` : ""
-        }`,
+        `jurisdiction source ${sourceCitation} cites the ${editionDate} edition, but the registry holds a newer ${newest.effectiveDate} edition`,
       ],
       whyItMatters,
-      nextHumanAction: supersededSource.supersededByCitation
-        ? `Use the superseding source ${supersededSource.supersededByCitation} and confirm the parcel jurisdiction with the issuing authority.`
-        : "Ask the issuer which version superseded this jurisdiction source and confirm the parcel jurisdiction.",
+      nextHumanAction: "Verify the current adopted version and effective date directly with the issuing authority.",
     };
+  }
+  // Fail closed when the edition the input names cannot be matched to a
+  // registry entry and the citation has a superseded entry: the input
+  // cannot be established as naming the current edition.
+  if (!namedEntry) {
+    const supersededEntry = sameCitation.find((version) => version.status === "superseded");
+    if (supersededEntry) {
+      return supersededOutcome(supersededEntry);
+    }
   }
   return {
     resolution: "verified",
@@ -562,6 +605,12 @@ function citationFamilyKey(citation: string): string {
     return tokens.slice(0, -1).join(" ");
   }
   return normalized;
+}
+
+/** A date-like (YYYY-MM-DD) version label, or null when the label is not a plain date. */
+function asDate(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed && /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
 }
 
 /** Newest entry by effective date; undated entries sort as oldest. */

@@ -202,4 +202,77 @@ describe("Athena jurisdiction enrichment (fail-closed)", () => {
     expect(enriched.jurisdiction.resolution).toBe("verified");
     expect(enriched.items[0].version.status).toBe("superseded");
   });
+
+  it("returns needs_verification when the input cites a stale edition the registry has newer", () => {
+    const registry: KnownSourceVersion[] = [
+      { citation: "675 IAC 13-2.6", status: "current", effectiveDate: "2024-01-01" },
+    ];
+    const outcome = resolveAdvisoryJurisdiction(
+      { ...fullJurisdiction, sourceCitation: "675 IAC 13-2.6", sourceVersion: "2014-12-01", sourceEffectiveDate: "2014-12-01" },
+      registry,
+    );
+    expect(outcome.resolution).toBe("needs_verification");
+    expect(outcome.jurisdiction).toBeNull();
+    expect(outcome.missing.join(" ")).toMatch(/newer 2024-01-01 edition/);
+    // Same verdict as the version resolver for the same citation + date.
+    expect(resolveSourceVersion({ citation: "675 IAC 13-2.6", sourceDate: "2014-12-01" }, registry).status).toBe("stale");
+  });
+
+  it("verifies the current edition when an older superseded entry shares the citation", () => {
+    const registry: KnownSourceVersion[] = [
+      { citation: "675 IAC 13-2.6", status: "superseded", effectiveDate: "2014-12-01", supersededByCitation: "675 IAC 13-2.6 (2024)" },
+      { citation: "675 IAC 13-2.6", status: "current", effectiveDate: "2024-01-01" },
+    ];
+    const outcome = resolveAdvisoryJurisdiction(
+      { ...fullJurisdiction, sourceCitation: "675 IAC 13-2.6", sourceVersion: "2024-01-01", sourceEffectiveDate: "2024-01-01" },
+      registry,
+    );
+    expect(outcome.resolution).toBe("verified");
+    expect(outcome.jurisdiction?.sourceCitation).toBe("675 IAC 13-2.6");
+  });
+
+  it("keeps an equal-date current edition verified", () => {
+    const registry: KnownSourceVersion[] = [
+      { citation: "675 IAC 13-2.6", status: "current", effectiveDate: "2024-01-01" },
+    ];
+    const outcome = resolveAdvisoryJurisdiction(
+      { ...fullJurisdiction, sourceCitation: "675 IAC 13-2.6", sourceVersion: "2024-01-01", sourceEffectiveDate: "2024-01-01" },
+      registry,
+    );
+    expect(outcome.resolution).toBe("verified");
+  });
+
+  it("returns needs_verification when the input names the superseded edition itself", () => {
+    const registry: KnownSourceVersion[] = [
+      { citation: "675 IAC 13-2.6", status: "superseded", effectiveDate: "2014-12-01", supersededByCitation: "675 IAC 13-2.6 (2024)" },
+      { citation: "675 IAC 13-2.6", status: "current", effectiveDate: "2024-01-01" },
+    ];
+    const outcome = resolveAdvisoryJurisdiction(
+      { ...fullJurisdiction, sourceCitation: "675 IAC 13-2.6", sourceVersion: "2014-12-01", sourceEffectiveDate: "2014-12-01" },
+      registry,
+    );
+    expect(outcome.resolution).toBe("needs_verification");
+    expect(outcome.jurisdiction).toBeNull();
+    // The superseded entry is reported, not the newest entry.
+    expect(outcome.missing.join(" ")).toMatch(/superseded by 675 IAC 13-2\.6 \(2024\)/);
+  });
+
+  it("fails closed when the named edition cannot be matched and the citation has a superseded entry", () => {
+    const registry: KnownSourceVersion[] = [
+      { citation: "675 IAC 13-2.6", status: "superseded", effectiveDate: "2014-12-01", supersededByCitation: "675 IAC 13-2.6 (2024)" },
+      { citation: "675 IAC 13-2.6", status: "current", effectiveDate: "2024-01-01" },
+    ];
+    const outcome = resolveAdvisoryJurisdiction(
+      {
+        ...fullJurisdiction,
+        sourceCitation: "675 IAC 13-2.6",
+        sourceVersion: "2014 edition",
+        sourceEffectiveDate: undefined,
+      },
+      registry,
+    );
+    expect(outcome.resolution).toBe("needs_verification");
+    expect(outcome.jurisdiction).toBeNull();
+    expect(outcome.missing.join(" ")).toMatch(/superseded/);
+  });
 });
