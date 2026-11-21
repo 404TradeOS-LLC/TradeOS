@@ -3141,6 +3141,32 @@ describe("live organization row-level security", () => {
     const codesOtherAuth: AuthContext = { userId: otherUser, orgId: orgB, role: "owner" };
     const codesTechnicianAuth: AuthContext = { userId: technicianUser, orgId: orgA, role: "technician" };
 
+    // The integration suites share one disposable database and run in
+    // band with rls.integration.ts first, so rows this block inserts are
+    // visible to later suites: the registry suite counts statewide
+    // reviewed rows and total codes_source rows. Remove exactly the rows
+    // this block created (distinct citations, history first — its
+    // source_id FK is Restrict), restoring the shared DB to seed state.
+    // ActivityEvents are org-scoped audit rows on another table and go
+    // away with the outer afterAll's org cleanup.
+    const codesFixtureCitations = [
+      "INDOT — Global read fixture",
+      "INDOT — Direct write fixture",
+      "INDOT — Governed ingest test",
+      "INDOT — Approval test",
+      "INDOT — Expired fixture",
+    ];
+    afterAll(async () => {
+      await adminClient.$queryRaw(Prisma.sql`
+        delete from codes_source_history where source_id in (
+          select id from codes_source where citation in (${Prisma.join(codesFixtureCitations)})
+        )
+      `);
+      await adminClient.$queryRaw(Prisma.sql`
+        delete from codes_source where citation in (${Prisma.join(codesFixtureCitations)})
+      `);
+    });
+
     async function seedReviewedSource(input: { citation: string; sourceUrl: string; expiryDate: string | null; sourceHash: string }): Promise<string> {
       const id = randomUUID();
       await adminClient.$queryRaw(Prisma.sql`
@@ -3199,20 +3225,25 @@ describe("live organization row-level security", () => {
           `),
         ),
       ).rejects.toThrow(/row-level security/);
-      await expect(
-        inSession(adminUser, orgA, "admin", () =>
-          currentTransaction().$queryRaw(Prisma.sql`
-            update codes_source set title = 'direct edit' where id = ${sourceId}::uuid
-          `),
-        ),
-      ).rejects.toThrow(/row-level security/);
-      await expect(
-        inSession(adminUser, orgA, "admin", () =>
-          currentTransaction().$queryRaw(Prisma.sql`
-            delete from codes_source where id = ${sourceId}::uuid
-          `),
-        ),
-      ).rejects.toThrow(/row-level security/);
+      // UPDATE/DELETE under RLS do NOT throw: a row the session's policy
+      // hides is silently skipped, so the denial is proven by effect —
+      // zero rows affected — not by an error. (INSERT does throw, via
+      // WITH CHECK, and keeps the rejects assertion above. The sibling
+      // registry suite documents the same split: denial reaches Prisma
+      // as 42501 or P2025 through the client, and as zero affected rows
+      // through raw SQL.)
+      const updated = await inSession(adminUser, orgA, "admin", () =>
+        currentTransaction().$executeRaw(Prisma.sql`
+          update codes_source set title = 'direct edit' where id = ${sourceId}::uuid
+        `),
+      );
+      expect(updated).toBe(0);
+      const deleted = await inSession(adminUser, orgA, "admin", () =>
+        currentTransaction().$executeRaw(Prisma.sql`
+          delete from codes_source where id = ${sourceId}::uuid
+        `),
+      );
+      expect(deleted).toBe(0);
       await expect(
         inSession(adminUser, orgA, "admin", () =>
           currentTransaction().$queryRaw(Prisma.sql`
