@@ -54,6 +54,30 @@ test("passes NO_PROXY through as the Playwright bypass list", () => {
   );
 });
 
+test("translates a bare NO_PROXY=* into a bypass list Firefox honors for every host", () => {
+  // Playwright's Firefox (Juggler) bypass check is host-suffix matching,
+  // so `*` never matches and the host would still be proxied. A list
+  // containing an empty entry matches every hostname. The proxy object
+  // itself is kept: omitting it would let Firefox fall back to the
+  // system (environment) proxy. Verified live against Playwright 1.65.0 /
+  // Firefox 157 with a dead proxy: `bypass: '*'` fails the navigation,
+  // `bypass: '*,'` loads directly.
+  assert.deepEqual(
+    resolveMcpProxy({
+      HTTPS_PROXY: "http://proxy.example:3128",
+      NO_PROXY: "*",
+    }),
+    { server: "http://proxy.example:3128", bypass: "*," },
+  );
+  assert.deepEqual(
+    resolveMcpProxy({
+      HTTPS_PROXY: "http://proxy.example:3128",
+      NO_PROXY: "*,localhost",
+    }),
+    { server: "http://proxy.example:3128", bypass: "*,localhost," },
+  );
+});
+
 test("splits credentials into username/password and keeps them out of server", () => {
   assert.deepEqual(
     resolveMcpProxy({ HTTPS_PROXY: "http://user:pass@proxy.example:3128" }),
