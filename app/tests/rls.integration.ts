@@ -1715,6 +1715,11 @@ describe("live organization row-level security", () => {
     );
     expect(visibleActivity?.orgId).toBe(orgA);
 
+    const hiddenActivity = await inSession(otherUser, orgB, "owner", async () =>
+      currentTransaction().activityEvent.findUnique({ where: { id: activityEventA } })
+    );
+    expect(hiddenActivity).toBeNull();
+
     const hiddenNotification = await inSession(otherUser, orgB, "owner", async () =>
       currentTransaction().notification.findUnique({ where: { id: notificationA } })
     );

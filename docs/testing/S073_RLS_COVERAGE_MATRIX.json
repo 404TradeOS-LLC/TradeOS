@@ -1,0 +1,515 @@
+{
+  "schemaVersion": 1,
+  "sprint": "S073",
+  "repository": "404TradeOS-LLC/TradeOS",
+  "inventorySource": "S051 S052-S060 workflows and current Prisma schema/migrations",
+  "statusVocabulary": [
+    "COVERED",
+    "GAP",
+    "NOT_PERSISTED"
+  ],
+  "resources": [
+    {
+      "model": "Customer",
+      "table": "customers",
+      "journeys": [
+        "customer-project",
+        "customer-portal"
+      ],
+      "role": "primary",
+      "tenantSource": "org_id direct",
+      "migration": "20260623180000_enable_org_rls/migration.sql",
+      "policy": "organization tenant policy",
+      "sameOrg": "enforces customer same/cross organization reads directly under RLS",
+      "crossOrg": "enforces customer same/cross organization reads directly under RLS",
+      "scopeTest": "enforces customer same/cross organization reads directly under RLS",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/crm/service.ts"
+    },
+    {
+      "model": "ServiceAddress",
+      "table": "service_addresses",
+      "journeys": [
+        "customer-project",
+        "job-dispatch"
+      ],
+      "role": "child/inherited",
+      "tenantSource": "org_id direct and customer parent",
+      "migration": "20260706120000_add_beta_backend_foundation/migration.sql",
+      "policy": "service_addresses tenant policies",
+      "sameOrg": "enforces crm foundation tenant boundaries for service addresses, customer equipment, agreements, payments, and notes",
+      "crossOrg": "enforces crm foundation tenant boundaries for service addresses, customer equipment, agreements, payments, and notes",
+      "scopeTest": "enforces crm foundation tenant boundaries for service addresses, customer equipment, agreements, payments, and notes",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/crm/service.ts"
+    },
+    {
+      "model": "Project",
+      "table": "projects",
+      "journeys": [
+        "customer-project",
+        "scope-estimate",
+        "proposal-acceptance",
+        "contract-signature",
+        "job-dispatch",
+        "field-execution",
+        "invoice-payment",
+        "customer-portal",
+        "today-command-board"
+      ],
+      "role": "primary",
+      "tenantSource": "org_id direct",
+      "migration": "20260623180000_enable_org_rls/migration.sql",
+      "policy": "organization tenant policy",
+      "sameOrg": "enforces core service tenant boundaries before foreign reads or writes",
+      "crossOrg": "enforces core service tenant boundaries before foreign reads or writes",
+      "scopeTest": "restricts customer portal reads to the verified customer's tenant and projects",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/crm/service.ts"
+    },
+    {
+      "model": "Estimate",
+      "table": "estimates",
+      "journeys": [
+        "scope-estimate",
+        "proposal-acceptance",
+        "invoice-payment",
+        "today-command-board"
+      ],
+      "role": "primary",
+      "tenantSource": "org_id and project parent",
+      "migration": "20260623180000_enable_org_rls/migration.sql",
+      "policy": "organization tenant policy",
+      "sameOrg": "enforces core service tenant boundaries before foreign reads or writes",
+      "crossOrg": "enforces core service tenant boundaries before foreign reads or writes",
+      "scopeTest": "enforces generation metadata tenant and actor boundaries",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/estimate-engine/service.ts"
+    },
+    {
+      "model": "EstimateLineItem",
+      "table": "estimate_line_items",
+      "journeys": [
+        "scope-estimate"
+      ],
+      "role": "child/inherited",
+      "tenantSource": "estimate parent",
+      "migration": "20260623180000_enable_org_rls/migration.sql",
+      "policy": "estimate_line_items_select_policy, estimate_line_items_write_policy",
+      "sameOrg": "proves estimate parents are visible while estimate-line RLS remains parent-scoped",
+      "crossOrg": "proves estimate parents are visible while estimate-line RLS remains parent-scoped",
+      "scopeTest": "proves estimate parents are visible while estimate-line RLS remains parent-scoped",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/estimate-engine/service.ts"
+    },
+    {
+      "model": "AthenaGenerationRun",
+      "table": "athena_generation_runs",
+      "journeys": [
+        "scope-estimate"
+      ],
+      "role": "audit/delivery",
+      "tenantSource": "org_id and estimate/project parent; actor scope",
+      "migration": "20260824220000_add_athena_generation_persistence/migration.sql",
+      "policy": "generation metadata tenant and actor policies",
+      "sameOrg": "enforces generation metadata tenant and actor boundaries",
+      "crossOrg": "enforces generation metadata tenant and actor boundaries",
+      "scopeTest": "enforces generation metadata tenant and actor boundaries",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/estimate-engine/service.ts"
+    },
+    {
+      "model": "AthenaGenerationReview",
+      "table": "athena_generation_reviews",
+      "journeys": [
+        "scope-estimate"
+      ],
+      "role": "audit/delivery",
+      "tenantSource": "org_id and generation parent; reviewer scope",
+      "migration": "20260824220000_add_athena_generation_persistence/migration.sql",
+      "policy": "generation review tenant and reviewer policies",
+      "sameOrg": "enforces generation review tenant, reviewer, and append-only boundaries",
+      "crossOrg": "enforces generation review tenant, reviewer, and append-only boundaries",
+      "scopeTest": "enforces generation review tenant, reviewer, and append-only boundaries",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/estimate-engine/service.ts"
+    },
+    {
+      "model": "Proposal",
+      "table": "proposals",
+      "journeys": [
+        "proposal-acceptance"
+      ],
+      "role": "primary",
+      "tenantSource": "project parent",
+      "migration": "20260624100000_add_proposals_invoices_contracts/migration.sql",
+      "policy": "project-inherited proposal policy",
+      "sameOrg": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
+      "crossOrg": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
+      "scopeTest": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/proposals/service.ts"
+    },
+    {
+      "model": "ProposalDelivery",
+      "table": "proposal_deliveries",
+      "journeys": [
+        "proposal-acceptance"
+      ],
+      "role": "audit/delivery",
+      "tenantSource": "proposal and project parent",
+      "migration": "20260714143000_add_proposal_delivery_tracking/migration.sql",
+      "policy": "proposal delivery parent policy",
+      "sameOrg": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
+      "crossOrg": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
+      "scopeTest": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/proposals/service.ts"
+    },
+    {
+      "model": "Contract",
+      "table": "contracts",
+      "journeys": [
+        "contract-signature",
+        "customer-portal"
+      ],
+      "role": "primary",
+      "tenantSource": "project parent",
+      "migration": "20260624100000_add_proposals_invoices_contracts/migration.sql",
+      "policy": "project-inherited contract policy and portal scope",
+      "sameOrg": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
+      "crossOrg": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
+      "scopeTest": "allows only the exact pending customer contract to transition and records no staff actor",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/contracts/service.ts"
+    },
+    {
+      "model": "ContractEvent",
+      "table": "contract_events",
+      "journeys": [
+        "contract-signature",
+        "customer-portal"
+      ],
+      "role": "audit/delivery",
+      "tenantSource": "contract and project parent",
+      "migration": "20260714162000_add_invoice_and_contract_history/migration.sql",
+      "policy": "contract event parent policy",
+      "sameOrg": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
+      "crossOrg": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
+      "scopeTest": "allows only the exact pending customer contract to transition and records no staff actor",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/contracts/service.ts"
+    },
+    {
+      "model": "Job",
+      "table": "jobs",
+      "journeys": [
+        "job-dispatch",
+        "field-execution",
+        "today-command-board"
+      ],
+      "role": "primary",
+      "tenantSource": "org_id and project parent; assignment scope",
+      "migration": "20260714120000_add_job_scheduling_engine/migration.sql",
+      "policy": "job organization and technician assignment policies",
+      "sameOrg": "limits technician job visibility to assigned jobs while preserving tenant isolation",
+      "crossOrg": "limits technician job visibility to assigned jobs while preserving tenant isolation",
+      "scopeTest": "denies an unassigned same-organization technician job reads and completion at the database boundary",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/jobs/service.ts"
+    },
+    {
+      "model": "JobAssignment",
+      "table": "job_assignments",
+      "journeys": [
+        "job-dispatch",
+        "field-execution"
+      ],
+      "role": "child/inherited",
+      "tenantSource": "job parent and assigned actor",
+      "migration": "20260714120000_add_job_scheduling_engine/migration.sql",
+      "policy": "job assignment and assigned actor policies",
+      "sameOrg": "lets technicians read their assigned team and update only their own assignment rows",
+      "crossOrg": "limits technician job visibility to assigned jobs while preserving tenant isolation",
+      "scopeTest": "lets technicians read their assigned team and update only their own assignment rows",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/jobs/service.ts"
+    },
+    {
+      "model": "JobExpense",
+      "table": "job_expenses",
+      "journeys": [
+        "field-execution"
+      ],
+      "role": "child/inherited",
+      "tenantSource": "job parent",
+      "migration": "20261102020000_add_job_expenses/migration.sql",
+      "policy": "job expense parent policy",
+      "sameOrg": "scopes job expenses through the job join at the database boundary",
+      "crossOrg": "scopes job expenses through the job join at the database boundary",
+      "scopeTest": "scopes job expenses through the job join at the database boundary",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/expenses/service.ts"
+    },
+    {
+      "model": "JobExpenseEvent",
+      "table": "job_expense_events",
+      "journeys": [
+        "field-execution"
+      ],
+      "role": "audit/delivery",
+      "tenantSource": "expense and job parent",
+      "migration": "20261102081500_complete_job_expenses/migration.sql",
+      "policy": "job expense event parent policy",
+      "sameOrg": "scopes job expenses through the job join at the database boundary",
+      "crossOrg": "scopes job expenses through the job join at the database boundary",
+      "scopeTest": "scopes job expenses through the job join at the database boundary",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/expenses/service.ts"
+    },
+    {
+      "model": "ProjectTask",
+      "table": "project_tasks",
+      "journeys": [
+        "field-execution",
+        "today-command-board"
+      ],
+      "role": "child/inherited",
+      "tenantSource": "project/job parent and assignment scope",
+      "migration": "20260703110000_add_project_workspace_operations/migration.sql",
+      "policy": "project task parent and assignment policies",
+      "sameOrg": "enforces project task visibility and write permissions",
+      "crossOrg": "enforces project task visibility and write permissions",
+      "scopeTest": "scopes shared field tasks to active assignments under forced RLS",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/project-tasks/service.ts"
+    },
+    {
+      "model": "ActivityEvent",
+      "table": "activity_events",
+      "journeys": [
+        "customer-project",
+        "job-dispatch",
+        "field-execution",
+        "invoice-payment",
+        "today-command-board"
+      ],
+      "role": "audit/delivery",
+      "tenantSource": "org_id direct and related resource scope",
+      "migration": "20260703190000_add_intelligence_foundation/migration.sql",
+      "policy": "activity event tenant policies",
+      "sameOrg": "enforces intelligence foundation tenant boundaries",
+      "crossOrg": "enforces intelligence foundation tenant boundaries",
+      "scopeTest": "enforces intelligence foundation tenant boundaries",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/intelligence/service.ts"
+    },
+    {
+      "model": "Invoice",
+      "table": "invoices",
+      "journeys": [
+        "invoice-payment",
+        "today-command-board"
+      ],
+      "role": "primary",
+      "tenantSource": "project parent",
+      "migration": "20260624100000_add_proposals_invoices_contracts/migration.sql",
+      "policy": "project-inherited invoice policy",
+      "sameOrg": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
+      "crossOrg": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
+      "scopeTest": "enforces core service tenant boundaries before foreign reads or writes",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/invoices/service.ts"
+    },
+    {
+      "model": "InvoiceLineItem",
+      "table": "invoice_line_items",
+      "journeys": [
+        "invoice-payment"
+      ],
+      "role": "child/inherited",
+      "tenantSource": "invoice and project parent",
+      "migration": "20260624100000_add_proposals_invoices_contracts/migration.sql",
+      "policy": "invoice_line_items_select_policy, invoice_line_items_write_policy",
+      "sameOrg": "enforces invoice-line reads through the parent invoice and project",
+      "crossOrg": "enforces invoice-line reads through the parent invoice and project",
+      "scopeTest": "enforces invoice-line reads through the parent invoice and project",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/invoices/service.ts"
+    },
+    {
+      "model": "Payment",
+      "table": "payments",
+      "journeys": [
+        "invoice-payment",
+        "customer-portal",
+        "today-command-board"
+      ],
+      "role": "child/inherited",
+      "tenantSource": "org_id and invoice parent",
+      "migration": "20260706120000_add_beta_backend_foundation/migration.sql",
+      "policy": "payments tenant and invoice parent policies",
+      "sameOrg": "enforces crm foundation tenant boundaries for service addresses, customer equipment, agreements, payments, and notes",
+      "crossOrg": "enforces core service tenant boundaries before foreign reads or writes",
+      "scopeTest": "enforces core service tenant boundaries before foreign reads or writes",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/invoices/service.ts"
+    },
+    {
+      "model": "CustomerPortalAccessToken",
+      "table": "customer_portal_access_tokens",
+      "journeys": [
+        "customer-portal"
+      ],
+      "role": "portal identity",
+      "tenantSource": "exact token hash, organization, and customer",
+      "migration": "20260828150000_add_customer_portal_identity/migration.sql",
+      "policy": "customer_portal_access_tokens_lookup_policy, redeem, write, revoke policies",
+      "sameOrg": "limits portal identity reads to the exact token or session credential",
+      "crossOrg": "limits portal identity reads to the exact token or session credential",
+      "scopeTest": "limits portal identity reads to the exact token or session credential",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/customer-portal/service.ts"
+    },
+    {
+      "model": "CustomerPortalSession",
+      "table": "customer_portal_sessions",
+      "journeys": [
+        "customer-portal"
+      ],
+      "role": "portal identity",
+      "tenantSource": "exact session hash, organization, and customer",
+      "migration": "20260828150000_add_customer_portal_identity/migration.sql",
+      "policy": "customer_portal_sessions_lookup_policy, touch, write, revoke policies",
+      "sameOrg": "keeps portal session context scoped to its customer and organization",
+      "crossOrg": "keeps portal session context scoped to its customer and organization",
+      "scopeTest": "limits portal identity reads to the exact token or session credential",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/customer-portal/service.ts"
+    },
+    {
+      "model": "CostItem",
+      "table": "cost_items",
+      "journeys": [
+        "scope-estimate"
+      ],
+      "role": "primary",
+      "tenantSource": "org_id direct; category/subcategory hierarchy",
+      "migration": "20260623180000_enable_org_rls/migration.sql",
+      "policy": "cost_items generated tenant select/write policy family",
+      "sameOrg": "hides a cross-organization CostItem from an owner",
+      "crossOrg": "hides a cross-organization CostItem from an owner",
+      "scopeTest": "hides a cross-organization CostItem from an owner",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/cost-database/service.ts"
+    },
+    {
+      "model": "Assembly",
+      "table": "assemblies",
+      "journeys": [
+        "scope-estimate"
+      ],
+      "role": "primary",
+      "tenantSource": "org_id direct",
+      "migration": "20260623180000_enable_org_rls/migration.sql",
+      "policy": "assemblies generated tenant select/write policy family",
+      "sameOrg": "allows read-only Costbook roles to see only their tenant assemblies",
+      "crossOrg": "allows read-only Costbook roles to see only their tenant assemblies",
+      "scopeTest": "allows read-only Costbook roles to see only their tenant assemblies",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/assemblies-database/service.ts"
+    },
+    {
+      "model": "AssemblyItem",
+      "table": "assembly_items",
+      "journeys": [
+        "scope-estimate"
+      ],
+      "role": "child/inherited",
+      "tenantSource": "assembly parent; cost item/child assembly references",
+      "migration": "20260623180000_enable_org_rls/migration.sql",
+      "policy": "assembly_items_select_policy, assembly_items_write_policy",
+      "sameOrg": "rejects a cross-organization component even when the parent assembly is owned by the session org",
+      "crossOrg": "rejects a cross-organization component even when the parent assembly is owned by the session org",
+      "scopeTest": "rejects a cross-organization component even when the parent assembly is owned by the session org",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/assemblies-database/service.ts"
+    },
+    {
+      "model": "Material",
+      "table": "materials",
+      "journeys": [
+        "scope-estimate"
+      ],
+      "role": "primary",
+      "tenantSource": "org_id direct",
+      "migration": "20260623180000_enable_org_rls/migration.sql",
+      "policy": "materials generated tenant select/write policy family",
+      "sameOrg": "scopes materials by organization at the database layer",
+      "crossOrg": "scopes materials by organization at the database layer",
+      "scopeTest": "scopes materials by organization at the database layer",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/cost-database/service.ts"
+    },
+    {
+      "model": "LaborRate",
+      "table": "labor_rates",
+      "journeys": [
+        "scope-estimate"
+      ],
+      "role": "primary",
+      "tenantSource": "org_id direct",
+      "migration": "20260623180000_enable_org_rls/migration.sql",
+      "policy": "labor_rates generated tenant select/write policy family",
+      "sameOrg": "scopes labor rates by organization at the database layer",
+      "crossOrg": "scopes labor rates by organization at the database layer",
+      "scopeTest": "scopes labor rates by organization at the database layer",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/cost-database/service.ts"
+    },
+    {
+      "model": "Equipment",
+      "table": "equipment",
+      "journeys": [
+        "scope-estimate"
+      ],
+      "role": "primary",
+      "tenantSource": "org_id direct",
+      "migration": "20260623180000_enable_org_rls/migration.sql",
+      "policy": "equipment generated tenant select/write policy family",
+      "sameOrg": "keeps equipment reads scoped to the authenticated organization",
+      "crossOrg": "keeps equipment reads scoped to the authenticated organization",
+      "scopeTest": "keeps equipment reads scoped to the authenticated organization",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/cost-database/service.ts"
+    },
+    {
+      "model": "InvoiceDelivery",
+      "table": "invoice_deliveries",
+      "journeys": [
+        "invoice-payment"
+      ],
+      "role": "audit/delivery",
+      "tenantSource": "invoice and project parent; org_id direct",
+      "migration": "20260714162000_add_invoice_and_contract_history/migration.sql",
+      "policy": "invoice_deliveries_select_policy, invoice_deliveries_write_policy",
+      "sameOrg": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
+      "crossOrg": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
+      "scopeTest": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/invoices/service.ts"
+    }
+  ],
+  "exclusions": [
+    {
+      "resource": "Knowledge Runtime file/vector corpus",
+      "status": "NOT_PERSISTED",
+      "reason": "S051 release-critical journeys consume file-backed or derived knowledge results; no tenant-owned Prisma row is persisted by these actions."
+    },
+    {
+      "resource": "Calculated totals and Today summaries",
+      "status": "NOT_PERSISTED",
+      "reason": "Derived from the persisted resources listed above and have no independent PostgreSQL table or RLS policy."
+    }
+  ]
+}
