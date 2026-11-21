@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-03
+last_verified: 2026-11-13
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -48,9 +48,9 @@ related_code:
 
 # TradeOS Engineering Command Center
 
-## Autonomous coordinator execution — PR #979 (proposed)
+## Autonomous coordinator execution — PR #979 (merged 2026-11-13 as `e30b8d4a`)
 
-Founder-requested default: `EXECUTE → VERIFY → RECONCILE → ADVANCE` for an approved engineering workstream. One coordinator checks actual connected tool capabilities and permissions, selects the highest-priority independent eligible task, repairs validated code/CI/review findings through the existing PR, runs exact-head gates, and advances after a fresh per-mission preflight. No new commander service, repo boundary, blanket production approval, automatic paid dependency installation, or unverified acceptance is implied. Current proposal updates AGENTS and the canonical next-sprint protocol; it does **not** assert that the PR Commander runtime or schedules now implement autonomous repair/dispatch. Implementing and proving that behavior remains a separate existing-work reconciliation task. See `docs/REPOSITORY_GOVERNANCE.md`.
+Founder-requested default: `EXECUTE → VERIFY → RECONCILE → ADVANCE` for an approved engineering workstream. One coordinator checks actual connected tool capabilities and permissions, selects the highest-priority independent eligible task, repairs validated code/CI/review findings through the existing PR, runs exact-head gates, and advances after a fresh per-mission preflight. No new commander service, repo boundary, blanket production approval, automatic paid dependency installation, or unverified acceptance is implied. Merged PR #979 updates AGENTS and the canonical next-sprint protocol; it does **not** assert that the PR Commander runtime or schedules now implement autonomous repair/dispatch. Implementing and proving that behavior remains a separate existing-work reconciliation task. See `docs/REPOSITORY_GOVERNANCE.md`.
 
 ## Invited beta mission — 2026-11-06
 

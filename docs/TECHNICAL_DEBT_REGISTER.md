@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-15
+last_verified: 2026-11-21
 source_of_truth: false
 ---
 
@@ -10,6 +10,8 @@ source_of_truth: false
 This register records the evidence-backed findings from the repository-wide technical-debt cleanup sprint that started from `origin/main` at `d4cdbc3c2df5425c399d5459f52aa8c51a9aaf0e`.
 
 The register is deliberately conservative: style preferences and search false positives are not treated as debt. Repository state and live GitHub state remain authoritative after this dated snapshot.
+
+> Archival note (2026-11-21): this register is a dated snapshot of the 2026-08-13 technical-debt cleanup sprint, not a live index. Do not treat the DEFER / FALSE_POSITIVE dispositions below as current without re-verifying each finding against `main` — several predate merges that may have resolved them. A full refresh of the findings is follow-up work, not part of this docs refresh.
 
 ## Disposition vocabulary
 

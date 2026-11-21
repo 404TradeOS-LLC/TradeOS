@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-03
+last_verified: 2026-11-13
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -18,7 +18,7 @@ Status vocabulary: `DONE`, `IN_REVIEW`, `READY`, `BLOCKED`, `PLANNED`, `DEFERRED
 
 This document owns current sprint status and merge evidence. Governance doctrine belongs in `docs/TRADEOS_BIBLE.md`; the sole executable startup and completion flows belong in `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.
 
-- **Autonomous engineering execution contract — PR #979 (proposed, non-numbered):** Standing founder direction permits sequential, separately reconciled eligible bounded missions and safe dependency/tool recovery without routine approval prompts; it does not change any numbered sprint status, dependency, readiness, ownership, release certification, protected approval or review requirement. PR #979 is documentation-only and remains subject to exact-head CI and review. Runtime PR Commander repair orchestration is a separate implementation task; policy text alone is not working automation.
+- **Autonomous engineering execution contract — PR #979 (merged 2026-11-13 as `e30b8d4a`, non-numbered):** Standing founder direction permits sequential, separately reconciled eligible bounded missions and safe dependency/tool recovery without routine approval prompts; it does not change any numbered sprint status, dependency, readiness, ownership, release certification, protected approval or review requirement. PR #979 is documentation-only and merged after exact-head CI and review. Runtime PR Commander repair orchestration is a separate implementation task; policy text alone is not working automation.
 
 ## Parallel founder-authorized work (non-numbered)
 
