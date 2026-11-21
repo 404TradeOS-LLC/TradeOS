@@ -9,6 +9,7 @@ test("Today exposes the compact existing Athena workspace first and no stale dir
   const athenaPosition = today.indexOf('className="today-panel today-athena mb-4"');
   const metricsPosition = today.indexOf('aria-label="Operational indicators"');
   assert.ok(athenaPosition >= 0 && athenaPosition < metricsPosition);
+  assert.equal(today.split('className="today-panel today-athena mb-4"').length - 1, 1);
   assert.match(today, /setAthenaOpen\] = useState\(initialView === "today"\)/);
   assert.match(today, /compact=\{initialView === "today"\}/);
   assert.doesNotMatch(today, /operational records remain available above/);
