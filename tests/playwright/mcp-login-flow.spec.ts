@@ -179,8 +179,21 @@ test.describe('TradeOS sign-in workflow', () => {
     // turn the first leg into a second returning visit and leave the
     // true first-visit timing unexercised on this target. The reload
     // afterwards is a genuine returning visit.
+    //
+    // Clear the flag exactly once: addInitScript re-runs on every
+    // navigation, including the reload below, so an unconditional clear
+    // would delete the flag LoginEntry remembers on the first leg and
+    // turn the returning leg into a second first visit (its 5s bound
+    // would then accept the 4s first-visit film). The sessionStorage
+    // marker survives the reload in the same tab but is fresh for every
+    // test's new context, so the guard fires only before the first leg.
     await page.addInitScript(() => {
-      window.localStorage.removeItem('tradeos.entry.visited.v2');
+      if (
+        !window.sessionStorage.getItem('tradeos.test.visit-cleared.v1')
+      ) {
+        window.localStorage.removeItem('tradeos.entry.visited.v2');
+        window.sessionStorage.setItem('tradeos.test.visit-cleared.v1', '1');
+      }
     });
     await installIntroTimingProbe(page);
     await page.emulateMedia({ reducedMotion: 'no-preference' });
@@ -221,7 +234,12 @@ test.describe('TradeOS sign-in workflow', () => {
       window.localStorage.removeItem('tradeos.entry.visited.v2');
     });
     await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await page.goto('/login');
+    // Navigate on commit, not load: a slow subresource can hold the
+    // page's load event open past the film's 4s lifetime, so the default
+    // wait would return only after the dialog already dismissed and the
+    // visibility assertion below would fail on a healthy app. The dialog
+    // wait that follows is the synchronization point instead.
+    await page.goto('/login', { waitUntil: 'commit' });
     const intro = introDialog(page);
     // Capture the field's box from the server-rendered HTML before
     // waiting for the dialog, so the click below follows the visibility
@@ -280,7 +298,10 @@ test.describe('TradeOS sign-in workflow', () => {
     test.setTimeout(60000);
     const errors = collectConsoleErrors(page);
     await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await page.goto('/login');
+    // Navigate on commit, not load: same slow-subresource hazard as the
+    // inert-form test — the default wait can return after the film
+    // already dismissed. Synchronize on the mounted dialog instead.
+    await page.goto('/login', { waitUntil: 'commit' });
     const intro = introDialog(page);
     await expect(intro).toBeVisible({ timeout: 10000 });
 
