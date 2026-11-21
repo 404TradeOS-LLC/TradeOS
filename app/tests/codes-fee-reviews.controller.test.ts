@@ -102,4 +102,30 @@ describe("codesFeeReviewsController", () => {
       expect.objectContaining({ feeReviewId: FEE, costItemId: COST_ITEM }),
     );
   });
+
+  it("passes an omitted review note as undefined so the stored note is preserved, and an explicit null so it clears", async () => {
+    review.mockResolvedValue({ id: FEE, status: "approved" });
+    const res = responseDouble();
+    await codesFeeReviewsController.review(
+      baseReq({ body: { expectedUpdatedAt: "2026-11-09T12:00:00.000Z", decision: "approved" } }),
+      res,
+    );
+    const omittedNote = review.mock.calls[0][0];
+    expect("note" in omittedNote).toBe(true);
+    expect(omittedNote.note).toBeUndefined();
+
+    review.mockClear();
+    await codesFeeReviewsController.review(
+      baseReq({ body: { expectedUpdatedAt: "2026-11-09T12:00:00.000Z", decision: "approved", note: null } }),
+      res,
+    );
+    expect(review.mock.calls[0][0].note).toBeNull();
+
+    review.mockClear();
+    await codesFeeReviewsController.review(
+      baseReq({ body: { expectedUpdatedAt: "2026-11-09T12:00:00.000Z", decision: "rejected", note: "Fee is for the wrong permit." } }),
+      res,
+    );
+    expect(review.mock.calls[0][0].note).toBe("Fee is for the wrong permit.");
+  });
 });

@@ -2,6 +2,7 @@ const mockPrisma = {
   project: { findFirst: jest.fn() },
   estimate: { findFirst: jest.fn(), update: jest.fn() },
   costItem: { findFirst: jest.fn() },
+  codesJobAssessment: { findFirst: jest.fn() },
   codesFeeReview: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
@@ -18,6 +19,7 @@ import { CodesFeeReviewsService, mayAffectEstimate } from "../modules/costbook/c
 const ORG = "10000000-0000-0000-0000-000000000001";
 const PROJECT = "10000000-0000-0000-0000-000000000081";
 const ESTIMATE = "10000000-0000-0000-0000-000000000091";
+const ASSESSMENT = "10000000-0000-0000-0000-000000000131";
 const OWNER = "10000000-0000-0000-0000-000000000011";
 const TECH = "10000000-0000-0000-0000-000000000014";
 const COST_ITEM = "10000000-0000-0000-0000-000000000061";
@@ -49,6 +51,7 @@ describe("CodesFeeReviewsService (price-neutral by construction)", () => {
     jest.clearAllMocks();
     mockPrisma.project.findFirst.mockResolvedValue({ id: PROJECT, orgId: ORG });
     mockPrisma.estimate.findFirst.mockResolvedValue({ id: ESTIMATE, orgId: ORG, projectId: PROJECT });
+    mockPrisma.codesJobAssessment.findFirst.mockResolvedValue({ id: ASSESSMENT, orgId: ORG });
   });
 
   it("creates a pending fee review with no CostItem and no estimate effect", async () => {
@@ -80,6 +83,26 @@ describe("CodesFeeReviewsService (price-neutral by construction)", () => {
     await expect(
       service.create({ orgId: ORG, role: "owner", actorId: OWNER, projectId: PROJECT, estimateId: ESTIMATE, feeCents: 100, feeSource: "verified" }),
     ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("links a same-org assessment at creation and rejects another org's assessment", async () => {
+    mockPrisma.codesFeeReview.create.mockResolvedValue(feeRow({ assessmentId: ASSESSMENT }));
+    const service = new CodesFeeReviewsService();
+    const review = await service.create({
+      orgId: ORG, role: "owner", actorId: OWNER, projectId: PROJECT,
+      estimateId: ESTIMATE, feeCents: 12500, feeSource: "quoted", assessmentId: ASSESSMENT,
+    });
+    expect(review.assessmentId).toBe(ASSESSMENT);
+    expect(mockPrisma.codesJobAssessment.findFirst).toHaveBeenCalledWith({ where: { id: ASSESSMENT, orgId: ORG } });
+
+    mockPrisma.codesJobAssessment.findFirst.mockResolvedValue(null);
+    await expect(
+      service.create({
+        orgId: ORG, role: "owner", actorId: OWNER, projectId: PROJECT,
+        estimateId: ESTIMATE, feeCents: 100, feeSource: "verified", assessmentId: "other-org-assessment",
+      }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(mockPrisma.codesFeeReview.create).toHaveBeenCalledTimes(1);
   });
 
   it("refuses fee-review creation and review by technicians", async () => {
@@ -165,5 +188,27 @@ describe("CodesFeeReviewsService (price-neutral by construction)", () => {
     await expect(
       service.review({ orgId: ORG, role: "owner", actorId: OWNER, feeReviewId: "fee-1", expectedUpdatedAt: new Date("2026-11-08T00:00:00.000Z"), decision: "approved" }),
     ).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it("preserves the stored note when review omits it, and clears it only on an explicit null", async () => {
+    const service = new CodesFeeReviewsService();
+    mockPrisma.codesFeeReview.findFirst.mockResolvedValue(feeRow({ note: "Quoted verbally; confirm in writing." }));
+    mockPrisma.codesFeeReview.update.mockResolvedValue(
+      feeRow({ status: "approved", note: "Quoted verbally; confirm in writing.", updatedAt: new Date("2026-11-09T12:00:01.000Z") }),
+    );
+    await service.review({
+      orgId: ORG, role: "owner", actorId: OWNER, feeReviewId: "fee-1", expectedUpdatedAt: REVISION, decision: "approved",
+    });
+    const omittedCall = mockPrisma.codesFeeReview.update.mock.calls[0][0];
+    expect(omittedCall.data).not.toHaveProperty("note");
+
+    mockPrisma.codesFeeReview.update.mockClear();
+    mockPrisma.codesFeeReview.update.mockResolvedValue(
+      feeRow({ status: "approved", note: null, updatedAt: new Date("2026-11-09T12:00:01.000Z") }),
+    );
+    await service.review({
+      orgId: ORG, role: "owner", actorId: OWNER, feeReviewId: "fee-1", expectedUpdatedAt: REVISION, decision: "approved", note: null,
+    });
+    expect(mockPrisma.codesFeeReview.update.mock.calls[0][0].data.note).toBeNull();
   });
 });

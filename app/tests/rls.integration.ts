@@ -1367,6 +1367,131 @@ describe("live organization row-level security", () => {
     }
   });
 
+  it("rejects dispatcher writes, dispatcher-as-assignee updates, and cross-org parent references on permit tasks and fee reviews", async () => {
+    const dispatcherUser = randomUUID();
+    const dispatcherMembership = randomUUID();
+    const assessmentA = randomUUID();
+    const assessmentB = randomUUID();
+    const dispatcherTaskId = randomUUID();
+    const plainTaskId = randomUUID();
+    const feeId = randomUUID();
+    await adminClient.appUser.create({
+      data: { id: dispatcherUser, authSubject: "rls-dispatcher", email: "rls-dispatcher@example.com" },
+    });
+    await adminClient.organizationMembership.create({
+      data: { id: dispatcherMembership, orgId: orgA, userId: dispatcherUser, role: "dispatcher", status: "active" },
+    });
+    await adminClient.codesJobAssessment.createMany({
+      data: [
+        { id: assessmentA, orgId: orgA, projectId: projectA, estimateId: estimateA, workType: "sign replacement", status: "needs_review", citations: [], unknowns: [], createdBy: adminUser },
+        { id: assessmentB, orgId: orgB, projectId: projectB, workType: "sign replacement", status: "needs_review", citations: [], unknowns: [], createdBy: otherUser },
+      ],
+    });
+    await adminClient.codesPermitTask.createMany({
+      data: [
+        { id: dispatcherTaskId, orgId: orgA, projectId: projectA, taskKind: "permit", title: "Dispatcher-assigned task", permitStatus: "not_submitted", assigneeId: dispatcherUser },
+        { id: plainTaskId, orgId: orgA, projectId: projectA, taskKind: "inspection", title: "Plain inspection task", permitStatus: "not_submitted" },
+      ],
+    });
+    await adminClient.codesFeeReview.create({
+      data: { id: feeId, orgId: orgA, projectId: projectA, estimateId: estimateA, feeCents: 1000, feeSource: "quoted", currency: "USD", status: "pending" },
+    });
+    try {
+      // Dispatcher writes are rejected on both tables: the admin branches
+      // require owner/admin explicitly, not current_app_can_administer().
+      await expect(
+        inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().codesPermitTask.create({
+            data: { orgId: orgA, projectId: projectA, taskKind: "permit", title: "Dispatcher task", permitStatus: "not_submitted" },
+          }),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().codesPermitTask.delete({ where: { id: plainTaskId } }),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().codesFeeReview.create({
+            data: { orgId: orgA, projectId: projectA, feeCents: 1000, feeSource: "quoted", currency: "USD", status: "pending" },
+          }),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().codesFeeReview.update({ where: { id: feeId }, data: { status: "approved" } }),
+        ),
+      ).rejects.toThrow();
+
+      // A dispatcher assigned to a task still cannot update it: the
+      // assignee exception requires the technician role as well as the
+      // matching assignee id.
+      await expect(
+        inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().codesPermitTask.update({ where: { id: dispatcherTaskId }, data: { permitStatus: "under_review" } }),
+        ),
+      ).rejects.toThrow();
+      const untouched = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesPermitTask.findUnique({ where: { id: dispatcherTaskId } }),
+      );
+      expect(untouched?.permitStatus).toBe("not_submitted");
+
+      // Cross-org parent references are refused even with a matching
+      // org_id claim: project, assessment, and (for fee reviews) estimate.
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().codesPermitTask.create({
+            data: { orgId: orgA, projectId: projectB, taskKind: "permit", title: "Cross-org project task", permitStatus: "not_submitted" },
+          }),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().codesPermitTask.create({
+            data: { orgId: orgA, projectId: projectA, assessmentId: assessmentB, taskKind: "permit", title: "Cross-org assessment task", permitStatus: "not_submitted" },
+          }),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().codesFeeReview.create({
+            data: { orgId: orgA, projectId: projectB, feeCents: 1000, feeSource: "quoted", currency: "USD", status: "pending" },
+          }),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().codesFeeReview.create({
+            data: { orgId: orgA, projectId: projectA, assessmentId: assessmentB, feeCents: 1000, feeSource: "quoted", currency: "USD", status: "pending" },
+          }),
+        ),
+      ).rejects.toThrow();
+
+      // Valid same-org associations still work for owner/admin.
+      const sameOrgTask = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesPermitTask.create({
+          data: { orgId: orgA, projectId: projectA, assessmentId: assessmentA, assigneeId: technicianUser, taskKind: "permit", title: "Same-org task", permitStatus: "not_submitted" },
+        }),
+      );
+      expect(sameOrgTask.assessmentId).toBe(assessmentA);
+      const sameOrgFee = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesFeeReview.create({
+          data: { orgId: orgA, projectId: projectA, estimateId: estimateA, assessmentId: assessmentA, feeCents: 1000, feeSource: "quoted", currency: "USD", status: "pending" },
+        }),
+      );
+      expect(sameOrgFee.assessmentId).toBe(assessmentA);
+      await adminClient.codesFeeReview.delete({ where: { id: sameOrgFee.id } });
+      await adminClient.codesPermitTask.delete({ where: { id: sameOrgTask.id } });
+    } finally {
+      await adminClient.codesFeeReview.deleteMany({ where: { id: feeId } });
+      await adminClient.codesPermitTask.deleteMany({ where: { id: { in: [dispatcherTaskId, plainTaskId] } } });
+      await adminClient.codesJobAssessment.deleteMany({ where: { id: { in: [assessmentA, assessmentB] } } });
+      await adminClient.organizationMembership.deleteMany({ where: { id: dispatcherMembership } });
+      await adminClient.appUser.deleteMany({ where: { id: dispatcherUser } });
+    }
+  });
+
   it("serializes concurrent task revisions without losing a saved update or tenant isolation", async () => {
     const task = await adminClient.projectTask.create({ data: { projectId: projectA, title: "Guarded concurrent task", status: "todo", priority: "high" } });
     const revision = task.updatedAt;

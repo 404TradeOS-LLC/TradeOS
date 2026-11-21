@@ -69,7 +69,10 @@ export const codesFeeReviewsController = {
         feeReviewId: req.params.feeReviewId,
         expectedUpdatedAt: new Date(body.expectedUpdatedAt),
         decision: body.decision,
-        note: body.note ?? null,
+        // Pass the note through unchanged: an omitted note stays
+        // undefined (the stored note is preserved) while an explicit
+        // null still clears it.
+        note: body.note,
       }),
     );
   },

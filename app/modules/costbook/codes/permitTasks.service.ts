@@ -134,6 +134,12 @@ export class CodesPermitTasksService {
     return toDTO(row);
   }
 
+  private async requireAssessment(orgId: string, assessmentId: string | null | undefined) {
+    if (!assessmentId) return;
+    const assessment = await this.db.codesJobAssessment.findFirst({ where: { id: assessmentId, orgId } });
+    if (!assessment) throw new ApiError(404, "Assessment not found in this organization");
+  }
+
   async create(input: CreatePermitTaskInput): Promise<CodesPermitTaskDTO> {
     requireOwnerOrAdmin(input.role);
     if (!input.orgId || !input.actorId) throw new ApiError(401, "Authenticated permit-task scope is required");
@@ -145,6 +151,7 @@ export class CodesPermitTasksService {
       throw new ApiError(400, "Permit number is too long (max 120 characters)");
     }
     await this.requireProject(input.orgId, input.projectId);
+    await this.requireAssessment(input.orgId, input.assessmentId);
     await this.validateAssignee(input.orgId, input.assigneeId);
     const row = await this.db.codesPermitTask.create({
       data: {
@@ -182,6 +189,13 @@ export class CodesPermitTasksService {
     }
     if (input.permitStatus !== undefined && !isPermitStatus(input.permitStatus)) {
       throw new ApiError(400, "permitStatus is not a recognized explicit status");
+    }
+    // `submit` is the only submit path (owner/admin + confirm + a
+    // not_submitted task). A transition into `submitted` through
+    // `update` would bypass all three, so it is rejected here; a save
+    // that keeps an already-submitted task in `submitted` stays allowed.
+    if (input.permitStatus === "submitted" && existing.permitStatus !== "submitted") {
+      throw new ApiError(409, "Submitting a permit requires the explicit submit operation");
     }
     if (input.title !== undefined && (input.title.trim().length < 1 || input.title.length > 300)) {
       throw new ApiError(400, "Title is required (max 300 characters)");

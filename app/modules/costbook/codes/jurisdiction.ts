@@ -444,9 +444,16 @@ export interface JurisdictionOutcome {
  * status, authority, and source citation + version. Anything else —
  * missing parcel, unknown incorporated status, missing authority or
  * version — is `needs_verification`. County or state alone never
- * verifies a parcel's jurisdiction.
+ * verifies a parcel's jurisdiction. When the registry is supplied, a
+ * jurisdiction source known to be superseded also fails verification —
+ * the check applies only to the jurisdiction's own source citation, so
+ * unrelated superseded reference items never invalidate a current
+ * jurisdiction source.
  */
-export function resolveAdvisoryJurisdiction(input: JurisdictionInput): JurisdictionOutcome {
+export function resolveAdvisoryJurisdiction(
+  input: JurisdictionInput,
+  knownVersions: readonly KnownSourceVersion[] = [],
+): JurisdictionOutcome {
   const state = (input.state ?? "").trim().toUpperCase();
   const missing: string[] = [];
   if (!/^[A-Z]{2}$/.test(state)) missing.push("state (two-letter code)");
@@ -468,6 +475,25 @@ export function resolveAdvisoryJurisdiction(input: JurisdictionInput): Jurisdict
       whyItMatters,
       nextHumanAction:
         `Confirm the parcel and its governing authority with the county GIS / planning office before quoting or permitting. Still needed: ${missing.join(", ")}.`,
+    };
+  }
+  const sourceCitation = input.sourceCitation!.trim();
+  const supersededSource = knownVersions.find(
+    (version) => version.citation.trim() === sourceCitation && version.status === "superseded",
+  );
+  if (supersededSource) {
+    return {
+      resolution: "needs_verification",
+      jurisdiction: null,
+      missing: [
+        `jurisdiction source ${sourceCitation} is superseded${
+          supersededSource.supersededByCitation ? ` by ${supersededSource.supersededByCitation}` : ""
+        }`,
+      ],
+      whyItMatters,
+      nextHumanAction: supersededSource.supersededByCitation
+        ? `Use the superseding source ${supersededSource.supersededByCitation} and confirm the parcel jurisdiction with the issuing authority.`
+        : "Ask the issuer which version superseded this jurisdiction source and confirm the parcel jurisdiction.",
     };
   }
   return {
@@ -518,19 +544,64 @@ export interface VersionReferenceInput {
 }
 
 /**
- * Version resolution against the TODO 2 source registry. An exact
- * citation match returns that version's status. A superseded version is
- * still returned readably (with its successor pointer) — history is
- * never deleted or hidden. No match, or a source older than the newest
- * known version for the same citation, is `stale`/`unknown`: the caller
- * must verify with the issuer instead of assuming currentness.
+ * Source-family key for the no-exact-match stale check: the citation
+ * with its trailing section/edition segment removed, so "675 IAC 13-2.6"
+ * and "675 IAC 13-2.9" share a family ("675 IAC 13") but "675 IAC 17-1"
+ * does not ("675 IAC 17") — a shared leading number alone never proves
+ * a newer edition of the same source.
+ */
+function citationFamilyKey(citation: string): string {
+  const normalized = citation.trim().replace(/\s+/g, " ").toUpperCase();
+  const tokens = normalized.split(" ");
+  if (tokens.length >= 3) {
+    const article = /^(\d+)(?:[.-]|$)/.exec(tokens[2]);
+    if (article) return `${tokens[0]} ${tokens[1]} ${article[1]}`;
+  }
+  const last = tokens[tokens.length - 1];
+  if (/^§?\d+([.-]\d+)*$/.test(last) && tokens.length > 1) {
+    return tokens.slice(0, -1).join(" ");
+  }
+  return normalized;
+}
+
+/** Newest entry by effective date; undated entries sort as oldest. */
+function newestByEffectiveDate(entries: readonly KnownSourceVersion[]): KnownSourceVersion | null {
+  let newest: KnownSourceVersion | null = null;
+  for (const entry of entries) {
+    if (!newest) {
+      newest = entry;
+      continue;
+    }
+    if (entry.effectiveDate && (!newest.effectiveDate || entry.effectiveDate > newest.effectiveDate)) {
+      newest = entry;
+    }
+  }
+  return newest;
+}
+
+/**
+ * Version resolution against the TODO 2 source registry. Same-citation
+ * entries are ordered by effective date: the NEWEST entry decides. A
+ * superseded newest entry is still returned readably (with its
+ * successor pointer) — history is never deleted or hidden. A reference
+ * older than the newest known version for the same citation is `stale`.
+ * No match, or a citation from an unrelated source family, is
+ * `unknown`: the caller must verify with the issuer instead of
+ * assuming currentness.
+ *
+ * Null dates: when the reference has no sourceDate, or the newest entry
+ * has no effectiveDate, no dated staleness can be established, so the
+ * newest known version stands as `current` — the caller must still
+ * reconfirm currentness on the job date (see nextHumanAction).
  */
 export function resolveSourceVersion(
   reference: VersionReferenceInput,
   knownVersions: readonly KnownSourceVersion[],
 ): SourceVersionOutcome {
   const citation = reference.citation.trim();
-  const matched = knownVersions.find((version) => version.citation.trim() === citation) ?? null;
+  const matched = newestByEffectiveDate(
+    knownVersions.filter((version) => version.citation.trim() === citation),
+  );
   if (matched) {
     if (matched.status === "superseded") {
       return {
@@ -544,6 +615,16 @@ export function resolveSourceVersion(
           : "Ask the issuer which version superseded this source and confirm its effective date.",
       };
     }
+    if (reference.sourceDate && matched.effectiveDate && reference.sourceDate < matched.effectiveDate) {
+      return {
+        status: "stale",
+        matched,
+        supersededByCitation: null,
+        whyItMatters:
+          "The cited source is an older edition than the newest known version for the same citation; quoting from it risks a non-compliant installation.",
+        nextHumanAction: "Verify the current adopted version and effective date directly with the issuing authority.",
+      };
+    }
     return {
       status: "current",
       matched,
@@ -554,7 +635,7 @@ export function resolveSourceVersion(
   }
   const stale = knownVersions.some(
     (version) =>
-      version.citation.trim().startsWith(citation.split(" ")[0] ?? citation) &&
+      citationFamilyKey(version.citation) === citationFamilyKey(citation) &&
       reference.sourceDate &&
       version.effectiveDate &&
       version.effectiveDate > reference.sourceDate,
@@ -616,7 +697,7 @@ export function enrichCodeReferences(
   jurisdictionInput: JurisdictionInput,
   knownVersions: readonly KnownSourceVersion[],
 ): EnrichedCodeReferences {
-  const jurisdiction = resolveAdvisoryJurisdiction(jurisdictionInput);
+  const jurisdiction = resolveAdvisoryJurisdiction(jurisdictionInput, knownVersions);
   return {
     status: "advisory",
     disclaimer: JURISDICTION_DISCLAIMER,

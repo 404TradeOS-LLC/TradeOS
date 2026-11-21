@@ -145,8 +145,12 @@ services' owner/admin (and assigned-technician) rules.
 - `POST /codes/fee-reviews/:feeReviewId/select-cost-item` — `{expectedUpdatedAt, costItemId}` (approved only)
 - `DELETE /codes/fee-reviews/:feeReviewId`
 
-All mutations require `expectedUpdatedAt` (optimistic concurrency;
-stale → 409). Unknown request keys fail validation.
+Creating a record does not require `expectedUpdatedAt` — `POST /codes/permit-tasks`
+and `POST /codes/fee-reviews` take no revision token. The existing-record
+operations do require it (optimistic concurrency; stale → 409):
+`PATCH /codes/permit-tasks/:taskId`, `POST /codes/permit-tasks/:taskId/submit`,
+`POST /codes/fee-reviews/:feeReviewId/review`, and
+`POST /codes/fee-reviews/:feeReviewId/select-cost-item`. Unknown request keys fail validation.
 
 ## Web UI
 

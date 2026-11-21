@@ -42,8 +42,41 @@ describe("codes permit tasks + fee reviews migration", () => {
       "CREATE POLICY codes_fee_review_update_policy",
       "CREATE POLICY codes_fee_review_delete_policy",
       "org_id = (SELECT public.current_app_org_id())",
-      "(SELECT public.current_app_can_administer())",
       "assignee_id = (SELECT public.current_app_user_id())",
+    ]) expect(migration).toContain(expected);
+    // Administrative writes use an explicit owner/admin check — the
+    // shared current_app_can_administer() also admits dispatcher, so its
+    // call must NOT appear in any policy here (the name may still occur
+    // in the explanatory comments above the policies).
+    expect(migration).toContain("(SELECT public.current_app_role()) IN ('owner', 'admin')");
+    expect(migration).not.toContain("(SELECT public.current_app_can_administer())");
+    // The assignee exception admits only the assigned technician.
+    expect(migration).toContain("(SELECT public.current_app_role()) = 'technician'");
+  });
+
+  it("requires every parent reference in insert/update policies to belong to the session org", () => {
+    const migration = fs.readFileSync(
+      path.join(__dirname, `../prisma/migrations/${MIGRATION_DIR}/migration.sql`),
+      "utf8",
+    );
+    for (const expected of [
+      "SELECT 1 FROM public.projects p",
+      "WHERE p.id = codes_permit_task.project_id",
+      "WHERE p.id = codes_fee_review.project_id",
+      "SELECT 1 FROM public.codes_job_assessment a",
+      "WHERE a.id = codes_permit_task.assessment_id",
+      "WHERE a.id = codes_fee_review.assessment_id",
+      "SELECT 1 FROM public.organization_memberships m",
+      "WHERE m.user_id = codes_permit_task.assignee_id",
+      "SELECT 1 FROM public.estimates e",
+      "WHERE e.id = codes_fee_review.estimate_id",
+      "SELECT 1 FROM public.cost_items c",
+      "WHERE c.id = codes_fee_review.cost_item_id",
+      "codes_permit_task.assessment_id IS NULL",
+      "codes_permit_task.assignee_id IS NULL",
+      "codes_fee_review.estimate_id IS NULL",
+      "codes_fee_review.assessment_id IS NULL",
+      "codes_fee_review.cost_item_id IS NULL",
     ]) expect(migration).toContain(expected);
   });
 

@@ -1,6 +1,7 @@
 const mockPrisma = {
   project: { findFirst: jest.fn() },
   organizationMembership: { findFirst: jest.fn() },
+  codesJobAssessment: { findFirst: jest.fn() },
   codesPermitTask: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
@@ -16,6 +17,7 @@ import { CodesPermitTasksService } from "../modules/costbook/codes/permitTasks.s
 
 const ORG = "10000000-0000-0000-0000-000000000001";
 const PROJECT = "10000000-0000-0000-0000-000000000081";
+const ASSESSMENT = "10000000-0000-0000-0000-000000000131";
 const OWNER = "10000000-0000-0000-0000-000000000011";
 const TECH = "10000000-0000-0000-0000-000000000014";
 const REVISION = new Date("2026-11-09T12:00:00.000Z");
@@ -44,6 +46,7 @@ describe("CodesPermitTasksService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPrisma.project.findFirst.mockResolvedValue({ id: PROJECT, orgId: ORG });
+    mockPrisma.codesJobAssessment.findFirst.mockResolvedValue({ id: ASSESSMENT, orgId: ORG });
   });
 
   it("creates a permit task as not_submitted with a created history entry", async () => {
@@ -89,6 +92,26 @@ describe("CodesPermitTasksService", () => {
     await expect(
       service.create({ orgId: ORG, role: "owner", actorId: OWNER, projectId: PROJECT, taskKind: "permit", title: "x", assigneeId: "stranger" }),
     ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it("links a same-org assessment at creation and rejects another org's assessment", async () => {
+    mockPrisma.codesPermitTask.create.mockResolvedValue(taskRow({ assessmentId: ASSESSMENT }));
+    const service = new CodesPermitTasksService();
+    const task = await service.create({
+      orgId: ORG, role: "owner", actorId: OWNER, projectId: PROJECT,
+      taskKind: "permit", title: "File county sign permit", assessmentId: ASSESSMENT,
+    });
+    expect(task.assessmentId).toBe(ASSESSMENT);
+    expect(mockPrisma.codesJobAssessment.findFirst).toHaveBeenCalledWith({ where: { id: ASSESSMENT, orgId: ORG } });
+
+    mockPrisma.codesJobAssessment.findFirst.mockResolvedValue(null);
+    await expect(
+      service.create({
+        orgId: ORG, role: "owner", actorId: OWNER, projectId: PROJECT,
+        taskKind: "permit", title: "File county sign permit", assessmentId: "other-org-assessment",
+      }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(mockPrisma.codesPermitTask.create).toHaveBeenCalledTimes(1);
   });
 
   it("never infers a status: update accepts only the explicit status vocabulary", async () => {
@@ -154,6 +177,33 @@ describe("CodesPermitTasksService", () => {
       service.submit({ orgId: ORG, role: "owner", actorId: OWNER, taskId: "task-1", expectedUpdatedAt: REVISION, confirm: false }),
     ).rejects.toMatchObject({ statusCode: 400 });
     expect(mockPrisma.codesPermitTask.update).not.toHaveBeenCalled();
+  });
+
+  it("blocks transitions into submitted through update, for owners and assigned technicians alike", async () => {
+    mockPrisma.codesPermitTask.findFirst.mockResolvedValue(taskRow());
+    const service = new CodesPermitTasksService();
+    await expect(
+      service.update({ orgId: ORG, role: "owner", actorId: OWNER, taskId: "task-1", expectedUpdatedAt: REVISION, permitStatus: "submitted" }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    mockPrisma.codesPermitTask.findFirst.mockResolvedValue(taskRow({ assigneeId: TECH }));
+    await expect(
+      service.update({ orgId: ORG, role: "technician", actorId: TECH, taskId: "task-1", expectedUpdatedAt: REVISION, permitStatus: "submitted" }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.codesPermitTask.update).not.toHaveBeenCalled();
+  });
+
+  it("still allows a save that keeps an already-submitted task in submitted", async () => {
+    mockPrisma.codesPermitTask.findFirst.mockResolvedValue(taskRow({ permitStatus: "submitted" }));
+    mockPrisma.codesPermitTask.update.mockResolvedValue(
+      taskRow({ permitStatus: "submitted", updatedAt: new Date("2026-11-09T12:00:01.000Z") }),
+    );
+    const service = new CodesPermitTasksService();
+    const updated = await service.update({
+      orgId: ORG, role: "owner", actorId: OWNER, taskId: "task-1", expectedUpdatedAt: REVISION,
+      permitStatus: "submitted", title: "File county sign permit (revised)",
+    });
+    expect(updated.permitStatus).toBe("submitted");
+    expect(mockPrisma.codesPermitTask.update).toHaveBeenCalledTimes(1);
   });
 
   it("submit moves only a not_submitted task to submitted and records history", async () => {

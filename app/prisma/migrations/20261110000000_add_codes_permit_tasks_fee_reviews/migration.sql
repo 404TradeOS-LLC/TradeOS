@@ -90,9 +90,14 @@ ALTER TABLE public.codes_fee_review FORCE ROW LEVEL SECURITY;
 
 -- Permit tasks: every role in the org may read its own org's rows (the
 -- service layer narrows technicians to tasks assigned to them); only
--- owner/admin may create or delete; updates are owner/admin, or the
--- assigned technician on their own task (status/evidence only, enforced
--- by the service — RLS grants the row, never the inference).
+-- owner/admin may create or delete (explicit role check — the shared
+-- current_app_can_administer() also admits dispatcher, so it is NOT
+-- used here); updates are owner/admin, or the assigned technician on
+-- their own task (status/evidence only, enforced by the service — RLS
+-- grants the row, never the inference). Insert and update also require
+-- every parent reference to belong to the session org (project, and the
+-- optional assessment and assignee when given); foreign keys alone do
+-- not enforce this because FK checks bypass RLS.
 CREATE POLICY codes_permit_task_select_policy ON public.codes_permit_task
 FOR SELECT USING (
   org_id = (SELECT public.current_app_org_id())
@@ -100,30 +105,84 @@ FOR SELECT USING (
 CREATE POLICY codes_permit_task_insert_policy ON public.codes_permit_task
 FOR INSERT WITH CHECK (
   org_id = (SELECT public.current_app_org_id())
-  AND (SELECT public.current_app_can_administer())
+  AND (SELECT public.current_app_role()) IN ('owner', 'admin')
+  AND EXISTS (
+    SELECT 1 FROM public.projects p
+    WHERE p.id = codes_permit_task.project_id
+      AND p.org_id = (SELECT public.current_app_org_id())
+  )
+  AND (
+    codes_permit_task.assessment_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM public.codes_job_assessment a
+      WHERE a.id = codes_permit_task.assessment_id
+        AND a.org_id = (SELECT public.current_app_org_id())
+    )
+  )
+  AND (
+    codes_permit_task.assignee_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM public.organization_memberships m
+      WHERE m.user_id = codes_permit_task.assignee_id
+        AND m.org_id = (SELECT public.current_app_org_id())
+        AND m.status = 'active'
+    )
+  )
 );
 CREATE POLICY codes_permit_task_update_policy ON public.codes_permit_task
 FOR UPDATE USING (
   org_id = (SELECT public.current_app_org_id())
   AND (
-    (SELECT public.current_app_can_administer())
-    OR (assignee_id = (SELECT public.current_app_user_id()))
+    (SELECT public.current_app_role()) IN ('owner', 'admin')
+    OR (
+      (SELECT public.current_app_role()) = 'technician'
+      AND assignee_id = (SELECT public.current_app_user_id())
+    )
   )
 ) WITH CHECK (
   org_id = (SELECT public.current_app_org_id())
   AND (
-    (SELECT public.current_app_can_administer())
-    OR (assignee_id = (SELECT public.current_app_user_id()))
+    (SELECT public.current_app_role()) IN ('owner', 'admin')
+    OR (
+      (SELECT public.current_app_role()) = 'technician'
+      AND assignee_id = (SELECT public.current_app_user_id())
+    )
+  )
+  AND EXISTS (
+    SELECT 1 FROM public.projects p
+    WHERE p.id = codes_permit_task.project_id
+      AND p.org_id = (SELECT public.current_app_org_id())
+  )
+  AND (
+    codes_permit_task.assessment_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM public.codes_job_assessment a
+      WHERE a.id = codes_permit_task.assessment_id
+        AND a.org_id = (SELECT public.current_app_org_id())
+    )
+  )
+  AND (
+    codes_permit_task.assignee_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM public.organization_memberships m
+      WHERE m.user_id = codes_permit_task.assignee_id
+        AND m.org_id = (SELECT public.current_app_org_id())
+        AND m.status = 'active'
+    )
   )
 );
 CREATE POLICY codes_permit_task_delete_policy ON public.codes_permit_task
 FOR DELETE USING (
   org_id = (SELECT public.current_app_org_id())
-  AND (SELECT public.current_app_can_administer())
+  AND (SELECT public.current_app_role()) IN ('owner', 'admin')
 );
 
 -- Fee reviews: reads are org-scoped for every role (technicians review
--- fees read-only); every write is owner/admin only. A rejected or pending
+-- fees read-only); every write is owner/admin only (explicit role check
+-- — the shared current_app_can_administer() also admits dispatcher, so
+-- it is NOT used here). Insert and update also require every parent
+-- reference to belong to the session org (project, and the optional
+-- estimate, assessment, and CostItem when given). A rejected or pending
 -- fee, or one with no explicitly selected CostItem, is a financial no-op
 -- by construction — no policy here ever writes to estimates.
 CREATE POLICY codes_fee_review_select_policy ON public.codes_fee_review
@@ -133,18 +192,78 @@ FOR SELECT USING (
 CREATE POLICY codes_fee_review_insert_policy ON public.codes_fee_review
 FOR INSERT WITH CHECK (
   org_id = (SELECT public.current_app_org_id())
-  AND (SELECT public.current_app_can_administer())
+  AND (SELECT public.current_app_role()) IN ('owner', 'admin')
+  AND EXISTS (
+    SELECT 1 FROM public.projects p
+    WHERE p.id = codes_fee_review.project_id
+      AND p.org_id = (SELECT public.current_app_org_id())
+  )
+  AND (
+    codes_fee_review.estimate_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM public.estimates e
+      WHERE e.id = codes_fee_review.estimate_id
+        AND e.project_id = codes_fee_review.project_id
+        AND e.org_id = (SELECT public.current_app_org_id())
+    )
+  )
+  AND (
+    codes_fee_review.assessment_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM public.codes_job_assessment a
+      WHERE a.id = codes_fee_review.assessment_id
+        AND a.org_id = (SELECT public.current_app_org_id())
+    )
+  )
+  AND (
+    codes_fee_review.cost_item_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM public.cost_items c
+      WHERE c.id = codes_fee_review.cost_item_id
+        AND c.org_id = (SELECT public.current_app_org_id())
+    )
+  )
 );
 CREATE POLICY codes_fee_review_update_policy ON public.codes_fee_review
 FOR UPDATE USING (
   org_id = (SELECT public.current_app_org_id())
-  AND (SELECT public.current_app_can_administer())
+  AND (SELECT public.current_app_role()) IN ('owner', 'admin')
 ) WITH CHECK (
   org_id = (SELECT public.current_app_org_id())
-  AND (SELECT public.current_app_can_administer())
+  AND (SELECT public.current_app_role()) IN ('owner', 'admin')
+  AND EXISTS (
+    SELECT 1 FROM public.projects p
+    WHERE p.id = codes_fee_review.project_id
+      AND p.org_id = (SELECT public.current_app_org_id())
+  )
+  AND (
+    codes_fee_review.estimate_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM public.estimates e
+      WHERE e.id = codes_fee_review.estimate_id
+        AND e.project_id = codes_fee_review.project_id
+        AND e.org_id = (SELECT public.current_app_org_id())
+    )
+  )
+  AND (
+    codes_fee_review.assessment_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM public.codes_job_assessment a
+      WHERE a.id = codes_fee_review.assessment_id
+        AND a.org_id = (SELECT public.current_app_org_id())
+    )
+  )
+  AND (
+    codes_fee_review.cost_item_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM public.cost_items c
+      WHERE c.id = codes_fee_review.cost_item_id
+        AND c.org_id = (SELECT public.current_app_org_id())
+    )
+  )
 );
 CREATE POLICY codes_fee_review_delete_policy ON public.codes_fee_review
 FOR DELETE USING (
   org_id = (SELECT public.current_app_org_id())
-  AND (SELECT public.current_app_can_administer())
+  AND (SELECT public.current_app_role()) IN ('owner', 'admin')
 );

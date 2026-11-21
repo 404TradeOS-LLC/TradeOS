@@ -97,6 +97,12 @@ export class CodesFeeReviewsService {
     return toDTO(row);
   }
 
+  private async requireAssessment(orgId: string, assessmentId: string | null | undefined) {
+    if (!assessmentId) return;
+    const assessment = await this.db.codesJobAssessment.findFirst({ where: { id: assessmentId, orgId } });
+    if (!assessment) throw new ApiError(404, "Assessment not found in this organization");
+  }
+
   async create(input: CreateFeeReviewInput): Promise<CodesFeeReviewDTO> {
     requireOwnerOrAdmin(input.role);
     if (!input.orgId || !input.actorId) throw new ApiError(401, "Authenticated fee-review scope is required");
@@ -119,6 +125,7 @@ export class CodesFeeReviewsService {
       });
       if (!estimate) throw new ApiError(404, "Estimate not found for this project");
     }
+    await this.requireAssessment(input.orgId, input.assessmentId);
     // costItemId is NEVER accepted at creation. It is set only by the
     // explicit selectCostItem step, so no fee can silently become
     // estimate-affecting at intake.

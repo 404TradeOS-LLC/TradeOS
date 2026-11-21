@@ -111,6 +111,42 @@ describe("Athena jurisdiction enrichment (fail-closed)", () => {
     expect(stale.status).toBe("stale");
   });
 
+  it("returns stale for a reference older than the newest same-citation edition, not the first match", () => {
+    const outcome = resolveSourceVersion({ citation: "675 IAC 13-2.6", sourceDate: "1996-10-21" }, [
+      { citation: "675 IAC 13-2.6", status: "current", effectiveDate: "2014-12-01" },
+      { citation: "675 IAC 13-2.6", status: "current", effectiveDate: "2024-01-01" },
+    ]);
+    expect(outcome.status).toBe("stale");
+    expect(outcome.matched?.effectiveDate).toBe("2024-01-01");
+  });
+
+  it("returns current when the reference matches the newest same-citation edition, and when either date is null", () => {
+    const newest = resolveSourceVersion({ citation: "675 IAC 13-2.6", sourceDate: "2024-01-01" }, [
+      { citation: "675 IAC 13-2.6", status: "current", effectiveDate: "2014-12-01" },
+      { citation: "675 IAC 13-2.6", status: "current", effectiveDate: "2024-01-01" },
+    ]);
+    expect(newest.status).toBe("current");
+    expect(newest.matched?.effectiveDate).toBe("2024-01-01");
+
+    // No dated staleness can be established without both dates.
+    const undatedReference = resolveSourceVersion({ citation: "675 IAC 13-2.6", sourceDate: null }, [
+      { citation: "675 IAC 13-2.6", status: "current", effectiveDate: "2024-01-01" },
+    ]);
+    expect(undatedReference.status).toBe("current");
+    const undatedEntry = resolveSourceVersion({ citation: "675 IAC 13-2.6", sourceDate: "1996-10-21" }, [
+      { citation: "675 IAC 13-2.6", status: "current", effectiveDate: null },
+    ]);
+    expect(undatedEntry.status).toBe("current");
+  });
+
+  it("returns unknown for an unrelated article that merely shares a leading number", () => {
+    const outcome = resolveSourceVersion({ citation: "675 IAC 13-2.6", sourceDate: "2014-12-01" }, [
+      { citation: "675 IAC 17-1", status: "current", effectiveDate: "2024-01-01" },
+    ]);
+    expect(outcome.status).toBe("unknown");
+    expect(outcome.matched).toBeNull();
+  });
+
   it("stores citation + source hash only — never full code text", () => {
     const hash = citationSourceHash("Vigo County UZO §16", "https://www.vigocounty.in.gov/egov/docs/1088861399_472198.pdf");
     expect(hash).toMatch(/^[0-9a-f]{64}$/);
@@ -143,5 +179,27 @@ describe("Athena jurisdiction enrichment (fail-closed)", () => {
     expect(enriched.items[0].version.status).toBe("superseded");
     expect(enriched.items[0].version.supersededByCitation).toBe("675 IAC 13-2.7");
     expect(enriched.items[0].applicability).toBe("unverified");
+  });
+
+  it("never verifies jurisdiction from a known superseded source", () => {
+    const outcome = resolveAdvisoryJurisdiction(
+      { ...fullJurisdiction, sourceCitation: "675 IAC 13-2.6", sourceVersion: "2014-12-01" },
+      knownVersions,
+    );
+    expect(outcome.resolution).toBe("needs_verification");
+    expect(outcome.jurisdiction).toBeNull();
+    expect(outcome.missing.join(" ")).toMatch(/superseded by 675 IAC 13-2\.7/);
+    expect(outcome.nextHumanAction).toMatch(/675 IAC 13-2\.7/);
+  });
+
+  it("keeps a current jurisdiction source verified when only unrelated items are superseded", () => {
+    const building = { ...sampleReference, id: "indiana-building-code", citation: "675 IAC 13-2.6", sourceDate: "2014-12-01" };
+    const enriched = enrichCodeReferences(
+      [building],
+      { ...fullJurisdiction, sourceCitation: "675 IAC 13-2.7", sourceVersion: "2020-01-01" },
+      knownVersions,
+    );
+    expect(enriched.jurisdiction.resolution).toBe("verified");
+    expect(enriched.items[0].version.status).toBe("superseded");
   });
 });
