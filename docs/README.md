@@ -349,6 +349,8 @@ Each exemption supports:
 
 Rules are additive. If multiple rules match the same code changes, the checker requires the union of all referenced docs.
 
+Ownership rule change (2026-11-21): routine corrections to `docs/SPRINT_BACKLOG.md` or `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` no longer require `docs/TRADEOS_BIBLE.md` to change alongside them — the Bible is a trigger for the rule, not a requirement. A Bible edit still requires the backlog, Command Center, and handoff to be updated alongside it. The Bible remains the top of the authority hierarchy in `AGENTS.md`; this change only stops forcing a Bible touch on every planning-doc correction.
+
 Rename handling:
 
 - code-path ownership checks apply to both the old and new path for renamed files

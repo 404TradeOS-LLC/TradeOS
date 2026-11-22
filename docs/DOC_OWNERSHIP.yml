@@ -264,11 +264,10 @@ rules:
       - docs/SPRINT_BACKLOG.md
       - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
     requires:
-      - docs/TRADEOS_BIBLE.md
       - docs/SPRINT_BACKLOG.md
       - docs/ENGINEERING_COMMAND_CENTER.md
       - docs/SESSION_HANDOFF.md
-    explanation: The TradeOS Bible, canonical sprint queue, and autonomous startup protocol must stay aligned with the Command Center and current handoff.
+    explanation: The TradeOS Bible, canonical sprint queue, and autonomous startup protocol must stay aligned with the Command Center and current handoff. Routine corrections to the sprint queue or startup protocol do not require a Bible change; a Bible change still requires the queue, Command Center, and handoff to be updated alongside it.
 
   - paths:
       - docs/ROADMAP.md
