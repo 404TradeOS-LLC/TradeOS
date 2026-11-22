@@ -223,6 +223,43 @@ describe("AssembliesDatabaseService", () => {
       expect(mockPrisma.assembly.create).not.toHaveBeenCalled();
     });
 
+    it("installs a research recipe whose sources were repaired (DEV-23, #518 S1)", async () => {
+      const ids = [
+        "11111111-1111-4111-8111-111111111111",
+        "22222222-2222-4222-8222-222222222222",
+        "33333333-3333-4333-8333-333333333333",
+      ];
+      mockPrisma.assembly.findFirst.mockResolvedValue(null);
+      mockPrisma.costItem.findMany.mockResolvedValue([
+        { id: ids[0], unitOfMeasure: "HR", laborRateId: "labor-1", materialId: null, equipmentId: null, subcontractorId: null },
+        { id: ids[1], unitOfMeasure: "HR", laborRateId: "labor-2", materialId: null, equipmentId: null, subcontractorId: null },
+        { id: ids[2], unitOfMeasure: "HR", laborRateId: null, materialId: null, equipmentId: "equipment-1", subcontractorId: null },
+      ]);
+      mockPrisma.assembly.create.mockResolvedValue({
+        id: "trench-1", orgId: "org-1",
+        code: "31 23 16.13-TOS-R001", name: "Continuous Footing Trench Excavation via Mini-Excavator",
+        unitOfMeasure: "CY", description: "with evidence",
+        isTemplate: true, isActive: true,
+      });
+      mockPrisma.assemblyItem.createMany.mockResolvedValue({ count: 3 });
+      const created = await new AssembliesDatabaseService().installStarterCatalogAssembly({
+        orgId: "org-1",
+        templateId: "tradeos:earthwork-trench-excavation-mini",
+        componentMappings: [
+          { componentKey: "labor_excavator_operator", costItemId: ids[0] },
+          { componentKey: "labor_grade_trench_helper", costItemId: ids[1] },
+          { componentKey: "equip_mini_excavator_3ton", costItemId: ids[2] },
+        ],
+      });
+      expect(created.code).toBe("31 23 16.13-TOS-R001");
+      expect(mockPrisma.assembly.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          orgId: "org-1", code: "31 23 16.13-TOS-R001",
+          description: expect.stringContaining("Research evidence: SRC-0006, SRC-0041"),
+          isTemplate: true,
+        }),
+      });
+    });
 
     it("installs a straight-run laminate countertop only with native LF material and labor mappings", async () => {
       const ids = [

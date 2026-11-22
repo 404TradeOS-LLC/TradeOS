@@ -113,9 +113,31 @@ describe("expanded research assembly catalog", () => {
       expect(recipe.components.every((component) => component.quantityPerUnit > 0)).toBe(true);
     }
     const pending = TRADEOS_RESEARCH_CATALOG.filter((item) => item.blockingReasons.length);
-    expect(pending).toHaveLength(11);
+    // DEV-23 (#518 S1): SRC-0041–SRC-0048 registered, so 9 of the 11 formerly
+    // blocked recipes are installable. Only the two whose intended source no
+    // repo text names stay blocked: SRC-0049 (roofing tear-off) and SRC-0050
+    // (cabinet demo). Their provenance is Billy's call, not a guess.
+    expect(pending.map((item) => item.id).sort()).toEqual([
+      "tradeos:demo-cabinet-kitchen-base-wall",
+      "tradeos:demo-roofing-shingle-tearoff-2layers",
+    ]);
+    expect(getExpandedCatalogTemplate("tradeos:demo-roofing-shingle-tearoff-2layers"))
+      .toMatchObject({ blockingReasons: [expect.stringContaining("SRC-0049")] });
     expect(getExpandedCatalogTemplate("tradeos:demo-cabinet-kitchen-base-wall"))
       .toMatchObject({ blockingReasons: [expect.stringContaining("SRC-0050")] });
+    for (const id of [
+      "tradeos:earthwork-trench-excavation-mini",
+      "tradeos:subbase-aggregate-granular-compaction",
+      "tradeos:conc-sidewalk-4in-formed-joints",
+      "tradeos:conc-driveway-6in-reinforced-4000psi",
+      "tradeos:conc-stoop-steps-unit-cip",
+      "tradeos:masonry-cmu-stemwall-8in-reinforced",
+      "tradeos:masonry-brick-veneer-residential",
+      "tradeos:fence-wood-privacy-6ft-pt",
+      "tradeos:fence-chainlink-galvanized-4ft",
+    ]) {
+      expect(getExpandedCatalogTemplate(id)).toMatchObject({ blockingReasons: [] });
+    }
     expect(getExpandedCatalogTemplate("tradeos:roofing-shingles-arch-asphalt"))
       .toMatchObject({ blockingReasons: [] });
   });
