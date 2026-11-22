@@ -161,9 +161,9 @@ jobs:
               echo '```'
               echo
             } >> "$report"
-            if [ "$observed" != "$EXPECTED_REF" ]; then
+            if [ "$http_code" != "200" ] || [ "$status" != "ready" ] || [ "$observed" != "$EXPECTED_REF" ]; then
               drift="true"
-              echo "::warning::Drift at $url: observed projectRef '${observed:-none}' != expected '$EXPECTED_REF' (HTTP ${http_code:-none}, status ${status:-unknown})."
+              echo "::warning::Drift at $url: HTTP ${http_code:-none}, status ${status:-unknown}, observed projectRef '${observed:-none}' != expected '$EXPECTED_REF'."
             else
               echo "OK: $url -> $observed (HTTP $http_code, status $status)."
             fi
@@ -192,6 +192,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           title="[drift-detector] Preview DATABASE_URL drift detected"
@@ -203,7 +204,8 @@ jobs:
             echo "issue=$existing" >> "$GITHUB_OUTPUT"
           else
             echo "Opening a new drift issue."
-            new_issue="$(gh issue create --title "$title" --label "type:bug" --label "area:backend" \
-              --body-file "$RUNNER_TEMP/drift-report.md" --json number --jq '.number')"
+            new_issue_url="$(gh issue create --title "$title" --label "type:bug" --label "area:backend" \
+              --body-file "$RUNNER_TEMP/drift-report.md")"
+            new_issue="${new_issue_url##*/}"
             echo "issue=$new_issue" >> "$GITHUB_OUTPUT"
           fi
