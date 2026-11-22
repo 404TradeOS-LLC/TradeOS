@@ -925,6 +925,17 @@ Local development can run the existing backend local-auth session contract witho
   semantic warning, success, info, and destructive tokens. The light-theme
   semantic fill/foreground pairs are contrast-tested for normal-size text;
   copper remains the sole brand accent.
+- Light surface tokens in `web/src/app/globals.css` carry the exact Figma
+  variable values from the TradeOS — Product Design System library (master
+  file `xImUa9CYUjx3Cb3zTrkfnY`, sampled 2026-11-22): `--background`
+  `#f7f5f1`, `--foreground` `#222426`, `--card`/`--popover` `#fffdf9`,
+  `--muted` `#f0eeea`, `--muted-foreground` `#696965`, `--border`/`--input`
+  `#dbd6cd`, `--accent` `#eee7df`, `--accent-foreground` `#94542f`. The
+  previous oklch round numbers rendered slightly different colors (for
+  example `--accent-foreground` `#8a5620` and warm-hue `--foreground`
+  `#241e18`). Dark-mode Figma values and the secondary, sidebar,
+  destructive, ring, and chart tokens were not sampled in that pass and are
+  unchanged.
 - The responsive navigation includes the 404TradeOS Control Dock with Today,
   Dispatch, Create, Work, and More actions. The More sheet preserves the
   existing routes and permissions, traps keyboard focus, restores focus on
