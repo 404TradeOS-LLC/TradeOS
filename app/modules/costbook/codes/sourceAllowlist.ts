@@ -110,6 +110,11 @@ export function assertOfficialSourceUrl(value: string): URL {
   return url;
 }
 
+/** Canonical, validated URL string safe for outbound official-source fetches. */
+export function toOfficialSourceUrlString(value: string): string {
+  return assertOfficialSourceUrl(value).toString();
+}
+
 /** Non-throwing form of the allowlist check, for callers that only need a boolean. */
 export function isOfficialSourceUrl(value: string): boolean {
   try {
@@ -164,7 +169,7 @@ export async function fetchOfficialSourceBytes(
   const timeoutMs = options.timeoutMs ?? CODES_SOURCE_FETCH_TIMEOUT_MS;
   const maxBytes = options.maxBytes ?? CODES_SOURCE_MAX_BYTES;
 
-  let current = assertOfficialSourceUrl(sourceUrl);
+  let current = new URL(toOfficialSourceUrlString(sourceUrl));
 
   for (let hop = 0; hop <= CODES_SOURCE_MAX_REDIRECTS; hop += 1) {
     const controller = new AbortController();
@@ -193,7 +198,7 @@ export async function fetchOfficialSourceBytes(
         }
         // Re-validate the redirect target before following it. A redirect
         // off the allowlist is refused, never followed.
-        current = assertOfficialSourceUrl(next.toString());
+        current = new URL(toOfficialSourceUrlString(next.toString()));
         // The redirect body is unused: cancel it instead of buffering it,
         // so a large redirect body cannot bypass the memory cap.
         await cancelResponseBody(response);
