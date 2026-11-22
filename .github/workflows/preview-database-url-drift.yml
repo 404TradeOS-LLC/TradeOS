@@ -207,8 +207,14 @@ jobs:
             echo "issue=$existing" >> "$GITHUB_OUTPUT"
           else
             echo "Opening a new drift issue."
-            new_issue_url="$(gh issue create --title "$title" --label "type:bug" --label "area:backend" \
+            new_issue_url="$(gh issue create --title "$title" \
               --body-file "$RUNNER_TEMP/drift-report.md")"
+            # No --label flags: the labels named in the original workflow
+            # (type:bug, area:backend) do not exist as GitHub labels in
+            # this repo, so gh issue create failed with
+            # "could not add label: 'type:bug' not found" on the first
+            # live dry run (run 44978646509). The issue is created
+            # unlabeled; labels can be added once they exist.
             new_issue="${new_issue_url##*/}"
             echo "issue=$new_issue" >> "$GITHUB_OUTPUT"
           fi
