@@ -11,6 +11,9 @@ name: Preview DATABASE_URL drift detector
 # Detection mechanism: GET <deployment>/ready returns
 # checks.database.projectRef, parsed from the deployment's effective
 # DATABASE_URL by resolveDatabaseProjectRef() (app/backend/health.ts).
+# If DATABASE_URL is unset, the ref falls back to SUPABASE_URL, so a
+# matching ref confirms the deployment's data plane, not that DATABASE_URL
+# itself is set.
 # projectRef is a public identifier, never a secret; no secret value is
 # read, logged, or printed anywhere in this workflow.
 #
