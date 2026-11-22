@@ -35,7 +35,7 @@ related_code:
   - .github/workflows/workflow-security.yml
   - .github/workflows/nightly-repository-health.yml
   - .github/workflows/preview-smoke-check.yml
-  - .github/workflows/preview-database-url-drift.yml
+  - .github/workflows/preview-database-url-drift.yml  # drift issues are filed unlabeled (the type:bug/area:backend labels do not exist as GitHub labels)
   - .github/workflows/sprint-governance.yml
   - .github/workflows/migration-safety.yml
   - .github/workflows/s036-index-evidence.yml
