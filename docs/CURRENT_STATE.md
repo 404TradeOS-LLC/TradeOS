@@ -138,9 +138,7 @@ enable native auto-merge only when every gate passes at one exact head SHA.
 **Status: dry-run only, not activated.** The arming variable
 `TRADEOS_PR_COMMANDER_WRITE_ENABLED` does not exist yet by design; Billy
 enables it only after the activation checklist in
-[PR Commander](PR_COMMANDER.md). Founder-only boundaries unchanged (no
-review dismissals, no undrafts, no staging-apply clicks, no production
-touches, no ruleset changes). Copilot Agent Merge is not available as a
+[PR Commander](PR_COMMANDER.md). Founder-only boundaries changed 2026-11-21: review dismissals, staging-apply gate clicks, and production touches are no longer founder-only (blanket authorization). The Commander workflow itself still never dismisses a review, undrafts a PR, applies staging-apply gates, or touches production (no paths for those actions); undrafting a draft that is not READY and ruleset changes remain founder-gated. Copilot Agent Merge is not available as a
 delegation path (0 org seats, quota failures — verified 2026-11-10).
 Operating docs: [PR Commander](PR_COMMANDER.md) and
 [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md). First live

@@ -25,6 +25,8 @@ The founder authorizes AI agents operating in this repository to **continuously 
 
 This grant **does not create credentials, change platform/tool permissions, override service terms, authorize spending, or bypass GitHub and environment protection**. Agents must inspect actual capabilities each session and use available scoped integrations rather than assert tools are missing. Ask only for a specific human-only authorization when a protected operation, genuine product decision, new expense, missing permission, or required independent approval cannot be completed safely.
 
+**Founder-word gates removed (2026-11-21):** the founder removed the per-item founder-word requirement for four categories — merges, review dismissals, staging-apply gate clicks, and production touches. Agents may do these without the founder's explicit word for that item. The new merge bar is: non-draft, genuinely green required checks on the exact head, current branch, zero unresolved threads, no do-not-merge hold. Review dismissals only after verifying the findings are addressed on the current head. Staging-apply gate clicks only when the staging candidate is verified. Production touches only within the task's scope; never delete production data, send invoices/payments, or change customer financial records. Still gated per item: secret creation/rotation, closing PRs as superseded, pushing to main, bypassing protections, posting GitHub reviews, undrafting drafts that aren't READY, and do-not-merge holds. GitHub branch protections (required checks) still apply — this removal is about founder-word approval, not the technical bar.
+
 ### Tool and dependency recovery is work, not a reason to stop
 
 1. Discover connected GitHub, terminal/computer, browser, Vercel, Supabase, CI, and Notion capabilities and their writable scopes. Inspect first; never assume disconnected, read-only, or unavailable without checking.
@@ -36,7 +38,7 @@ This grant **does not create credentials, change platform/tool permissions, over
 
 ### Continuous execution and automatic progression
 
-After every bounded mission, run the canonical completion flow and close or hand off its state. Then **start a fresh canonical preflight for the next independent eligible task** in the same founder-authorized workstream when runtime and tools allow. Never silently broaden an explicit read-only request, run unattended after the interaction ends without a separately configured scheduler, or interpret continuity as authority to merge a protected change.
+After every bounded mission, run the canonical completion flow and close or hand off its state. Then **start a fresh canonical preflight for the next independent eligible task** in the same founder-authorized workstream when runtime and tools allow. Never silently broaden an explicit read-only request, run unattended after the interaction ends without a separately configured scheduler, or interpret continuity as authority to merge a protected change without the ADR-009 record (which cites the 2026-11-21 blanket authorization instead of a per-item word).
 
 Select in this order: active verified defect or CI failure; repair an existing overlapping PR; release-critical user-visible defect; next authorized READY task; bounded documentation drift. Do not open duplicate PRs. Maintain a rolling next-five queue. A blocked task is not a global halt: log evidence and proceed to independent work; stop only the unsafe operation.
 
@@ -44,7 +46,7 @@ Select in this order: active verified defect or CI failure; repair an existing o
 
 For each active low-risk PR, independently reconcile exact head, base freshness, required checks, owner docs, reviewer findings, unresolved threads, and protected risk status. Verify each finding against current code; repair confirmed defects and add regression coverage. Resolve review conversations only after their concerns are addressed or demonstrably obsolete, with a reason. Request or rerun fresh CI when necessary, not repeated deterministic failures. Turn on GitHub auto-merge only for eligible non-draft PRs when the platform permits and all existing requirements remain enforced. If auto-merge cannot be armed, report the actual missing gate and continue another independent item.
 
-A founder-only merge exception is **per PR**, with the complete ADR-009 record; this standing authorization is not a blanket substitute for that record, an independent review, or a required environment approval. Protect JWT, membership, forced RLS, billing correctness, migration safety, and staging/production identities.
+A founder-only merge exception is recorded **per PR** with the complete ADR-009 record. Since 2026-11-21 the record cites the founder's blanket authorization — removal of the per-item founder-word gates for merges, review dismissals, staging-apply gate clicks, and production touches — instead of a per-item word; the record itself (scope, risk boundaries, rollback/recovery plan, rehearsal, and final-head evidence) is still required for protected categories. A standing change request no longer blocks a merge on its own: an agent may dismiss a review after verifying its findings are addressed on the current head. Staging-apply gate clicks are agent-permitted when the staging candidate is verified. Protect JWT, membership, forced RLS, billing correctness, migration safety, and staging/production identities.
 
 ### Durable evidence and reporting
 
@@ -169,8 +171,7 @@ Agents may investigate, prepare evidence, tests, migration plans, and a reviewed
 - changes that intentionally weaken tests, CI, branch protection, security controls, or observability;
 - ambiguous product behavior requiring a product decision.
 
-For these, stop at the safest reviewable boundary and state the exact decision required
-unless the founder-only merge exception below is explicitly recorded for the PR.
+For these, stop at the safest reviewable boundary and state the exact decision required unless the founder-only merge exception below is explicitly recorded for the PR. The exception record now cites the 2026-11-21 blanket authorization instead of a per-item word; agents may merge these categories when the record is present, the merge bar passes, and no do-not-merge hold stands. Secret creation/rotation and destructive data operations remain founder-gated — the blanket authorization does not cover them.
 
 ### Solo-maintainer founder merge exception
 
@@ -183,7 +184,7 @@ be represented as one.
 
 The exception is valid only when the PR records all of the following:
 
-- explicit founder authorization and the reason an independent reviewer is unavailable;
+- explicit founder authorization — since 2026-11-21, the standing blanket authorization (removal of the per-item founder-word gates for merges, review dismissals, staging-apply gate clicks, and production touches) — and the reason an independent reviewer is unavailable;
 - the affected risk boundaries and the rollback or recovery plan;
 - green required checks, a current branch, resolved conversations, and a reviewed final head;
 - no unresolved security, tenant-isolation, migration, financial, contractual, or production finding;
@@ -242,7 +243,8 @@ An agent may merge a low-risk PR only when **all** of the following are true:
 9. all review conversations are resolved;
 10. no unresolved high-severity security, data-integrity, migration, or production risk remains;
 11. the head SHA verified for merge is the SHA that was reviewed and tested;
-12. the change is not in a PR-only/human-decision category, or the PR contains the complete ADR-009 founder-only exception record.
+12. the change is not in a PR-only/human-decision category, or the PR contains the complete ADR-009 founder-only exception record citing the 2026-11-21 blanket authorization instead of a per-item word;
+13. no do-not-merge hold stands on the PR.
 
 If any condition is uncertain, do not merge.
 

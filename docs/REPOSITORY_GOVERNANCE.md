@@ -58,7 +58,7 @@ related_code:
 
 ## Autonomous workstream continuity — PR #979 (proposed)
 
-The standing founder direction authorizes routine repository investigation, bounded repairs, branch/PR preparation, exact-head review reconciliation, and permitted low-risk auto-merge *only through the existing protected pull-request path*. At the end of a completed mission, the coordinator may begin a **new** eligible mission with a fresh overlap check, base verification, and branch/worktree; no cross-task branch reuse or duplicate PR. This does not confer new GitHub token permissions, bypass required checks/review conversations or replace ADR-009's per-PR evidence. Read-only tasks remain read-only. Protected environments, schema, secrets, billing, tenant isolation, financial correctness and release certification require their established decisions and approvals. Tools and dependency failures must be classified, safely repaired in scope where possible, or recorded before independently eligible work continues.
+The standing founder direction authorizes routine repository investigation, bounded repairs, branch/PR preparation, exact-head review reconciliation, and permitted low-risk auto-merge *only through the existing protected pull-request path*. At the end of a completed mission, the coordinator may begin a **new** eligible mission with a fresh overlap check, base verification, and branch/worktree; no cross-task branch reuse or duplicate PR. This does not confer new GitHub token permissions, bypass required checks/review conversations, or replace ADR-009's per-PR evidence (the record now cites the 2026-11-21 blanket authorization instead of a per-item word). Read-only tasks remain read-only. Schema, secrets, billing, tenant isolation, financial correctness, and release certification require their established decisions and approvals; staging-environment approvals are agent-permitted when the staging candidate is verified, and production touches are agent-permitted within the task's scope (never delete production data, send invoices/payments, or change customer financial records). Tools and dependency failures must be classified, safely repaired in scope where possible, or recorded before independently eligible work continues.
 
 ## Invited PDF beta evidence boundary — 2026-11-06
 
@@ -232,7 +232,11 @@ The founder-only merge exception is now an accepted governance path under
 [ADR-009](decisions/ADR-009-solo-maintainer-founder-merge-exception.md): when
 there is no qualified independent reviewer, the founder may authorize a
 founder/administrator merge after the PR records the exception and all
-technical gates pass. The record must state the authorization, unavailable
+technical gates pass. Since 2026-11-21 the authorization is the founder's
+standing blanket authorization — the per-item founder-word gates for merges,
+review dismissals, staging-apply gate clicks, and production touches were
+removed — so the record cites that blanket authorization instead of a per-item
+word. The record must still state the authorization, unavailable
 reviewer, risk boundaries, rollback/recovery plan, final-head validation,
 required-check evidence, and the trigger for restoring independent review.
 It must not claim that self-review is independent approval.
@@ -330,9 +334,12 @@ ruleset mutation, or admin bypass is implemented by this action.
 `.github/workflows/pr-commander.yml` is the autonomous PR coordinator. It
 sweeps every open pull request hourly at :17 UTC (plus a read-only fast path
 on `pull_request` events for the changed PR only), evaluates each PR against
-the unchanged merge bar — non-draft, the four required checks green, current
-branch, zero unresolved threads, no standing change request, ADR-009 record
-where required — repairs what is deterministically repairable, invokes the
+the Commander's merge bar — non-draft, the four required checks green, current
+branch, zero unresolved threads, no standing change request (the Commander has
+no review-dismissal path; agents may dismiss a review after verifying its
+findings are addressed on the current head, per the 2026-11-21 blanket
+authorization), ADR-009 record where required (citing the 2026-11-21 blanket
+authorization instead of a per-item word) — repairs what is deterministically repairable, invokes the
 installed Codex app once per head for REPAIRABLE PRs the deterministic tier
 could not fix (Phase 4 AI repair worker), requests
 CodeRabbit re-review, and enables native auto-merge
@@ -369,9 +376,16 @@ threads in v1 (deliberate fail-closed omission — the thread-to-fix mapping
 is not established), never undrafts a PR, never applies migrations or
 dispatches staging-apply/migration jobs, never changes RLS/auth on its own
 authority, never touches production, never spends money, and never creates,
-edits, enables, or disables a ruleset. Review dismissals, undraft
-decisions, staging-apply gate clicks, and production touches remain
-founder-only, per PR / per item.
+edits, enables, or disables a ruleset. Review dismissals, staging-apply gate
+clicks, and production touches are **no longer** founder-only (2026-11-21
+blanket authorization): agents may dismiss a review after verifying its
+findings are addressed on the current head, click a staging-apply gate when
+the staging candidate is verified, and touch production within the task's
+scope — but the Commander workflow itself has no paths for those actions, so
+it still escalates them for an agent to handle. Undrafting a draft that is
+not READY, secret creation/rotation, closing a PR as superseded, pushing to
+main, bypassing protections, posting a GitHub review, and merging a
+do-not-merge hold remain founder-gated.
 
 Copilot Agent Merge is not available as a delegation path (0 org seats, no
 billing source, quota failures on review, review ruleset disabled — verified
@@ -402,24 +416,28 @@ Autonomous agents may diagnose, repair, test, publish, and merge bounded work
 when the live branch rules permit it and the final head satisfies every
 required check, up-to-date requirement, review-thread requirement, ownership
 requirement, and merge-readiness condition. The ADR-009 founder-only exception
-may authorize a protected merge when independent review is unavailable, but it
-does not waive technical gates or permit an unrecorded administrator bypass. A
-maintenance agent must prefer advancing an existing overlapping PR over
-creating a competing implementation.
+— since 2026-11-21 citing the founder's blanket authorization instead of a
+per-item word — may authorize a protected merge when independent review is
+unavailable, but it does not waive technical gates or permit an unrecorded
+administrator bypass. A maintenance agent must prefer advancing an existing
+overlapping PR over creating a competing implementation.
 
-The following remain founder-decision or PR-only boundaries unless a narrower
-approved runbook explicitly authorizes the exact operation: new or materially
-changed database migrations, destructive data operations, authentication or
-authorization policy changes, RLS redesign, production secrets or credential
-rotation, billing or money movement, major architecture or repository-boundary
-changes, and new production trust boundaries. ADR-009 changes who may complete
-the merge review in the solo-maintainer case; it does not silently approve
-those product or operational decisions. Agents must never bypass required
-checks, push directly to `main`, or convert an unverified result into a pass.
+The following remain PR-only boundaries (a reviewed PR plus the ADR-009 record
+is required; agents may merge them when the record is present and the merge
+bar passes): new or materially changed database migrations, authentication or
+authorization policy changes, RLS redesign, billing or money movement, major
+architecture or repository-boundary changes, and new production trust
+boundaries. Destructive data operations and production secrets or credential
+rotation remain founder-gated — the 2026-11-21 blanket authorization does not
+cover them. ADR-009 changes who may complete the merge review in the
+solo-maintainer case; it does not silently approve product or operational
+decisions that fall outside the blanket authorization. Agents must never
+bypass required checks, push directly to `main`, or convert an unverified
+result into a pass.
 
-Athena approval/audit hardening is an example of this protected class: even when the implementation is narrow, any change that adds approval-backed tables, changes RLS policies, or tightens operator review boundaries must stop at a reviewable PR and may not be autonomously merged.
+Athena approval/audit hardening is an example of this protected class: even when the implementation is narrow, any change that adds approval-backed tables, changes RLS policies, or tightens operator review boundaries must stop at a reviewable PR with the ADR-009 record; it may then be autonomously merged when the merge bar passes.
 
-This governance model intentionally separates **technical merge evidence** from **product or operational authority**: green CI is necessary for autonomous merge, but it is not sufficient when the change falls inside a protected human-decision category.
+This governance model intentionally separates **technical merge evidence** from **product or operational authority**: green CI is necessary for autonomous merge, but it is not sufficient on its own — the PR must also carry the ADR-009 record (citing the 2026-11-21 blanket authorization) when it falls inside a protected category, and the actions the blanket authorization does not cover remain founder-gated.
 
 ### Pull-request throughput and deterministic repair
 
@@ -615,7 +633,9 @@ A PR is ready for required review or founder-authorized merge only when:
 
 If no independent reviewer exists, the PR must also contain the complete
 founder-only exception record from ADR-009 before an administrator enables or
-uses the merge path. The exception record is not an approval and must not be
+uses the merge path; since 2026-11-21 the record cites the founder's blanket
+authorization (removal of the per-item founder-word gates) instead of a
+per-item word. The exception record is not an approval and must not be
 used to conceal unresolved findings.
 
 For an otherwise-safe low-risk PR, enabling auto-merge is preferred to waiting for a second manual merge action after the ruleset becomes satisfied. Auto-merge does not waive any required status, freshness, or conversation-resolution condition.
