@@ -7,8 +7,13 @@
  * Each assembly is a recipe: materials, labor hours, and equipment per unit
  * of work — NO hardcoded prices. Prices resolve through the Costbook.
  * Evidence refs (SRC-*) resolve against tradeosAssemblySources.ts.
- * NOTE: 14 bonus assemblies reference SRC-0041–SRC-0050 which were not
- * in the sources files at import time (dangling refs, flagged for Billy).
+ * NOTE: 11 research assemblies referenced SRC-0041–SRC-0050, which were not
+ * in the sources files at import time. SRC-0041–SRC-0048 were registered on
+ * 2026-11-21 (DEV-23, issue #518 S1) — each standard is named in the citing
+ * assembly's own assumption text. SRC-0049 (demo-roofing-shingle-tearoff-2layers)
+ * and SRC-0050 (demo-cabinet-kitchen-base-wall) remain unregistered: no repo text
+ * names their intended source, so those two recipes stay install-blocked
+ * (flagged for Billy) rather than guessing provenance.
  */
 
 export interface TradeosAssemblyComponent {

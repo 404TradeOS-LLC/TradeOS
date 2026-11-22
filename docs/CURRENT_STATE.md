@@ -475,9 +475,11 @@ expands the existing 14 reviewed installable starter recipes with all 88
 static `TradeosAssembly` recipes in the same Costbook and Estimate setup
 path (102 browseable templates total). The researched set is explicitly
 marked research, includes preserved component quantities and research
-source IDs, and is NOT preinstalled or pre-priced. 11 recipes reference
-absent source registry entries (SRC-0041–SRC-0050); API/UI block their
-installation until those sources are verifiably repaired. NAHB phase
+source IDs, and is NOT preinstalled or pre-priced. 2 recipes reference
+absent source registry entries (SRC-0049–SRC-0050); API/UI block their
+installation until those sources are verifiably repaired. (SRC-0041–SRC-0048
+were registered 2026-11-21, DEV-23 / issue #518 S1; 9 of the 11 formerly
+blocked recipes are installable.) NAHB phase
 filtering and strict first-unit component mapping are added. Existing
 tenant ownership, `costbook.write`, transaction-scoped assembly installs,
 Cost Item lookup, and Estimate Engine snapshots remain unchanged.

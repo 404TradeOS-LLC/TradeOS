@@ -130,11 +130,12 @@ SF vs ROLL) are not treated as 1:1 conversions. All installed assemblies still
 resolve pricing only through the canonical Costbook service and are added to
 estimates only by the existing explicit Estimate line-item action.
 
-11 researched recipes currently reference at least one missing source record
-(SRC-0041 through SRC-0050); their `blockingReasons` are visible in the
+2 researched recipes currently reference at least one missing source record
+(SRC-0049 through SRC-0050); their `blockingReasons` are visible in the
 catalog/Estimate setup UI, and the install API rejects them before any database
-write. Those recipes remain available for read-only inspection and source
-repair. Remaining research recipes still require local scope, labor, material,
+write. (SRC-0041–SRC-0048 were registered 2026-11-21, DEV-23 / issue #518 S1;
+9 of the 11 formerly blocked recipes are installable.) Those recipes remain
+available for read-only inspection and source repair. Remaining research recipes still require local scope, labor, material,
 and production review before real quoting. The new browser includes NAHB
 1000–5000 phase facets alongside legacy residential work groups and CSI.
 
