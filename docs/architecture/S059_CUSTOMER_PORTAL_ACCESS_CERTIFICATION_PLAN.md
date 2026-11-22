@@ -178,10 +178,7 @@ npm run pr:preflight -- --base origin/main
 npm run pr:test
 npm run docs:test
 npm run docs:check -- --base origin/main
-cd app && npm test
-cd app && npm run lint
-cd app && npm run build
-cd app && npm run test:integration
+(cd app && npm test && npm run lint && npm run build && npm run test:integration)
 ```
 
 Web runtime changes are not planned beyond evidence tooling. If
