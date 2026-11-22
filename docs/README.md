@@ -35,6 +35,7 @@ related_code:
   - .github/workflows/workflow-security.yml
   - .github/workflows/nightly-repository-health.yml
   - .github/workflows/preview-smoke-check.yml
+  - .github/workflows/preview-database-url-drift.yml
   - .github/workflows/sprint-governance.yml
   - .github/workflows/migration-safety.yml
   - .github/workflows/s036-index-evidence.yml

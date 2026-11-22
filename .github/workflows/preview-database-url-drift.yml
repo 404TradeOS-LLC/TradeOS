@@ -1,0 +1,214 @@
+name: Preview DATABASE_URL drift detector
+
+# Read-only detector: compares the Supabase project ref each Preview/staging
+# API deployment is actually connected to (via its public /ready endpoint)
+# against the canonical staging ref, and on drift opens or updates ONE
+# GitHub issue (deduped by title). It never changes env vars, deployments,
+# or data. Context: a stale Preview DATABASE_URL once made API previews
+# answer not_ready on a database error (#945) with nothing detecting it
+# until acceptance.
+#
+# Detection mechanism: GET <deployment>/ready returns
+# checks.database.projectRef, parsed from the deployment's effective
+# DATABASE_URL by resolveDatabaseProjectRef() (app/backend/health.ts).
+# If DATABASE_URL is unset, the ref falls back to SUPABASE_URL, so a
+# matching ref confirms the deployment's data plane, not that DATABASE_URL
+# itself is set.
+# projectRef is a public identifier, never a secret; no secret value is
+# read, logged, or printed anywhere in this workflow.
+#
+# Triggers:
+# - schedule (daily): checks the staging alias plus the latest READY
+#   Preview deployments of the API project (read-only Vercel API list).
+# - deployment_status (best-effort, same limitation as
+#   preview-smoke-check.yml): checks the staging alias plus the deployment
+#   that just succeeded, when it is a Preview deployment of the API
+#   project. The exact deployment.environment values have not been
+#   confirmed against a live event in this repo; if the filter does not
+#   fire as expected, the schedule and workflow_dispatch paths still work.
+# - workflow_dispatch: manual run. Pass expected_ref to test the detector
+#   against a known-bad ref (forced-drift test), and preview_url to check
+#   one extra Preview deployment.
+#
+# A failed /ready fetch, a not_ready status, or a projectRef that does not
+# parse all count as drift (fail closed): the issue carries the observed
+# /ready output so the cause is visible without re-running anything.
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      expected_ref:
+        description: "Expected Supabase project ref (default: canonical staging ref)"
+        required: false
+        type: string
+        default: "qfbgdkbamfaasmtjfyru"
+      preview_url:
+        description: "Optional extra Preview API deployment URL to check (in addition to staging)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: preview-database-url-drift
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    name: Check Preview DATABASE_URL binding
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CANONICAL_REF: qfbgdkbamfaasmtjfyru
+      STAGING_API_URL: https://tradeos-costbook-git-staging-billykshowalters.vercel.app
+      API_PROJECT_ID: prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD
+    steps:
+      - name: Resolve check targets
+        id: targets
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DEPLOYMENT_STATE: ${{ github.event.deployment_status.state }}
+          DEPLOYMENT_ENVIRONMENT: ${{ github.event.deployment.environment }}
+          DEPLOYMENT_TARGET_URL: ${{ github.event.deployment_status.target_url }}
+          INPUT_PREVIEW_URL: ${{ inputs.preview_url }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          targets_file="$RUNNER_TEMP/drift-targets.txt"
+          : > "$targets_file"
+          printf '%s\n' "$STAGING_API_URL" >> "$targets_file"
+
+          # deployment_status: only successful Preview deployments of the
+          # API project. The API host is tradeos-costbook-git-*, while the
+          # web host is tradeos-costbook-web-git-*, so this substring
+          # matches the API project only.
+          if [ "$EVENT_NAME" = "deployment_status" ] && [ "$DEPLOYMENT_STATE" = "success" ] && [ "$DEPLOYMENT_ENVIRONMENT" = "Preview" ]; then
+            case "${DEPLOYMENT_TARGET_URL:-}" in
+              *tradeos-costbook-git-*) printf '%s\n' "$DEPLOYMENT_TARGET_URL" >> "$targets_file" ;;
+            esac
+          fi
+
+          # workflow_dispatch: optional extra Preview URL.
+          if [ -n "${INPUT_PREVIEW_URL:-}" ]; then
+            printf '%s\n' "$INPUT_PREVIEW_URL" >> "$targets_file"
+          fi
+
+          # schedule / dispatch: latest READY Preview deployments of the API
+          # project, via the read-only Vercel deployments API. A missing or
+          # failing token only skips the Preview listing; the staging check
+          # still runs.
+          if [ "$EVENT_NAME" != "deployment_status" ] && [ -n "${VERCEL_TOKEN:-}" ]; then
+            api_response="$(curl --fail --silent --show-error --max-time 30 \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v6/deployments?projectId=$API_PROJECT_ID&state=READY&target=preview&limit=5")" || {
+              echo "::warning::Vercel deployment list failed; checking staging only."
+              api_response=""
+            }
+            if [ -n "$api_response" ]; then
+              while IFS= read -r host; do
+                [ -n "$host" ] && printf 'https://%s\n' "$host" >> "$targets_file"
+              done < <(printf '%s' "$api_response" | jq -r '.deployments[]?.url // empty')
+            fi
+          fi
+
+          sort -u "$targets_file" > "$RUNNER_TEMP/drift-targets-sorted.txt"
+          {
+            echo 'targets<<EOF'
+            cat "$RUNNER_TEMP/drift-targets-sorted.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          echo "Check targets:"
+          cat "$RUNNER_TEMP/drift-targets-sorted.txt"
+
+      - name: Check each target's /ready binding
+        id: check
+        shell: bash
+        env:
+          EXPECTED_REF: ${{ inputs.expected_ref || 'qfbgdkbamfaasmtjfyru' }}
+          TARGETS: ${{ steps.targets.outputs.targets }}
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/drift-report.md"
+          drift="false"
+          {
+            echo "## Preview DATABASE_URL drift check"
+            echo
+            echo "Expected Supabase project ref: \`$EXPECTED_REF\`"
+            echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+          } > "$report"
+          while IFS= read -r url; do
+            [ -n "$url" ] || continue
+            ready_url="${url%/}/ready"
+            http_body="$(curl --silent --show-error --max-time 30 -w '\n%{http_code}' "$ready_url" || true)"
+            http_code="$(printf '%s' "$http_body" | tail -n 1)"
+            body="$(printf '%s' "$http_body" | sed '$d')"
+            observed="$(printf '%s' "$body" | jq -r '.checks.database.projectRef // empty' 2>/dev/null || true)"
+            status="$(printf '%s' "$body" | jq -r '.status // empty' 2>/dev/null || true)"
+            {
+              echo "### $url"
+              echo
+              echo "- /ready HTTP: \`$http_code\`"
+              echo "- /ready status: \`${status:-unknown}\`"
+              echo "- observed projectRef: \`${observed:-none}\`"
+              echo
+              echo '```json'
+              printf '%s' "$body" | head -c 2000
+              echo
+              echo '```'
+              echo
+            } >> "$report"
+            if [ "$http_code" != "200" ] || [ "$status" != "ready" ] || [ "$observed" != "$EXPECTED_REF" ]; then
+              drift="true"
+              echo "::warning::Drift at $url: HTTP ${http_code:-none}, status ${status:-unknown}, observed projectRef '${observed:-none}' != expected '$EXPECTED_REF'."
+            else
+              echo "OK: $url -> $observed (HTTP $http_code, status $status)."
+            fi
+          done <<< "$TARGETS"
+          echo "drift=$drift" >> "$GITHUB_OUTPUT"
+          if [ "$drift" = "true" ]; then
+            echo "DRIFT DETECTED — see the report in the run summary and the drift issue."
+          else
+            echo "NO DRIFT — all checked deployments report the expected ref."
+          fi
+
+      - name: Write run summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.check.outputs.drift }}" = "true" ]; then
+            printf '%s\n' "## Drift detected — see the drift issue for the observed /ready output" >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf '%s\n' "## No Preview DATABASE_URL drift" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          cat "$RUNNER_TEMP/drift-report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update the drift issue
+        id: issue
+        if: steps.check.outputs.drift == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          title="[drift-detector] Preview DATABASE_URL drift detected"
+          existing="$(gh issue list --search "Preview DATABASE_URL drift detected in:title" --state open --limit 10 --json number,title \
+            | jq -r --arg title "$title" '.[] | select(.title == $title) | .number' | head -n 1)"
+          if [ -n "${existing:-}" ]; then
+            echo "Updating existing drift issue #$existing."
+            gh issue comment "$existing" --body-file "$RUNNER_TEMP/drift-report.md"
+            echo "issue=$existing" >> "$GITHUB_OUTPUT"
+          else
+            echo "Opening a new drift issue."
+            new_issue_url="$(gh issue create --title "$title" --label "type:bug" --label "area:backend" \
+              --body-file "$RUNNER_TEMP/drift-report.md")"
+            new_issue="${new_issue_url##*/}"
+            echo "issue=$new_issue" >> "$GITHUB_OUTPUT"
+          fi
