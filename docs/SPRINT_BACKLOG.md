@@ -796,10 +796,11 @@ Acceptance: migration head and critical contract checks fail deployment safely w
 
 ### S073 — Release-critical RLS coverage matrix
 
-Status: READY
+Status: DONE
 Dependencies: S051
 Objective: Map every S052-S060 persisted resource to forced-RLS policy and live same-org/cross-org evidence.
 Acceptance: no critical resource is certified from application filters or mocks alone; gaps create blocking test ownership.
+Evidence: Implementation PR #1000 merged 2026-11-21T09:33:02Z as `4d8f8a74` (head `c96d05cd`). Shipped on main: `docs/testing/S073_RLS_COVERAGE_MATRIX.json` (nine S051 journeys), `scripts/validate-s073-rls-matrix.mjs` plus validator tests, additive `app/tests/s073.rls.integration.ts` disposable-PostgreSQL same-org/cross-org evidence for `estimate_line_items`, `invoice_line_items`, `customer_portal_access_tokens`, `customers`, and `customer_portal_sessions`, and `docs/architecture/S073_RLS_COVERAGE_EVIDENCE.md`. Portal request-context repair PR #1001 merged 2026-11-18 as `6f860f34`. `npm run s073:rls:check` and `npm run s073:rls:test` are wired into `npm run pr:test`. No schema/migration, RLS-policy, role/permission, authentication, portal-principal, or product-behavior change shipped. No open GAPs recorded; a newly observed live policy failure must be recorded as an owned GAP per the evidence doc.
 Readiness reconciliation (2026-10-05): founder explicitly authorized S073. Current `main` at readiness start is `37deee0bad44d8c3ca4ad65f7e89d15190d7cae3`; S051 is DONE; live GitHub overlap found no S073 PR or branch. The S051 connection matrix is the journey inventory source, while current schema/migrations and route/service code are authoritative for the actual persisted-resource set. S041's repository-wide RLS inventory remains useful precedent but was last verified 2026-08-25 and predates later release-critical persistence including `customer_portal_access_tokens` and `customer_portal_sessions`, so S073 cannot certify from that dated document alone. Current PostgreSQL integration already proves several core Customer/Project/Estimate/Proposal/Contract/Job/Invoice/Task/Activity boundaries, but direct live evidence is absent in `app/tests/rls.integration.ts` for at least portal identity rows, `estimate_line_items`, and `invoice_line_items`. S073 is bounded to a current S052-S060 matrix, deterministic validation, and additive disposable-PostgreSQL evidence. No schema/migration, RLS-policy, role/permission, authentication, portal-principal, or product-behavior change is authorized by this readiness promotion. If evidence exposes a real policy defect, record a blocking `GAP` with an owned failing test and stop before any protected policy/migration change. See `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`.
 Founder-decision boundary: NO for the bounded inventory/validator/additive live evidence; YES before any RLS policy, migration, role/permission, authentication, portal-principal, or production database change.
 Required validation: matrix/validator tests; focused `app/tests/rls.integration.ts` PostgreSQL evidence; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; and applicable App typecheck/unit/build/integration exact-head CI.
@@ -870,7 +871,7 @@ Acceptance: precedence, effective dates, permissions, audit, historical estimate
 
 Status: BLOCKED
 Dependencies: S073
-Blocked by: dependency S073 remains PLANNED. PR #531 is no longer an implementation blocker; it merged on 2026-09-22 as `bfbca7f4cfc01dbd1c80bcae1c5e3b3ecdb249ed` and landed the tenant-scoped schema/RLS/import foundation.
+Blocked by: S073 is DONE (implementation PR #1000 merged 2026-11-21); the full S082 acceptance/evidence set still needs reconciliation before S082 can be promoted. PR #531 is no longer an implementation blocker; it merged on 2026-09-22 as `bfbca7f4cfc01dbd1c80bcae1c5e3b3ecdb249ed` and landed the tenant-scoped schema/RLS/import foundation.
 Objective: Land tenant-scoped regional supplier observations without silently changing current Material costs.
 Acceptance: migration/RLS rehearsal, idempotent import, unavailable observations, Carter catalog-only handling, review UI, and provenance pass before price promotion is considered.
 Reconciled continuation: PR #531 and the non-numbered Costbook Data Foundation PR #628 provide the persisted evidence, canonical-match, append-only observation, and provenance-aware resolver foundations. The bounded supplier-evidence review UI may advance independently as non-numbered Costbook product work, but S082 must remain BLOCKED until S073 is complete and the full S082 acceptance/evidence set is reconciled.
@@ -1030,8 +1031,8 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-Sprint ID: S073
-Eligibility: S073 is `READY`; dependency S051 is `DONE`; founder authorization is explicit; live overlap found no S073 PR or branch.
-Dependencies: S051 — DONE through merged PR #538.
-Overlap check: create one isolated S073 implementation branch only after this readiness PR merges. Existing S052/S053/S064/S066/S067 evidence or review lanes remain separate and must not be duplicated.
-Startup prompt: Execute S073 from current `main` using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`: derive the S052-S060 persisted-resource inventory from the S051 connection matrix/current route-service code, map each resource to exact forced-RLS policy/migration evidence, add missing disposable-PostgreSQL same-org/cross-org tests and deterministic matrix validation, and stop with an owned `GAP` before any schema/migration/RLS-policy/auth/permission change.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY` — S073 is `DONE` (implementation PR #1000 merged 2026-11-21T09:33:02Z as `4d8f8a74`). The lowest-numbered `PLANNED` sprints with satisfied `Dependencies:` (S059, S068, S069, S071) need an explicit governance-only readiness promotion before selection; S046/S048/S050 remain blocked on unmet dependencies or unresolved founder decisions; all other `PLANNED` sprints have unmet `Dependencies:`. Do not start implementation on a `PLANNED` sprint without that promotion.
+Dependencies: n/a for this state; the next promotion must re-verify dependencies, live overlap, and founder-decision state at promotion time.
+Overlap check: Live open PRs rechecked 2026-11-22 (main `e3a7ed7a`): #1018 (Costbook assembly sources), #1016/#1015/#1010 (docs governance/staleness lanes), #988 (estimates PDF). None owns a READY sprint or duplicates this completion record. Draft docs PRs #1015/#1010 touch the same planning docs and will need a rebase reconcile after this merges.
+Startup prompt: The next action is a governance-only readiness promotion for the lowest-numbered eligible `PLANNED` sprint (S059 first by number, subject to dependency, overlap, and founder-decision checks at promotion time). Do not implement until that promotion merges.
