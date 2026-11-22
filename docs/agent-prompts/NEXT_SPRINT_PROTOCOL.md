@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-06
+last_verified: 2026-11-13
 source_of_truth: true
 related_docs:
   - docs/TRADEOS_BIBLE.md
@@ -20,6 +20,14 @@ completion flows. The Bible owns doctrine, Repository Governance owns branch,
 worktree, review, and merge policy, the Sprint Backlog owns executable sprint
 state, and the Session Handoff owns immediate continuity. Supporting checklists
 and worktree contracts link here and add only task-specific requirements.
+
+> Note (2026-11-13): the continuous-execution language in this protocol
+> ("advances to the next independently eligible bounded mission") landed with
+> merged PR #979 (`e30b8d4a`, 2026-11-13). The PR Commander gate fixes in
+> merged PRs #980 (`a7b70cc2`) and #981 (`0eb3ce15`) are implementation work
+> in `scripts/pr-commander-*.mjs` and `docs/PR_COMMANDER.md`, not changes to
+> this protocol. This note is the only protocol-text change in this refresh;
+> the protocol itself is not rewritten here.
 
 ## Canonical Startup Flow
 

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-14
+last_verified: 2026-11-21
 source_of_truth: true
 related_code:
   - docs/CURRENT_STATE.md
@@ -24,7 +24,7 @@ The strategic roadmap is executed through `docs/SPRINT_BACKLOG.md`. The Roadmap 
 - establish `docs/TRADEOS_BIBLE.md` as the source-of-truth operating index
 - use `docs/SPRINT_BACKLOG.md` as the canonical numbered sprint queue
 - use `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` to select the next safe sprint without a custom founder prompt
-- keep this Roadmap high-level instead of duplicating all 50 sprint records
+- keep this Roadmap high-level instead of duplicating all 100 sprint records
 
 ### Next coherent milestone: Lifecycle normalization
 

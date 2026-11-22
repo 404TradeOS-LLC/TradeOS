@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-29
+last_verified: 2026-11-17
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -76,7 +76,7 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
-## Costbook PR frontend Preview allowlist — proposed 2026-10-18
+## Costbook PR frontend Preview allowlist — landed via PR #997 (merged 2026-11-15 as `d09f51a1`)
 
 Vercel's deployed source configs `web/vercel.json` and `app/vercel.json`
 contain `git.deploymentEnabled["**"]=false`, with only `main` and
@@ -85,12 +85,13 @@ deployment for branch heads of draft Costbook PRs #771/#773/#774 in
 either project. This explains why green GitHub CI cannot be treated as a
 working staging preview.
 
-An isolated infrastructure branch `feat/costbook-preview-policy-20261018`
-proposes narrowly enabling `feat/costbook-*` **frontend** preview
-deployments only. The backend deployment restriction and staging-only
-secret inheritance remain unchanged. No production deployment or
-configuration is changed until review/merge; preview READY, identity,
-authenticated backend behavior, and staging RLS remain unverified.
+PR #997 (superseding #775) landed the narrow allowlist enabling
+`feat/costbook-*` **frontend** preview deployments only, rebuilt from
+branch `feat/costbook-preview-policy-20261018`. The backend deployment
+restriction and staging-only secret inheritance remain unchanged. The
+merged change touches only the web preview allowlist; preview READY,
+identity, authenticated backend behavior, and staging RLS remain
+unverified.
 
 ## Beta Proposal PDF layout repair — source candidate
 
@@ -189,9 +190,9 @@ The proposed brand cleanup deletes only the five unused starter SVGs under `web/
 
 Security, team invitation and customer portal access email HTML now uses one graphite/copper TradeOS platform shell, while existing copy, one-time URLs, expiration notices, plain-text alternatives and delivery idempotency remain unchanged. Customer document branding remains organization-specific and is not modified. Unit coverage for the shell is added; hosted tests, email-client rendering and provider-delivery checks remain separate gates. No deployment or delivery certification is claimed.
 
-## Resend delivery-event journal — open PR #957, issue #927
+## Resend delivery-event journal — merged PR #957 (2026-11-17, `9c46ed04`), issue #927
 
-A durable, tenant-safe delivery journal and signed ingress-to-journal route are implemented in open PR #957 on branch `feat/resend-delivery-journal-927`; the branch is reconciled with current `main` after PR #937 merged: additive migration `20261105220000_add_resend_delivery_journal` adds forced-RLS `email_delivery_messages` (outbound journal, unique `provider_message_id`, nullable `org_id` for user-wide password resets, recipient digests only) and `email_delivery_events` (verified inbox keyed by `svix-id`, allowlisted metadata plus payload digest only). `app/modules/email/deliveryJournal.ts` processes verified events idempotently with org attribution resolved only from the journal row; `app/db/resendDeliveryJournalStore.ts` is the server-only write path behind the transaction-local `app.resend_webhook` flag. Outbound recording is wired at the auth (password reset, team invite) and customer-portal send call sites and is best-effort — a journal failure never changes the user flow. The signed Resend route now verifies the raw request, commits the journal transaction, and acknowledges only after commit; database failures return a retryable 503. No suppression is performed; bounces/complaints only set a `suppression_candidate` flag (see `docs/modules/resend-delivery-suppression-policy.md`). The staging migration is NOT applied and no webhook is registered; both need separate approvals. Unit, live-DB RLS integration, and ingress tests cover the contract.
+A durable, tenant-safe delivery journal and signed ingress-to-journal route are implemented in merged PR #957 (branch `feat/resend-delivery-journal-927`); the branch was reconciled with current `main` after PR #937 merged: additive migration `20261105220000_add_resend_delivery_journal` adds forced-RLS `email_delivery_messages` (outbound journal, unique `provider_message_id`, nullable `org_id` for user-wide password resets, recipient digests only) and `email_delivery_events` (verified inbox keyed by `svix-id`, allowlisted metadata plus payload digest only). `app/modules/email/deliveryJournal.ts` processes verified events idempotently with org attribution resolved only from the journal row; `app/db/resendDeliveryJournalStore.ts` is the server-only write path behind the transaction-local `app.resend_webhook` flag. Outbound recording is wired at the auth (password reset, team invite) and customer-portal send call sites and is best-effort — a journal failure never changes the user flow. The signed Resend route now verifies the raw request, commits the journal transaction, and acknowledges only after commit; database failures return a retryable 503. No suppression is performed; bounces/complaints only set a `suppression_candidate` flag (see `docs/modules/resend-delivery-suppression-policy.md`). The staging migration is NOT applied and no webhook is registered; both need separate approvals. Unit, live-DB RLS integration, and ingress tests cover the contract.
 
 ## Platform social link preview — pending verification, 2026-10-31
 
@@ -1968,7 +1969,7 @@ This code/contract update is **not** evidence of a deployed staging retest.
 The producer → accepted proposal → job → draft invoice browser path requires a
 fresh authenticated nonproduction acceptance run after deployment.
 
-PR #931 / issue #927: provider-time delivery-status ordering is repaired in the existing draft branch. Known-message callbacks lock the journal row; older callbacks cannot replace newer status, while append-only events and sticky suppression candidates are preserved. Bounded parseable provider dates normalize to UTC. No schema/RLS change; tests use disposable PostgreSQL only. Route integration, protected staging application and signed callback proof remain open.
+PR #931 / issue #927 (merged 2026-11-08 as `53e01c38`): provider-time delivery-status ordering is repaired in the merged branch. Known-message callbacks lock the journal row; older callbacks cannot replace newer status, while append-only events and sticky suppression candidates are preserved. Bounded parseable provider dates normalize to UTC. No schema/RLS change; tests use disposable PostgreSQL only. Route integration, protected staging application and signed callback proof remain open.
 
 ### TradeOS Motion System implementation — PR #918 (draft, branch `feat/tradeos-signature-motion`)
 

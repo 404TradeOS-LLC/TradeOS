@@ -20,12 +20,10 @@ related_docs:
 - Live overlap rechecked 2026-11-22: open PRs #1018 (Costbook assembly sources, draft), #1016 (DOC_OWNERSHIP rule change, draft), #1015/#1010 (docs staleness lanes, drafts), #988 (estimates PDF, draft). None owns a READY sprint or duplicates this record. Draft docs PRs #1015/#1010 touch the same planning docs and will need a rebase reconcile after this merges.
 - After this PR merges, no sprint is `READY`. The lowest-numbered `PLANNED` sprints with satisfied `Dependencies:` are S059, S068, S069, S071; each needs an explicit governance-only readiness promotion before selection. S046/S048/S050 remain blocked on unmet dependencies or unresolved founder decisions.
 
-## Estimate materials checklist — draft branch handoff, reconciled 2026-11-17
+## Docs staleness refresh — PR #1015
 
-- Existing PR #988 branch `feat/estimate-materials-shopping-pdf-20261113` was 2 commits ahead and 11 behind current `main` (`283f14a49fc3903d3f051d68cafbc122f70f65cf`). In an isolated worktree, it was rebased onto current main; four documentation conflicts were reconciled by preserving both the newer main sections and checklist references. Local rebased commit: `07058f50` (not yet pushed at the time of this note).
-- Focused app tests pass (2 suites / 10 tests); web preview tests pass (4 tests); app TypeScript check and web TypeScript check pass. Docs ownership check passes, docs tests pass (40/40), and `pr:preflight` reports no missing required docs. Hosted checks listed on the old exact head are historical; rerun and inspect hosted checks on the resulting pushed head.
-- API: `GET /api/v1/estimates/:id/materials/pdf` requires `crm.read`, scoped Estimate and Project, rejects absent/invalid material takeoff with 409, sends only safe quantity/description/unit/section to PDF. Assemblies are counted but not exploded. Web preview and download route through existing authenticated binary proxy.
-- No database/migration, auth/RLS, pricing, deployment, purchase, email or production changes. Authenticated nonproduction preview/download and tenant-denial evidence remain outstanding. Keep PR #988 draft; no independent approval or founder undraft decision is claimed. This is not an authenticated beta certification or a complete assembly takeoff.
+- Corrects stale "proposed/open PR" claims for merged PRs #979/#980/#981/#957/#945/#997/#931 in `docs/CURRENT_STATE.md`, `docs/ENGINEERING_COMMAND_CENTER.md`, `docs/ROADMAP.md`, `docs/SPRINT_BACKLOG.md`, `docs/TECHNICAL_DEBT_REGISTER.md`, and `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`; bumps their `last_verified` dates to the merge-evidence dates.
+- No sprint status change, no code, schema, migration, RLS-policy, auth, or product change. The S073 `DONE` record and `NEXT_SPRINT_PROTOCOL.md` rule 3 handling from PR #1021 are untouched.
 
 ## Next Eligible Sprint
 
