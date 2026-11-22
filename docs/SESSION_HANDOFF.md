@@ -12,23 +12,18 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
-## Sprint start — 2026-11-22: S073 stale-READY repair (governance-only)
+## Sprint start — 2026-11-22: S059 readiness promotion (governance-only)
 
-- Base: `main` at `e3a7ed7a` (after #1019 merged). Branch `docs/s073-completion-20261122`.
-- The backlog still listed S073 as `READY`, but its implementation merged 2026-11-21: PR #1000 (squash `4d8f8a74`, head `c96d05cd`) landed the release-critical RLS coverage matrix, deterministic validator, and disposable-PostgreSQL same-org/cross-org evidence; repair PR #1001 merged 2026-11-18 as `6f860f34`. Per `NEXT_SPRINT_PROTOCOL.md` rule 3, a stale `READY` record stops implementation and is repaired in a governance-only PR — this PR.
-- This PR marks S073 `DONE` with that merge evidence in `SPRINT_BACKLOG.md`, records completion in `TRADEOS_BIBLE.md` and `ENGINEERING_COMMAND_CENTER.md`, corrects S082's stale "S073 remains PLANNED" blocker line, and replaces this handoff. No code, schema, migration, RLS-policy, auth, or product change.
-- Live overlap rechecked 2026-11-22: open PRs #1018 (Costbook assembly sources, draft), #1016 (DOC_OWNERSHIP rule change, draft), #1015/#1010 (docs staleness lanes, drafts), #988 (estimates PDF, draft). None owns a READY sprint or duplicates this record. Draft docs PRs #1015/#1010 touch the same planning docs and will need a rebase reconcile after this merges.
-- After this PR merges, no sprint is `READY`. The lowest-numbered `PLANNED` sprints with satisfied `Dependencies:` are S059, S068, S069, S071; each needs an explicit governance-only readiness promotion before selection. S046/S048/S050 remain blocked on unmet dependencies or unresolved founder decisions.
-
-## Docs staleness refresh — PR #1015
-
-- Corrects stale "proposed/open PR" claims for merged PRs #979/#980/#981/#957/#945/#997/#931 in `docs/CURRENT_STATE.md`, `docs/ENGINEERING_COMMAND_CENTER.md`, `docs/ROADMAP.md`, `docs/SPRINT_BACKLOG.md`, `docs/TECHNICAL_DEBT_REGISTER.md`, and `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`; bumps their `last_verified` dates to the merge-evidence dates.
-- No sprint status change, no code, schema, migration, RLS-policy, auth, or product change. The S073 `DONE` record and `NEXT_SPRINT_PROTOCOL.md` rule 3 handling from PR #1021 are untouched.
+- Base: `main` at `c430fd17` (after #1015 merged). Branch `docs/s059-readiness-promotion-20261122`.
+- No sprint was `READY` after S073 went `DONE` (PR #1000 merged 2026-11-21 as `4d8f8a74`). The lowest-numbered `PLANNED` sprint with satisfied `Dependencies:` is S059 (depends on S051, DONE via PR #538). Per `NEXT_SPRINT_PROTOCOL.md`, a `PLANNED` sprint needs an explicit governance-only readiness promotion before selection — this PR.
+- This PR promotes S059 to `READY` with its readiness contract in `SPRINT_BACKLOG.md`, adds the certification plan at `docs/architecture/S059_CUSTOMER_PORTAL_ACCESS_CERTIFICATION_PLAN.md`, records the promotion in `TRADEOS_BIBLE.md` and `ENGINEERING_COMMAND_CENTER.md`, and replaces this handoff. No code, schema, migration, RLS-policy, auth, or product change.
+- Readiness checks re-verified 2026-11-22 on main `c430fd17`: S051 DONE; ADR-010 (Accepted) governs the magic-link model and it is implemented on main (staff issuance, single-use hashed tokens, short-lived hashed sessions, fail-closed redemption, replay/revocation protection, forced-RLS customer-scoped reads; S073 live PostgreSQL evidence covers the portal identity rows). Live overlap: zero open PRs; no live S059 lane. The prior readiness branch `origin/docs/s059-readiness-promotion` (PR #619, closed unmerged 2026-10-04 as superseded behind then-READY S053) is stale and was not reused — this promotion regenerates from current main per #619's own closing note. No founder decision blocks the bounded certification; S054's separate portal decision is not a dependency.
+- After this PR merges, S059 is the next eligible sprint. S068, S069, and S071 remain `PLANNED` with satisfied dependencies but are higher-numbered; each needs its own promotion before selection.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No `READY` sprint remains — S073 is `DONE` (PR #1000 merged); the nearest `PLANNED` sprints (S059, S068, S069, S071) require readiness promotion first.
-Dependencies: n/a for this state; the next promotion must re-verify dependencies, live overlap, and founder-decision state at promotion time.
-Overlap check: Live open PRs rechecked 2026-11-22 on main `e3a7ed7a` — no READY sprint exists and no open PR owns the next promotion.
-Startup prompt: Run a governance-only readiness promotion for the lowest-numbered eligible `PLANNED` sprint (S059 first by number, subject to dependency, overlap, and founder-decision checks at promotion time). Do not implement until that promotion merges.
+Sprint ID: S059
+Eligibility: S059 is `READY` — dependency S051 DONE, live overlap clean, founder-decision boundary recorded as NO for the bounded ADR-010 certification. S068/S069/S071 remain `PLANNED` (higher-numbered); S046/S048/S050 remain blocked.
+Dependencies: S051 DONE (PR #538).
+Overlap check: Live open PRs rechecked 2026-11-22 (main `c430fd17`): zero open PRs; no S059 implementation lane exists.
+Startup prompt: Implement S059 per `docs/architecture/S059_CUSTOMER_PORTAL_ACCESS_CERTIFICATION_PLAN.md` — certify the existing ADR-010 magic-link model with retained authenticated browser evidence at 1440/1024/768/390 plus negative security evidence, without broadening customer authorization or retaining bearer material.
