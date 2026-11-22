@@ -87,20 +87,33 @@
      Matches the dark theme's already-correct forge-black-on-copper
      convention below; #b87333 with #0d0a07 is 5.21:1. */
   --copper-foreground: #0d0a07;
-  --background: oklch(0.975 0.004 65);
-  --foreground: oklch(0.24 0.014 65);
-  --card: oklch(0.995 0.003 65);
-  --card-foreground: oklch(0.24 0.014 65);
-  --popover: oklch(0.995 0.003 65);
-  --popover-foreground: oklch(0.24 0.014 65);
+  /* Light surface tokens are the exact Figma variable values from the
+     TradeOS — Product Design System library (master file
+     xImUa9CYUjx3Cb3zTrkfnY, sampled 2026-11-22 via get_variable_defs on
+     Record Payment 761:19228, Estimate Scope 432:25161, Desktop Items
+     378:441, Mobile Price 432:27891, Components reuse map 635:2376 and
+     Customer Portal confirm 205:35). The previous oklch round numbers were
+     approximations: --background rendered #f9f6f4 vs Figma #f7f5f1,
+     --foreground #241e18 (warm hue 65) vs Figma #222426 (cool neutral),
+     --border #e3ddd7 vs #dbd6cd, --accent (color-mix) #f0e4d9 vs #eee7df,
+     and --accent-foreground #8a5620 vs Figma #94542f. Hex here is
+     deliberate: it is verbatim what Figma reports, so a reviewer verifies
+     by direct string comparison. --accent is now flat Figma #eee7df
+     instead of the color-mix formula for the same reason. */
+  --background: #f7f5f1;
+  --foreground: #222426;
+  --card: #fffdf9;
+  --card-foreground: #222426;
+  --popover: #fffdf9;
+  --popover-foreground: #222426;
   --primary: var(--copper);
   --primary-foreground: var(--copper-foreground);
   --secondary: oklch(0.95 0.007 65);
   --secondary-foreground: oklch(0.28 0.015 65);
-  --muted: oklch(0.958 0.005 65);
-  --muted-foreground: oklch(0.5 0.013 65);
-  --accent: color-mix(in oklch, var(--copper) 14%, var(--background));
-  --accent-foreground: #8a5620;
+  --muted: #f0eeea;
+  --muted-foreground: #696965;
+  --accent: #eee7df;
+  --accent-foreground: #94542f;
   /* destructive/warning/success/info are reused as both solid-fill button
      backgrounds (white foreground) AND standalone text colors on the card
      surface (StatusBadge etc.) - both uses need contrast(color, white) >=
@@ -118,8 +131,8 @@
   --success-foreground: #ffffff;
   --info: #2d6ded;
   --info-foreground: #ffffff;
-  --border: oklch(0.9 0.01 65);
-  --input: oklch(0.9 0.01 65);
+  --border: #dbd6cd;
+  --input: #dbd6cd;
   /* Not var(--copper): the focus ring/border is a non-text UI component,
      needing WCAG 1.4.11's 3:1 against the surfaces it appears on - copper
      itself only reaches 1.7-1.93:1 against background/card/input here
