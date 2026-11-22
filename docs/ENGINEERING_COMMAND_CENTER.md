@@ -322,7 +322,7 @@ The exact required-check and ruleset configuration remains live GitHub state and
 - Settings/Brand Studio asset persistence must keep service-role access server-only and organization-scoped.
 - S027 implementation must extend existing Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and Estimate Engine seams; do not create mock production data or autonomous AI write paths.
 - PR #257 does not alter Costbook architecture or permissions. Its supplier proposal claim is transactional and review-first: only a successfully claimed pending row may mutate Material/audit state.
-- CODEOWNERS currently provides routing/visibility. ADR-009 records the founder-authorized solo-maintainer merge exception: live rules must keep required checks and review-thread resolution while removing the implicit extra-approval deadlock; code-owner approval should be raised only when another qualified maintainer joins.
+- CODEOWNERS currently provides routing/visibility. ADR-009 records the founder-authorized solo-maintainer merge exception: live rules must keep required checks and review-thread resolution while removing the implicit extra-approval deadlock; code-owner approval should be raised only when another qualified maintainer joins. Since 2026-11-21 the ADR-009 record cites the founder's blanket authorization (per-item founder-word gates for merges, review dismissals, staging-apply gate clicks, and production touches removed) instead of a per-item word.
 - `.coderabbit.yaml` was deleted 2026-09-15, removing its per-path automated review guidance for auth/tenant-isolation/RLS, Athena boundaries, behavioral coverage, and server/client boundary checks.
 - The CodeRabbit GitHub App's repository access was not revoked by that deletion, so default app review behavior may continue independently of repository configuration until access is explicitly reconciled.
 - **Sensitive-change review gap:** CODEOWNERS routes these paths but does not itself require an approving review. Until equivalent path-specific review is restored, a green PR can still lack explicit review of JWT/membership/forced-RLS tenant boundaries, migration and data-integrity effects, API/server-client compatibility, or the regression tests that demonstrate those contracts. For each affected PR, record the relevant contract and test evidence in its risk review and verify the final head before merge.
@@ -379,9 +379,12 @@ TradeOS includes two governed maintenance workflows: CodeQL remediation runs on 
 The [PR Commander](PR_COMMANDER.md) (`.github/workflows/pr-commander.yml`,
 merged as PR #964, squash `0526b61f`, main) adds a third, queue-wide
 automation lane: an hourly sweep at :17 UTC plus a read-only fast path on
-every `pull_request` event, evaluating every open PR against the unchanged
-merge bar and enabling native auto-merge only when every gate passes at one
-exact head SHA. It composes the existing verify / merge-readiness /
+every `pull_request` event, evaluating every open PR against the Commander's
+merge bar — unchanged for the workflow, which still requires no standing
+change request because it has no review-dismissal path (the agent merge bar
+in AGENTS.md no longer includes that element, per the 2026-11-21 blanket
+authorization) — and enabling native auto-merge only when every gate passes
+at one exact head SHA. It composes the existing verify / merge-readiness /
 pr-maintenance / CodeQL-autofix pieces and rebuilds none of them. **Status:
 live and armed.** Write action requires the repository variable
 `TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly `"true"` **and** a manual
@@ -402,14 +405,7 @@ wired in v1 (a behind PR got a verdict comment only). The exception is
 recorded in the `Workflow security` policy script (`POLICY_EXCEPTIONS`) and
 in [Repository governance](REPOSITORY_GOVERNANCE.md); end-to-end rebase
 dispatch depends on PR #965's numeric-input fix in `pr-maintenance.yml`.
-Founder-only boundaries are unchanged: the Commander never dismisses a
-blocking review, never auto-resolves threads in v1, never undrafts a PR,
-never applies migrations or staging-apply gates, never touches production,
-and never changes a ruleset. Copilot Agent Merge is not available as a
-delegation path (0 org seats, quota failures, disabled review ruleset —
-verified 2026-11-10); delegation is deterministic repair, CodeQL Autofix,
-and CodeRabbit re-review. Setup and disable steps are in
-[PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
+Founder-only boundaries changed 2026-11-21: review dismissals, staging-apply gate clicks, and production touches are no longer founder-only (blanket authorization) — agents may do them under the conditions in AGENTS.md and Repository governance — while secret creation/rotation, closing PRs as superseded, pushing to main, bypassing protections, posting GitHub reviews, undrafting unready drafts, and do-not-merge holds remain founder-gated. The Commander workflow itself is unchanged: it never dismisses a blocking review, never auto-resolves threads in v1, never undrafts a PR, never applies migrations or staging-apply gates, never touches production, and never changes a ruleset, so it still escalates those actions for an agent to handle. Copilot Agent Merge is not available as a delegation path (0 org seats, quota failures, disabled review ruleset — verified 2026-11-10); delegation is deterministic repair, CodeQL Autofix, and CodeRabbit re-review. Setup and disable steps are in [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
 
 ### GitHub Actions runtime maintenance
 
