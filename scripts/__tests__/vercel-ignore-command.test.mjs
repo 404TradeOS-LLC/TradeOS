@@ -139,10 +139,10 @@ test("automatic Vercel deployments are limited to main and staging", () => {
   }
 });
 
-test("Costbook feature previews are opted-in only for frontend, not arbitrary backend branches", () => {
+test("Costbook feature previews are opted-in for frontend and backend, not arbitrary branches", () => {
   // Vercel uses minimatch; any matching true rule wins over the ** false catch-all.
   assert.equal(webVercelConfig.git.deploymentEnabled["feat/costbook-*"], true);
-  assert.equal(vercelConfig.git.deploymentEnabled["feat/costbook-*"], undefined);
+  assert.equal(vercelConfig.git.deploymentEnabled["feat/costbook-*"], true);
   assert.equal(vercelConfig.git.deploymentEnabled["**"], false);
   assert.equal(webVercelConfig.git.deploymentEnabled["**"], false);
   assert.equal(webVercelConfig.git.deploymentEnabled.main, true);
