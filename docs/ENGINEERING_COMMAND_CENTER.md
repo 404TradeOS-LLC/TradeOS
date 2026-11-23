@@ -326,6 +326,8 @@ git diff --check
 
 The exact required-check and ruleset configuration remains live GitHub state and must be verified before changing repository controls.
 
+Exemption semantics (fixed 2026-11-23): `docs:check` suppresses an ownership rule only when every changed file triggering the rule is covered by an `exemptions:` path; a rule still fires if any triggering file is not exempt. Suppressed rules are listed in the check report. Exemptions are path-based only — no exemption covers `.github/workflows/**`, so a version-only Dependabot workflow bump still requires the owning docs; narrowing that rule is a governance decision, not a checker fix.
+
 ## Current risks and guarded areas
 
 - Production migration changes remain manual/approval-gated; pull-request CI may rehearse tracked migrations only against disposable databases.
