@@ -61,7 +61,7 @@ function SelectionRow({
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            <SelectField label="Decision status" name="status" defaultValue={selection.status}>
+            <SelectField label="Decision status" id={`selection-status-${selection.id}`} name="status" defaultValue={selection.status}>
               <option value="action_required">Action Required</option>
               <option value="confirmed">Confirmed</option>
             </SelectField>
@@ -170,7 +170,7 @@ function SelectionAddForm({ projectId, proposalId }: { projectId: string; propos
         </div>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
-        <SelectField label="Decision status" name="status" defaultValue="action_required">
+        <SelectField label="Decision status" id="new-selection-status" name="status" defaultValue="action_required">
           <option value="action_required">Action Required</option>
           <option value="confirmed">Confirmed</option>
         </SelectField>

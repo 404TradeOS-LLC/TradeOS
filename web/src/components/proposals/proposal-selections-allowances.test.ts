@@ -53,6 +53,19 @@ test("the customer portal shows selections and allowances read-only, and nothing
   assert.match(readonlyComponent, /if \(selections\.length === 0 && allowances\.length === 0\) return null;/);
 });
 
+test("each decision-status select has a unique id so its label binds to the right select", () => {
+  // SelectField defaults its id to the field name, so without an explicit
+  // id every decision-status select rendered as id="status" and every
+  // label bound to the first one. The edit rows get a per-selection id
+  // and the add form gets its own, while the submitted name stays
+  // "status" for all of them.
+  assert.match(component, /id=\{`selection-status-\$\{selection\.id\}`\}/);
+  assert.match(component, /id="new-selection-status"/);
+  assert.doesNotMatch(component, /id="status"/);
+  const statusNames = component.match(/name="status"/g) ?? [];
+  assert.equal(statusNames.length, 2);
+});
+
 test("failed submissions preserve edits and add forms clear only after a successful save", () => {
   // Server actions return { error } instead of throwing, so React treats
   // the action as fulfilled and resets uncontrolled inputs. All four
