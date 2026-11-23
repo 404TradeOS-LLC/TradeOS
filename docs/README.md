@@ -42,6 +42,7 @@ related_code:
   - app/scripts/s036-index-evidence.sh
   - .github/workflows/stale-pr-check.yml
   - .github/workflows/s027-browser-evidence.yml
+  - .github/workflows/s059-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
   - .github/workflows/merge-readiness.yml
   - .github/workflows/merge-queue.yml
@@ -135,6 +136,21 @@ S027's authenticated evidence workflow captures all nine Costbook routes at
 1440/1024/768/390px using the existing Beta smoke identity. Required Preview,
 deployment identity, test-tenant, mutation, and artifact controls are described
 in [COSTBOOK_S027_READINESS.md](architecture/COSTBOOK_S027_READINESS.md).
+
+S059's authenticated evidence workflow certifies the ADR-010 magic-link
+customer portal the same way: staff issuance, single-use redemption, portal
+reads, contract signing, and the negative security matrix (replay, revoked,
+malformed, cross-customer, cross-tenant, unauthenticated, wrong-role, draft
+exclusion) at 1440/1024/768/390px. Deployment identity is proven through the
+Vercel API plus the API deployment's `/health` SHA and `/ready` data-plane
+project ref — it deliberately does not reuse S027's Vercel env-inventory
+assertion, which fails on current Preview/staging env metadata. Expired-token
+and expired-session browser states are BLOCKED on staging-DB write access
+(owner: Billy); the substitute is live-PostgreSQL expiry evidence in
+`app/tests/s059.portal.integration.ts`. See
+[S059 certification evidence](architecture/S059_CERTIFICATION_EVIDENCE.md).
+This tooling does not change product behavior or complete S059 until a full
+exact-SHA non-production run passes with retained artifacts.
 
 The general [Beta Evidence](testing/BETA_EVIDENCE.md) workflow retains the `canonical` scenario and provides opt-in `s053` authenticated Scope → Athena → reviewed Estimate Engine certification. S053 captures the Apply acknowledgement, verifies the reviewed target and saved-line values against the authenticated Estimate read and visible rows, hard-reloads the existing builder, and checks persistence. Its foreign Estimate ID can independently drive the authenticated detail GET denial probe; a nested browser probe additionally needs a foreign Project ID. This evidence tooling does not change product behavior or complete S053 until a full exact-SHA non-production run passes with retained artifacts.
 

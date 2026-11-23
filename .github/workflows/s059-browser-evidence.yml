@@ -1,0 +1,139 @@
+name: S059 authenticated browser evidence
+
+# S059 customer-portal certification run (ADR-010). Drives the staff
+# issuance -> customer redemption -> portal reads -> contract signing
+# journey plus the negative security matrix at 1440/1024/768/390 against an
+# approved non-production deployment, with deployment identity proven before
+# capture and a credential scan gating artifact upload.
+#
+# See docs/architecture/S059_CERTIFICATION_EVIDENCE.md for the certification
+# step list, bearer-material rules, and the expiry-browser blocker (B6/E4).
+# See docs/architecture/S059_CUSTOMER_PORTAL_ACCESS_CERTIFICATION_PLAN.md
+# for the sprint plan. This workflow never dispatches itself and never
+# touches production: the RC-target guards refuse production hosts, the
+# Production alias, and -git-main- previews outright.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Authenticated TradeOS web base URL
+        required: true
+        type: string
+      expected_sha:
+        description: Full deployed commit SHA verified through Vercel metadata and runtime /health
+        required: true
+        type: string
+      smoke_tenant_label:
+        description: Sanitized smoke organization name
+        required: true
+        default: TradeOS Beta Smoke
+        type: string
+      smoke_org_id:
+        description: Canonical organization ID of the sanitized smoke tenant
+        required: true
+        type: string
+      sanitized_tenant:
+        description: Confirm test-only tenant and portal fixture create/revoke
+        required: true
+        default: false
+        type: boolean
+      use_test_org:
+        description: Use the existing TEST_STAGING credential pair for the pinned synthetic TEST Org (staging data plane only)
+        required: false
+        default: true
+        type: boolean
+      require_sha_correlation:
+        description: Fail if the deployment SHA cannot be correlated with the expected SHA
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tradeos-beta-evidence
+  cancel-in-progress: false
+
+jobs:
+  evidence:
+    name: Customer portal evidence 1440/1024/768/390
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: app
+    env:
+      S059_BASE_URL: ${{ inputs.base_url }}
+      S059_EXPECTED_SHA: ${{ inputs.expected_sha }}
+      S059_REQUIRE_SHA_CORRELATION: ${{ inputs.require_sha_correlation }}
+      S059_SANITIZED_TENANT: ${{ inputs.sanitized_tenant }}
+      S059_ALLOW_MUTATIONS: ${{ inputs.sanitized_tenant }}
+      S059_USE_TEST_ORG: ${{ inputs.use_test_org }}
+      S059_STORAGE_STATE_PATH: /tmp/s059-storage-state.json
+      S059_EVIDENCE_DIR: ../artifacts/s059-browser-evidence
+      S059_SMOKE_TENANT_LABEL: ${{ inputs.smoke_tenant_label }}
+      BETA_RC_BASE_URL_RESOLVED: ${{ inputs.base_url }}
+      # Explicit, mutually exclusive references avoid exposing the full secrets
+      # context. Missing TEST values cannot fall through to another account.
+      BETA_SMOKE_EMAIL: ${{ inputs.use_test_org && secrets.TEST_STAGING_EMAIL || !inputs.use_test_org && secrets.BETA_RC_SMOKE_EMAIL || '' }}
+      BETA_SMOKE_PASSWORD: ${{ inputs.use_test_org && secrets.TEST_STAGING_PASSWORD || !inputs.use_test_org && secrets.BETA_RC_SMOKE_PASSWORD || '' }}
+      BETA_SMOKE_ORG_LABEL: ${{ inputs.smoke_tenant_label }}
+      BETA_SMOKE_ORG_ID: ${{ inputs.smoke_org_id }}
+      BETA_RC_SUPABASE_PROJECT_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF }}
+      BETA_STORAGE_STATE_PATH: /tmp/s059-storage-state.json
+      BETA_EVIDENCE_DIR: ../artifacts/s059-browser-evidence
+      BETA_FOREIGN_CUSTOMER_ID: ${{ secrets.BETA_RC_FOREIGN_CUSTOMER_ID }}
+      BETA_FOREIGN_PROJECT_ID: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID }}
+      BETA_S052_ADMIN_EMAIL: ${{ secrets.BETA_RC_S052_ADMIN_EMAIL }}
+      BETA_S052_ADMIN_PASSWORD: ${{ secrets.BETA_RC_S052_ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: node --test scripts/s059-evidence-contract.test.mjs
+      - name: Verify preview deployment identity
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node scripts/s059-deployment-identity.mjs
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Authenticate dedicated smoke tenant
+        run: node scripts/beta-evidence/auth-setup.mjs
+      - name: Capture authenticated portal evidence
+        run: node scripts/s059-browser-evidence.mjs
+      - name: Verify deployment did not change during capture
+        if: always()
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node scripts/s059-deployment-identity.mjs --verify
+      - name: Remove runtime storage state
+        if: always()
+        run: rm -f "$S059_STORAGE_STATE_PATH"
+      - name: Scan artifact for credential material
+        id: credential_scan
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="../artifacts/s059-browser-evidence"
+          [ -d "$bundle" ] || exit 1
+          if grep -rlIE '"cookies"[[:space:]]*:|sb-[a-z0-9-]+-auth-token|tradeos_(access|refresh)_token|Bearer [A-Za-z0-9._-]{20,}|tradeos_customer_portal_pending_access|tradeos_customer_portal_session|x-tradeos-portal-session|token=[A-Za-z0-9_-]{40,128}' "$bundle" >/dev/null 2>&1; then
+            echo "::error::Credential material detected; refusing artifact upload."
+            exit 1
+          fi
+      - name: Upload evidence artifact
+        if: ${{ always() && steps.credential_scan.outcome == 'success' }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: s059-browser-evidence
+          path: artifacts/s059-browser-evidence
+          if-no-files-found: error
+          retention-days: 30
