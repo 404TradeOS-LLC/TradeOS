@@ -410,3 +410,42 @@ test("loginAction rejects a wrong password by surfacing Supabase's error rather 
   const catchBlock = errorBlock.slice(catchIndex, catchIndex + 100);
   assert.match(catchBlock, /return\s*\{\s*error:\s*error\.message\s*\}/);
 });
+
+test("switchWorkspaceAction selects the requested workspace and replaces the local session", () => {
+  const source = readAuthActionsSource();
+  const fnIndex = source.indexOf("export async function switchWorkspaceAction");
+  assert.notEqual(fnIndex, -1);
+  const fnEnd = source.indexOf("// Calls the backend's idempotent bootstrap endpoint", fnIndex);
+  assert.notEqual(fnEnd, -1);
+  const fnSource = source.slice(fnIndex, fnEnd);
+
+  // The backend validates the membership; the action must send the current
+  // token and the requested org, then store the fresh session the backend
+  // returns — never mint or trust an org from the client on its own.
+  assert.ok(fnSource.includes("await getSessionToken()"));
+  assert.ok(fnSource.includes("selectWorkspace(token, orgId)"));
+  assert.ok(fnSource.includes("await setLocalSession(session.token, session.refreshToken)"));
+  assert.ok(fnSource.includes("switchedTo: session.organization.name"));
+});
+
+test("switchWorkspaceAction returns an error without touching the session when selection fails", () => {
+  const source = readAuthActionsSource();
+  const fnIndex = source.indexOf("export async function switchWorkspaceAction");
+  assert.notEqual(fnIndex, -1);
+  const fnEnd = source.indexOf("// Calls the backend's idempotent bootstrap endpoint", fnIndex);
+  assert.notEqual(fnEnd, -1);
+  const fnSource = source.slice(fnIndex, fnEnd);
+
+  const catchIndex = fnSource.indexOf("} catch (error) {");
+  assert.notEqual(catchIndex, -1);
+  // Bound the slice to the catch block's own closing brace: the success
+  // path after it (setLocalSession) belongs to the try, not the catch.
+  const catchCloseIndex = fnSource.indexOf("\n  }\n", catchIndex);
+  assert.notEqual(catchCloseIndex, -1);
+  const catchBlock = fnSource.slice(catchIndex, catchCloseIndex);
+  assert.ok(catchBlock.includes("return { error:"));
+  assert.ok(!catchBlock.includes("setLocalSession"), "a failed selection must not replace the session");
+
+  // No token means no selection attempt at all.
+  assert.ok(fnSource.includes('if (!token) return { error: "You are not signed in." };'));
+});

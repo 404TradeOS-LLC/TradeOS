@@ -329,6 +329,8 @@ Locally issued HS256 access tokens carry a finite expiration (one hour by defaul
 
 `POST /api/v1/auth/logout` requires the normal bearer and active-membership checks, then revokes the caller's active local refresh sessions. Refresh rotation is conditional and single-use under concurrent requests; password-reset confirmation also revokes the user's active local refresh sessions. Supabase JWTs must carry finite `exp` and `iat` claims.
 
+Workspace switching: `GET /api/v1/auth/memberships` lists the caller's own active memberships (org id, organization name, role, created at), earliest first, under the normal bearer and active-membership checks — no role permission, because the result is scoped to the authenticated user by construction, and no rate limit, because the app shell calls it on every page load. `POST /api/v1/auth/select-organization` activates one of those workspaces: the body is a Zod `.strict()` `{ orgId }` (UUID), the service re-verifies an active membership in the requested org (403 otherwise, including for inactive users), and the issued session carries the selected org with its refresh token bound to the selected membership, so refresh preserves the switch. Selection is rate-limited with the shared auth limit. The frontend switcher (`web/src/components/shared/workspace-switcher.tsx`) is shown only when the user belongs to more than one workspace; the (app) layout resolves the list server-side and the switch action replaces the local session cookies before the page refreshes into the selected workspace.
+
 Public routes are limited to:
 
 - `/api/v1/auth/*`

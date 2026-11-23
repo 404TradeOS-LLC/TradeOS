@@ -36,9 +36,18 @@ import {
   type SettingsSectionDefinition,
   type SettingsStatusItem,
 } from "./settings-schema";
+import { AddMemberForm } from "./add-member-form";
 
 interface SettingsConsoleProps {
   supplierWorkflowIdentity: { orgId: string; userId: string } | null;
+  /**
+   * The signed-in user's own authentication subject (session subject), shown
+   * as their TradeOS sign-in ID so a workspace owner can add them. This is
+   * AppUser.authSubject, not the application user UUID in
+   * supplierWorkflowIdentity — the member endpoint looks users up by
+   * authSubject, so pasting the application user UUID fails the attach.
+   */
+  authSubject: string | null;
   initialDraft: TradeOsSettingsDraft;
   persistedSettingKeys: string[];
   /** OAuth result flag from the server-rendered URL (?abc_oauth=...); server and client agree, so no hydration mismatch. */
@@ -120,7 +129,7 @@ function isDirtyDraft(current: TradeOsSettingsDraft, saved: TradeOsSettingsDraft
   return JSON.stringify(current) !== JSON.stringify(saved);
 }
 
-export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persistedSettingKeys, initialAbcOAuthResult, initialWorkspaceData, developerMeta }: SettingsConsoleProps) {
+export function SettingsConsole({ supplierWorkflowIdentity, authSubject, initialDraft, persistedSettingKeys, initialAbcOAuthResult, initialWorkspaceData, developerMeta }: SettingsConsoleProps) {
   const [draft, setDraft] = useState(initialDraft);
   const [savedDraft, setSavedDraft] = useState(initialDraft);
   const [persistedKeys, setPersistedKeys] = useState(() => new Set(persistedSettingKeys));
@@ -130,6 +139,9 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
   const [isSaving, setIsSaving] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  // Team directory rows start from the server-rendered snapshot and gain
+  // members added through the Add member form without a full reload.
+  const [teamMembers, setTeamMembers] = useState(initialWorkspaceData.teamMembers);
   const [uploadingAssetKeys, setUploadingAssetKeys] = useState<Set<string>>(new Set());
   const [abcProbe, setAbcProbe] = useState<
     | { state: "idle" | "testing" }
@@ -209,8 +221,8 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
   }, [developerMeta]);
 
   const teamSection = useMemo<SettingsSectionDefinition>(() => {
-    const pendingInvites = initialWorkspaceData.teamMembers.filter((member) => member.status === "invited").length;
-    const activeMembers = initialWorkspaceData.teamMembers.filter((member) => member.status === "active").length;
+    const pendingInvites = teamMembers.filter((member) => member.status === "invited").length;
+    const activeMembers = teamMembers.filter((member) => member.status === "active").length;
 
     return {
       ...realSections.find((section) => section.id === "team")!,
@@ -236,7 +248,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
               id: "team-directory",
               title: "Active Team",
               description: "Live organization membership from the current workspace.",
-              rows: initialWorkspaceData.teamMembers.map((member) => ({
+              rows: teamMembers.map((member) => ({
                 title: member.fullName ?? member.email,
                 subtitle: `${member.email} • ${member.role}`,
                 meta: `Updated ${formatRelativeDate(member.updatedAt)}`,
@@ -261,7 +273,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
             },
           ],
     };
-  }, [initialWorkspaceData]);
+  }, [initialWorkspaceData, teamMembers]);
 
   const rolesSection = useMemo<SettingsSectionDefinition>(() => {
     return {
@@ -454,6 +466,15 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
       showToast({ title: `${label} copied`, description: "Paste it into the GitHub supplier seed workflow.", tone: "success" });
     } catch {
       showToast({ title: "Could not copy", description: "Select the UUID below and copy it manually.", tone: "error" });
+    }
+  }
+
+  async function copySignInId(value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      showToast({ title: "Sign-in ID copied", description: "Share it with a workspace owner so they can add you to their workspace.", tone: "success" });
+    } catch {
+      showToast({ title: "Could not copy", description: "Select the ID below and copy it manually.", tone: "error" });
     }
   }
 
@@ -1166,6 +1187,50 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
               />
             ))
           )}
+
+          {selectedSection.id === "team" && authSubject ? (
+            <Card className="rounded-[24px] border-border/70">
+              <CardHeader>
+                <CardTitle>Your TradeOS sign-in ID</CardTitle>
+                <CardDescription>
+                  Share this ID with a workspace owner so they can add you to their workspace. This is your
+                  sign-in identity — it is not the application user UUID shown under Supplier workflow IDs.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">TradeOS sign-in ID</p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <code className="min-w-0 flex-1 select-all break-all rounded-lg border border-border bg-muted/40 p-3 text-xs text-foreground">
+                      {authSubject}
+                    </code>
+                    <Button type="button" variant="outline" aria-label="Copy TradeOS sign-in ID" onClick={() => void copySignInId(authSubject)}>
+                      <Copy className="mr-2 size-4" aria-hidden="true" />
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {selectedSection.id === "team" && initialWorkspaceData.canManageWorkspace && supplierWorkflowIdentity ? (
+            <AddMemberForm
+              orgId={supplierWorkflowIdentity.orgId}
+              currentRole={initialWorkspaceData.currentRole}
+              onMemberAdded={(member) => {
+                setTeamMembers((current) => [
+                  ...current.filter((item) => item.membershipId !== member.membershipId),
+                  member,
+                ]);
+                showToast({
+                  title: "Member added",
+                  description: `${member.email} is now ${member.role} on this workspace.`,
+                  tone: "success",
+                });
+              }}
+            />
+          ) : null}
         </section>
       </div>
 

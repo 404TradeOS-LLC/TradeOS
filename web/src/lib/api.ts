@@ -140,6 +140,33 @@ export function getAthenaCapabilities(token: string, signal?: AbortSignal) {
   return apiFetch<AthenaCapabilities>("/api/v1/athena/capabilities", { token, signal });
 }
 
+export interface WorkspaceMembership {
+  orgId: string;
+  organizationName: string;
+  role: string;
+  createdAt: string;
+}
+
+export function getWorkspaceMemberships(token: string, signal?: AbortSignal) {
+  return apiFetch<WorkspaceMembership[]>("/api/v1/auth/memberships", { token, signal });
+}
+
+export interface WorkspaceSession {
+  token: string;
+  refreshToken: string;
+  user: { id: string; email: string; fullName: string | null };
+  organization: { id: string; name: string };
+  role: string;
+}
+
+export function selectWorkspace(token: string, orgId: string) {
+  return apiFetch<WorkspaceSession>("/api/v1/auth/select-organization", {
+    token,
+    method: "POST",
+    body: JSON.stringify({ orgId }),
+  });
+}
+
 export type SettingsAssetKey = "logoUrl" | "darkLogoUrl" | "iconUrl" | "watermarkUrl";
 
 export interface SettingsAssetUploadResponse {

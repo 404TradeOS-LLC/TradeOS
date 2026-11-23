@@ -64,6 +64,13 @@ export interface AuthSessionResult {
   role: CanonicalRole;
 }
 
+export interface WorkspaceMembership {
+  orgId: string;
+  organizationName: string;
+  role: string;
+  createdAt: string;
+}
+
 export interface PasswordResetRequestResult {
   success: true;
   resetToken?: string;

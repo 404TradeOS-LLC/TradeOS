@@ -5,7 +5,7 @@ import { SettingsConsole } from "@/components/settings/settings-console";
 import { getOrganizationSettings } from "@/lib/api";
 import { mergeTradeOsSettingsDraft } from "@/lib/settings";
 import { resolveSupplierWorkflowIdentity } from "@/lib/supplierWorkflowIdentity";
-import { getSessionToken } from "@/lib/session";
+import { getSession, getSessionToken } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Settings | TradeOS",
@@ -20,6 +20,14 @@ export default async function SettingsPage({
   const token = await getSessionToken();
   const persisted = token ? await getOrganizationSettings(token) : null;
   const supplierWorkflowIdentity = resolveSupplierWorkflowIdentity(persisted);
+  // The session subject IS the authentication subject: bootstrap stores
+  // claims.sub as AppUser.authSubject, local tokens sign sub as the auth
+  // subject, and resolveAuthContext matches on it. It is not the application
+  // user UUID (AppUser.id) shown under Supplier workflow IDs — the Add
+  // member form needs this value, so the console shows it as the person's
+  // sign-in ID for them to share with a workspace owner.
+  const session = await getSession();
+  const authSubject = session?.sub ?? null;
   const gitCommit =
     process.env.VERCEL_GIT_COMMIT_SHA ??
     process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
@@ -44,6 +52,7 @@ export default async function SettingsPage({
       </div>
       <SettingsConsole
         supplierWorkflowIdentity={supplierWorkflowIdentity}
+        authSubject={authSubject}
         initialDraft={mergeTradeOsSettingsDraft(persisted?.settings)}
         persistedSettingKeys={Object.keys(persisted?.settings ?? {})}
         initialAbcOAuthResult={initialAbcOAuthResult}

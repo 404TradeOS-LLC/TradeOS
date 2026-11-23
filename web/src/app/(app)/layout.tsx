@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/shared/app-nav";
-import { getAthenaCapabilities, getOrganizationSettings } from "@/lib/api";
+import { getAthenaCapabilities, getOrganizationSettings, getWorkspaceMemberships, type WorkspaceMembership } from "@/lib/api";
 import { isAuthorizedBetaOperator } from "@/lib/beta-control";
 import { getSession, getSessionToken } from "@/lib/session";
 import { isTeamTimeEnabled } from "@/lib/team-time-config";
@@ -45,14 +45,31 @@ async function resolveSettingsIdentity(token: string | null): Promise<{ role: st
   }
 }
 
+// Workspace memberships power the nav switcher. Advisory like the
+// capability check: fail closed to no switcher on any error so a slow or
+// failed lookup never blocks the shell.
+async function resolveWorkspaceMemberships(token: string | null): Promise<WorkspaceMembership[]> {
+  if (!token) return [];
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), ATHENA_CAPABILITY_TIMEOUT_MS);
+  try {
+    return await getWorkspaceMemberships(token, controller.signal);
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect("/login");
 
   const token = await getSessionToken();
-  const [athenaCapability, identity] = await Promise.all([
+  const [athenaCapability, identity, workspaceMemberships] = await Promise.all([
     resolveAthenaEnabled(token),
     resolveSettingsIdentity(token),
+    resolveWorkspaceMemberships(token),
   ]);
   const athenaCapabilityRetryKey = athenaCapability.retryOnClient ? randomUUID() : null;
   // The Beta readiness link is gated by the same server-side operator
@@ -77,6 +94,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <AppNav
         email={session.email}
         currentRole={identity.role}
+        currentOrgId={identity.orgId}
+        workspaceMemberships={workspaceMemberships}
         betaReadinessVisible={betaReadinessVisible}
         athenaEnabled={athenaCapability.enabled}
         athenaCapabilityRetryKey={athenaCapabilityRetryKey}
