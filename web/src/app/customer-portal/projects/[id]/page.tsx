@@ -71,7 +71,14 @@ function DocumentRow({
 
 export default async function CustomerPortalProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const project = await getPortalProject(id);
+  let project: Awaited<ReturnType<typeof getPortalProject>> | undefined;
+  let accessUnavailable = false;
+  try {
+    project = await getPortalProject(id);
+  } catch {
+    accessUnavailable = true;
+  }
+  if (accessUnavailable || !project) return <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-4 px-6"><h1 className="text-2xl font-semibold">Portal access required</h1><p className="text-muted-foreground">Open the customer portal invitation from your contractor to continue.</p></main>;
   const proposal = project.proposals[0] ?? null;
   const contract = project.contracts[0] ?? null;
   const needsSignature = contract ? contractNeedsSignature(contract.status) : false;
