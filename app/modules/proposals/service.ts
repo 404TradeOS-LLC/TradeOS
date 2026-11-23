@@ -263,7 +263,12 @@ export class ProposalsService {
     if (validated.label === undefined) throw new ApiError(400, "Selection label must be 1-120 characters");
     const childOrgId = parent.project.orgId ?? orgId;
     if (!childOrgId) throw new ApiError(500, `Proposal ${proposalId} is missing organization scope`);
-    const sortOrder = await prisma.proposalSelection.count({ where: { proposalId } });
+    // Allocate after the highest surviving row, not the row count: after a
+    // delete, count() would reuse a deleted slot and the new row could land
+    // before a surviving one. Runs under the parent row lock, inside the
+    // same transaction as the insert (see lockProposalForMutation).
+    const maxSortOrder = await prisma.proposalSelection.aggregate({ where: { proposalId }, _max: { sortOrder: true } });
+    const sortOrder = (maxSortOrder._max.sortOrder ?? -1) + 1;
     const row = await prisma.proposalSelection.create({
       data: {
         orgId: childOrgId,
@@ -351,7 +356,12 @@ export class ProposalsService {
     }
     const childOrgId = parent.project.orgId ?? orgId;
     if (!childOrgId) throw new ApiError(500, `Proposal ${proposalId} is missing organization scope`);
-    const sortOrder = await prisma.proposalAllowance.count({ where: { proposalId } });
+    // Allocate after the highest surviving row, not the row count: after a
+    // delete, count() would reuse a deleted slot and the new row could land
+    // before a surviving one. Runs under the parent row lock, inside the
+    // same transaction as the insert (see lockProposalForMutation).
+    const maxSortOrder = await prisma.proposalAllowance.aggregate({ where: { proposalId }, _max: { sortOrder: true } });
+    const sortOrder = (maxSortOrder._max.sortOrder ?? -1) + 1;
     const row = await prisma.proposalAllowance.create({
       data: {
         orgId: childOrgId,

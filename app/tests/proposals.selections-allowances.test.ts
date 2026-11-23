@@ -16,7 +16,7 @@ const mockPrisma = {
     findFirst: jest.fn(),
     findFirstOrThrow: jest.fn(),
     findMany: jest.fn(),
-    count: jest.fn(),
+    aggregate: jest.fn(),
     updateMany: jest.fn(),
     deleteMany: jest.fn(),
   },
@@ -26,7 +26,7 @@ const mockPrisma = {
     findFirst: jest.fn(),
     findFirstOrThrow: jest.fn(),
     findMany: jest.fn(),
-    count: jest.fn(),
+    aggregate: jest.fn(),
     updateMany: jest.fn(),
     deleteMany: jest.fn(),
   },
@@ -156,7 +156,7 @@ describe("ProposalsService selections and allowances (DES-10-F8)", () => {
 
   it("creates a selection with the org from the owning proposal and action_required by default", async () => {
     mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("draft"));
-    mockPrisma.proposalSelection.count.mockResolvedValue(2);
+    mockPrisma.proposalSelection.aggregate.mockResolvedValue({ _max: { sortOrder: 1 } });
     mockPrisma.proposalSelection.create.mockResolvedValue(
       selectionRow({ label: "PENDANTS", detail: null, status: "action_required", sortOrder: 2 })
     );
@@ -181,11 +181,38 @@ describe("ProposalsService selections and allowances (DES-10-F8)", () => {
     expect(created.status).toBe("action_required");
   });
 
+  it("allocates sortOrder after the highest surviving row, not the row count", async () => {
+    // Rows 0,1,2,3 existed; rows 1 and 2 were deleted. A count-based
+    // allocation would reuse slot 2 and land before the surviving row 3.
+    mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("draft"));
+    mockPrisma.proposalSelection.aggregate.mockResolvedValue({ _max: { sortOrder: 3 } });
+    mockPrisma.proposalSelection.create.mockResolvedValue(selectionRow({ label: "FAUCETS", sortOrder: 4 }));
+
+    const created = await new ProposalsService().createSelection("proposal-1", { label: "FAUCETS" }, "org-1");
+
+    expect(mockPrisma.proposalSelection.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ sortOrder: 4 }) })
+    );
+    expect(created.sortOrder).toBe(4);
+
+    mockPrisma.proposalAllowance.aggregate.mockResolvedValue({ _max: { sortOrder: 3 } });
+    mockPrisma.proposalAllowance.create.mockResolvedValue(allowanceRow({ description: "FAUCETS", sortOrder: 4 }));
+    const allowance = await new ProposalsService().createAllowance(
+      "proposal-1",
+      { description: "FAUCETS", amount: 900 },
+      "org-1"
+    );
+    expect(mockPrisma.proposalAllowance.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ sortOrder: 4 }) })
+    );
+    expect(allowance.sortOrder).toBe(4);
+  });
+
   it("locks the parent proposal inside one transaction before any child write, so acceptance cannot commit mid-mutation", async () => {
     mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("draft"));
-    mockPrisma.proposalSelection.count.mockResolvedValue(0);
+    mockPrisma.proposalSelection.aggregate.mockResolvedValue({ _max: { sortOrder: null } });
     mockPrisma.proposalSelection.create.mockResolvedValue(selectionRow());
-    mockPrisma.proposalAllowance.count.mockResolvedValue(0);
+    mockPrisma.proposalAllowance.aggregate.mockResolvedValue({ _max: { sortOrder: null } });
     mockPrisma.proposalAllowance.create.mockResolvedValue(allowanceRow());
     mockPrisma.proposalSelection.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.proposalSelection.findFirstOrThrow.mockResolvedValue(selectionRow({ detail: "Brass dome" }));
@@ -285,7 +312,7 @@ describe("ProposalsService selections and allowances (DES-10-F8)", () => {
 
   it("creates an allowance with the org from the owning proposal and rejects a negative amount", async () => {
     mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("draft"));
-    mockPrisma.proposalAllowance.count.mockResolvedValue(0);
+    mockPrisma.proposalAllowance.aggregate.mockResolvedValue({ _max: { sortOrder: null } });
     mockPrisma.proposalAllowance.create.mockResolvedValue(allowanceRow());
 
     const created = await new ProposalsService().createAllowance(
