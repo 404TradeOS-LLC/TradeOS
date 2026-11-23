@@ -11,6 +11,7 @@ import {
   CreateDivisionInput,
   CreateSubcategoryInput,
   UnitCostBreakdown,
+  UnitCostOverrides,
   UpdateCostItemInput,
 } from "./types";
 
@@ -161,8 +162,16 @@ export class CostDatabaseService {
    * Computes the per-unit cost of a cost item for a given quantity, by summing
    * whichever of labor/material/equipment it references. Mirrors the "Full
    * Roll-Up" formula in Deliverable 3, scoped to a single cost item.
+   *
+   * `overrides` (DEV-17 S10) lets one caller substitute job-specific
+   * assumptions for this resolution only — the stored CostItem/Material rows
+   * are never rewritten. wasteFactorPct replaces the mapped Material's own
+   * waste % on the material leg; productionRateFactor multiplies the mapped
+   * CostItem's productionRate on the labor/equipment legs. Assembly installs
+   * pass their stored per-assembly overrides here; every other caller omits
+   * the parameter and gets the CostItem's own rates.
    */
-  async getUnitCost(costItemId: string, quantity = 1, regionId?: string, orgId?: string): Promise<UnitCostBreakdown> {
+  async getUnitCost(costItemId: string, quantity = 1, regionId?: string, orgId?: string, overrides?: UnitCostOverrides): Promise<UnitCostBreakdown> {
     const item = await prisma.costItem.findFirst({
       where: { id: costItemId, orgId },
       include: { laborRate: { include: { region: true } }, material: true, equipment: true },
@@ -178,7 +187,7 @@ export class CostDatabaseService {
     if (item.laborRate && item.laborRate.active !== false && item.productionRate) {
       const total = laborCost({
         quantity,
-        productionRate: Number(item.productionRate),
+        productionRate: Number(item.productionRate) * (overrides?.productionRateFactor ?? 1),
         baseHourlyRate: Number(item.laborRate.baseHourlyRate),
         burdenPct: Number(item.laborRate.burdenPct),
         regionLaborIndex,
@@ -191,7 +200,7 @@ export class CostDatabaseService {
       const total = adjustedMaterialCost({
         quantity,
         unitCost: Number(item.material.unitCost),
-        wasteFactorPct: Number(item.material.wasteFactorPct),
+        wasteFactorPct: overrides?.wasteFactorPct ?? Number(item.material.wasteFactorPct),
         regionMaterialIndex,
       });
       materialCostPerUnit = total / quantity;
@@ -199,7 +208,7 @@ export class CostDatabaseService {
 
     let equipmentCostPerUnit = 0;
     if (item.equipment && item.productionRate) {
-      const hours = quantity / Number(item.productionRate);
+      const hours = quantity / (Number(item.productionRate) * (overrides?.productionRateFactor ?? 1));
       const total = equipmentCost({
         hours,
         ownershipCostPerHour: Number(item.equipment.ownershipCostPerHour),

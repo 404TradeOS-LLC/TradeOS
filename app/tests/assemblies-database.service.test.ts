@@ -124,6 +124,8 @@ describe("AssembliesDatabaseService", () => {
           description: null,
           isTemplate: true,
           isActive: true,
+          wasteOverridePct: null,
+          productionRateFactor: null,
         },
       ]);
     });
@@ -445,6 +447,211 @@ describe("AssembliesDatabaseService", () => {
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
       expect(mockPrisma.assembly.create).toHaveBeenCalledTimes(1);
       expect(mockPrisma.assemblyItem.createMany).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("install overrides (DEV-17 S10, issue #518)", () => {
+    const excavationIds = [
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222",
+    ];
+    const excavationMappings = [
+      { componentKey: "excavation", costItemId: excavationIds[0] },
+      { componentKey: "haul", costItemId: excavationIds[1] },
+    ];
+
+    function mockExcavationMappings() {
+      mockPrisma.assembly.findFirst.mockResolvedValue(null);
+      mockPrisma.costItem.findMany.mockResolvedValue([
+        { id: excavationIds[0], unitOfMeasure: "CY", laborRateId: null, materialId: null, equipmentId: "equipment-1", subcontractorId: null },
+        { id: excavationIds[1], unitOfMeasure: "CY", laborRateId: null, materialId: null, equipmentId: null, subcontractorId: "sub-1" },
+      ]);
+      mockPrisma.assemblyItem.createMany.mockResolvedValue({ count: 2 });
+    }
+
+    it("stores waste and production overrides on the installed assembly", async () => {
+      mockExcavationMappings();
+      mockPrisma.assembly.create.mockResolvedValue({
+        id: "assembly-installed", orgId: "org-1", code: "31 23 16-TOS-001", name: "General excavation",
+        unitOfMeasure: "CY", description: "classified", isTemplate: true, isActive: true,
+        wasteOverridePct: 15, productionRateFactor: 0.8,
+      });
+
+      const result = await new AssembliesDatabaseService().installStarterCatalogAssembly({
+        orgId: "org-1",
+        templateId: "site-excavation",
+        componentMappings: excavationMappings,
+        wasteOverridePct: 15,
+        productionRateFactor: 0.8,
+      });
+
+      expect(mockPrisma.assembly.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ wasteOverridePct: 15, productionRateFactor: 0.8 }),
+      });
+      expect(result.wasteOverridePct).toBe(15);
+      expect(result.productionRateFactor).toBe(0.8);
+    });
+
+    it("stores null overrides when none are supplied, and never rewrites recipe quantities", async () => {
+      mockExcavationMappings();
+      mockPrisma.assembly.create.mockResolvedValue({
+        id: "assembly-installed", orgId: "org-1", code: "31 23 16-TOS-001", name: "General excavation",
+        unitOfMeasure: "CY", description: "classified", isTemplate: true, isActive: true,
+      });
+
+      const result = await new AssembliesDatabaseService().installStarterCatalogAssembly({
+        orgId: "org-1",
+        templateId: "site-excavation",
+        componentMappings: excavationMappings,
+      });
+
+      expect(mockPrisma.assembly.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ wasteOverridePct: null, productionRateFactor: null }),
+      });
+      expect(result.wasteOverridePct).toBeNull();
+      expect(result.productionRateFactor).toBeNull();
+      expect(mockPrisma.assemblyItem.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({ costItemId: excavationIds[0], quantityPerUnit: 1, sortOrder: 1 }),
+          expect.objectContaining({ costItemId: excavationIds[1], quantityPerUnit: 1, sortOrder: 2 }),
+        ],
+      });
+    });
+
+    it.each([
+      [{ wasteOverridePct: 101 }, /wasteOverridePct must be between 0 and 100/],
+      [{ wasteOverridePct: -1 }, /wasteOverridePct must be between 0 and 100/],
+      [{ productionRateFactor: 0 }, /productionRateFactor must be greater than 0 and at most 10/],
+      [{ productionRateFactor: 11 }, /productionRateFactor must be greater than 0 and at most 10/],
+    ])("rejects out-of-range overrides %s before touching tenant data", async (overrides, message) => {
+      await expect(new AssembliesDatabaseService().installStarterCatalogAssembly({
+        orgId: "org-1",
+        templateId: "site-excavation",
+        componentMappings: excavationMappings,
+        ...overrides,
+      })).rejects.toThrow(message);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.assembly.create).not.toHaveBeenCalled();
+    });
+
+    it("prices material legs with the assembly waste override instead of the mapped item's waste", async () => {
+      mockPrisma.assembly.findFirst.mockResolvedValue({ id: "assembly-1", orgId: "org-1", wasteOverridePct: 20, productionRateFactor: null });
+      mockPrisma.assemblyItem.findMany.mockResolvedValue([
+        { costItemId: "cost-item-1", childAssemblyId: null, quantityPerUnit: 1, sortOrder: 0 },
+      ]);
+      mockPrisma.costItem.findFirst.mockResolvedValue({
+        id: "cost-item-1", orgId: "org-1", productionRate: null,
+        laborRate: null,
+        material: { unitCost: 100, wasteFactorPct: 5 },
+        equipment: null,
+      });
+
+      const result = await new AssembliesDatabaseService().getAssemblyUnitCost("assembly-1", undefined, new Set(), "org-1");
+
+      expect(result.unitCost).toBeCloseTo(120, 2);
+    });
+
+    it("prices material legs with the mapped item's waste when no override is stored", async () => {
+      mockPrisma.assembly.findFirst.mockResolvedValue({ id: "assembly-1", orgId: "org-1", wasteOverridePct: null, productionRateFactor: null });
+      mockPrisma.assemblyItem.findMany.mockResolvedValue([
+        { costItemId: "cost-item-1", childAssemblyId: null, quantityPerUnit: 1, sortOrder: 0 },
+      ]);
+      mockPrisma.costItem.findFirst.mockResolvedValue({
+        id: "cost-item-1", orgId: "org-1", productionRate: null,
+        laborRate: null,
+        material: { unitCost: 100, wasteFactorPct: 5 },
+        equipment: null,
+      });
+
+      const result = await new AssembliesDatabaseService().getAssemblyUnitCost("assembly-1", undefined, new Set(), "org-1");
+
+      expect(result.unitCost).toBeCloseTo(105, 2);
+    });
+
+    it("prices labor legs with the assembly production factor instead of the mapped item's rate", async () => {
+      mockPrisma.assembly.findFirst.mockResolvedValue({ id: "assembly-1", orgId: "org-1", wasteOverridePct: null, productionRateFactor: 0.5 });
+      mockPrisma.assemblyItem.findMany.mockResolvedValue([
+        { costItemId: "cost-item-1", childAssemblyId: null, quantityPerUnit: 1, sortOrder: 0 },
+      ]);
+      mockPrisma.costItem.findFirst.mockResolvedValue({
+        id: "cost-item-1", orgId: "org-1", productionRate: 10,
+        laborRate: { baseHourlyRate: 40, burdenPct: 0, region: null },
+        material: null,
+        equipment: null,
+      });
+
+      const result = await new AssembliesDatabaseService().getAssemblyUnitCost("assembly-1", undefined, new Set(), "org-1");
+
+      // Effective rate 10 x 0.5 = 5 units/hour: 1 unit takes 0.2h x $40 = $8.
+      expect(result.unitCost).toBeCloseTo(8, 2);
+    });
+
+    it("never lets a parent override cascade into a child assembly", async () => {
+      mockPrisma.assembly.findFirst.mockImplementation(({ where }) => {
+        if (where.id === "assembly-parent") return Promise.resolve({ id: "assembly-parent", orgId: "org-1", wasteOverridePct: null, productionRateFactor: 0.5 });
+        if (where.id === "assembly-child") return Promise.resolve({ id: "assembly-child", orgId: "org-1", wasteOverridePct: null, productionRateFactor: null });
+        return Promise.resolve(null);
+      });
+      mockPrisma.assemblyItem.findMany.mockImplementation(({ where }) => {
+        if (where.assemblyId === "assembly-parent") {
+          return Promise.resolve([
+            { costItemId: "labor-item", childAssemblyId: null, quantityPerUnit: 1, sortOrder: 0 },
+            { costItemId: null, childAssemblyId: "assembly-child", quantityPerUnit: 1, sortOrder: 1 },
+          ]);
+        }
+        if (where.assemblyId === "assembly-child") {
+          return Promise.resolve([
+            { costItemId: "labor-item-2", childAssemblyId: null, quantityPerUnit: 1, sortOrder: 0 },
+          ]);
+        }
+        return Promise.resolve([]);
+      });
+      mockPrisma.costItem.findFirst.mockImplementation(({ where }) => Promise.resolve({
+        id: where.id, orgId: "org-1", productionRate: 10,
+        laborRate: { baseHourlyRate: 40, burdenPct: 0, region: null },
+        material: null,
+        equipment: null,
+      }));
+
+      const result = await new AssembliesDatabaseService().getAssemblyUnitCost("assembly-parent", undefined, new Set(), "org-1");
+
+      // Parent direct labor at 0.5x: $8. Child labor at its own rate: $4. Total $12 (not $16).
+      expect(result.unitCost).toBeCloseTo(12, 2);
+    });
+
+    it("sets overrides through the update path", async () => {
+      mockPrisma.assembly.findFirst.mockResolvedValue({ id: "assembly-1", orgId: "org-1" });
+      mockPrisma.assembly.update.mockResolvedValue({
+        id: "assembly-1", orgId: "org-1", code: "A-1", name: "Custom Assembly",
+        unitOfMeasure: "EA", description: null, isTemplate: true, isActive: true,
+        wasteOverridePct: 12, productionRateFactor: 0.9,
+      });
+
+      const result = await new AssembliesDatabaseService().update("assembly-1", { wasteOverridePct: 12, productionRateFactor: 0.9 }, "org-1");
+
+      expect(mockPrisma.assembly.update).toHaveBeenCalledWith({
+        where: { id: "assembly-1" },
+        data: expect.objectContaining({ wasteOverridePct: 12, productionRateFactor: 0.9 }),
+      });
+      expect(result.wasteOverridePct).toBe(12);
+      expect(result.productionRateFactor).toBe(0.9);
+    });
+
+    it("clears overrides through the update path with explicit null", async () => {
+      mockPrisma.assembly.findFirst.mockResolvedValue({ id: "assembly-1", orgId: "org-1" });
+      mockPrisma.assembly.update.mockResolvedValue({
+        id: "assembly-1", orgId: "org-1", code: "A-1", name: "Custom Assembly",
+        unitOfMeasure: "EA", description: null, isTemplate: true, isActive: true,
+        wasteOverridePct: null, productionRateFactor: null,
+      });
+
+      const result = await new AssembliesDatabaseService().update("assembly-1", { wasteOverridePct: null }, "org-1");
+
+      expect(mockPrisma.assembly.update).toHaveBeenCalledWith({
+        where: { id: "assembly-1" },
+        data: expect.objectContaining({ wasteOverridePct: null }),
+      });
+      expect(result.wasteOverridePct).toBeNull();
     });
   });
 });

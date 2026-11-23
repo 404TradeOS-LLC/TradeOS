@@ -95,6 +95,11 @@ export class AssembliesDatabaseService {
         unexpected.length ? `Unknown component keys: ${unexpected.join(", ")}` : "",
       ].filter(Boolean).join(". "));
     }
+    // DEV-17 S10: validate the install-time overrides here as well as in the
+    // controller — the service is also called directly (tests, other modules).
+    // Waste is an absolute percentage (0-100); the production override is a
+    // dimensionless factor on the mapped CostItem's rate (>0, at most 10x).
+    assertInstallOverrides(input.wasteOverridePct, input.productionRateFactor);
 
     return runInDatabaseTransaction(basePrisma, async (transaction) => {
       const existing = await transaction.assembly.findFirst({ where: { orgId: input.orgId, code: template.code } });
@@ -126,6 +131,11 @@ export class AssembliesDatabaseService {
           unitOfMeasure: template.unitOfMeasure,
           description: `${template.description} Catalog ${ASSEMBLY_CATALOG_VERSION}; recipe v${template.version}; CSI ${template.csiDivision} ${template.csiTitle}; NAHB ${template.nahbGroup}. ${template.wasteGuidance}${"evidenceRefs" in template ? ` Research evidence: ${template.evidenceRefs.join(", ")}.` : ""}`,
           isTemplate: true,
+          // DEV-17 S10: the install-time overrides are stored on the assembly
+          // itself (NULL = no override). The item quantities below stay the
+          // recipe quantities; the overrides apply at pricing time.
+          wasteOverridePct: input.wasteOverridePct ?? null,
+          productionRateFactor: input.productionRateFactor ?? null,
         },
       });
       await transaction.assemblyItem.createMany({
@@ -238,6 +248,10 @@ export class AssembliesDatabaseService {
 
   async update(id: string, input: UpdateAssemblyInput, orgId: string): Promise<AssemblyDTO> {
     await this.assertExists(id, orgId);
+    assertInstallOverrides(
+      input.wasteOverridePct === null ? undefined : input.wasteOverridePct,
+      input.productionRateFactor === null ? undefined : input.productionRateFactor,
+    );
     const row = await prisma.assembly.update({
       where: { id },
       data: {
@@ -247,6 +261,9 @@ export class AssembliesDatabaseService {
         unitOfMeasure: input.unitOfMeasure,
         description: input.description,
         isActive: input.isActive,
+        // DEV-17 S10: number sets, null clears, undefined leaves unchanged.
+        wasteOverridePct: input.wasteOverridePct,
+        productionRateFactor: input.productionRateFactor,
       },
     });
     return toDTO(row);
@@ -307,7 +324,16 @@ export class AssembliesDatabaseService {
     }
     const path = new Set(visited);
     path.add(assemblyId);
-    await this.assertExists(assemblyId, orgId);
+    // DEV-17 S10: the assembly's own stored overrides apply to its direct
+    // cost-item components only. A child assembly resolves with its own
+    // stored overrides when the recursion reaches it — a parent's override
+    // never cascades into a child.
+    const assembly = await prisma.assembly.findFirst({ where: { id: assemblyId, orgId } });
+    if (!assembly) throw new ApiError(404, `Assembly ${assemblyId} not found`);
+    const overrides = {
+      wasteFactorPct: assembly.wasteOverridePct == null ? undefined : Number(assembly.wasteOverridePct),
+      productionRateFactor: assembly.productionRateFactor == null ? undefined : Number(assembly.productionRateFactor),
+    };
 
     const items = await prisma.assemblyItem.findMany({
       where: { assemblyId, assembly: { orgId } },
@@ -318,7 +344,7 @@ export class AssembliesDatabaseService {
     for (const item of items) {
       const qty = Number(item.quantityPerUnit);
       if (item.costItemId) {
-        const breakdown = await this.costDatabase.getUnitCost(item.costItemId, 1, regionId, orgId);
+        const breakdown = await this.costDatabase.getUnitCost(item.costItemId, 1, regionId, orgId, overrides);
         unitCost += breakdown.totalUnitCost * qty;
       } else if (item.childAssemblyId) {
         const child = await this.getAssemblyUnitCost(item.childAssemblyId, regionId, path, orgId);
@@ -367,8 +393,39 @@ function toDTO(row: {
   description: string | null;
   isTemplate: boolean;
   isActive: boolean;
+  wasteOverridePct?: unknown;
+  productionRateFactor?: unknown;
 }): AssemblyDTO {
-  return row;
+  return {
+    id: row.id,
+    orgId: row.orgId,
+    code: row.code,
+    name: row.name,
+    unitOfMeasure: row.unitOfMeasure,
+    description: row.description,
+    isTemplate: row.isTemplate,
+    isActive: row.isActive,
+    // Prisma returns Decimal objects for these columns; rows built before the
+    // S10 migration (or in tests) carry no value at all. Either way the DTO
+    // exposes plain numbers or null.
+    wasteOverridePct: row.wasteOverridePct == null ? null : Number(row.wasteOverridePct),
+    productionRateFactor: row.productionRateFactor == null ? null : Number(row.productionRateFactor),
+  };
+}
+
+/**
+ * DEV-17 S10 bounds, shared by install and update so both paths reject the
+ * same values. Waste is an absolute percentage (0-100); the production
+ * override is a dimensionless factor (>0, at most 10x). Undefined means
+ * "no override supplied" and is always valid.
+ */
+function assertInstallOverrides(wasteOverridePct?: number, productionRateFactor?: number): void {
+  if (wasteOverridePct !== undefined && (!Number.isFinite(wasteOverridePct) || wasteOverridePct < 0 || wasteOverridePct > 100)) {
+    throw new ApiError(400, "wasteOverridePct must be between 0 and 100");
+  }
+  if (productionRateFactor !== undefined && (!Number.isFinite(productionRateFactor) || productionRateFactor <= 0 || productionRateFactor > 10)) {
+    throw new ApiError(400, "productionRateFactor must be greater than 0 and at most 10");
+  }
 }
 
 function toAssemblyItemDTO(row: {

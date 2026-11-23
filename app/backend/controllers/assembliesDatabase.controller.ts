@@ -15,7 +15,12 @@ const createSchema = z.object({
   isTemplate: z.boolean().optional(),
 }).strict();
 
-const updateSchema = createSchema.partial().extend({ isActive: z.boolean().optional() }).refine(
+const updateSchema = createSchema.partial().extend({
+  isActive: z.boolean().optional(),
+  // DEV-17 S10: number sets, null clears, omitted leaves unchanged.
+  wasteOverridePct: z.number().finite().min(0).max(100).nullable().optional(),
+  productionRateFactor: z.number().finite().positive().max(10).nullable().optional(),
+}).refine(
   (value) => Object.keys(value).length > 0,
   { message: "At least one assembly field is required" }
 );
@@ -40,6 +45,11 @@ const installCatalogSchema = z.object({
     componentKey: z.string().trim().min(1).max(100),
     costItemId: z.guid(),
   }).strict()).min(1).max(50),
+  // DEV-17 S10 install overrides (optional; omitted = recipe defaults).
+  // Waste is an absolute percentage (0-100); the production override is a
+  // dimensionless factor on the mapped CostItem's rate (>0, at most 10x).
+  wasteOverridePct: z.number().finite().min(0).max(100).optional(),
+  productionRateFactor: z.number().finite().positive().max(10).optional(),
 }).strict();
 
 export const assembliesDatabaseController = {

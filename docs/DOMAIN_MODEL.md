@@ -389,6 +389,8 @@ PR #216 does not add replacement catalog entities. It promotes the existing `Ass
 
 Cost Item and Assembly lookup semantics remain unchanged: both services support case-insensitive substring search across `name` and `code`. PostgreSQL `pg_trgm` GIN indexes cover both searched fields, including additive `code` indexes, so code substring matching has an index path without changing organization scope, RLS, catalog ownership, or DTO behavior.
 
+`Assembly` carries two nullable install-override columns (migration `20261123050000_add_assembly_install_overrides`, DEV-17 S10, issue #518): `waste_override_pct` (absolute waste percentage, 0–100) and `production_rate_factor` (dimensionless multiplier, greater than 0 and at most 10), each guarded by a database CHECK matching the API validation. NULL on either column means "recipe defaults". The columns ride the existing tenant-scoped assembly row — no RLS change, no new role — and they store assumptions only, never prices: the waste override replaces each mapped Material's own `wasteFactorPct` on material legs and the production factor multiplies each mapped CostItem's `productionRate` on labor/equipment legs, applied at pricing time through the existing unit-cost resolver. Stored `AssemblyItem` quantities are never rewritten by an override.
+
 ## Codes & Permits registry (issue #946 TODO 2, draft)
 
 The #945 Codes & Permits advisory pilot's in-code source index moves into four global reference tables (migration `20261109220000_add_codes_authority_jurisdiction_source`). These tables are **not** tenant-scoped: they carry no `org_id`, no pricing, no CostItem, no estimate, no customer and no payment data.
