@@ -575,6 +575,42 @@ The workflow holds read-only repository contents permission, is serialized throu
 
 Beta evidence is UNVERIFIED until a `full` run passes. Neither this document nor the workflow's existence is evidence of live runtime behavior.
 
+## S059 browser evidence workflow
+
+`.github/workflows/s059-browser-evidence.yml` is an operator-triggered
+release-evidence workflow, not a merge-time authority — it is not part of the
+required-check set. It certifies the ADR-010 magic-link customer portal
+against an approved non-production deployment at 1440, 1024, 768, and 390
+pixels: staff issuance (UI preferred, authenticated API fallback), single-use
+redemption, customer-scoped portal reads, contract signing with a synthetic
+signer name, and the negative security matrix (replay, revoked-before and
+revoked-after redemption, malformed, cross-customer, cross-tenant,
+unauthenticated, wrong-role, draft exclusion, cross-origin). Fixtures
+(synthetic customers A/B, project, non-draft proposal/invoice, pending
+contract, draft proposal/invoice) are created at run time in the sanitized
+TEST Org through the shipped staff API; cleanup revokes every token the run
+created and deletes nothing else. Deployment identity is proven before capture
+through the Vercel API (READY + deployed SHA) plus the API deployment's
+`/health` SHA and `/ready` data-plane project ref — it deliberately does not
+reuse S027's Vercel env-inventory assertion, which fails on current
+Preview/staging env metadata. Tokens exist only in process memory; staff and
+customer browser contexts never share storage state; trace/video/HAR are off;
+screenshots start only after the clean `/access/confirm` URL loads; the
+credential scan (S027/Beta grep plus the portal cookie names and
+`x-tradeos-portal-session`) gates artifact upload, and the artifact is
+retained 30 days. Expired-token and expired-session browser states are
+recorded BLOCKED (they need staging-DB write access, owner: Billy); the
+substitute is live-PostgreSQL expiry evidence in
+`app/tests/s059.portal.integration.ts`. See
+[testing/S059_CUSTOMER_PORTAL_EVIDENCE.md](testing/S059_CUSTOMER_PORTAL_EVIDENCE.md)
+for the capture contract and
+[architecture/S059_CERTIFICATION_EVIDENCE.md](architecture/S059_CERTIFICATION_EVIDENCE.md)
+for the certification step list, the staging-vs-main portal diff (staging
+`7c428acd` lacks main's #1001 session-hash scoping and #937 proposal
+redaction), and the run record. This tooling does not change product behavior
+or complete S059 until a full exact-SHA non-production run passes with
+retained artifacts.
+
 ## Staging orchestrator workflow
 
 `.github/workflows/staging-orchestrator.yml` is the single authoritative staging run. It triggers on a push to `staging` or a manual dispatch of the current staging head, and it runs, in order: record the approved SHA (which must equal the staging head); inventory repository Prisma migrations; run a read-only staging database preflight (invoice-expand guard, legacy-cost preflight, ledger-vs-inventory comparison, app-role existence, Team & Time RLS state); wait for both Vercel Git deployments of that SHA to reach READY and capture their immutable deployment IDs and URLs; verify runtime identity (backend `/health` commitSha and `/ready` on both the deployment URL and the staging branch alias, frontend reachability on both); re-verify the staging head immediately before evidence; capture canonical beta evidence through a reusable-workflow call to `beta-evidence.yml`; and publish one PASS/FAIL verdict naming the first failing dependency and its exact repair, plus a run manifest artifact (90-day retention).
