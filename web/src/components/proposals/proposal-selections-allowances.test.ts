@@ -52,3 +52,15 @@ test("the customer portal shows selections and allowances read-only, and nothing
   assert.match(portalPage, /ProposalSelectionsAllowancesReadonly/);
   assert.match(readonlyComponent, /if \(selections\.length === 0 && allowances\.length === 0\) return null;/);
 });
+
+test("failed submissions preserve edits and add forms clear only after a successful save", () => {
+  // Server actions return { error } instead of throwing, so React treats
+  // the action as fulfilled and resets uncontrolled inputs. All four
+  // add/edit forms guard the reset, like the proposal creation form.
+  const resetGuards = component.match(/onReset=\{\(event\) => event\.preventDefault\(\)\}/g) ?? [];
+  assert.equal(resetGuards.length, 4);
+  // Add forms remount (key bump) only when a submission finishes without
+  // an error, so a failed save keeps the description/amount for correction.
+  assert.match(component, /submittedRef\.current && !state\?\.\error/);
+  assert.match(component, /setFormKey\(\(key\) => key \+ 1\)/);
+});

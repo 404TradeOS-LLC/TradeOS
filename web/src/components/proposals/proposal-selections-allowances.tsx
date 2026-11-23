@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import {
   createProposalAllowanceAction,
   createProposalSelectionAction,
@@ -39,7 +39,14 @@ function SelectionRow({
   if (editing && editable) {
     return (
       <li className="rounded-lg border border-border/60 p-3">
-        <form action={updateAction} className="grid gap-3">
+        <form
+          action={updateAction}
+          className="grid gap-3"
+          // Returned validation/API errors are fulfilled actions, so React
+          // resets uncontrolled fields. Keep edits on failure; a successful
+          // save leaves the submitted values, which now match the saved row.
+          onReset={(event) => event.preventDefault()}
+        >
           <input type="hidden" name="projectId" value={projectId} />
           <input type="hidden" name="proposalId" value={proposalId} />
           <input type="hidden" name="selectionId" value={selection.id} />
@@ -125,8 +132,31 @@ function SelectionRow({
 
 function SelectionAddForm({ projectId, proposalId }: { projectId: string; proposalId: string }) {
   const [state, formAction, isPending] = useActionState(createProposalSelectionAction, undefined);
+  // Returned validation/API errors are fulfilled actions, so React resets
+  // uncontrolled fields. Keep edits on failure and clear the form only
+  // after a successful save, by remounting it (same onReset guard as the
+  // proposal creation form).
+  const [formKey, setFormKey] = useState(0);
+  const submittedRef = useRef(false);
+  useEffect(() => {
+    if (isPending) {
+      submittedRef.current = true;
+      return;
+    }
+    if (submittedRef.current && !state?.error) {
+      submittedRef.current = false;
+      setFormKey((key) => key + 1);
+    } else {
+      submittedRef.current = false;
+    }
+  }, [isPending, state]);
   return (
-    <form action={formAction} className="grid gap-3 rounded-lg border border-dashed border-border/70 p-3">
+    <form
+      key={formKey}
+      action={formAction}
+      className="grid gap-3 rounded-lg border border-dashed border-border/70 p-3"
+      onReset={(event) => event.preventDefault()}
+    >
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="proposalId" value={proposalId} />
       <div className="grid gap-3 md:grid-cols-2">
@@ -176,7 +206,14 @@ function AllowanceRow({
   if (editing && editable) {
     return (
       <li className="rounded-lg border border-border/60 p-3">
-        <form action={updateAction} className="grid gap-3">
+        <form
+          action={updateAction}
+          className="grid gap-3"
+          // Returned validation/API errors are fulfilled actions, so React
+          // resets uncontrolled fields. Keep edits on failure; a successful
+          // save leaves the submitted values, which now match the saved row.
+          onReset={(event) => event.preventDefault()}
+        >
           <input type="hidden" name="projectId" value={projectId} />
           <input type="hidden" name="proposalId" value={proposalId} />
           <input type="hidden" name="allowanceId" value={allowance.id} />
@@ -253,8 +290,31 @@ function AllowanceRow({
 
 function AllowanceAddForm({ projectId, proposalId }: { projectId: string; proposalId: string }) {
   const [state, formAction, isPending] = useActionState(createProposalAllowanceAction, undefined);
+  // Returned validation/API errors are fulfilled actions, so React resets
+  // uncontrolled fields. Keep edits on failure and clear the form only
+  // after a successful save, by remounting it (same onReset guard as the
+  // proposal creation form).
+  const [formKey, setFormKey] = useState(0);
+  const submittedRef = useRef(false);
+  useEffect(() => {
+    if (isPending) {
+      submittedRef.current = true;
+      return;
+    }
+    if (submittedRef.current && !state?.error) {
+      submittedRef.current = false;
+      setFormKey((key) => key + 1);
+    } else {
+      submittedRef.current = false;
+    }
+  }, [isPending, state]);
   return (
-    <form action={formAction} className="grid gap-3 rounded-lg border border-dashed border-border/70 p-3">
+    <form
+      key={formKey}
+      action={formAction}
+      className="grid gap-3 rounded-lg border border-dashed border-border/70 p-3"
+      onReset={(event) => event.preventDefault()}
+    >
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="proposalId" value={proposalId} />
       <div className="grid gap-3 md:grid-cols-2">
