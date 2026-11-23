@@ -84,6 +84,15 @@ export function AthenaConfirmationCard(props: AthenaConfirmationCardProps) {
       setError("Write a note before saving.");
       return;
     }
+    // The textarea's maxLength only constrains edited text. A succeeded
+    // summary can arrive longer than the cap, so enforce it here too — and
+    // keep the oversized draft available for editing instead of silently
+    // truncating it.
+    if (body.length > MAX_NOTE_LENGTH) {
+      setError("Keep notes to 5,000 characters or fewer.");
+      setPhase("editing");
+      return;
+    }
     setError(null);
     setPhase("saving");
     const result = await props.onConfirm(body);

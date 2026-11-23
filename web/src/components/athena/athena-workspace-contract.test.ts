@@ -174,6 +174,12 @@ test("job-scoped Athena route gates by DES-4 roles and wires Confirm Write to th
   assert.match(jobPage, /athenaEnabled/);
   assert.match(fieldPage, /getAthenaCapabilities/);
   assert.match(fieldPage, /athenaEnabled/);
+
+  // CodeRabbit Minor 1 (this PR): the accepted-baseline Estimate detail only
+  // renders when the scope carries the estimate id, so the route passes the
+  // baseline's estimate id through to the workspace scope.
+  assert.match(routePage, /estimateId=\{approved\?\.estimateId \?\? undefined\}/);
+  assert.match(wrapper, /selectedScope=\{\{ jobId, projectId, customerId, estimateId \}\}/);
 });
 
 test("Athena confirmation card covers the BUILD READY write states without fetching", async () => {
@@ -192,4 +198,21 @@ test("Athena confirmation card covers the BUILD READY write states without fetch
   assert.match(card, /MAX_NOTE_LENGTH = 5_000/);
   assert.match(card, /onConfirm: \(body: string\) => Promise<SaveJobNoteResult>/);
   assert.doesNotMatch(card, /clientFetch\(|fetch\(/);
+  // CodeRabbit Minor 2 (this PR): the 5,000-character cap is enforced before
+  // saving, not just by the textarea's maxLength — an oversized summary
+  // returns to editing instead of posting above the cap.
+  assert.match(card, /body\.length > MAX_NOTE_LENGTH/);
+  assert.match(card, /Keep notes to 5,000 characters or fewer\./);
+});
+
+test("Athena workspace keeps an in-flight note save visible until it completes", async () => {
+  const workspace = await readSource("./athena-workspace.tsx");
+
+  // CodeRabbit Minor 3 (this PR): a new chat request must not replace the
+  // confirmation card while its note POST is in flight — the composer stays
+  // disabled until the save completes, then normal replacement resumes.
+  assert.match(workspace, /isSavingNote/);
+  assert.match(workspace, /if \(!trimmed \|\| isSending \|\| isSavingNote\) return;/);
+  assert.match(workspace, /disabled=\{isSending \|\| isSavingNote \|\| draft\.trim\(\)\.length === 0\}/);
+  assert.match(workspace, /onConfirm=\{saveJobNote\}/);
 });

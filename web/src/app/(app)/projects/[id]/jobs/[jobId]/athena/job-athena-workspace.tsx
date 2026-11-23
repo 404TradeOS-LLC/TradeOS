@@ -18,6 +18,7 @@ interface JobAthenaWorkspaceProps {
   jobId: string;
   projectId: string;
   customerId?: string;
+  estimateId?: string;
   jobNumber: string;
   jobTitle: string;
   scopeDetails: Record<string, string>;
@@ -35,6 +36,7 @@ export function JobAthenaWorkspace({
   jobId,
   projectId,
   customerId,
+  estimateId,
   jobNumber,
   jobTitle,
   scopeDetails,
@@ -63,7 +65,7 @@ export function JobAthenaWorkspace({
 
   return (
     <AthenaWorkspace
-      selectedScope={{ jobId, projectId, customerId }}
+      selectedScope={{ jobId, projectId, customerId, estimateId }}
       jobWriteTarget={{ jobId, jobNumber, jobTitle }}
       onSaveJobNote={saveJobNote}
       scopeDetails={scopeDetails}

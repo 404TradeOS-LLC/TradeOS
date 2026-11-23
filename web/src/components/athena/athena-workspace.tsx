@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, Fragment, useRef, useState } from "react";
+import { FormEvent, Fragment, useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, CheckCircle2, CircleSlash2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -237,8 +237,27 @@ export function AthenaWorkspace({
   const [isSending, setIsSending] = useState(false);
   const [retrySubmission, setRetrySubmission] = useState<RetrySubmission | null>(null);
   const [pendingNote, setPendingNote] = useState<{ turnId: number; draft: string } | null>(null);
+  const [isSavingNote, setIsSavingNote] = useState(false);
   const nextTurnIdRef = useRef(1);
   const scoped = scopeRows(selectedScope, scopeDetails);
+
+  // Tracks a note POST while it is in flight. A new chat request replaces
+  // the visible exchange (and its confirmation card), so submitting during a
+  // save would unmount the card mid-flight and lose its error and draft.
+  // The composer stays disabled until the save completes, then normal
+  // replacement resumes.
+  const saveJobNote = useCallback(
+    async (body: string): Promise<SaveJobNoteResult> => {
+      if (!onSaveJobNote) return { ok: false as const, error: "Saving is unavailable." };
+      setIsSavingNote(true);
+      try {
+        return await onSaveJobNote(body);
+      } finally {
+        setIsSavingNote(false);
+      }
+    },
+    [onSaveJobNote]
+  );
 
   const prepareEstimate = () => {
     if (!canCreateEstimate || !estimateHandoffIdentity) return;
@@ -277,7 +296,7 @@ export function AthenaWorkspace({
     options: { idempotencyKey?: string; addUserTurn?: boolean } = {}
   ) => {
     const trimmed = message.trim();
-    if (!trimmed || isSending) return;
+    if (!trimmed || isSending || isSavingNote) return;
 
     const idempotencyKey = options.idempotencyKey ?? createAthenaIdempotencyKey();
     // A new request replaces the visible exchange, so a pending note draft
@@ -485,7 +504,7 @@ export function AthenaWorkspace({
                         jobTitle={jobWriteTarget.jobTitle}
                         jobNumber={jobWriteTarget.jobNumber}
                         draft={pendingNote.draft}
-                        onConfirm={onSaveJobNote}
+                        onConfirm={saveJobNote}
                         onClose={() => setPendingNote(null)}
                       />
                     ) : null}
@@ -536,11 +555,11 @@ export function AthenaWorkspace({
               }}
               placeholder={selectedScope ? "Ask about the selected TradeOS work…" : "Ask Athena about your business or describe work to estimate…"}
               rows={3}
-              disabled={isSending}
+              disabled={isSending || isSavingNote}
             />
             <div className="mt-3 flex items-center justify-between gap-3">
               <p className="text-xs text-muted-foreground">Selected scope and your authenticated permissions travel with this request. Prior response text does not.</p>
-              <Button type="submit" disabled={isSending || draft.trim().length === 0}>
+              <Button type="submit" disabled={isSending || isSavingNote || draft.trim().length === 0}>
                 {isSending ? "Working…" : "Send"}
               </Button>
             </div>

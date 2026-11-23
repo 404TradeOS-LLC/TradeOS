@@ -115,6 +115,7 @@ export default async function JobAthenaPage({
         jobId={job.id}
         projectId={projectId}
         customerId={job.customer?.id}
+        estimateId={approved?.estimateId ?? undefined}
         jobNumber={job.jobNumber}
         jobTitle={job.title}
         scopeDetails={scopeDetails}
