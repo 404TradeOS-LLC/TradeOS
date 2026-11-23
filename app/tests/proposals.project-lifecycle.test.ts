@@ -98,7 +98,10 @@ describe("proposal-driven Project lifecycle behavior", () => {
   });
 
   it("moves duplicated proposals to canonical estimating", async () => {
-    mockPrisma.proposal.findFirst.mockResolvedValueOnce(proposalRow("sent"));
+    mockPrisma.proposal.findFirst
+      .mockResolvedValueOnce(proposalRow("sent"))
+      // The duplicate reloads the copy after copying the children.
+      .mockResolvedValueOnce({ ...proposalRow("draft"), id: "proposal-2", selections: [], allowances: [] });
     mockPrisma.proposal.create.mockResolvedValue({ ...proposalRow("draft"), id: "proposal-2" });
 
     const service = new ProposalsService();
