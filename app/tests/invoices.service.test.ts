@@ -540,6 +540,58 @@ describe("InvoicesService", () => {
     );
   });
 
+  it("marks a viewed invoice paid", async () => {
+    mockPrisma.invoice.findFirst
+      .mockResolvedValueOnce({
+        id: "invoice-1",
+        projectId: "project-1",
+        status: "viewed",
+        invoiceNumber: 1,
+        project: { orgId: "org-1", customer: { email: "billing@example.com" } },
+        deliveries: [],
+      })
+      .mockResolvedValueOnce({
+        id: "invoice-1",
+        projectId: "project-1",
+        estimateId: null,
+        proposalId: null,
+        invoiceNumber: 1,
+        type: "full",
+        status: "paid",
+        percentComplete: null,
+        amount: 500,
+        dueDate: null,
+        sentAt: new Date(),
+        paidAt: new Date(),
+        createdAt: new Date(),
+        lineItems: [],
+        deliveries: [{ id: "delivery-1", eventType: "invoice.paid", deliveryChannel: "app", recipientEmail: "billing@example.com", actorUserId: "user-1", metadataJson: null, occurredAt: new Date(), createdAt: new Date() }],
+      });
+    mockPrisma.invoice.update.mockResolvedValue({
+      id: "invoice-1",
+      projectId: "project-1",
+      estimateId: null,
+      proposalId: null,
+      invoiceNumber: 1,
+      type: "full",
+      status: "paid",
+      percentComplete: null,
+      amount: 500,
+      dueDate: null,
+      sentAt: new Date(),
+      paidAt: new Date(),
+      createdAt: new Date(),
+    });
+
+    const service = new InvoicesService();
+    const invoice = await service.markPaid("invoice-1", "org-1", "user-1", "admin");
+
+    expect(invoice.status).toBe("paid");
+    expect(mockPrisma.invoiceDelivery.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ eventType: "invoice.paid", actorUserId: "user-1" }) })
+    );
+  });
+
   // DES-7 (c): the mark-viewed writer — a portal view records viewedAt /
   // viewed status, idempotently, and only for invoices that have been sent.
   describe("markViewed", () => {

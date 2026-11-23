@@ -81,11 +81,11 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const canShowPaymentEntry =
     canRecordPayment &&
     hasOpenBalance &&
-    (invoice.status === "sent" || invoice.status === "overdue");
+    (invoice.status === "sent" || invoice.status === "viewed" || invoice.status === "overdue");
   const isDraft = invoice.status === "draft";
   const isPaid = invoice.status === "paid";
   const isVoided = invoice.status === "voided";
-  const canMarkPaidWithoutPayment = invoice.status === "sent" || invoice.status === "overdue";
+  const canMarkPaidWithoutPayment = invoice.status === "sent" || invoice.status === "viewed" || invoice.status === "overdue";
   const canVoidInvoice = !isPaid && !isVoided;
   const showNextActionPanel = isDraft || (hasOpenBalance && !isPaid && !isVoided);
   const showMoreBillingActions = canMarkPaidWithoutPayment || canVoidInvoice;
@@ -285,7 +285,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                   <RecordPaymentForm projectId={projectId} invoiceId={invoice.id} balanceDue={invoice.balanceDue} />
                 ) : null}
 
-                {!canRecordPayment && (invoice.status === "sent" || invoice.status === "overdue") ? (
+                {!canRecordPayment && (invoice.status === "sent" || invoice.status === "viewed" || invoice.status === "overdue") ? (
                   <p className="text-sm text-muted-foreground">Your current role can review billing but cannot record payments.</p>
                 ) : null}
               </CardContent>

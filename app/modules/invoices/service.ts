@@ -494,7 +494,7 @@ export class InvoicesService {
   async markPaid(id: string, orgId?: string, actorUserId?: string, actorRole?: string): Promise<InvoiceDTO> {
     assertInvoiceWriteAccess(actorRole);
     const row = await this.findOrThrow(id, orgId);
-    if (!["sent", "overdue"].includes(row.status)) throw new ApiError(409, `Invoice ${id} cannot be marked paid from status ${row.status}`);
+    if (!["sent", "viewed", "overdue"].includes(row.status)) throw new ApiError(409, `Invoice ${id} cannot be marked paid from status ${row.status}`);
     const updated = await prisma.invoice.update({ where: { id }, data: { status: "paid", paidAt: new Date() } });
     await this.recordDeliveryEvent({
       orgId: orgId ?? row.project.orgId ?? undefined,
