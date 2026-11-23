@@ -8,7 +8,14 @@ export type AddMemberRole = (typeof addMemberRoles)[number];
 export interface AddMemberInput {
   email: string;
   fullName?: string;
-  /** Supabase Auth user UUID of the person being attached. Required by POST /organizations/:id/members. */
+  /**
+   * Authentication subject of the person being attached — the Supabase Auth
+   * user UUID, or `local:<uuid>` for a local-auth account. This is the value
+   * `upsertOrganizationMember()` looks the user up by; the application user
+   * UUID shown under Supplier workflow IDs is a different identifier and
+   * must not be pasted here. The person finds their sign-in ID on their own
+   * Settings page under Team & Access → Your TradeOS sign-in ID.
+   */
   authSubject: string;
   role: AddMemberRole;
 }
@@ -27,6 +34,21 @@ interface OrganizationMemberResponse {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Local-auth accounts carry `local:<uuid>` subjects (app/modules/auth/service.ts). */
+const LOCAL_AUTH_SUBJECT_PATTERN =
+  /^local:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Whether a pasted value is a real authentication subject: a Supabase Auth
+ * user UUID, or a `local:<uuid>` subject for a local-auth account. The
+ * application user UUID (AppUser.id) is also a UUID by shape and cannot be
+ * told apart here — the Settings page must show the sign-in ID, not the
+ * application user ID, so the owner pastes the right one.
+ */
+export function isAuthSubject(value: string): boolean {
+  const subject = value.trim();
+  return UUID_PATTERN.test(subject) || LOCAL_AUTH_SUBJECT_PATTERN.test(subject);
+}
 
 /**
  * Roles the signed-in user may grant. The backend rejects owner grants from
@@ -50,8 +72,8 @@ export function validateAddMemberInput(input: AddMemberInput): {
     throw new Error("Enter a valid work email address.");
   }
   const authSubject = input.authSubject.trim();
-  if (!UUID_PATTERN.test(authSubject)) {
-    throw new Error("Enter the person's TradeOS user ID (a UUID, shown on their Settings page under Supplier workflow IDs).");
+  if (!isAuthSubject(authSubject)) {
+    throw new Error("Enter the person's TradeOS sign-in ID (shown on their Settings page under Team & Access → Your TradeOS sign-in ID).");
   }
   const fullName = input.fullName?.trim();
   if (fullName !== undefined && fullName.length > 160) {

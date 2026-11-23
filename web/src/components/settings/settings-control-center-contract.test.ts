@@ -131,3 +131,27 @@ test("selected sandbox diagnostics show only server-screened failed-line explana
   assert.match(source, /ABC says:/);
   assert.match(source, /No price or account preference was saved/);
 });
+
+test("Add member uses the session subject as the sign-in ID, not the application user UUID", async () => {
+  const page = await readSource("../../app/(app)/settings/page.tsx");
+  const consoleSource = await readSource("./settings-console.tsx");
+  const form = await readSource("./add-member-form.tsx");
+
+  // The page derives the displayed ID from the verified session subject —
+  // the authentication subject the backend looks members up by — and never
+  // from the application user UUID.
+  assert.match(page, /const session = await getSession\(\);/);
+  assert.match(page, /const authSubject = session\?\.sub \?\? null;/);
+  assert.match(page, /authSubject=\{authSubject\}/);
+  assert.doesNotMatch(page, /authSubject=\{.*currentUserId/);
+  assert.match(consoleSource, /authSubject: string \| null;/);
+  assert.match(consoleSource, /Your TradeOS sign-in ID/);
+  assert.match(consoleSource, /it is not the application user UUID shown under Supplier workflow IDs/);
+  assert.match(consoleSource, /selectedSection\.id === "team" && authSubject/);
+  // The form must point the owner at the sign-in ID, never at the Supplier
+  // workflow IDs card that shows the application user UUID.
+  assert.match(form, /TradeOS sign-in ID/);
+  assert.match(form, /Your TradeOS\s+sign-in ID/);
+  assert.match(form, /Do not use the application user UUID under Supplier workflow IDs/);
+  assert.doesNotMatch(form, /shown on the person.*under Supplier workflow IDs/);
+});

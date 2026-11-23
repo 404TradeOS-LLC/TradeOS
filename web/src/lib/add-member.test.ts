@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { ClientApiError } from "./clientApi.ts";
 import {
   addMemberRoleOptions,
+  isAuthSubject,
   submitAddMember,
   validateAddMemberInput,
   type AddMemberInput,
@@ -58,9 +59,25 @@ test("validation rejects a non-UUID auth subject without calling the API", () =>
   const calls = mockFetch(201, memberResponse);
   assert.throws(
     () => validateAddMemberInput({ ...validInput, authSubject: "not-a-uuid" }),
-    /TradeOS user ID/
+    /TradeOS sign-in ID/
   );
   assert.equal(calls.length, 0);
+});
+
+test("validation accepts a local-auth subject (local:<uuid>)", () => {
+  const payload = validateAddMemberInput({
+    ...validInput,
+    authSubject: "local:6daf2a3b-d4be-4479-8540-dd64356dbdb5",
+  });
+  assert.equal(payload.authSubject, "local:6daf2a3b-d4be-4479-8540-dd64356dbdb5");
+});
+
+test("isAuthSubject accepts Supabase and local subjects and rejects anything else", () => {
+  assert.equal(isAuthSubject("6daf2a3b-d4be-4479-8540-dd64356dbdb5"), true);
+  assert.equal(isAuthSubject("local:6daf2a3b-d4be-4479-8540-dd64356dbdb5"), true);
+  assert.equal(isAuthSubject("not-a-uuid"), false);
+  assert.equal(isAuthSubject("local:not-a-uuid"), false);
+  assert.equal(isAuthSubject(""), false);
 });
 
 test("validation rejects an unknown role without calling the API", () => {
