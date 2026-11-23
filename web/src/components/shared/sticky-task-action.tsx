@@ -38,9 +38,13 @@ interface StickyTaskActionProps {
  * Convergence notes vs Figma: the Figma frame is a fixed 358px wide with a
  * 36px button and an 8px centered hint; production is fluid-width, keeps the
  * 44px minimum touch target, and uses the existing `text-xs` muted hint
- * style. The Athena workspace composer is intentionally not migrated here —
- * it is a multi-element composer, not a single dominant action, and PR #1029
- * owns that file; see the follow-up in the PR body.
+ * style. The Athena workspace composer is intentionally not migrated:
+ * assessed 2026-11-23 (after PR #1029 merged) and it does not fit — it is
+ * a multi-element form (Textarea + Send + scope disclosure), not a single
+ * dominant action; StickyTaskAction has no slot for the input, its shell
+ * wraps only the action while the composer sticks as a whole form, and it
+ * expresses one sticky mode while the composer has two (page and sheet).
+ * Forcing it would split the form or change the mobile layout.
  */
 export function StickyTaskAction({
   label,
