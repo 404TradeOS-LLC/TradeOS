@@ -90,7 +90,7 @@ export class EstimateEngineService {
     try {
       return { ...toEstimateDTO(row), lineItems: await attachLinePriceReadiness(lineItems, orgId) };
     } catch (error) {
-      console.error(`[estimate-engine] price readiness lookup failed for estimate ${id}`, error);
+      console.error("[estimate-engine] price readiness lookup failed for estimate", id, error);
       return { ...toEstimateDTO(row), lineItems };
     }
   }
