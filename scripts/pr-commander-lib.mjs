@@ -220,15 +220,26 @@ export function orderMerges(prs) {
 // record required but absent", even when the record was present in the body
 // (proven on #1045, #1046 and #1054, all merged only after the false
 // verdict was worked around by hand). The record is a line starting with
-// "ADR-009 record" plus its six elements; the Authorization and Restoration
-// trigger lines are the bookends of a complete record, so a bare mention
-// without them does not count.
+// "ADR-009 record" plus all six elements, each with a populated value on
+// its own line; a header with an empty value is a placeholder, not a
+// record, so a bare mention — or an unfilled record template — does not
+// count. Values are matched with horizontal whitespace only (`[ \t]*`):
+// `\s*` would also swallow the newline and read the next line as the
+// value, letting an empty element pass.
+const ADR009_RECORD_ELEMENTS = [
+  /^- Authorization:[ \t]*\S/m,
+  /^- Unavailable-reviewer reason:[ \t]*\S/m,
+  /^- Risk boundaries:[ \t]*\S/m,
+  /^- Rollback\/recovery:[ \t]*\S/m,
+  /^- Required-check evidence:[ \t]*\S/m,
+  /^- Restoration trigger:[ \t]*\S/m,
+];
+
 export function hasAdr009Record(body) {
   if (typeof body !== "string" || body.length === 0) return false;
   return (
     /^ADR-009 record\b/m.test(body) &&
-    /^- Authorization:/m.test(body) &&
-    /^- Restoration trigger:/m.test(body)
+    ADR009_RECORD_ELEMENTS.every((pattern) => pattern.test(body))
   );
 }
 

@@ -338,12 +338,68 @@ test("a bare ADR-009 mention without the record block does not satisfy the gate"
   assert.equal(evaluateGate(normalizeSnapshot(raw)).verdict, "BLOCKED");
 });
 
-test("hasAdr009Record requires the marker plus the Authorization and Restoration trigger bookends", () => {
+test("hasAdr009Record requires the marker plus all six elements with populated values", () => {
   assert.equal(hasAdr009Record(ADR009_BODY), true);
   assert.equal(hasAdr009Record("ADR-009 record\n\n- Authorization: x."), false);
+  // Empty values are placeholders, not a record (review findings on #1058,
+  // 2026-11-23): the exact reviewer example, and a full six-element record
+  // with the last value left blank, both stay BLOCKED.
+  assert.equal(
+    hasAdr009Record("ADR-009 record\n- Authorization:\n- Restoration trigger:"),
+    false
+  );
+  assert.equal(
+    hasAdr009Record(
+      [
+        "ADR-009 record:",
+        "- Authorization: x.",
+        "- Unavailable-reviewer reason: x.",
+        "- Risk boundaries: x.",
+        "- Rollback/recovery: x.",
+        "- Required-check evidence: x.",
+        "- Restoration trigger:",
+      ].join("\n")
+    ),
+    false
+  );
+  // An empty value must not borrow the next line's text: the value has to
+  // sit on the element's own line.
+  assert.equal(
+    hasAdr009Record(
+      [
+        "ADR-009 record:",
+        "- Authorization:",
+        "- Unavailable-reviewer reason: x.",
+        "- Risk boundaries: x.",
+        "- Rollback/recovery: x.",
+        "- Required-check evidence: x.",
+        "- Restoration trigger: x.",
+      ].join("\n")
+    ),
+    false
+  );
   assert.equal(hasAdr009Record(""), false);
   assert.equal(hasAdr009Record(undefined), false);
   assert.equal(hasAdr009Record(null), false);
+});
+
+test("migration files with an ADR-009 record of empty values stay BLOCKED on ADR-009", () => {
+  const raw = readySnapshot({
+    files: ["app/prisma/migrations/20261110_add_permit_tasks/migration.sql"],
+    body: [
+      "ADR-009 record",
+      "- Authorization:",
+      "- Unavailable-reviewer reason:",
+      "- Risk boundaries:",
+      "- Rollback/recovery:",
+      "- Required-check evidence:",
+      "- Restoration trigger:",
+    ].join("\n"),
+  });
+  assert.equal(normalizeSnapshot(raw).adr009Record, false);
+  const result = evaluateGate(normalizeSnapshot(raw));
+  assert.equal(result.verdict, "BLOCKED");
+  assert.match(result.founderItems.join(" "), /ADR-009/);
 });
 
 test("dry-run guard: an unarmed evaluation never reports MERGE_READY", () => {

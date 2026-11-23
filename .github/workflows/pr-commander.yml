@@ -633,7 +633,7 @@ jobs:
           build_snapshot() {
             local pr="$1"
             gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json \
-              number,isDraft,mergeStateStatus,mergeable,reviewDecision,headRefOid,baseRefName,headRefName,files,reviews,statusCheckRollup \
+              number,isDraft,mergeStateStatus,mergeable,reviewDecision,headRefOid,baseRefName,headRefName,files,reviews,statusCheckRollup,body \
               > fresh.json
             local owner="${GITHUB_REPOSITORY%%/*}" repo="${GITHUB_REPOSITORY##*/}"
             local threads

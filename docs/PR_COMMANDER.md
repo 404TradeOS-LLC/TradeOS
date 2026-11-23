@@ -206,10 +206,14 @@ ADR-009 record, because the exception does not approve security or
 operational decisions.
 
 The record is detected from the PR body, where it is actually written: the
-exact-head snapshot carries `body`, and `normalizeSnapshot` treats the
-record as present when the body has a line starting with `ADR-009 record`
-plus the `- Authorization:` and `- Restoration trigger:` bookends of a
-complete record. A bare mention without them does not count, and a missing
+exact-head snapshot carries `body` in every snapshot path — the evaluate
+job, the armed act job's re-read, and the CLI `--pr` path — and
+`normalizeSnapshot` treats the record as present when the body has a line
+starting with `ADR-009 record` plus all six record elements, each with a
+populated value on its own line: Authorization, Unavailable-reviewer
+reason, Risk boundaries, Rollback/recovery, Required-check evidence,
+Restoration trigger. A header with an empty value is a placeholder, not a
+record. A bare mention without the elements does not count, and a missing
 body stays unknown (BLOCKED), never assumed present. Before this fix
 (2026-11-23) the snapshot never set the record flag at all, so every
 migration PR mis-evaluated as BLOCKED on "ADR-009 record required but

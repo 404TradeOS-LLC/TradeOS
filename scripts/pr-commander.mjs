@@ -113,7 +113,7 @@ function fetchLiveSnapshot(prNumber) {
   const fields = [
     "number", "isDraft", "mergeStateStatus", "mergeable", "reviewDecision",
     "headRefOid", "baseRefName", "headRefName", "files", "reviews",
-    "statusCheckRollup",
+    "statusCheckRollup", "body",
   ].join(",");
   let out;
   try {
