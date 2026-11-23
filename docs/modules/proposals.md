@@ -74,14 +74,14 @@ Copperline proposal sections 03 (selections) and 04 (allowances) had no model; t
 
 - `ProposalSelection`: `label` (selection category, e.g. `CABINET FINISH`, `COUNTERTOP`, `PENDANTS`), `detail` (chosen option text, e.g. `Rift white oak · clear matte`; null while the decision is open), `status` (`action_required` = Figma ACTION REQUIRED, `confirmed` = Figma CONFIRMED), nullable `dueDate` (Figma `Choose by Oct 09`), `sortOrder`. Read from the Figma flagship frame `425:45123` via the Figma MCP.
 - `ProposalAllowance`: `description` (e.g. `PENDANT LIGHTING`, `CABINET HARDWARE`) and `amount` (>= 0). The Figma total ($2,800) is the sum of the rows, computed at read time and never stored.
-- Both rows carry their own `orgId` (set by the service from the owning proposal's project, never from caller input), cascade on proposal delete, and are covered by forced RLS with select/write policies scoped to the session org, mirroring `proposal_deliveries`.
+- Both rows carry their own `orgId` (set by the service from the owning proposal's project, never from caller input), cascade on proposal delete, and are covered by forced RLS with select/write policies scoped to the session org, mirroring `proposal_deliveries`. Portal reads are further scoped by restrictive policies through the owning proposal's project to the verified customer (`project.customer_id = current_app_portal_customer_id()`), because a portal session carries the contractor's `org_id` and the org-wide policy alone would expose every customer's rows in the org. Portal writes are denied by `current_app_can_write()`.
 
 Endpoints (`billing.read` for reads, `documents.manage` for writes):
 
 - `GET /api/v1/proposals/:id/selections`, `POST /api/v1/proposals/:id/selections`, `PATCH /api/v1/proposals/:id/selections/:selectionId`, `DELETE /api/v1/proposals/:id/selections/:selectionId`
 - `GET /api/v1/proposals/:id/allowances`, `POST /api/v1/proposals/:id/allowances`, `PATCH /api/v1/proposals/:id/allowances/:allowanceId`, `DELETE /api/v1/proposals/:id/allowances/:allowanceId`
 
-Writes follow the same draft rules as the proposal itself: an accepted proposal, or one with a contract, rejects every selection/allowance write with `409`; a missing or foreign-org proposal returns `404`. Duplicating a proposal carries its selections and allowances to the copy.
+Writes follow the same draft rules as the proposal itself: an accepted proposal, or one with a contract, rejects every selection/allowance write with `409`; a missing or foreign-org proposal returns `404`. Each create/update/delete runs in one transaction that first takes a `FOR UPDATE` row lock on the parent proposal and re-checks editability, so acceptance committing mid-mutation cannot create a row on an accepted proposal (acceptance's conditional update blocks on the same row lock). Duplicating a proposal carries its selections and allowances to the copy.
 
 Display: the staff proposal detail page (`/projects/[id]/proposals/[proposalId]`) shows both sections with add/edit/delete forms (read-only once accepted); the customer portal proposal page shows them read-only and renders nothing when a proposal has neither. Both surfaces state that allowances are not added to the proposal total.
 

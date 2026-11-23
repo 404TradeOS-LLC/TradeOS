@@ -27,6 +27,16 @@ describe("proposal selections and allowances migration (DES-10-F8)", () => {
     expect(migration).toContain("(select public.current_app_can_write())");
   });
 
+  it("scopes portal customer reads through the owning proposal to the verified customer", () => {
+    // A portal session carries the contractor's org_id, so the org-wide
+    // SELECT policy alone would expose every customer's rows in the org.
+    expect(migration).toContain("create policy proposal_selections_customer_portal_scope_policy on public.proposal_selections");
+    expect(migration).toContain("create policy proposal_allowances_customer_portal_scope_policy on public.proposal_allowances");
+    expect(migration).toContain("as restrictive for select using");
+    expect(migration).toContain("(select public.current_app_role()) <> 'portal_customer'");
+    expect(migration).toContain("project.customer_id = (select public.current_app_portal_customer_id())::uuid");
+  });
+
   it("constrains selection statuses to the Figma badges and allowance amounts to zero or more", () => {
     expect(migration).toContain("status in ('action_required', 'confirmed')");
     expect(migration).toContain("amount >= 0");

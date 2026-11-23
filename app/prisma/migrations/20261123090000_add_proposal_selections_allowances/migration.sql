@@ -74,6 +74,40 @@ FOR SELECT USING (
   org_id = (SELECT public.current_app_org_id())
 );
 
+-- A portal session carries the contractor's app.org_id, so the org-wide
+-- SELECT policies above would expose every customer's selections and
+-- allowances in the org to any verified portal customer. Scope portal reads
+-- through the owning proposal's project to the verified customer — the same
+-- parent-scope pattern as the projects/customers portal policies in
+-- 20260828150000. Staff roles are unaffected (first disjunct); portal
+-- writes are already denied by current_app_can_write(), so no restrictive
+-- write policy is needed.
+CREATE POLICY proposal_selections_customer_portal_scope_policy ON public.proposal_selections
+AS RESTRICTIVE FOR SELECT USING (
+  (SELECT public.current_app_role()) <> 'portal_customer'
+  OR EXISTS (
+    SELECT 1
+    FROM public.proposals proposal
+    JOIN public.projects project ON project.id = proposal.project_id
+    WHERE proposal.id = proposal_selections.proposal_id
+      AND project.org_id = (SELECT public.current_app_org_id())
+      AND project.customer_id = (SELECT public.current_app_portal_customer_id())::uuid
+  )
+);
+
+CREATE POLICY proposal_allowances_customer_portal_scope_policy ON public.proposal_allowances
+AS RESTRICTIVE FOR SELECT USING (
+  (SELECT public.current_app_role()) <> 'portal_customer'
+  OR EXISTS (
+    SELECT 1
+    FROM public.proposals proposal
+    JOIN public.projects project ON project.id = proposal.project_id
+    WHERE proposal.id = proposal_allowances.proposal_id
+      AND project.org_id = (SELECT public.current_app_org_id())
+      AND project.customer_id = (SELECT public.current_app_portal_customer_id())::uuid
+  )
+);
+
 CREATE POLICY proposal_allowances_write_policy ON public.proposal_allowances
 FOR ALL USING (
   org_id = (SELECT public.current_app_org_id()) AND (SELECT public.current_app_can_write())
