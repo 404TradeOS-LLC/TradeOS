@@ -127,6 +127,16 @@ require Web dependencies.
 
 In the shared Scope / Items / Price / Review frontend, a failed finalize request retains the saved estimate and renders a focused `role="alert"` above the Retry finalization action. The focus handler only acts on a visible error notice and scrolls it toward the center so the fixed mobile action and Control Dock do not cover it. It uses the existing server-finalize mutation and does not imply proposal creation or saved pricing changes on failure. The previous standalone recovery PR #751 was closed unmerged; this is a reduced, current-main implementation for the single responsive Review surface. Source assertions are not hosted authenticated evidence.
 
+### Review readiness checklist (DES-10-F2)
+
+The Review stage carries a persisted readiness checklist that gates `Finalize estimate`, per Figma 378:443 / 287:240. Two attestations, both stored as nullable timestamps on the estimate (`exclusions_reviewed_at`, `price_sources_reviewed_at`, additive migration `20261123120000_add_estimate_review_checklist`):
+
+- **Exclusions reviewed** — the estimator confirmed the exclusions that will appear on the customer proposal have been reviewed. Exclusions themselves live on the proposal form ("Exclusions override"); the estimate carries only the attestation.
+- **Price sources reviewed** — the estimator confirmed each line's Costbook price source (source name / region / freshness shown in the Items-stage cost preview) was reviewed before adding.
+
+Each toggle PATCHes the estimate through the existing draft-update path (`exclusionsReviewed` / `priceSourcesReviewed` booleans on `PATCH /api/v1/estimates/:id`); the checked state renders from the stored timestamps, so a completed checklist survives a reload, and a failed save leaves the checkbox at the server value. `Finalize estimate` stays disabled until both items are checked, and `EstimateEngineService.finalize()` enforces the same preconditions server-side (409 otherwise), so a direct API call cannot finalize an unreviewed estimate. There is no line-count gate: decision 22-B (Billy's word 2026-11-23) allows finalizing a $0 estimate, so the checklist attestation is the gate, not the line count. Duplicating an estimate starts with null flags — a new draft must be re-reviewed. Figma checklist items 01 (reconcile the $1,670 difference) and 02 (review the footing assumption) are intentionally omitted: 01 depends on DES-10-F4 (no imported-draft concept exists) and 02 on DES-10-F1 (persisted clarification contract).
+
+
 
 ### Responsive four-stage workflow (2026-10-16 implementation)
 

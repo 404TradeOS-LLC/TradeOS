@@ -268,6 +268,8 @@ describe("EstimateEngineService", () => {
       targetMarginPct: null,
       subtotalCost: 25,
       totalPrice: 33,
+      exclusionsReviewedAt: new Date("2026-11-23T12:00:00.000Z"),
+      priceSourcesReviewedAt: new Date("2026-11-23T12:00:00.000Z"),
       lineItems: [{ lineCost: 25 }],
     });
     mockPrisma.estimate.update
@@ -310,6 +312,159 @@ describe("EstimateEngineService", () => {
       where: { estimateId: "estimate-1", finalPrice: null, priceLow: null, priceHigh: null },
       data: { finalPrice: 33 },
     });
+  });
+
+  it("refuses to finalize when exclusions have not been reviewed", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      orgId: "org-1",
+      projectId: "project-1",
+      version: 1,
+      status: "draft",
+      overheadPct: 10,
+      profitPct: 20,
+      targetMarginPct: null,
+      subtotalCost: 25,
+      totalPrice: 33,
+      exclusionsReviewedAt: null,
+      priceSourcesReviewedAt: new Date("2026-11-23T12:00:00.000Z"),
+      lineItems: [{ lineCost: 25 }],
+    });
+    mockPrisma.estimate.update.mockResolvedValue({
+      id: "estimate-1",
+      orgId: "org-1",
+      projectId: "project-1",
+      version: 1,
+      status: "draft",
+      overheadPct: 10,
+      profitPct: 20,
+      targetMarginPct: null,
+      subtotalCost: 25,
+      totalPrice: 33,
+    });
+
+    await expect(new EstimateEngineService().finalize("estimate-1", "org-1")).rejects.toThrow(
+      /cannot be finalized until exclusions has been reviewed/
+    );
+    expect(mockPrisma.estimate.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: "ready" } })
+    );
+  });
+
+  it("refuses to finalize when price sources have not been reviewed", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      orgId: "org-1",
+      projectId: "project-1",
+      version: 1,
+      status: "draft",
+      overheadPct: 10,
+      profitPct: 20,
+      targetMarginPct: null,
+      subtotalCost: 25,
+      totalPrice: 33,
+      exclusionsReviewedAt: new Date("2026-11-23T12:00:00.000Z"),
+      priceSourcesReviewedAt: null,
+      lineItems: [{ lineCost: 25 }],
+    });
+    mockPrisma.estimate.update.mockResolvedValue({
+      id: "estimate-1",
+      orgId: "org-1",
+      projectId: "project-1",
+      version: 1,
+      status: "draft",
+      overheadPct: 10,
+      profitPct: 20,
+      targetMarginPct: null,
+      subtotalCost: 25,
+      totalPrice: 33,
+    });
+
+    await expect(new EstimateEngineService().finalize("estimate-1", "org-1")).rejects.toThrow(
+      /cannot be finalized until price sources has been reviewed/
+    );
+  });
+
+  it("finalizes a $0 estimate with no line items once the checklist is complete", async () => {
+    // Decision 22-B (Billy's word 2026-11-23): no line-count gate —
+    // a $0 estimate finalizes once the review attestations are set.
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      orgId: "org-1",
+      projectId: "project-1",
+      version: 1,
+      status: "draft",
+      overheadPct: 10,
+      profitPct: 20,
+      targetMarginPct: null,
+      subtotalCost: 0,
+      totalPrice: 0,
+      exclusionsReviewedAt: new Date("2026-11-23T12:00:00.000Z"),
+      priceSourcesReviewedAt: new Date("2026-11-23T12:00:00.000Z"),
+      lineItems: [],
+    });
+    mockPrisma.estimate.update
+      .mockResolvedValueOnce({
+        id: "estimate-1",
+        orgId: "org-1",
+        projectId: "project-1",
+        version: 1,
+        status: "draft",
+        overheadPct: 10,
+        profitPct: 20,
+        targetMarginPct: null,
+        subtotalCost: 0,
+        totalPrice: 0,
+      })
+      .mockResolvedValueOnce({
+        id: "estimate-1",
+        orgId: "org-1",
+        projectId: "project-1",
+        version: 1,
+        status: "ready",
+        overheadPct: 10,
+        profitPct: 20,
+        targetMarginPct: null,
+        subtotalCost: 0,
+        totalPrice: 0,
+      });
+
+    const estimate = await new EstimateEngineService().finalize("estimate-1", "org-1");
+
+    expect(estimate.status).toBe("ready");
+    expect(estimate.totalPrice).toBe(0);
+    expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
+      where: { estimateId: "estimate-1", finalPrice: null, priceLow: null, priceHigh: null },
+      data: { finalPrice: 0 },
+    });
+  });
+
+  it("records and clears review checklist attestations on draft update", async () => {
+    const draftRow = {
+      id: "estimate-1",
+      orgId: "org-1",
+      projectId: "project-1",
+      version: 1,
+      status: "draft",
+      overheadPct: 10,
+      profitPct: 0,
+      targetMarginPct: null,
+      subtotalCost: 0,
+      totalPrice: 0,
+      lineItems: [],
+    };
+    mockPrisma.estimate.findFirst.mockResolvedValue(draftRow);
+    mockPrisma.estimate.update.mockResolvedValue(draftRow);
+
+    const service = new EstimateEngineService();
+    await service.updateEstimate({ estimateId: "estimate-1", orgId: "org-1", exclusionsReviewed: true, priceSourcesReviewed: false });
+
+    expect(mockPrisma.estimate.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "estimate-1" },
+        data: expect.objectContaining({ exclusionsReviewedAt: expect.any(Date), priceSourcesReviewedAt: null }),
+      })
+    );
   });
 
   it("duplicates an estimate into the next draft version with copied line items", async () => {

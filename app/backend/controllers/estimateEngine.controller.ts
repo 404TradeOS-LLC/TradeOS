@@ -167,6 +167,8 @@ export const estimateEngineController = {
     const schema = z.object({
       overheadPct: z.coerce.number().min(0).max(999.99).optional(),
       taxPct: z.coerce.number().min(0).max(100).optional(),
+      exclusionsReviewed: z.boolean().optional(),
+      priceSourcesReviewed: z.boolean().optional(),
     }).refine((value) => Object.keys(value).length > 0, { message: "At least one estimate setting is required" });
     const body = schema.parse(req.body);
     const estimate = await service.updateEstimate({ estimateId: req.params.id, ...body, orgId: requireOrgId(req) });

@@ -14,6 +14,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { StickyTaskAction } from "@/components/shared/sticky-task-action";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -415,6 +416,14 @@ function EstimateStageFlow({
   finalizeError: string | null;
   recalculationDelta: { previousTotalMinor: number; currentTotalMinor: number; reason: string } | null;
 }) {
+  // DES-10-F2: the Review readiness checklist gates Finalize. The flags
+  // are server state (persisted review attestations); the button stays
+  // disabled until both are set, and the server enforces the same
+  // preconditions in finalize() so a direct API call cannot bypass it.
+  // There is no line-count gate: decision 22-B (Billy's word 2026-11-23)
+  // allows finalizing a $0 estimate, so the button must not disable on
+  // an empty line list.
+  const reviewChecklistComplete = estimate.exclusionsReviewedAt != null && estimate.priceSourcesReviewedAt != null;
   const stages: Array<{ id: EstimateStage; label: string }> = [
     { id: "scope", label: "Scope" },
     { id: "items", label: "Items" },
@@ -629,9 +638,14 @@ function EstimateStageFlow({
             <EstimateCodesHints estimateId={estimateId} />
             {isDraft ? (
               <>
+                <EstimateReviewChecklist
+                  estimateId={estimateId}
+                  exclusionsReviewedAt={estimate.exclusionsReviewedAt}
+                  priceSourcesReviewedAt={estimate.priceSourcesReviewedAt}
+                />
                 <p className="text-sm text-muted-foreground">Finalizing locks this reviewed estimate version. The next step is creating the customer proposal. Nothing is sent to the customer by finalizing.</p>
                 {finalizeError ? <EstimateFinalizationError message={finalizeError} /> : null}
-                <StickyTaskAction label={finalizePending ? "Finalizing…" : finalizeError ? "Retry finalization" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
+                <StickyTaskAction label={finalizePending ? "Finalizing…" : finalizeError ? "Retry finalization" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || !reviewChecklistComplete} />
               </>
             ) : (
               <Link href={`/projects/${estimate.projectId}/proposals/new?estimateId=${estimateId}`} className={buttonVariants({ variant: "default" }) + " flex min-h-11 w-full items-center justify-center"}>
@@ -688,6 +702,91 @@ function EstimateFinalizationError({ message }: { message: string }) {
     >
       Finalization failed. {message} Your saved draft remains available. Retry when ready.
     </p>
+  );
+}
+
+/**
+ * DES-10-F2 — Review readiness checklist (Figma 378:443 / 287:240).
+ * Two persisted attestations gate `Finalize estimate`. There is no
+ * line-count gate: decision 22-B (Billy's word 2026-11-23) allows
+ * finalizing a $0 estimate, so the checklist attestation is the gate,
+ * not the line count. The checked state is server state: each toggle
+ * PATCHes the estimate through the existing draft-update path
+ * (`exclusionsReviewed` / `priceSourcesReviewed`) and the query
+ * refetch renders the persisted value, so a completed checklist
+ * survives a reload. A failed save leaves the checkbox at the server
+ * value — never an optimistic checked state.
+ *
+ * Shipped items only. Figma item 01 (reconcile the $1,670 difference)
+ * depends on DES-10-F4 (no imported-draft concept exists); item 02
+ * (review the footing assumption) depends on DES-10-F1 (Codex lane).
+ */
+function EstimateReviewChecklist({
+  estimateId,
+  exclusionsReviewedAt,
+  priceSourcesReviewedAt,
+}: {
+  estimateId: string;
+  exclusionsReviewedAt: string | null;
+  priceSourcesReviewedAt: string | null;
+}) {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const exclusionsId = useId();
+  const priceSourcesId = useId();
+
+  const saveReview = useMutation({
+    mutationFn: ({ field, reviewed }: { field: "exclusions" | "priceSources"; reviewed: boolean }) =>
+      clientFetch(`/estimates/${estimateId}`, {
+        method: "PATCH",
+        body: JSON.stringify(field === "exclusions" ? { exclusionsReviewed: reviewed } : { priceSourcesReviewed: reviewed }),
+      }),
+    onSuccess: () => {
+      setError(null);
+      void queryClient.invalidateQueries({ queryKey: ["estimate", estimateId] });
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "Unable to save the review checklist. Try again."),
+  });
+
+  const complete = exclusionsReviewedAt != null && priceSourcesReviewedAt != null;
+
+  return (
+    <section aria-label="Review readiness checklist" className="space-y-3 rounded-lg border border-border/70 bg-muted/10 p-4">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Before finalizing</h3>
+        <p className="mt-1 text-xs text-muted-foreground">Finalizing stays blocked until exclusions and price sources have been reviewed.</p>
+      </div>
+      <div className="space-y-3">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id={exclusionsId}
+            checked={exclusionsReviewedAt != null}
+            disabled={saveReview.isPending}
+            onCheckedChange={(checked) => saveReview.mutate({ field: "exclusions", reviewed: checked === true })}
+            className="mt-0.5"
+          />
+          <div className="min-w-0">
+            <Label htmlFor={exclusionsId} className="text-sm font-medium">Exclusions reviewed</Label>
+            <p className="mt-0.5 text-xs text-muted-foreground">Confirm the exclusions that will appear on the customer proposal have been reviewed. Exclusions are entered on the proposal form after finalizing.</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id={priceSourcesId}
+            checked={priceSourcesReviewedAt != null}
+            disabled={saveReview.isPending}
+            onCheckedChange={(checked) => saveReview.mutate({ field: "priceSources", reviewed: checked === true })}
+            className="mt-0.5"
+          />
+          <div className="min-w-0">
+            <Label htmlFor={priceSourcesId} className="text-sm font-medium">Price sources reviewed</Label>
+            <p className="mt-0.5 text-xs text-muted-foreground">Confirm each line&apos;s Costbook price source was reviewed in Items before adding.</p>
+          </div>
+        </div>
+      </div>
+      {complete ? <p className="text-xs text-muted-foreground">Checklist complete — Finalize estimate is available.</p> : null}
+      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+    </section>
   );
 }
 

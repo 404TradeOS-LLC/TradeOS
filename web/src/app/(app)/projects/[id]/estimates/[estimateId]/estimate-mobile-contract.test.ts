@@ -194,6 +194,30 @@ test("Price groups only persisted line costs and keeps customer sell total separ
   assert.doesNotMatch(builder, /Customer-facing review/);
 });
 
+test("Review readiness checklist gates Finalize until exclusions and price sources are reviewed", async () => {
+  const builder = await readSource("./builder.tsx");
+  assert.match(builder, /aria-label="Review readiness checklist"/);
+  assert.match(builder, /Before finalizing/);
+  assert.match(builder, /Exclusions reviewed/);
+  assert.match(builder, /Confirm the exclusions that will appear on the customer proposal have been reviewed/);
+  assert.match(builder, /Price sources reviewed/);
+  assert.match(builder, /Confirm each line&apos;s Costbook price source was reviewed in Items before adding/);
+  assert.match(builder, /Finalizing stays blocked until exclusions and price sources have been reviewed/);
+  // Persisted through the existing draft-update path: each toggle PATCHes
+  // the estimate and the checked state renders from the stored
+  // timestamps, so a completed checklist survives a reload.
+  assert.match(builder, /exclusionsReviewed: reviewed/);
+  assert.match(builder, /priceSourcesReviewed: reviewed/);
+  assert.match(builder, /checked=\{exclusionsReviewedAt != null\}/);
+  assert.match(builder, /checked=\{priceSourcesReviewedAt != null\}/);
+  assert.match(builder, /reviewChecklistComplete = estimate\.exclusionsReviewedAt != null && estimate\.priceSourcesReviewedAt != null/);
+  // Finalize stays blocked until the checklist is complete. There is
+  // no line-count gate: decision 22-B (Billy's word 2026-11-23) allows
+  // finalizing a $0 estimate, so an empty line list must not disable it.
+  assert.match(builder, /disabled=\{finalizePending \|\| !reviewChecklistComplete\}/);
+  assert.match(builder, /Checklist complete — Finalize estimate is available/);
+});
+
 test("failed finalization preserves the saved estimate and offers a retry without inventing success", async () => {
   const builder = await readSource("./builder.tsx");
   assert.match(builder, /method: "POST"/);

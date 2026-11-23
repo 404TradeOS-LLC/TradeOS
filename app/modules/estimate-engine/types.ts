@@ -51,6 +51,14 @@ export interface UpdateEstimateInput {
   orgId: string;
   overheadPct?: number;
   taxPct?: number;
+  /**
+   * DES-10-F2 review readiness checklist. Setting a flag records the
+   * review time (server `now()`); clearing it sets the timestamp back
+   * to null. Both flags must be set before `finalize()` allows the
+   * draft -> ready transition.
+   */
+  exclusionsReviewed?: boolean;
+  priceSourcesReviewed?: boolean;
 }
 
 export interface UpdateLineItemInput {
@@ -89,6 +97,9 @@ export interface EstimateDTO {
   taxAmount: number;
   costAfterOverhead: number;
   preTaxTotalPrice: number;
+  /** DES-10-F2: review checklist attestations; null means not reviewed. */
+  exclusionsReviewedAt: string | null;
+  priceSourcesReviewedAt: string | null;
 }
 
 export interface EstimateLineItemDTO {

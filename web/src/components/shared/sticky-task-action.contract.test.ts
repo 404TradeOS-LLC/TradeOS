@@ -60,7 +60,10 @@ test("Estimate builder uses the shared StickyTaskAction instead of its own fixed
   assert.match(builder, /label="Continue to review"/);
   assert.match(builder, /label=\{finalizePending \? "Finalizing…" : finalizeError \? "Retry finalization" : "Finalize estimate"\}/);
   assert.match(builder, /disabled=\{scopeSavePending\}/);
-  assert.match(builder, /disabled=\{finalizePending \|\| estimate\.lineItems\.length === 0\}/);
+  // DES-10-F2 + decision 22-B: the Finalize action is gated by the
+  // Review readiness checklist, not by the line count — a $0 estimate
+  // finalizes once the checklist is complete.
+  assert.match(builder, /disabled=\{finalizePending \|\| !reviewChecklistComplete\}/);
   assert.doesNotMatch(builder, /function EstimateStageAction/);
   assert.doesNotMatch(builder, /fixed inset-x-0/);
   assert.doesNotMatch(builder, /sticky bottom-/);

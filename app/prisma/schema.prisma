@@ -1078,6 +1078,8 @@ model Estimate {
   totalPrice       Decimal  @default(0) @map("total_price") @db.Decimal(14, 2)
   taxPct           Decimal  @default(0) @map("tax_pct") @db.Decimal(5, 2)
   taxAmount        Decimal  @default(0) @map("tax_amount") @db.Decimal(14, 2)
+  exclusionsReviewedAt   DateTime? @map("exclusions_reviewed_at")
+  priceSourcesReviewedAt DateTime? @map("price_sources_reviewed_at")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
 
