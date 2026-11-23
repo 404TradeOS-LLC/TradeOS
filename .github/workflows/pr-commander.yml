@@ -16,8 +16,9 @@
 #   - Branch currency signal: stale-pr-check.yml (read, not duplicated).
 #   - ESLint autofix pattern: code-quality-autofix.yml (fix -> verify ->
 #     push), extended here to per-PR scope.
-#   - Security fixes: codeql-autofix.yml (scheduled run every 2h, never
-#     re-implemented and never dispatched from here — see below).
+#   - Security fixes: codeql-autofix.yml (scheduled run every 2h, plus
+#     on-demand dispatch from the armed `act` job below — see the
+#     security-findings note in that job). Never re-implemented here.
 #   - Merge queue: merge-queue.yml / scripts/merge-queue.mjs eligibility
 #     policy is the queue path; this workflow uses native auto-merge
 #     (`gh pr merge --auto --squash`) and never assumes the native queue is
@@ -48,12 +49,16 @@
 #      API-pushed commits emit no push event and never trigger pull_request CI.
 #   2. CodeQL Autofix for security findings: delegated to the existing
 #      codeql-autofix.yml SCHEDULED run (every 2h), never re-implemented
-#      here. The Commander does NOT dispatch that workflow itself: the
-#      founder policy exception for `actions: write` (2026-11-10) covers
-#      the pr-maintenance dispatch only, so the CodeQL on-demand dispatch
-#      is still unwired (a separate change). Security findings are
-#      surfaced as founder items in the verdict comment, and the scheduled
-#      CodeQL Autofix run picks them up on its own cadence.
+#      here. The armed `act` job additionally dispatches that workflow
+#      on demand (once per Commander run, one repair attempt per head)
+#      when a REPAIRABLE PR carries a security reason: the founder
+#      policy exception for `actions: write` was widened 2026-11-23
+#      (decision #18-A, Billy's word) to cover the codeql-autofix
+#      dispatch as well as the pr-maintenance dispatch. Security
+#      findings are still surfaced as founder items in the verdict
+#      comment, and the scheduled CodeQL Autofix run picks up anything
+#      the on-demand dispatch does not (BLOCKED verdicts, exhausted
+#      attempts, or a dispatch failure) on its own cadence.
 #   3. CodeRabbit re-review after repair pushes (it is the reviewer of
 #      record). Re-review is externally rate-limited: one best-effort request
 #      with backoff, never a retry loop.
@@ -545,13 +550,17 @@ jobs:
       issues: write
       checks: read
       # `actions: write` covers dispatching pr-maintenance.yml for
-      # REPAIRABLE behind-branch verdicts (and only that dispatch; the
-      # CodeQL on-demand dispatch remains unwired — see the
+      # REPAIRABLE behind-branch verdicts and codeql-autofix.yml for
+      # on-demand CodeQL remediation (at most one dispatch per
+      # Commander run, one repair attempt per head — see the
       # security-findings note below). Policy exception granted by the
-      # founder (Billy, 2026-11-10, "Policy exceprion"): the repository
-      # workflow-security policy otherwise prohibits `actions: write`.
-      # Scope: this job only, dispatch of pr-maintenance.yml only. Any
-      # wider use needs a new founder decision.
+      # founder (Billy, 2026-11-10, "Policy exceprion") for the
+      # pr-maintenance dispatch, widened 2026-11-23 (decision #18-A,
+      # Billy's word) to also cover the codeql-autofix dispatch: the
+      # repository workflow-security policy otherwise prohibits
+      # `actions: write`.
+      # Scope: this job only, dispatch of pr-maintenance.yml and
+      # codeql-autofix.yml only. Any wider use needs a new founder decision.
       actions: write
     concurrency:
       group: pr-commander-act
@@ -801,6 +810,10 @@ jobs:
           # Founder label + verdict comment for PRs with founder items, and
           # bounded deterministic repair for REPAIRABLE PRs. (The ready loop
           # above already handled MERGE_READY PRs.)
+          # On-demand CodeQL dispatch is bounded to one run per Commander run:
+          # codeql-autofix sweeps all open alerts repo-wide, so a second
+          # dispatch in the same sweep would only re-queue the same sweep.
+          codeql_dispatched_this_run="false"
           for file in verdicts/pr-*.json; do
             [ -e "$file" ] || continue
             pr=$(jq -r '.pr' "$file")
@@ -839,17 +852,31 @@ jobs:
               gh pr edit "$pr" --repo "$GITHUB_REPOSITORY" --add-label "pr-commander:needs-founder" || true
               echo "Applied pr-commander:needs-founder to PR #$pr."
             fi
-            # Security findings are NOT dispatched from here: the founder
-            # policy exception for `actions: write` (2026-11-10) covers the
-            # pr-maintenance dispatch only. They are delegated to the
-            # existing codeql-autofix.yml SCHEDULED run (every 2h) and
-            # surfaced as founder items in the verdict comment + label
-            # above. On-demand CodeQL dispatch is a documented gap (see the
-            # workflow header): wiring it is a separate change, either a
-            # wider exception (a founder decision) or a `workflow_call`
-            # restructure of codeql-autofix.yml.
-            if jq -e '.reasons[]? | test("CodeQL|code scanning|security"; "i")' fresh-verdict.json >/dev/null; then
-              echo "Security finding on PR #$pr; delegated to the scheduled codeql-autofix run (no dispatch from this workflow)."
+            # On-demand CodeQL dispatch (wider exception, founder
+            # decision #18-A, 2026-11-23): the armed `act` job dispatches
+            # codeql-autofix.yml when this PR carries a security reason.
+            # The dispatch runs the repo-wide sweep at its default
+            # (max_alerts=3); the workflow itself dedupes alerts that
+            # already have an open autofix PR. It fires only for
+            # REPAIRABLE verdicts — the same gate as the other repair
+            # tiers — counts as one repair attempt on this head (cap 3,
+            # shared), and fires at most once per Commander run. When no
+            # dispatch fires here (BLOCKED verdict, exhausted attempts,
+            # already dispatched this run, or a dispatch failure), the
+            # scheduled codeql-autofix run (every 2h) still covers the
+            # alerts on its own cadence.
+            if jq -e 'any(.reasons[]?; test("CodeQL|code scanning|security"; "i"))' fresh-verdict.json >/dev/null; then
+              if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$attempts" -lt 3 ] && [ "$codeql_dispatched_this_run" != "true" ]; then
+                if gh workflow run codeql-autofix.yml --ref main --repo "$GITHUB_REPOSITORY"; then
+                  attempts=$((attempts + 1))
+                  codeql_dispatched_this_run="true"
+                  echo "Dispatched codeql-autofix on-demand run for PR #$pr (attempt $attempts of 3)."
+                else
+                  echo "::warning::codeql-autofix dispatch failed for PR #$pr; scheduled run still covers it."
+                fi
+              else
+                echo "Security finding on PR #$pr; no on-demand dispatch (verdict $fresh_verdict, attempts $attempts, already dispatched this run: $codeql_dispatched_this_run); scheduled codeql-autofix run still covers it."
+              fi
             fi
             # Deterministic repair, narrow tier (the code-quality-autofix
             # pattern, per-PR): ESLint --fix on the PR branch, verified by
@@ -862,7 +889,7 @@ jobs:
               echo "::warning::Skipping deterministic repair push: no founder-provisioned CI-triggering credential (TRADEOS_PR_COMMANDER_PUSH_TOKEN). GITHUB_TOKEN pushes do not trigger pull_request CI."
             fi
             if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$attempts" -lt 3 ] && [ "$REPAIR_PUSH_TOKEN_AVAILABLE" = "true" ]; then
-              if jq -e '.reasons[]? | test("Web lint and build")' fresh-verdict.json >/dev/null; then
+              if jq -e 'any(.reasons[]?; test("Web lint and build"))' fresh-verdict.json >/dev/null; then
                 # headRepository is not in the pr-view snapshot payload; fetch it.
                 head_repo=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json headRepository --jq '.headRepository.nameWithOwner')
                 if [ "$head_repo" = "$GITHUB_REPOSITORY" ]; then

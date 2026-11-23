@@ -57,13 +57,23 @@ test("auto-merge is pinned to the validated head SHA (TOCTOU)", () => {
 test("repair attempt counter advances exactly once per attempt, on attempt start", () => {
   const increments = workflow.match(/attempts=\$\(\(attempts \+ 1\)\)/g);
   assert.ok(increments, "expected increments");
-  // One increment site per repair path: the lint repair, the rebase
-  // dispatch, and the AI (Codex) invocation. Each path advances the
-  // counter exactly once, at its attempt start, and never again — so a
-  // single attempt is never double-counted.
-  assert.equal(increments.length, 3, "exactly one increment site per repair path");
+  // One increment site per repair path: the CodeQL on-demand dispatch,
+  // the lint repair, the rebase dispatch, and the AI (Codex) invocation.
+  // Each path advances the counter exactly once, at its attempt start,
+  // and never again — so a single attempt is never double-counted.
+  // File order is CodeQL, lint, rebase, AI (the security block precedes
+  // the deterministic repair tier in the act loop).
+  assert.equal(increments.length, 4, "exactly one increment site per repair path");
+  // CodeQL path: increment only after a successful codeql-autofix dispatch.
+  const codeqlDispatchAt = workflow.indexOf("gh workflow run codeql-autofix.yml");
+  assert.ok(codeqlDispatchAt > -1, "expected a codeql-autofix dispatch");
+  const codeqlIncrementAt = workflow.indexOf("attempts=$((attempts + 1))", codeqlDispatchAt);
+  assert.ok(
+    codeqlIncrementAt > codeqlDispatchAt,
+    "CodeQL increment happens after a successful dispatch"
+  );
   // Lint path: increment after checkout succeeds, before the fix runs.
-  const lintIncrementAt = workflow.indexOf("attempts=$((attempts + 1))");
+  const lintIncrementAt = workflow.indexOf("attempts=$((attempts + 1))", codeqlIncrementAt + 1);
   const checkoutAt = workflow.indexOf('if gh pr checkout "$pr"');
   const lintFixAt = workflow.indexOf("npm run lint -- --fix");
   const pushAt = workflow.indexOf('git push origin "HEAD:');
@@ -118,6 +128,53 @@ test("repair attempt counter advances exactly once per attempt, on attempt start
   // write succeeds).
   assert.match(workflow, /reserved_ai=\$\(\(ai_invocations \+ 1\)\)/);
   assert.match(workflow, /ai_invocations=\$reserved_ai/);
+});
+
+test("CodeQL on-demand dispatch is bounded (wider exception, decision #18-A)", () => {
+  // The armed `act` job dispatches codeql-autofix.yml on demand when a
+  // REPAIRABLE PR carries a security reason. The dispatch is bounded three
+  // ways: REPAIRABLE verdict only (same gate as the other repair tiers),
+  // the shared per-head attempt cap, and at most one dispatch per
+  // Commander run (codeql-autofix sweeps all open alerts repo-wide, so a
+  // second dispatch in the same sweep would only re-queue the same sweep).
+  // The scheduled run (every 2h) remains the fallback; nothing here
+  // restructures codeql-autofix.yml as workflow_call.
+  assert.match(
+    workflow,
+    /gh workflow run codeql-autofix\.yml --ref main --repo "\$GITHUB_REPOSITORY"/
+  );
+  assert.doesNotMatch(workflow, /codeql-autofix.*workflow_call|workflow_call.*codeql-autofix/);
+  assert.match(
+    workflow,
+    /if \[ "\$fresh_verdict" = "REPAIRABLE" \] && \[ "\$attempts" -lt 3 \] && \[ "\$codeql_dispatched_this_run" != "true" \]; then/
+  );
+  // The once-per-run flag is initialized before the repair loop and set
+  // only on a successful dispatch.
+  const flagInitAt = workflow.indexOf('codeql_dispatched_this_run="false"');
+  const repairLoopAt = workflow.indexOf("for file in verdicts/pr-*.json; do");
+  assert.ok(flagInitAt > -1 && flagInitAt < repairLoopAt, "flag initialized before the repair loop");
+  assert.match(workflow, /codeql_dispatched_this_run="true"/);
+  const flagSetAt = workflow.indexOf('codeql_dispatched_this_run="true"');
+  const dispatchAt = workflow.indexOf("gh workflow run codeql-autofix.yml");
+  assert.ok(flagSetAt > dispatchAt, "flag is set after the dispatch succeeds");
+  // A failed dispatch warns and falls back to the scheduled run; it must
+  // not consume an attempt or set the flag.
+  assert.match(workflow, /::warning::codeql-autofix dispatch failed for PR #\$pr; scheduled run still covers it\./);
+  // The dispatch is scoped to the security-reason match, and the
+  // exception comment records the widened scope.
+  assert.match(workflow, /test\("CodeQL\|code scanning\|security"; "i"\)/);
+  assert.match(workflow, /widened 2026-11-23 \(decision #18-A/);
+  // The reason match must aggregate across all reasons: `jq -e
+  // '.reasons[]? | test(...)'` exits on the LAST emitted boolean, so a
+  // trailing non-security reason (e.g. an unresolved review thread
+  // appended after the CodeQL reason) would silently skip the dispatch
+  // despite the security finding. `any(...)` makes eligibility
+  // order-independent. (Codex P2, PR #1041.) The same shape applies to
+  // the Web-lint repair predicate in the same repair tier.
+  assert.match(workflow, /any\(\.reasons\[\]\?; test\("CodeQL\|code scanning\|security"; "i"\)\)/);
+  assert.doesNotMatch(workflow, /\.reasons\[\]\? \| test\("CodeQL\|code scanning\|security"/);
+  assert.match(workflow, /any\(\.reasons\[\]\?; test\("Web lint and build"\)\)/);
+  assert.doesNotMatch(workflow, /\.reasons\[\]\? \| test\("Web lint and build"\)/);
 });
 
 test("rebase dispatch guard reads merge state from the snapshot, not the verdict", () => {
