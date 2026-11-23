@@ -3,8 +3,8 @@
 import { useActionState } from "react";
 import { Camera, ChevronDown, ClipboardPenLine, Ruler } from "lucide-react";
 import { createSiteVisitAction } from "@/app/actions/projects";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StickyTaskAction } from "@/components/shared/sticky-task-action";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -141,14 +141,18 @@ export function SiteVisitForm({ projectId, jobId = null }: { projectId: string; 
 
           {state?.error ? <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{state.error}</p> : null}
 
-          <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 -mx-1 border-t border-border/70 bg-card/95 px-1 pt-4 backdrop-blur md:static md:z-auto md:mx-0 md:border-0 md:bg-transparent md:px-0 md:pt-0 md:backdrop-blur-none">
-            <Button type="submit" disabled={isPending} className="min-h-11 w-full md:w-auto">
-              {isPending ? "Saving visit…" : "Finish Visit"}
-            </Button>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Finish Visit creates the Site Visit record{jobId ? ", keeps it linked to this scheduled Job," : ","} saves valid photo uploads, and refreshes the current AI follow-up/missing-information analysis.
-            </p>
-          </div>
+          <StickyTaskAction
+            label={isPending ? "Saving visit…" : "Finish Visit"}
+            type="submit"
+            disabled={isPending}
+            className="-mx-1 px-1 md:mx-0 md:px-0"
+            hint={
+              <>
+                Finish Visit creates the Site Visit record{jobId ? ", keeps it linked to this scheduled Job," : ","}{" "}
+                saves valid photo uploads, and refreshes the current AI follow-up/missing-information analysis.
+              </>
+            }
+          />
         </form>
       </CardContent>
     </Card>
