@@ -62,9 +62,7 @@ export function RecordPaymentForm({ projectId, invoiceId, balanceDue }: { projec
       {state?.error ? (
         <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3">
           <p className="text-sm font-medium text-foreground">Payment Failure</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {state.error} The invoice balance is unchanged — the failure is recorded on this invoice so it is not silently lost.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{state.error}</p>
         </div>
       ) : null}
       <Button type="submit" disabled={pending} className="w-full sm:w-auto sm:justify-self-end">

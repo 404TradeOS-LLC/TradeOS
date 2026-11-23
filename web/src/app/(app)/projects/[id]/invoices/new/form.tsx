@@ -228,7 +228,11 @@ export function NewInvoiceForm({ projectId, projectName, customerName, estimates
               {unconfirmed && <p>Retry the same draft here, or check this project’s invoices before starting another draft.</p>}
             </div>
           )}
-          <p role="status" className="sr-only">{isPending ? "Saving invoice draft" : confirmed ? "Invoice draft saved" : ""}</p>
+          {/* DES-7 (b) round-2: the NOT SAVED badge appears outside a live
+              region, so announce the unsaved state from this persistently
+              mounted status region instead — it exists (empty) before the
+              message changes, and the saving/saved messages are preserved. */}
+          <p role="status" className="sr-only">{isPending ? "Saving invoice draft" : confirmed ? "Invoice draft saved" : showNotSavedBadge ? "Not saved — unsaved changes" : ""}</p>
           <Button type="submit" className="h-11 w-full sm:max-w-[300px]" disabled={isPending || Boolean(confirmed)}>
             {isPending ? "Saving…" : confirmed ? "Draft saved" : unconfirmed ? "Retry same draft" : "Save invoice draft"}
           </Button>

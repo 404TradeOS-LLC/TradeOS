@@ -102,7 +102,13 @@ test("a failed manual record-payment attempt shows Payment Failure with its reas
   assert.match(source, /The last attempt to record a payment failed/);
   assert.match(source, /latestPaymentFailure\.reason/);
   assert.match(form, />Payment Failure</);
-  assert.match(form, /The invoice balance is unchanged/);
+  // DES-7 (d) round-2: the alert shows only the error reason. The old
+  // "balance is unchanged / failure is recorded" sentence is not
+  // guaranteed on every error path (the failure post is best-effort, and
+  // unconfirmed attempts record no failure at all).
+  assert.doesNotMatch(form, /The invoice balance is unchanged/);
+  assert.doesNotMatch(form, /the failure is recorded on this invoice/);
+  assert.match(form, /\{state\.error\}/);
 });
 
 test("invoice workspace keeps work performed and activity as the production record surface", async () => {

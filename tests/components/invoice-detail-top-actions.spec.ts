@@ -17,6 +17,9 @@ let css: string;
 let directory: string;
 
 test.beforeAll(async () => {
+  // Playwright 1.65.0 ignores the timeout option on beforeAll, so set it
+  // inside the hook before the cold webpack/CSS preparation starts.
+  test.setTimeout(120_000);
   directory = mkdtempSync(join(tmpdir(), 'tradeos-invoice-top-actions-'));
   writeFileSync(join(directory, 'transport.ts'), `
     export const sendInvoiceAction=(data)=>{
@@ -35,7 +38,7 @@ test.beforeAll(async () => {
   await new Promise<void>((done,fail)=>webpack({mode:'development',devtool:false,entry:join(directory,'entry.tsx'),output:{path:directory,filename:'bundle.js'},resolve:{extensions:['.tsx','.ts','.js'],alias:{'@/app/actions/invoices':join(directory,'transport.ts'),'@':resolve('web/src')},modules:[resolve('web/node_modules'),'node_modules']},module:{rules:[{test:/\.tsx?$/,use:join(directory,'loader.cjs')}] }},(error:Error|null,stats:{hasErrors():boolean;toString():string})=>error?fail(error):stats.hasErrors()?fail(new Error(stats.toString())):done()));
   bundle=readFileSync(join(directory,'bundle.js'),'utf8');
   css=(await webRequire('postcss')([webRequire('@tailwindcss/postcss')({base:resolve('web')})]).process(readFileSync('web/src/app/globals.css','utf8'),{from:resolve('web/src/app/globals.css')})).css;
-}, { timeout: 120_000 });
+});
 test.afterAll(()=>{if(directory)rmSync(directory,{recursive:true,force:true});});
 
 for (const width of [390, 1440]) {

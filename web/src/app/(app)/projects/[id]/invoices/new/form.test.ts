@@ -78,3 +78,11 @@ test("NewInvoiceForm shows a NOT SAVED badge for dirty state and clears it on sa
   // an explicit retry.
   assert.match(source, /const showNotSavedBadge = isDirty && !confirmed && !unconfirmed && !isPending;/);
 });
+
+// DES-7 (b) round-2: the NOT SAVED badge appears outside a live region, so
+// the unsaved-state change must be announced from the persistently mounted
+// role="status" region — which keeps its saving/saved messages.
+test("NewInvoiceForm announces the unsaved state from the persistent status region", () => {
+  const source = readNewInvoiceFormSource();
+  assert.match(source, /<p role="status" className="sr-only">\{isPending \? "Saving invoice draft" : confirmed \? "Invoice draft saved" : showNotSavedBadge \? "Not saved — unsaved changes" : ""\}<\/p>/);
+});
