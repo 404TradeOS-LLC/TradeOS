@@ -73,7 +73,7 @@ interface AssemblyPreviewData {
   total: number;
 }
 
-export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null }) {
+export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope, customerName, jobType }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null; customerName?: string | null; jobType?: string | null }) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const reviewNavigator = useRef(createEstimateReviewNavigator());
@@ -210,6 +210,16 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
 
   const isDraft = estimate.status === "draft";
 
+  // DES-10-F5 identity header (existing data only): the customer name comes
+  // from the project record's customer, and the job description is the saved
+  // project scope with the project job type as fallback. Either line renders
+  // nothing when its source data is absent. There is no sequential estimate
+  // number in the data model (Estimate carries only a uuid id and a
+  // per-project version), so no number is invented here — the title keeps
+  // the existing `Estimate v{version}` identifier and the numbering scheme
+  // (canonical vs new-series format) is a founder decision, not code.
+  const jobDescription = persistedScope.trim() || jobType?.trim() || null;
+
   const openFullReview = () => {
     if (saveScope.isPending) return;
     void reviewNavigator.current({
@@ -264,6 +274,13 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
           </div>
         }
       />
+
+      {customerName || jobDescription ? (
+        <div className="min-w-0 space-y-0.5" aria-label="Estimate identity">
+          {customerName ? <p className="min-w-0 truncate text-sm font-medium text-foreground">{customerName}</p> : null}
+          {jobDescription ? <p className="line-clamp-2 text-sm text-muted-foreground">{jobDescription}</p> : null}
+        </div>
+      ) : null}
 
       <div className="hidden grid-cols-2 gap-x-5 gap-y-3 border-y border-border/70 bg-muted/20 px-3 py-3 sm:grid-cols-4 sm:px-4 lg:grid" aria-label="Estimate summary">
         <SummaryValue label="Job cost" value={formatCurrency(runningTotals.subtotalCost)} />

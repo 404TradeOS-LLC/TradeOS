@@ -81,6 +81,11 @@ related_code:
 <!-- DES-10-F2-START: keep this entry delimited; parallel DES-10 lanes edit other sections of this file. -->
 Review stage (Figma 378:443 / 287:240) now carries a persisted two-item readiness checklist — exclusions reviewed, price sources reviewed — that gates `Finalize estimate`. Persisted as nullable `exclusions_reviewed_at` / `price_sources_reviewed_at` on the estimate (migration `20261123120000_add_estimate_review_checklist`); toggles PATCH through the existing draft-update path; `finalize()` enforces the same preconditions server-side (409). No line-count gate: decision 22-B (Billy's word 2026-11-23) allows finalizing a $0 estimate — the checklist attestation is the gate, not the line count. Omitted Figma items: 01 reconcile the $1,670 difference (DES-10-F4, product decision pending) and 02 review the footing assumption (DES-10-F1, Codex lane). See `docs/modules/estimating.md` ("Review readiness checklist (DES-10-F2)").
 <!-- DES-10-F2-END -->
+## Estimate builder identity header — DES-10-F5, 2026-11-23
+
+The estimate builder header now shows identity lines under the existing `Estimate v{version}` title and `StatusBadge`: a customer line (the project record's customer name, from the `customer` already embedded in the `getProject` response) and a job-description line (the saved project `simpleScope`, falling back to the project `jobType`). Either line renders nothing when its source data is absent; no new fetch, API, schema, or migration is involved. The customer name truncates and the description clamps to two lines, so the header holds at 390px as well as desktop.
+
+No sequential estimate number exists in the data model — `Estimate` carries only a uuid id and a per-project `version` (`@@unique([projectId, version])`), and `Proposal` has no number field (`Invoice.invoiceNumber` and `Job.jobNumber` belong to later-stage entities that do not exist at estimate time). No numbering scheme was invented and no migration was created; the title keeps the existing `Estimate v{version}` identifier. The Figma numbering question (`ESTIMATE #1048` canonical vs `EST-2048` new series) is an open founder decision. Pinned by a new source-contract test in `estimate-mobile-contract.test.ts` (17 tests in that file).
 
 ## Costbook PR frontend Preview allowlist — landed via PR #997 (merged 2026-11-15 as `d09f51a1`)
 
