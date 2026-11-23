@@ -149,6 +149,27 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
     setAvailableChildAssemblies((current) => current.map((item) => item.id === updated.id ? updated : item).sort((a, b) => a.name.localeCompare(b.name)));
   }
 
+  // DEV-17 S10: saving pricing overrides changes the resolved unit cost on
+  // the backend, so the displayed cost must be refetched after an edit save
+  // — the selectedId effect alone does not rerun. Mirrors the
+  // add/remove-component refresh: clear the stale value if it fails.
+  async function refreshSelectedUnitCost(requestAssemblyId: string) {
+    try {
+      const cost = await clientFetch<AssemblyCost>(`/costbook/assemblies/${requestAssemblyId}/unit-cost`);
+      if (selectedIdRef.current === requestAssemblyId) setUnitCost(cost.unitCost);
+    } catch {
+      if (selectedIdRef.current === requestAssemblyId) {
+        setUnitCost(null);
+        setError("Assembly was updated, but the current unit cost could not be refreshed. Refresh the assembly to retry the calculation.");
+      }
+    }
+  }
+
+  function handleAssemblyUpdated(updated: CostbookAssembly) {
+    updateAssemblyInList(updated);
+    void refreshSelectedUnitCost(updated.id);
+  }
+
   async function deactivateSelected() {
     if (!selected || !window.confirm(`Deactivate ${selected.name}? Existing estimate history will be preserved.`)) return;
     setSaving(true);
@@ -275,7 +296,7 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
               {canManage ? <Button type="button" variant="outline" size="sm" onClick={deactivateSelected} disabled={saving}><Trash2 className="size-4" aria-hidden="true" />Deactivate</Button> : null}
             </div>
           </div>
-          {canWrite ? <AssemblyEditForm key={selected.id} assembly={selected} saving={saving} onSaving={setSaving} onError={setError} onUpdated={updateAssemblyInList} /> : null}
+          {canWrite ? <AssemblyEditForm key={selected.id} assembly={selected} saving={saving} onSaving={setSaving} onError={setError} onUpdated={handleAssemblyUpdated} /> : null}
         </div>
 
         {canWrite ? <form onSubmit={addComponent} className="grid gap-3 rounded-lg border border-border/70 bg-card p-4 md:grid-cols-[160px_1fr_120px_auto] md:items-end">
@@ -621,8 +642,8 @@ function AssemblyEditForm({ assembly, saving, onSaving, onError, onUpdated }: {
     <Input aria-label="Assembly name" value={edit.name} onChange={(event) => setEdit({ ...edit, name: event.target.value })} required disabled={saving} />
     <Input aria-label="Assembly unit" value={edit.unitOfMeasure} onChange={(event) => setEdit({ ...edit, unitOfMeasure: event.target.value })} required disabled={saving} />
     <Input aria-label="Assembly description" value={edit.description} onChange={(event) => setEdit({ ...edit, description: event.target.value })} disabled={saving} />
-    <label className="grid gap-1 text-sm font-medium"><span>Waste override (%)</span><Input aria-label="Waste override percent" type="number" min="0" max="100" step="0.5" value={editWasteOverridePct} onChange={(event) => setEditWasteOverridePct(event.target.value)} disabled={saving} placeholder="Recipe default" /></label>
-    <label className="grid gap-1 text-sm font-medium"><span>Production factor</span><Input aria-label="Production factor" type="number" min="0.1" max="10" step="0.1" value={editProductionRateFactor} onChange={(event) => setEditProductionRateFactor(event.target.value)} disabled={saving} placeholder="1.0 = recipe default" /></label>
+    <label className="grid gap-1 text-sm font-medium"><span>Waste override (%)</span><Input aria-label="Waste override percent" type="number" min="0" max="100" step="any" value={editWasteOverridePct} onChange={(event) => setEditWasteOverridePct(event.target.value)} disabled={saving} placeholder="Recipe default" /></label>
+    <label className="grid gap-1 text-sm font-medium"><span>Production factor</span><Input aria-label="Production factor" type="number" min="0" max="10" step="any" value={editProductionRateFactor} onChange={(event) => setEditProductionRateFactor(event.target.value)} disabled={saving} placeholder="1.0 = recipe default" /></label>
     <p className="text-xs text-muted-foreground md:col-span-2">Blank clears the override back to the recipe defaults. Waste replaces the waste % of each mapped material; production factor multiplies the production rate of each mapped item.</p>
     <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={edit.isTemplate} onChange={(event) => setEdit({ ...edit, isTemplate: event.target.checked })} disabled={saving} />Reusable template</label>
     <div className="md:text-right"><Button type="submit" size="sm" disabled={saving}>{saving ? "Saving" : "Save changes"}</Button></div>
