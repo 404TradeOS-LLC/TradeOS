@@ -374,7 +374,10 @@ organization or customer id:
 - `POST /api/v1/customer-portal/contracts/:id/sign`
 
 Every resource lookup requires the project to belong to both the session's
-organization and customer. Portal signing accepts a signer name and optional
+organization and customer. A successful `GET /api/v1/customer-portal/invoices/:id`
+is also the mark-viewed writer: a `sent` invoice moves to persisted `viewed`
+and records `viewedAt` (idempotent on repeat views; drafts are never served).
+Portal signing accepts a signer name and optional
 drawn signature data; the signer email is re-derived from the customer record.
 The transition is limited by a dedicated RLS policy to the session customer,
 the exact pending contract, and `pending_signature -> signed`. Signature IP
@@ -524,6 +527,8 @@ been configured.
 
 `POST /api/v1/invoices/:id/payments` is the authenticated payment-recording boundary used by the invoice detail form. It requires the canonical `billing.write` permission; an authenticated user without that permission receives `403` before any payment is recorded. A valid recorded payment is reconciled inside the authenticated request transaction while the target Invoice row is locked; fully covered eligible `sent` or existing raw `overdue` invoices persist `paid` and emit one transactional `invoice.paid` event. Partial payment and new overdue persistence remain derived, and persisted `paid` invoices are excluded from unpaid/partially-paid/overdue follow-up filters. The form captures amount, date, method, reference, and notes; no contractor-customer payment processor or public checkout contract is introduced.
 
+`POST /api/v1/invoices/:id/payment-failures` records a failed manual record-payment attempt as an `invoice.payment_failed` delivery event carrying the failure reason. It requires `billing.write` and organization scope and returns 204; the invoice status never changes. The web record-payment action calls it (best-effort, never masking the original failure) for validation failures as well as server errors, and the detail page derives the Payment Failure display from the latest such event. Payment Failure is a display state, not a persisted invoice status, and there is no online payment flow to fail.
+
 ### TradeOS subscription billing
 
 `GET /api/v1/billing` and `GET /api/v1/billing/catalog` require `billing.read`. The summary is the tenant-scoped Stripe subscription projection; the catalog is the server-owned Starter/Pro/Business/Scale presentation and price contract used by both checkout validation and the billing UI. `POST /api/v1/billing/checkout` and `POST /api/v1/billing/portal` require an organization owner or admin. Checkout requests validate the configured Stripe Price against the selected catalog amount, currency, and recurring interval; an organization-scoped persisted checkout attempt and stable Stripe idempotency key prevent duplicate sessions. `POST /api/v1/billing/webhook` accepts only a valid Stripe-signed raw body. Webhook event claiming is atomic, and subscription events hydrate the current Stripe subscription before updating the local projection so out-of-order delivery cannot restore stale access. Only `active` and `trialing` states grant entitlements.
@@ -538,10 +543,12 @@ The projection includes `paidAmount` and `balanceDue` derived from `Payment`
 rows whose status is `recorded`, plus a sanitized `payments` array containing
 amount, payment date, method, and creation time. Pending/failed payment rows,
 internal notes, and payment-entry actions are not exposed through this
-presentation projection. Persisted `paid` remains authoritative for a zero
-`balanceDue` even when manual mark-paid has no corresponding Payment row. The
-organization remains derived from authenticated membership context and forced
-RLS.
+presentation projection. The projection also includes `viewedAt` (null until
+the customer first opens the invoice in the portal) and the `deliveries`
+history, which carries any `invoice.payment_failed` record. Persisted `paid`
+remains authoritative for a zero `balanceDue` even when manual mark-paid has
+no corresponding Payment row. The organization remains derived from
+authenticated membership context and forced RLS.
 
 `/api/v1/knowledge/*` reads from data vendored into `app/vendor/knowledge-engine/` at build time (`app/scripts/vendor-knowledge-engine.js`) rather than directly from `packages/knowledge-engine/` — that package lives outside the `tradeos-costbook` Vercel project's Root Directory (`app`) and is not present at runtime in production otherwise. The Vercel function package explicitly includes that vendored tree via `app/vercel.json` (`functions.index.ts.includeFiles: "vendor/knowledge-engine/**"`), and the loader resolves both source-style Vercel execution and compiled `dist/` execution paths. No `/api/v1/knowledge/*` request or response contract changes are introduced by that packaging fix. See [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)'s Known Limitations.
 

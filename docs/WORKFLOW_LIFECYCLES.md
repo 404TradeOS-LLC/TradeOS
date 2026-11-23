@@ -313,7 +313,8 @@ Compatibility persistence:
 - `InvoicesService.void()` persists raw `void` so the transition satisfies the live `invoices_status_check` constraint; delivery/activity metadata still records canonical `invoice.voided` / `newStatus: "voided"`
 - `cancelled` remains a defensive legacy normalization synonym, although the live constraint has never permitted that value
 - `partially_paid` and `overdue` remain derived read/reporting states; they are not persisted by the current Invoice payment path
-- `viewed` remains canonical vocabulary without a current Invoice persistence or tracking path
+- `viewed` is persisted by the portal mark-viewed writer (DES-7): a customer portal view moves a `sent` invoice to `viewed` and records `viewedAt` (additive nullable column, migration `20261123120000_add_invoice_viewed_at`); repeat views are idempotent and drafts cannot be marked viewed. An invoice already past viewed keeps its status and only gains its first `viewedAt`.
+- Payment Failure is not a persisted status: it is the display state for a failed manual record-payment attempt (validation or server error), recorded as an `invoice.payment_failed` delivery event carrying the reason and shown on the detail page while it is the latest payment outcome; a later successful recorded payment (or mark-paid) supersedes it. There is no online payment flow to fail.
 
 Organization work-queue reads (`GET /api/v1/invoices`, see `docs/modules/invoices-and-payments.md`):
 

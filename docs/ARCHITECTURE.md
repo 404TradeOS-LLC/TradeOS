@@ -81,8 +81,14 @@ transaction-local `app.portal_session_hash` derived from the validated bearer
 session. Forced RLS limits session-row visibility to that exact digest; absent
 session context fails closed. The raw bearer value stays out of request context
 and logs. Resource lookups re-check the project/customer relationship. The portal does not reuse a
-staff role. Its only write policy is the exact pending-contract signing
-transition, with a separate contract-event insert policy.
+staff role. Its only write policies are the exact pending-contract signing
+transition, with a separate contract-event insert policy, and the exact
+first-view invoice transition (`invoices_portal_viewed_policy`, migration
+`20261123120100_add_invoice_portal_viewed_policy`): a portal session may move
+its own sent invoice to `viewed` and set `viewedAt` from null — a trigger
+pins every other invoice column — and record the matching `invoice.viewed`
+delivery/activity rows, all keyed by the transaction-local
+`app.portal_invoice_id` set by `InvoicesService.markViewed`.
 Issuance also schedules the raw one-time value for server-side transactional
 email delivery after the hashed token record exists. The provider API key and
 message construction remain in the backend email adapter; no browser or portal

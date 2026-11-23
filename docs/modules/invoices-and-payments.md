@@ -54,7 +54,8 @@ Own invoice creation, send and pay state changes, voiding, line items, delivery 
 
 - `/api/v1/invoices/*`
 - `GET /api/v1/invoices` — organization-scoped work-queue read (see below)
-- `GET /api/v1/invoices/:id` — organization-scoped invoice detail with recorded payment history and server-derived `paidAmount`/`balanceDue`
+- `GET /api/v1/invoices/:id` — organization-scoped invoice detail with recorded payment history and server-derived `paidAmount`/`balanceDue`; includes `viewedAt` (null until the customer first opens the invoice in the portal)
+- `POST /api/v1/invoices/:id/payment-failures` — records a failed manual record-payment attempt as an `invoice.payment_failed` delivery event carrying the reason; requires `billing.write` and organization scope, returns 204, and never changes the invoice status (see Viewed and Payment Failure below)
 - `POST /api/v1/invoices/:id/void` — voids a non-paid invoice that has not already been voided (an already-void invoice returns 409 instead of recording a duplicate void event); persistence uses the database-compatible raw status `void`, while normalized UI/activity semantics remain canonical `voided`
 - `PATCH /api/v1/invoices/:id` — draft-only invoice edit (`InvoicesService.update`): replaces line items and recomputes the total for manual (estimate-less) full drafts, or edits only the due date for progress and estimate-linked drafts; requires `billing.write` and organization scope, 409 otherwise
 - `/api/v1/invoices/:id/payments`
@@ -133,6 +134,12 @@ Payment reconciliation records the Payment, then recomputes the total recorded p
 
 Invoice DTOs and queue items derive `overdue` from a non-terminal sent/viewed/partially-paid invoice whose due date has passed while a positive balance remains. The database status is not rewritten by reads, so the existing lifecycle constraint and reconciliation writer remain unchanged.
 
+## Viewed and Payment Failure (DES-7)
+
+**Viewed.** A customer portal view is the mark-viewed writer: `CustomerPortalService.getInvoice` calls `InvoicesService.markViewed` after its organization + customer scope check. A `sent` invoice moves to persisted `viewed` and records `viewedAt` (additive nullable column, migration `20261123120000_add_invoice_viewed_at`) plus an `invoice.viewed` delivery/activity event with delivery channel `portal`; an invoice already past viewed (partially paid, paid, overdue, voided) keeps its status and only gains its first `viewedAt`. Repeat views are idempotent — no second write or event — and drafts can never be marked viewed (409; the portal never serves them). The write runs under the portal session's narrowly scoped RLS policy (migration `20261123120100_add_invoice_portal_viewed_policy`): the portal UPDATE policy is keyed by the transaction-local `app.portal_invoice_id` and a trigger pins every other invoice column, so a portal session never gains staff write privileges. The contractor detail page surfaces the state as the `Viewed` badge plus `Viewed <date>` in the Billing status block and the Document card.
+
+**Payment Failure.** There is no online payment flow, so Payment Failure is defined as a failed manual record-payment attempt (validation or server error). The attempt records an `invoice.payment_failed` delivery event carrying the failure reason (`POST /api/v1/invoices/:id/payment-failures`, `billing.write`, 204); the invoice status does not change. The detail page derives the Payment Failure banner from the latest such event — shown with its reason while it is the latest payment outcome — and a later successful recorded payment (or a mark-paid, which emits `invoice.paid`) supersedes it. The record-payment form shows the same failure inline immediately. No processor, checkout, or public payment contract is introduced.
+
 ## Frontend surfaces
 
 - `/projects/[id]/invoices/new`
@@ -146,7 +153,9 @@ The authenticated Invoice workspace presents server-derived `amount`, `paidAmoun
 
 For an eligible sent/overdue Invoice with a positive balance, `RecordPaymentForm` is the primary billing action when the current role has the same `billing.write` grant pinned by the existing frontend/backend role regression test. The form is explicitly framed as recording money already received; it does not imply TradeOS processed a customer payment. The supported manual mark-paid path and Invoice void action remain available under progressive disclosure.
 
-The Invoice PDF and staff portal preview are direct existing destinations. The UI does not claim customer-view telemetry because no such telemetry contract currently exists.
+The Invoice PDF and staff portal preview are direct existing destinations. Customer-view telemetry exists as the portal mark-viewed contract above: the detail page shows the viewed time once the customer has opened the invoice, and that it has not been viewed yet before then.
+
+On mobile the draft detail page leads with a top action row (`InvoiceTopActions`, visible only below `xl`) carrying Send invoice and Open PDF, so neither action is buried below the invoice body at 390px; the aside keeps the same actions for desktop widths only. The new-invoice form shows a `NOT SAVED` badge whenever it holds unsaved changes, cleared on save.
 
 The canonical Money-page Expense receipt-capture frame remains a design `[TARGET]`, not current production authority.
 

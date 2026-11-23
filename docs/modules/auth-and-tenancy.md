@@ -93,6 +93,7 @@ Special constraints:
 - transactional delivery requires `RESEND_API_KEY`, a verified `EMAIL_FROM`, and `APP_BASE_URL`; the API key remains server-only and email failures never expose tokens to callers
 - customer-portal email GETs never redeem the one-time value; the web stores it briefly in an HttpOnly, path-scoped pending cookie, removes it from the visible URL, and requires an exact-origin POST from the confirmation screen
 - customer-portal PDF downloads sanitize the `Content-Disposition` filename to printable ASCII (`sanitizeDownloadFilename`); portal session scoping and permissions are unchanged — the sanitization only prevents Node from rejecting the header when a project name contains non-Latin-1 characters such as an em-dash
+- a customer-portal invoice read is also the mark-viewed writer: `GET /api/v1/customer-portal/invoices/:id` moves the customer's own sent invoice to persisted `viewed` and records `viewedAt` (idempotent on repeat views). The write runs under the portal session's narrowly scoped RLS policy (`invoices_portal_viewed_policy`, migration `20261123120100_add_invoice_portal_viewed_policy`), keyed by the transaction-local `app.portal_invoice_id`; a trigger pins every other invoice column. No new permission or staff role is granted — the portal principal still cannot reach staff routes.
 
 ## Transactional email delivery
 
