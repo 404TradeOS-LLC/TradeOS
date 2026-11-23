@@ -37,8 +37,8 @@ interface AthenaWorkspaceProps {
    *  workspace itself never fetches. */
   onSaveJobNote?: (body: string) => Promise<SaveJobNoteResult>;
   /** Real record details for the context rail, keyed by scope-row label
-   *  ("Job", "Customer", "Project", "Estimate", "Field notes"). Overrides the
-   *  generic "attached" copy. */
+   *  ("Job", "Customer", "Project", "Change order", "Estimate",
+   *  "Field notes"). Overrides the generic "attached" copy. */
   scopeDetails?: Record<string, string>;
   /** Job-specific starter prompts; defaults to the generic STARTERS. */
   starters?: readonly string[];
@@ -98,6 +98,10 @@ function scopeRows(scope?: AthenaSelectedScope, details?: Record<string, string>
   if (scope?.jobId) rows.push({ label: "Job", detail: details?.Job ?? "Selected Job attached" });
   if (scope?.projectId) rows.push({ label: "Project", detail: details?.Project ?? "Owning Project attached" });
   if (scope?.customerId) rows.push({ label: "Customer", detail: details?.Customer ?? "Customer attached" });
+  // Canonical rail order (Figma 289:2): Job, Customer, Change order,
+  // Estimate. The row renders only when the route supplies a change order
+  // detail — like "Field notes", it is details-gated, not scope-gated.
+  if (details?.["Change order"]) rows.push({ label: "Change order", detail: details["Change order"] });
   if (scope?.estimateId) rows.push({ label: "Estimate", detail: details?.Estimate ?? "Estimate attached" });
   if (scope?.invoiceId) rows.push({ label: "Invoice", detail: details?.Invoice ?? "Invoice attached" });
   if (scope?.page) rows.push({ label: "Page", detail: details?.Page ?? "Current TradeOS page attached" });

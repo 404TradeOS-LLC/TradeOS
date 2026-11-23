@@ -180,6 +180,17 @@ test("job-scoped Athena route gates by DES-4 roles and wires Confirm Write to th
   // baseline's estimate id through to the workspace scope.
   assert.match(routePage, /estimateId=\{approved\?\.estimateId \?\? undefined\}/);
   assert.match(wrapper, /selectedScope=\{\{ jobId, projectId, customerId, estimateId \}\}/);
+
+  // Canonical context rail (Figma 289:2): the project's latest change order
+  // rides in the selected-context rows with the job, customer, and estimate.
+  // The route lists the project's change orders (fail-soft) and describes
+  // the latest; the workspace renders the row only when a detail is
+  // supplied, in rail order after Customer and before Estimate.
+  assert.match(routePage, /listChangeOrdersByProject/);
+  assert.match(routePage, /describeLatestChangeOrder/);
+  assert.match(routePage, /"Change order"/);
+  const workspace = await readSource("./athena-workspace.tsx");
+  assert.match(workspace, /details\?\.\["Change order"\]/);
 });
 
 test("Athena confirmation card covers the BUILD READY write states without fetching", async () => {
