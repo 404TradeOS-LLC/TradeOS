@@ -204,7 +204,7 @@ export function NewInvoiceForm({ projectId, projectName, customerName, estimates
           )}
           <p role="status" className="sr-only">{isPending ? "Saving invoice draft" : confirmed ? "Invoice draft saved" : ""}</p>
           <Button type="submit" className="h-11 w-full sm:max-w-[300px]" disabled={isPending || Boolean(confirmed)}>
-            {isPending ? "Saving…" : confirmed ? "Draft saved" : unconfirmed ? "Retry same draft" : "Create invoice"}
+            {isPending ? "Saving…" : confirmed ? "Draft saved" : unconfirmed ? "Retry same draft" : "Save invoice draft"}
           </Button>
         </form>
       </CardContent>
