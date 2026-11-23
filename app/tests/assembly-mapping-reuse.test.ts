@@ -79,6 +79,27 @@ describe("suggestBulkMapping (DEV-17 S9)", () => {
     expect(result.unmappedComponentKeys).toEqual(["concrete", "reinforcing", "place-finish"]);
   });
 
+  it("does not report a duplicate conflict for a slot the used candidate cannot fill", () => {
+    // DEV-17 S9 CodeRabbit repair: a CY material that filled the base slot
+    // is not a duplicate conflict for the SF labor slot — it cannot fill it.
+    const result = suggestBulkMapping(slab, source, [readyMix]);
+    expect(result.suggestions[1]).toEqual(expect.objectContaining({
+      componentKey: "concrete",
+      costItemId: null,
+      reasons: ["CONC is already mapped to Compacted granular base in this recipe"],
+    }));
+    expect(result.suggestions[2]).toEqual(expect.objectContaining({
+      componentKey: "reinforcing",
+      costItemId: null,
+      reasons: ["No compatible Cost Item in the reused mapping for this slot"],
+    }));
+    expect(result.suggestions[3]).toEqual(expect.objectContaining({
+      componentKey: "place-finish",
+      costItemId: null,
+      reasons: ["No compatible Cost Item in the reused mapping for this slot"],
+    }));
+  });
+
   it("takes the first compatible candidate when several match", () => {
     const secondMix = candidate({ id: "ci-conc-2", code: "CONC2", name: "Ready-mix alt", unitOfMeasure: "CY", materialId: "mat-2" });
     const result = suggestBulkMapping(slab, source, [readyMix, secondMix]);

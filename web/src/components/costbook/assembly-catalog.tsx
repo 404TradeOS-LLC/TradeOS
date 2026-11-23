@@ -13,9 +13,13 @@ import type { CostItemCatalogRecord } from "@/components/costbook/cost-item-cata
 import {
   assessCostItemMapping,
   buildStarterCatalogFacets,
+  collectPagedCatalogItems,
   DEFAULT_STARTER_CATALOG_FILTERS,
   filterStarterCatalogTemplates,
   isStarterCatalogInstalled,
+  mergeReuseMappingSuggestions,
+  REUSE_SOURCE_PAGE_LIMIT,
+  type MappingReuseResult,
   type StarterCatalogFilters,
   type StarterCatalogInstallation,
   type StarterCatalogComponent,
@@ -41,32 +45,6 @@ type AssemblyItemsPage = { items: AssemblyItem[]; total: number; nextCursor: str
 type AssemblyForm = { code: string; name: string; unitOfMeasure: string; description: string; isTemplate: boolean };
 type CostItemUnitCost = { totalUnitCost: number };
 type CostPreview = { unitCost: number; loading: boolean; error: string | null };
-type MappingReuseSuggestion = {
-  componentKey: string;
-  componentLabel: string;
-  costItemId: string | null;
-  costItemCode: string | null;
-  costItemName: string | null;
-  costItemUnitOfMeasure: string | null;
-  costItemSubcategoryId: string | null;
-  costItemProductionRate: number | null;
-  costItemIsActive: boolean;
-  orgId: string | null;
-  laborRateId: string | null;
-  materialId: string | null;
-  equipmentId: string | null;
-  subcontractorId: string | null;
-  compatible: boolean;
-  reasons: string[];
-};
-type MappingReuseResult = {
-  templateId: string;
-  sourceAssemblyId: string;
-  sourceAssemblyName: string;
-  suggestions: MappingReuseSuggestion[];
-  mappedCount: number;
-  unmappedComponentKeys: string[];
-};
 const emptyAssembly: AssemblyForm = { code: "", name: "", unitOfMeasure: "", description: "", isTemplate: false };
 
 export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems, canWrite, canManage }: {
@@ -92,6 +70,11 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
   const [saving, setSaving] = useState(false);
   const [loadingItems, setLoadingItems] = useState(Boolean(initialSelectedId));
   const [error, setError] = useState<string | null>(null);
+  // DEV-17 S9 repair: the starter catalog's reuse-source list is fetched
+  // inside StarterAssemblyCatalog; bumping this key after an install or a
+  // deactivation makes it refetch instead of showing a stale list until
+  // the page reloads.
+  const [reuseRefreshKey, setReuseRefreshKey] = useState(0);
   const selected = assemblies.find((item) => item.id === selectedId) ?? null;
   const childOptions = useMemo(() => availableChildAssemblies.filter((item) => item.id !== selectedId), [availableChildAssemblies, selectedId]);
 
@@ -205,6 +188,7 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
       const remaining = assemblies.filter((item) => item.id !== selected.id);
       setAssemblies(remaining);
       setAvailableChildAssemblies((current) => current.filter((item) => item.id !== selected.id));
+      setReuseRefreshKey((current) => current + 1);
       selectAssembly(remaining[0]?.id ?? "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Assembly could not be deactivated.");
@@ -279,12 +263,14 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
       costItems={costItems}
       canWrite={canWrite}
       installedCodes={new Set(availableChildAssemblies.map((assembly) => assembly.code.trim().toUpperCase()))}
+      reuseRefreshKey={reuseRefreshKey}
       saving={saving}
       onSaving={setSaving}
       onError={setError}
       onInstalled={(created) => {
         setAssemblies((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
         setAvailableChildAssemblies((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
+        setReuseRefreshKey((current) => current + 1);
         selectAssembly(created.id);
       }}
     />
@@ -339,10 +325,11 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
   </div>;
 }
 
-function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, onSaving, onError, onInstalled }: {
+function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, reuseRefreshKey, saving, onSaving, onError, onInstalled }: {
   costItems: CostItemCatalogRecord[];
   canWrite: boolean;
   installedCodes: Set<string>;
+  reuseRefreshKey: number;
   saving: boolean;
   onSaving: (value: boolean) => void;
   onError: (value: string | null) => void;
@@ -370,6 +357,20 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
   const [reuseNote, setReuseNote] = useState<string | null>(null);
   const [reuseError, setReuseError] = useState<string | null>(null);
   const [reuseLoading, setReuseLoading] = useState(false);
+  // DEV-17 S9 repair: these refs mirror the latest committed mapping state
+  // so a reuse response merges against the state at apply time, not the
+  // copies captured when the request started. The sequence number
+  // invalidates responses from a superseded selection — every handler that
+  // changes the selection bumps it (see invalidateReuseRequest).
+  const mappingsRef = useRef(mappings);
+  const mappingItemsRef = useRef(mappingItems);
+  const reuseRequestSeqRef = useRef(0);
+  useEffect(() => { mappingsRef.current = mappings; }, [mappings]);
+  useEffect(() => { mappingItemsRef.current = mappingItems; }, [mappingItems]);
+
+  function invalidateReuseRequest() {
+    reuseRequestSeqRef.current += 1;
+  }
   const facets = useMemo(() => buildStarterCatalogFacets(templates), [templates]);
   const filtered = filterStarterCatalogTemplates(templates, filters, installedCodes);
   // A filtered-out template is never allowed to retain visible mapping inputs.
@@ -379,6 +380,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
 
   function updateFilter<K extends keyof StarterCatalogFilters>(key: K, value: StarterCatalogFilters[K]) {
     setFilters((current) => ({ ...current, [key]: value }));
+    invalidateReuseRequest();
     setSelectedTemplateId("");
     setMappings({});
     setMappingItems({});
@@ -392,6 +394,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
 
   function resetFilters() {
     setFilters({ ...DEFAULT_STARTER_CATALOG_FILTERS });
+    invalidateReuseRequest();
     setSelectedTemplateId("");
     setMappings({});
     setMappingItems({});
@@ -449,54 +452,51 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
     return () => { active = false; };
   }, [onError]);
 
+  // DEV-17 S9 repair: follow every page cursor so the selector sees all
+  // active template assemblies, not just the first 100. Refreshed on mount
+  // and whenever the parent reports an install or deactivation
+  // (reuseRefreshKey), so a newly installed recipe is reusable in the
+  // same session and a deactivated source drops out.
   useEffect(() => {
     let active = true;
-    clientFetch<{ items: CostbookAssembly[]; total: number; nextCursor: string | null }>("/costbook/assemblies?isTemplate=true&active=true&limit=100")
-      .then((result) => { if (active) setReuseSources(result.items); })
+    collectPagedCatalogItems<CostbookAssembly>((cursor) =>
+      clientFetch<{ items: CostbookAssembly[]; total: number; nextCursor: string | null }>(
+        `/costbook/assemblies?isTemplate=true&active=true&limit=${REUSE_SOURCE_PAGE_LIMIT}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+      ),
+    )
+      .then((items) => { if (active) setReuseSources(items); })
       .catch(() => { if (active) setReuseSources([]); });
     return () => { active = false; };
-  }, []);
+  }, [reuseRefreshKey]);
 
   async function applyReuseMapping() {
     if (!selected || !reuseSourceId) return;
-    const source = reuseSources.find((assembly) => assembly.id === reuseSourceId);
+    const requestSource = reuseSources.find((assembly) => assembly.id === reuseSourceId);
+    const requestSeq = ++reuseRequestSeqRef.current;
     setReuseLoading(true);
     setReuseError(null);
     try {
       const result = await clientFetch<MappingReuseResult>(`/costbook/assemblies/starter-catalog/${selected.id}/mapping-suggestions?sourceAssemblyId=${encodeURIComponent(reuseSourceId)}`);
-      const nextMappings = { ...mappings };
-      const nextItems = { ...mappingItems };
-      const stillMissing: string[] = [];
-      for (const suggestion of result.suggestions) {
-        // Fill only slots the estimator has not already mapped by hand.
-        if (mappings[suggestion.componentKey]) continue;
-        if (!suggestion.costItemId) { stillMissing.push(suggestion.componentLabel); continue; }
-        nextMappings[suggestion.componentKey] = suggestion.costItemId;
-        nextItems[suggestion.componentKey] = {
-          id: suggestion.costItemId,
-          orgId: suggestion.orgId,
-          subcategoryId: suggestion.costItemSubcategoryId ?? "",
-          code: suggestion.costItemCode ?? "",
-          name: suggestion.costItemName ?? "",
-          unitOfMeasure: suggestion.costItemUnitOfMeasure ?? "",
-          productionRate: suggestion.costItemProductionRate,
-          laborRateId: suggestion.laborRateId,
-          materialId: suggestion.materialId,
-          equipmentId: suggestion.equipmentId,
-          subcontractorId: suggestion.subcontractorId,
-          isActive: suggestion.costItemIsActive,
-        };
-      }
-      const applied = result.suggestions.filter((suggestion) => nextMappings[suggestion.componentKey] && !mappings[suggestion.componentKey]).length;
-      setMappings(nextMappings);
-      setMappingItems(nextItems);
-      setReuseNote(stillMissing.length
-        ? `Applied ${applied} of ${result.suggestions.length} slots from ${source?.name ?? "the source assembly"}; ${stillMissing.length} still need${stillMissing.length === 1 ? "s" : ""} mapping: ${stillMissing.join(", ")}.`
-        : `Applied ${applied} of ${result.suggestions.length} slots from ${source?.name ?? "the source assembly"}.`);
+      // A response for an earlier selection must not touch the current
+      // state: the estimator may have picked another recipe or changed
+      // filters while this request was in flight (those handlers bump the
+      // sequence, invalidating this response).
+      if (reuseRequestSeqRef.current !== requestSeq) return;
+      // Merge against the CURRENT mappings (refs hold the latest committed
+      // state), so a slot mapped by hand during the request is preserved
+      // and a suggestion colliding with a retained manual mapping is
+      // skipped instead of assigning the same Cost Item twice.
+      const merged = mergeReuseMappingSuggestions(mappingsRef.current, mappingItemsRef.current, result.suggestions);
+      setMappings(merged.mappings);
+      setMappingItems(merged.items);
+      setReuseNote(merged.stillMissing.length
+        ? `Applied ${merged.applied} of ${result.suggestions.length} slots from ${requestSource?.name ?? "the source assembly"}; ${merged.stillMissing.length} still need${merged.stillMissing.length === 1 ? "s" : ""} mapping: ${merged.stillMissing.join(", ")}.`
+        : `Applied ${merged.applied} of ${result.suggestions.length} slots from ${requestSource?.name ?? "the source assembly"}.`);
     } catch (err) {
+      if (reuseRequestSeqRef.current !== requestSeq) return;
       setReuseError(err instanceof Error ? err.message : "Mapping suggestions could not be loaded.");
     } finally {
-      setReuseLoading(false);
+      if (reuseRequestSeqRef.current === requestSeq) setReuseLoading(false);
     }
   }
 
@@ -602,7 +602,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
         </div>
         <div className="max-h-[420px] overflow-y-auto divide-y divide-border/70">{filtered.map((template) => {
           const installed = isStarterCatalogInstalled(template, installedCodes);
-          return <button key={template.id} type="button" aria-label={`Review assembly ${template.name}`} onClick={() => { setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); setCostPreview({}); setWasteOverridePct(""); setProductionRateFactor(""); setReuseSourceId(""); setReuseNote(null); setReuseError(null); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
+          return <button key={template.id} type="button" aria-label={`Review assembly ${template.name}`} onClick={() => { invalidateReuseRequest(); setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); setCostPreview({}); setWasteOverridePct(""); setProductionRateFactor(""); setReuseSourceId(""); setReuseNote(null); setReuseError(null); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
             <span className="flex items-start justify-between gap-3"><span className="font-medium text-foreground">{template.name}</span>{installed ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-label="Installed" /> : null}</span>
             <span className="mt-1 block text-xs text-muted-foreground">{template.nahbPhase ? `NAHB ${template.nahbPhase} · ` : ""}{template.nahbGroup} · CSI {template.csiDivision} · {template.unitOfMeasure}{template.blockingReasons?.length ? " · Evidence pending" : ""}</span>
           </button>;

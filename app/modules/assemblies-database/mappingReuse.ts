@@ -74,12 +74,17 @@ export function suggestBulkMapping(
   const suggestions: MappingReuseSuggestion[] = template.components.map((component) => {
     let alreadyUsed: MappingReuseCandidate | null = null;
     for (const candidate of candidates) {
+      // Compatibility first: a candidate already used for an earlier slot
+      // only counts as a duplicate conflict when it could fill THIS slot.
+      // Otherwise an incompatible used item (e.g. a CY material against an
+      // HR labor slot) would misreport a duplicate conflict for a slot it
+      // can never fill.
+      const assessment = assessCatalogComponentMapping(component, candidate);
+      if (!assessment.compatible) continue;
       if (usedBy.has(candidate.id)) {
         alreadyUsed ??= candidate;
         continue;
       }
-      const assessment = assessCatalogComponentMapping(component, candidate);
-      if (!assessment.compatible) continue;
       usedBy.set(candidate.id, component.label);
       return {
         componentKey: component.key,
