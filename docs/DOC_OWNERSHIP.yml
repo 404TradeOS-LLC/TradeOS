@@ -1,3 +1,13 @@
+# Exemption semantics (fixed 2026-11-23): an exemption suppresses an ownership
+# rule only when EVERY changed file that triggers the rule is covered by an
+# exemption path. If any triggering file is not exempt, the rule still fires.
+# Before this fix the checker computed exemption matches but never applied
+# them, so the `exemptions:` mechanism could not exempt anything. Exemptions
+# are path-based only: they cannot express "version-only" or "author-only",
+# so no exemption here covers `.github/workflows/**` — a version-only
+# Dependabot workflow bump still requires the owning docs (see
+# docs/REPOSITORY_GOVERNANCE.md); narrowing that rule is a governance
+# decision, not a checker fix.
 rules:
   - paths:
       - app/prisma/schema.prisma

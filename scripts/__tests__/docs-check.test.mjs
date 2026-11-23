@@ -150,6 +150,81 @@ test("no required docs when no rules match", () => {
   assert.deepEqual(result.missingDocs, []);
 });
 
+test("exemption suppresses a rule when every triggering file is exempt", () => {
+  const tempConfig = loadTempConfig(`
+rules:
+  - paths:
+      - .github/workflows/**
+    requires:
+      - docs/README.md
+exemptions:
+  - paths:
+      - .github/workflows/dependency-review.yml
+    reason: version-only wrapper
+`);
+  const result = evaluateOwnership({
+    changedFiles: [".github/workflows/dependency-review.yml"],
+    config: tempConfig,
+  });
+  assert.deepEqual(result.requiredDocs, []);
+  assert.deepEqual(result.missingDocs, []);
+  assert.equal(result.suppressedRules.length, 1);
+});
+
+test("exemption does not suppress a rule when a non-exempt file also triggers it", () => {
+  const tempConfig = loadTempConfig(`
+rules:
+  - paths:
+      - .github/workflows/**
+    requires:
+      - docs/README.md
+exemptions:
+  - paths:
+      - .github/workflows/dependency-review.yml
+    reason: version-only wrapper
+`);
+  const result = evaluateOwnership({
+    changedFiles: [".github/workflows/dependency-review.yml", ".github/workflows/ci.yml"],
+    config: tempConfig,
+  });
+  assert.deepEqual(result.requiredDocs, ["docs/README.md"]);
+  assert.deepEqual(result.missingDocs, ["docs/README.md"]);
+  assert.deepEqual(result.suppressedRules, []);
+});
+
+test("exemption does not suppress a rule triggered only by non-exempt files", () => {
+  const result = evaluateOwnership({
+    changedFiles: ["app/modules/jobs/service.ts", "app/tests/jobs.test.ts"],
+    config,
+  });
+  assert.deepEqual(result.requiredDocs, ["docs/modules/jobs-and-scheduling.md"]);
+  assert.deepEqual(result.missingDocs, ["docs/modules/jobs-and-scheduling.md"]);
+  assert.deepEqual(result.suppressedRules, []);
+});
+
+test("report lists suppressed rules", () => {
+  const tempConfig = loadTempConfig(`
+rules:
+  - paths:
+      - .github/workflows/**
+    requires:
+      - docs/README.md
+exemptions:
+  - paths:
+      - .github/workflows/dependency-review.yml
+    reason: version-only wrapper
+`);
+  const report = formatReport({
+    baseRef: "origin/main",
+    result: evaluateOwnership({
+      changedFiles: [".github/workflows/dependency-review.yml"],
+      config: tempConfig,
+    }),
+  });
+  assert.match(report, /Suppressed ownership rules/);
+  assert.match(report, /Result: PASS/);
+});
+
 test("docs-only module edits do not require docs README", () => {
   const result = evaluateOwnership({
     changedFiles: ["docs/modules/projects.md"],

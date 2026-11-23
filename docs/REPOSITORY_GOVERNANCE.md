@@ -538,6 +538,8 @@ For GitHub Actions Node-bootstrap maintenance, upgrading `actions/setup-node` to
 
 `docs/DOC_OWNERSHIP.yml` is enforced repository policy.
 
+Exemption semantics (fixed 2026-11-23): an `exemptions:` entry suppresses an ownership rule only when every changed file that triggers the rule is covered by an exemption path; a rule still fires if any triggering file is not exempt. Before this fix the checker computed exemption matches but never applied them, so the mechanism could not exempt anything. Exemptions are path-based only and cannot express "version-only" or "author-only": no exemption covers `.github/workflows/**`, so a version-only Dependabot workflow bump still requires the owning documentation (per the setup-node paragraph above); narrowing that rule is a governance decision for the founder, not a checker fix.
+
 When a changed file triggers an ownership requirement, the owning document must be included and updated meaningfully in the same PR. Do not add an empty or cosmetic edit merely to satisfy the checker.
 
 Changes to `docs/DOC_OWNERSHIP.yml` itself must include this file (`docs/REPOSITORY_GOVERNANCE.md`, which defines the enforced policy) and `docs/README.md` (the docs entrypoint), not only `docs/ENGINEERING_COMMAND_CENTER.md` — a PR that only touches `DOC_OWNERSHIP.yml` and the Command Center can otherwise change enforced ownership rules without the document that describes them to contributors ever being reviewed.
