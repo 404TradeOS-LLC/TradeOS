@@ -208,6 +208,7 @@ describe("web auth proxy", () => {
       "/dispatch/:path*",
       "/finish-setup/:path*",
       "/field/:path*",
+      "/onboarding/:path*",
       "/portal/:path*",
       "/projects/:path*",
       "/settings/:path*",

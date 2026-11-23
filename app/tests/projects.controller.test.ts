@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 const mockPrisma = {
   project: {
     findFirst: jest.fn(),
+    findMany: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
   },
@@ -25,6 +26,55 @@ function mockReqRes(orgId: string, id: string) {
   const res = { json: jest.fn() } as unknown as Response;
   return { req, res };
 }
+
+describe("projectsController.list", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function mockListReqRes(orgId: string, query: Record<string, unknown> = {}) {
+    const req = {
+      orgId,
+      params: {},
+      query,
+      auth: { userId: "user-1", orgId, role: "dispatcher", canonicalRole: "dispatcher" },
+    } as unknown as Request;
+    const res = { json: jest.fn() } as unknown as Response;
+    return { req, res };
+  }
+
+  it("bounds the existence read with take: limit when ?limit= is given", async () => {
+    mockPrisma.project.findMany.mockResolvedValue([{ id: "project-1", orgId: "org-1", status: "lead" }]);
+
+    const { req, res } = mockListReqRes("org-1", { limit: "1" });
+    await projectsController.list(req, res);
+
+    expect(mockPrisma.project.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { orgId: "org-1" }, take: 1 }),
+    );
+    expect((res.json as jest.Mock).mock.calls[0][0]).toHaveLength(1);
+  });
+
+  it("returns every project when no limit is given (backward compatible)", async () => {
+    mockPrisma.project.findMany.mockResolvedValue([
+      { id: "project-1", orgId: "org-1", status: "lead" },
+      { id: "project-2", orgId: "org-1", status: "lead" },
+    ]);
+
+    const { req, res } = mockListReqRes("org-1");
+    await projectsController.list(req, res);
+
+    const call = (mockPrisma.project.findMany as jest.Mock).mock.calls[0][0];
+    expect(call).not.toHaveProperty("take");
+    expect((res.json as jest.Mock).mock.calls[0][0]).toHaveLength(2);
+  });
+
+  it("rejects an out-of-range limit", async () => {
+    const { req, res } = mockListReqRes("org-1", { limit: "0" });
+    await expect(projectsController.list(req, res)).rejects.toThrow();
+    expect(mockPrisma.project.findMany).not.toHaveBeenCalled();
+  });
+});
 
 describe("projectsController.getById", () => {
   beforeEach(() => {
