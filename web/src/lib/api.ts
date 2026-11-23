@@ -467,7 +467,7 @@ export interface ProjectFile {
 
 export function listProjects(token: string, options: { limit?: number; signal?: AbortSignal } = {}) {
   const params = options.limit !== undefined ? `?limit=${options.limit}` : "";
-  return apiFetch<Project[]>(`/api/v1/projects${params}`, { token, signal: options.signal }).then((projects) =>
+  return apiFetch<Project[]>("/api/v1/projects" + params, { token, signal: options.signal }).then((projects) =>
     projects.map((project) => ({ ...project, status: normalizeStatus(project.status, legacyProjectStatusMap, projectStatuses, "lead") }))
   );
 }
