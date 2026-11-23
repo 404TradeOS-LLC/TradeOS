@@ -1,11 +1,13 @@
 import { notFound, redirect } from "next/navigation";
-import { getFieldJob, getOrganizationSettings } from "@/lib/api";
+import Link from "next/link";
+import { getAthenaCapabilities, getFieldJob, getOrganizationSettings } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { canReviewAthenaApprovals, canUseJobAthena } from "@/lib/athena-job-access";
 import { formatScheduleInZone } from "@/lib/document-workflow";
 import { readApprovedJobBaseline } from "@/lib/job-approved-baseline";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { JobAthenaWorkspace } from "./job-athena-workspace";
 
 export const metadata = {
@@ -52,6 +54,39 @@ export default async function JobAthenaPage({
 
   const timezone = settings.settings.timezone || "UTC";
   const approved = readApprovedJobBaseline(job.acceptedBaselineJson);
+
+  // Same capability gate as the app-shell navigation: when the kernel is
+  // positively disabled, render an unavailable state instead of a workspace
+  // that rejects every request. A failed check still renders the workspace
+  // (fail open): the workspace surfaces the backend error if the kernel is
+  // truly off, and works normally if the failure was transient.
+  const athenaCapabilities = await getAthenaCapabilities(token).catch(() => null);
+  if (athenaCapabilities?.kernelEnabled === false) {
+    return (
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+        <PageHeader
+          title={`Athena · ${job.title}`}
+          description={`Field job #${job.jobNumber} · ${job.customer?.name ?? "Customer unavailable"}`}
+          breadcrumbs={[
+            { label: "Project", href: `/projects/${projectId}` },
+            { label: "Job", href: `/projects/${projectId}/jobs/${jobId}` },
+            { label: "Athena" },
+          ]}
+          action={<StatusBadge status={job.status} />}
+        />
+        <EmptyState
+          title="Athena isn't enabled for this workspace yet"
+          description="The Athena kernel is disabled, so this job workspace can't answer right now. Ask an owner or admin to enable it, or go back to the job."
+          action={
+            <Link href={`/projects/${projectId}/jobs/${jobId}`} className="font-medium text-copper underline">
+              Back to the job
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
   const latestNote = job.notes[0];
   const scopeDetails: Record<string, string> = {
     Job: `${job.title} · ${job.jobNumber} · ${job.status}`,

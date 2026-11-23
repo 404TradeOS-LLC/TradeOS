@@ -161,6 +161,19 @@ test("job-scoped Athena route gates by DES-4 roles and wires Confirm Write to th
   // Both entry points link to the route.
   assert.match(jobPage, /\/projects\/\$\{projectId\}\/jobs\/\$\{jobId\}\/athena/);
   assert.match(fieldPage, /\/projects\/\$\{selectedJob\.project\.id\}\/jobs\/\$\{selectedJob\.id\}\/athena/);
+
+  // Capability gate (Codex review on this PR): the entry points and the
+  // route follow the app-shell navigation's getAthenaCapabilities gate — no
+  // link advertises a workspace the kernel cannot serve, and direct route
+  // access renders an unavailable state when the kernel is disabled.
+  assert.match(routePage, /getAthenaCapabilities/);
+  assert.match(routePage, /kernelEnabled === false/);
+  assert.match(routePage, /Athena isn't enabled for this workspace yet/);
+  assert.match(routePage, /EmptyState/);
+  assert.match(jobPage, /getAthenaCapabilities/);
+  assert.match(jobPage, /athenaEnabled/);
+  assert.match(fieldPage, /getAthenaCapabilities/);
+  assert.match(fieldPage, /athenaEnabled/);
 });
 
 test("Athena confirmation card covers the BUILD READY write states without fetching", async () => {

@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { LifecycleLine } from "@/components/motion/lifecycle-line";
 import { JOB_LIFECYCLE_STAGES, jobLifecycle } from "@/lib/motion/adapters";
 import {
+  getAthenaCapabilities,
   getFieldJob,
   getDispatchSummary,
   getJobCostSummary,
@@ -80,6 +81,13 @@ export default async function FieldPage({
   if (!["technician", "owner", "admin", "dispatcher"].includes(settings.currentRole)) {
     return <EmptyState title="Technician workspace" description="This workspace is available to technician, owner, admin, and dispatcher accounts. Open Dispatch for organization scheduling and coordination." />;
   }
+
+  // Same capability gate as the app-shell navigation: do not advertise the
+  // Athena workspace when the kernel is disabled. A failed check hides the
+  // link (fail closed, like the shell's server resolution); the route itself
+  // still renders on a failed check and surfaces the backend error.
+  const athenaCapabilities = await getAthenaCapabilities(token).catch(() => null);
+  const athenaEnabled = athenaCapabilities?.kernelEnabled === true;
 
   let jobs: Awaited<ReturnType<typeof listFieldJobs>> = [];
   let loadError: string | null = null;
@@ -224,7 +232,7 @@ export default async function FieldPage({
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
                   <StatusBadge status={selectedJob.status} />
-                  {selectedJob.project?.id ? (
+                  {selectedJob.project?.id && athenaEnabled ? (
                     <a href={`/projects/${selectedJob.project.id}/jobs/${selectedJob.id}/athena`} className="text-sm font-medium text-copper hover:underline">
                       Ask Athena
                     </a>
