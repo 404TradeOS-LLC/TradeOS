@@ -175,12 +175,42 @@ async function waitForLoginReady(page) {
 const browser = await chromium.launch({ headless: true });
 const issuedTokens = [];
 const revokedTokenIds = [];
+// Assigned inside the try, right after the staff page exists, to the
+// exactly-once token cleanup (Phase E). The catch path calls it too, so a
+// fatal failure mid-journey still revokes what was issued instead of
+// leaving live tokens behind for their 7-day TTL. It stays a no-op when
+// the staff page was never created.
+let runCleanup = async () => {};
 
 try {
   // ---- Staff context: fixture creation through the shipped staff API. ----
   const staffContext = await browser.newContext({ viewport: { width: 1440, height: 1000 }, storageState });
   const staffPage = await staffContext.newPage();
   staffPage.setDefaultTimeout(30_000);
+
+  // Token cleanup, defined here so the catch path can run it after a fatal
+  // failure. It uses only module-scope state (issuedTokens /
+  // revokedTokenIds) and the hoisted revokeToken helper — never try-scoped
+  // bindings such as tokenA — so it is safe to call from the catch even
+  // when the failure happened before those bindings existed. tokenA needs
+  // no special case here: the API path registers it in issuedTokens via
+  // issueViaApi, and the UI path has no id to revoke.
+  let cleanupDone = false;
+  runCleanup = async () => {
+    if (cleanupDone) return;
+    cleanupDone = true;
+    const cleanupIds = [...new Set(issuedTokens.map((issued) => issued.id).filter(Boolean))];
+    for (const tokenId of cleanupIds) {
+      if (revokedTokenIds.includes(tokenId)) continue; // Already revoked (E3 / B7); revoking again would only spend rate-limit budget.
+      try {
+        await revokeToken(tokenId, "cleanup");
+      } catch (error) {
+        const detail = redactBearerMaterial(error.message);
+        console.error(`Cleanup revoke failed for a token id: ${detail}`);
+        report.cleanupFailures = [...(report.cleanupFailures ?? []), detail];
+      }
+    }
+  };
 
   async function staffProxy(method, suffix, body, expectedStatus) {
     const response = await staffPage.request.fetch(new URL(`/api/proxy/${suffix}`, baseUrl).toString(), {
@@ -296,8 +326,9 @@ try {
     console.log("PASS A1 customer A link issued through the staff UI");
     // Issue an API twin for A so cleanup can revoke by id. This is a second
     // link for the same customer (revocation is per-token by design); the
-    // twin is revoked unredeemed in cleanup.
-    const twin = await issueViaApi(customerA.id);
+    // twin is revoked unredeemed in cleanup (issueViaApi registers it in
+    // issuedTokens).
+    await issueViaApi(customerA.id);
     report.issuancePath.customerATwin = "api";
   } catch (error) {
     console.error(`UI issuance unavailable, falling back to the authenticated API: ${redactBearerMaterial(error.message)}`);
@@ -485,7 +516,9 @@ try {
   }
 
   // B5 replay: the same link again must land on the access-error page, and
-  // the backend redeem must answer 410.
+  // the backend redeem must answer 410. The access GET only sets the pending
+  // cookie and redirects to /confirm; redemption happens on the confirm
+  // submit, so the replay must submit the form before access-error appears.
   try {
     const replayContext = await browser.newContext({ viewport: { width: 1440, height: 1000 }, baseURL: baseUrl });
     const replayPage = await replayContext.newPage();
@@ -493,6 +526,8 @@ try {
       waitUntil: "networkidle",
       timeout: 60_000,
     });
+    await replayPage.waitForURL("**/customer-portal/access/confirm", { timeout: 30_000 });
+    await replayPage.getByRole("button", { name: "Continue to customer portal" }).click();
     await replayPage.waitForURL("**/customer-portal/access-error", { timeout: 30_000 });
     const state = await metrics(replayPage);
     assertAccessErrorPage({ ...state, status: replayAccessResponse?.status() ?? 0 });
@@ -503,12 +538,14 @@ try {
     });
     assert.equal(replayApi.status(), expectedStatusForCase("B5"), `Replay redeem returned ${replayApi.status()} (expected 410)`);
     await replayContext.close();
-    passCase("B5", "second redemption denied (browser access-error + API 410)");
+    passCase("B5", "second redemption denied (confirm submit → browser access-error + API 410)");
   } catch (error) {
     failCase("B5", error);
   }
 
-  // B7 revoked before redemption.
+  // B7 revoked before redemption. The revoked token still reaches /confirm
+  // (the access GET does not redeem); the confirm submit fails the redeem,
+  // so access-error appears only after the form is submitted.
   try {
     await revokeToken(tokenRevoke.id, "revoke-before-redemption");
     const revokedContext = await browser.newContext({ viewport: { width: 1440, height: 1000 }, baseURL: baseUrl });
@@ -517,6 +554,8 @@ try {
       waitUntil: "networkidle",
       timeout: 60_000,
     });
+    await revokedPage.waitForURL("**/customer-portal/access/confirm", { timeout: 30_000 });
+    await revokedPage.getByRole("button", { name: "Continue to customer portal" }).click();
     await revokedPage.waitForURL("**/customer-portal/access-error", { timeout: 30_000 });
     const state = await metrics(revokedPage);
     assertAccessErrorPage({ ...state, status: revokedAccessResponse?.status() ?? 0 });
@@ -526,7 +565,7 @@ try {
     });
     assert.equal(revokedApi.status(), expectedStatusForCase("B7"), `Revoked redeem returned ${revokedApi.status()} (expected 410)`);
     await revokedContext.close();
-    passCase("B7", "revoked link denied (browser access-error + API 410)");
+    passCase("B7", "revoked link reaches confirmation, redemption denied (browser access-error + API 410)");
   } catch (error) {
     failCase("B7", error);
   }
@@ -763,6 +802,9 @@ try {
         passCase("A4", "staff without documents.manage denied issue (403)");
       } else if (wrongRoleResponse.status() === 201) {
         const issued = await wrongRoleResponse.json();
+        // Register the token BEFORE revoking it: if the revoke fails, Phase
+        // E retries it from issuedTokens instead of leaking a live token.
+        issuedTokens.push({ id: issued.id, customerId: customerA.id, token: issued.token });
         // The identity holds documents.manage after all; revoke the token
         // it just created and record the probe as not applicable.
         await revokeToken(issued.id, "wrong-role-cleanup");
@@ -782,19 +824,11 @@ try {
 
   // ---- Phase E: cleanup. Revoke every token this run created. ----
   // tokenB and tokenRevoke are already revoked (E3 / B7); revoking again is
-  // a no-op at the service layer, but only revoke each id once here.
-  const cleanupIds = [...new Set(issuedTokens.map((issued) => issued.id).filter(Boolean))];
-  if (tokenA.id && !cleanupIds.includes(tokenA.id)) cleanupIds.push(tokenA.id);
-  for (const tokenId of cleanupIds) {
-    if (revokedTokenIds.includes(tokenId)) continue; // Already revoked (E3 / B7); revoking again would only spend rate-limit budget.
-    try {
-      await revokeToken(tokenId, "cleanup");
-    } catch (error) {
-      const detail = redactBearerMaterial(error.message);
-      console.error(`Cleanup revoke failed for a token id: ${detail}`);
-      report.cleanupFailures = [...(report.cleanupFailures ?? []), detail];
-    }
-  }
+  // a no-op at the service layer, but only revoke each id once here. The
+  // loop lives in runCleanup (assigned after the staff page is created) so
+  // a fatal failure mid-journey still revokes what was issued; the flag
+  // inside it keeps the run exactly-once.
+  await runCleanup();
   // The UI-issued token A has no id exposed to this script; it is revoked by
   // revoking its API twin is NOT possible (revocation is per-token). Record
   // the residual explicitly: token A's raw value is gone with this process,
@@ -816,6 +850,16 @@ try {
   const detail = redactBearerMaterial(error.message);
   console.error(`FATAL: ${detail}`);
   recordCase("FATAL", "FAIL", detail);
+  // Revoke what was issued before the failure; a fatal navigation must not
+  // leave live tokens behind. runCleanup is a no-op when the staff page was
+  // never created, and never throws past its own per-token handling — but
+  // guard anyway so cleanup can never mask the FATAL record.
+  try {
+    await runCleanup();
+  } catch (cleanupError) {
+    console.error(`FATAL cleanup failed: ${redactBearerMaterial(cleanupError.message)}`);
+  }
+  report.rateLimitedCalls = rateLimitedCalls;
 } finally {
   await browser.close();
 }

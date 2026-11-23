@@ -193,9 +193,19 @@ test("deployment identity proves web SHA, API SHA, and /ready project ref withou
   const preload = `
     globalThis.fetch = async (input) => {
       const url = new URL(input);
-      if (url.pathname.startsWith("/v13/deployments/")) return Response.json({
-        id: "dpl_web_fixture", url: "tradeos-costbook-web-fixture.vercel.app", projectId: "prj_jDyORkIa7ug3ZtgtNujwEa65hQ36",
-        readyState: "READY", target: null, createdAt: 2000, meta: { githubCommitSha: "${sha}", githubCommitRef: "staging" }
+      if (url.pathname.startsWith("/v13/deployments/")) {
+        if (url.pathname.endsWith("/${apiUrl}")) return Response.json({
+          uid: "dpl_api_fixture", url: "${apiUrl}", projectId: "prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD",
+          readyState: "READY", target: null, createdAt: 2000, meta: { githubCommitSha: "${sha}", githubCommitRef: "staging" }
+        });
+        return Response.json({
+          id: "dpl_web_fixture", url: "tradeos-costbook-web-fixture.vercel.app", projectId: "prj_jDyORkIa7ug3ZtgtNujwEa65hQ36",
+          readyState: "READY", target: null, createdAt: 2000, meta: { githubCommitSha: "${sha}", githubCommitRef: "staging" }
+        });
+      }
+      if (url.pathname === "/api/staging-runtime-identity") return Response.json({
+        status: "configured", commitSha: "${sha}", branch: "staging",
+        supabaseProjectRef: "${ref}", backendOrigin: "https://${apiUrl}", scope: "public_configuration_only",
       });
       if (url.pathname === "/v6/deployments") return Response.json({ deployments: [{
         uid: "dpl_api_fixture", url: "${apiUrl}", projectId: "prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD",
@@ -228,7 +238,67 @@ test("deployment identity proves web SHA, API SHA, and /ready project ref withou
     assert.equal(identity.commitSha, sha);
     assert.equal(identity.branch, "staging");
     assert.equal(identity.apiDeploymentId, "dpl_api_fixture");
+    assert.equal(identity.backendOrigin, `https://${apiUrl}`);
+    assert.equal(identity.backendBinding, "verified");
     assert.equal(identity.shaCorrelated, true);
+  } finally {
+    fs.rmSync(evidenceDir, { recursive: true, force: true });
+  }
+});
+
+test("deployment identity refuses a backend alias that resolves to another API deployment", () => {
+  const evidenceDir = fs.mkdtempSync(path.join(os.tmpdir(), "s059-identity-"));
+  const ref = STAGING_PROJECT_REF;
+  const sha = "a".repeat(40);
+  const apiUrl = "tradeos-costbook-fixture.vercel.app";
+  const otherUrl = "tradeos-costbook-other.vercel.app";
+  const preload = `
+    globalThis.fetch = async (input) => {
+      const url = new URL(input);
+      if (url.pathname.startsWith("/v13/deployments/")) {
+        if (url.pathname.endsWith("/${otherUrl}")) return Response.json({
+          uid: "dpl_other", url: "${otherUrl}", projectId: "prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD",
+          readyState: "READY", target: null, createdAt: 2000, meta: { githubCommitSha: "${sha}", githubCommitRef: "staging" }
+        });
+        return Response.json({
+          id: "dpl_web_fixture", url: "tradeos-costbook-web-fixture.vercel.app", projectId: "prj_jDyORkIa7ug3ZtgtNujwEa65hQ36",
+          readyState: "READY", target: null, createdAt: 2000, meta: { githubCommitSha: "${sha}", githubCommitRef: "staging" }
+        });
+      }
+      if (url.pathname === "/api/staging-runtime-identity") return Response.json({
+        status: "configured", commitSha: "${sha}", branch: "staging",
+        supabaseProjectRef: "${ref}", backendOrigin: "https://${otherUrl}", scope: "public_configuration_only",
+      });
+      if (url.pathname === "/v6/deployments") return Response.json({ deployments: [{
+        uid: "dpl_api_fixture", url: "${apiUrl}", projectId: "prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD",
+        state: "READY", createdAt: 2000, meta: { githubCommitSha: "${sha}", githubCommitRef: "staging" }
+      }]});
+      if (url.pathname === "/health") return Response.json({ status: "ok", service: "tradeos-costbook-api", commitSha: "${sha}" });
+      if (url.pathname === "/ready") return Response.json({
+        status: "ready", checks: { database: { status: "ok", latencyMs: 1, projectRef: "${ref}" }, schema: { status: "ok" } }
+      });
+      throw new Error("Unexpected API request: " + url.pathname);
+    };
+  `;
+  try {
+    assert.throws(
+      () =>
+        execFileSync(process.execPath, ["--import", `data:text/javascript,${encodeURIComponent(preload)}`, new URL("./s059-deployment-identity.mjs", import.meta.url).pathname], {
+          env: {
+            ...process.env,
+            S059_BASE_URL: "https://tradeos-costbook-web-fixture.vercel.app",
+            S059_EXPECTED_SHA: sha,
+            S059_REQUIRE_SHA_CORRELATION: "true",
+            BETA_RC_SUPABASE_PROJECT_REF: ref,
+            VERCEL_TOKEN: "fixture-only",
+            S059_SANITIZED_TENANT: "true",
+            BETA_SMOKE_ORG_ID: "d86d0874-6ba3-4b06-94b6-bd0ae99fe532",
+            S059_EVIDENCE_DIR: evidenceDir,
+          },
+          stdio: "pipe",
+        }),
+      /does not resolve to the selected API deployment/,
+    );
   } finally {
     fs.rmSync(evidenceDir, { recursive: true, force: true });
   }

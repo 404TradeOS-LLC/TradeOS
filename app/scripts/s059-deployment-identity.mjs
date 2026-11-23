@@ -22,6 +22,14 @@ import { assertApprovedRcUrl, assertNonProductionDataPlane } from "./beta-eviden
 // The API deployment is found through the Vercel deployments list for the
 // API project, matched on branch + READY + (when correlation is required)
 // the same SHA — the same polling shape the staging orchestrator uses.
+// The web's effective backend is then bound to that API deployment: the
+// web reaches its backend through BACKEND_API_URL, and the runtime-identity
+// endpoint proves the web's BACKEND_API_URL is the returned backendOrigin
+// (200 only when the staging bindings are verified). The alias is resolved
+// through the Vercel API and must be the selected API deployment — a stable
+// alias can otherwise resolve to a different deployment than the one whose
+// /health + /ready were checked. The same binding check runs in --verify,
+// so a backend change during capture fails verification.
 // Env: S059_BASE_URL, S059_EXPECTED_SHA, S059_REQUIRE_SHA_CORRELATION
 // (default "true"), BETA_RC_SUPABASE_PROJECT_REF, VERCEL_TOKEN,
 // S059_SANITIZED_TENANT, BETA_SMOKE_ORG_ID, S059_EVIDENCE_DIR.
@@ -87,6 +95,38 @@ assert.equal(ready.status, "ready", "API /ready is not ready");
 assert.equal(ready.checks?.database?.status, "ok", "API /ready database check failed");
 assert.equal(ready.checks?.database?.projectRef, expectedSupabaseRef, "API /ready data plane is not the expected RC Supabase project");
 
+// Bind the web's effective backend to the selected API deployment. The
+// runtime-identity endpoint returns 200 only on staging previews whose
+// BACKEND_API_URL is the verified staging API alias; it returns 404 on
+// non-staging targets (no binding is published) and 503 when the bindings
+// are not verified (fail — that is a real misconfiguration signal).
+let backendOrigin = null;
+let backendBinding = "not-published";
+const runtimeIdentityResponse = await fetch(`${url.origin}/api/staging-runtime-identity`, {
+  signal: AbortSignal.timeout(30_000),
+});
+if (runtimeIdentityResponse.status === 200) {
+  const runtimeIdentity = await runtimeIdentityResponse.json();
+  backendOrigin = runtimeIdentity.backendOrigin;
+  assert.ok(typeof backendOrigin === "string" && backendOrigin.length > 0, "Runtime identity returned no backendOrigin");
+  const backendDeployment = await fetchJson(
+    `https://api.vercel.com/v13/deployments/${new URL(backendOrigin).hostname}?teamId=${TEAM_ID}`,
+    "Backend alias deployment",
+  );
+  assert.equal(backendDeployment.projectId, API_PROJECT_ID, "Web backend alias resolves to the wrong Vercel project");
+  assert.equal(
+    backendDeployment.uid ?? backendDeployment.id,
+    apiDeployment.uid,
+    "Web backend alias does not resolve to the selected API deployment",
+  );
+  backendBinding = "verified";
+} else if (runtimeIdentityResponse.status === 404) {
+  // Non-staging preview: no runtime-identity binding is published; the
+  // /health + /ready checks above are the only backend attestation.
+} else {
+  assert.fail(`Staging runtime identity lookup failed with HTTP ${runtimeIdentityResponse.status} (bindings not verified)`);
+}
+
 const identity = {
   id: deployment.id,
   url: deployment.url,
@@ -94,6 +134,8 @@ const identity = {
   branch,
   apiDeploymentId: apiDeployment.uid,
   apiDeploymentUrl: apiOrigin,
+  backendOrigin,
+  backendBinding,
   supabaseProjectRef: expectedSupabaseRef,
   shaCorrelated: requireCorrelation,
   observedAt: new Date().toISOString(),
@@ -105,6 +147,8 @@ if (process.argv.includes("--verify")) {
   const before = JSON.parse(await fs.readFile(target, "utf8"));
   assert.equal(identity.id, before.id, "Preview alias moved during evidence capture");
   assert.equal(identity.apiDeploymentId, before.apiDeploymentId, "API deployment moved during evidence capture");
+  assert.equal(identity.backendOrigin, before.backendOrigin, "Web backend origin changed during evidence capture");
+  assert.equal(identity.backendBinding, before.backendBinding, "Web backend binding changed during evidence capture");
   assert.equal(identity.supabaseProjectRef, before.supabaseProjectRef, "Preview data-plane attestation changed during evidence capture");
   await fs.writeFile(path.join(outDir, "deployment-identity-after.json"), JSON.stringify(identity, null, 2));
 } else {
