@@ -45,6 +45,12 @@ interface AthenaWorkspaceProps {
   /** Whether the actor may review Athena approvals (owner/admin). Controls
    *  the approvals-queue link on an awaiting_approval result. */
   canReviewApprovals?: boolean;
+  /** Sheet mode (DES-4 mobile context sheet, frame 289:165): pin the composer
+   *  to the bottom of the sheet's scroll container instead of the page. */
+  stickyComposer?: boolean;
+  /** Composer placeholder override; defaults to the scope-aware copy. The
+   *  job route uses the frame's "Ask about this job…" wording. */
+  composerPlaceholder?: string;
 }
 
 interface ConversationTurn {
@@ -227,6 +233,8 @@ export function AthenaWorkspace({
   scopeDetails,
   starters,
   canReviewApprovals = false,
+  stickyComposer = false,
+  composerPlaceholder,
 }: AthenaWorkspaceProps) {
   const router = useRouter();
   const [draft, setDraft] = useState("");
@@ -544,7 +552,7 @@ export function AthenaWorkspace({
             ) : null}
           </div>
 
-          <form onSubmit={onSubmit} className={cn("border-t border-border/70 bg-card/95 p-4 sm:p-5", !compact && "sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] backdrop-blur 2xl:bottom-0")}>
+          <form onSubmit={onSubmit} className={cn("border-t border-border/70 bg-card/95 p-4 sm:p-5", !compact && "sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] backdrop-blur 2xl:bottom-0", compact && stickyComposer && "sticky bottom-0 backdrop-blur")}>
             <label htmlFor="athena-message" className="sr-only">Ask Athena</label>
             <Textarea
               id="athena-message"
@@ -553,7 +561,7 @@ export function AthenaWorkspace({
                 setDraft(event.target.value);
                 setSelectedStarter(null);
               }}
-              placeholder={selectedScope ? "Ask about the selected TradeOS work…" : "Ask Athena about your business or describe work to estimate…"}
+              placeholder={composerPlaceholder ?? (selectedScope ? "Ask about the selected TradeOS work…" : "Ask Athena about your business or describe work to estimate…")}
               rows={3}
               disabled={isSending || isSavingNote}
             />

@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { JobAthenaWorkspace } from "./job-athena-workspace";
+import { JobAthenaSheet } from "./job-athena-sheet";
 
 export const metadata = {
   title: "Athena · Job workspace | TradeOS",
@@ -98,8 +99,16 @@ export default async function JobAthenaPage({
       : {}),
   };
 
+  // Desktop keeps the full route presentation (header, workspace, recent
+  // notes). At phone widths the same workspace is presented as the mobile
+  // context sheet (canonical Figma frame 289:165) instead: the sheet chrome
+  // floats between the app header and the Control Dock, and closing it
+  // returns to the job page. The sheet itself mounts only below the md
+  // breakpoint — CSS hiding alone would leave its scroll lock and keyboard
+  // handling active on desktop.
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+    <>
+    <div className="mx-auto hidden w-full max-w-5xl flex-col gap-5 md:flex">
       <PageHeader
         title={`Athena · ${job.title}`}
         description={`Field job #${job.jobNumber} · ${job.customer?.name ?? "Customer unavailable"}`}
@@ -141,5 +150,18 @@ export default async function JobAthenaPage({
         )}
       </section>
     </div>
+
+    <JobAthenaSheet
+      jobId={job.id}
+      projectId={projectId}
+      customerId={job.customer?.id}
+      estimateId={approved?.estimateId ?? undefined}
+      jobNumber={job.jobNumber}
+      jobTitle={job.title}
+      jobStatus={job.status}
+      scopeDetails={scopeDetails}
+      canReviewApprovals={canReviewAthenaApprovals(settings.currentRole)}
+    />
+    </>
   );
 }

@@ -23,6 +23,10 @@ interface JobAthenaWorkspaceProps {
   jobTitle: string;
   scopeDetails: Record<string, string>;
   canReviewApprovals: boolean;
+  /** Sheet mode (DES-4 mobile context sheet): compact work surface with the
+   *  composer pinned to the sheet's bottom. Defaults to the full workspace. */
+  compact?: boolean;
+  stickyComposer?: boolean;
 }
 
 /**
@@ -41,6 +45,8 @@ export function JobAthenaWorkspace({
   jobTitle,
   scopeDetails,
   canReviewApprovals,
+  compact = false,
+  stickyComposer = false,
 }: JobAthenaWorkspaceProps) {
   const router = useRouter();
 
@@ -71,6 +77,9 @@ export function JobAthenaWorkspace({
       scopeDetails={scopeDetails}
       starters={JOB_STARTERS}
       canReviewApprovals={canReviewApprovals}
+      compact={compact}
+      stickyComposer={stickyComposer}
+      composerPlaceholder="Ask about this job…"
     />
   );
 }
