@@ -58,7 +58,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - customer records support soft delete through `deleted_at`
 - equipment assets use a free-form `status` field
 - service agreements default to `draft`
-- payment reconciliation does not persist `partially_paid` or a new overdue state; a fully covered eligible `sent` or existing `overdue` Invoice is advanced to persisted `paid`, while persisted `paid` remains authoritative for follow-up exclusion
+- payment reconciliation does not persist `partially_paid` or a new overdue state; a fully covered eligible `sent`, `viewed`, or existing `overdue` Invoice is advanced to persisted `paid` (with `paidAt` and the `invoice.paid` event), while persisted `paid` remains authoritative for follow-up exclusion. A portal view moves `sent` to `viewed` without removing payment eligibility: the contractor detail page, mark-paid, and reconciliation all still accept `viewed`.
 - the authenticated invoice detail surface records partial or full payments with amount, date, method, reference, and notes; draft invoices are rejected and displayed balances never become negative
 
 ## Emitted activity events
@@ -83,7 +83,7 @@ The Customer workspace's **New project** handoff preserves the selected Customer
 - `/customers`
 - `/customers/new`
 - `/customers/[id]` — canonical customer operating workspace composed from the Customer record, active service addresses, bounded linked-Project detail, dispatcher Jobs, and existing document/payment truth; mutations remain permission-aware
-- `/projects/[id]/invoices/[invoiceId]` — staff payment-entry form for eligible sent/overdue invoices
+- `/projects/[id]/invoices/[invoiceId]` — staff payment-entry form for eligible sent/viewed/overdue invoices
 
 Merged S063 PR #631 extends the existing /crm overview: loaded follow-ups are all displayed up to the existing 50-record API request cap with assignedTo or Unassigned truth; rows link to the Project Tasks tab. Desktop lanes disclose additional loaded Projects after the first five, and mobile lanes expand to list every loaded Project. Awarded Projects link to the canonical Project workspace. The code is on main; browser and permission/refresh certification remains outstanding.
 

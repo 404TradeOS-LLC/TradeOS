@@ -464,7 +464,7 @@ export class CrmService {
       const recordedPaymentTotal = toDecimal(aggregate._sum.amount);
       const invoiceAmount = toDecimal(invoice.amount);
 
-      if (["sent", "overdue"].includes(invoice.status) && recordedPaymentTotal.gte(invoiceAmount)) {
+      if (["sent", "viewed", "overdue"].includes(invoice.status) && recordedPaymentTotal.gte(invoiceAmount)) {
         await transaction.invoice.update({
           where: { id: invoice.id },
           data: { status: "paid", paidAt: new Date() },

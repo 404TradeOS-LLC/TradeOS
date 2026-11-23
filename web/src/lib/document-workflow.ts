@@ -84,6 +84,7 @@ const EVENT_TYPE_TITLES: Record<string, string> = {
   "invoice.sent": "Invoice sent",
   "invoice.viewed": "Invoice viewed",
   "invoice.paid": "Invoice paid",
+  "invoice.payment_failed": "Payment recording failed",
   "contract.sent": "Contract sent",
   "contract.viewed": "Contract viewed",
   "contract.signed": "Contract signed",

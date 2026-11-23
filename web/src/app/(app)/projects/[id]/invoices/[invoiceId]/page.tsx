@@ -18,11 +18,14 @@ import { getInvoice, getOrganizationSettings, getProject } from "@/lib/api";
 import {
   buildInvoiceTimeline,
   formatDate,
+  formatDateTime,
   formatInvoiceCurrency,
   getInvoiceDisplayStatus,
 } from "@/lib/document-workflow";
+import { getLatestPaymentFailure } from "@/lib/invoice-presentation";
 import { getSessionToken } from "@/lib/session";
 import { RecordPaymentForm } from "./record-payment-form";
+import { InvoiceTopActions } from "./top-actions";
 
 function invoiceTypeLabel(type: "full" | "progress") {
   return type === "progress" ? "Progress invoice" : "Final invoice";
@@ -78,16 +81,21 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const canShowPaymentEntry =
     canRecordPayment &&
     hasOpenBalance &&
-    (invoice.status === "sent" || invoice.status === "overdue");
+    (invoice.status === "sent" || invoice.status === "viewed" || invoice.status === "overdue");
   const isDraft = invoice.status === "draft";
   const isPaid = invoice.status === "paid";
   const isVoided = invoice.status === "voided";
-  const canMarkPaidWithoutPayment = invoice.status === "sent" || invoice.status === "overdue";
+  const canMarkPaidWithoutPayment = invoice.status === "sent" || invoice.status === "viewed" || invoice.status === "overdue";
   const canVoidInvoice = !isPaid && !isVoided;
   const showNextActionPanel = isDraft || (hasOpenBalance && !isPaid && !isVoided);
   const showMoreBillingActions = canMarkPaidWithoutPayment || canVoidInvoice;
   const sentLabel = invoice.sentAt ? `Sent ${formatDate(invoice.sentAt)}` : "Not sent yet";
   const dueLabel = invoice.dueDate ? `Due ${formatDate(invoice.dueDate)}` : "No due date";
+  // DES-7 (d): a failed manual record-payment attempt is the Payment
+  // Failure state. The banner below shows it with the recorded reason
+  // while it is the latest payment outcome; a later successful recorded
+  // payment (or mark-paid) supersedes it.
+  const latestPaymentFailure = getLatestPaymentFailure(invoice);
 
   return (
     <div className="flex flex-col gap-5">
@@ -100,6 +108,18 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         description={`${project.customer?.name ?? "No customer linked"} · ${invoiceTypeLabel(invoice.type)} · ${sentLabel} · ${dueLabel}`}
         action={<StatusBadge status={displayStatus} />}
       />
+
+      <InvoiceTopActions isDraft={isDraft} projectId={projectId} invoiceId={invoice.id} />
+
+      {latestPaymentFailure ? (
+        <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-4">
+          <p className="font-medium text-foreground">Payment Failure</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The last attempt to record a payment failed on {formatDateTime(latestPaymentFailure.at)}: {latestPaymentFailure.reason} The
+            invoice balance is unchanged — try recording the payment again.
+          </p>
+        </div>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-3" aria-label="Invoice financial summary">
         <MoneyMetric label="Invoice total" value={formatInvoiceCurrency(invoice.amount)} />
@@ -147,6 +167,9 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Status</p>
                 <div className="mt-1"><StatusBadge status={displayStatus} /></div>
+                {invoice.viewedAt ? (
+                  <p className="mt-1 text-xs text-muted-foreground">Viewed {formatDateTime(invoice.viewedAt)}</p>
+                ) : null}
                 {invoiceLifecycleState ? (
                   <div className="mt-3">
                     <LifecycleLine
@@ -243,11 +266,13 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                 )}
 
                 {isDraft ? (
-                  <form action={sendInvoiceAction}>
-                    <input type="hidden" name="invoiceId" value={invoice.id} />
-                    <input type="hidden" name="projectId" value={projectId} />
-                    <Button type="submit" className="w-full">Send invoice</Button>
-                  </form>
+                  <div className="max-xl:hidden">
+                    <form action={sendInvoiceAction}>
+                      <input type="hidden" name="invoiceId" value={invoice.id} />
+                      <input type="hidden" name="projectId" value={projectId} />
+                      <Button type="submit" className="w-full">Send invoice</Button>
+                    </form>
+                  </div>
                 ) : null}
 
                 {isDraft && canEditInvoice ? (
@@ -260,7 +285,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                   <RecordPaymentForm projectId={projectId} invoiceId={invoice.id} balanceDue={invoice.balanceDue} />
                 ) : null}
 
-                {!canRecordPayment && (invoice.status === "sent" || invoice.status === "overdue") ? (
+                {!canRecordPayment && (invoice.status === "sent" || invoice.status === "viewed" || invoice.status === "overdue") ? (
                   <p className="text-sm text-muted-foreground">Your current role can review billing but cannot record payments.</p>
                 ) : null}
               </CardContent>
@@ -304,7 +329,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                 href={`/api/documents/invoices/${invoice.id}/pdf`}
                 target="_blank"
                 rel="noreferrer"
-                className={buttonVariants({ variant: "outline" })}
+                className={buttonVariants({ variant: "outline", className: "max-xl:hidden" })}
               >
                 <FileText className="size-4" aria-hidden="true" />
                 Open PDF
@@ -313,7 +338,11 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                 <ReceiptText className="size-4" aria-hidden="true" />
                 Customer Portal
               </Link>
-              <p className="text-xs text-muted-foreground">Customer-view telemetry is not currently recorded.</p>
+              {invoice.viewedAt ? (
+                <p className="text-xs text-muted-foreground">Viewed by the customer {formatDateTime(invoice.viewedAt)}.</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Not viewed by the customer yet — the portal view is recorded when the customer opens this invoice.</p>
+              )}
             </CardContent>
           </Card>
 

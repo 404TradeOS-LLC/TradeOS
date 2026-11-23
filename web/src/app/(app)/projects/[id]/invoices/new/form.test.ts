@@ -58,3 +58,31 @@ test("invoice creation and editing allow typed due dates instead of browser-only
     assert.doesNotMatch(source, /name="dueDate" type="date"/);
   }
 });
+
+// DES-7 (b): the design's "NOT SAVED" badge shows on the new-invoice form
+// whenever the form holds unsaved changes, and clears on save.
+test("NewInvoiceForm shows a NOT SAVED badge for dirty state and clears it on save", () => {
+  const source = readNewInvoiceFormSource();
+  assert.match(source, /data-testid="not-saved-badge"/);
+  assert.match(source, />\s*NOT SAVED\s*</);
+  // Dirty covers every field: type, progress, due date, estimate/proposal,
+  // and any manual line edit — not just a single input.
+  assert.match(source, /const isDirty =/);
+  assert.match(source, /type !== "full"/);
+  assert.match(source, /percentComplete !== ""/);
+  assert.match(source, /dueDate !== ""/);
+  assert.match(source, /estimateId !== ""/);
+  assert.match(source, /lines\[0\]\?\.description !== ""/);
+  // The badge shows only while the draft is unsaved: never while the save
+  // is pending, after it is confirmed, or while an unconfirmed save awaits
+  // an explicit retry.
+  assert.match(source, /const showNotSavedBadge = isDirty && !confirmed && !unconfirmed && !isPending;/);
+});
+
+// DES-7 (b) round-2: the NOT SAVED badge appears outside a live region, so
+// the unsaved-state change must be announced from the persistently mounted
+// role="status" region — which keeps its saving/saved messages.
+test("NewInvoiceForm announces the unsaved state from the persistent status region", () => {
+  const source = readNewInvoiceFormSource();
+  assert.match(source, /<p role="status" className="sr-only">\{isPending \? "Saving invoice draft" : confirmed \? "Invoice draft saved" : showNotSavedBadge \? "Not saved — unsaved changes" : ""\}<\/p>/);
+});

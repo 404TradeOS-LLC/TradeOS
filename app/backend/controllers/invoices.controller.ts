@@ -113,6 +113,12 @@ export const invoicesController = {
     const auth = requireAuthContext(req);
     res.json(await service.markPaid(req.params.id, requireOrgId(req), auth.userId, auth.role));
   },
+  async recordPaymentFailure(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["billing.write"]);
+    const body = z.object({ reason: z.string().min(1).max(500) }).parse(req.body);
+    await service.recordPaymentFailure(req.params.id, requireOrgId(req), body.reason, auth.userId, auth.role);
+    res.status(204).send();
+  },
   async void(req: Request, res: Response) {
     const auth = requireAuthContext(req);
     res.json(await service.void(req.params.id, requireOrgId(req), auth.userId, auth.role));

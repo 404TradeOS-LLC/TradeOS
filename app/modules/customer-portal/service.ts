@@ -262,7 +262,10 @@ export class CustomerPortalService {
     await this.assertInvoice(context, invoiceId);
     const invoice = await this.invoices.getById(invoiceId, context.orgId);
     if (invoice.status === "draft") throw new ApiError(404, `Invoice ${invoiceId} not found`);
-    return invoice;
+    // DES-7 (c): a portal view is the mark-viewed writer. The read path
+    // already verified the portal session's organization + customer scope,
+    // and markViewed is idempotent, so repeat views record nothing new.
+    return this.invoices.markViewed(invoiceId, context.orgId);
   }
 
   async getContract(context: CustomerPortalContext, contractId: string) {

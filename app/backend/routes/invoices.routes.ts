@@ -20,4 +20,5 @@ invoicesRouter.patch("/:id", asyncHandler(ctrl.update));
 invoicesRouter.get("/:id/pdf", asyncHandler(ctrl.getPdf));
 invoicesRouter.post("/:id/send", asyncHandler(ctrl.send));
 invoicesRouter.post("/:id/mark-paid", asyncHandler(ctrl.markPaid));
+invoicesRouter.post("/:id/payment-failures", asyncHandler(ctrl.recordPaymentFailure));
 invoicesRouter.post("/:id/void", asyncHandler(ctrl.void));
