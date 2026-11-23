@@ -118,6 +118,54 @@ describe("live Costbook assembly RLS", () => {
     expect(foreignView).toBeNull();
   });
 
+  it("stores install overrides on the assembly and prices with them, invisibly to other tenants (DEV-17 S10)", async () => {
+    const materialId = "76000000-0000-0000-0000-000000000081";
+    const laborRateId = "76000000-0000-0000-0000-000000000082";
+    const deviceItemId = "76000000-0000-0000-0000-000000000083";
+    const wireItemId = "76000000-0000-0000-0000-000000000084";
+    const receptacleLaborItemId = "76000000-0000-0000-0000-000000000085";
+
+    await inSession(ownerA, orgA, "owner", () => prisma.material.create({
+      data: { id: materialId, orgId: orgA, name: "Duplex receptacle", unitOfMeasure: "EA", unitCost: 10, wasteFactorPct: 5 },
+    }));
+    await inSession(ownerA, orgA, "owner", () => prisma.laborRate.create({
+      data: { id: laborRateId, orgId: orgA, role: "Electrician", trade: "Electrical", hourlyCost: 40, billRate: 60, baseHourlyRate: 40, burdenPct: 0 },
+    }));
+    await inSession(ownerA, orgA, "owner", () => prisma.costItem.createMany({ data: [
+      { id: deviceItemId, orgId: orgA, subcategoryId: subA, code: "DEV-A", name: "Duplex device", unitOfMeasure: "EA", materialId },
+      { id: wireItemId, orgId: orgA, subcategoryId: subA, code: "WIRE-A", name: "Box and wire allowance", unitOfMeasure: "EA" },
+      { id: receptacleLaborItemId, orgId: orgA, subcategoryId: subA, code: "LAB-A", name: "Electrician labor", unitOfMeasure: "EA", productionRate: 10, laborRateId },
+    ] }));
+
+    const installed = await inSession(ownerA, orgA, "owner", () => service.installStarterCatalogAssembly({
+      orgId: orgA,
+      templateId: "receptacle",
+      componentMappings: [
+        { componentKey: "device", costItemId: deviceItemId },
+        { componentKey: "box-wire", costItemId: wireItemId },
+        { componentKey: "labor", costItemId: receptacleLaborItemId },
+      ],
+      wasteOverridePct: 15,
+      productionRateFactor: 0.8,
+    }));
+
+    expect(installed.wasteOverridePct).toBe(15);
+    expect(installed.productionRateFactor).toBe(0.8);
+
+    const stored = await inSession(ownerA, orgA, "owner", () => prisma.assembly.findFirst({ where: { id: installed.id } }));
+    expect(stored).not.toBeNull();
+    expect(Number(stored!.wasteOverridePct)).toBe(15);
+    expect(Number(stored!.productionRateFactor)).toBe(0.8);
+
+    // Material $10 at the 15% override (not the mapped 5%) = $11.50;
+    // labor 1/(10 x 0.8)h x $40 = $5.00; allowance $0.
+    const priced = await inSession(ownerA, orgA, "owner", () => service.getAssemblyUnitCost(installed.id, undefined, new Set(), orgA));
+    expect(priced.unitCost).toBeCloseTo(16.5, 2);
+
+    const foreignView = await inSession(ownerB, orgB, "owner", () => prisma.assembly.findFirst({ where: { id: installed.id } }));
+    expect(foreignView).toBeNull();
+  });
+
   it("rejects foreign starter mappings without leaving a partial assembly", async () => {
     await expect(inSession(ownerA, orgA, "owner", () => service.installStarterCatalogAssembly({
       orgId: orgA,

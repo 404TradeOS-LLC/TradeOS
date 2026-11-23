@@ -77,6 +77,47 @@ describe("CostDatabaseService", () => {
     expect(breakdown.totalUnitCost).toBe(0);
   });
 
+  it("applies per-resolution waste and production overrides without rewriting the Cost Item (DEV-17 S10)", async () => {
+    mockPrisma.costItem.findFirst.mockResolvedValue({
+      id: "cost-item-1",
+      orgId: "org-1",
+      subcategoryId: "sub-1",
+      code: "02-200-10-001",
+      name: "Excavation Per Cubic Yard",
+      unitOfMeasure: "CY",
+      productionRate: 10,
+      laborRate: {
+        baseHourlyRate: 30,
+        burdenPct: 25,
+        active: true,
+        region: { laborIndex: 1.1 },
+      },
+      material: {
+        unitCost: 5,
+        wasteFactorPct: 10,
+      },
+      equipment: {
+        ownershipCostPerHour: 20,
+        operatingCostPerHour: 10,
+        dailyRate: null,
+      },
+    });
+
+    const service = new CostDatabaseService();
+    const breakdown = await service.getUnitCost("cost-item-1", 20, undefined, "org-1", {
+      wasteFactorPct: 20,
+      productionRateFactor: 0.5,
+    });
+
+    // Labor at half rate (5 units/hour): 4h x $41.25 = $165 / 20 = $8.25.
+    expect(breakdown.laborCostPerUnit).toBeCloseTo(8.25, 2);
+    // Material at 20% waste instead of 10%: $5 x 1.20 = $6.00.
+    expect(breakdown.materialCostPerUnit).toBeCloseTo(6, 2);
+    // Equipment at half rate: 4h x $30 = $120 / 20 = $6.00.
+    expect(breakdown.equipmentCostPerUnit).toBeCloseTo(6, 2);
+    expect(breakdown.totalUnitCost).toBeCloseTo(20.25, 2);
+  });
+
   it("fails closed when an explicit pricing region is missing or outside the organization", async () => {
     mockPrisma.costItem.findFirst.mockResolvedValue({
       id: "cost-item-1",

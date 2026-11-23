@@ -7,7 +7,14 @@ export interface CreateAssemblyInput {
   isTemplate?: boolean;
 }
 
-export type UpdateAssemblyInput = Partial<Omit<CreateAssemblyInput, "orgId">> & { isActive?: boolean };
+export type UpdateAssemblyInput = Partial<Omit<CreateAssemblyInput, "orgId">> & {
+  isActive?: boolean;
+} & AssemblyInstallOverrides;
+
+export interface AssemblyInstallOverrides {
+  wasteOverridePct?: number | null;
+  productionRateFactor?: number | null;
+}
 
 export interface AddAssemblyItemInput {
   assemblyId: string;
@@ -27,6 +34,10 @@ export interface AssemblyDTO {
   description: string | null;
   isTemplate: boolean;
   isActive: boolean;
+  /** Absolute waste % override for this install (NULL = recipe/mapped-item defaults). */
+  wasteOverridePct: number | null;
+  /** Production-rate factor override for this install (NULL = recipe default, 1.0). */
+  productionRateFactor: number | null;
 }
 
 export interface AssemblyItemDTO {
@@ -51,4 +62,15 @@ export interface InstallCatalogAssemblyInput {
   orgId: string;
   templateId: string;
   componentMappings: Array<{ componentKey: string; costItemId: string }>;
+  /**
+   * Optional install-time overrides (DEV-17 S10, issue #518). wasteOverridePct
+   * is an absolute waste percentage (0-100) replacing each mapped Material's
+   * own wasteFactorPct for this assembly's material legs. productionRateFactor
+   * is a dimensionless multiplier on each mapped CostItem's productionRate for
+   * this assembly's labor/equipment legs (1.0 = recipe default). Either may be
+   * omitted (NULL = no override). No price is embedded: these are assumptions
+   * applied at pricing time, and the stored item quantities stay the recipe's.
+   */
+  wasteOverridePct?: number;
+  productionRateFactor?: number;
 }

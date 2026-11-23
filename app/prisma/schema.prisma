@@ -800,6 +800,21 @@ model Assembly {
   // RLS model without a separate mechanism.
   isTemplate    Boolean  @default(false) @map("is_template")
   isActive      Boolean  @default(true) @map("is_active")
+  // DEV-17 S10 install overrides (issue #518): job-specific assumptions
+  // recorded per installed assembly, never a price. wasteOverridePct is an
+  // absolute waste percentage (0-100) that replaces each mapped Material's
+  // own wasteFactorPct for this assembly's material legs; NULL means the
+  // recipe/mapped-item defaults apply. productionRateFactor is a
+  // dimensionless multiplier on each mapped CostItem's productionRate for
+  // this assembly's labor/equipment legs (1.0 = recipe default, 0.8 = crew
+  // produces at 80% of the assumed rate); an absolute rate is not
+  // expressible across mixed component units (SF vs CY vs EA), so the
+  // override is a factor, not a rate. NULL on either column means no
+  // override. Applied at pricing time by getAssemblyUnitCost; the stored
+  // AssemblyItem quantities are the recipe quantities and are never
+  // rewritten by an override.
+  wasteOverridePct     Decimal? @map("waste_override_pct") @db.Decimal(5, 2)
+  productionRateFactor Decimal? @map("production_rate_factor") @db.Decimal(6, 4)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 

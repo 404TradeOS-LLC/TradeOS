@@ -309,6 +309,9 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
   const [mappingItems, setMappingItems] = useState<Record<string, CostItemCatalogRecord>>({});
   const [filters, setFilters] = useState<StarterCatalogFilters>({ ...DEFAULT_STARTER_CATALOG_FILTERS });
   const [previewQuantity, setPreviewQuantity] = useState("1");
+  // DEV-17 S10 install overrides: blank = recipe/mapped-item defaults.
+  const [wasteOverridePct, setWasteOverridePct] = useState("");
+  const [productionRateFactor, setProductionRateFactor] = useState("");
   const [costPreview, setCostPreview] = useState<Record<string, CostPreview>>({});
   const [loading, setLoading] = useState(true);
   const facets = useMemo(() => buildStarterCatalogFacets(templates), [templates]);
@@ -324,6 +327,8 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
     setMappings({});
     setMappingItems({});
     setCostPreview({});
+    setWasteOverridePct("");
+    setProductionRateFactor("");
   }
 
   function resetFilters() {
@@ -332,6 +337,8 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
     setMappings({});
     setMappingItems({});
     setCostPreview({});
+    setWasteOverridePct("");
+    setProductionRateFactor("");
   }
 
   const mappedCount = selected ? selected.components.filter((component) => mappings[component.key]).length : 0;
@@ -406,12 +413,29 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
       onError(`${incompatible.label} is mapped to an incompatible Cost Item. Choose a matching unit and cost type.`);
       return;
     }
+    // DEV-17 S10: blank means "recipe defaults" (no override). Out-of-range
+    // values are rejected here; the API validates them again.
+    const parsedWaste = wasteOverridePct.trim() === "" ? undefined : Number(wasteOverridePct);
+    const parsedFactor = productionRateFactor.trim() === "" ? undefined : Number(productionRateFactor);
+    if (parsedWaste !== undefined && (!Number.isFinite(parsedWaste) || parsedWaste < 0 || parsedWaste > 100)) {
+      onError("Waste override must be between 0 and 100 percent.");
+      return;
+    }
+    if (parsedFactor !== undefined && (!Number.isFinite(parsedFactor) || parsedFactor <= 0 || parsedFactor > 10)) {
+      onError("Production factor must be greater than 0 and at most 10.");
+      return;
+    }
     onSaving(true);
     onError(null);
     try {
       const created = await clientFetch<CostbookAssembly>("/costbook/assemblies/starter-catalog/install", {
         method: "POST",
-        body: JSON.stringify({ templateId: selected.id, componentMappings }),
+        body: JSON.stringify({
+          templateId: selected.id,
+          componentMappings,
+          ...(parsedWaste !== undefined ? { wasteOverridePct: parsedWaste } : {}),
+          ...(parsedFactor !== undefined ? { productionRateFactor: parsedFactor } : {}),
+        }),
       });
       onInstalled(created);
     } catch (err) {
@@ -465,7 +489,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
         </div>
         <div className="max-h-[420px] overflow-y-auto divide-y divide-border/70">{filtered.map((template) => {
           const installed = isStarterCatalogInstalled(template, installedCodes);
-          return <button key={template.id} type="button" aria-label={`Review assembly ${template.name}`} onClick={() => { setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); setCostPreview({}); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
+          return <button key={template.id} type="button" aria-label={`Review assembly ${template.name}`} onClick={() => { setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); setCostPreview({}); setWasteOverridePct(""); setProductionRateFactor(""); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
             <span className="flex items-start justify-between gap-3"><span className="font-medium text-foreground">{template.name}</span>{installed ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-label="Installed" /> : null}</span>
             <span className="mt-1 block text-xs text-muted-foreground">{template.nahbPhase ? `NAHB ${template.nahbPhase} · ` : ""}{template.nahbGroup} · CSI {template.csiDivision} · {template.unitOfMeasure}{template.blockingReasons?.length ? " · Evidence pending" : ""}</span>
           </button>;
@@ -487,6 +511,11 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
           <div><p className="text-xs font-semibold uppercase tracking-wide text-primary">Pre-install cost preview</p><p className="mt-1 text-sm text-muted-foreground">{mappingComplete ? "Read-only estimate from the mapped Cost Items. Installation still requires review of local production assumptions." : `Map ${selected.components.length - mappedCount} more component${selected.components.length - mappedCount === 1 ? "" : "s"} to preview cost.`}</p></div>
           <label className="grid gap-1 text-sm font-medium"><span>Output quantity</span><Input type="number" min="0.0001" step="0.0001" value={previewQuantity} onChange={(event) => setPreviewQuantity(event.target.value)} disabled={!mappingComplete || saving} /></label>
           <div className="min-w-36 text-right"><p className="text-xs text-muted-foreground">{previewLoading ? "Loading cost" : previewUnitCost === null ? "Unit cost" : `Per 1 ${selected.unitOfMeasure}`}</p><p className="text-lg font-semibold text-foreground">{previewLoading ? "…" : previewUnitCost === null ? "—" : money(previewUnitCost)}</p><p className="text-xs text-muted-foreground">{previewError ? "Cost unavailable" : previewJobCost === null ? "Complete mapping first" : `Job cost · ${money(previewJobCost)}`}</p></div>
+          <div className="grid gap-3 sm:col-span-3 sm:grid-cols-2">
+            <label className="grid gap-1 text-sm font-medium"><span>Waste override (%) — optional</span><Input type="number" min="0" max="100" step="0.5" value={wasteOverridePct} onChange={(event) => setWasteOverridePct(event.target.value)} disabled={!mappingComplete || saving} placeholder="Recipe default" /></label>
+            <label className="grid gap-1 text-sm font-medium"><span>Production factor — optional</span><Input type="number" min="0.1" max="10" step="0.1" value={productionRateFactor} onChange={(event) => setProductionRateFactor(event.target.value)} disabled={!mappingComplete || saving} placeholder="1.0 = recipe default" /></label>
+            <p className="text-xs text-muted-foreground sm:col-span-2">Preview above uses the waste and production rate of each mapped item. The waste override replaces the waste % of each mapped material for this install; the production factor multiplies the production rate of each mapped item (0.8 = a crew producing at 80% of the assumed rate). Both apply when the assembly is installed, and stay recorded on it — blank means the recipe defaults.</p>
+          </div>
         </div>
         <div className="flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">Review production rates, waste, code, permits, and local conditions before using the installed assembly in an estimate.</p><Button type="button" onClick={install} disabled={!canWrite || saving || Boolean(selected.blockingReasons?.length) || !mappingComplete || !previewReady || isStarterCatalogInstalled(selected, installedCodes)}>{isStarterCatalogInstalled(selected, installedCodes) ? "Installed" : saving ? "Installing" : "Install assembly"}</Button></div>
       </div>}
@@ -556,15 +585,28 @@ function AssemblyEditForm({ assembly, saving, onSaving, onError, onUpdated }: {
     description: assembly.description ?? "",
     isTemplate: assembly.isTemplate,
   });
+  // DEV-17 S10: strings so blank can mean "clear the override" (null).
+  const [editWasteOverridePct, setEditWasteOverridePct] = useState(assembly.wasteOverridePct == null ? "" : String(assembly.wasteOverridePct));
+  const [editProductionRateFactor, setEditProductionRateFactor] = useState(assembly.productionRateFactor == null ? "" : String(assembly.productionRateFactor));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const parsedWaste = editWasteOverridePct.trim() === "" ? null : Number(editWasteOverridePct);
+    const parsedFactor = editProductionRateFactor.trim() === "" ? null : Number(editProductionRateFactor);
+    if (parsedWaste !== null && (!Number.isFinite(parsedWaste) || parsedWaste < 0 || parsedWaste > 100)) {
+      onError("Waste override must be between 0 and 100 percent.");
+      return;
+    }
+    if (parsedFactor !== null && (!Number.isFinite(parsedFactor) || parsedFactor <= 0 || parsedFactor > 10)) {
+      onError("Production factor must be greater than 0 and at most 10.");
+      return;
+    }
     onSaving(true);
     onError(null);
     try {
       const updated = await clientFetch<CostbookAssembly>(`/costbook/assemblies/${assembly.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ ...edit, description: edit.description.trim() || null }),
+        body: JSON.stringify({ ...edit, description: edit.description.trim() || null, wasteOverridePct: parsedWaste, productionRateFactor: parsedFactor }),
       });
       onUpdated(updated);
     } catch (err) {
@@ -579,6 +621,9 @@ function AssemblyEditForm({ assembly, saving, onSaving, onError, onUpdated }: {
     <Input aria-label="Assembly name" value={edit.name} onChange={(event) => setEdit({ ...edit, name: event.target.value })} required disabled={saving} />
     <Input aria-label="Assembly unit" value={edit.unitOfMeasure} onChange={(event) => setEdit({ ...edit, unitOfMeasure: event.target.value })} required disabled={saving} />
     <Input aria-label="Assembly description" value={edit.description} onChange={(event) => setEdit({ ...edit, description: event.target.value })} disabled={saving} />
+    <label className="grid gap-1 text-sm font-medium"><span>Waste override (%)</span><Input aria-label="Waste override percent" type="number" min="0" max="100" step="0.5" value={editWasteOverridePct} onChange={(event) => setEditWasteOverridePct(event.target.value)} disabled={saving} placeholder="Recipe default" /></label>
+    <label className="grid gap-1 text-sm font-medium"><span>Production factor</span><Input aria-label="Production factor" type="number" min="0.1" max="10" step="0.1" value={editProductionRateFactor} onChange={(event) => setEditProductionRateFactor(event.target.value)} disabled={saving} placeholder="1.0 = recipe default" /></label>
+    <p className="text-xs text-muted-foreground md:col-span-2">Blank clears the override back to the recipe defaults. Waste replaces the waste % of each mapped material; production factor multiplies the production rate of each mapped item.</p>
     <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={edit.isTemplate} onChange={(event) => setEdit({ ...edit, isTemplate: event.target.checked })} disabled={saving} />Reusable template</label>
     <div className="md:text-right"><Button type="submit" size="sm" disabled={saving}>{saving ? "Saving" : "Save changes"}</Button></div>
   </form>;
