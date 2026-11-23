@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
-import { getRequestDatabaseClient } from "../../db/requestSession";
+import { getRequestDatabaseClient, runInDatabaseTransaction } from "../../db/requestSession";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { ProposalGeneratorService } from "../proposal-generator/service";
 import { ProposalDocument } from "../proposal-generator/types";
@@ -209,6 +209,40 @@ export class ProposalsService {
   // contract, is immutable. Nothing here touches acceptance, estimate
   // finalization, or totals — allowancesTotal is display-only.
 
+  /**
+   * Serialize child mutations against proposal acceptance. Acceptance
+   * commits through a conditional update on the proposal row, so taking a
+   * row lock on the parent first — inside the same transaction as the child
+   * write — orders the two: whichever commits first wins, and the loser
+   * re-reads the committed state (the editability check below, or the
+   * conditional updateMany/deleteMany predicate) instead of racing past it.
+   * Mirrors EstimateEngineService.lockEstimateForMutation. Skipped when the
+   * client cannot run raw SQL (mocked Prisma in unit tests), where the
+   * conditional predicates remain the only guard.
+   */
+  private async lockProposalForMutation(proposalId: string): Promise<void> {
+    if (typeof prisma.$queryRaw !== "function") return;
+    await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT id
+      FROM public.proposals
+      WHERE id = CAST(${proposalId} AS uuid)
+      FOR UPDATE
+    `);
+  }
+
+  /**
+   * Run a child mutation inside one transaction (reusing the active request
+   * transaction when one exists) so the parent lock above and the child
+   * write commit or roll back together. Falls through to the direct call
+   * when the client has no $transaction (mocked Prisma in unit tests);
+   * there the request-scoped transaction already provides the boundary, or
+   * there is no concurrent writer to serialize against.
+   */
+  private async inProposalMutationTransaction<T>(operation: () => Promise<T>): Promise<T> {
+    if (typeof prisma.$transaction !== "function") return operation();
+    return runInDatabaseTransaction(prisma, operation);
+  }
+
   async listSelections(proposalId: string, orgId?: string): Promise<ProposalSelectionDTO[]> {
     await this.findOrThrow(proposalId, orgId);
     const rows = await prisma.proposalSelection.findMany({
@@ -219,6 +253,11 @@ export class ProposalsService {
   }
 
   async createSelection(proposalId: string, input: CreateProposalSelectionInput, orgId?: string): Promise<ProposalSelectionDTO> {
+    return this.inProposalMutationTransaction(() => this.createSelectionInTransaction(proposalId, input, orgId));
+  }
+
+  private async createSelectionInTransaction(proposalId: string, input: CreateProposalSelectionInput, orgId?: string): Promise<ProposalSelectionDTO> {
+    await this.lockProposalForMutation(proposalId);
     const parent = await this.findEditableProposal(proposalId, orgId);
     const validated = validateSelectionInput(input);
     if (validated.label === undefined) throw new ApiError(400, "Selection label must be 1-120 characters");
@@ -240,6 +279,11 @@ export class ProposalsService {
   }
 
   async updateSelection(selectionId: string, proposalId: string, input: UpdateProposalSelectionInput, orgId?: string): Promise<ProposalSelectionDTO> {
+    return this.inProposalMutationTransaction(() => this.updateSelectionInTransaction(selectionId, proposalId, input, orgId));
+  }
+
+  private async updateSelectionInTransaction(selectionId: string, proposalId: string, input: UpdateProposalSelectionInput, orgId?: string): Promise<ProposalSelectionDTO> {
+    await this.lockProposalForMutation(proposalId);
     const validated = validateSelectionInput(input, true);
     const updated = await prisma.proposalSelection.updateMany({
       where: {
@@ -264,6 +308,11 @@ export class ProposalsService {
   }
 
   async deleteSelection(selectionId: string, proposalId: string, orgId?: string): Promise<void> {
+    return this.inProposalMutationTransaction(() => this.deleteSelectionInTransaction(selectionId, proposalId, orgId));
+  }
+
+  private async deleteSelectionInTransaction(selectionId: string, proposalId: string, orgId?: string): Promise<void> {
+    await this.lockProposalForMutation(proposalId);
     const deleted = await prisma.proposalSelection.deleteMany({
       where: {
         id: selectionId,
@@ -290,6 +339,11 @@ export class ProposalsService {
   }
 
   async createAllowance(proposalId: string, input: CreateProposalAllowanceInput, orgId?: string): Promise<ProposalAllowanceDTO> {
+    return this.inProposalMutationTransaction(() => this.createAllowanceInTransaction(proposalId, input, orgId));
+  }
+
+  private async createAllowanceInTransaction(proposalId: string, input: CreateProposalAllowanceInput, orgId?: string): Promise<ProposalAllowanceDTO> {
+    await this.lockProposalForMutation(proposalId);
     const parent = await this.findEditableProposal(proposalId, orgId);
     const validated = validateAllowanceInput(input);
     if (validated.description === undefined || validated.amount === undefined) {
@@ -311,6 +365,11 @@ export class ProposalsService {
   }
 
   async updateAllowance(allowanceId: string, proposalId: string, input: UpdateProposalAllowanceInput, orgId?: string): Promise<ProposalAllowanceDTO> {
+    return this.inProposalMutationTransaction(() => this.updateAllowanceInTransaction(allowanceId, proposalId, input, orgId));
+  }
+
+  private async updateAllowanceInTransaction(allowanceId: string, proposalId: string, input: UpdateProposalAllowanceInput, orgId?: string): Promise<ProposalAllowanceDTO> {
+    await this.lockProposalForMutation(proposalId);
     const validated = validateAllowanceInput(input, true);
     const updated = await prisma.proposalAllowance.updateMany({
       where: {
@@ -333,6 +392,11 @@ export class ProposalsService {
   }
 
   async deleteAllowance(allowanceId: string, proposalId: string, orgId?: string): Promise<void> {
+    return this.inProposalMutationTransaction(() => this.deleteAllowanceInTransaction(allowanceId, proposalId, orgId));
+  }
+
+  private async deleteAllowanceInTransaction(allowanceId: string, proposalId: string, orgId?: string): Promise<void> {
+    await this.lockProposalForMutation(proposalId);
     const deleted = await prisma.proposalAllowance.deleteMany({
       where: {
         id: allowanceId,

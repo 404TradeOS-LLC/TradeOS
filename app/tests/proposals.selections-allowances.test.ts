@@ -33,7 +33,17 @@ const mockPrisma = {
   proposalDelivery: {
     create: jest.fn(),
   },
+  // Transaction/lock wiring: the service runs child mutations through
+  // runInDatabaseTransaction and locks the parent proposal row with
+  // SELECT ... FOR UPDATE. The mock transaction invokes the callback with
+  // the same mock client, mirroring the request-scoped transaction routing.
+  $transaction: jest.fn(),
+  $queryRaw: jest.fn().mockResolvedValue([]),
 };
+
+mockPrisma.$transaction.mockImplementation(async (operation: (client: typeof mockPrisma) => Promise<unknown>) =>
+  operation(mockPrisma)
+);
 
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
 jest.mock("../modules/proposal-generator/service", () => ({
@@ -169,6 +179,35 @@ describe("ProposalsService selections and allowances (DES-10-F8)", () => {
       })
     );
     expect(created.status).toBe("action_required");
+  });
+
+  it("locks the parent proposal inside one transaction before any child write, so acceptance cannot commit mid-mutation", async () => {
+    mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("draft"));
+    mockPrisma.proposalSelection.count.mockResolvedValue(0);
+    mockPrisma.proposalSelection.create.mockResolvedValue(selectionRow());
+    mockPrisma.proposalAllowance.count.mockResolvedValue(0);
+    mockPrisma.proposalAllowance.create.mockResolvedValue(allowanceRow());
+    mockPrisma.proposalSelection.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.proposalSelection.findFirstOrThrow.mockResolvedValue(selectionRow({ detail: "Brass dome" }));
+
+    const service = new ProposalsService();
+    await service.createSelection("proposal-1", { label: "PENDANTS" }, "org-1");
+    await service.createAllowance("proposal-1", { description: "PENDANT LIGHTING", amount: 1200 }, "org-1");
+    await service.updateSelection("selection-1", "proposal-1", { detail: "Brass dome" }, "org-1");
+
+    // Every child mutation takes the same parent row lock inside the same
+    // transaction as its write: acceptance's conditional update on the
+    // proposal row blocks on that lock, and a committed acceptance is seen
+    // by the re-check instead of raced past.
+    expect(mockPrisma.$transaction).toHaveBeenCalled();
+    expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(3);
+    for (const call of mockPrisma.$queryRaw.mock.calls) {
+      expect(JSON.stringify(call[0])).toContain("FOR UPDATE");
+    }
+    const lockOrder = mockPrisma.$queryRaw.mock.invocationCallOrder;
+    expect(lockOrder[0]).toBeLessThan(mockPrisma.proposalSelection.create.mock.invocationCallOrder[0]);
+    expect(lockOrder[1]).toBeLessThan(mockPrisma.proposalAllowance.create.mock.invocationCallOrder[0]);
+    expect(lockOrder[2]).toBeLessThan(mockPrisma.proposalSelection.updateMany.mock.invocationCallOrder[0]);
   });
 
   it("rejects a selection with an empty label or an unknown status", async () => {
