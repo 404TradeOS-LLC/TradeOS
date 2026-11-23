@@ -36,6 +36,7 @@ import {
   type SettingsSectionDefinition,
   type SettingsStatusItem,
 } from "./settings-schema";
+import { AddMemberForm } from "./add-member-form";
 
 interface SettingsConsoleProps {
   supplierWorkflowIdentity: { orgId: string; userId: string } | null;
@@ -130,6 +131,9 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
   const [isSaving, setIsSaving] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  // Team directory rows start from the server-rendered snapshot and gain
+  // members added through the Add member form without a full reload.
+  const [teamMembers, setTeamMembers] = useState(initialWorkspaceData.teamMembers);
   const [uploadingAssetKeys, setUploadingAssetKeys] = useState<Set<string>>(new Set());
   const [abcProbe, setAbcProbe] = useState<
     | { state: "idle" | "testing" }
@@ -209,8 +213,8 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
   }, [developerMeta]);
 
   const teamSection = useMemo<SettingsSectionDefinition>(() => {
-    const pendingInvites = initialWorkspaceData.teamMembers.filter((member) => member.status === "invited").length;
-    const activeMembers = initialWorkspaceData.teamMembers.filter((member) => member.status === "active").length;
+    const pendingInvites = teamMembers.filter((member) => member.status === "invited").length;
+    const activeMembers = teamMembers.filter((member) => member.status === "active").length;
 
     return {
       ...realSections.find((section) => section.id === "team")!,
@@ -236,7 +240,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
               id: "team-directory",
               title: "Active Team",
               description: "Live organization membership from the current workspace.",
-              rows: initialWorkspaceData.teamMembers.map((member) => ({
+              rows: teamMembers.map((member) => ({
                 title: member.fullName ?? member.email,
                 subtitle: `${member.email} • ${member.role}`,
                 meta: `Updated ${formatRelativeDate(member.updatedAt)}`,
@@ -261,7 +265,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
             },
           ],
     };
-  }, [initialWorkspaceData]);
+  }, [initialWorkspaceData, teamMembers]);
 
   const rolesSection = useMemo<SettingsSectionDefinition>(() => {
     return {
@@ -1166,6 +1170,24 @@ export function SettingsConsole({ supplierWorkflowIdentity, initialDraft, persis
               />
             ))
           )}
+
+          {selectedSection.id === "team" && initialWorkspaceData.canManageWorkspace && supplierWorkflowIdentity ? (
+            <AddMemberForm
+              orgId={supplierWorkflowIdentity.orgId}
+              currentRole={initialWorkspaceData.currentRole}
+              onMemberAdded={(member) => {
+                setTeamMembers((current) => [
+                  ...current.filter((item) => item.membershipId !== member.membershipId),
+                  member,
+                ]);
+                showToast({
+                  title: "Member added",
+                  description: `${member.email} is now ${member.role} on this workspace.`,
+                  tone: "success",
+                });
+              }}
+            />
+          ) : null}
         </section>
       </div>
 
