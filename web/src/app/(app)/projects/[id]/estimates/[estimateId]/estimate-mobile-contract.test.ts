@@ -29,7 +29,12 @@ test("mobile estimate keeps the canonical four-stage workflow", async () => {
   assert.match(builder, /Continue to items/);
   assert.match(builder, /Continue to price/);
   assert.match(builder, /Continue to review/);
-  assert.match(builder, /safe-area-inset-bottom/);
+  // The sticky shell with safe-area clearance now lives in the shared
+  // StickyTaskAction (DES-10-F6 convergence, following the #1031 Site Visit
+  // precedent): the builder pins the usage, and the shared component's own
+  // contract test pins the shell classes.
+  assert.match(builder, /<StickyTaskAction/);
+  assert.doesNotMatch(builder, /function EstimateStageAction/);
 });
 
 
