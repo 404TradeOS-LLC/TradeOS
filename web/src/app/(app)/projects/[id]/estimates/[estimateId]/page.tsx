@@ -10,7 +10,7 @@ export default async function EstimateBuilderPage({ params }: { params: Promise<
   return (
     <div className="flex flex-col gap-6">
       <EstimateMaterialsPanel estimateId={estimateId} projectId={id} />
-      <EstimateBuilder key={`${id}:${estimateId}`} projectId={id} projectName={project.name} simpleScope={project.simpleScope} estimateId={estimateId} />
+      <EstimateBuilder key={`${id}:${estimateId}`} projectId={id} projectName={project.name} simpleScope={project.simpleScope} estimateId={estimateId} customerName={project.customer?.name ?? null} jobType={project.jobType} />
     </div>
   );
 }
