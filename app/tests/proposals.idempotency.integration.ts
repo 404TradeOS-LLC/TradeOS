@@ -75,6 +75,16 @@ describe("proposal create idempotency in a request-scoped PostgreSQL transaction
         })
       );
       expect(line.lineCost).toBe(Number(amount));
+      // DES-10-F2: the Review readiness checklist gates finalize; record
+      // both review attestations before finalizing.
+      await runWithDatabaseSession(appClient, auth, () =>
+        estimateService.updateEstimate({
+          estimateId: fixtureEstimateId,
+          orgId,
+          exclusionsReviewed: true,
+          priceSourcesReviewed: true,
+        })
+      );
       const finalized = await runWithDatabaseSession(appClient, auth, () =>
         estimateService.finalize(fixtureEstimateId, orgId)
       );

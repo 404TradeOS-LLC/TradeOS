@@ -38,6 +38,8 @@ function createFakeEstimateEngine(): EstimateUpdateToolDeps["estimateEngine"] {
         costAfterOverhead: 10,
         preTaxTotalPrice: 12,
         totalPrice: 12,
+        exclusionsReviewedAt: null,
+        priceSourcesReviewedAt: null,
       },
     })),
   };
