@@ -24,22 +24,20 @@ import type { FormActionState } from "./customers";
  *    first selected work type as `jobType`; scope persisted as
  *    `simpleScope`, the same field the estimate workspace reads).
  * 2. Create a draft Estimate on that Project.
- * 3. Stage the Athena structured draft (`POST
- *    /api/v1/estimates/:id/ai-estimator/draft` with the scope text). The
- *    draft is review-only — nothing reaches the estimate until the
- *    contractor accepts lines in Athena review — and the generation is
- *    recorded as an Athena generation + `estimate.ai_estimator_draft_generated`
- *    activity event.
- * 4. Land on the draft estimate workspace, where the existing Athena
- *    review button continues Items → Price → Review.
+ * 3. Land on the draft estimate workspace, where the existing Athena
+ *    review button continues Items → Price → Review. Athena review
+ *    generates the structured draft on demand from the persisted scope —
+ *    no draft is staged here: `StructuredAIEstimatorService.generateDraft`
+ *    persists only generation metadata, not retrievable line items, and
+ *    there is no endpoint to fetch a staged draft, so a fire-and-forget
+ *    generation here would discard its result. Draft persistence +
+ *    hydration is a follow-up slice (storage + GET + migration).
  *
  * Failure semantics (mirrors `createProjectAction` with intent=estimate):
  * a project that fails to save returns an inline error; an estimate that
  * fails after the project saved redirects to the project instead of
  * retrying the create (a retry would duplicate the project, and the
- * estimate POST may have committed despite the error). A failed Athena
- * draft generation never loses the saved project + estimate — the
- * workspace's Athena review regenerates the same draft on demand.
+ * estimate POST may have committed despite the error).
  */
 export async function completeFirstEstimateOnboarding(
   _prev: FormActionState,
@@ -83,19 +81,6 @@ export async function completeFirstEstimateOnboarding(
     // The Project is already saved. A retry of this form would create a
     // duplicate, and the Estimate POST may have committed despite the error.
     redirect(`/projects/${projectId}?estimateStart=review`);
-  }
-
-  try {
-    await apiFetch(`/api/v1/estimates/${estimate.id}/ai-estimator/draft`, {
-      method: "POST",
-      token,
-      body: JSON.stringify({ scopeOfWork: value.scopeText }),
-    });
-  } catch (err) {
-    console.error(
-      "completeFirstEstimateOnboarding: Athena draft staging failed; the estimate workspace can regenerate it",
-      err,
-    );
   }
 
   revalidatePath("/dashboard");

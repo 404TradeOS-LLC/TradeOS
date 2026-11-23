@@ -39,23 +39,28 @@ test("onboarding completion validates the wizard payload before creating anythin
   );
 });
 
-test("scope-to-draft wiring: project, then estimate, then Athena structured draft, then workspace", () => {
+test("scope-to-workspace wiring: project, then estimate, then workspace", () => {
   const source = readActionSource("completeFirstEstimateOnboarding");
   const projectIndex = source.indexOf('apiFetch<{ id: string }>("/api/v1/projects"');
   const estimateIndex = source.indexOf('apiFetch<Estimate>("/api/v1/estimates"');
-  const draftIndex = source.indexOf("/ai-estimator/draft");
   const redirectIndex = source.indexOf("redirect(`/projects/${projectId}/estimates/${estimate.id}`)");
   for (const [name, index] of [
     ["project create", projectIndex],
     ["estimate create", estimateIndex],
-    ["Athena draft staging", draftIndex],
     ["workspace redirect", redirectIndex],
   ] as const) {
     assert.notEqual(index, -1, `expected ${name}`);
   }
   assert.ok(projectIndex < estimateIndex, "project must be created before its estimate");
-  assert.ok(estimateIndex < draftIndex, "estimate must exist before the Athena draft is staged");
-  assert.ok(draftIndex < redirectIndex, "draft staging must precede the workspace redirect");
+  assert.ok(estimateIndex < redirectIndex, "estimate must exist before the workspace redirect");
+});
+
+test("completion never calls the draft endpoint: no staged draft exists to hydrate", () => {
+  const source = readActionSource("completeFirstEstimateOnboarding");
+  assert.ok(!source.includes("/ai-estimator/draft"), "the draft POST is fire-and-discard — it must not run");
+  assert.ok(!source.includes("scopeOfWork"), "no scope is sent to a draft endpoint");
+  // The persisted scope is what Athena review regenerates from on demand.
+  assert.match(source, /simpleScope: value\.scopeText/);
 });
 
 test("project create persists the scope and the first work type", () => {
@@ -64,17 +69,6 @@ test("project create persists the scope and the first work type", () => {
   assert.match(source, /jobType: value\.workTypes\[0\]/);
   assert.match(source, /simpleScope: value\.scopeText/);
   assert.match(source, /deriveProjectNameFromScope\(value\.scopeText\)/);
-});
-
-test("Athena draft staging sends the scope text and never loses a saved estimate", () => {
-  const source = readActionSource("completeFirstEstimateOnboarding");
-  const draftIndex = source.indexOf("/ai-estimator/draft");
-  const catchIndex = source.indexOf("} catch (err) {", draftIndex);
-  assert.notEqual(catchIndex, -1, "draft staging must be wrapped so its failure cannot lose the estimate");
-  const draftBlock = source.slice(draftIndex, source.indexOf("revalidatePath(\"/dashboard\")"));
-  assert.match(draftBlock, /body: JSON\.stringify\(\{ scopeOfWork: value\.scopeText \}\)/);
-  assert.match(draftBlock, /console\.error/);
-  assert.ok(!draftBlock.includes("return { error"), "a failed draft stage must not return an error state");
 });
 
 test("estimate-create failure redirects to the saved project instead of retrying the create", () => {
