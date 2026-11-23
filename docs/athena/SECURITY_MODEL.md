@@ -256,6 +256,27 @@ and forced-RLS boundaries remain authoritative for text, mobile, and voice.
 A14 does not introduce a speech-provider credential surface, a second approval
 mechanism, offline autonomous execution, or a channel-specific permission
 engine.
+
+## Google Gemini provider credential surface
+
+The Gemini provider introduces the first real model-credential surface, and it
+is deliberately narrow: one API key, `GEMINI_API_KEY`, supplied as a Vercel
+environment variable only — never in code, never in git, never in chat, and
+never in a thrown error, log line, or telemetry field. The key travels in the
+`x-goog-api-key` request header only, never as a `?key=` query parameter, so it
+cannot leak through server access logs. The key must be restricted in Google
+Cloud Console to the Generative Language API only; no IP restriction is set
+because Vercel egress IPs are dynamic. With `ATHENA_PROVIDER_MODE=google`
+selected but no key present, provider resolution fails closed to the disabled
+provider. A bad or revoked key surfaces only as the safe summary on the first
+chat call (502, provider category, non-retryable); the key value and the
+upstream error body are never forwarded. The provider sends only the minimal A1
+context (role, selected-scope ids, channel metadata) in the prompt — no
+organization or user ids, no permission list, no request/telemetry ids — and
+raw prompts and raw model output remain excluded from persisted records by the
+S025 rule. The provider adds no approval, write, or permission surface: draft
+text only, and the router/planner, action engine, and observability flags stay
+off.
 ## Validation runtime dependency repair
 
 Zod 4.6.7 replaces vulnerable validation code, including the nested Vercel validator through `$zod`. Constrained oversized collections reject before element parsing in the regression test. GUID parsing preserves existing identifier syntax only; tool grants, server-side record checks, approval gates, idempotency and forced tenant RLS are unchanged. Production code does not use the bundled Zod 3 compatibility entry point. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.

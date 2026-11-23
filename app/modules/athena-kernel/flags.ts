@@ -2,7 +2,7 @@
 // "Feature Flags"). Every flag is re-read from process.env on each call
 // (no module-level caching) so tests can toggle behavior per request
 // without reloading modules.
-export type AthenaProviderMode = "fake" | "disabled";
+export type AthenaProviderMode = "fake" | "disabled" | "google";
 
 export interface AthenaFeatureFlags {
   kernelEnabled: boolean;
@@ -23,7 +23,7 @@ function parseBooleanFlag(value: string | undefined, fallback: boolean): boolean
 export function getAthenaFlags(env: NodeJS.ProcessEnv = process.env): AthenaFeatureFlags {
   return {
     kernelEnabled: parseBooleanFlag(env.ATHENA_KERNEL_ENABLED, false),
-    providerMode: env.ATHENA_PROVIDER_MODE === "fake" ? "fake" : "disabled",
+    providerMode: env.ATHENA_PROVIDER_MODE === "fake" ? "fake" : env.ATHENA_PROVIDER_MODE === "google" ? "google" : "disabled",
     draftResponsesEnabled: parseBooleanFlag(env.ATHENA_DRAFT_RESPONSES_ENABLED, false),
     telemetryEnabled: parseBooleanFlag(env.ATHENA_TELEMETRY_ENABLED, true),
     costTrackingEnabled: parseBooleanFlag(env.ATHENA_COST_TRACKING_ENABLED, true),
