@@ -485,7 +485,7 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/brand-studio`
 - `/api/v1/intelligence`
 - `/api/v1/athena`
-  - `GET /api/v1/athena/capabilities` — authenticated, read-only deployment capability discovery. Returns `{ kernelEnabled: boolean }` from the same `ATHENA_KERNEL_ENABLED` feature gate that controls `POST /api/v1/athena/chat`. It exposes no customer, tenant, model, provider, or permission payload and exists so contractor navigation can fail closed when Athena is disabled.
+  - `GET /api/v1/athena/capabilities` — authenticated, read-only deployment capability discovery. Returns `{ kernelEnabled: boolean }` from the same `ATHENA_KERNEL_ENABLED` feature gate that controls `POST /api/v1/athena/chat`. It exposes no customer, tenant, model, provider, or permission payload and exists so contractor navigation can fail closed when Athena is disabled. It does not reflect model-provider health: with `ATHENA_PROVIDER_MODE=google` and a bad or missing `GEMINI_API_KEY`, the kernel still reports enabled and the failure surfaces on the first chat call as a 502 with the safe summary only.
   - `POST /api/v1/athena/chat` — authenticated Athena kernel request boundary. Selected scope narrows context but does not authorize it; existing service permissions, approval/risk policy, idempotency, request-scoped database session, and forced RLS remain authoritative.
 - `/api/v1/athena/observability`
 

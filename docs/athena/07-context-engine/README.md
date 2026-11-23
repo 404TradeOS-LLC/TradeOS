@@ -103,6 +103,14 @@ an action, or bypass provider/service object checks. The authenticated
 feature is enabled for navigation gating; it does not hydrate business context
 or widen the Context Engine scope.
 
+The Google Gemini model adapter renders the minimal A1 snapshot into a compact
+prompt block — role, selected-scope ids, current page, and safe channel
+metadata only; no organization or user ids, no permission list, no
+request/telemetry ids — and truncates that block to
+`ATHENA_CONTEXT_BUDGET.maxEstimatedTokens` (32,768, at ~4 chars per token). If
+truncation would remove a scope id, the call fails closed instead of answering
+with silently narrowed context.
+
 ## Provider Contract
 
 Context providers implement [C010 Context Provider](../contracts/README.md#c010-context-provider-v100).

@@ -26,6 +26,11 @@ describe("athena kernel feature flags", () => {
     expect(getAthenaFlags({ ATHENA_PROVIDER_MODE: "" } as NodeJS.ProcessEnv).providerMode).toBe("disabled");
   });
 
+  it("'google' selects the Gemini provider; a missing key still fails closed at resolution time", () => {
+    expect(getAthenaFlags({ ATHENA_PROVIDER_MODE: "google" } as NodeJS.ProcessEnv).providerMode).toBe("google");
+    expect(getAthenaFlags({ ATHENA_PROVIDER_MODE: "GOOGLE" } as NodeJS.ProcessEnv).providerMode).toBe("disabled");
+  });
+
   it("isAthenaKernelEnabled mirrors getAthenaFlags().kernelEnabled", () => {
     expect(isAthenaKernelEnabled({} as NodeJS.ProcessEnv)).toBe(false);
     expect(isAthenaKernelEnabled({ ATHENA_KERNEL_ENABLED: "true" } as NodeJS.ProcessEnv)).toBe(true);
