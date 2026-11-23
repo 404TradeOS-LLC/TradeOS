@@ -54,7 +54,7 @@ export function AddMemberForm({ orgId, currentRole, onMemberAdded }: AddMemberFo
       setEmail("");
       setFullName("");
       setAuthSubject("");
-      setSuccess(`${member.email} is now ${member.role} on this workspace.`);
+      setSuccess(`${member.email} is now ${member.role} on this workspace. They can switch to it from the workspace menu once they sign in.`);
       onMemberAdded(member);
       router.refresh();
     } catch (caught) {
