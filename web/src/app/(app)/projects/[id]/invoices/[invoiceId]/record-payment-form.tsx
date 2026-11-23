@@ -59,7 +59,14 @@ export function RecordPaymentForm({ projectId, invoiceId, balanceDue }: { projec
         <Label htmlFor="paymentNotes">Notes <span className="text-muted-foreground">(optional)</span></Label>
         <Textarea id="paymentNotes" name="notes" rows={2} maxLength={2000} placeholder="Deposit received at jobsite…" />
       </div>
-      {state?.error ? <p className="text-sm text-destructive" role="alert">{state.error}</p> : null}
+      {state?.error ? (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3">
+          <p className="text-sm font-medium text-foreground">Payment Failure</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {state.error} The invoice balance is unchanged — the failure is recorded on this invoice so it is not silently lost.
+          </p>
+        </div>
+      ) : null}
       <Button type="submit" disabled={pending} className="w-full sm:w-auto sm:justify-self-end">
         {pending ? "Recording…" : "Record Payment"}
       </Button>

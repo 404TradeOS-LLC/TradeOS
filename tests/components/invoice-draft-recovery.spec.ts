@@ -81,3 +81,21 @@ for(const width of [390,768,1024,1440]){
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   });
 }
+
+// DES-7 (b): the "NOT SAVED" badge appears once the form holds unsaved
+// changes and clears when the draft saves.
+test('invoice NOT SAVED badge shows on dirty state and clears on save', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.setContent('<main id="root" style="padding:16px"></main>');
+  await page.addStyleTag({ content: css });
+  await page.addScriptTag({ content: bundle });
+  const badge = page.getByTestId('not-saved-badge');
+  await expect(badge).toHaveCount(0);
+  await page.getByLabel('Description', { exact: true }).fill('Synthetic cleanup');
+  await expect(badge).toBeVisible();
+  await expect(badge).toHaveText('NOT SAVED');
+  await page.getByRole('button', { name: 'Save invoice draft', exact: true }).click();
+  await page.evaluate(() => window.confirmInvoice());
+  await expect.poll(() => page.evaluate(() => window.invoiceDestination)).toBe('/projects/synthetic-project/invoices/confirmed-invoice');
+  await expect(badge).toHaveCount(0);
+});

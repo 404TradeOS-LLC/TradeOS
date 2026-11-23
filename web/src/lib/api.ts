@@ -1138,6 +1138,7 @@ export interface Invoice {
   taxAmount: number;
   dueDate: string | null;
   sentAt: string | null;
+  viewedAt: string | null;
   paidAt: string | null;
   createdAt: string;
   paidAmount: number;

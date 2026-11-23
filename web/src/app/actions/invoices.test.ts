@@ -126,21 +126,26 @@ function readRecordInvoicePaymentActionSource(): string {
 test("recordInvoicePaymentAction rejects a non-positive or missing amount before calling the API", () => {
   const fnSource = readRecordInvoicePaymentActionSource();
   const guardIndex = fnSource.indexOf("if (!Number.isFinite(amount) || amount <= 0)");
-  const apiCallIndex = fnSource.indexOf("apiFetch");
+  const apiCallIndex = fnSource.indexOf("apiFetch(`/api/v1/invoices/${id}/payments`");
   assert.notEqual(guardIndex, -1, "expected an amount > 0 guard");
   assert.notEqual(apiCallIndex, -1, "expected a call to apiFetch");
   assert.ok(guardIndex < apiCallIndex, "the amount guard must run before the API call");
+  // DES-7 (d): the rejection is a Payment Failure, not a silent return.
+  assert.match(fnSource, /return recordFailure\("Enter a payment amount greater than zero\."\)/);
 });
 
 test("recordInvoicePaymentAction requires a payment date and a method before calling the API", () => {
   const fnSource = readRecordInvoicePaymentActionSource();
-  const apiCallIndex = fnSource.indexOf("apiFetch");
+  const apiCallIndex = fnSource.indexOf("apiFetch(`/api/v1/invoices/${id}/payments`");
 
   const dateGuardIndex = fnSource.indexOf("if (!paymentDate)");
   const methodGuardIndex = fnSource.indexOf("if (!method)");
   assert.notEqual(dateGuardIndex, -1, "expected a paymentDate guard");
   assert.notEqual(methodGuardIndex, -1, "expected a method guard");
   assert.ok(dateGuardIndex < apiCallIndex && methodGuardIndex < apiCallIndex, "both guards must run before the API call");
+  // DES-7 (d): both rejections are Payment Failures, not silent returns.
+  assert.match(fnSource, /return recordFailure\("Choose the payment date\."\)/);
+  assert.match(fnSource, /return recordFailure\("Choose a payment method\."\)/);
 });
 
 test("recordInvoicePaymentAction posts to the invoice payments endpoint with the full payment payload", () => {
@@ -191,7 +196,17 @@ test("recordInvoicePaymentAction surfaces the backend's ApiClientError message i
   const catchIndex = fnSource.indexOf("} catch (err) {");
   assert.notEqual(catchIndex, -1, "expected a catch block around the payment API call");
   const catchBody = fnSource.slice(catchIndex);
-  assert.match(catchBody, /return\s*\{\s*error:\s*err instanceof ApiClientError \? err\.message : "Something went wrong\."\s*\}/);
+  // DES-7 (d): the API error is recorded as a Payment Failure first, and
+  // the recorded message is what the form reports.
+  assert.match(catchBody, /return recordFailure\(err instanceof ApiClientError \? err\.message : "Something went wrong\."\);/);
+});
+
+test("recordInvoicePaymentAction records a failed attempt as a Payment Failure before reporting it", () => {
+  const fnSource = readRecordInvoicePaymentActionSource();
+  assert.match(fnSource, /const recordFailure = async \(message: string\): Promise<FormActionState> => \{/);
+  assert.match(fnSource, /apiFetch\(`\/api\/v1\/invoices\/\$\{id\}\/payment-failures`/);
+  assert.match(fnSource, /body: JSON\.stringify\(\{ reason: message \}\)/);
+  assert.match(fnSource, /return \{ error: message \};/);
 });
 
 test("recordInvoicePaymentAction revalidates and redirects back to the invoice detail page only after a successful payment", () => {
