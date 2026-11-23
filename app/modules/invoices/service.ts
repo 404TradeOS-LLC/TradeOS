@@ -430,6 +430,16 @@ export class InvoicesService {
    * that only allows sent→viewed (or an unchanged status) and setting
    * viewedAt from null — a portal session never gains staff write
    * privileges.
+   *
+   * DES-7 round-3: the conditional write also requires the status that was
+   * read, and a zero-row result returns the current invoice instead of
+   * failing. Without the status test, a staff payment committing between
+   * the read and the write leaves viewedAt null, so the update still
+   * matches and tries sent→viewed on a now-paid row — the portal trigger
+   * rejects that transition and the whole portal view fails. The raw
+   * status as read is used (not the normalized one: legacy rows may store
+   * 'void'/'cancelled', which normalize to 'voided' and would never match
+   * the stored value).
    */
   async markViewed(id: string, orgId?: string, actorUserId?: string): Promise<InvoiceDTO> {
     const row = await this.findOrThrow(id, orgId);
@@ -448,13 +458,16 @@ export class InvoicesService {
     // already permits the update.
     await prisma.$queryRaw(Prisma.sql`select set_config('app.portal_invoice_id', ${id}, true)`);
     const updated = await prisma.invoice.updateMany({
-      where: { id, viewedAt: null, project: orgId ? { orgId } : undefined },
+      where: { id, viewedAt: null, status: row.status, project: orgId ? { orgId } : undefined },
       data: target,
     });
     if (updated.count !== 1) {
-      const latest = await this.findOrThrow(id, orgId);
-      if (latest.viewedAt) return this.getById(row.id, orgId);
-      throw new ApiError(409, `Invoice ${id} changed before it could be marked viewed`);
+      // The invoice changed between the read and the write (e.g. a staff
+      // payment committed, moving sent -> paid). The view itself still
+      // succeeds: return the current invoice instead of failing the portal
+      // read. A later load records viewedAt once the status is stable.
+      await this.findOrThrow(id, orgId);
+      return this.getById(row.id, orgId);
     }
     await this.recordDeliveryEvent({
       orgId: orgId ?? row.project.orgId ?? undefined,

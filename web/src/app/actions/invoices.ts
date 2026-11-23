@@ -174,6 +174,11 @@ export async function recordInvoicePaymentAction(_prev: FormActionState, formDat
   if (!paymentDate) return recordFailure("Choose the payment date.");
   if (!method) return recordFailure("Choose a payment method.");
 
+  // DES-7 (d) round-3: the attempt start binds reconciliation to THIS
+  // attempt. The recorded payment carries no idempotency key, so without
+  // this bound an earlier identical payment inside the window would
+  // falsely confirm a new attempt that failed before committing.
+  const attemptStartedAt = new Date();
   try {
     await apiFetch(`/api/v1/invoices/${id}/payments`, {
       method: "POST",
@@ -197,11 +202,7 @@ export async function recordInvoicePaymentAction(_prev: FormActionState, formDat
     // a recorded payment failed and never tells the contractor to record
     // it again. Only a confirmed HTTP rejection records a failure.
     if (isUnconfirmedPaymentError(err)) {
-      const recorded = await reconcileRecordedPayment(() => getInvoice(token ?? "", id), {
-        amount,
-        paymentDate,
-        method,
-      });
+      const recorded = await reconcileRecordedPayment(() => getInvoice(token ?? "", id), { amount, paymentDate, method, }, new Date(), attemptStartedAt);
       if (recorded) {
         revalidatePath(`/projects/${projectId}/invoices/${id}`);
         redirect(`/projects/${projectId}/invoices/${id}`);

@@ -634,7 +634,7 @@ describe("InvoicesService", () => {
       expect(invoice.status).toBe("viewed");
       expect(invoice.viewedAt).not.toBeNull();
       expect(mockPrisma.invoice.updateMany).toHaveBeenCalledWith({
-        where: { id: "invoice-1", viewedAt: null, project: { orgId: "org-1" } },
+        where: { id: "invoice-1", viewedAt: null, status: "sent", project: { orgId: "org-1" } },
         data: { status: "viewed", viewedAt: expect.any(Date) },
       });
       // The portal RLS policy is keyed by this transaction-local setting
@@ -677,9 +677,36 @@ describe("InvoicesService", () => {
       expect(invoice.status).toBe("partially_paid");
       expect(invoice.viewedAt).not.toBeNull();
       expect(mockPrisma.invoice.updateMany).toHaveBeenCalledWith({
-        where: { id: "invoice-1", viewedAt: null, project: { orgId: "org-1" } },
+        where: { id: "invoice-1", viewedAt: null, status: "partially_paid", project: { orgId: "org-1" } },
         data: { viewedAt: expect.any(Date) },
       });
+    });
+
+    it("returns the current invoice when a payment commits between the read and the write", async () => {
+      // DES-7 round-3: a staff payment committing after the read moves
+      // sent -> paid while viewedAt is still null. The conditional write
+      // must not apply sent -> viewed to the now-paid row (the portal
+      // trigger would reject it), and the portal view must not fail.
+      const paidRow = { ...sentRow, status: "paid" };
+      const paidViewedRow = { ...viewedRow, status: "paid", viewedAt: null };
+      mockPrisma.invoice.findFirst
+        .mockResolvedValueOnce(sentRow)
+        .mockResolvedValueOnce(paidRow)
+        .mockResolvedValueOnce(paidViewedRow);
+      mockPrisma.invoice.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.invoiceDelivery.create.mockResolvedValue({});
+
+      const invoice = await new InvoicesService().markViewed("invoice-1", "org-1");
+
+      expect(invoice.status).toBe("paid");
+      expect(mockPrisma.invoice.updateMany).toHaveBeenCalledWith({
+        where: { id: "invoice-1", viewedAt: null, status: "sent", project: { orgId: "org-1" } },
+        data: { status: "viewed", viewedAt: expect.any(Date) },
+      });
+      // No viewed event is recorded: no write happened, and the view
+      // itself succeeds. A later load records viewedAt once the status
+      // is stable.
+      expect(mockPrisma.invoiceDelivery.create).not.toHaveBeenCalled();
     });
   });
 

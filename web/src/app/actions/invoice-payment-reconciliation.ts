@@ -35,6 +35,14 @@ export interface RecordedPaymentRecord {
  * attempt. The reconciliation read follows the POST immediately, so a
  * match created minutes ago is the attempt; an identical older payment is
  * a different (earlier) recording and must not mask an unconfirmed one.
+ *
+ * DES-7 round-3: the window alone cannot bind a match to this attempt —
+ * the recorded payment carries no idempotency key or attempt identifier
+ * (the API's InvoicePayment shape is { id, amount, paymentDate, method,
+ * createdAt }, and the form's optional reference is neither stored nor
+ * surfaced), so the tightest available bound is the attempt start: a
+ * match must have been created after this attempt began. The window is
+ * only the outer bound, used when the caller cannot supply a start.
  */
 export const PAYMENT_RECONCILIATION_WINDOW_MS = 10 * 60 * 1000;
 
@@ -59,16 +67,25 @@ export function isUnconfirmedPaymentError(err: unknown): boolean {
 /**
  * Find the recorded payment matching an attempt: same amount (to the
  * cent), same payment date, same method, created inside the
- * reconciliation window. Returns null when nothing matches.
+ * reconciliation window — and, when the caller supplies it, created after
+ * the attempt started. Returns null when nothing matches.
+ *
+ * The attempt-start bound is what ties a match to THIS attempt. Without
+ * it, an earlier identical payment recorded inside the window would
+ * falsely confirm a new attempt that actually failed before committing.
  */
 export function findMatchingRecordedPayment(
   payments: readonly RecordedPaymentRecord[],
   attempt: RecordedPaymentAttempt,
   now: Date = new Date(),
+  attemptStartedAt?: Date,
 ): RecordedPaymentRecord | null {
   const attemptDay = attempt.paymentDate.slice(0, 10);
   const attemptAmount = Number(attempt.amount.toFixed(2));
-  const earliestCreatedAt = now.getTime() - PAYMENT_RECONCILIATION_WINDOW_MS;
+  const earliestCreatedAt = Math.max(
+    now.getTime() - PAYMENT_RECONCILIATION_WINDOW_MS,
+    attemptStartedAt ? attemptStartedAt.getTime() : 0,
+  );
   return (
     payments.find(
       (payment) =>
@@ -91,10 +108,11 @@ export async function reconcileRecordedPayment(
   fetchInvoice: () => Promise<{ payments?: readonly RecordedPaymentRecord[] | null }>,
   attempt: RecordedPaymentAttempt,
   now: Date = new Date(),
+  attemptStartedAt?: Date,
 ): Promise<RecordedPaymentRecord | null> {
   try {
     const invoice = await fetchInvoice();
-    return findMatchingRecordedPayment(invoice.payments ?? [], attempt, now);
+    return findMatchingRecordedPayment(invoice.payments ?? [], attempt, now, attemptStartedAt);
   } catch {
     return null;
   }

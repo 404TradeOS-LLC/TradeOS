@@ -68,6 +68,34 @@ test("findMatchingRecordedPayment rejects an identical payment recorded before t
   assert.equal(findMatchingRecordedPayment([stale], attempt, now), null);
 });
 
+test("findMatchingRecordedPayment rejects an earlier identical payment created inside the window but before the attempt started", () => {
+  // DES-7 round-3: an earlier payment with the same amount, date, and
+  // method must not confirm the current attempt — the recorded payment
+  // carries no idempotency key, so the attempt start is the binding.
+  const attemptStartedAt = new Date("2026-11-23T11:59:00.000Z");
+  const earlier = committedPayment({ createdAt: "2026-11-23T11:58:00.000Z" });
+  assert.equal(findMatchingRecordedPayment([earlier], attempt, now, attemptStartedAt), null);
+});
+
+test("findMatchingRecordedPayment matches an identical payment created after the attempt started", () => {
+  const attemptStartedAt = new Date("2026-11-23T11:59:00.000Z");
+  const match = findMatchingRecordedPayment([committedPayment()], attempt, now, attemptStartedAt);
+  assert.ok(match, "expected the payment committed by this attempt to reconcile");
+  assert.equal(match?.createdAt, "2026-11-23T11:59:30.000Z");
+});
+
+test("reconcileRecordedPayment returns null for an earlier identical payment inside the window", async () => {
+  const attemptStartedAt = new Date("2026-11-23T11:59:00.000Z");
+  const earlier = committedPayment({ createdAt: "2026-11-23T11:58:00.000Z" });
+  const recorded = await reconcileRecordedPayment(
+    async () => ({ payments: [earlier] }),
+    attempt,
+    now,
+    attemptStartedAt,
+  );
+  assert.equal(recorded, null);
+});
+
 test("reconcileRecordedPayment returns the committed payment from a stubbed invoice read", async () => {
   const recorded = await reconcileRecordedPayment(
     async () => ({ payments: [committedPayment()] }),
