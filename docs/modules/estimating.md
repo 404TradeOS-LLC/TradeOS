@@ -90,6 +90,12 @@ Estimate line items preserve the Costbook source and price that existed when the
 
 Focused regression coverage lives in `app/tests/estimate-costbook-snapshot.test.ts`.
 
+## Price readiness signals (DES-10-F3)
+
+The estimate detail response (`GET /api/v1/estimates/:id`) attaches a read-time `priceReadiness` signal per line item (`missing | current | warn | refresh | reject | unverified | null`), derived in `app/modules/estimate-engine/priceReadiness.ts` from the line's supplier-price evidence; the Price stage renders it as missing / to-review chips, an omission-check summary, per-cost-type counts, and a low-margin flag below a 10% gross-margin display threshold. The derivation never reprices a saved line: `missing` requires a zero saved `unitCost` with no priced source component (a $0 behind a priced component is an intentionally recorded $0); freshness applies the shared `priceFreshness()` tiers to the backing material's `lastPriceUpdate` as `RECENT_RETAIL_VALIDATION` (current ≤ 30 days, warn ≤ 60, refresh ≤ 90, reject > 90); a material price with no recorded update date is `unverified`; assembly lines aggregate their leaf cost items; lines with no supplier material price (custom, labor/equipment-only) carry `null`. Write-path line responses omit the field. If the readiness lookup fails, the detail read still succeeds and the lines carry no signal. Allowances and the offline notice are not part of this slice: no allowances model and no offline detection exist in the estimate flow.
+
+Regression coverage lives in `app/tests/estimate-price-readiness.test.ts` and `web/src/lib/estimate-price-readiness.test.ts` plus the Price-stage contract in `web/src/app/(app)/projects/[id]/estimates/[estimateId]/estimate-price-readiness.test.ts`.
+
 ## Frontend surfaces
 
 ### Starter-component mapping keyboard contract

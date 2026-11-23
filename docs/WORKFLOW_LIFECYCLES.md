@@ -107,6 +107,7 @@ Pricing snapshot invariant:
 - estimate recalculation uses persisted line costs; it does not re-fetch current CostItem/Assembly pricing for existing lines
 - a newly added CostItem or Assembly line captures the current Costbook cost at creation time
 - duplication/versioning preserves the persisted source and pricing snapshot values
+- the estimate detail read additionally attaches a display-only per-line `priceReadiness` signal (DES-10-F3) derived from the backing material's last price update; it changes no state, transition, or price
 
 Implementation notes:
 
