@@ -143,7 +143,7 @@ export function LoginEntry() {
                 aria-busy={isPending}
               >
                 <div className="field">
-                  <Label htmlFor="email">Email address</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
                     ref={emailInput}
                     id="email"

@@ -324,6 +324,16 @@ with synthetic transport. This does not certify successful authentication,
 deployed behavior, Lighthouse scores, or actual GPU rendering. Review and
 deployment verification remain separate gates.
 
+Entry control parity (2026-11-23, issue #1026): the Email/Password inputs and
+Sign in button now render 48px per canonical Figma frame 548:2780
+(`entry.module.css` `.field input` and `.primary` heights 54px → 48px); the
+password visibility toggle keeps its 44px target with 2px vertical margins
+inside the 48px field, and the Forgot-password link stays 44px. The email
+label reads "Email", matching Figma. `docs/design/ENTRY_CONTROL_PARITY.md`'s
+`min-h-12` prescription was never applied and is superseded — the heights
+live in the entry module. Rendered geometry at 390/768/1024/1440 still needs
+browser evidence.
+
 ## Field authorization evidence — PR #702
 
 The Field page now has executable denied-role tests, alongside its static

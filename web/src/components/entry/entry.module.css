@@ -608,7 +608,7 @@
 }
 .root :global(.field input) {
   width: 100%;
-  height: 54px;
+  height: 48px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--ink);
@@ -645,7 +645,7 @@
 .root :global(.visibility) {
   position: absolute;
   right: 4px;
-  top: 5px;
+  top: 2px;
   width: 44px;
   height: 44px;
   display: grid;
@@ -676,7 +676,7 @@
   text-decoration: underline;
 }
 .root :global(.primary) {
-  height: 54px;
+  height: 48px;
   width: 100%;
   display: flex;
   justify-content: space-between;
