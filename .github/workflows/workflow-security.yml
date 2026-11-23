@@ -136,6 +136,14 @@ jobs:
           #   founder policy exception 2026-11-10 (Billy, "Policy exceprion"),
           #   scoped to dispatching pr-maintenance.yml for REPAIRABLE
           #   behind-branch verdicts. See docs/PR_COMMANDER.md.
+          #   Widened 2026-11-23 (founder decision #18-A, Billy's word) to
+          #   also cover dispatching codeql-autofix.yml on demand (at most
+          #   one dispatch per Commander run, one repair attempt per head,
+          #   REPAIRABLE verdicts only). The entry is keyed on the
+          #   permission, not the dispatch target — the target scope lives
+          #   in the workflow's own comments and in
+          #   docs/REPOSITORY_GOVERNANCE.md — so widening the target scope
+          #   needs a new reviewed governance change, not a script change.
           POLICY_EXCEPTIONS = {
             ".github/workflows/pr-commander.yml" => {
               "act" => ["actions"]

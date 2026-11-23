@@ -408,7 +408,11 @@ transient unknown merge state with zero writes; armed verdict REPAIRABLE
 exception (founder, 2026-11-10):** the armed `act` job holds
 `actions: write`, scoped to dispatching `pr-maintenance.yml` for REPAIRABLE
 behind-branch verdicts — the first armed run proved the dispatch was not
-wired in v1 (a behind PR got a verdict comment only). The exception is
+wired in v1 (a behind PR got a verdict comment only) — and, since the
+2026-11-23 widening (founder decision #18-A), to dispatching
+`codeql-autofix.yml` on demand (at most once per Commander run, one
+repair attempt per head, REPAIRABLE PRs with a security reason only).
+The exception is
 recorded in the `Workflow security` policy script (`POLICY_EXCEPTIONS`) and
 in [Repository governance](REPOSITORY_GOVERNANCE.md); end-to-end rebase
 dispatch depends on PR #965's numeric-input fix in `pr-maintenance.yml`.
