@@ -212,6 +212,26 @@ export function orderMerges(prs) {
   return scored.map(({ pr }) => pr);
 }
 
+// Detect a complete ADR-009 founder-exception record in a PR body.
+//
+// The workflow snapshot builder never carried an `adr009Record` flag —
+// `gh pr view` has no such field — so `normalizeSnapshot` always read it
+// as absent and every migration PR mis-evaluated as BLOCKED on "ADR-009
+// record required but absent", even when the record was present in the body
+// (proven on #1045, #1046 and #1054, all merged only after the false
+// verdict was worked around by hand). The record is a line starting with
+// "ADR-009 record" plus its six elements; the Authorization and Restoration
+// trigger lines are the bookends of a complete record, so a bare mention
+// without them does not count.
+export function hasAdr009Record(body) {
+  if (typeof body !== "string" || body.length === 0) return false;
+  return (
+    /^ADR-009 record\b/m.test(body) &&
+    /^- Authorization:/m.test(body) &&
+    /^- Restoration trigger:/m.test(body)
+  );
+}
+
 // Normalize a `gh pr view --json` payload (or a partial one) into the lib
 // snapshot shape. A lib-shaped snapshot passes through unchanged, except
 // that `headRefOid` is accepted as an alias for `headSha`.
@@ -270,7 +290,11 @@ export function normalizeSnapshot(raw) {
     headRefName: raw.headRefName ?? null,
     files,
     attempts: Number.isInteger(raw.attempts) ? raw.attempts : undefined,
-    adr009Record: Boolean(raw.adr009Record),
+    // Prefer an explicit flag when a caller already computed one; otherwise
+    // detect the record from the PR body (the workflow snapshot now carries
+    // `body` for exactly this). Never default to present: a missing body
+    // means unknown, and unknown must stay BLOCKED, not silently pass.
+    adr009Record: Boolean(raw.adr009Record) || hasAdr009Record(raw.body),
     prOnlyCategory: Boolean(raw.prOnlyCategory),
   };
 }

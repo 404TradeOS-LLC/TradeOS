@@ -205,6 +205,17 @@ protected-staging changes stay `BLOCKED` with a founder item even with an
 ADR-009 record, because the exception does not approve security or
 operational decisions.
 
+The record is detected from the PR body, where it is actually written: the
+exact-head snapshot carries `body`, and `normalizeSnapshot` treats the
+record as present when the body has a line starting with `ADR-009 record`
+plus the `- Authorization:` and `- Restoration trigger:` bookends of a
+complete record. A bare mention without them does not count, and a missing
+body stays unknown (BLOCKED), never assumed present. Before this fix
+(2026-11-23) the snapshot never set the record flag at all, so every
+migration PR mis-evaluated as BLOCKED on "ADR-009 record required but
+absent" even when the record was in the body — proven on #1045, #1046 and
+#1054.
+
 ### Protected-file classification
 
 `classifyPrFiles` flags changed paths (fail-closed — an ambiguous path is

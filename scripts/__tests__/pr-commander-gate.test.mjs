@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { evaluateGate, headVerdictKey, normalizeSnapshot } from "../pr-commander-lib.mjs";
+import { evaluateGate, hasAdr009Record, headVerdictKey, normalizeSnapshot } from "../pr-commander-lib.mjs";
 
 // Tests for the PR Commander coordinator gate (Workstream C).
 //
@@ -285,6 +285,65 @@ test("ordinary files with no protected category do not create ADR-009 founder it
   }));
   assert.equal(result.verdict, "MERGE_READY");
   assert.deepEqual(result.founderItems, []);
+});
+
+const ADR009_BODY = [
+  "ADR-009 record (schema change — protected category; merge under the blanket authorization when the full bar passes):",
+  "",
+  "- Authorization: the 2026-11-21 blanket authorization.",
+  "- Unavailable-reviewer reason: solo-maintainer operating model — no qualified independent reviewer is available.",
+  "- Risk boundaries: additive-only migration.",
+  "- Rollback/recovery: revert the branch and drop the new tables.",
+  "- Required-check evidence: CI green on the exact head.",
+  "- Restoration trigger: independent review is restored when another qualified maintainer joins.",
+].join("\n");
+
+// Regression (2026-11-23, PR #1054 false BLOCKED): the workflow snapshot
+// builder never set `adr009Record` — `gh pr view` has no such field — so
+// every migration PR mis-evaluated as BLOCKED on "ADR-009 record required
+// but absent" even when the record was in the PR body. The fix detects the
+// record from the body in normalizeSnapshot (the workflow now carries `body`
+// in the snapshot). These tests pin the body-detection path.
+
+test("migration files with a complete ADR-009 record in the body are not BLOCKED on ADR-009", () => {
+  const raw = readySnapshot({
+    files: ["app/prisma/migrations/20261110_add_permit_tasks/migration.sql"],
+    body: ADR009_BODY,
+  });
+  const snapshot = normalizeSnapshot(raw);
+  assert.equal(snapshot.adr009Record, true);
+  const result = evaluateGate(snapshot);
+  assertGateShape(result);
+  assert.equal(result.verdict, "MERGE_READY");
+  assert.deepEqual(result.founderItems, []);
+});
+
+test("migration files with no PR body stay BLOCKED on ADR-009 (unknown is not present)", () => {
+  const raw = readySnapshot({
+    files: ["app/prisma/migrations/20261110_add_permit_tasks/migration.sql"],
+  });
+  const snapshot = normalizeSnapshot(raw);
+  assert.equal(snapshot.adr009Record, false);
+  const result = evaluateGate(snapshot);
+  assert.equal(result.verdict, "BLOCKED");
+  assert.match(result.founderItems.join(" "), /ADR-009/);
+});
+
+test("a bare ADR-009 mention without the record block does not satisfy the gate", () => {
+  const raw = readySnapshot({
+    files: ["app/prisma/migrations/20261110_add_permit_tasks/migration.sql"],
+    body: "See ADR-009 for the merge exception; record to follow.",
+  });
+  assert.equal(normalizeSnapshot(raw).adr009Record, false);
+  assert.equal(evaluateGate(normalizeSnapshot(raw)).verdict, "BLOCKED");
+});
+
+test("hasAdr009Record requires the marker plus the Authorization and Restoration trigger bookends", () => {
+  assert.equal(hasAdr009Record(ADR009_BODY), true);
+  assert.equal(hasAdr009Record("ADR-009 record\n\n- Authorization: x."), false);
+  assert.equal(hasAdr009Record(""), false);
+  assert.equal(hasAdr009Record(undefined), false);
+  assert.equal(hasAdr009Record(null), false);
 });
 
 test("dry-run guard: an unarmed evaluation never reports MERGE_READY", () => {

@@ -289,7 +289,7 @@ jobs:
           # required-check rollup, changed files, reviews. Review threads come
           # from GraphQL — `gh pr view` does not expose them.
           gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json \
-            number,isDraft,mergeStateStatus,mergeable,reviewDecision,headRefOid,baseRefName,headRefName,files,reviews,statusCheckRollup \
+            number,isDraft,mergeStateStatus,mergeable,reviewDecision,headRefOid,baseRefName,headRefName,files,reviews,statusCheckRollup,body \
             > snapshot.json
           owner="${GITHUB_REPOSITORY%%/*}"
           repo="${GITHUB_REPOSITORY##*/}"
