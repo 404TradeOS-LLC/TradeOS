@@ -2,9 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { apiFetch, ApiClientError, Invoice } from "@/lib/api";
+import { apiFetch, ApiClientError, getInvoice, Invoice } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { FormActionState } from "./customers";
+import {
+  isUnconfirmedPaymentError,
+  reconcileRecordedPayment,
+} from "./invoice-payment-reconciliation";
 import {
   parseManualLineItems,
   scaleManualLinesForProgress,
@@ -183,6 +187,31 @@ export async function recordInvoicePaymentAction(_prev: FormActionState, formDat
       }),
     });
   } catch (err) {
+    // DES-7 (d) round-2: a transport failure, or a 2xx whose body cannot be
+    // parsed, does not mean the payment failed — the payments POST commits
+    // before the backend writes its 201, so the payment may already be
+    // recorded. Reconcile the invoice's recorded payments first: a match
+    // means the payment landed and the action succeeds; no match (or a
+    // failed reconciliation read) is UNCONFIRMED — return it without
+    // persisting a `payment_failed` event, so the detail page never claims
+    // a recorded payment failed and never tells the contractor to record
+    // it again. Only a confirmed HTTP rejection records a failure.
+    if (isUnconfirmedPaymentError(err)) {
+      const recorded = await reconcileRecordedPayment(() => getInvoice(token ?? "", id), {
+        amount,
+        paymentDate,
+        method,
+      });
+      if (recorded) {
+        revalidatePath(`/projects/${projectId}/invoices/${id}`);
+        redirect(`/projects/${projectId}/invoices/${id}`);
+      }
+      revalidatePath(`/projects/${projectId}/invoices/${id}`);
+      return {
+        error: "Could not confirm whether the payment was recorded. Check the payment list on this invoice before recording it again.",
+        unconfirmed: true,
+      };
+    }
     return recordFailure(err instanceof ApiClientError ? err.message : "Something went wrong.");
   }
 

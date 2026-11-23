@@ -12,6 +12,11 @@ export type CreateCustomerResult = {
   customerInput?: CustomerDuplicateInput;
   customerMatches?: ReturnType<typeof findCustomerDuplicateMatches>;
   customerMatchLookupFailed?: boolean;
+  // Shared form-action state: recordInvoicePaymentAction sets this when a
+  // payment attempt's outcome could not be confirmed (see
+  // invoice-payment-reconciliation.ts) so the form can tell an unconfirmed
+  // outcome apart from a confirmed failure.
+  unconfirmed?: boolean;
 } | undefined;
 
 type CustomerCreateInput = CustomerDuplicateInput & {

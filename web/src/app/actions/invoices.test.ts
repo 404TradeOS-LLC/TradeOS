@@ -196,9 +196,37 @@ test("recordInvoicePaymentAction surfaces the backend's ApiClientError message i
   const catchIndex = fnSource.indexOf("} catch (err) {");
   assert.notEqual(catchIndex, -1, "expected a catch block around the payment API call");
   const catchBody = fnSource.slice(catchIndex);
-  // DES-7 (d): the API error is recorded as a Payment Failure first, and
-  // the recorded message is what the form reports.
+  // DES-7 (d): a confirmed API error is recorded as a Payment Failure
+  // first, and the recorded message is what the form reports.
   assert.match(catchBody, /return recordFailure\(err instanceof ApiClientError \? err\.message : "Something went wrong\."\);/);
+  // DES-7 (d) round-2: that recordFailure path is reached only for
+  // confirmed rejections — unconfirmed errors reconcile first (below).
+  assert.ok(catchBody.indexOf("isUnconfirmedPaymentError(err)") < catchBody.indexOf("return recordFailure("), "unconfirmed errors must be classified before any failure is recorded");
+});
+
+test("recordInvoicePaymentAction reconciles an unconfirmed payment before recording a failure", () => {
+  const fnSource = readRecordInvoicePaymentActionSource();
+  const catchIndex = fnSource.indexOf("} catch (err) {");
+  assert.notEqual(catchIndex, -1, "expected a catch block around the payment API call");
+  const catchBody = fnSource.slice(catchIndex);
+  // A transport failure or unparseable 2xx means the payment may already
+  // be committed, so the action reconciles the recorded payments instead
+  // of persisting a definitive `payment_failed`.
+  assert.match(catchBody, /if \(isUnconfirmedPaymentError\(err\)\) \{/);
+  assert.match(catchBody, /const recorded = await reconcileRecordedPayment\(\(\) => getInvoice\(token \?\? "", id\), \{/);
+  assert.match(catchBody, /amount,\s*paymentDate,\s*method,/);
+  // A reconciled payment is a success: revalidate + redirect, no failure.
+  const reconcileIndex = catchBody.indexOf("reconcileRecordedPayment");
+  const recordedBlock = catchBody.slice(reconcileIndex);
+  assert.match(recordedBlock, /if \(recorded\) \{[\s\S]*?redirect\(`\/projects\/\$\{projectId\}\/invoices\/\$\{id\}`\)/);
+  // No match (or a failed reconciliation read) stays unconfirmed: the
+  // action returns without recording a failure event.
+  assert.match(catchBody, /Could not confirm whether the payment was recorded\. Check the payment list on this invoice before recording it again\./);
+  assert.match(catchBody, /unconfirmed: true/);
+  const unconfirmedBlockStart = catchBody.indexOf("if (isUnconfirmedPaymentError(err)) {");
+  const unconfirmedBlockEnd = catchBody.indexOf("unconfirmed: true");
+  const unconfirmedBlock = catchBody.slice(unconfirmedBlockStart, unconfirmedBlockEnd);
+  assert.ok(!unconfirmedBlock.includes("recordFailure("), "the unconfirmed path must not record a failure event");
 });
 
 test("recordInvoicePaymentAction records a failed attempt as a Payment Failure before reporting it", () => {
