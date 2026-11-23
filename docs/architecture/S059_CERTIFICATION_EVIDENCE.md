@@ -277,17 +277,25 @@ data-layer row, not a code change.
 | Result | PENDING DISPATCH |
 
 Dispatch (do not run from this document — the parent agent dispatches after
-the PR branch is pushed):
+this PR merges, because GitHub only accepts a `workflow_dispatch` for a
+workflow that exists on the default branch; verified 2026-11-23: both
+`gh workflow run --ref feat/s059-portal-certification` and the dispatch API
+returned 404 while the file existed only on the branch):
 
 ```text
 gh workflow run s059-browser-evidence.yml \
-  --ref feat/s059-portal-certification \
+  --ref main \
   -f base_url=https://<approved-preview>.vercel.app \
   -f expected_sha=<full 40-char deployed SHA> \
   -f smoke_org_id=<TEST Org or Beta Smoke UUID> \
   -f sanitized_tenant=true -f use_test_org=true \
   -f require_sha_correlation=true
 ```
+
+Record the run id, workflow head SHA, deployed SHA, and artifact in the
+table above in a follow-up PR. The implementation PR merges on the merge
+bar before the browser run exists; S059 stays `IN_REVIEW` until the
+browser evidence (or its named blocker) is recorded.
 
 Preflight first (recommended): dispatch the Beta Evidence workflow in
 `preflight` mode for the same target to prove the smoke identity + data
