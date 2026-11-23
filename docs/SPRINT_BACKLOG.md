@@ -1036,8 +1036,8 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-Sprint ID: S059
-Eligibility: S059 is `READY` (governance-only readiness promotion merged from current main `c430fd17`; S051 is DONE, live overlap found no competing S059 lane, and no founder decision blocks the bounded ADR-010 certification). S068, S069, and S071 remain `PLANNED` with satisfied `Dependencies:` but are higher-numbered than S059; S046/S048/S050 remain blocked on unmet dependencies or unresolved founder decisions; all other `PLANNED` sprints have unmet `Dependencies:`. Do not start implementation on a `PLANNED` sprint without its own promotion.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`. S059 is `IN_REVIEW` in PR #1032 (implementation; browser evidence pending). S068, S069, and S071 remain `PLANNED` with satisfied `Dependencies:` but are higher-numbered; each needs its own governance-only readiness promotion before selection. S046/S048/S050 remain blocked on unmet dependencies or unresolved founder decisions; all other `PLANNED` sprints have unmet `Dependencies:`. Do not start implementation on a `PLANNED` sprint without its own promotion.
 Dependencies: S051 is DONE (PR #538 merged 2026-09-22 as `49cfb31ce8badf8a3440792e0f9aa7a8a01026db`).
-Overlap check: Live open PRs rechecked 2026-11-22 (main `c430fd17`): zero open PRs. Prior readiness branch `origin/docs/s059-readiness-promotion` (PR #619, closed unmerged 2026-10-04 as superseded) is stale and was not reused; this promotion regenerated from current main.
-Startup prompt: Implement S059 per `docs/architecture/S059_CUSTOMER_PORTAL_ACCESS_CERTIFICATION_PLAN.md` — certify the existing ADR-010 magic-link model with retained authenticated browser evidence at 1440/1024/768/390 plus negative security evidence, without broadening customer authorization or retaining bearer material.
+Overlap check: Live open PRs rechecked 2026-11-23 (main `76b8da0a`): PR #1032 is the sole open PR and is the S059 implementation lane; no competing S059 work exists.
+Startup prompt: Advance PR #1032 — dispatch the S059 browser-evidence workflow from main after merge, record the run artifact in `docs/architecture/S059_CERTIFICATION_EVIDENCE.md` in a follow-up PR, verify the exact-head bar, and merge when it passes. S059 moves to DONE only via a governance record after full acceptance, including resolution of the expiry-browser blocker.
