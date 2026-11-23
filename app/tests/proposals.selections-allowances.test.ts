@@ -353,12 +353,23 @@ describe("ProposalsService selections and allowances (DES-10-F8)", () => {
   });
 
   it("duplicating a proposal carries its selections and allowances to the copy", async () => {
-    mockPrisma.proposal.findFirst.mockResolvedValue(
-      proposalRow("draft", {
-        selections: [selectionRow()],
-        allowances: [allowanceRow()],
-      })
-    );
+    mockPrisma.proposal.findFirst
+      .mockResolvedValueOnce(
+        proposalRow("draft", {
+          selections: [selectionRow()],
+          allowances: [allowanceRow()],
+        })
+      )
+      // The duplicate reloads the copy after copying the children: the
+      // bare create result carries no relations, so without the reload
+      // the returned DTO would report empty selections and a zero total.
+      .mockResolvedValueOnce(
+        proposalRow("draft", {
+          id: "proposal-2",
+          selections: [selectionRow({ proposalId: "proposal-2" })],
+          allowances: [allowanceRow({ proposalId: "proposal-2" })],
+        })
+      );
     mockPrisma.proposal.create.mockResolvedValue({ ...proposalRow("draft"), id: "proposal-2" });
     mockPrisma.proposalSelection.findMany.mockResolvedValue([selectionRow()]);
     mockPrisma.proposalAllowance.findMany.mockResolvedValue([allowanceRow()]);
@@ -378,5 +389,9 @@ describe("ProposalsService selections and allowances (DES-10-F8)", () => {
         data: [expect.objectContaining({ proposalId: "proposal-2", description: "PENDANT LIGHTING", amount: 1200 })],
       })
     );
+    expect(duplicated.selections).toHaveLength(1);
+    expect(duplicated.selections[0]).toMatchObject({ label: "PENDANTS" });
+    expect(duplicated.allowances).toHaveLength(1);
+    expect(duplicated.allowancesTotal).toBe(1200);
   });
 });

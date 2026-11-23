@@ -103,7 +103,15 @@ export class ProposalsService {
     const findReplay = async () => {
       const existing = await prisma.proposal.findFirst({
         where: { projectId, idempotencyKey, project: { orgId: input.orgId } },
-        include: { deliveries: { orderBy: { occurredAt: "desc" } } },
+        // Load the child collections too: a replay returns the original
+        // proposal, and Prisma excludes relations unless requested, so
+        // without these the replay would report empty selections and a
+        // zero allowances total for a proposal that has both.
+        include: {
+          deliveries: { orderBy: { occurredAt: "desc" } },
+          selections: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+          allowances: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+        },
       });
       if (!existing) return null;
       if (existing.idempotencyHash !== requestHash) {
@@ -133,7 +141,14 @@ export class ProposalsService {
   async listByProject(projectId: string, orgId?: string): Promise<ProposalDTO[]> {
     const rows = await prisma.proposal.findMany({
       where: { projectId, project: orgId ? { orgId } : undefined },
-      include: { deliveries: { orderBy: { occurredAt: "desc" } } },
+      // Load the child collections too: Prisma excludes relations unless
+      // requested, so without these every listed proposal would report
+      // empty selections and a zero allowances total.
+      include: {
+        deliveries: { orderBy: { occurredAt: "desc" } },
+        selections: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+        allowances: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+      },
       orderBy: { createdAt: "desc" },
     });
     return rows.map(toDTO);
@@ -744,7 +759,11 @@ export class ProposalsService {
       });
     }
     await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
-    return toDTO(duplicated);
+    // Reload the copy: the bare create result carries no relations, so
+    // returning it directly would report empty selections and a zero
+    // allowances total even though the children were just copied.
+    const reloaded = await this.findOrThrow(duplicated.id, orgId);
+    return toDTO(reloaded);
   }
 
   private async findEditableProposal(proposalId: string, orgId?: string) {

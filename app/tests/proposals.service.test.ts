@@ -181,6 +181,64 @@ describe("ProposalsService", () => {
     expect(mockPrisma.proposal.create).toHaveBeenCalledTimes(1);
   });
 
+  it("an idempotency replay returns the original proposal's selections, allowances, and allowances total", async () => {
+    const input = { orgId: "org-1", estimateId: "estimate-1", finalPrice: 7125.37 };
+    const selection = {
+      id: "selection-1", proposalId: "proposal-1", label: "PENDANTS", detail: null, status: "action_required",
+      dueDate: null, sortOrder: 0, createdAt: new Date(), updatedAt: new Date(),
+    };
+    const allowance = {
+      id: "allowance-1", proposalId: "proposal-1", description: "PENDANT LIGHTING", amount: 1200,
+      sortOrder: 0, createdAt: new Date(), updatedAt: new Date(),
+    };
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
+    });
+    mockPrisma.proposal.findFirst.mockResolvedValueOnce(null).mockImplementationOnce(async () => ({
+      ...proposalRow("draft"),
+      idempotencyHash: mockPrisma.proposal.create.mock.calls[0][0].data.idempotencyHash,
+      selections: [selection],
+      allowances: [allowance],
+    }));
+    mockPrisma.proposal.create.mockResolvedValue({ ...proposalRow("draft"), id: "proposal-1" });
+
+    const service = new ProposalsService();
+    const first = await service.createWithIdempotency(input, "9a8b7c6d-5e4f-4321-8abc-0123456789ab");
+    const replay = await service.createWithIdempotency(input, "9a8b7c6d-5e4f-4321-8abc-0123456789ab");
+
+    // The fresh create has no children yet, so its empty defaults stand.
+    expect(first.proposal.selections).toEqual([]);
+    expect(first.proposal.allowancesTotal).toBe(0);
+    // The replay returns the original proposal with its children loaded.
+    expect(replay.replayed).toBe(true);
+    expect(replay.proposal.selections).toHaveLength(1);
+    expect(replay.proposal.selections[0]).toMatchObject({ label: "PENDANTS" });
+    expect(replay.proposal.allowances).toHaveLength(1);
+    expect(replay.proposal.allowancesTotal).toBe(1200);
+  });
+
+  it("listByProject returns selections and allowances with the display-only total", async () => {
+    const selection = {
+      id: "selection-1", proposalId: "proposal-1", label: "PENDANTS", detail: null, status: "action_required",
+      dueDate: null, sortOrder: 0, createdAt: new Date(), updatedAt: new Date(),
+    };
+    const allowance = {
+      id: "allowance-1", proposalId: "proposal-1", description: "PENDANT LIGHTING", amount: 1200,
+      sortOrder: 0, createdAt: new Date(), updatedAt: new Date(),
+    };
+    mockPrisma.proposal.findMany.mockResolvedValue([
+      { ...proposalRow("draft"), selections: [selection], allowances: [allowance] },
+    ]);
+
+    const rows = await new ProposalsService().listByProject("project-1", "org-1");
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].selections).toHaveLength(1);
+    expect(rows[0].selections[0]).toMatchObject({ label: "PENDANTS" });
+    expect(rows[0].allowances).toHaveLength(1);
+    expect(rows[0].allowancesTotal).toBe(1200);
+  });
+
   it("rejects key reuse when the proposal payload changes", async () => {
     mockPrisma.estimate.findFirst.mockResolvedValue({
       id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
@@ -655,24 +713,7 @@ describe("ProposalsService", () => {
   });
 
   it("duplicates an existing proposal back into draft status", async () => {
-    mockPrisma.proposal.findFirst.mockResolvedValue({
-      id: "proposal-1",
-      projectId: "project-1",
-      estimateId: "estimate-1",
-      status: "sent",
-      companyName: "Acme Co",
-      showLineItemDetail: true,
-      scopeOfWork: "Scope",
-      assumptions: "Assumptions",
-      exclusions: "Exclusions",
-      timeline: "2 weeks",
-      priceLow: 1000,
-      priceHigh: 1200,
-      finalPrice: 1150,
-      paymentScheduleJson: [{ label: "Deposit", amountPercent: 50 }, { label: "Completion", amountPercent: 50 }],
-      termsAndConditions: "Terms",
-    });
-    mockPrisma.proposal.create.mockResolvedValue({
+    const copy = {
       id: "proposal-2",
       projectId: "project-1",
       estimateId: "estimate-1",
@@ -694,7 +735,29 @@ describe("ProposalsService", () => {
       respondedAt: null,
       createdAt: new Date(),
       deliveries: [],
-    });
+    };
+    mockPrisma.proposal.findFirst
+      .mockResolvedValueOnce({
+        id: "proposal-1",
+        projectId: "project-1",
+        estimateId: "estimate-1",
+        status: "sent",
+        companyName: "Acme Co",
+        showLineItemDetail: true,
+        scopeOfWork: "Scope",
+        assumptions: "Assumptions",
+        exclusions: "Exclusions",
+        timeline: "2 weeks",
+        priceLow: 1000,
+        priceHigh: 1200,
+        finalPrice: 1150,
+        paymentScheduleJson: [{ label: "Deposit", amountPercent: 50 }, { label: "Completion", amountPercent: 50 }],
+        termsAndConditions: "Terms",
+      })
+      // The duplicate reloads the copy after copying the children, so the
+      // returned DTO is the fresh draft — not the sent source row.
+      .mockResolvedValueOnce({ ...copy, selections: [], allowances: [] });
+    mockPrisma.proposal.create.mockResolvedValue(copy);
 
     const service = new ProposalsService();
     const proposal = await service.duplicate("proposal-1", "org-1");
