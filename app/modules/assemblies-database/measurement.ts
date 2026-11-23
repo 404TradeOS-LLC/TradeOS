@@ -154,6 +154,16 @@ const SQUARE_FEET_PER_AREA_UNIT: Record<"SF" | "SQ" | "SY", number> = {
   SY: 9,
 };
 
+/** Largest quantity a Decimal(12,4) assembly quantity can persist. */
+export const MAX_DECIMAL_12_4_QUANTITY = 99999999.9999;
+
+/**
+ * An SQ (roofing square) basis must state the 100-SF definition explicitly:
+ * the standalone number 100 followed by SF, sq ft, or square feet. A bare
+ * substring check accepts tenfold-wrong definitions such as "1000 SF".
+ */
+const ROOFING_SQUARE_DEFINITION = /\b100\s*(?:SF|sq\.?\s*ft\.?|square\s+feet)\b/i;
+
 export type AreaUnit = keyof typeof SQUARE_FEET_PER_AREA_UNIT;
 
 export function isAreaUnit(unit: AssemblyCatalogUnit): unit is AreaUnit {
@@ -218,7 +228,7 @@ export function assessTemplateMeasurement(template: MeasurableTemplate): Measure
   if (!isOutputUnit) {
     reasons.push(`output unit "${template.unitOfMeasure}" is not a catalog measurement unit (CY, EA, LF, SF, SQ)`);
   }
-  if (template.unitOfMeasure === "SQ" && !template.measurementBasis.includes("100")) {
+  if (template.unitOfMeasure === "SQ" && !ROOFING_SQUARE_DEFINITION.test(template.measurementBasis)) {
     reasons.push("roofing-square (SQ) output must state the 100-SF definition in its measurementBasis");
   }
   if (template.components.length === 0) {
@@ -294,6 +304,9 @@ export type TakeoffDerivationResult =
  * - unverified takeoff quantities (verification is what makes a takeoff
  *   "verified"; an unverified measurement never becomes an assembly quantity);
  * - non-positive or non-finite values;
+ * - converted quantities that round to zero, overflow to Infinity, or
+ *   exceed the Decimal(12,4) range — the converted, rounded result is
+ *   validated, not just the input takeoff value;
  * - units outside the catalog alias table;
  * - time and mass units: a takeoff measures area, linear, count, volume, or
  *   allowance — never hours, days, tons, or pounds;
@@ -359,7 +372,18 @@ export function deriveAssemblyQuantity(
   }
 
   // Quantities persist as Decimal(12,4) on AssemblyItem and EstimateLineItem.
+  // Validate the converted, rounded result — not just the input: conversion
+  // or rounding can collapse a small positive takeoff to zero (0.001 SF is
+  // 0 SQ at four-decimal precision), overflow to Infinity, or exceed the
+  // Decimal(12,4) range. A caller must never receive a supposedly valid
+  // derivation that loses the measured work or cannot be persisted.
   const rounded = Math.round(assemblyQuantity * 10000) / 10000;
+  if (!Number.isFinite(rounded) || rounded <= 0 || rounded > MAX_DECIMAL_12_4_QUANTITY) {
+    reasons.push(
+      `derived assembly quantity ${rounded} for template "${template.id}" is not a finite positive quantity within the Decimal(12,4) range (maximum ${MAX_DECIMAL_12_4_QUANTITY}); the takeoff converts or rounds outside what an assembly quantity can represent`,
+    );
+    return { ok: false, reasons };
+  }
   return {
     ok: true,
     derivation: { assemblyQuantity: rounded, assemblyUnit, takeoffFamily, conversionApplied },

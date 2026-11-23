@@ -7,6 +7,7 @@ import {
   getExpandedCatalogTemplate,
 } from "../modules/assemblies-database/tradeosCatalogAdapter";
 import {
+  MAX_DECIMAL_12_4_QUANTITY,
   TAKEOFF_FAMILIES,
   assessTemplateMeasurement,
   convertArea,
@@ -136,6 +137,9 @@ describe("template measurement contracts across the catalog", () => {
       .toEqual(expect.arrayContaining([expect.stringMatching(/not a catalog measurement unit/)]));
     expect(assessTemplateMeasurement({ ...base, unitOfMeasure: "SQ", measurementBasis: "Roofing square." }).reasons)
       .toEqual(expect.arrayContaining([expect.stringMatching(/100-SF definition/)]));
+    expect(assessTemplateMeasurement({ ...base, unitOfMeasure: "SQ", measurementBasis: "One roofing square equals 1000 SF." }).reasons)
+      .toEqual(expect.arrayContaining([expect.stringMatching(/100-SF definition/)]));
+    expect(assessTemplateMeasurement({ ...base, unitOfMeasure: "SQ", measurementBasis: "Roofing square (100 SF)." }).valid).toBe(true);
     expect(assessTemplateMeasurement({
       ...base,
       components: [{ key: "material", quantityPerUnit: 0, compatibleUnits: ["SF"], allowedCostItemKinds: ["material"] }],
@@ -217,6 +221,31 @@ describe("takeoff quantity derivation", () => {
     expect(result).toEqual({
       ok: true,
       derivation: { assemblyQuantity: 1.2346, assemblyUnit: "SF", takeoffFamily: "area", conversionApplied: null },
+    });
+  });
+
+  it("rejects derivations that round to zero, overflow, or exceed Decimal(12,4)", () => {
+    // 0.001 SF is 0 SQ at four-decimal precision: the measured work would be lost.
+    expect(deriveAssemblyQuantity(roof, { value: 0.001, unit: "SF", verified: true })).toEqual({
+      ok: false,
+      reasons: expect.arrayContaining([expect.stringMatching(/Decimal\(12,4\)/)]),
+    });
+    expect(deriveAssemblyQuantity(wall, { value: 0.00001, unit: "SF", verified: true })).toEqual({
+      ok: false,
+      reasons: expect.arrayContaining([expect.stringMatching(/Decimal\(12,4\)/)]),
+    });
+    expect(deriveAssemblyQuantity(roof, { value: Number.MAX_VALUE, unit: "SF", verified: true })).toEqual({
+      ok: false,
+      reasons: expect.arrayContaining([expect.stringMatching(/Decimal\(12,4\)/)]),
+    });
+    expect(deriveAssemblyQuantity(wall, { value: 100000000, unit: "SF", verified: true })).toEqual({
+      ok: false,
+      reasons: expect.arrayContaining([expect.stringMatching(/Decimal\(12,4\)/)]),
+    });
+    // Boundary: the Decimal(12,4) maximum itself still derives.
+    expect(deriveAssemblyQuantity(wall, { value: MAX_DECIMAL_12_4_QUANTITY, unit: "SF", verified: true })).toEqual({
+      ok: true,
+      derivation: { assemblyQuantity: MAX_DECIMAL_12_4_QUANTITY, assemblyUnit: "SF", takeoffFamily: "area", conversionApplied: null },
     });
   });
 
