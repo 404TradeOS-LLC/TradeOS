@@ -1,11 +1,21 @@
 import { AthenaKernelError } from "../modules/athena-kernel/errors";
-import { DisabledAthenaProvider, FakeAthenaProvider, resolveAthenaProvider } from "../modules/athena-kernel/provider";
+import { DisabledAthenaProvider, FakeAthenaProvider, GoogleGeminiAthenaProvider, resolveAthenaProvider } from "../modules/athena-kernel/provider";
 
 describe("athena kernel provider adapter", () => {
   it("resolves the fake provider only when ATHENA_PROVIDER_MODE=fake", () => {
     expect(resolveAthenaProvider({ ATHENA_PROVIDER_MODE: "fake" } as NodeJS.ProcessEnv)).toBeInstanceOf(FakeAthenaProvider);
     expect(resolveAthenaProvider({} as NodeJS.ProcessEnv)).toBeInstanceOf(DisabledAthenaProvider);
     expect(resolveAthenaProvider({ ATHENA_PROVIDER_MODE: "production" } as NodeJS.ProcessEnv)).toBeInstanceOf(DisabledAthenaProvider);
+  });
+
+  it("resolves the Gemini provider only when ATHENA_PROVIDER_MODE=google and a key is present", () => {
+    expect(
+      resolveAthenaProvider({ ATHENA_PROVIDER_MODE: "google", GEMINI_API_KEY: "test-gemini-key" } as NodeJS.ProcessEnv),
+    ).toBeInstanceOf(GoogleGeminiAthenaProvider);
+    expect(resolveAthenaProvider({ ATHENA_PROVIDER_MODE: "google" } as NodeJS.ProcessEnv)).toBeInstanceOf(DisabledAthenaProvider);
+    expect(
+      resolveAthenaProvider({ ATHENA_PROVIDER_MODE: "google", GEMINI_API_KEY: "   " } as NodeJS.ProcessEnv),
+    ).toBeInstanceOf(DisabledAthenaProvider);
   });
 
   it("the fake provider returns a deterministic draft with no fabricated token/cost usage", async () => {
