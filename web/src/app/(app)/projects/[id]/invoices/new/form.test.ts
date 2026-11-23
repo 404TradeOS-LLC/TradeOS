@@ -41,6 +41,13 @@ test("NewInvoiceForm renders a manual line-item editor when no estimate is selec
   assert.match(source, /Remove line/);
 });
 
+test("NewInvoiceForm labels the initial submit 'Save invoice draft' and keeps 'Retry same draft' for unconfirmed saves", () => {
+  const source = readNewInvoiceFormSource();
+  assert.match(source, /"Save invoice draft"/);
+  assert.match(source, /unconfirmed \? "Retry same draft"/);
+  assert.doesNotMatch(source, /"Create invoice"/);
+});
+
 test("invoice creation and editing allow typed due dates instead of browser-only date controls", () => {
   const newForm = readNewInvoiceFormSource();
   const here = path.dirname(fileURLToPath(import.meta.url));
