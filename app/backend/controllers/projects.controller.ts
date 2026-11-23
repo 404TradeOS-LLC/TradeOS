@@ -152,10 +152,19 @@ export const customersController = {
   },
 };
 
+const projectListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+
 export const projectsController = {
   async list(req: Request, res: Response) {
     requirePermissions(req, ["crm.read"]);
-    const rows = await prisma.project.findMany({ where: { orgId: requireOrgId(req) }, orderBy: { createdAt: "desc" } });
+    const { limit } = projectListQuerySchema.parse(req.query);
+    const rows = await prisma.project.findMany({
+      where: { orgId: requireOrgId(req) },
+      orderBy: { createdAt: "desc" },
+      ...(limit !== undefined ? { take: limit } : {}),
+    });
     res.json(rows.map((row) => toProjectDTO(row)));
   },
   async create(req: Request, res: Response) {

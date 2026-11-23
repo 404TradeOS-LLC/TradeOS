@@ -15,7 +15,7 @@ test("CRM composes existing organization reads instead of creating a parallel CR
   // now wired through the bounded loader (one shared timeout signal) rather
   // than called bare, so the page degrades instead of hanging on a stall.
   assert.match(page, /loadCrmPageData\(token/);
-  assert.match(page, /listProjects\(authToken, signal\)/);
+  assert.match(page, /listProjects\(authToken, \{ signal \}\)/);
   assert.match(page, /listCustomers\(authToken, \{ signal \}\)/);
   assert.match(page, /listOrganizationProjectTasks\(authToken/);
   assert.match(page, /listProposalQueue\(authToken/);

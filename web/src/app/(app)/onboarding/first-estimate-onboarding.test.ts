@@ -67,7 +67,7 @@ test("dashboard bypass sends only a brand-new org to onboarding and fails open",
   assert.match(firstRun, /import "server-only"/);
   assert.match(firstRun, /ONBOARDING_SKIPPED_COOKIE/);
   assert.match(firstRun, /hasPermission\(settings\.currentRole, "crm\.write"\)/);
-  assert.match(firstRun, /listProjects\(token\)/);
+  assert.match(firstRun, /listProjects\(token, \{ limit: 1 \}\)/);
   assert.match(firstRun, /listEstimateQueue\(token, \{ status: "draft,ready", limit: 1 \}\)/);
   assert.match(firstRun, /shouldRedirectToOnboarding/);
   assert.match(firstRun, /\} catch \{\s*return false;\s*\}/);

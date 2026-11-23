@@ -28,7 +28,7 @@ export async function isFirstRunRedirectNeeded(): Promise<boolean> {
   try {
     const [settings, projects, estimates] = await Promise.all([
       getOrganizationSettings(token),
-      listProjects(token),
+      listProjects(token, { limit: 1 }),
       listEstimateQueue(token, { status: "draft,ready", limit: 1 }),
     ]);
     if (!hasPermission(settings.currentRole, "crm.write")) return false;
