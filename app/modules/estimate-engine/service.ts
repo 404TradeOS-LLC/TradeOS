@@ -166,6 +166,9 @@ export class EstimateEngineService {
         totalPrice: source.totalPrice,
         taxPct: source.taxPct ?? 0,
         taxAmount: source.taxAmount ?? 0,
+        // DES-10-F2: review attestations are deliberately NOT copied —
+        // a duplicated draft must complete the Review checklist again
+        // before it can finalize.
         lineItems: {
           create: source.lineItems.map((lineItem) => ({
             costItemId: lineItem.costItemId,
@@ -345,12 +348,22 @@ export class EstimateEngineService {
   private async updateEstimateInTransaction(input: UpdateEstimateInput): Promise<EstimateDTO> {
     await this.lockEstimateForMutation(input.estimateId, input.orgId);
     await this.assertDraft(input.estimateId, input.orgId);
+    const data: Prisma.EstimateUpdateInput = {
+      overheadPct: input.overheadPct,
+      taxPct: input.taxPct,
+    };
+    // DES-10-F2: a review flag records the review time; clearing the
+    // flag clears the attestation. Undefined leaves the stored value
+    // untouched so pricing-only PATCHes never disturb the checklist.
+    if (input.exclusionsReviewed !== undefined) {
+      data.exclusionsReviewedAt = input.exclusionsReviewed ? new Date() : null;
+    }
+    if (input.priceSourcesReviewed !== undefined) {
+      data.priceSourcesReviewedAt = input.priceSourcesReviewed ? new Date() : null;
+    }
     await prisma.estimate.update({
       where: { id: input.estimateId },
-      data: {
-        overheadPct: input.overheadPct,
-        taxPct: input.taxPct,
-      },
+      data,
     });
     return this.recalculate(input.estimateId, input.orgId);
   }
@@ -410,6 +423,21 @@ export class EstimateEngineService {
     const currentStatus = normalizeEstimateStatus(estimate.status);
     if (!canTransitionEstimateStatus(currentStatus, "ready")) {
       throw new ApiError(409, `Estimate ${estimateId} cannot transition from ${currentStatus} to ready`);
+    }
+    // DES-10-F2: the Review readiness checklist gates finalization.
+    // The client disables the Finalize action, but the transition
+    // itself enforces the attestation preconditions so a direct API
+    // call cannot finalize an unreviewed estimate. There is
+    // deliberately NO line-count gate: decision 22-B (Billy's word
+    // 2026-11-23) allows finalizing a $0 estimate.
+    const unreviewed: string[] = [];
+    if (!estimate.exclusionsReviewedAt) unreviewed.push("exclusions");
+    if (!estimate.priceSourcesReviewedAt) unreviewed.push("price sources");
+    if (unreviewed.length > 0) {
+      throw new ApiError(
+        409,
+        `Estimate ${estimateId} cannot be finalized until ${unreviewed.join(" and ")} ${unreviewed.length > 1 ? "have" : "has"} been reviewed`
+      );
     }
     const row = await prisma.estimate.update({ where: { id: estimateId }, data: { status: "ready" } });
     await prisma.proposal.updateMany({
@@ -471,6 +499,8 @@ export function toEstimateDTO(row: {
   totalPrice: unknown;
   taxPct?: unknown;
   taxAmount?: unknown;
+  exclusionsReviewedAt?: Date | string | null;
+  priceSourcesReviewedAt?: Date | string | null;
 }): EstimateDTO {
   const subtotalCost = Number(row.subtotalCost);
   const costAfterOverhead = applyOverhead(subtotalCost, 0, Number(row.overheadPct ?? 0));
@@ -491,6 +521,8 @@ export function toEstimateDTO(row: {
     taxAmount,
     costAfterOverhead,
     preTaxTotalPrice: round2(totalPrice - taxAmount),
+    exclusionsReviewedAt: row.exclusionsReviewedAt ? new Date(row.exclusionsReviewedAt).toISOString() : null,
+    priceSourcesReviewedAt: row.priceSourcesReviewedAt ? new Date(row.priceSourcesReviewedAt).toISOString() : null,
   };
 }
 

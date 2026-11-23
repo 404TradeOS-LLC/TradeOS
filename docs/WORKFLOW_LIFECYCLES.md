@@ -91,6 +91,7 @@ Job scheduling conflict serialization and job-number allocation continue to use 
 Current enforced transitions:
 
 - `draft -> ready` is enforced by `EstimateEngineService.finalize`
+- `draft -> ready` additionally requires the DES-10-F2 Review readiness checklist: both review attestations (`exclusions_reviewed_at`, `price_sources_reviewed_at`) set. There is no line-count gate — decision 22-B (Billy's word 2026-11-23) allows finalizing a $0 estimate. A duplicated draft starts with null attestations and must be re-reviewed.
 - draft-only mutations are blocked after an estimate leaves `draft`
 
 Compatibility persistence:

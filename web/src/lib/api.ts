@@ -534,6 +534,9 @@ export interface Estimate {
   subtotalCost: number;
   totalPrice: number;
   createdAt?: string;
+  /** DES-10-F2: Review checklist attestations; null means not reviewed. */
+  exclusionsReviewedAt: string | null;
+  priceSourcesReviewedAt: string | null;
 }
 
 export interface EstimateLineItem {

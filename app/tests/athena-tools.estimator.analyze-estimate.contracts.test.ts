@@ -42,6 +42,8 @@ function makeEstimate(overrides: Partial<EstimateDTO> = {}, lineItems: EstimateL
     taxAmount: 0,
     costAfterOverhead: 50,
     preTaxTotalPrice: 100,
+    exclusionsReviewedAt: null,
+    priceSourcesReviewedAt: null,
     lineItems,
     ...overrides,
   };

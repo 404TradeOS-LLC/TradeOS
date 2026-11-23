@@ -76,6 +76,12 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Estimate Review readiness checklist — DES-10-F2 (branch `feat/des10-f2-review-readiness-gate`)
+
+<!-- DES-10-F2-START: keep this entry delimited; parallel DES-10 lanes edit other sections of this file. -->
+Review stage (Figma 378:443 / 287:240) now carries a persisted two-item readiness checklist — exclusions reviewed, price sources reviewed — that gates `Finalize estimate`. Persisted as nullable `exclusions_reviewed_at` / `price_sources_reviewed_at` on the estimate (migration `20261123120000_add_estimate_review_checklist`); toggles PATCH through the existing draft-update path; `finalize()` enforces the same preconditions server-side (409). No line-count gate: decision 22-B (Billy's word 2026-11-23) allows finalizing a $0 estimate — the checklist attestation is the gate, not the line count. Omitted Figma items: 01 reconcile the $1,670 difference (DES-10-F4, product decision pending) and 02 review the footing assumption (DES-10-F1, Codex lane). See `docs/modules/estimating.md` ("Review readiness checklist (DES-10-F2)").
+<!-- DES-10-F2-END -->
+
 ## Costbook PR frontend Preview allowlist — landed via PR #997 (merged 2026-11-15 as `d09f51a1`)
 
 Vercel's deployed source configs `web/vercel.json` and `app/vercel.json`
