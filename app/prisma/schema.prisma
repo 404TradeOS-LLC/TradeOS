@@ -66,6 +66,8 @@ model Organization {
   brandDocumentSettings BrandDocumentSettings?
   activityEvents ActivityEvent[]
   proposalDeliveries ProposalDelivery[]
+  proposalSelections ProposalSelection[]
+  proposalAllowances ProposalAllowance[]
   invoiceDeliveries InvoiceDelivery[]
   contractEvents  ContractEvent[]
   notifications  Notification[]
@@ -1192,11 +1194,65 @@ model Proposal {
   invoices  Invoice[]
   contracts Contract[]
   deliveries ProposalDelivery[]
+  selections ProposalSelection[]
+  allowances ProposalAllowance[]
 
   @@unique([projectId, idempotencyKey], map: "proposals_project_id_idempotency_key_key")
   @@index([projectId])
   @@index([estimateId])
   @@map("proposals")
+}
+
+// DES-10-F8: Copperline proposal sections 03 (selections) and 04
+// (allowances). Additive tables only; nothing here feeds the proposal total
+// (finalPrice) — allowances are displayed and summed for display only, and
+// wiring them into totals is a separate follow-up (see
+// docs/modules/proposals.md). Like ProposalDelivery, each row carries its own
+// orgId so forced RLS can scope it directly; the service sets orgId from the
+// owning proposal's project and never trusts a caller-supplied value.
+model ProposalSelection {
+  id         String    @id @default(uuid())
+  orgId      String    @map("org_id")
+  proposalId String    @map("proposal_id")
+  // Selection category as shown in the Copperline document, e.g.
+  // "CABINET FINISH", "COUNTERTOP", "PENDANTS".
+  label      String
+  // Chosen option text, e.g. "Rift white oak · clear matte". Null while the
+  // decision is still open (Figma shows the prompt "Choose by Oct 09" instead).
+  detail     String?
+  // "action_required" (Figma ACTION REQUIRED) or "confirmed" (Figma CONFIRMED).
+  status     String    @default("action_required")
+  // Decision deadline, e.g. the Figma "Choose by Oct 09". Nullable: confirmed
+  // selections and open decisions without a deadline carry none.
+  dueDate    DateTime? @map("due_date")
+  sortOrder  Int       @default(0) @map("sort_order")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  proposal     Proposal     @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId, sortOrder, createdAt])
+  @@map("proposal_selections")
+}
+
+model ProposalAllowance {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  proposalId  String   @map("proposal_id")
+  // Allowance description as shown in the Copperline document, e.g.
+  // "PENDANT LIGHTING", "CABINET HARDWARE".
+  description String
+  amount      Decimal  @db.Decimal(14, 2)
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  proposal     Proposal     @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId, sortOrder, createdAt])
+  @@map("proposal_allowances")
 }
 
 model SiteVisit {

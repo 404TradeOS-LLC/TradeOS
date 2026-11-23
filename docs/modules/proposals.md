@@ -48,6 +48,8 @@ Own proposal drafting, sending, viewing, acceptance or decline handling, PDF gen
 
 - `Proposal`
 - `ProposalDelivery`
+- `ProposalSelection` — DES-10-F8: one row per customer decision (Copperline section 03)
+- `ProposalAllowance` — DES-10-F8: one allowance line (Copperline section 04)
 
 ## Routes
 
@@ -65,6 +67,25 @@ Own proposal drafting, sending, viewing, acceptance or decline handling, PDF gen
 - Current first-party Proposal Review forms seed the key per draft and preserve it in the returned React action state, including the ambiguous API-error recovery state. Callers that omit the key receive legacy non-idempotent creation; callers that provide an invalid key receive validation error.
 
 The key applies to draft creation only; it does not send a proposal or change pricing/lifecycle semantics. Uniqueness is retained for the lifetime of the proposal (there is no TTL cleanup). A full page reload seeds a new key, so the existing recovery instruction to inspect the Project proposal list remains the safe path after leaving the form.
+
+## Proposal selections and allowances (DES-10-F8)
+
+Copperline proposal sections 03 (selections) and 04 (allowances) had no model; the staff form and customer document could not show them. Two additive tables (migration `20261123090000_add_proposal_selections_allowances`) now persist them, and `ProposalDTO` carries both lists plus a display-only `allowancesTotal`.
+
+- `ProposalSelection`: `label` (selection category, e.g. `CABINET FINISH`, `COUNTERTOP`, `PENDANTS`), `detail` (chosen option text, e.g. `Rift white oak · clear matte`; null while the decision is open), `status` (`action_required` = Figma ACTION REQUIRED, `confirmed` = Figma CONFIRMED), nullable `dueDate` (Figma `Choose by Oct 09`), `sortOrder`. Read from the Figma flagship frame `425:45123` via the Figma MCP.
+- `ProposalAllowance`: `description` (e.g. `PENDANT LIGHTING`, `CABINET HARDWARE`) and `amount` (>= 0). The Figma total ($2,800) is the sum of the rows, computed at read time and never stored.
+- Both rows carry their own `orgId` (set by the service from the owning proposal's project, never from caller input), cascade on proposal delete, and are covered by forced RLS with select/write policies scoped to the session org, mirroring `proposal_deliveries`. Portal reads are further scoped by restrictive policies through the owning proposal's project to the verified customer (`project.customer_id = current_app_portal_customer_id()`), because a portal session carries the contractor's `org_id` and the org-wide policy alone would expose every customer's rows in the org. Portal writes are denied by `current_app_can_write()`.
+
+Endpoints (`billing.read` for reads, `documents.manage` for writes):
+
+- `GET /api/v1/proposals/:id/selections`, `POST /api/v1/proposals/:id/selections`, `PATCH /api/v1/proposals/:id/selections/:selectionId`, `DELETE /api/v1/proposals/:id/selections/:selectionId`
+- `GET /api/v1/proposals/:id/allowances`, `POST /api/v1/proposals/:id/allowances`, `PATCH /api/v1/proposals/:id/allowances/:allowanceId`, `DELETE /api/v1/proposals/:id/allowances/:allowanceId`
+
+Writes follow the same draft rules as the proposal itself: an accepted proposal, or one with a contract, rejects every selection/allowance write with `409`; a missing or foreign-org proposal returns `404`. Each create/update/delete runs in one transaction that first takes a `FOR UPDATE` row lock on the parent proposal and re-checks editability, so acceptance committing mid-mutation cannot create a row on an accepted proposal (acceptance's conditional update blocks on the same row lock). Duplicating a proposal carries its selections and allowances to the copy.
+
+Display: the staff proposal detail page (`/projects/[id]/proposals/[proposalId]`) shows both sections with add/edit/delete forms (read-only once accepted); the customer portal proposal page shows them read-only and renders nothing when a proposal has neither. Both surfaces state that allowances are not added to the proposal total.
+
+**Boundary — allowances do NOT feed the proposal total.** `finalPrice` is untouched by this change: the Figma investment summary shows an `ALLOWANCES $2,800` line, but the existing total pipeline (estimate total → `finalPrice` at creation/finalization) has no clean hook for allowance sums, and rewiring it would change money behavior. Follow-up: decide whether the proposal total should include the allowances sum (and the Figma `PROJECT COURTESY −$1,500` line, which has no model either), then implement it as its own priced change. Related follow-ups: render selections/allowances in the proposal PDF (DES-10-F9 / issue #870 territory — the PDF renderer does not know about these tables yet) and surface them in the authenticated portal accept/decline page (`/portal/proposals/[id]`), which uses the same DTO but has no selections/allowances section yet.
 
 ## Organization work-queue read
 
@@ -141,6 +162,10 @@ absent.
 ## Tests
 
 - `app/tests/proposals.service.test.ts`
+- `app/tests/proposals.selections-allowances.test.ts` — DES-10-F8: selection/allowance create/update/delete, org scoping, accepted-proposal immutability, display-only allowances total, duplication carry-over, parent row lock inside one transaction per child mutation
+- `app/tests/proposal-selections-allowances.migration.test.ts` — DES-10-F8: both tables, forced RLS, org-scoped policies, portal customer scope through the owning proposal, status/amount checks, cascade
+- `app/tests/rls.integration.ts` ("proposal selections and allowances RLS") — DES-10-F8: live tenant isolation, portal customer isolation within one org, viewer/portal write denial at the database boundary
+- `web/src/components/proposals/proposal-selections-allowances.test.ts` — DES-10-F8: staff display + CRUD actions, portal read-only display, display-only total disclosure, accepted read-only state
 - `app/tests/jobs.service.test.ts` — accepted-proposal conversion, idempotency, unauthorized roles, tenant scope and address ownership
 - `app/tests/proposalsInvoicesContractsMigration.test.ts`
 - `app/tests/proposal-delivery.migration.test.ts`
@@ -152,6 +177,7 @@ absent.
 
 ## Known limitations
 
+- proposal selections and allowances are not rendered in the proposal PDF yet, and the allowances sum is not part of `finalPrice` — see the DES-10-F8 section above for the follow-ups
 - historical proposal rows may still contain `rejected`; reads and status filters normalize that legacy value to canonical `declined`, and no destructive historical rewrite is performed
 - `generated` and `expired` remain canonical contract states without a currently implemented proposal-service mutation path
 - the organization work-queue read's product spec calls for excluding canceled/voided proposals from operational filters (`unsigned`, `stale`), but no canonical canceled/voided proposal status exists in this domain today — the rule has nothing to apply to and is not implemented as an invented status

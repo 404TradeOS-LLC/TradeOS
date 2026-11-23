@@ -131,8 +131,153 @@ export async function updateProposalAction(_prev: FormActionState, formData: For
   redirect(`/projects/${projectId}/proposals/${proposalId}`);
 }
 
-export async function sendProposalAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+// DES-10-F8: Copperline proposal sections 03 (selections) and 04
+// (allowances). These actions stay on the proposal detail page (revalidate,
+// no redirect) so staff can add several rows in a row. The backend enforces
+// the same draft rules as the proposal itself: accepted proposals and
+// proposals with a contract reject every write with 409.
+function toIsoDueDate(raw: string): string | null | Error {
+  if (!raw) return null;
+  const parsed = new Date(`${raw}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return new Error("Decision due date must be a valid date.");
+  return parsed.toISOString();
+}
+
+function readSelectionForm(formData: FormData): { label: string; detail: string | null; status: string; dueDate: string | null } | { error: string } {
+  const label = String(formData.get("label") ?? "").trim();
+  const detail = String(formData.get("detail") ?? "").trim();
+  const status = String(formData.get("status") ?? "action_required");
+  const dueDateRaw = String(formData.get("dueDate") ?? "").trim();
+  if (!label) return { error: "Selection label is required." };
+  if (label.length > 120) return { error: "Selection label must be at most 120 characters." };
+  if (detail.length > 500) return { error: "Selection detail must be at most 500 characters." };
+  if (status !== "action_required" && status !== "confirmed") {
+    return { error: "Selection status must be Action Required or Confirmed." };
+  }
+  const dueDate = toIsoDueDate(dueDateRaw);
+  if (dueDate instanceof Error) return { error: dueDate.message };
+  // Creates omit empty fields so the backend defaults apply; updates send
+  // null so clearing a field actually clears it.
+  return { label, detail: detail || null, status, dueDate };
+}
+
+async function mutateProposalSelection(
+  method: "POST" | "PATCH" | "DELETE",
+  formData: FormData,
+  body?: Record<string, unknown>
+): Promise<FormActionState> {
   const token = await getSessionToken();
+  const projectId = String(formData.get("projectId") ?? "");
+  const proposalId = String(formData.get("proposalId") ?? "");
+  const selectionId = String(formData.get("selectionId") ?? "");
+  if (!proposalId) return { error: "Proposal is missing." };
+  if (method !== "POST" && !selectionId) return { error: "Selection is missing." };
+
+  try {
+    await apiFetch(
+      method === "POST"
+        ? `/api/v1/proposals/${proposalId}/selections`
+        : `/api/v1/proposals/${proposalId}/selections/${selectionId}`,
+      {
+        method,
+        token: token ?? undefined,
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      }
+    );
+  } catch (err) {
+    return { error: err instanceof ApiClientError ? err.message : "Something went wrong." };
+  }
+
+  revalidatePath(`/projects/${projectId}/proposals/${proposalId}`);
+  return undefined;
+}
+
+export async function createProposalSelectionAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+  const parsed = readSelectionForm(formData);
+  if ("error" in parsed) return { error: parsed.error };
+  return mutateProposalSelection("POST", formData, {
+    label: parsed.label,
+    detail: parsed.detail ?? undefined,
+    status: parsed.status,
+    dueDate: parsed.dueDate ?? undefined,
+  });
+}
+
+export async function updateProposalSelectionAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+  const parsed = readSelectionForm(formData);
+  if ("error" in parsed) return { error: parsed.error };
+  return mutateProposalSelection("PATCH", formData, {
+    label: parsed.label,
+    detail: parsed.detail,
+    status: parsed.status,
+    dueDate: parsed.dueDate,
+  });
+}
+
+export async function deleteProposalSelectionAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+  return mutateProposalSelection("DELETE", formData);
+}
+
+function readAllowanceForm(formData: FormData): { description: string; amount: number } | { error: string } {
+  const description = String(formData.get("description") ?? "").trim();
+  const amountRaw = String(formData.get("amount") ?? "").trim();
+  const amount = amountRaw ? Number(amountRaw) : NaN;
+  if (!description) return { error: "Allowance description is required." };
+  if (description.length > 200) return { error: "Allowance description must be at most 200 characters." };
+  if (!amountRaw || Number.isNaN(amount) || amount < 0) {
+    return { error: "Allowance amount must be 0 or more." };
+  }
+  return { description, amount };
+}
+
+async function mutateProposalAllowance(
+  method: "POST" | "PATCH" | "DELETE",
+  formData: FormData,
+  body?: Record<string, unknown>
+): Promise<FormActionState> {
+  const token = await getSessionToken();
+  const projectId = String(formData.get("projectId") ?? "");
+  const proposalId = String(formData.get("proposalId") ?? "");
+  const allowanceId = String(formData.get("allowanceId") ?? "");
+  if (!proposalId) return { error: "Proposal is missing." };
+  if (method !== "POST" && !allowanceId) return { error: "Allowance is missing." };
+
+  try {
+    await apiFetch(
+      method === "POST"
+        ? `/api/v1/proposals/${proposalId}/allowances`
+        : `/api/v1/proposals/${proposalId}/allowances/${allowanceId}`,
+      {
+        method,
+        token: token ?? undefined,
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      }
+    );
+  } catch (err) {
+    return { error: err instanceof ApiClientError ? err.message : "Something went wrong." };
+  }
+
+  revalidatePath(`/projects/${projectId}/proposals/${proposalId}`);
+  return undefined;
+}
+
+export async function createProposalAllowanceAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+  const parsed = readAllowanceForm(formData);
+  if ("error" in parsed) return { error: parsed.error };
+  return mutateProposalAllowance("POST", formData, { description: parsed.description, amount: parsed.amount });
+}
+
+export async function updateProposalAllowanceAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+  const parsed = readAllowanceForm(formData);
+  if ("error" in parsed) return { error: parsed.error };
+  return mutateProposalAllowance("PATCH", formData, { description: parsed.description, amount: parsed.amount });
+}
+
+export async function deleteProposalAllowanceAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+  return mutateProposalAllowance("DELETE", formData);
+}
+
+export async function sendProposalAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {  const token = await getSessionToken();
   const id = String(formData.get("proposalId") ?? "");
   const projectId = String(formData.get("projectId") ?? "");
 

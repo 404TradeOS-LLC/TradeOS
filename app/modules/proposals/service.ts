@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
-import { getRequestDatabaseClient } from "../../db/requestSession";
+import { getRequestDatabaseClient, runInDatabaseTransaction } from "../../db/requestSession";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { ProposalGeneratorService } from "../proposal-generator/service";
 import { ProposalDocument } from "../proposal-generator/types";
@@ -11,7 +11,7 @@ import { getDefaultAthenaEventService } from "../athena-events/service";
 import { legacyProposalStatusMap, normalizeEstimateStatus, normalizeProposalStatus } from "../../domain";
 import { clampQueueLimit, decodeUpdatedAtCursor, encodeUpdatedAtCursor, buildUpdatedAtRange, QueuePage } from "../shared/pagination";
 import { expandCanonicalStatusFilter } from "../shared/statusFilter";
-import { CreateProposalInput, ProposalDTO, ProposalDeliveryDTO, ProposalDraftPreviewDTO, ProposalQueueFilters, ProposalQueueItemDTO } from "./types";
+import { CreateProposalAllowanceInput, CreateProposalInput, CreateProposalSelectionInput, ProposalAllowanceDTO, ProposalDTO, ProposalDeliveryDTO, ProposalDraftPreviewDTO, ProposalQueueFilters, ProposalQueueItemDTO, ProposalSelectionDTO, ProposalSelectionStatus, UpdateProposalAllowanceInput, UpdateProposalSelectionInput } from "./types";
 
 
 function canonicalize(value: unknown): unknown {
@@ -103,7 +103,15 @@ export class ProposalsService {
     const findReplay = async () => {
       const existing = await prisma.proposal.findFirst({
         where: { projectId, idempotencyKey, project: { orgId: input.orgId } },
-        include: { deliveries: { orderBy: { occurredAt: "desc" } } },
+        // Load the child collections too: a replay returns the original
+        // proposal, and Prisma excludes relations unless requested, so
+        // without these the replay would report empty selections and a
+        // zero allowances total for a proposal that has both.
+        include: {
+          deliveries: { orderBy: { occurredAt: "desc" } },
+          selections: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+          allowances: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+        },
       });
       if (!existing) return null;
       if (existing.idempotencyHash !== requestHash) {
@@ -133,7 +141,14 @@ export class ProposalsService {
   async listByProject(projectId: string, orgId?: string): Promise<ProposalDTO[]> {
     const rows = await prisma.proposal.findMany({
       where: { projectId, project: orgId ? { orgId } : undefined },
-      include: { deliveries: { orderBy: { occurredAt: "desc" } } },
+      // Load the child collections too: Prisma excludes relations unless
+      // requested, so without these every listed proposal would report
+      // empty selections and a zero allowances total.
+      include: {
+        deliveries: { orderBy: { occurredAt: "desc" } },
+        selections: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+        allowances: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+      },
       orderBy: { createdAt: "desc" },
     });
     return rows.map(toDTO);
@@ -201,6 +216,224 @@ export class ProposalsService {
   async getById(id: string, orgId?: string): Promise<ProposalDTO> {
     const row = await this.findOrThrow(id, orgId);
     return toDTO(row);
+  }
+
+  // --- DES-10-F8: proposal selections (Copperline section 03) ---
+  // Selections and allowances are editable through the same draft rules as
+  // the proposal itself (see update()): an accepted proposal, or one with a
+  // contract, is immutable. Nothing here touches acceptance, estimate
+  // finalization, or totals — allowancesTotal is display-only.
+
+  /**
+   * Serialize child mutations against proposal acceptance. Acceptance
+   * commits through a conditional update on the proposal row, so taking a
+   * row lock on the parent first — inside the same transaction as the child
+   * write — orders the two: whichever commits first wins, and the loser
+   * re-reads the committed state (the editability check below, or the
+   * conditional updateMany/deleteMany predicate) instead of racing past it.
+   * Mirrors EstimateEngineService.lockEstimateForMutation. Skipped when the
+   * client cannot run raw SQL (mocked Prisma in unit tests), where the
+   * conditional predicates remain the only guard.
+   */
+  private async lockProposalForMutation(proposalId: string): Promise<void> {
+    if (typeof prisma.$queryRaw !== "function") return;
+    await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT id
+      FROM public.proposals
+      WHERE id = CAST(${proposalId} AS uuid)
+      FOR UPDATE
+    `);
+  }
+
+  /**
+   * Run a child mutation inside one transaction (reusing the active request
+   * transaction when one exists) so the parent lock above and the child
+   * write commit or roll back together. Falls through to the direct call
+   * when the client has no $transaction (mocked Prisma in unit tests);
+   * there the request-scoped transaction already provides the boundary, or
+   * there is no concurrent writer to serialize against.
+   */
+  private async inProposalMutationTransaction<T>(operation: () => Promise<T>): Promise<T> {
+    if (typeof prisma.$transaction !== "function") return operation();
+    return runInDatabaseTransaction(prisma, operation);
+  }
+
+  async listSelections(proposalId: string, orgId?: string): Promise<ProposalSelectionDTO[]> {
+    await this.findOrThrow(proposalId, orgId);
+    const rows = await prisma.proposalSelection.findMany({
+      where: { proposalId, proposal: { project: orgId ? { orgId } : undefined } },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+    return rows.map(toSelectionDTO);
+  }
+
+  async createSelection(proposalId: string, input: CreateProposalSelectionInput, orgId?: string): Promise<ProposalSelectionDTO> {
+    return this.inProposalMutationTransaction(() => this.createSelectionInTransaction(proposalId, input, orgId));
+  }
+
+  private async createSelectionInTransaction(proposalId: string, input: CreateProposalSelectionInput, orgId?: string): Promise<ProposalSelectionDTO> {
+    await this.lockProposalForMutation(proposalId);
+    const parent = await this.findEditableProposal(proposalId, orgId);
+    const validated = validateSelectionInput(input);
+    if (validated.label === undefined) throw new ApiError(400, "Selection label must be 1-120 characters");
+    const childOrgId = parent.project.orgId ?? orgId;
+    if (!childOrgId) throw new ApiError(500, `Proposal ${proposalId} is missing organization scope`);
+    // Allocate after the highest surviving row, not the row count: after a
+    // delete, count() would reuse a deleted slot and the new row could land
+    // before a surviving one. Runs under the parent row lock, inside the
+    // same transaction as the insert (see lockProposalForMutation).
+    const maxSortOrder = await prisma.proposalSelection.aggregate({ where: { proposalId }, _max: { sortOrder: true } });
+    const sortOrder = (maxSortOrder._max.sortOrder ?? -1) + 1;
+    const row = await prisma.proposalSelection.create({
+      data: {
+        orgId: childOrgId,
+        proposalId,
+        sortOrder,
+        label: validated.label,
+        detail: validated.detail ?? null,
+        status: validated.status ?? "action_required",
+        dueDate: validated.dueDate ?? null,
+      },
+    });
+    return toSelectionDTO(row);
+  }
+
+  async updateSelection(selectionId: string, proposalId: string, input: UpdateProposalSelectionInput, orgId?: string): Promise<ProposalSelectionDTO> {
+    return this.inProposalMutationTransaction(() => this.updateSelectionInTransaction(selectionId, proposalId, input, orgId));
+  }
+
+  private async updateSelectionInTransaction(selectionId: string, proposalId: string, input: UpdateProposalSelectionInput, orgId?: string): Promise<ProposalSelectionDTO> {
+    await this.lockProposalForMutation(proposalId);
+    const validated = validateSelectionInput(input, true);
+    const updated = await prisma.proposalSelection.updateMany({
+      where: {
+        id: selectionId,
+        proposal: {
+          id: proposalId,
+          status: { not: "accepted" },
+          contracts: { none: {} },
+          project: orgId ? { orgId } : undefined,
+        },
+      },
+      data: {
+        label: validated.label,
+        detail: validated.detail,
+        status: validated.status,
+        dueDate: validated.dueDate,
+      },
+    });
+    if (updated.count !== 1) throw await this.selectionWriteError(selectionId, proposalId, orgId);
+    const row = await prisma.proposalSelection.findFirstOrThrow({ where: { id: selectionId } });
+    return toSelectionDTO(row);
+  }
+
+  async deleteSelection(selectionId: string, proposalId: string, orgId?: string): Promise<void> {
+    return this.inProposalMutationTransaction(() => this.deleteSelectionInTransaction(selectionId, proposalId, orgId));
+  }
+
+  private async deleteSelectionInTransaction(selectionId: string, proposalId: string, orgId?: string): Promise<void> {
+    await this.lockProposalForMutation(proposalId);
+    const deleted = await prisma.proposalSelection.deleteMany({
+      where: {
+        id: selectionId,
+        proposal: {
+          id: proposalId,
+          status: { not: "accepted" },
+          contracts: { none: {} },
+          project: orgId ? { orgId } : undefined,
+        },
+      },
+    });
+    if (deleted.count !== 1) throw await this.selectionWriteError(selectionId, proposalId, orgId);
+  }
+
+  // --- DES-10-F8: proposal allowances (Copperline section 04) ---
+
+  async listAllowances(proposalId: string, orgId?: string): Promise<ProposalAllowanceDTO[]> {
+    await this.findOrThrow(proposalId, orgId);
+    const rows = await prisma.proposalAllowance.findMany({
+      where: { proposalId, proposal: { project: orgId ? { orgId } : undefined } },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+    return rows.map(toAllowanceDTO);
+  }
+
+  async createAllowance(proposalId: string, input: CreateProposalAllowanceInput, orgId?: string): Promise<ProposalAllowanceDTO> {
+    return this.inProposalMutationTransaction(() => this.createAllowanceInTransaction(proposalId, input, orgId));
+  }
+
+  private async createAllowanceInTransaction(proposalId: string, input: CreateProposalAllowanceInput, orgId?: string): Promise<ProposalAllowanceDTO> {
+    await this.lockProposalForMutation(proposalId);
+    const parent = await this.findEditableProposal(proposalId, orgId);
+    const validated = validateAllowanceInput(input);
+    if (validated.description === undefined || validated.amount === undefined) {
+      throw new ApiError(400, "Allowance description and amount are required");
+    }
+    const childOrgId = parent.project.orgId ?? orgId;
+    if (!childOrgId) throw new ApiError(500, `Proposal ${proposalId} is missing organization scope`);
+    // Allocate after the highest surviving row, not the row count: after a
+    // delete, count() would reuse a deleted slot and the new row could land
+    // before a surviving one. Runs under the parent row lock, inside the
+    // same transaction as the insert (see lockProposalForMutation).
+    const maxSortOrder = await prisma.proposalAllowance.aggregate({ where: { proposalId }, _max: { sortOrder: true } });
+    const sortOrder = (maxSortOrder._max.sortOrder ?? -1) + 1;
+    const row = await prisma.proposalAllowance.create({
+      data: {
+        orgId: childOrgId,
+        proposalId,
+        sortOrder,
+        description: validated.description,
+        amount: validated.amount,
+      },
+    });
+    return toAllowanceDTO(row);
+  }
+
+  async updateAllowance(allowanceId: string, proposalId: string, input: UpdateProposalAllowanceInput, orgId?: string): Promise<ProposalAllowanceDTO> {
+    return this.inProposalMutationTransaction(() => this.updateAllowanceInTransaction(allowanceId, proposalId, input, orgId));
+  }
+
+  private async updateAllowanceInTransaction(allowanceId: string, proposalId: string, input: UpdateProposalAllowanceInput, orgId?: string): Promise<ProposalAllowanceDTO> {
+    await this.lockProposalForMutation(proposalId);
+    const validated = validateAllowanceInput(input, true);
+    const updated = await prisma.proposalAllowance.updateMany({
+      where: {
+        id: allowanceId,
+        proposal: {
+          id: proposalId,
+          status: { not: "accepted" },
+          contracts: { none: {} },
+          project: orgId ? { orgId } : undefined,
+        },
+      },
+      data: {
+        description: validated.description,
+        amount: validated.amount,
+      },
+    });
+    if (updated.count !== 1) throw await this.allowanceWriteError(allowanceId, proposalId, orgId);
+    const row = await prisma.proposalAllowance.findFirstOrThrow({ where: { id: allowanceId } });
+    return toAllowanceDTO(row);
+  }
+
+  async deleteAllowance(allowanceId: string, proposalId: string, orgId?: string): Promise<void> {
+    return this.inProposalMutationTransaction(() => this.deleteAllowanceInTransaction(allowanceId, proposalId, orgId));
+  }
+
+  private async deleteAllowanceInTransaction(allowanceId: string, proposalId: string, orgId?: string): Promise<void> {
+    await this.lockProposalForMutation(proposalId);
+    const deleted = await prisma.proposalAllowance.deleteMany({
+      where: {
+        id: allowanceId,
+        proposal: {
+          id: proposalId,
+          status: { not: "accepted" },
+          contracts: { none: {} },
+          project: orgId ? { orgId } : undefined,
+        },
+      },
+    });
+    if (deleted.count !== 1) throw await this.allowanceWriteError(allowanceId, proposalId, orgId);
   }
 
   async previewProjectDraft(projectId: string, orgId?: string, companyName?: string): Promise<ProposalDraftPreviewDTO> {
@@ -494,8 +727,76 @@ export class ProposalsService {
         termsAndConditions: row.termsAndConditions,
       },
     });
+    // A duplicate is a fresh draft revision of the same proposal: carry the
+    // customer's pending decisions and allowance lines with it so the copy
+    // does not silently lose them.
+    const [selections, allowances] = await Promise.all([
+      prisma.proposalSelection.findMany({ where: { proposalId: id }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
+      prisma.proposalAllowance.findMany({ where: { proposalId: id }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
+    ]);
+    if (selections.length > 0) {
+      await prisma.proposalSelection.createMany({
+        data: selections.map((selection) => ({
+          orgId: selection.orgId,
+          proposalId: duplicated.id,
+          label: selection.label,
+          detail: selection.detail,
+          status: selection.status,
+          dueDate: selection.dueDate,
+          sortOrder: selection.sortOrder,
+        })),
+      });
+    }
+    if (allowances.length > 0) {
+      await prisma.proposalAllowance.createMany({
+        data: allowances.map((allowance) => ({
+          orgId: allowance.orgId,
+          proposalId: duplicated.id,
+          description: allowance.description,
+          amount: allowance.amount,
+          sortOrder: allowance.sortOrder,
+        })),
+      });
+    }
     await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
-    return toDTO(duplicated);
+    // Reload the copy: the bare create result carries no relations, so
+    // returning it directly would report empty selections and a zero
+    // allowances total even though the children were just copied.
+    const reloaded = await this.findOrThrow(duplicated.id, orgId);
+    return toDTO(reloaded);
+  }
+
+  private async findEditableProposal(proposalId: string, orgId?: string) {
+    const row = await prisma.proposal.findFirst({
+      where: { id: proposalId, project: orgId ? { orgId } : undefined },
+      include: {
+        project: { select: { orgId: true } },
+        contracts: { select: { id: true }, take: 1 },
+      },
+    });
+    if (!row) throw new ApiError(404, `Proposal ${proposalId} not found`);
+    if (normalizeProposalStatus(row.status) === "accepted" || row.contracts.length > 0) {
+      throw new ApiError(409, `Proposal ${proposalId} is immutable after acceptance or contract creation; use a change order or duplicate revision`);
+    }
+    return row;
+  }
+
+  private async selectionWriteError(selectionId: string, proposalId: string, orgId?: string): Promise<ApiError> {
+    const existing = await prisma.proposalSelection.findFirst({
+      where: { id: selectionId, proposal: { id: proposalId, project: orgId ? { orgId } : undefined } },
+      include: { proposal: { include: { contracts: { select: { id: true }, take: 1 } } } },
+    });
+    if (!existing) return new ApiError(404, `Proposal selection ${selectionId} not found`);
+    return new ApiError(409, `Proposal ${proposalId} is immutable after acceptance or contract creation; use a change order or duplicate revision`);
+  }
+
+  private async allowanceWriteError(allowanceId: string, proposalId: string, orgId?: string): Promise<ApiError> {
+    const existing = await prisma.proposalAllowance.findFirst({
+      where: { id: allowanceId, proposal: { id: proposalId, project: orgId ? { orgId } : undefined } },
+      include: { proposal: { include: { contracts: { select: { id: true }, take: 1 } } } },
+    });
+    if (!existing) return new ApiError(404, `Proposal allowance ${allowanceId} not found`);
+    return new ApiError(409, `Proposal ${proposalId} is immutable after acceptance or contract creation; use a change order or duplicate revision`);
   }
 
   private async findOrThrow(id: string, orgId?: string) {
@@ -503,6 +804,8 @@ export class ProposalsService {
       where: { id, project: orgId ? { orgId } : undefined },
       include: {
         deliveries: { orderBy: { occurredAt: "desc" } },
+        selections: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+        allowances: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
         project: {
           include: {
             customer: {
@@ -736,7 +1039,29 @@ function toDTO(row: {
     occurredAt: Date;
     createdAt: Date;
   }>;
+  selections?: Array<{
+    id: string;
+    proposalId: string;
+    label: string;
+    detail: string | null;
+    status: string;
+    dueDate: Date | null;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
+  allowances?: Array<{
+    id: string;
+    proposalId: string;
+    description: string;
+    amount: unknown;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
 }): ProposalDTO {
+  const selections = (row.selections ?? []).map(toSelectionDTO);
+  const allowances = (row.allowances ?? []).map(toAllowanceDTO);
   return {
     id: row.id,
     projectId: row.projectId,
@@ -759,7 +1084,127 @@ function toDTO(row: {
     respondedAt: row.respondedAt,
     createdAt: row.createdAt,
     deliveries: (row.deliveries ?? []).map(toDeliveryDTO),
+    selections,
+    allowances,
+    allowancesTotal: allowances.reduce((sum, allowance) => sum + allowance.amount, 0),
   };
+}
+
+function toSelectionDTO(row: {
+  id: string;
+  proposalId: string;
+  label: string;
+  detail: string | null;
+  status: string;
+  dueDate: Date | null;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): ProposalSelectionDTO {
+  return {
+    id: row.id,
+    proposalId: row.proposalId,
+    label: row.label,
+    detail: row.detail,
+    status: normalizeSelectionStatus(row.status),
+    dueDate: row.dueDate ? row.dueDate.toISOString() : null,
+    sortOrder: row.sortOrder,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toAllowanceDTO(row: {
+  id: string;
+  proposalId: string;
+  description: string;
+  amount: unknown;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): ProposalAllowanceDTO {
+  return {
+    id: row.id,
+    proposalId: row.proposalId,
+    description: row.description,
+    amount: toNullableNumber(row.amount) ?? 0,
+    sortOrder: row.sortOrder,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+const PROPOSAL_SELECTION_STATUSES: readonly ProposalSelectionStatus[] = ["action_required", "confirmed"];
+
+function normalizeSelectionStatus(status: string): ProposalSelectionStatus {
+  return (PROPOSAL_SELECTION_STATUSES as readonly string[]).includes(status)
+    ? (status as ProposalSelectionStatus)
+    : "action_required";
+}
+
+function validateSelectionInput(
+  input: CreateProposalSelectionInput | UpdateProposalSelectionInput,
+  partial = false
+): { label?: string; detail?: string | null; status?: ProposalSelectionStatus; dueDate?: Date | null } {
+  const result: { label?: string; detail?: string | null; status?: ProposalSelectionStatus; dueDate?: Date | null } = {};
+
+  if (input.label !== undefined || !partial) {
+    const label = typeof input.label === "string" ? input.label.trim() : "";
+    if (label.length < 1 || label.length > 120) {
+      throw new ApiError(400, "Selection label must be 1-120 characters");
+    }
+    result.label = label;
+  }
+  if (input.detail !== undefined) {
+    if (input.detail === null) {
+      result.detail = null;
+    } else {
+      const detail = typeof input.detail === "string" ? input.detail.trim() : "";
+      if (detail.length > 500) throw new ApiError(400, "Selection detail must be at most 500 characters");
+      result.detail = detail === "" ? null : detail;
+    }
+  }
+  if (input.status !== undefined) {
+    if (!(PROPOSAL_SELECTION_STATUSES as readonly string[]).includes(input.status)) {
+      throw new ApiError(400, "Selection status must be action_required or confirmed");
+    }
+    result.status = input.status;
+  }
+  if (input.dueDate !== undefined) {
+    if (input.dueDate === null) {
+      result.dueDate = null;
+    } else {
+      const dueDate = new Date(input.dueDate);
+      if (Number.isNaN(dueDate.getTime())) throw new ApiError(400, "Selection due date must be a valid date");
+      result.dueDate = dueDate;
+    }
+  }
+  return result;
+}
+
+function validateAllowanceInput(
+  input: CreateProposalAllowanceInput | UpdateProposalAllowanceInput,
+  partial = false
+): { description?: string; amount?: number } {
+  const result: { description?: string; amount?: number } = {};
+
+  if (input.description !== undefined || !partial) {
+    const description = typeof input.description === "string" ? input.description.trim() : "";
+    if (description.length < 1 || description.length > 200) {
+      throw new ApiError(400, "Allowance description must be 1-200 characters");
+    }
+    result.description = description;
+  }
+  if (input.amount !== undefined) {
+    const amount = typeof input.amount === "number" ? input.amount : Number(input.amount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      throw new ApiError(400, "Allowance amount must be a finite number of 0 or more");
+    }
+    result.amount = amount;
+  } else if (!partial) {
+    throw new ApiError(400, "Allowance amount must be a finite number of 0 or more");
+  }
+  return result;
 }
 
 function toDeliveryDTO(row: {

@@ -178,6 +178,12 @@ only one winning terminal result; the losing request fails closed without a
 second delivery/activity event or project-side-effect overwrite. Repeated
 terminal approval/decline remains an invalid transition.
 
+Selection and allowance writes (DES-10-F8) are draft-only mutations, not
+lifecycle transitions: they are allowed in any non-accepted state and rejected
+with `409` once the proposal is accepted or has a contract, following the same
+immutability rule as the proposal update path. They never change the proposal
+status, the estimate, or `finalPrice` — the allowances total is display-only.
+
 Compatibility note:
 
 - the `/reject` route and service method remain for API compatibility, but the mutation writes canonical `declined` and records `proposal.declined`; historical `rejected` values remain read-compatible

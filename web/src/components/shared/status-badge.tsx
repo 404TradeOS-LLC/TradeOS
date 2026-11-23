@@ -86,6 +86,12 @@ const STATUS_TONES: Record<string, string> = {
   won: TONE_SUCCESS,
   warranty: TONE_WARNING,
 
+  // DES-10-F8: Copperline proposal selection decisions (section 03).
+  // ACTION REQUIRED is an open decision needing attention; CONFIRMED is a
+  // settled decision.
+  action_required: TONE_WARNING,
+  confirmed: TONE_SUCCESS,
+
   // Athena kernel execution states (AthenaKernelState) and telemetry span
   // statuses (AthenaTelemetryStatus) - A10 observability. None of these
   // strings collide with an existing key above, so they share the same

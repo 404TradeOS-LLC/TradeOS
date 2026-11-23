@@ -36,6 +36,9 @@ function stubRequire(specifier: string) {
     return { Card: nullComponent, CardContent: nullComponent, CardHeader: nullComponent, CardTitle: nullComponent };
   }
   if (specifier === "@/components/shared/activity-timeline") return { ActivityTimeline: nullComponent };
+  if (specifier === "@/components/proposals/proposal-selections-allowances-readonly") {
+    return { ProposalSelectionsAllowancesReadonly: nullComponent };
+  }
   if (specifier === "@/lib/api") {
     const expiredSession = async () => {
       throw new Error("Customer portal session is required");
