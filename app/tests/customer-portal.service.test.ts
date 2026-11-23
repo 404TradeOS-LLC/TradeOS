@@ -217,6 +217,36 @@ describe("CustomerPortalService", () => {
     await expect(service.getInvoice(context, "invoice-a")).rejects.toThrow("not found");
   });
 
+  // DES-7 (c): the portal read is the mark-viewed writer — a sent invoice
+  // viewed in the portal is recorded viewed, idempotently, while drafts
+  // never reach the writer.
+  it("marks a sent invoice viewed on portal read and returns the viewed record", async () => {
+    const service = new CustomerPortalService() as any;
+    const viewed = { id: "invoice-a", status: "viewed", viewedAt: new Date() };
+    service.invoices = {
+      getById: jest.fn().mockResolvedValue({ id: "invoice-a", status: "sent" }),
+      markViewed: jest.fn().mockResolvedValue(viewed),
+    };
+    mockPrisma.invoice.findFirst.mockResolvedValue({ id: "invoice-a", status: "sent" });
+    const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
+
+    await expect(service.getInvoice(context, "invoice-a")).resolves.toEqual(viewed);
+    expect(service.invoices.markViewed).toHaveBeenCalledWith("invoice-a", "org-a");
+  });
+
+  it("does not mark a draft invoice viewed", async () => {
+    const service = new CustomerPortalService() as any;
+    service.invoices = {
+      getById: jest.fn().mockResolvedValue({ id: "invoice-a", status: "draft" }),
+      markViewed: jest.fn(),
+    };
+    mockPrisma.invoice.findFirst.mockResolvedValue({ id: "invoice-a", status: "draft" });
+    const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
+
+    await expect(service.getInvoice(context, "invoice-a")).rejects.toThrow("not found");
+    expect(service.invoices.markViewed).not.toHaveBeenCalled();
+  });
+
   it("does not expose internal offline acceptance notes in customer-portal proposal responses", async () => {
     const service = new CustomerPortalService() as any;
     const staffNote = "Customer called staff privately; internal approval case ID 123";

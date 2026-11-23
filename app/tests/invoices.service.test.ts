@@ -1,4 +1,5 @@
 const mockPrisma = {
+  $queryRaw: jest.fn().mockResolvedValue([]),
   project: {
     findFirst: jest.fn(),
   },
@@ -14,6 +15,7 @@ const mockPrisma = {
     findMany: jest.fn(),
     findFirst: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
   },
   invoiceLineItem: {
     deleteMany: jest.fn(),
@@ -536,6 +538,142 @@ describe("InvoicesService", () => {
     expect(mockPrisma.invoiceDelivery.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ eventType: "invoice.paid", actorUserId: "user-1" }) })
     );
+  });
+
+  // DES-7 (c): the mark-viewed writer — a portal view records viewedAt /
+  // viewed status, idempotently, and only for invoices that have been sent.
+  describe("markViewed", () => {
+    const sentRow = {
+      id: "invoice-1",
+      projectId: "project-1",
+      status: "sent",
+      viewedAt: null,
+      invoiceNumber: 1,
+      project: { orgId: "org-1", customer: { email: "billing@example.com" } },
+      deliveries: [],
+    };
+    const viewedRow = {
+      id: "invoice-1",
+      projectId: "project-1",
+      estimateId: null,
+      proposalId: null,
+      invoiceNumber: 1,
+      type: "full",
+      status: "viewed",
+      percentComplete: null,
+      amount: 500,
+      dueDate: null,
+      sentAt: new Date(),
+      viewedAt: new Date(),
+      paidAt: null,
+      createdAt: new Date(),
+      payments: [],
+      lineItems: [],
+      deliveries: [{ id: "delivery-1", eventType: "invoice.viewed", deliveryChannel: "portal", recipientEmail: "billing@example.com", actorUserId: null, metadataJson: null, occurredAt: new Date(), createdAt: new Date() }],
+    };
+
+    it("marks a sent invoice viewed with an organization-scoped conditional transition", async () => {
+      mockPrisma.invoice.findFirst.mockResolvedValueOnce(sentRow).mockResolvedValueOnce(viewedRow);
+      mockPrisma.invoice.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.invoiceDelivery.create.mockResolvedValue({});
+
+      const invoice = await new InvoicesService().markViewed("invoice-1", "org-1");
+
+      expect(invoice.status).toBe("viewed");
+      expect(invoice.viewedAt).not.toBeNull();
+      expect(mockPrisma.invoice.updateMany).toHaveBeenCalledWith({
+        where: { id: "invoice-1", viewedAt: null, project: { orgId: "org-1" } },
+        data: { status: "viewed", viewedAt: expect.any(Date) },
+      });
+      // The portal RLS policy is keyed by this transaction-local setting
+      // (same shape as app.portal_contract_id for contract signing).
+      expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.invoiceDelivery.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ eventType: "invoice.viewed", deliveryChannel: "portal", recipientEmail: "billing@example.com" }),
+        })
+      );
+    });
+
+    it("writes nothing on a repeat view once viewedAt is set", async () => {
+      mockPrisma.invoice.findFirst.mockResolvedValueOnce({ ...sentRow, status: "viewed", viewedAt: new Date() }).mockResolvedValueOnce(viewedRow);
+
+      const invoice = await new InvoicesService().markViewed("invoice-1", "org-1");
+
+      expect(invoice.status).toBe("viewed");
+      expect(mockPrisma.invoice.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.invoiceDelivery.create).not.toHaveBeenCalled();
+      expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it("rejects marking a draft invoice viewed", async () => {
+      mockPrisma.invoice.findFirst.mockResolvedValue({ ...sentRow, status: "draft" });
+
+      await expect(new InvoicesService().markViewed("invoice-1", "org-1")).rejects.toThrow("has not been sent yet");
+      expect(mockPrisma.invoice.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("records viewedAt without changing the status of an already-paid invoice", async () => {
+      const paidRow = { ...sentRow, status: "partially_paid" };
+      const paidViewedRow = { ...viewedRow, status: "partially_paid" };
+      mockPrisma.invoice.findFirst.mockResolvedValueOnce(paidRow).mockResolvedValueOnce(paidViewedRow);
+      mockPrisma.invoice.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.invoiceDelivery.create.mockResolvedValue({});
+
+      const invoice = await new InvoicesService().markViewed("invoice-1", "org-1");
+
+      expect(invoice.status).toBe("partially_paid");
+      expect(invoice.viewedAt).not.toBeNull();
+      expect(mockPrisma.invoice.updateMany).toHaveBeenCalledWith({
+        where: { id: "invoice-1", viewedAt: null, project: { orgId: "org-1" } },
+        data: { viewedAt: expect.any(Date) },
+      });
+    });
+  });
+
+  // DES-7 (d): Payment Failure is a failed manual record-payment attempt.
+  describe("recordPaymentFailure", () => {
+    it("records an invoice.payment_failed event carrying the failure reason", async () => {
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: "invoice-1",
+        projectId: "project-1",
+        status: "sent",
+        invoiceNumber: 1,
+        project: { orgId: "org-1", customer: { email: "billing@example.com" } },
+        deliveries: [],
+      });
+      mockPrisma.invoiceDelivery.create.mockResolvedValue({});
+
+      await new InvoicesService().recordPaymentFailure("invoice-1", "org-1", "Invoice must be sent before a payment can be recorded", "user-1", "admin");
+
+      expect(mockPrisma.invoiceDelivery.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            eventType: "invoice.payment_failed",
+            actorUserId: "user-1",
+            metadataJson: { reason: "Invoice must be sent before a payment can be recorded", invoiceNumber: 1 },
+          }),
+        })
+      );
+      expect(mockPrisma.invoice.update).not.toHaveBeenCalled();
+      expect(mockPrisma.invoice.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("rejects recording a payment failure for roles without billing.write", async () => {
+      await expect(
+        new InvoicesService().recordPaymentFailure("invoice-1", "org-1", "Enter a payment amount greater than zero.", "user-1", "technician")
+      ).rejects.toThrow("manage invoices");
+      expect(mockPrisma.invoiceDelivery.create).not.toHaveBeenCalled();
+    });
+
+    it("returns 404 for an invoice outside the organization", async () => {
+      mockPrisma.invoice.findFirst.mockResolvedValue(null);
+
+      await expect(new InvoicesService().recordPaymentFailure("invoice-1", "org-1", "Something went wrong.", "user-1", "admin")).rejects.toThrow(
+        "Invoice invoice-1 not found"
+      );
+      expect(mockPrisma.invoiceDelivery.create).not.toHaveBeenCalled();
+    });
   });
 
   it("rejects voiding a paid invoice", async () => {

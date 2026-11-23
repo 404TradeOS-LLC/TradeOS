@@ -416,6 +416,81 @@ export class InvoicesService {
     return this.getById(updated.id, orgId);
   }
 
+  /**
+   * DES-7 (c): record a customer portal view. Reached from
+   * CustomerPortalService.getInvoice, which has already verified the portal
+   * session's organization + customer scope, so this writer takes the same
+   * orgId rather than a staff role. Idempotent: a repeat view returns the
+   * current record without another write or event. A sent invoice moves to
+   * `viewed`; an invoice already past viewed (partially paid, paid, overdue,
+   * voided) keeps its status and only gains its first `viewedAt`. Drafts
+   * cannot be viewed in the portal, so marking one is a 409. The write
+   * itself runs under the portal session's narrowly scoped RLS policy
+   * (migration 20261123120100): the portal UPDATE policy plus a trigger
+   * that only allows sent→viewed (or an unchanged status) and setting
+   * viewedAt from null — a portal session never gains staff write
+   * privileges.
+   */
+  async markViewed(id: string, orgId?: string, actorUserId?: string): Promise<InvoiceDTO> {
+    const row = await this.findOrThrow(id, orgId);
+    const currentStatus = normalizeInvoiceStatus(row.status);
+    if (currentStatus === "draft") throw new ApiError(409, `Invoice ${id} has not been sent yet`);
+    if (row.viewedAt) return this.getById(row.id, orgId);
+    const viewedAt = new Date();
+    const target = currentStatus === "sent" ? { status: "viewed", viewedAt } : { viewedAt };
+    // Portal sessions carry app.role = 'portal_customer', so the staff
+    // invoices write policy denies them. The 20261123120100 migration
+    // grants one narrowly scoped portal UPDATE policy keyed by this
+    // transaction-local invoice id (same shape as app.portal_contract_id
+    // for contract signing); the whole portal request runs in one
+    // transaction, so the setting covers the update and the viewed-event
+    // inserts below. Staff sessions ignore it — their own write policy
+    // already permits the update.
+    await prisma.$queryRaw(Prisma.sql`select set_config('app.portal_invoice_id', ${id}, true)`);
+    const updated = await prisma.invoice.updateMany({
+      where: { id, viewedAt: null, project: orgId ? { orgId } : undefined },
+      data: target,
+    });
+    if (updated.count !== 1) {
+      const latest = await this.findOrThrow(id, orgId);
+      if (latest.viewedAt) return this.getById(row.id, orgId);
+      throw new ApiError(409, `Invoice ${id} changed before it could be marked viewed`);
+    }
+    await this.recordDeliveryEvent({
+      orgId: orgId ?? row.project.orgId ?? undefined,
+      invoiceId: row.id,
+      projectId: row.projectId,
+      actorUserId,
+      eventType: "invoice.viewed",
+      deliveryChannel: "portal",
+      recipientEmail: row.project.customer?.email ?? null,
+      metadata: { previousStatus: row.status, newStatus: currentStatus === "sent" ? "viewed" : row.status, invoiceNumber: row.invoiceNumber },
+    });
+    return this.getById(row.id, orgId);
+  }
+
+  /**
+   * DES-7 (d): Payment Failure is a failed manual record-payment attempt —
+   * there is no online payment flow to fail. A failed attempt records an
+   * `invoice.payment_failed` delivery event carrying the failure reason; the
+   * invoice status itself does not change, and the detail page derives the
+   * Payment Failure display from the latest such event. A later successful
+   * recorded payment supersedes it (see getLatestPaymentFailure).
+   */
+  async recordPaymentFailure(id: string, orgId: string, reason: string, actorUserId?: string, actorRole?: string): Promise<void> {
+    assertInvoiceWriteAccess(actorRole);
+    const row = await this.findOrThrow(id, orgId);
+    await this.recordDeliveryEvent({
+      orgId: orgId ?? row.project.orgId ?? undefined,
+      invoiceId: row.id,
+      projectId: row.projectId,
+      actorUserId,
+      eventType: "invoice.payment_failed",
+      recipientEmail: row.project.customer?.email ?? null,
+      metadata: { reason, invoiceNumber: row.invoiceNumber },
+    });
+  }
+
   async markPaid(id: string, orgId?: string, actorUserId?: string, actorRole?: string): Promise<InvoiceDTO> {
     assertInvoiceWriteAccess(actorRole);
     const row = await this.findOrThrow(id, orgId);
@@ -506,6 +581,7 @@ export class InvoicesService {
     projectId: string;
     actorUserId?: string;
     eventType: string;
+    deliveryChannel?: string;
     recipientEmail?: string | null;
     metadata?: Record<string, unknown>;
   }): Promise<void> {
@@ -517,7 +593,7 @@ export class InvoicesService {
         orgId: input.orgId,
         invoiceId: input.invoiceId,
         eventType: input.eventType,
-        deliveryChannel: "app",
+        deliveryChannel: input.deliveryChannel ?? "app",
         recipientEmail: input.recipientEmail,
         actorUserId: input.actorUserId,
         metadataJson: input.metadata as Prisma.InputJsonValue | undefined,
@@ -738,6 +814,7 @@ export function toInvoiceDTO(row: {
   taxAmount?: unknown;
   dueDate: Date | null;
   sentAt: Date | null;
+  viewedAt?: Date | null;
   paidAt: Date | null;
   createdAt: Date;
   payments?: Array<{
@@ -776,6 +853,7 @@ export function toInvoiceDTO(row: {
     taxAmount: row.taxAmount != null ? Number(row.taxAmount) : 0,
     dueDate: row.dueDate,
     sentAt: row.sentAt,
+    viewedAt: row.viewedAt ?? null,
     paidAt: row.paidAt,
     createdAt: row.createdAt,
     ...financials,

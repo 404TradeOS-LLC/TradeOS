@@ -3161,6 +3161,83 @@ describe("live organization row-level security", () => {
       expect(signed.event.metadataJson).toMatchObject({ actorType: "customer_portal", customerId: customerA });
       expect(signed.activity.actorUserId).toBeNull();
     });
+
+    // DES-7 (c): portal mark-viewed is the second customer-originated
+    // write. The portal session carries app.role = 'portal_customer', so
+    // the staff write policies deny it; the 20261123120100 migration grants
+    // one narrowly scoped portal UPDATE policy + trigger keyed by the
+    // transaction-local app.portal_invoice_id.
+    it("lets a portal session record the first view of its own sent invoice, and nothing else", async () => {
+      const invoice = await inSession(adminUser, orgA, "admin", async () =>
+        new InvoicesService().create({
+          orgId: orgA,
+          projectId: projectA,
+          actorUserId: adminUser,
+          actorRole: "admin",
+          lineItems: [{ description: "Portal view fixture", quantity: 1, unitOfMeasure: "EA", unitPrice: 250 }],
+        })
+      );
+      const sent = await inSession(adminUser, orgA, "admin", async () => new InvoicesService().send(invoice.id, orgA, adminUser, "admin"));
+      expect(sent.status).toBe("sent");
+
+      const portalContext = (accessTokenId: string, orgId: string, customerId: string) => ({
+        sessionId: portalSessionId,
+        accessTokenId,
+        orgId,
+        customerId,
+      });
+
+      // A portal session for another tenant cannot even see the invoice.
+      await expect(
+        runWithPortalDatabaseSession(
+          appClient,
+          portalContext("10000000-0000-0000-0000-000000000306", orgB, customerB),
+          async () => new InvoicesService().markViewed(invoice.id, orgB)
+        )
+      ).rejects.toMatchObject({ statusCode: 404 });
+
+      // The owning customer's portal session marks it viewed exactly once.
+      const viewed = await runWithPortalDatabaseSession(
+        appClient,
+        portalContext("10000000-0000-0000-0000-000000000307", orgA, customerA),
+        async () => new InvoicesService().markViewed(invoice.id, orgA)
+      );
+      expect(viewed.status).toBe("viewed");
+      expect(viewed.viewedAt).not.toBeNull();
+
+      const deliveries = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().invoiceDelivery.findMany({ where: { invoiceId: invoice.id }, orderBy: { occurredAt: "desc" } })
+      );
+      const viewedEvents = deliveries.filter((delivery) => delivery.eventType === "invoice.viewed");
+      expect(viewedEvents).toHaveLength(1);
+      expect(viewedEvents[0]?.deliveryChannel).toBe("portal");
+      expect(viewedEvents[0]?.actorUserId).toBeNull();
+
+      // A repeat view writes nothing new.
+      const again = await runWithPortalDatabaseSession(
+        appClient,
+        portalContext("10000000-0000-0000-0000-000000000308", orgA, customerA),
+        async () => new InvoicesService().markViewed(invoice.id, orgA)
+      );
+      expect(again.status).toBe("viewed");
+      const deliveriesAfter = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().invoiceDelivery.findMany({ where: { invoiceId: invoice.id, eventType: "invoice.viewed" } })
+      );
+      expect(deliveriesAfter).toHaveLength(1);
+
+      // A portal session cannot rewrite the invoice: the trigger rejects
+      // anything beyond recording the first view.
+      await expect(
+        runWithPortalDatabaseSession(
+          appClient,
+          portalContext("10000000-0000-0000-0000-000000000309", orgA, customerA),
+          async () => {
+            await currentTransaction().$queryRaw(Prisma.sql`select set_config('app.portal_invoice_id', ${invoice.id}, true)`);
+            return currentTransaction().invoice.updateMany({ where: { id: invoice.id }, data: { amount: 1 } });
+          }
+        )
+      ).rejects.toThrow("Customer portal viewing may only record the first view");
+    });
   });
 
   describe("codes_job_assessment row-level security", () => {
