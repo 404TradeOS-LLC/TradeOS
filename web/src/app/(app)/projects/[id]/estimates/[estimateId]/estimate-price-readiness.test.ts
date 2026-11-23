@@ -46,7 +46,8 @@ test("readiness signals show missing, to-review, and low-margin chips", async ()
   assert.match(signals, /isLowGrossMargin\(marginPct\)/);
   assert.match(signals, /Low margin: \{formatPercent\(marginPct\)\}/);
   // Chips render only when something needs attention; the omission line always renders.
-  assert.match(signals, /attentionCount > 0 \|\| lowMargin/);
+  // Unchecked lines (readiness lookup never ran) also surface as chips.
+  assert.match(signals, /attentionCount > 0 \|\| summary\.unchecked > 0 \|\| lowMargin/);
 });
 
 test("readiness attention item names the lines and links back to Items", async () => {
@@ -68,6 +69,19 @@ test("omission check line summarizes the counts, or reports completion", async (
   assert.match(signals, /Omission check complete · no missing or stale prices\./);
 });
 
+test("omission check reports incomplete when the readiness lookup never ran", async () => {
+  const builder = await readSource("./builder.tsx");
+  const signals = readinessSignals(builder);
+  // Lines without a priceReadiness signal (lookup failed) must not read as
+  // a completed check: they surface as an unchecked count and badge.
+  assert.match(signals, /summary\.unchecked/);
+  assert.match(signals, /\{summary\.unchecked\} unchecked/);
+  assert.match(signals, /Omission check incomplete ·/);
+  assert.match(signals, /could not be checked/);
+  // The completion claim is only the fallback when nothing is unchecked.
+  assert.match(signals, /summary\.unchecked > 0\s*\n?\s*\? `Omission check incomplete/);
+});
+
 test("direct-cost breakdown carries per-type readiness counts", async () => {
   const builder = await readSource("./builder.tsx");
   const breakdown = builder.slice(builder.indexOf("function EstimateDirectCostBreakdown("));
@@ -75,6 +89,9 @@ test("direct-cost breakdown carries per-type readiness counts", async () => {
   assert.match(breakdown, /priceReadinessCountsFor\(readiness, item\.type\)/);
   assert.match(breakdown, /\$\{counts\.missing\} missing/);
   assert.match(breakdown, /\$\{counts\.toReview\} to review/);
+  // A failed readiness lookup must not read as complete in the breakdown
+  // either: unchecked lines surface per cost type.
+  assert.match(breakdown, /\$\{counts\.unchecked\} unchecked/);
 });
 
 test("price stage low-margin flag uses the shared 10% threshold, not a local number", async () => {

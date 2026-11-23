@@ -35,14 +35,32 @@ test("summary counts missing and to-review lines separately", () => {
     line({ priceReadiness: "current", description: "Lumber" }),
     line({ priceReadiness: null, description: "Labor" }),
     line({ description: "Unevaluated custom" }),
+    line({ priceReadiness: undefined, description: "Failed lookup" }),
   ]);
-  assert.equal(summary.total, 8);
+  assert.equal(summary.total, 9);
   assert.equal(summary.missing, 2);
   assert.equal(summary.unverified, 1);
   assert.equal(summary.stale, 2);
   assert.equal(summary.toReview, 3);
+  assert.equal(summary.unchecked, 1);
   assert.deepEqual(summary.missingLines, ["Sink", "Paint"]);
   assert.deepEqual(summary.toReviewLines, ["Faucet", "Pipe", "Wire"]);
+  assert.deepEqual(summary.uncheckedLines, ["Failed lookup"]);
+});
+
+test("summary distinguishes unchecked lines from lines with no supplier signal", () => {
+  const summary = summarizePriceReadiness([
+    // undefined: the readiness lookup failed, so the line was never checked.
+    line({ priceReadiness: undefined, description: "Lookup failed", costType: "material" }),
+    // null: no supplier price backs the line, so no signal applies.
+    line({ priceReadiness: null, description: "Custom labor", costType: "labor" }),
+  ]);
+  assert.equal(summary.unchecked, 1);
+  assert.deepEqual(summary.uncheckedLines, ["Lookup failed"]);
+  assert.equal(summary.missing, 0);
+  assert.equal(summary.toReview, 0);
+  assert.deepEqual(priceReadinessCountsFor(summary, "material"), { missing: 0, toReview: 0, unchecked: 1 });
+  assert.deepEqual(priceReadinessCountsFor(summary, "labor"), { missing: 0, toReview: 0, unchecked: 0 });
 });
 
 test("summary is empty when no line needs a review", () => {
@@ -53,8 +71,10 @@ test("summary is empty when no line needs a review", () => {
   ]);
   assert.equal(summary.missing, 0);
   assert.equal(summary.toReview, 0);
+  assert.equal(summary.unchecked, 0);
   assert.deepEqual(summary.missingLines, []);
   assert.deepEqual(summary.toReviewLines, []);
+  assert.deepEqual(summary.uncheckedLines, []);
   assert.deepEqual(summary.byCostType, {});
 });
 
@@ -65,7 +85,7 @@ test("summary groups counts by cost type for the breakdown", () => {
     line({ priceReadiness: "reject", costType: "labor" }),
     line({ priceReadiness: "current", costType: "labor" }),
   ]);
-  assert.deepEqual(priceReadinessCountsFor(summary, "material"), { missing: 1, toReview: 1 });
-  assert.deepEqual(priceReadinessCountsFor(summary, "labor"), { missing: 0, toReview: 1 });
-  assert.deepEqual(priceReadinessCountsFor(summary, "equipment"), { missing: 0, toReview: 0 });
+  assert.deepEqual(priceReadinessCountsFor(summary, "material"), { missing: 1, toReview: 1, unchecked: 0 });
+  assert.deepEqual(priceReadinessCountsFor(summary, "labor"), { missing: 0, toReview: 1, unchecked: 0 });
+  assert.deepEqual(priceReadinessCountsFor(summary, "equipment"), { missing: 0, toReview: 0, unchecked: 0 });
 });

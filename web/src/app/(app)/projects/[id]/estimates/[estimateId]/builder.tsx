@@ -836,13 +836,16 @@ function PriceReadinessSignals({
         <h3 className="text-sm font-semibold text-foreground">Pricing readiness</h3>
         <p className="mt-1 text-xs text-muted-foreground">Missing and stale supplier prices on the saved lines. This check never changes a price.</p>
       </div>
-      {attentionCount > 0 || lowMargin ? (
+      {attentionCount > 0 || summary.unchecked > 0 || lowMargin ? (
         <ul className="flex flex-wrap gap-2" aria-label="Price readiness signals">
           {summary.missing > 0 ? (
             <li><Badge variant="destructive">{summary.missing} missing {summary.missing === 1 ? "price" : "prices"}</Badge></li>
           ) : null}
           {summary.toReview > 0 ? (
             <li><Badge variant="outline">{summary.toReview} to review</Badge></li>
+          ) : null}
+          {summary.unchecked > 0 ? (
+            <li><Badge variant="outline">{summary.unchecked} unchecked</Badge></li>
           ) : null}
           {lowMargin ? (
             <li><Badge variant="outline">Low margin: {formatPercent(marginPct)}</Badge></li>
@@ -863,9 +866,11 @@ function PriceReadinessSignals({
         </div>
       ) : null}
       <p className="text-sm text-muted-foreground">
-        {attentionCount > 0
-          ? `Omission check: ${summary.missing} missing · ${summary.toReview} to review.`
-          : "Omission check complete · no missing or stale prices."}
+        {summary.unchecked > 0
+          ? `Omission check incomplete · ${summary.unchecked} ${summary.unchecked === 1 ? "price" : "prices"} could not be checked${attentionCount > 0 ? ` · ${summary.missing} missing · ${summary.toReview} to review` : ""}.`
+          : attentionCount > 0
+            ? `Omission check: ${summary.missing} missing · ${summary.toReview} to review.`
+            : "Omission check complete · no missing or stale prices."}
       </p>
     </section>
   );
@@ -888,12 +893,14 @@ function EstimateDirectCostBreakdown({ lineItems }: { lineItems: LineItem[] }) {
               <div key={item.type} className="flex items-center justify-between gap-3">
                 <dt>
                   {item.label}
-                  {counts.missing > 0 || counts.toReview > 0 ? (
+                  {counts.missing > 0 || counts.toReview > 0 || counts.unchecked > 0 ? (
                     <span className="text-muted-foreground">
                       {" · "}
                       {counts.missing > 0 ? `${counts.missing} missing` : ""}
                       {counts.missing > 0 && counts.toReview > 0 ? " · " : ""}
                       {counts.toReview > 0 ? `${counts.toReview} to review` : ""}
+                      {(counts.missing > 0 || counts.toReview > 0) && counts.unchecked > 0 ? " · " : ""}
+                      {counts.unchecked > 0 ? `${counts.unchecked} unchecked` : ""}
                     </span>
                   ) : null}
                 </dt>

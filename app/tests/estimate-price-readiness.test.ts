@@ -97,7 +97,17 @@ describe("deriveLinePriceReadiness (DES-10-F3)", () => {
 });
 
 describe("EstimateEngineService.getById price readiness (DES-10-F3)", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // The fixtures build material dates relative to NOW, but
+    // attachLinePriceReadiness evaluates freshness against the wall clock.
+    // Freeze the clock at NOW so the 75-day assembly fixture stays
+    // "refresh" instead of flipping to "reject" after Dec 8, 2026.
+    jest.useFakeTimers().setSystemTime(NOW);
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
 
   const estimateRow = (lineItems: Array<Record<string, unknown>>) => ({
     id: "estimate-1",
