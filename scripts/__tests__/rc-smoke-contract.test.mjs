@@ -110,7 +110,7 @@ test("golden workflow is explicitly limited to a dedicated non-production tenant
   assert.match(golden, /\["preview", "staging"\]/);
   assert.match(golden, /protocol !== "https:"/);
   assert.match(golden, /approved tradeos-costbook-web Vercel Preview host/);
-  for (const marker of ["Send to customer", "Mark accepted", "Create contract", "Create invoice"]) {
+  for (const marker of ["Send to customer", "Mark accepted", "Create contract", "Save invoice draft"]) {
     assert.match(golden, new RegExp(marker));
   }
   assert.match(golden, /contractId/);

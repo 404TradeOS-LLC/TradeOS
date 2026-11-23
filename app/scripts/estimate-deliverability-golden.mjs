@@ -134,7 +134,7 @@ async function runWorkflow(page, runNumber) {
 
   await page.goto(new URL(`/projects/${projectId}/invoices/new`, baseUrl), { waitUntil: "networkidle" });
   await page.locator("select[name=estimateId]").selectOption(estimateId);
-  await page.getByRole("button", { name: "Create invoice" }).click();
+  await page.getByRole("button", { name: "Save invoice draft" }).click();
   await page.waitForURL(new RegExp(`/projects/${projectId}/invoices/[^/]+$`));
   const invoiceId = page.url().match(/\/invoices\/([^/?]+)/)?.[1];
   if (!invoiceId) throw new Error(`Could not resolve invoice URL: ${page.url()}`);
