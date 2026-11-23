@@ -19,7 +19,7 @@ async function renderField(tasks: Task[] | undefined) {
   const runtime: { exports: Record<string, unknown> } = { exports: {} };
   vm.runInNewContext(code, { module: runtime, exports: runtime.exports, Intl, Date, require: (name: string) => {
     if (name === "react/jsx-runtime") return require(name);
-    if (name === "@/lib/api") return { getFieldJob: async () => job, getDispatchSummary: async () => ({ todayRangeUtc: {} }), getOrganizationSettings: async () => ({ currentRole: "technician", currentUserId: "tech-a", settings: { timezone: "America/Indiana/Indianapolis" } }), listFieldJobs: async () => [job], listJobExpenses: async () => [], getJobCostSummary: async () => null, ApiClientError: class extends Error {} };
+    if (name === "@/lib/api") return { getAthenaCapabilities: async () => ({ kernelEnabled: true }), getFieldJob: async () => job, getDispatchSummary: async () => ({ todayRangeUtc: {} }), getOrganizationSettings: async () => ({ currentRole: "technician", currentUserId: "tech-a", settings: { timezone: "America/Indiana/Indianapolis" } }), listFieldJobs: async () => [job], listJobExpenses: async () => [], getJobCostSummary: async () => null, ApiClientError: class extends Error {} };
     if (name === "@/lib/session") return { getSessionToken: async () => "test-only-token" };
     if (name === "@/lib/field-workspace") return fieldWorkspace;
     if (name === "@/lib/document-workflow") return { formatScheduleInZone: () => "Schedule" };

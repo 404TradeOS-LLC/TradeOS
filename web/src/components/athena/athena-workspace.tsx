@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, Fragment, useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, CheckCircle2, CircleSlash2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -16,12 +16,35 @@ import {
 } from "@/lib/athena-client";
 import { cn } from "@/lib/utils";
 import { ATHENA_ESTIMATE_DRAFT_KEY, makeAthenaEstimateDraft } from "@/lib/athena-estimate-handoff";
+import { AthenaConfirmationCard, type SaveJobNoteResult } from "./athena-confirmation-card";
+
+interface JobWriteTarget {
+  jobId: string;
+  jobNumber: string;
+  jobTitle: string;
+}
 
 interface AthenaWorkspaceProps {
   selectedScope?: AthenaSelectedScope;
   compact?: boolean;
   canCreateEstimate?: boolean;
   estimateHandoffIdentity?: string | null;
+  /** Job-scoped mode (DES-4 Option A): enables the Confirm Write flow for
+   *  saving a result as a job note. Absent on /athena and Today. */
+  jobWriteTarget?: JobWriteTarget;
+  /** Performs the job note write (POST /api/v1/jobs/:jobId/notes via the
+   *  authenticated proxy). Supplied by the job route's client wrapper; the
+   *  workspace itself never fetches. */
+  onSaveJobNote?: (body: string) => Promise<SaveJobNoteResult>;
+  /** Real record details for the context rail, keyed by scope-row label
+   *  ("Job", "Customer", "Project", "Estimate", "Field notes"). Overrides the
+   *  generic "attached" copy. */
+  scopeDetails?: Record<string, string>;
+  /** Job-specific starter prompts; defaults to the generic STARTERS. */
+  starters?: readonly string[];
+  /** Whether the actor may review Athena approvals (owner/admin). Controls
+   *  the approvals-queue link on an awaiting_approval result. */
+  canReviewApprovals?: boolean;
 }
 
 interface ConversationTurn {
@@ -64,14 +87,15 @@ function scopeLabel(scope?: AthenaSelectedScope) {
   return "Whole business";
 }
 
-function scopeRows(scope?: AthenaSelectedScope) {
+function scopeRows(scope?: AthenaSelectedScope, details?: Record<string, string>) {
   const rows: Array<{ label: string; detail: string }> = [];
-  if (scope?.jobId) rows.push({ label: "Job", detail: "Selected Job attached" });
-  if (scope?.projectId) rows.push({ label: "Project", detail: "Owning Project attached" });
-  if (scope?.customerId) rows.push({ label: "Customer", detail: "Customer attached" });
-  if (scope?.estimateId) rows.push({ label: "Estimate", detail: "Estimate attached" });
-  if (scope?.invoiceId) rows.push({ label: "Invoice", detail: "Invoice attached" });
-  if (scope?.page) rows.push({ label: "Page", detail: "Current TradeOS page attached" });
+  if (scope?.jobId) rows.push({ label: "Job", detail: details?.Job ?? "Selected Job attached" });
+  if (scope?.projectId) rows.push({ label: "Project", detail: details?.Project ?? "Owning Project attached" });
+  if (scope?.customerId) rows.push({ label: "Customer", detail: details?.Customer ?? "Customer attached" });
+  if (scope?.estimateId) rows.push({ label: "Estimate", detail: details?.Estimate ?? "Estimate attached" });
+  if (scope?.invoiceId) rows.push({ label: "Invoice", detail: details?.Invoice ?? "Invoice attached" });
+  if (scope?.page) rows.push({ label: "Page", detail: details?.Page ?? "Current TradeOS page attached" });
+  if (details?.["Field notes"]) rows.push({ label: "Field notes", detail: details["Field notes"] });
   if (rows.length === 0) rows.push({ label: "Business", detail: "No record selected" });
   return rows;
 }
@@ -99,7 +123,17 @@ function statePresentation(state: AthenaKernelState) {
   }
 }
 
-function ResultCard({ result }: { result: AthenaKernelResult }) {
+function ResultCard({
+  result,
+  jobWriteTarget,
+  canReviewApprovals = false,
+  onRequestSaveNote,
+}: {
+  result: AthenaKernelResult;
+  jobWriteTarget?: JobWriteTarget;
+  canReviewApprovals?: boolean;
+  onRequestSaveNote?: (summary: string) => void;
+}) {
   const presentation = statePresentation(result.state);
   const StateIcon = presentation.icon;
   const detail = result.message && result.message !== result.summary ? result.message : null;
@@ -155,10 +189,24 @@ function ResultCard({ result }: { result: AthenaKernelResult }) {
         </div>
       ) : null}
 
-      {result.state === "awaiting_approval" ? (
-        <div className="mt-4 rounded-xl border border-warning/30 bg-warning/10 px-3 py-3 text-sm text-muted-foreground">
-          Athena requires confirmation before this action can continue. The contractor confirmation card is not connected in this workspace yet, so this screen does not simulate approval or perform a direct write.
+      {result.state === "succeeded" && jobWriteTarget && onRequestSaveNote && result.summary.trim().length > 0 ? (
+        <div className="mt-4 border-t border-border/60 pt-4">
+          <Button type="button" size="sm" variant="outline" onClick={() => onRequestSaveNote(result.summary)}>
+            Save as job note
+          </Button>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            Review the note before it is saved. Nothing is written until you confirm it.
+          </p>
         </div>
+      ) : null}
+
+      {result.state === "awaiting_approval" ? (
+        <AthenaConfirmationCard
+          mode="awaiting-approval"
+          summary={result.summary}
+          jobNumber={jobWriteTarget?.jobNumber}
+          canReviewApprovals={canReviewApprovals}
+        />
       ) : null}
 
       <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-t border-border/60 pt-3 font-mono text-[11px] text-muted-foreground">
@@ -169,7 +217,17 @@ function ResultCard({ result }: { result: AthenaKernelResult }) {
   );
 }
 
-export function AthenaWorkspace({ selectedScope, compact = false, canCreateEstimate = false, estimateHandoffIdentity = null }: AthenaWorkspaceProps) {
+export function AthenaWorkspace({
+  selectedScope,
+  compact = false,
+  canCreateEstimate = false,
+  estimateHandoffIdentity = null,
+  jobWriteTarget,
+  onSaveJobNote,
+  scopeDetails,
+  starters,
+  canReviewApprovals = false,
+}: AthenaWorkspaceProps) {
   const router = useRouter();
   const [draft, setDraft] = useState("");
   const [contractorNotes, setContractorNotes] = useState<ContractorNote[]>([]);
@@ -178,8 +236,28 @@ export function AthenaWorkspace({ selectedScope, compact = false, canCreateEstim
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [retrySubmission, setRetrySubmission] = useState<RetrySubmission | null>(null);
+  const [pendingNote, setPendingNote] = useState<{ turnId: number; draft: string } | null>(null);
+  const [isSavingNote, setIsSavingNote] = useState(false);
   const nextTurnIdRef = useRef(1);
-  const scoped = scopeRows(selectedScope);
+  const scoped = scopeRows(selectedScope, scopeDetails);
+
+  // Tracks a note POST while it is in flight. A new chat request replaces
+  // the visible exchange (and its confirmation card), so submitting during a
+  // save would unmount the card mid-flight and lose its error and draft.
+  // The composer stays disabled until the save completes, then normal
+  // replacement resumes.
+  const saveJobNote = useCallback(
+    async (body: string): Promise<SaveJobNoteResult> => {
+      if (!onSaveJobNote) return { ok: false as const, error: "Saving is unavailable." };
+      setIsSavingNote(true);
+      try {
+        return await onSaveJobNote(body);
+      } finally {
+        setIsSavingNote(false);
+      }
+    },
+    [onSaveJobNote]
+  );
 
   const prepareEstimate = () => {
     if (!canCreateEstimate || !estimateHandoffIdentity) return;
@@ -218,9 +296,12 @@ export function AthenaWorkspace({ selectedScope, compact = false, canCreateEstim
     options: { idempotencyKey?: string; addUserTurn?: boolean } = {}
   ) => {
     const trimmed = message.trim();
-    if (!trimmed || isSending) return;
+    if (!trimmed || isSending || isSavingNote) return;
 
     const idempotencyKey = options.idempotencyKey ?? createAthenaIdempotencyKey();
+    // A new request replaces the visible exchange, so a pending note draft
+    // for the previous result closes with it.
+    setPendingNote(null);
 
     if (options.addUserTurn !== false) {
       const userId = nextTurnIdRef.current++;
@@ -358,7 +439,7 @@ export function AthenaWorkspace({ selectedScope, compact = false, canCreateEstim
           <section className="rounded-2xl border border-border/70 bg-card p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Start something</p>
             <div className="mt-3 grid gap-2">
-              {STARTERS.map((starter) => (
+              {(starters ?? STARTERS).map((starter) => (
                 <button
                   key={starter}
                   type="button"
@@ -406,7 +487,28 @@ export function AthenaWorkspace({ selectedScope, compact = false, canCreateEstim
                     {turn.text}
                   </div>
                 ) : turn.result ? (
-                  <ResultCard key={turn.id} result={turn.result} />
+                  <Fragment key={turn.id}>
+                    <ResultCard
+                      result={turn.result}
+                      jobWriteTarget={jobWriteTarget}
+                      canReviewApprovals={canReviewApprovals}
+                      onRequestSaveNote={
+                        jobWriteTarget && onSaveJobNote && pendingNote?.turnId !== turn.id
+                          ? (summary) => setPendingNote({ turnId: turn.id, draft: summary })
+                          : undefined
+                      }
+                    />
+                    {pendingNote?.turnId === turn.id && jobWriteTarget && onSaveJobNote ? (
+                      <AthenaConfirmationCard
+                        mode="confirm-write"
+                        jobTitle={jobWriteTarget.jobTitle}
+                        jobNumber={jobWriteTarget.jobNumber}
+                        draft={pendingNote.draft}
+                        onConfirm={saveJobNote}
+                        onClose={() => setPendingNote(null)}
+                      />
+                    ) : null}
+                  </Fragment>
                 ) : null
               )
             )}
@@ -453,11 +555,11 @@ export function AthenaWorkspace({ selectedScope, compact = false, canCreateEstim
               }}
               placeholder={selectedScope ? "Ask about the selected TradeOS work…" : "Ask Athena about your business or describe work to estimate…"}
               rows={3}
-              disabled={isSending}
+              disabled={isSending || isSavingNote}
             />
             <div className="mt-3 flex items-center justify-between gap-3">
               <p className="text-xs text-muted-foreground">Selected scope and your authenticated permissions travel with this request. Prior response text does not.</p>
-              <Button type="submit" disabled={isSending || draft.trim().length === 0}>
+              <Button type="submit" disabled={isSending || isSavingNote || draft.trim().length === 0}>
                 {isSending ? "Working…" : "Send"}
               </Button>
             </div>
@@ -474,7 +576,11 @@ export function AthenaWorkspace({ selectedScope, compact = false, canCreateEstim
               </div>
               <div className="border-t border-border/60 pt-3">
                 <p className="text-sm font-medium">Write path</p>
-                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">Business changes remain behind registered Athena tools and existing service permissions.</p>
+                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                  {jobWriteTarget
+                    ? "Job notes save only after you confirm them here, through the existing Job note service. Business changes remain behind registered Athena tools and existing service permissions."
+                    : "Business changes remain behind registered Athena tools and existing service permissions."}
+                </p>
               </div>
               <div className="border-t border-border/60 pt-3">
                 <p className="text-sm font-medium">Authority</p>
