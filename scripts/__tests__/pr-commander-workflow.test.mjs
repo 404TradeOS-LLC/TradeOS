@@ -164,6 +164,17 @@ test("CodeQL on-demand dispatch is bounded (wider exception, decision #18-A)", (
   // exception comment records the widened scope.
   assert.match(workflow, /test\("CodeQL\|code scanning\|security"; "i"\)/);
   assert.match(workflow, /widened 2026-11-23 \(decision #18-A/);
+  // The reason match must aggregate across all reasons: `jq -e
+  // '.reasons[]? | test(...)'` exits on the LAST emitted boolean, so a
+  // trailing non-security reason (e.g. an unresolved review thread
+  // appended after the CodeQL reason) would silently skip the dispatch
+  // despite the security finding. `any(...)` makes eligibility
+  // order-independent. (Codex P2, PR #1041.) The same shape applies to
+  // the Web-lint repair predicate in the same repair tier.
+  assert.match(workflow, /any\(\.reasons\[\]\?; test\("CodeQL\|code scanning\|security"; "i"\)\)/);
+  assert.doesNotMatch(workflow, /\.reasons\[\]\? \| test\("CodeQL\|code scanning\|security"/);
+  assert.match(workflow, /any\(\.reasons\[\]\?; test\("Web lint and build"\)\)/);
+  assert.doesNotMatch(workflow, /\.reasons\[\]\? \| test\("Web lint and build"\)/);
 });
 
 test("rebase dispatch guard reads merge state from the snapshot, not the verdict", () => {

@@ -865,7 +865,7 @@ jobs:
             # already dispatched this run, or a dispatch failure), the
             # scheduled codeql-autofix run (every 2h) still covers the
             # alerts on its own cadence.
-            if jq -e '.reasons[]? | test("CodeQL|code scanning|security"; "i")' fresh-verdict.json >/dev/null; then
+            if jq -e 'any(.reasons[]?; test("CodeQL|code scanning|security"; "i"))' fresh-verdict.json >/dev/null; then
               if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$attempts" -lt 3 ] && [ "$codeql_dispatched_this_run" != "true" ]; then
                 if gh workflow run codeql-autofix.yml --ref main --repo "$GITHUB_REPOSITORY"; then
                   attempts=$((attempts + 1))
@@ -889,7 +889,7 @@ jobs:
               echo "::warning::Skipping deterministic repair push: no founder-provisioned CI-triggering credential (TRADEOS_PR_COMMANDER_PUSH_TOKEN). GITHUB_TOKEN pushes do not trigger pull_request CI."
             fi
             if [ "$fresh_verdict" = "REPAIRABLE" ] && [ "$attempts" -lt 3 ] && [ "$REPAIR_PUSH_TOKEN_AVAILABLE" = "true" ]; then
-              if jq -e '.reasons[]? | test("Web lint and build")' fresh-verdict.json >/dev/null; then
+              if jq -e 'any(.reasons[]?; test("Web lint and build"))' fresh-verdict.json >/dev/null; then
                 # headRepository is not in the pr-view snapshot payload; fetch it.
                 head_repo=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json headRepository --jq '.headRepository.nameWithOwner')
                 if [ "$head_repo" = "$GITHUB_REPOSITORY" ]; then
