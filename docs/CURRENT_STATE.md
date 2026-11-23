@@ -66,6 +66,13 @@ related_code:
   - web/src/lib/json-response.ts
   - web/src/lib/proxy-origin.ts
   - app/modules/expenses
+  - app/modules/proposals
+  - app/backend/controllers/proposals.controller.ts
+  - app/backend/routes/proposals.routes.ts
+  - app/prisma/migrations/20261123090000_add_proposal_selections_allowances
+  - web/src/components/proposals/proposal-selections-allowances.tsx
+  - web/src/components/proposals/proposal-selections-allowances-readonly.tsx
+  - web/src/app/actions/proposals.ts
   - app/backend/controllers/expenses.controller.ts
   - app/backend/routes/expenses.routes.ts
   - app/prisma/migrations/20261102020000_add_job_expenses
@@ -87,13 +94,17 @@ The estimate builder header now shows identity lines under the existing `Estimat
 
 No sequential estimate number exists in the data model — `Estimate` carries only a uuid id and a per-project `version` (`@@unique([projectId, version])`), and `Proposal` has no number field (`Invoice.invoiceNumber` and `Job.jobNumber` belong to later-stage entities that do not exist at estimate time). No numbering scheme was invented and no migration was created; the title keeps the existing `Estimate v{version}` identifier. The Figma numbering question (`ESTIMATE #1048` canonical vs `EST-2048` new series) is an open founder decision. Pinned by a new source-contract test in `estimate-mobile-contract.test.ts` (17 tests in that file).
 
-## DES-10-F3 — Estimate Price readiness signals — branch `feat/des10-f3-price-readiness-signals`, 2026-11-23 (PR pending)
+## DES-10-F3 — Estimate Price readiness signals — branch `feat/des10-f3-price-readiness-signals`, 2026-11-23 (PR #1044, merged as b31966c2)
 
 <!-- DES-10-F3: begin -->
 
 The estimate Price stage now surfaces price-readiness signals derived from the saved lines (DES-10 verdict gap 3; Figma frames 432:26604 / 432:26746 / 432:27891). `GET /api/v1/estimates/:id` attaches a read-time `priceReadiness` per line item (`missing | current | warn | refresh | reject | unverified | null`); the Price stage renders missing / to-review chips, an attention item naming the affected lines with a "Review in Items" action, per-cost-type counts in the direct-cost breakdown, an omission-check line ("N missing · M to review", or "Omission check complete · no missing or stale prices"), and a low-margin chip when gross margin is below the 10% display threshold. Missing means the line records no price (saved `unitCost` zero with no priced source component — a $0 behind a priced component is an intentional recorded $0, not missing). Unverified / warn / refresh / reject come from the backing material's `lastPriceUpdate` through the shared `priceFreshness()` tiers as `RECENT_RETAIL_VALIDATION` (current ≤ 30d, warn ≤ 60d, refresh ≤ 90d, reject > 90d); assembly lines aggregate their leaf cost items. Lines with no supplier material price (custom, labor/equipment-only) carry `null` and no signal. Display-only: nothing is repriced, finalization is not gated, and the tax warning is untouched; if the readiness lookup fails, the detail read still succeeds with no signal. Skipped, with reasons: allowances (no allowances model exists — DES-10-F8) and the offline notice (no offline detection exists in the estimate flow). Parallel lanes also edit this file in different sections; expect a rebase against their entries.
 
 <!-- DES-10-F3: end --> (feat(estimates): price readiness signals in the estimate Price stage (DES-10-F3))
+
+## Proposal selections and allowances model — DES-10-F8 (branch `feat/des10-f8-proposal-selections-allowances`, PR #1054)
+
+Copperline proposal sections 03 (selections) and 04 (allowances) had no model. Additive migration `20261123090000_add_proposal_selections_allowances` adds `ProposalSelection` (label, nullable detail, status `action_required`/`confirmed`, nullable due date) and `ProposalAllowance` (description, amount >= 0), both org-scoped with forced RLS mirroring `proposal_deliveries`. Eight new endpoints under `/api/v1/proposals/:id/selections|allowances` follow the proposal draft rules (accepted/contracted proposals reject writes with 409); duplication carries both lists to the copy. The staff proposal detail page shows both sections with CRUD; the customer portal shows them read-only. The allowances total is display-only and is never added to `finalPrice` — wiring allowances (and the Figma `PROJECT COURTESY −$1,500` line, which has no model) into totals, rendering selections/allowances in the proposal PDF, and showing them on the authenticated portal accept/decline page are recorded follow-ups in `docs/modules/proposals.md`, not implemented here. Fields were read from the Figma flagship frame `425:45123` via the Figma MCP. No acceptance, estimate-finalize, or totals logic was touched. (feat(proposals): add proposal selections and allowances models (DES-10-F8))
 
 ## Costbook PR frontend Preview allowlist — landed via PR #997 (merged 2026-11-15 as `d09f51a1`)
 

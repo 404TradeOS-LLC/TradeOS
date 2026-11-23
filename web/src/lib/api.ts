@@ -1033,6 +1033,28 @@ export interface ProposalDelivery {
   createdAt: string;
 }
 
+export interface ProposalSelection {
+  id: string;
+  proposalId: string;
+  label: string;
+  detail: string | null;
+  status: "action_required" | "confirmed";
+  dueDate: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProposalAllowance {
+  id: string;
+  proposalId: string;
+  description: string;
+  amount: number;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Proposal {
   id: string;
   projectId: string;
@@ -1055,6 +1077,13 @@ export interface Proposal {
   respondedAt: string | null;
   createdAt: string;
   deliveries: ProposalDelivery[];
+  // DES-10-F8: Copperline proposal sections 03 (selections) and 04
+  // (allowances). Optional here because web and API deploy independently —
+  // an older API omits them and the UI renders the empty state.
+  selections?: ProposalSelection[];
+  allowances?: ProposalAllowance[];
+  // Display-only sum of the allowance rows. Never added to finalPrice.
+  allowancesTotal?: number;
 }
 
 export interface ProposalPaymentScheduleEntry {

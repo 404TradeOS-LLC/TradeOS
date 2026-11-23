@@ -16,6 +16,16 @@ const mockPrisma = {
   proposalDelivery: {
     create: jest.fn(),
   },
+  proposalSelection: {
+    create: jest.fn(),
+    createMany: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+  },
+  proposalAllowance: {
+    create: jest.fn(),
+    createMany: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+  },
   contract: {
     findFirst: jest.fn(),
   },

@@ -8,6 +8,16 @@ const mockPrisma = {
     updateMany: jest.fn(),
   },
   proposalDelivery: { create: jest.fn() },
+  proposalSelection: {
+    create: jest.fn(),
+    createMany: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+  },
+  proposalAllowance: {
+    create: jest.fn(),
+    createMany: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+  },
 };
 
 const mockActivityRecord = jest.fn();

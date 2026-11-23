@@ -446,6 +446,15 @@ pool instead of returning a transaction-acquisition `500` after two seconds.
 - The key is unique within the project resolved from the authenticated organization; the request fingerprint uses SHA-256 over key-order-independent JSON. The database unique index resolves simultaneous creates.
 - Invalid supplied keys fail validation before a proposal is written. Keyless legacy requests follow the original non-idempotent create behavior. This contract does not auto-retry requests or send the proposal.
 
+## Proposal selections and allowances (DES-10-F8)
+
+Copperline proposal sections 03 (selections) and 04 (allowances) are persisted as `ProposalSelection` and `ProposalAllowance` rows and returned on the proposal representation as `selections`, `allowances`, and a display-only `allowancesTotal` (the sum of the allowance rows). Reads require `billing.read`; writes require `documents.manage`.
+
+- `GET /api/v1/proposals/:id/selections`, `POST /api/v1/proposals/:id/selections`, `PATCH /api/v1/proposals/:id/selections/:selectionId`, `DELETE /api/v1/proposals/:id/selections/:selectionId`
+- `GET /api/v1/proposals/:id/allowances`, `POST /api/v1/proposals/:id/allowances`, `PATCH /api/v1/proposals/:id/allowances/:allowanceId`, `DELETE /api/v1/proposals/:id/allowances/:allowanceId`
+
+A selection carries `label` (1–120 chars), nullable `detail` (≤ 500 chars), `status` (`action_required` | `confirmed`), and a nullable ISO `dueDate`. An allowance carries `description` (1–200 chars) and `amount` (>= 0). Writes on an accepted proposal, or one with a contract, fail with `409`; a missing or foreign-org proposal fails with `404`. Duplicating a proposal carries its selections and allowances to the copy. The allowances total is display-only: it is never added to `finalPrice`, and the customer-portal proposal representation includes the same fields. See [modules/proposals.md](modules/proposals.md).
+
 ## Route groups
 
 Mounted route groups from `app/backend/server.ts`:
