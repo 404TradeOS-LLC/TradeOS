@@ -10,23 +10,22 @@ function read(file: string): string {
   return fs.readFileSync(path.join(here, file), "utf8");
 }
 
-test("onboarding route renders the three-step form behind the app auth shell", () => {
+test("onboarding route renders the two-step form behind the app auth shell", () => {
   const page = read("page.tsx");
   assert.match(page, /FirstEstimateOnboardingForm/);
   assert.match(page, /title: "Get started \| TradeOS"/);
   const form = read("first-estimate-onboarding-form.tsx");
   assert.match(form, /"use client"/);
-  assert.match(form, /Three things before your first estimate/);
+  assert.match(form, /Two things before your first estimate/);
   assert.match(form, /First useful estimate before full setup/);
 });
 
-test("wizard follows the Figma rail: work, labor, then the real-estimate composer", () => {
+test("wizard follows the Figma rail: work, then the real-estimate composer", () => {
   const form = read("first-estimate-onboarding-form.tsx");
-  assert.match(form, /STEP_TITLES = \["Your work", "Your labor", "Build a real estimate"\]/);
-  assert.match(form, /Step \{step\} of 3/);
+  assert.match(form, /STEP_TITLES = \["Your work", "Build a real estimate"\]/);
+  assert.match(form, /Step \{step\} of 2/);
   assert.match(form, /ONBOARDING_WORK_TYPES/);
   assert.match(form, /aria-pressed/);
-  assert.match(form, /What is your labor baseline\?/);
   assert.match(form, /Give Athena a job you&apos;ve actually quoted/);
   assert.match(form, /What did the customer want done\?/);
   assert.match(form, /You don&apos;t need measurements, products, or line items yet\./);
@@ -35,11 +34,17 @@ test("wizard follows the Figma rail: work, labor, then the real-estimate compose
   assert.match(form, /None of this blocks the first estimate\./);
 });
 
-test("step 3 carries the known-context chips and example jobs from the frame", () => {
+test("wizard asks for no labor or region input the estimate cannot use", () => {
+  const form = read("first-estimate-onboarding-form.tsx");
+  assert.doesNotMatch(form, /laborRate|Labor rate|Your labor/);
+  assert.doesNotMatch(form, /region|Region/);
+  assert.doesNotMatch(form, /formatLaborRate|isValidLaborRate|DEFAULT_LABOR_RATE/);
+});
+
+test("step 2 carries the known-context work chip and example jobs from the frame", () => {
   const form = read("first-estimate-onboarding-form.tsx");
   assert.match(form, /ONBOARDING_EXAMPLE_SCOPES/);
   assert.match(form, /contextChips/);
-  assert.match(form, /Local pricing context/);
 });
 
 test("wizard offers a skip that never invents a completed state", () => {

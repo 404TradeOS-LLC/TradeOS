@@ -1,26 +1,26 @@
 /**
  * First-estimate onboarding (DES-3, Figma page 22 — Onboarding, `54:3`).
  *
- * Pure, client-safe helpers and copy for the signup → 3 steps → draft
+ * Pure, client-safe helpers and copy for the signup → 2 steps → draft
  * estimate flow. The flow's promise, from the Figma top bar, is "First
  * useful estimate before full setup."
  *
  * Scope of this slice (vertical slice 1):
  * - Step 1 "Your work": trade types the company does.
- * - Step 2 "Your labor": a labor baseline rate plus an optional region.
- * - Step 3 "Build a real estimate": a recent job in the contractor's own
+ * - Step 2 "Build a real estimate": a recent job in the contractor's own
  *   words, handed to Athena for a structured draft.
  *
- * Steps 1–2 have no Figma frames (they exist only as rail items on the
- * step-3 frame), so they are implemented as the minimal rail flow the
- * DES-3 brief describes. Step 3 follows frames `58:2` / `59:4`.
+ * Step 1 has no Figma frame (it exists only as a rail item on the step-2
+ * frame), so it is implemented as the minimal rail flow the DES-3 brief
+ * describes. Step 2 follows frames `58:2` / `59:4`.
  *
  * Persistence boundary (deliberate, see the PR body): the wizard itself is
  * session-scoped. Completion is recorded by the draft estimate it creates.
- * The labor baseline and region are session context for this first draft —
- * there is no organization-defaults persistence path for them yet, so they
- * are not sent to the server. Persisted onboarding state (skip/resume,
- * labor/region defaults) is a follow-up slice needing a migration + RLS.
+ * Labor/region defaults were removed from the wizard (Codex review, PR
+ * #1043): there is no organization-defaults persistence path for them, so
+ * asking for a labor baseline or region the estimate cannot use would be
+ * contractor-visible unfinished UX. They return with the persisted-onboarding
+ * follow-up slice (migration + RLS for org defaults).
  */
 
 export const ONBOARDING_ROUTE = "/onboarding";
@@ -29,14 +29,8 @@ export const ONBOARDING_ROUTE = "/onboarding";
 export const ONBOARDING_SKIPPED_COOKIE = "tradeos-onboarding-skipped";
 export const ONBOARDING_SKIP_COOKIE_MAX_AGE_SECONDS = 180 * 24 * 60 * 60;
 
-/** Figma rail example: "$48 / hour baseline". */
-export const DEFAULT_LABOR_RATE = 48;
-export const MIN_LABOR_RATE = 1;
-export const MAX_LABOR_RATE = 1000;
-
 export const MIN_SCOPE_TEXT_LENGTH = 10;
 export const MAX_SCOPE_TEXT_LENGTH = 10_000;
-export const MAX_REGION_LENGTH = 120;
 
 /**
  * Trade picker options for step 1. Figma rail example is
@@ -117,29 +111,13 @@ export function deriveProjectNameFromScope(scope: string): string {
   return name || "First estimate";
 }
 
-export function isValidLaborRate(value: unknown): value is number {
-  return (
-    typeof value === "number" &&
-    Number.isFinite(value) &&
-    value >= MIN_LABOR_RATE &&
-    value <= MAX_LABOR_RATE
-  );
-}
-
-export function formatLaborRate(rate: number): string {
-  return `$${rate} / hr`;
-}
-
 export interface ValidatedOnboardingInput {
   workTypes: string[];
   scopeText: string;
 }
 
 /**
- * Validate the fields the onboarding server action persists. Labor rate and
- * region are deliberately not part of this payload: they are session
- * context for the first draft (see the module doc) and have no
- * organization-defaults persistence path yet.
+ * Validate the fields the onboarding server action persists.
  */
 export function validateOnboardingInput(input: {
   workTypes: unknown;

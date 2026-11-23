@@ -1,13 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  DEFAULT_LABOR_RATE,
   MIN_SCOPE_TEXT_LENGTH,
   ONBOARDING_EXAMPLE_SCOPES,
   ONBOARDING_WORK_TYPES,
   deriveProjectNameFromScope,
-  formatLaborRate,
-  isValidLaborRate,
   shouldRedirectToOnboarding,
   validateOnboardingInput,
 } from "./onboarding.ts";
@@ -29,18 +26,6 @@ test("deriveProjectNameFromScope truncates a long first sentence", () => {
   assert.ok(name.length <= 80);
   assert.ok(name.endsWith("…"));
   assert.equal(name.startsWith("Rehabilitate the extraordinarily"), true);
-});
-
-test("labor baseline defaults to the Figma $48/hr and validates its bounds", () => {
-  assert.equal(DEFAULT_LABOR_RATE, 48);
-  assert.equal(formatLaborRate(48), "$48 / hr");
-  assert.equal(isValidLaborRate(48), true);
-  assert.equal(isValidLaborRate(1), true);
-  assert.equal(isValidLaborRate(1000), true);
-  assert.equal(isValidLaborRate(0), false);
-  assert.equal(isValidLaborRate(1001), false);
-  assert.equal(isValidLaborRate(Number.NaN), false);
-  assert.equal(isValidLaborRate("48"), false);
 });
 
 test("validateOnboardingInput requires a known work type and a real scope", () => {
