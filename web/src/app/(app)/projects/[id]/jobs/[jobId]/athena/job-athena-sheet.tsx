@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { formatStatusLabel } from "@/components/shared/status-badge";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { JobAthenaWorkspace } from "./job-athena-workspace";
 
 interface JobAthenaSheetProps {
@@ -54,10 +55,18 @@ export function JobAthenaSheet({
   canReviewApprovals,
 }: JobAthenaSheetProps) {
   const router = useRouter();
+  // The sheet mounts only below the md breakpoint. CSS hiding alone
+  // (md:hidden) would leave it mounted at desktop widths, where its scroll
+  // lock and Tab/Escape handling would break the desktop workspace. Returning
+  // null unmounts it, which releases those effects; resizing across the
+  // breakpoint mounts or unmounts it accordingly.
+  const isPhoneViewport = useMediaQuery("(max-width: 767px)");
 
   const handleClose = useCallback(() => {
     router.push(`/projects/${projectId}/jobs/${jobId}`);
   }, [projectId, jobId, router]);
+
+  if (!isPhoneViewport) return null;
 
   return (
     <BottomSheet

@@ -88,11 +88,13 @@ test("job Athena route shows the sheet at phone widths and the desktop route at 
   const routePage = await readSource("./page.tsx");
 
   assert.match(routePage, /import \{ JobAthenaSheet \} from "\.\/job-athena-sheet";/);
-  // Desktop presentation is hidden below md; the sheet wrapper is hidden at
-  // md and up. Both receive the same scope, so the sheet is the same
-  // workspace, not a second one.
+  // Desktop presentation is hidden below md; the sheet owns its own
+  // breakpoint (see the viewport gate test below) — the route must not hide
+  // it with CSS alone, which would leave its scroll lock and keyboard
+  // handling mounted on desktop. Both receive the same scope, so the sheet
+  // is the same workspace, not a second one.
   assert.match(routePage, /<div className="mx-auto hidden w-full max-w-5xl flex-col gap-5 md:flex">/);
-  assert.match(routePage, /<div className="md:hidden">/);
+  assert.doesNotMatch(routePage, /<div className="md:hidden">/);
   assert.match(routePage, /<JobAthenaSheet/);
   assert.match(routePage, /jobStatus=\{job\.status\}/);
   assert.match(routePage, /estimateId=\{approved\?\.estimateId \?\? undefined\}/);
@@ -102,6 +104,23 @@ test("job Athena route shows the sheet at phone widths and the desktop route at 
   // role check passes.
   assert.match(routePage, /canUseJobAthena/);
   assert.doesNotMatch(routePage, /getAthenaOperatorContext|getAthenaObservabilityOverview/);
+});
+
+test("sheet mounts only at phone widths (viewport gate)", async () => {
+  // Regression for a real Codex P1 on PR #1029: `md:hidden` hides the
+  // sheet visually but leaves it mounted, so its scroll lock and
+  // Tab/Escape handling broke the desktop workspace. The sheet must
+  // return null above the breakpoint so unmounting releases those effects.
+  const sheet = await readSource("./job-athena-sheet.tsx");
+  const hook = await readSource("../../../../../../../hooks/use-media-query.ts");
+
+  assert.match(sheet, /import \{ useMediaQuery \} from "@\/hooks\/use-media-query";/);
+  assert.match(sheet, /useMediaQuery\("\(max-width: 767px\)"\)/);
+  assert.match(sheet, /if \(!isPhoneViewport\) return null;/);
+  assert.match(hook, /useState\(false\)/);
+  assert.match(hook, /window\.matchMedia\(query\)/);
+  assert.match(hook, /addEventListener\("change", update\)/);
+  assert.match(hook, /removeEventListener\("change", update\)/);
 });
 
 test("Athena workspace supports a sheet-pinned composer and the job placeholder", async () => {
