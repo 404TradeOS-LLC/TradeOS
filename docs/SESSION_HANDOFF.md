@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 source_of_truth: true
 related_docs:
   - docs/TRADEOS_BIBLE.md
@@ -12,18 +12,17 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
-## Sprint start — 2026-11-22: S059 readiness promotion (governance-only)
+## Sprint start — 2026-11-23: S059 implementation (draft PR #1032)
 
-- Base: `main` at `c430fd17` (after #1015 merged). Branch `docs/s059-readiness-promotion-20261122`.
-- No sprint was `READY` after S073 went `DONE` (PR #1000 merged 2026-11-21 as `4d8f8a74`). The lowest-numbered `PLANNED` sprint with satisfied `Dependencies:` is S059 (depends on S051, DONE via PR #538). Per `NEXT_SPRINT_PROTOCOL.md`, a `PLANNED` sprint needs an explicit governance-only readiness promotion before selection — this PR.
-- This PR promotes S059 to `READY` with its readiness contract in `SPRINT_BACKLOG.md`, adds the certification plan at `docs/architecture/S059_CUSTOMER_PORTAL_ACCESS_CERTIFICATION_PLAN.md`, records the promotion in `TRADEOS_BIBLE.md` and `ENGINEERING_COMMAND_CENTER.md`, and replaces this handoff. No code, schema, migration, RLS-policy, auth, or product change.
-- Readiness checks re-verified 2026-11-22 on main `c430fd17`: S051 DONE; ADR-010 (Accepted) governs the magic-link model and it is implemented on main (staff issuance, single-use hashed tokens, short-lived hashed sessions, fail-closed redemption, replay/revocation protection, forced-RLS customer-scoped reads; S073 live PostgreSQL evidence covers the portal identity rows). Live overlap: zero open PRs; no live S059 lane. The prior readiness branch `origin/docs/s059-readiness-promotion` (PR #619, closed unmerged 2026-10-04 as superseded behind then-READY S053) is stale and was not reused — this promotion regenerates from current main per #619's own closing note. No founder decision blocks the bounded certification; S054's separate portal decision is not a dependency.
-- After this PR merges, S059 is the next eligible sprint. S068, S069, and S071 remain `PLANNED` with satisfied dependencies but are higher-numbered; each needs its own promotion before selection.
+- Base: `main` at `76b8da0a`. Branch `feat/s059-portal-certification`, head `78a39b40`.
+- S059 is `IN_REVIEW` in draft PR #1032: GAP-1 detail-page access-required repair + web tests, live-PostgreSQL portal integration tests (11 tests), S059 browser-evidence workflow + capture script + contract test, evidence document `docs/architecture/S059_CERTIFICATION_EVIDENCE.md`.
+- Browser capture vs staging is dispatched after the branch push; the run artifact is recorded in the evidence document before merge. Expired-token/session browser states (B6/E4) are BLOCKED on staging-DB write access (owner: Billy); live-PostgreSQL expiry evidence is the substitute in this PR.
+- Staging head `7c428acd` vs main `76b8da0a`: the portal-surface diff is PR #937 (redaction) + PR #1001 (session-hash scoping). A staging browser run certifies the staging surface; #1001 is proven on main only by the live-DB integration tests until staging is promoted.
 
 ## Next Eligible Sprint
 
-Sprint ID: S059
-Eligibility: S059 is `READY` — dependency S051 DONE, live overlap clean, founder-decision boundary recorded as NO for the bounded ADR-010 certification. S068/S069/S071 remain `PLANNED` (higher-numbered); S046/S048/S050 remain blocked.
+Sprint ID: NONE
+Eligibility: S059 is `IN_REVIEW` in PR #1032 — no `READY` sprint remains. S068, S069, and S071 remain `PLANNED` with satisfied dependencies but are higher-numbered; each needs its own governance-only readiness promotion before selection. S046/S048/S050 remain blocked.
 Dependencies: S051 DONE (PR #538).
-Overlap check: Live open PRs rechecked 2026-11-22 (main `c430fd17`): zero open PRs; no S059 implementation lane exists.
-Startup prompt: Implement S059 per `docs/architecture/S059_CUSTOMER_PORTAL_ACCESS_CERTIFICATION_PLAN.md` — certify the existing ADR-010 magic-link model with retained authenticated browser evidence at 1440/1024/768/390 plus negative security evidence, without broadening customer authorization or retaining bearer material.
+Overlap check: Live open PRs rechecked 2026-11-23 (main `76b8da0a`): PR #1032 is the sole open PR and is the S059 implementation lane; no competing S059 work exists.
+Startup prompt: Advance PR #1032 — dispatch the S059 browser-evidence workflow against staging, record the run artifact in `docs/architecture/S059_CERTIFICATION_EVIDENCE.md`, verify the exact-head bar, and merge when it passes. S059 moves to DONE only via a governance record after full acceptance, including resolution of the expiry-browser blocker.
