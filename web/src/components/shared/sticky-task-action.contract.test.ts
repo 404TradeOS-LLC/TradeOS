@@ -51,12 +51,19 @@ test("Site Visit form uses the shared StickyTaskAction instead of its own sticky
   assert.doesNotMatch(form, /sticky bottom-/);
 });
 
-test("Athena workspace keeps its own inline composer until the #1029 follow-up", async () => {
+test("Athena workspace composer stays inline — StickyTaskAction does not fit (assessed 2026-11-23)", async () => {
   const workspace = await readSource("../athena/athena-workspace.tsx");
 
-  // Deliberate deferral: PR #1029 owns athena-workspace.tsx and its contract
-  // test pins the inline sticky composer class. Migrating it here would
-  // collide with that lane; the follow-up lands after #1029 merges.
+  // Settled no-fit, assessed 2026-11-23 after PR #1029 merged: the composer
+  // is a multi-element form — a Textarea plus a Send button plus
+  // scope-disclosure text — not one dominant action. StickyTaskAction
+  // renders exactly one Button plus an optional hint and has no slot for
+  // the input; its shell wraps only the action, while the composer sticks
+  // as a whole form; and it expresses one sticky mode (dock-clearance
+  // bottom, static at md+) while the composer has two (page mode with a
+  // 2xl:bottom-0 override, sheet mode at bottom-0). Migrating would split
+  // the form, change the mobile layout (full-width Send, disclosure below),
+  // or gut the component with a children slot. Keep the inline composer.
   assert.match(workspace, /sticky bottom-\[calc\(4\.5rem\+env\(safe-area-inset-bottom\)\)\] backdrop-blur 2xl:bottom-0/);
   assert.doesNotMatch(workspace, /StickyTaskAction/);
 });
