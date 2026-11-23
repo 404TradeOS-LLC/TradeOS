@@ -46,7 +46,16 @@ test("Athena workspace renders truthful kernel states without inventing context 
   assert.match(workspace, /"degraded"/);
   assert.match(workspace, /"denied"/);
   assert.match(workspace, /What Athena could not fully verify/);
-  assert.match(workspace, /The contractor confirmation card is not connected in this workspace yet/);
+  // DES-4: the contractor confirmation card IS connected now. Awaiting
+  // approval routes to the real approvals queue, and a job-scoped succeeded
+  // result can be saved as a job note only after the contractor confirms it
+  // in the card. The old dead-end copy must not come back.
+  assert.doesNotMatch(workspace, /The contractor confirmation card is not connected in this workspace yet/);
+  assert.match(workspace, /AthenaConfirmationCard/);
+  assert.match(workspace, /Save as job note/);
+  assert.match(workspace, /jobWriteTarget/);
+  assert.match(workspace, /onSaveJobNote/);
+  assert.match(workspace, /Nothing is written until you confirm it/);
   assert.match(workspace, /does not yet return a provider-by-provider “context used” list/);
   assert.match(workspace, /This workspace does not invent one/);
   assert.doesNotMatch(workspace, /conversationId:/);
@@ -112,4 +121,62 @@ test("authenticated app header exposes one-tap, feature-gated Athena access at p
   assert.match(nav, /aria-label="Ask Athena"/);
   assert.match(nav, /min-h-11 min-w-11/);
   assert.match(nav, /aria-current=\{pathname === "\/athena" \? "page" : undefined\}/);
+});
+
+test("job-scoped Athena route gates by DES-4 roles and wires Confirm Write to the Job note service", async () => {
+  const routePage = await readSource("../../app/(app)/projects/[id]/jobs/[jobId]/athena/page.tsx");
+  const wrapper = await readSource("../../app/(app)/projects/[id]/jobs/[jobId]/athena/job-athena-workspace.tsx");
+  const access = await readSource("../../lib/athena-job-access.ts");
+  const jobPage = await readSource("../../app/(app)/projects/[id]/jobs/[jobId]/page.tsx");
+  const fieldPage = await readSource("../../app/(app)/field/page.tsx");
+
+  // The route decides access with the DES-4 role table, never with the
+  // operator-only gate that owns /athena.
+  assert.match(routePage, /canUseJobAthena/);
+  assert.match(routePage, /getFieldJob/);
+  assert.match(routePage, /job\.assignedTechnicians/);
+  assert.match(routePage, /technician_not_assigned/);
+  assert.match(routePage, /\/field\?job=/);
+  assert.match(routePage, /canReviewAthenaApprovals/);
+  assert.match(routePage, /JobAthenaWorkspace/);
+  assert.doesNotMatch(routePage, /getAthenaOperatorContext|getAthenaObservabilityOverview/);
+
+  // The write goes through the existing Job note service via the
+  // authenticated proxy; the workspace itself never fetches.
+  assert.match(wrapper, /clientFetch\(`\/api\/v1\/jobs\/\$\{jobId\}\/notes`/);
+  assert.match(wrapper, /method: "POST"/);
+  assert.match(wrapper, /router\.refresh\(\)/);
+  assert.match(wrapper, /jobWriteTarget/);
+  assert.match(wrapper, /onSaveJobNote/);
+  assert.doesNotMatch(wrapper, /\/api\/v1\/athena/);
+
+  // DES-4 roles: owner/admin/dispatcher for any job, technician only when
+  // assigned; the approvals-queue link is owner/admin only.
+  assert.match(access, /"owner", "admin", "dispatcher"/);
+  assert.match(access, /role === "technician"/);
+  assert.match(access, /assignedTechnicianUserIds\.includes\(currentUserId\)/);
+  assert.match(access, /technician_not_assigned/);
+  assert.match(access, /canReviewAthenaApprovals/);
+
+  // Both entry points link to the route.
+  assert.match(jobPage, /\/projects\/\$\{projectId\}\/jobs\/\$\{jobId\}\/athena/);
+  assert.match(fieldPage, /\/projects\/\$\{selectedJob\.project\.id\}\/jobs\/\$\{selectedJob\.id\}\/athena/);
+});
+
+test("Athena confirmation card covers the BUILD READY write states without fetching", async () => {
+  const card = await readSource("./athena-confirmation-card.tsx");
+
+  assert.match(card, /Confirm & save/);
+  assert.match(card, /Edit/);
+  assert.match(card, /Not now/);
+  assert.match(card, /Saving/);
+  assert.match(card, /Saved to the job notes/);
+  assert.match(card, /Could not save/);
+  assert.match(card, /Retry/);
+  assert.match(card, /mode: "confirm-write"/);
+  assert.match(card, /mode: "awaiting-approval"/);
+  assert.match(card, /\/athena\/approvals/);
+  assert.match(card, /MAX_NOTE_LENGTH = 5_000/);
+  assert.match(card, /onConfirm: \(body: string\) => Promise<SaveJobNoteResult>/);
+  assert.doesNotMatch(card, /clientFetch\(|fetch\(/);
 });

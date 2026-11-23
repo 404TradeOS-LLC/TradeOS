@@ -222,7 +222,14 @@ export default async function FieldPage({
                     {selectedJob.customer?.name ?? "No customer linked"} · {selectedJob.project?.name ?? "No project linked"}
                   </p>
                 </div>
-                <StatusBadge status={selectedJob.status} />
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <StatusBadge status={selectedJob.status} />
+                  {selectedJob.project?.id ? (
+                    <a href={`/projects/${selectedJob.project.id}/jobs/${selectedJob.id}/athena`} className="text-sm font-medium text-copper hover:underline">
+                      Ask Athena
+                    </a>
+                  ) : null}
+                </div>
               </header>
 
               <div className="grid gap-4 p-4 sm:p-5">

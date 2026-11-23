@@ -101,6 +101,7 @@ export default async function JobApprovalHandoffPage({
       <div className="flex flex-wrap gap-4 text-sm">
         <Link href={`/projects/${projectId}`} className="font-medium text-copper underline">Project workspace</Link>
         <Link href={`/dispatch?view=all&q=${encodeURIComponent(job.jobNumber)}`} className="font-medium text-copper underline">Open Dispatch</Link>
+        <Link href={`/projects/${projectId}/jobs/${jobId}/athena`} className="font-medium text-copper underline">Ask Athena</Link>
       </div>
     </div>
   );
