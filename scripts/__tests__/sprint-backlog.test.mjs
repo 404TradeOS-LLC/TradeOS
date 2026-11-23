@@ -9,7 +9,7 @@ const handoffPath = path.join(repoRoot, "docs", "SESSION_HANDOFF.md");
 const backlog = fs.readFileSync(backlogPath, "utf8");
 const handoff = fs.readFileSync(handoffPath, "utf8");
 
-const validStatuses = new Set(["DONE", "IN_REVIEW", "READY", "BLOCKED", "PLANNED", "DEFERRED", "CANCELLED"]);
+const validStatuses = new Set(["DONE", "IN_REVIEW", "READY", "BLOCKED", "PLANNED", "PARTLY DONE", "DEFERRED", "CANCELLED"]);
 const mergedPrs = new Set(["20", "21", "22", "23", "24", "25", "26", "27", "28", "29"]);
 
 function sprintBlocks() {

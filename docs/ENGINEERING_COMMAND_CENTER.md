@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-11-13
+last_verified: 2026-11-23
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -109,9 +109,9 @@ Founder authorization starts S073 from current `main` `37deee0bad44d8c3ca4ad65f7
 
 Completed: implementation PR #1000 merged 2026-11-21 as `4d8f8a74` (coverage matrix, deterministic validator, live PostgreSQL evidence); portal request-context repair PR #1001 merged 2026-11-18 as `6f860f34`. S073 is DONE. S082's S073 dependency is satisfied; S082 remains BLOCKED until its full acceptance/evidence set is reconciled.
 
-## S059 customer portal access and session certification — READY 2026-11-22
+## S059 customer portal access and session certification — IN_REVIEW (implemented by merged PR #1032, 2026-11-23; READY 2026-11-22)
 
-Governance-only readiness promotion from current `main` `c430fd17`. Dependency S051 is DONE (PR #538); live overlap rechecked 2026-11-22 found zero open PRs and no S059 lane. The prior readiness branch `origin/docs/s059-readiness-promotion` (PR #619, closed unmerged 2026-10-04 as superseded behind then-READY S053) is stale and was not reused. ADR-010 (Accepted) governs the magic-link model, implemented on main: staff issuance, single-use hashed tokens, short-lived hashed sessions, fail-closed redemption, replay/revocation protection, forced-RLS customer-scoped reads; S073 live PostgreSQL evidence covers `customer_portal_access_tokens` and `customer_portal_sessions`. The sprint certifies that model with retained authenticated browser evidence at 1440/1024/768/390 plus negative security evidence (replay, expiry, revocation, malformed, cross-tenant, cross-customer, unauthenticated, wrong-role), without broadening customer authorization or retaining bearer material. No new customer identity/authorization model, RLS-policy, migration, role/permission, authentication, portal-principal, or production database change is authorized; S054's separate portal decision is not a dependency. S059 is now the next eligible sprint; S068/S069/S071 remain `PLANNED` (higher-numbered, each needing its own promotion).
+Governance-only readiness promotion from current `main` `c430fd17`. Dependency S051 is DONE (PR #538); live overlap rechecked 2026-11-22 found zero open PRs and no S059 lane. The prior readiness branch `origin/docs/s059-readiness-promotion` (PR #619, closed unmerged 2026-10-04 as superseded behind then-READY S053) is stale and was not reused. ADR-010 (Accepted) governs the magic-link model, implemented on main: staff issuance, single-use hashed tokens, short-lived hashed sessions, fail-closed redemption, replay/revocation protection, forced-RLS customer-scoped reads; S073 live PostgreSQL evidence covers `customer_portal_access_tokens` and `customer_portal_sessions`. The sprint certifies that model with retained authenticated browser evidence at 1440/1024/768/390 plus negative security evidence (replay, expiry, revocation, malformed, cross-tenant, cross-customer, unauthenticated, wrong-role), without broadening customer authorization or retaining bearer material. No new customer identity/authorization model, RLS-policy, migration, role/permission, authentication, portal-principal, or production database change is authorized; S054's separate portal decision is not a dependency. Update 2026-11-23: implementation merged as PR #1032 (squash `0a3aeefe`); S059 is now `IN_REVIEW` with full acceptance still owed (browser-evidence workflow dispatch + B6/E4 staging-DB write access, both Billy-only). No sprint is currently `READY`; next eligible sprint NONE. S068/S069/S071 remain `PLANNED` (higher-numbered, each needing its own promotion).
 
 
 Costbook Data Foundation (merged 2026-10-04): founder-authorized non-numbered PR #628 landed on `main` as `8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf`, extending the existing Costbook supplier-evidence, canonical-key, BLS research-candidate, forced-RLS, Assembly, and Estimate snapshot boundaries. It does not create a second Costbook or change the numbered-sprint selector.

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-11-13
+last_verified: 2026-11-23
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -668,7 +668,7 @@ Status: IN_REVIEW
 Dependencies: S051
 Objective: Certify staff issuance, single-use access redemption, customer-scoped session, revocation, expiry, replay denial, and cross-tenant isolation.
 Acceptance: the current magic-link model passes authenticated browser and negative security evidence without broadening customer authorization or exposing bearer material.
-Evidence: implementation PR #1032 (draft, base `76b8da0a`): GAP-1 detail-page access-required repair + web tests, live-PostgreSQL portal integration tests (11 tests), S059 browser-evidence workflow + capture script + contract test, evidence document `docs/architecture/S059_CERTIFICATION_EVIDENCE.md`. Browser capture vs staging and full acceptance still pending; expired-token/session browser states (B6/E4) BLOCKED on staging-DB write access (owner: Billy).
+Evidence: implementation PR #1032 merged 2026-11-23 as squash `0a3aeefe` (base `76b8da0a`): GAP-1 detail-page access-required repair + web tests, live-PostgreSQL portal integration tests (11 tests), S059 browser-evidence workflow + capture script + contract test, evidence document `docs/architecture/S059_CERTIFICATION_EVIDENCE.md`. Browser capture vs staging and full acceptance still pending; expired-token/session browser states (B6/E4) BLOCKED on staging-DB write access (owner: Billy).
 Readiness reconciliation (2026-11-22): S051 is DONE through merged PR #538 (`49cfb31ce8badf8a3440792e0f9aa7a8a01026db`). Live GitHub overlap rechecked 2026-11-22 on main `c430fd17`: zero open PRs; no live S059 implementation lane. The prior readiness branch `origin/docs/s059-readiness-promotion` (PR #619, closed unmerged 2026-10-04 as superseded) prepared readiness behind the then-READY S053 and is stale; this promotion regenerates from current main per #619's own closing note and that branch is not reused. ADR-010 (Accepted) governs the model, and it is implemented on current main: staff `issueAccessToken` (`documents.manage`, single-use expiring link, raw value returned only at issuance, SHA-256 digest persisted), atomic redemption into a short-lived opaque hashed session, fail-closed redemption on absent/malformed/expired payloads, scope-plus-resource customer checks on public reads, and the narrow pending-contract signing transition. S073 (PR #1000, merged 2026-11-21 as `4d8f8a74`) added live disposable-PostgreSQL same-org/cross-org evidence for `customer_portal_access_tokens` and `customer_portal_sessions`; portal request-context repair PR #1001 merged 2026-11-18 as `6f860f34`. What S059 still must prove is current-head authenticated browser evidence at 1440/1024/768/390 plus negative security evidence (replay, expiry, revocation, malformed, cross-tenant, cross-customer, unauthenticated, wrong-role). See `docs/architecture/S059_CUSTOMER_PORTAL_ACCESS_CERTIFICATION_PLAN.md`.
 Readiness contract: S059 certifies the existing ADR-010 model only. It may add non-production evidence tooling, focused portal browser/security tests, additive disposable-PostgreSQL evidence where a current-head gap is found, reproduced-defect repair inside the existing contract, and required owner documentation. No new customer identity/login/invitation model, public tokenized links beyond the ADR-010 surface, auth-provider replacement, RBAC/RLS redesign, proposal-acceptance mutation, payment implementation, test-only public TTL override/backdoor, production mutation, or bearer-material retention. Email delivery of issued links is S074's scope, not S059's. True expiry must be proven without a public TTL override; if the controlled non-production fixture cannot be built inside this scope, record the exact missing infrastructure as the blocker and stop.
 Founder-decision boundary: NO for the bounded certification above. YES before any new customer identity/authorization model, RLS policy, migration, role/permission, authentication, portal-principal, or production database change. S054's separate portal decision is not a dependency of S059 and is not decided by this promotion.
@@ -927,10 +927,12 @@ Acceptance: exact aggregation, missing-data semantics, tenant/RLS evidence, degr
 
 ### S089 — Actual job-cost capture foundation
 
-Status: PLANNED
+Status: PARTLY DONE
 Dependencies: S057, S081
 Objective: Persist verified labor, material, equipment, and approved change cost actuals against Jobs without replacing accounting systems.
 Acceptance: source, quantity/rate, correction, attribution, audit, permissions, RLS, and estimate-vs-actual reconciliation are explicit and financially tested.
+Evidence (DEV-21 verdict, 2026-11-21, verified on main `4bf8d880`): job expenses shipped — PR #887 (merged 2026-11-02, `dc1c8710`: `job_expenses` table + forced RLS, org-scoped API, field rollup); PR #891 (merged 2026-11-04, `e1ee4718`: payment responsibility, receipt upload/link, edit + void UI, append-only audit, idempotency; issue #885 CLOSED); PR #926 (merged 2026-11-04, `dc3ab561`: hardened receipt storage fail-closed); PR #898 (`9c73054d`) + #907 (`8fa2de9c`, merged 2026-11-02): field gate + protected staging migration runner. Deployments: production migration run 41807896658 succeeded 2026-11-04; staging preflight + apply succeeded 2026-11-06 (ledger 67→70). Tests: 64 cases across 7 files, genuinely financial; RLS matrix lists both expense tables COVERED.
+Remainder (why not DONE): quantity/rate NOT implemented (amount-only model, no quantity/unit-rate fields — S089 acceptance explicitly names them); approved change-cost actuals NOT implemented (`ChangeOrder` model exists but expenses carry no `changeOrderId`); estimate-vs-actual is total-level variance only, not per-category/line-item. S089 stays open until the remainder is scoped (new slices or a T7 status decision — Billy's call).
 
 ### S090 — SaaS subscription billing certification
 
@@ -1037,7 +1039,7 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`. S059 is `IN_REVIEW` in PR #1032 (implementation; browser evidence pending). S068, S069, and S071 remain `PLANNED` with satisfied `Dependencies:` but are higher-numbered; each needs its own governance-only readiness promotion before selection. S046/S048/S050 remain blocked on unmet dependencies or unresolved founder decisions; all other `PLANNED` sprints have unmet `Dependencies:`. Do not start implementation on a `PLANNED` sprint without its own promotion.
+Eligibility: No numbered sprint is currently `READY`. S059 is `IN_REVIEW` (implementation merged as PR #1032, `0a3aeefe`, 2026-11-23; browser evidence pending). S068, S069, and S071 remain `PLANNED` with satisfied `Dependencies:` but are higher-numbered; each needs its own governance-only readiness promotion before selection. S046/S048/S050 remain blocked on unmet dependencies or unresolved founder decisions; all other `PLANNED` sprints have unmet `Dependencies:`. Do not start implementation on a `PLANNED` sprint without its own promotion.
 Dependencies: S051 is DONE (PR #538 merged 2026-09-22 as `49cfb31ce8badf8a3440792e0f9aa7a8a01026db`).
-Overlap check: Live open PRs rechecked 2026-11-23 (main `76b8da0a`): PR #1032 is the sole open PR and is the S059 implementation lane; no competing S059 work exists.
-Startup prompt: Advance PR #1032 — address the CodeRabbit repair round, verify the exact-head bar, and merge when it passes; then dispatch the S059 browser-evidence workflow from `main` after merge and record the run artifact in `docs/architecture/S059_CERTIFICATION_EVIDENCE.md` in a follow-up PR. S059 moves to DONE only via a governance record after full acceptance, including resolution of the expiry-browser blocker.
+Overlap check: Live open PRs rechecked 2026-11-23 (main `255bbc41`): PR #1032 MERGED 2026-11-23 as `0a3aeefe`; the sole open PR is #1037 (DEV-17 S9, code lane) and is not S059 work. No competing S059 work exists.
+Startup prompt: Dispatch the S059 browser-evidence workflow from `main` against staging and record the run artifact in `docs/architecture/S059_CERTIFICATION_EVIDENCE.md` in a follow-up PR. S059 moves to DONE only via a governance record after full acceptance, including resolution of the expiry-browser blocker (B6/E4 staging-DB write access, owner: Billy).
