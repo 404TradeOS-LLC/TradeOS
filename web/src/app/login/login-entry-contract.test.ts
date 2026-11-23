@@ -53,3 +53,16 @@ test("the intro remains bounded and never loads the renderer until mounted", asy
   assert.match(source, /Skip intro/);
   assert.match(source, /e\.key\s*===\s*"Tab"/);
 });
+
+test("entry controls match canonical Figma 48px geometry and the Email label (issue #1026)", async () => {
+  const source = await entry(),
+    css = await readFile(
+      new URL("../../components/entry/entry.module.css", import.meta.url),
+      "utf8",
+    );
+  assert.match(source, /<Label htmlFor="email">Email<\/Label>/);
+  assert.doesNotMatch(source, /Email address/);
+  assert.match(css, /\.field input\) \{[^}]*height: 48px;/);
+  assert.match(css, /\.primary\) \{[^}]*height: 48px;/);
+  assert.match(css, /\.visibility\) \{[^}]*top: 2px;/);
+});
