@@ -142,6 +142,40 @@ and production review before real quoting. The new browser includes NAHB
 This change does **not** verify hosted staging, apply any database migrations,
 populate missing source records, or constitute production pricing evidence.
 
+## Measurement contracts (issue #518 S8, 2026-11-23)
+
+Measurement used to live only as free-text `measurementBasis` strings, the five
+template output units (CY/EA/LF/SF/SQ), and the `allowance` Cost Item kind.
+`app/modules/assemblies-database/measurement.ts` now formalizes it:
+
+- **Families.** Five takeoff families — area, linear, count, volume, allowance —
+  plus two component-rate families the data proves exist: mass (TON, LB — bulk
+  quantities priced by weight) and time (HR, DAY — labor/equipment production
+  rates; 95 research components are HR-denominated). Every catalog unit
+  classifies into exactly one family; time and mass are never takeoff inputs.
+- **Conversions.** Exactly one conversion family is defined: area (1 SQ = 100 SF,
+  1 SY = 9 SF). No other cross-unit conversion exists in the contract — CY to
+  GAL, EA to BOX, or LF to BF requires an explicit estimator-supplied factor,
+  never a silent 1:1 substitute.
+- **Template assessment.** `assessTemplateMeasurement` validates each template:
+  non-empty measurement basis; output unit one of the five; SQ outputs state the
+  100-SF definition; every component has a finite positive quantity, a
+  normalizing first compatible unit, and a non-empty kind list; allowance
+  components are LS-denominated and exactly 1 per assembly unit. The assessment
+  runs on all 107 catalog templates and holds on every one; failures are added
+  to `blockingReasons`, so a contract-breaking recipe fails closed at install
+  (HTTP 422) the same way a missing source does.
+- **Takeoff derivation.** `deriveAssemblyQuantity` is the pure half of the
+  takeoff connection: given an installed assembly and a takeoff quantity, it
+  derives the assembly quantity (same-family only, area conversion recorded,
+  rounded to 4 decimals) or rejects with reasons. Unverified takeoffs are
+  rejected — verification is what makes a takeoff "verified." It persists
+  nothing and writes no estimate lines: there is no takeoff record to read from
+  yet (S065, the quantity-takeoff MVP, is still PLANNED) and `EstimateLineItem`
+  has no takeoff fields (S4). The follow-up slice (S8b, gated on S065 + S4)
+  wires this derivation to persisted, versioned takeoff records and estimate
+  lines. No second pricing engine is created and no price is embedded here.
+
 ## Estimate Items assembly picker
 
 S064 extends the existing Estimate Items picker without creating a parallel estimator. Installed tenant assemblies are searched through the existing assembly search contract, previewed with the existing current-unit-cost and recipe-item endpoints, and added only through the canonical Estimate Engine line-item mutation. The preview is advisory: it shows current cost/component evidence and selected-quantity job cost, while the Estimate Engine owns the persisted pricing snapshot/source identity.

@@ -91,6 +91,18 @@ such as BOX/EA are not accepted without explicit conversion. Installed
 assemblies retain source IDs in their description for later review and
 remain price-neutral until resolved by the canonical Costbook cost service.
 
+Measurement contracts (issue #518 S8) add one more fail-closed install reason
+with no schema, body, or authorization change: a template whose measurement
+contract does not hold (empty measurement basis, non-catalog output unit,
+roofing-square output without the 100-SF definition, non-positive or
+unrecognized component unit, allowance component not LS-denominated or not
+exactly 1 per assembly unit) carries `Measurement contract: ...` entries in
+`blockingReasons` and the install returns HTTP 422 before DB mutation. All 107
+catalog templates satisfy the contract as served, so no installable recipe
+gains a new block. There is no takeoff endpoint yet: `deriveAssemblyQuantity`
+is a pure library derivation, and the persisted takeoff-record connection is a
+follow-up gated on S065 (takeoff MVP) + S4 (estimate-line snapshots).
+
 No change to Estimate Engine snapshot semantics, material-price history,
 auth/RLS, supplier feeds or migrations. Hosted verification remains pending.
 
