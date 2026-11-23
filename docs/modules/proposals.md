@@ -162,8 +162,9 @@ absent.
 ## Tests
 
 - `app/tests/proposals.service.test.ts`
-- `app/tests/proposals.selections-allowances.test.ts` — DES-10-F8: selection/allowance create/update/delete, org scoping, accepted-proposal immutability, display-only allowances total, duplication carry-over
-- `app/tests/proposal-selections-allowances.migration.test.ts` — DES-10-F8: both tables, forced RLS, org-scoped policies, status/amount checks, cascade
+- `app/tests/proposals.selections-allowances.test.ts` — DES-10-F8: selection/allowance create/update/delete, org scoping, accepted-proposal immutability, display-only allowances total, duplication carry-over, parent row lock inside one transaction per child mutation
+- `app/tests/proposal-selections-allowances.migration.test.ts` — DES-10-F8: both tables, forced RLS, org-scoped policies, portal customer scope through the owning proposal, status/amount checks, cascade
+- `app/tests/rls.integration.ts` ("proposal selections and allowances RLS") — DES-10-F8: live tenant isolation, portal customer isolation within one org, viewer/portal write denial at the database boundary
 - `web/src/components/proposals/proposal-selections-allowances.test.ts` — DES-10-F8: staff display + CRUD actions, portal read-only display, display-only total disclosure, accepted read-only state
 - `app/tests/jobs.service.test.ts` — accepted-proposal conversion, idempotency, unauthorized roles, tenant scope and address ownership
 - `app/tests/proposalsInvoicesContractsMigration.test.ts`

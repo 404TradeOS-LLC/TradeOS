@@ -3631,6 +3631,179 @@ describe("live organization row-level security", () => {
       expect(read.warnings).toContain("expired");
     });
   });
+
+  // DES-10-F8: live RLS coverage for proposal_selections and
+  // proposal_allowances. The migration tests only inspect SQL strings and
+  // the service tests mock Prisma, so neither proves tenant isolation,
+  // portal customer isolation, or role-based write denial against a real
+  // database. A second orgA customer (customerA2) proves portal isolation
+  // *within* one org, not just across orgs. Fixtures live only for this
+  // block — afterAll removes every row — so no later test sees the extra
+  // project, and this block runs last in the file for the same reason.
+  describe("proposal selections and allowances RLS (DES-10-F8)", () => {
+    const customerA2 = "10000000-0000-0000-0000-000000000220";
+    const projectA2 = "10000000-0000-0000-0000-000000000221";
+    const proposalA = "10000000-0000-0000-0000-000000000222";
+    const proposalA2 = "10000000-0000-0000-0000-000000000223";
+    const proposalB = "20000000-0000-0000-0000-000000000224";
+    const selectionA = "10000000-0000-0000-0000-000000000225";
+    const selectionA2 = "10000000-0000-0000-0000-000000000226";
+    const selectionB = "20000000-0000-0000-0000-000000000227";
+    const allowanceA = "10000000-0000-0000-0000-000000000228";
+    const allowanceA2 = "10000000-0000-0000-0000-000000000229";
+    const allowanceB = "20000000-0000-0000-0000-000000000230";
+    const portalSessionId = "10000000-0000-0000-0000-000000000231";
+
+    beforeAll(async () => {
+      await adminClient.customer.create({
+        data: { id: customerA2, orgId: orgA, name: "Org A Second Customer", email: "orga2@example.com" },
+      });
+      await adminClient.project.create({
+        data: { id: projectA2, orgId: orgA, customerId: customerA2, name: "Org A Second Project" },
+      });
+      await adminClient.proposal.createMany({
+        data: [
+          { id: proposalA, projectId: projectA, status: "draft" },
+          { id: proposalA2, projectId: projectA2, status: "draft" },
+          { id: proposalB, projectId: projectB, status: "draft" },
+        ],
+      });
+      await adminClient.proposalSelection.createMany({
+        data: [
+          { id: selectionA, orgId: orgA, proposalId: proposalA, label: "PENDANTS" },
+          { id: selectionA2, orgId: orgA, proposalId: proposalA2, label: "CABINET FINISH" },
+          { id: selectionB, orgId: orgB, proposalId: proposalB, label: "COUNTERTOP" },
+        ],
+      });
+      await adminClient.proposalAllowance.createMany({
+        data: [
+          { id: allowanceA, orgId: orgA, proposalId: proposalA, description: "PENDANT LIGHTING", amount: 1200 },
+          { id: allowanceA2, orgId: orgA, proposalId: proposalA2, description: "CABINET HARDWARE", amount: 1600 },
+          { id: allowanceB, orgId: orgB, proposalId: proposalB, description: "RANGE HOOD", amount: 900 },
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await adminClient.proposalSelection.deleteMany({ where: { id: { in: [selectionA, selectionA2, selectionB] } } });
+      await adminClient.proposalAllowance.deleteMany({ where: { id: { in: [allowanceA, allowanceA2, allowanceB] } } });
+      await adminClient.proposal.deleteMany({ where: { id: { in: [proposalA, proposalA2, proposalB] } } });
+      await adminClient.project.delete({ where: { id: projectA2 } });
+      await adminClient.customer.delete({ where: { id: customerA2 } });
+    });
+
+    it("isolates selections and allowances by tenant for staff reads and writes", async () => {
+      const visibleSelections = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().proposalSelection.findMany({ where: { proposalId: proposalA }, orderBy: { id: "asc" } })
+      );
+      expect(visibleSelections.map((row) => row.id)).toEqual([selectionA]);
+
+      const crossOrgSelections = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().proposalSelection.findMany({ where: { proposalId: proposalA } })
+      );
+      expect(crossOrgSelections).toEqual([]);
+      const crossOrgLookup = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().proposalSelection.findUnique({ where: { id: selectionA } })
+      );
+      expect(crossOrgLookup).toBeNull();
+
+      const visibleAllowances = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().proposalAllowance.findMany({ where: { proposalId: proposalA } })
+      );
+      expect(visibleAllowances.map((row) => row.id)).toEqual([allowanceA]);
+      const crossOrgAllowance = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().proposalAllowance.findUnique({ where: { id: allowanceA } })
+      );
+      expect(crossOrgAllowance).toBeNull();
+
+      // Same-org staff write through the service; a cross-org service call
+      // cannot see the parent proposal at all.
+      const created = await inSession(adminUser, orgA, "admin", async () =>
+        new ProposalsService().createSelection(proposalA, { label: "COUNTERTOP" }, orgA)
+      );
+      expect(created.proposalId).toBe(proposalA);
+      await inSession(adminUser, orgA, "admin", async () =>
+        new ProposalsService().deleteSelection(created.id, proposalA, orgA)
+      );
+      await expect(
+        inSession(otherUser, orgB, "owner", async () =>
+          new ProposalsService().createSelection(proposalA, { label: "COUNTERTOP" }, orgB)
+        )
+      ).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    it("scopes portal customer reads to the verified customer's own proposals", async () => {
+      const portal = (customerId: string, accessTokenId: string) => ({
+        sessionId: portalSessionId,
+        accessTokenId,
+        orgId: orgA,
+        customerId,
+      });
+
+      const customerAView = await runWithPortalDatabaseSession(
+        appClient,
+        portal(customerA, "10000000-0000-0000-0000-000000000232"),
+        async () => ({
+          selections: await currentTransaction().proposalSelection.findMany({ orderBy: { id: "asc" } }),
+          allowances: await currentTransaction().proposalAllowance.findMany({ orderBy: { id: "asc" } }),
+          foreignSelection: await currentTransaction().proposalSelection.findUnique({ where: { id: selectionA2 } }),
+          foreignAllowance: await currentTransaction().proposalAllowance.findUnique({ where: { id: allowanceA2 } }),
+        })
+      );
+      expect(customerAView.selections.map((row) => row.id)).toEqual([selectionA]);
+      expect(customerAView.allowances.map((row) => row.id)).toEqual([allowanceA]);
+      expect(customerAView.foreignSelection).toBeNull();
+      expect(customerAView.foreignAllowance).toBeNull();
+
+      // Same org, different customer: sees only its own proposal's rows.
+      const customerA2View = await runWithPortalDatabaseSession(
+        appClient,
+        portal(customerA2, "10000000-0000-0000-0000-000000000233"),
+        async () => ({
+          selections: await currentTransaction().proposalSelection.findMany({ orderBy: { id: "asc" } }),
+          allowances: await currentTransaction().proposalAllowance.findMany({ orderBy: { id: "asc" } }),
+        })
+      );
+      expect(customerA2View.selections.map((row) => row.id)).toEqual([selectionA2]);
+      expect(customerA2View.allowances.map((row) => row.id)).toEqual([allowanceA2]);
+    });
+
+    it("denies selections and allowances writes to viewers and portal customers at the database boundary", async () => {
+      // Viewers can read the org's rows but cannot write them: the write
+      // policy requires current_app_can_write().
+      await expect(
+        inSession(viewerUser, orgA, "viewer", async () =>
+          currentTransaction().proposalSelection.create({
+            data: { orgId: orgA, proposalId: proposalA, label: "PENDANTS" },
+          })
+        )
+      ).rejects.toThrow();
+      await expect(
+        inSession(viewerUser, orgA, "viewer", async () =>
+          new ProposalsService().createAllowance(proposalA, { description: "PENDANT LIGHTING", amount: 100 }, orgA)
+        )
+      ).rejects.toThrow();
+
+      // A portal customer cannot write either, even to its own proposal's rows.
+      await expect(
+        runWithPortalDatabaseSession(
+          appClient,
+          { sessionId: portalSessionId, accessTokenId: "10000000-0000-0000-0000-000000000234", orgId: orgA, customerId: customerA },
+          async () =>
+            currentTransaction().proposalAllowance.create({
+              data: { orgId: orgA, proposalId: proposalA, description: "PENDANT LIGHTING", amount: 100 },
+            })
+        )
+      ).rejects.toThrow();
+
+      // The denied writes changed nothing.
+      const counts = await inSession(adminUser, orgA, "admin", async () => ({
+        selections: await currentTransaction().proposalSelection.count({ where: { proposalId: proposalA } }),
+        allowances: await currentTransaction().proposalAllowance.count({ where: { proposalId: proposalA } }),
+      }));
+      expect(counts).toEqual({ selections: 1, allowances: 1 });
+    });
+  });
 });
 
 function inSession<T>(userId: string, orgId: string, role: SupportedRole, operation: () => Promise<T>): Promise<T> {
