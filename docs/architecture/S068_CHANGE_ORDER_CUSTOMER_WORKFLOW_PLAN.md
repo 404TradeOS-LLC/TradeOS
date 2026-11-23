@@ -90,8 +90,14 @@ memory:
 3. Trace the customer side: the portal project page's change-order
    surface, who may view it, and which action (if any) lets a customer
    approve or reject. If the portal exposes review without a decision
-   action, record that as the gap and build the decision action inside
-   the existing portal contract — do not invent a second approval model.
+   action, record that as a BLOCKED capability: customer approve/reject
+   is outside the existing portal contract (ADR-010 limits
+   customer-originated writes to signing pending contracts; the
+   change-order approve/reject controllers require staff
+   `billing.write`), and building it would change authorization — it
+   needs a separately governed authorization decision and must NOT be
+   built inside this certification scope. Do not invent a second
+   approval model.
 4. Trace pricing: line-item quantity × unit cost → line cost → order
    amount, cost-item linkage, and the optional `estimateId` relationship.
    Verify the amount a customer approves is the amount the system records.
