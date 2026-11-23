@@ -11,6 +11,7 @@ import { assessCostItemMapping, type StarterCatalogComponent, type StarterCatalo
 import { MappingResolveChecklist } from "@/components/costbook/mapping-resolve-checklist";
 import type { CostItemCatalogRecord } from "@/components/costbook/cost-item-catalog-actions";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { StickyTaskAction } from "@/components/shared/sticky-task-action";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -508,7 +509,7 @@ function EstimateStageFlow({
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)]">
         <div className="min-w-0 bg-card px-4 py-6 sm:px-6">
-          <div hidden={activeStage !== "scope"} className="space-y-4 pb-24 lg:pb-0">
+          <div hidden={activeStage !== "scope"} className="space-y-4">
             <h2 ref={(node) => { stageHeadingRefs.current.scope = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Start with the work.</h2>
             <EstimateScopeEditor
               value={simpleScope}
@@ -523,10 +524,10 @@ function EstimateStageFlow({
               Athena suggestions are review-first. Nothing is added automatically; open Athena review for deeper scope analysis.
             </div>
             <EstimateCodesHints estimateId={estimateId} />
-            <EstimateStageAction label={scopeSavePending ? "Saving scope…" : "Continue to items"} onClick={advance} disabled={scopeSavePending} />
+            <StickyTaskAction label={scopeSavePending ? "Saving scope…" : "Continue to items"} onClick={advance} disabled={scopeSavePending} />
           </div>
 
-          <div hidden={activeStage !== "items"} className="space-y-4 pb-24 lg:pb-0">
+          <div hidden={activeStage !== "items"} className="space-y-4">
             <div>
               <h2 ref={(node) => { stageHeadingRefs.current.items = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Estimate items</h2>
               <p className="mt-1 text-sm text-muted-foreground">{estimate.lineItems.length} saved lines · review sources, quantities and costs before pricing.</p>
@@ -563,10 +564,10 @@ function EstimateStageFlow({
                 </ul>
               </div>
             )}
-            <EstimateStageAction label="Continue to price" onClick={advance} />
+            <StickyTaskAction label="Continue to price" onClick={advance} />
           </div>
 
-          <div hidden={activeStage !== "price"} className="space-y-4 pb-24 lg:pb-0">
+          <div hidden={activeStage !== "price"} className="space-y-4">
             <h2 ref={(node) => { stageHeadingRefs.current.price = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Price the work</h2>
             <p className="text-sm text-muted-foreground">Use Apply or Save overhead / tax to save pricing changes. Review uses the saved estimate total.</p>
             {recalculationDelta ? (
@@ -587,10 +588,10 @@ function EstimateStageFlow({
               isDraft={isDraft}
               onUpdated={onUpdated}
             />
-            <EstimateStageAction label="Continue to review" onClick={advance} />
+            <StickyTaskAction label="Continue to review" onClick={advance} />
           </div>
 
-          <div hidden={activeStage !== "review"} className="space-y-5 pb-24 lg:pb-0">
+          <div hidden={activeStage !== "review"} className="space-y-5">
             <div className="border-b border-border/70 pb-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -630,7 +631,7 @@ function EstimateStageFlow({
               <>
                 <p className="text-sm text-muted-foreground">Finalizing locks this reviewed estimate version. The next step is creating the customer proposal. Nothing is sent to the customer by finalizing.</p>
                 {finalizeError ? <EstimateFinalizationError message={finalizeError} /> : null}
-                <EstimateStageAction label={finalizePending ? "Finalizing…" : finalizeError ? "Retry finalization" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
+                <StickyTaskAction label={finalizePending ? "Finalizing…" : finalizeError ? "Retry finalization" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
               </>
             ) : (
               <Link href={`/projects/${estimate.projectId}/proposals/new?estimateId=${estimateId}`} className={buttonVariants({ variant: "default" }) + " flex min-h-11 w-full items-center justify-center"}>
@@ -709,16 +710,6 @@ function EstimateDirectCostBreakdown({ lineItems }: { lineItems: LineItem[] }) {
         </dl>
       )}
     </section>
-  );
-}
-
-function EstimateStageAction({ label, onClick, disabled = false }: { label: string; onClick: () => void; disabled?: boolean }) {
-  return (
-    <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 border-t border-border/70 bg-background/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
-      <Button type="button" className="min-h-11 w-full lg:w-auto" onClick={onClick} disabled={disabled}>
-        {label}
-      </Button>
-    </div>
   );
 }
 

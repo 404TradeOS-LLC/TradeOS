@@ -51,6 +51,21 @@ test("Site Visit form uses the shared StickyTaskAction instead of its own sticky
   assert.doesNotMatch(form, /sticky bottom-/);
 });
 
+test("Estimate builder uses the shared StickyTaskAction instead of its own fixed shell (DES-10-F6)", async () => {
+  const builder = await readSource("../../app/(app)/projects/[id]/estimates/[estimateId]/builder.tsx");
+
+  assert.match(builder, /<StickyTaskAction/);
+  assert.match(builder, /label=\{scopeSavePending \? "Saving scope…" : "Continue to items"\}/);
+  assert.match(builder, /label="Continue to price"/);
+  assert.match(builder, /label="Continue to review"/);
+  assert.match(builder, /label=\{finalizePending \? "Finalizing…" : finalizeError \? "Retry finalization" : "Finalize estimate"\}/);
+  assert.match(builder, /disabled=\{scopeSavePending\}/);
+  assert.match(builder, /disabled=\{finalizePending \|\| estimate\.lineItems\.length === 0\}/);
+  assert.doesNotMatch(builder, /function EstimateStageAction/);
+  assert.doesNotMatch(builder, /fixed inset-x-0/);
+  assert.doesNotMatch(builder, /sticky bottom-/);
+});
+
 test("Athena workspace composer stays inline — StickyTaskAction does not fit (assessed 2026-11-23)", async () => {
   const workspace = await readSource("../athena/athena-workspace.tsx");
 
