@@ -7,6 +7,7 @@ import { CostDatabaseService } from "../cost-database/service";
 import { AssembliesDatabaseService } from "../assemblies-database/service";
 import { getDefaultAthenaEventService } from "../athena-events/service";
 import { applyOverhead, estimateTaxAmount, sellPrice, round2 } from "./formulas";
+import { attachLinePriceReadiness } from "./priceReadiness";
 import { canTransitionEstimateStatus, legacyEstimateStatusMap, normalizeEstimateStatus } from "../../domain";
 import { clampQueueLimit, decodeUpdatedAtCursor, encodeUpdatedAtCursor, buildUpdatedAtRange, QueuePage } from "../shared/pagination";
 import { expandCanonicalStatusFilter } from "../shared/statusFilter";
@@ -82,7 +83,16 @@ export class EstimateEngineService {
   async getById(id: string, orgId?: string): Promise<EstimateDTO & { lineItems: EstimateLineItemDTO[] }> {
     const row = await prisma.estimate.findFirst({ where: { id, orgId }, include: { lineItems: { orderBy: { sortOrder: "asc" } } } });
     if (!row) throw new ApiError(404, `Estimate ${id} not found`);
-    return { ...toEstimateDTO(row), lineItems: row.lineItems.map(toLineItemDTO) };
+    const lineItems = row.lineItems.map(toLineItemDTO);
+    // Price readiness is a display-only signal: if its evidence lookup
+    // fails, the detail read still succeeds and the lines carry no signal
+    // rather than taking the whole estimate down with them.
+    try {
+      return { ...toEstimateDTO(row), lineItems: await attachLinePriceReadiness(lineItems, orgId) };
+    } catch (error) {
+      console.error("[estimate-engine] price readiness lookup failed for estimate", id, error);
+      return { ...toEstimateDTO(row), lineItems };
+    }
   }
 
   async listByProject(projectId: string, orgId?: string): Promise<EstimateDTO[]> {

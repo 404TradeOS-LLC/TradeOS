@@ -20,13 +20,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FeedbackState } from "@/components/ui/feedback-state";
 import { Textarea } from "@/components/ui/textarea";
-import type { Estimate } from "@/lib/api";
+import type { Estimate, EstimateLinePriceReadiness } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { markerGeometry, type MarkerGeometry } from "@/lib/motion/lifecycle";
 import { PriceDelta } from "@/components/motion/price-delta";
 import { nextRecalculationSnapshot, toMinorUnits } from "@/lib/motion/price-delta";
 import type { RecalculationSnapshot } from "@/lib/motion/price-delta";
 import { groupSavedDirectCosts } from "@/lib/estimate-direct-costs";
+import { isLowGrossMargin, priceReadinessCountsFor, summarizePriceReadiness } from "@/lib/estimate-price-readiness";
 import { canAddReviewedEstimateCatalogItem } from "@/lib/estimate-catalog-review";
 import { createEstimateReviewNavigator } from "@/lib/estimate-review-navigation";
 import { EstimateCodesHints } from "@/components/estimate/estimate-codes-hints";
@@ -43,6 +44,8 @@ interface LineItem {
   section: string;
   costType: "labor" | "material" | "equipment" | "disposal" | "subcontractor" | "other";
   taxable: boolean;
+  /** Price-readiness signal attached by the estimate detail endpoint (DES-10-F3). */
+  priceReadiness?: EstimateLinePriceReadiness;
 }
 
 interface EstimateDetail extends Estimate {
@@ -605,6 +608,11 @@ function EstimateStageFlow({
                 label="Last recalculation"
               />
             ) : null}
+            <PriceReadinessSignals
+              lineItems={estimate.lineItems}
+              marginPct={runningTotals.marginPct}
+              onReviewPrices={() => void goToStage("items")}
+            />
             <EstimateDirectCostBreakdown lineItems={estimate.lineItems} />
             <PricingPanel
               estimateId={estimateId}
@@ -807,8 +815,70 @@ function EstimateReviewChecklist({
   );
 }
 
+/** Price readiness signals (DES-10-F3): missing / stale supplier prices, low margin, omission check. Display only — nothing here reprices a line or blocks finalization. */
+function PriceReadinessSignals({
+  lineItems,
+  marginPct,
+  onReviewPrices,
+}: {
+  lineItems: LineItem[];
+  marginPct: number;
+  onReviewPrices: () => void;
+}) {
+  const summary = summarizePriceReadiness(lineItems);
+  const lowMargin = isLowGrossMargin(marginPct);
+  const attentionCount = summary.missing + summary.toReview;
+  const namedLines = (names: string[], limit = 3) =>
+    names.length > limit ? `${names.slice(0, limit).join(", ")} +${names.length - limit} more` : names.join(", ");
+  return (
+    <section aria-label="Pricing readiness" className="space-y-3 rounded-lg border border-border/70 bg-muted/10 p-4">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Pricing readiness</h3>
+        <p className="mt-1 text-xs text-muted-foreground">Missing and stale supplier prices on the saved lines. This check never changes a price.</p>
+      </div>
+      {attentionCount > 0 || summary.unchecked > 0 || lowMargin ? (
+        <ul className="flex flex-wrap gap-2" aria-label="Price readiness signals">
+          {summary.missing > 0 ? (
+            <li><Badge variant="destructive">{summary.missing} missing {summary.missing === 1 ? "price" : "prices"}</Badge></li>
+          ) : null}
+          {summary.toReview > 0 ? (
+            <li><Badge variant="outline">{summary.toReview} to review</Badge></li>
+          ) : null}
+          {summary.unchecked > 0 ? (
+            <li><Badge variant="outline">{summary.unchecked} unchecked</Badge></li>
+          ) : null}
+          {lowMargin ? (
+            <li><Badge variant="outline">Low margin: {formatPercent(marginPct)}</Badge></li>
+          ) : null}
+        </ul>
+      ) : null}
+      {attentionCount > 0 ? (
+        <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning" role="alert">
+          <p>
+            Supplier prices need action —{" "}
+            {summary.missing > 0 ? `${namedLines(summary.missingLines)} ${summary.missing === 1 ? "has" : "have"} no recorded supplier cost.` : null}
+            {summary.missing > 0 && summary.toReview > 0 ? " " : null}
+            {summary.toReview > 0 ? `${namedLines(summary.toReviewLines)} ${summary.toReview === 1 ? "needs" : "need"} a price review.` : null}
+          </p>
+          <Button type="button" variant="outline" size="sm" className="mt-2" onClick={onReviewPrices}>
+            Review in Items
+          </Button>
+        </div>
+      ) : null}
+      <p className="text-sm text-muted-foreground">
+        {summary.unchecked > 0
+          ? `Omission check incomplete · ${summary.unchecked} ${summary.unchecked === 1 ? "price" : "prices"} could not be checked${attentionCount > 0 ? ` · ${summary.missing} missing · ${summary.toReview} to review` : ""}.`
+          : attentionCount > 0
+            ? `Omission check: ${summary.missing} missing · ${summary.toReview} to review.`
+            : "Omission check complete · no missing or stale prices."}
+      </p>
+    </section>
+  );
+}
+
 function EstimateDirectCostBreakdown({ lineItems }: { lineItems: LineItem[] }) {
   const amounts = groupSavedDirectCosts(lineItems);
+  const readiness = summarizePriceReadiness(lineItems);
   return (
     <section aria-label="Internal direct cost breakdown" className="space-y-3 rounded-lg border border-border/70 bg-muted/10 p-4">
       <div>
@@ -817,12 +887,27 @@ function EstimateDirectCostBreakdown({ lineItems }: { lineItems: LineItem[] }) {
       </div>
       {lineItems.length === 0 ? <p className="text-sm text-muted-foreground">Add priced items in Items to see the breakdown.</p> : (
         <dl className="space-y-2 text-sm">
-          {amounts.map((item) => (
-            <div key={item.type} className="flex items-center justify-between gap-3">
-              <dt>{item.label}</dt>
-              <dd className="font-mono tabular-nums">{item.amount === null ? "Unavailable" : formatCurrency(item.amount)}</dd>
-            </div>
-          ))}
+          {amounts.map((item) => {
+            const counts = priceReadinessCountsFor(readiness, item.type);
+            return (
+              <div key={item.type} className="flex items-center justify-between gap-3">
+                <dt>
+                  {item.label}
+                  {counts.missing > 0 || counts.toReview > 0 || counts.unchecked > 0 ? (
+                    <span className="text-muted-foreground">
+                      {" · "}
+                      {counts.missing > 0 ? `${counts.missing} missing` : ""}
+                      {counts.missing > 0 && counts.toReview > 0 ? " · " : ""}
+                      {counts.toReview > 0 ? `${counts.toReview} to review` : ""}
+                      {(counts.missing > 0 || counts.toReview > 0) && counts.unchecked > 0 ? " · " : ""}
+                      {counts.unchecked > 0 ? `${counts.unchecked} unchecked` : ""}
+                    </span>
+                  ) : null}
+                </dt>
+                <dd className="font-mono tabular-nums">{item.amount === null ? "Unavailable" : formatCurrency(item.amount)}</dd>
+              </div>
+            );
+          })}
         </dl>
       )}
     </section>

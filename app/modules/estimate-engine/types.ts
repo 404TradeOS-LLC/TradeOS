@@ -102,6 +102,21 @@ export interface EstimateDTO {
   priceSourcesReviewedAt: string | null;
 }
 
+/**
+ * Price-readiness signal for one estimate line, derived at detail-read time
+ * from the line's supplier-price evidence (DES-10-F3). `null` means no
+ * supplier material price backs the line, so no readiness signal applies.
+ * The value is absent on write-path responses, which do not evaluate it.
+ */
+export type LinePriceReadiness =
+  | "missing"
+  | "current"
+  | "warn"
+  | "refresh"
+  | "reject"
+  | "unverified"
+  | null;
+
 export interface EstimateLineItemDTO {
   id: string;
   estimateId: string;
@@ -120,6 +135,12 @@ export interface EstimateLineItemDTO {
   section: string;
   costType: EstimateCostType;
   taxable: boolean;
+  /**
+   * Price-readiness signal, present only on detail reads (`getById`).
+   * Write-path responses omit it; `null` means no supplier material price
+   * backs the line.
+   */
+  priceReadiness?: LinePriceReadiness;
 }
 
 export interface EstimateComparisonSideDTO {

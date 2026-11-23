@@ -566,6 +566,15 @@ export interface Estimate {
   priceSourcesReviewedAt: string | null;
 }
 
+export type EstimateLinePriceReadiness =
+  | "missing"
+  | "current"
+  | "warn"
+  | "refresh"
+  | "reject"
+  | "unverified"
+  | null;
+
 export interface EstimateLineItem {
   id: string;
   estimateId: string;
@@ -580,6 +589,12 @@ export interface EstimateLineItem {
   section: string;
   costType: "labor" | "material" | "equipment" | "disposal" | "subcontractor" | "other";
   taxable: boolean;
+  /**
+   * Price-readiness signal attached by the estimate detail endpoint
+   * (DES-10-F3). Absent on write-path responses, which do not evaluate it;
+   * null when no supplier material price backs the line.
+   */
+  priceReadiness?: EstimateLinePriceReadiness;
 }
 
 export type EstimateDetail = Estimate & { lineItems: EstimateLineItem[] };
