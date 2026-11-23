@@ -41,6 +41,32 @@ type AssemblyItemsPage = { items: AssemblyItem[]; total: number; nextCursor: str
 type AssemblyForm = { code: string; name: string; unitOfMeasure: string; description: string; isTemplate: boolean };
 type CostItemUnitCost = { totalUnitCost: number };
 type CostPreview = { unitCost: number; loading: boolean; error: string | null };
+type MappingReuseSuggestion = {
+  componentKey: string;
+  componentLabel: string;
+  costItemId: string | null;
+  costItemCode: string | null;
+  costItemName: string | null;
+  costItemUnitOfMeasure: string | null;
+  costItemSubcategoryId: string | null;
+  costItemProductionRate: number | null;
+  costItemIsActive: boolean;
+  orgId: string | null;
+  laborRateId: string | null;
+  materialId: string | null;
+  equipmentId: string | null;
+  subcontractorId: string | null;
+  compatible: boolean;
+  reasons: string[];
+};
+type MappingReuseResult = {
+  templateId: string;
+  sourceAssemblyId: string;
+  sourceAssemblyName: string;
+  suggestions: MappingReuseSuggestion[];
+  mappedCount: number;
+  unmappedComponentKeys: string[];
+};
 const emptyAssembly: AssemblyForm = { code: "", name: "", unitOfMeasure: "", description: "", isTemplate: false };
 
 export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems, canWrite, canManage }: {
@@ -335,6 +361,15 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
   const [productionRateFactor, setProductionRateFactor] = useState("");
   const [costPreview, setCostPreview] = useState<Record<string, CostPreview>>({});
   const [loading, setLoading] = useState(true);
+  // DEV-17 S9: reuse a previous install's mapping for this template.
+  // A reuse suggestion belongs to one template: every site that changes
+  // the selection (template button, updateFilter, resetFilters) clears
+  // the reuse source choice, note, and error alongside the mappings.
+  const [reuseSources, setReuseSources] = useState<CostbookAssembly[]>([]);
+  const [reuseSourceId, setReuseSourceId] = useState("");
+  const [reuseNote, setReuseNote] = useState<string | null>(null);
+  const [reuseError, setReuseError] = useState<string | null>(null);
+  const [reuseLoading, setReuseLoading] = useState(false);
   const facets = useMemo(() => buildStarterCatalogFacets(templates), [templates]);
   const filtered = filterStarterCatalogTemplates(templates, filters, installedCodes);
   // A filtered-out template is never allowed to retain visible mapping inputs.
@@ -350,6 +385,9 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
     setCostPreview({});
     setWasteOverridePct("");
     setProductionRateFactor("");
+    setReuseSourceId("");
+    setReuseNote(null);
+    setReuseError(null);
   }
 
   function resetFilters() {
@@ -360,6 +398,9 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
     setCostPreview({});
     setWasteOverridePct("");
     setProductionRateFactor("");
+    setReuseSourceId("");
+    setReuseNote(null);
+    setReuseError(null);
   }
 
   const mappedCount = selected ? selected.components.filter((component) => mappings[component.key]).length : 0;
@@ -407,6 +448,57 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [onError]);
+
+  useEffect(() => {
+    let active = true;
+    clientFetch<{ items: CostbookAssembly[]; total: number; nextCursor: string | null }>("/costbook/assemblies?isTemplate=true&active=true&limit=100")
+      .then((result) => { if (active) setReuseSources(result.items); })
+      .catch(() => { if (active) setReuseSources([]); });
+    return () => { active = false; };
+  }, []);
+
+  async function applyReuseMapping() {
+    if (!selected || !reuseSourceId) return;
+    const source = reuseSources.find((assembly) => assembly.id === reuseSourceId);
+    setReuseLoading(true);
+    setReuseError(null);
+    try {
+      const result = await clientFetch<MappingReuseResult>(`/costbook/assemblies/starter-catalog/${selected.id}/mapping-suggestions?sourceAssemblyId=${encodeURIComponent(reuseSourceId)}`);
+      const nextMappings = { ...mappings };
+      const nextItems = { ...mappingItems };
+      const stillMissing: string[] = [];
+      for (const suggestion of result.suggestions) {
+        // Fill only slots the estimator has not already mapped by hand.
+        if (mappings[suggestion.componentKey]) continue;
+        if (!suggestion.costItemId) { stillMissing.push(suggestion.componentLabel); continue; }
+        nextMappings[suggestion.componentKey] = suggestion.costItemId;
+        nextItems[suggestion.componentKey] = {
+          id: suggestion.costItemId,
+          orgId: suggestion.orgId,
+          subcategoryId: suggestion.costItemSubcategoryId ?? "",
+          code: suggestion.costItemCode ?? "",
+          name: suggestion.costItemName ?? "",
+          unitOfMeasure: suggestion.costItemUnitOfMeasure ?? "",
+          productionRate: suggestion.costItemProductionRate,
+          laborRateId: suggestion.laborRateId,
+          materialId: suggestion.materialId,
+          equipmentId: suggestion.equipmentId,
+          subcontractorId: suggestion.subcontractorId,
+          isActive: suggestion.costItemIsActive,
+        };
+      }
+      const applied = result.suggestions.filter((suggestion) => nextMappings[suggestion.componentKey] && !mappings[suggestion.componentKey]).length;
+      setMappings(nextMappings);
+      setMappingItems(nextItems);
+      setReuseNote(stillMissing.length
+        ? `Applied ${applied} of ${result.suggestions.length} slots from ${source?.name ?? "the source assembly"}; ${stillMissing.length} still need${stillMissing.length === 1 ? "s" : ""} mapping: ${stillMissing.join(", ")}.`
+        : `Applied ${applied} of ${result.suggestions.length} slots from ${source?.name ?? "the source assembly"}.`);
+    } catch (err) {
+      setReuseError(err instanceof Error ? err.message : "Mapping suggestions could not be loaded.");
+    } finally {
+      setReuseLoading(false);
+    }
+  }
 
   async function install() {
     if (!selected) return;
@@ -510,7 +602,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
         </div>
         <div className="max-h-[420px] overflow-y-auto divide-y divide-border/70">{filtered.map((template) => {
           const installed = isStarterCatalogInstalled(template, installedCodes);
-          return <button key={template.id} type="button" aria-label={`Review assembly ${template.name}`} onClick={() => { setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); setCostPreview({}); setWasteOverridePct(""); setProductionRateFactor(""); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
+          return <button key={template.id} type="button" aria-label={`Review assembly ${template.name}`} onClick={() => { setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); setCostPreview({}); setWasteOverridePct(""); setProductionRateFactor(""); setReuseSourceId(""); setReuseNote(null); setReuseError(null); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
             <span className="flex items-start justify-between gap-3"><span className="font-medium text-foreground">{template.name}</span>{installed ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-label="Installed" /> : null}</span>
             <span className="mt-1 block text-xs text-muted-foreground">{template.nahbPhase ? `NAHB ${template.nahbPhase} · ` : ""}{template.nahbGroup} · CSI {template.csiDivision} · {template.unitOfMeasure}{template.blockingReasons?.length ? " · Evidence pending" : ""}</span>
           </button>;
@@ -522,6 +614,18 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
           <div className="grid justify-items-end gap-1"><span className="w-fit rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">NAHB {selected.nahbPhase ?? ""} · {selected.nahbGroup}</span>{selected.evidenceRefs?.length ? <span className="text-xs text-muted-foreground">{selected.evidenceRefs.length} referenced sources · research review required</span> : null}</div>
         </div>
         {selected.blockingReasons?.length ? <p role="alert" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-foreground">Research evidence pending: {selected.blockingReasons.join("; ")}. This recipe can be inspected but not installed until its source references are repaired.</p> : null}
+        {reuseSources.length > 0 ? <div className="grid gap-2 rounded-lg border border-border/70 bg-background/70 p-3">
+          <div><h4 className="font-medium text-foreground">Reuse mapping from an installed assembly</h4><p className="text-sm text-muted-foreground">Apply a related install&apos;s Cost Items to the slots they fit. Slots you already mapped by hand are left alone; anything left unmapped still needs a manual choice.</p></div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <select aria-label="Reuse mapping from installed assembly" className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm" value={reuseSourceId} onChange={(event) => { setReuseSourceId(event.target.value); setReuseNote(null); setReuseError(null); }} disabled={!canWrite || saving || reuseLoading}>
+              <option value="">Choose an installed assembly…</option>
+              {reuseSources.map((assembly) => <option key={assembly.id} value={assembly.id}>{assembly.code} · {assembly.name}</option>)}
+            </select>
+            <Button type="button" variant="outline" size="sm" onClick={applyReuseMapping} disabled={!canWrite || saving || reuseLoading || !reuseSourceId}>Apply compatible mappings</Button>
+          </div>
+          {reuseNote ? <p role="status" className="text-sm text-muted-foreground">{reuseNote}</p> : null}
+          {reuseError ? <p role="alert" className="text-sm text-destructive">{reuseError}</p> : null}
+        </div> : null}
         <div className="grid gap-3"><div><h4 className="font-medium text-foreground">Map the recipe</h4><p className="text-sm text-muted-foreground">Each slot must point to an active Cost Item. Quantities are per 1 {selected.unitOfMeasure} of assembly output.</p></div>
           {selected.components.map((component) => {
             const unavailableIds = new Set(Object.entries(mappings).filter(([key]) => key !== component.key).map(([, id]) => id));

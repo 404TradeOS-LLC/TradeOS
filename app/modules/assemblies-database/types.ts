@@ -74,3 +74,37 @@ export interface InstallCatalogAssemblyInput {
   wasteOverridePct?: number;
   productionRateFactor?: number;
 }
+
+export interface SuggestCatalogMappingReuseInput {
+  orgId: string;
+  templateId: string;
+  sourceAssemblyId: string;
+}
+
+export interface MappingReuseSuggestionDTO {
+  componentKey: string;
+  componentLabel: string;
+  costItemId: string | null;
+  costItemCode: string | null;
+  costItemName: string | null;
+  costItemUnitOfMeasure: string | null;
+  costItemSubcategoryId: string | null;
+  costItemProductionRate: number | null;
+  costItemIsActive: boolean;
+  orgId: string | null;
+  laborRateId: string | null;
+  materialId: string | null;
+  equipmentId: string | null;
+  subcontractorId: string | null;
+  compatible: boolean;
+  reasons: string[];
+}
+
+export interface MappingReuseResultDTO {
+  templateId: string;
+  sourceAssemblyId: string;
+  sourceAssemblyName: string;
+  suggestions: MappingReuseSuggestionDTO[];
+  mappedCount: number;
+  unmappedComponentKeys: string[];
+}
