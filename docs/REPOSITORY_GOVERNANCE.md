@@ -339,7 +339,10 @@ branch, zero unresolved threads, no standing change request (the Commander has
 no review-dismissal path; agents may dismiss a review after verifying its
 findings are addressed on the current head, per the 2026-11-21 blanket
 authorization), ADR-009 record where required (citing the 2026-11-21 blanket
-authorization instead of a per-item word) — repairs what is deterministically repairable, invokes the
+authorization instead of a per-item word; the exact-head snapshot carries
+the PR body so the gate detects the record where it is written — fixed
+2026-11-23 after the snapshot never set the record flag and every migration
+PR mis-evaluated as BLOCKED) — repairs what is deterministically repairable, invokes the
 installed Codex app once per head for REPAIRABLE PRs the deterministic tier
 could not fix (Phase 4 AI repair worker), requests
 CodeRabbit re-review, and enables native auto-merge

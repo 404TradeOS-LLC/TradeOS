@@ -116,6 +116,9 @@ of them. It ships **dry-run by default**: `pull_request` runs can never act, and
 variable `TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly `"true"` **and**
 a manual dispatch with `mode=armed` (for dispatch runs) or both variables set (for schedule runs). The variable is set and the Commander
 is armed; its first dry-run and armed runs verified from main on PR #953.
+The ADR-009 gate detects the record from the PR body (snapshot carries
+`body`; fixed 2026-11-23 after the snapshot never set the record flag and
+every migration PR mis-evaluated as BLOCKED).
 **Policy exception (founder, 2026-11-10; widened 2026-11-23, decision #18-A):** the armed `act` job holds
 `actions: write`, scoped to dispatching `pr-maintenance.yml` for REPAIRABLE
 behind-branch verdicts and `codeql-autofix.yml` on demand (at most once per Commander run, one repair attempt per head, REPAIRABLE PRs with a security reason only; recorded in the `Workflow security` policy script

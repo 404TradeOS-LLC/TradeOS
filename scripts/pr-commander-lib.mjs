@@ -212,6 +212,37 @@ export function orderMerges(prs) {
   return scored.map(({ pr }) => pr);
 }
 
+// Detect a complete ADR-009 founder-exception record in a PR body.
+//
+// The workflow snapshot builder never carried an `adr009Record` flag —
+// `gh pr view` has no such field — so `normalizeSnapshot` always read it
+// as absent and every migration PR mis-evaluated as BLOCKED on "ADR-009
+// record required but absent", even when the record was present in the body
+// (proven on #1045, #1046 and #1054, all merged only after the false
+// verdict was worked around by hand). The record is a line starting with
+// "ADR-009 record" plus all six elements, each with a populated value on
+// its own line; a header with an empty value is a placeholder, not a
+// record, so a bare mention — or an unfilled record template — does not
+// count. Values are matched with horizontal whitespace only (`[ \t]*`):
+// `\s*` would also swallow the newline and read the next line as the
+// value, letting an empty element pass.
+const ADR009_RECORD_ELEMENTS = [
+  /^- Authorization:[ \t]*\S/m,
+  /^- Unavailable-reviewer reason:[ \t]*\S/m,
+  /^- Risk boundaries:[ \t]*\S/m,
+  /^- Rollback\/recovery:[ \t]*\S/m,
+  /^- Required-check evidence:[ \t]*\S/m,
+  /^- Restoration trigger:[ \t]*\S/m,
+];
+
+export function hasAdr009Record(body) {
+  if (typeof body !== "string" || body.length === 0) return false;
+  return (
+    /^ADR-009 record\b/m.test(body) &&
+    ADR009_RECORD_ELEMENTS.every((pattern) => pattern.test(body))
+  );
+}
+
 // Normalize a `gh pr view --json` payload (or a partial one) into the lib
 // snapshot shape. A lib-shaped snapshot passes through unchanged, except
 // that `headRefOid` is accepted as an alias for `headSha`.
@@ -270,7 +301,11 @@ export function normalizeSnapshot(raw) {
     headRefName: raw.headRefName ?? null,
     files,
     attempts: Number.isInteger(raw.attempts) ? raw.attempts : undefined,
-    adr009Record: Boolean(raw.adr009Record),
+    // Prefer an explicit flag when a caller already computed one; otherwise
+    // detect the record from the PR body (the workflow snapshot now carries
+    // `body` for exactly this). Never default to present: a missing body
+    // means unknown, and unknown must stay BLOCKED, not silently pass.
+    adr009Record: Boolean(raw.adr009Record) || hasAdr009Record(raw.body),
     prOnlyCategory: Boolean(raw.prOnlyCategory),
   };
 }

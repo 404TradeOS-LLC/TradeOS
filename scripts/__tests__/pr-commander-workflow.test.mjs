@@ -316,3 +316,30 @@ test("act step enforces exact \"true\" in the shell before any write", () => {
   const firstMergeAt = applyStep.indexOf("gh pr merge");
   assert.ok(checkAt > -1 && gitConfigAt > checkAt && firstMergeAt > checkAt);
 });
+
+test("both exact-head snapshot builders carry the PR body (ADR-009 detection at armed re-evaluation)", () => {
+  // Regression (2026-11-23, PR #1058 review): the evaluate job carried
+  // `body` but the armed act job's build_snapshot() did not, so a migration
+  // PR with a complete record passed dry-run as MERGE_READY and returned to
+  // BLOCKED on the armed re-read, skipping auto-merge. Both snapshot
+  // builders must request `body`.
+  const snapshots = workflow.match(
+    /number,isDraft,mergeStateStatus,mergeable,reviewDecision,headRefOid,baseRefName,headRefName,files,reviews,statusCheckRollup[^\n]*/g
+  );
+  assert.ok(snapshots, "expected exact-head snapshot field lists");
+  assert.equal(snapshots.length, 2, "evaluate + act snapshot builders");
+  for (const fields of snapshots) {
+    assert.match(fields, /statusCheckRollup,body\b/);
+  }
+});
+
+test("the CLI --pr snapshot requests the PR body too", () => {
+  // Same defect class as the act job: scripts/pr-commander.mjs --pr built
+  // its snapshot without `body`, so normalizeSnapshot could never detect
+  // an ADR-009 record from a live --pr evaluation.
+  const cli = fs.readFileSync(
+    new URL("../../scripts/pr-commander.mjs", import.meta.url),
+    "utf8"
+  );
+  assert.match(cli, /"statusCheckRollup", "body",/);
+});
