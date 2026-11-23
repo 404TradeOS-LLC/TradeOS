@@ -390,6 +390,16 @@ are proposed, not merged/installed/deployed or authenticated verified
 by this status entry. New research templates reuse costbook.write,
 tenant mapping, review and installed Estimate snapshot behavior.
 
+> **Correction (2026-11-23, docs lane — plan-staleness corrections):** the
+> sentence above is stale. The 107 templates are merged on main: #771 (88
+> research recipes, squash `15d7e0c7`, 2026-10-19), #773 (2 kitchen-gap
+> recipes, squash `ef983efc`, 2026-10-23), #774 (3 openings/appliance
+> recipes, squash `e17a166d`, 2026-10-23). 105 are installable; 2 remain
+> install-blocked on unregistered sources SRC-0049/SRC-0050 (issue #518).
+> Authenticated browser verification is still owed (issue #518 S5). This
+> correction is confined to this section; parallel lanes are editing other
+> sections of this file.
+
 ## Kitchen assembly gaps — merged PR #773 (2026-10-23)
 
 PR #773 on branch `feat/costbook-kitchen-assembly-gaps-20261018` extends
