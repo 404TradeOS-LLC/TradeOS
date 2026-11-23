@@ -1575,6 +1575,9 @@ Contextual Athena now labels legacy Costbook matches as “Unverified pricing”
 
 The starter assembly mapper now provides a read-only pre-install cost preview after every required slot is mapped. It resolves each selected same-organization Cost Item through the existing unit-cost endpoint, shows cost per assembly unit, accepts an output quantity for a job-cost estimate, and exposes loading/unavailable states. Preview failures now include an explicit retry action with an in-progress label; install remains gated until a finite, nonnegative preview resolves, including after a retry. The retry target is at least 44px high on mobile, retains the compact desktop size, and exposes progress through a dynamic accessible name and persistent polite status region. The preview does not create, mutate, or apply pricing; installation remains an explicit review-first action.
 
+## Starter-catalog bulk mapping reuse (DEV-17 S9, issue #518)
+
+The starter assembly mapper now offers a "Reuse mapping from an installed assembly" block above the per-slot mapping list. Choosing an installed template assembly and applying its mapping suggests one Cost Item per target slot — the first source item, in source-item order, that passes the same per-slot unit/kind compatibility check the install path enforces. A Cost Item is suggested for at most one slot; slots with no compatible source item stay unmapped with a reason, and slots the estimator already mapped by hand are never overwritten. The suggestions endpoint (`GET .../starter-catalog/:templateId/mapping-suggestions`, `costbook.read`) is read-only and org-scoped: inactive items, child-assembly items, and foreign-tenant Cost Items are never suggested, and installation still goes through the unchanged install contract with its full re-validation. No migration and no install-path change.
 
 ## S064 embedded Assembly Picker — active implementation
 

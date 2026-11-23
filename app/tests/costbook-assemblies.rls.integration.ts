@@ -183,6 +183,42 @@ describe("live Costbook assembly RLS", () => {
     }));
     expect(partial).toBeNull();
   });
+
+  it("reuses an installed assembly's mapping for a related recipe, and never exposes a foreign tenant's mapping (DEV-17 S9)", async () => {
+    const equipmentForeign = "86000000-0000-0000-0000-000000000066";
+    const itemForeign = "86000000-0000-0000-0000-000000000067";
+    await inSession(ownerB, orgB, "owner", () => prisma.equipment.create({
+      data: { id: equipmentForeign, orgId: orgB, name: "Foreign excavation crew" },
+    }));
+    await inSession(ownerB, orgB, "owner", () => prisma.costItem.create({
+      data: { id: itemForeign, orgId: orgB, subcategoryId: subB, code: "EXC-B", name: "Foreign excavation", unitOfMeasure: "CY", equipmentId: equipmentForeign },
+    }));
+    // Assembly items carry no org column, so the source's rows are attached
+    // by the admin client. The foreign item is deliberately first in
+    // sort order: without the service's org filter it would win the
+    // excavation slot.
+    await adminClient.assemblyItem.createMany({ data: [
+      { assemblyId: assemblyA, costItemId: itemForeign, quantityPerUnit: 1, sortOrder: 1 },
+      { assemblyId: assemblyA, costItemId: excavationItemA, quantityPerUnit: 1, sortOrder: 2 },
+      { assemblyId: assemblyA, costItemId: haulItemA, quantityPerUnit: 1, sortOrder: 3 },
+    ] });
+
+    const reused = await inSession(ownerA, orgA, "owner", () => service.suggestCatalogMappingReuse({
+      orgId: orgA,
+      templateId: "site-excavation",
+      sourceAssemblyId: assemblyA,
+    }));
+
+    expect(reused.mappedCount).toBe(2);
+    expect(reused.suggestions.map((suggestion) => suggestion.costItemId)).toEqual([excavationItemA, haulItemA]);
+    expect(JSON.stringify(reused)).not.toContain(itemForeign);
+
+    await expect(inSession(ownerB, orgB, "owner", () => service.suggestCatalogMappingReuse({
+      orgId: orgB,
+      templateId: "site-excavation",
+      sourceAssemblyId: assemblyA,
+    }))).rejects.toThrow("not found");
+  });
 });
 
 function required(name: string) {

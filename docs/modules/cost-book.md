@@ -142,6 +142,23 @@ and production review before real quoting. The new browser includes NAHB
 This change does **not** verify hosted staging, apply any database migrations,
 populate missing source records, or constitute production pricing evidence.
 
+### Bulk mapping reuse (DEV-17 S9, issue #518)
+
+An estimator who has already installed a related recipe can reuse that
+install's mapping for another template instead of mapping every slot by
+hand. `GET /api/v1/costbook/assemblies/starter-catalog/:templateId/mapping-suggestions?sourceAssemblyId=<id>`
+(requires `costbook.read`; mirrored under `/api/v1/assemblies/...`) returns
+one suggestion per target slot: the first source item, in source-item order,
+that passes the same per-slot unit/kind compatibility check the install
+path enforces. A Cost Item is suggested for at most one slot — the install
+distinctness rule — and slots with no compatible source item come back
+unmapped with a reason. The source assembly is resolved org-scoped (404
+outside the caller's org); inactive items, child-assembly items, and
+foreign-tenant Cost Items are never suggested. Suggestions are read-only:
+the estimator reviews them in the starter-catalog UI (which fills only
+slots not already mapped by hand) and installs through the unchanged
+install contract, which re-validates every mapping. No migration, no
+install-path change, no new pricing.
 ## Measurement contracts (issue #518 S8, 2026-11-23)
 
 Measurement used to live only as free-text `measurementBasis` strings, the five
@@ -264,6 +281,7 @@ Unified Costbook routes include:
 - `/api/v1/costbook/assemblies/search`
 - `/api/v1/costbook/assemblies/templates`
 - `/api/v1/costbook/assemblies/starter-catalog`
+- `/api/v1/costbook/assemblies/starter-catalog/:templateId/mapping-suggestions`
 - `/api/v1/costbook/assemblies/starter-catalog/install`
 - `/api/v1/costbook/assemblies/:id`
 - `/api/v1/costbook/assemblies/:id/unit-cost`

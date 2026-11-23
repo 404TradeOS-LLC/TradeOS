@@ -52,6 +52,11 @@ const installCatalogSchema = z.object({
   productionRateFactor: z.number().finite().positive().max(10).optional(),
 }).strict();
 
+// DEV-17 S9: reuse a previous install's mapping for another template.
+const mappingSuggestionsQuerySchema = z.object({
+  sourceAssemblyId: z.guid(),
+}).strict();
+
 export const assembliesDatabaseController = {
   async starterCatalog(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
@@ -61,6 +66,15 @@ export const assembliesDatabaseController = {
     requirePermissions(req, ["costbook.write"]);
     const body = installCatalogSchema.parse(req.body);
     res.status(201).json(await service.installStarterCatalogAssembly({ ...body, orgId: requireOrgId(req) }));
+  },
+  async mappingSuggestions(req: Request, res: Response) {
+    requirePermissions(req, ["costbook.read"]);
+    const query = mappingSuggestionsQuerySchema.parse(req.query);
+    res.json(await service.suggestCatalogMappingReuse({
+      templateId: req.params.templateId,
+      sourceAssemblyId: query.sourceAssemblyId,
+      orgId: requireOrgId(req),
+    }));
   },
   async list(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);

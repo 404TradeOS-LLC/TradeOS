@@ -11,6 +11,8 @@ import {
   AssemblyUnitCostResult,
   CreateAssemblyInput,
   InstallCatalogAssemblyInput,
+  MappingReuseResultDTO,
+  SuggestCatalogMappingReuseInput,
   UpdateAssemblyInput,
 } from "./types";
 import {
@@ -22,6 +24,7 @@ import {
   EXPANDED_ASSEMBLY_CATALOG_COVERAGE,
   getExpandedCatalogTemplate,
 } from "./tradeosCatalogAdapter";
+import { suggestBulkMapping, type MappingReuseCandidate } from "./mappingReuse";
 
 // Assemblies Database module: composes multiple cost items (and, recursively,
 // other assemblies) into a single sellable unit. Pricing is never duplicated;
@@ -148,6 +151,84 @@ export class AssembliesDatabaseService {
       });
       return toDTO(assembly);
     });
+  }
+
+  /**
+   * DEV-17 S9 (issue #518): suggest a bulk mapping reuse for a target
+   * template from an already-installed assembly in the same org. The
+   * source assembly's Cost Items are bulk-applied to the target template's
+   * slots with the same per-slot compatibility check the install path
+   * enforces; a Cost Item is suggested for at most one slot, and slots
+   * with no compatible source item come back unmapped with a reason.
+   *
+   * Read-only: no rows are written and no mapping is applied. The
+   * estimator installs through the unchanged `installStarterCatalogAssembly`
+   * path, which re-validates every mapping — a stale or edited suggestion
+   * cannot bypass the install checks. The source assembly is resolved
+   * org-scoped (404 outside the caller's org), so a foreign tenant's
+   * mapping is never exposed.
+   */
+  async suggestCatalogMappingReuse(input: SuggestCatalogMappingReuseInput): Promise<MappingReuseResultDTO> {
+    const template = getExpandedCatalogTemplate(input.templateId);
+    if (!template) throw new ApiError(404, `Assembly catalog template ${input.templateId} not found`);
+    if ("blockingReasons" in template && template.blockingReasons.length) {
+      throw new ApiError(422, `Research assembly cannot be installed: ${template.blockingReasons.join("; ")}`);
+    }
+    const source = await prisma.assembly.findFirst({ where: { id: input.sourceAssemblyId, orgId: input.orgId } });
+    if (!source) throw new ApiError(404, `Source assembly ${input.sourceAssemblyId} not found`);
+    const rows = await prisma.assemblyItem.findMany({
+      where: { assemblyId: source.id, assembly: { orgId: input.orgId }, costItemId: { not: null } },
+      include: {
+        costItem: {
+          select: {
+            id: true,
+            orgId: true,
+            code: true,
+            name: true,
+            unitOfMeasure: true,
+            subcategoryId: true,
+            productionRate: true,
+            isActive: true,
+            laborRateId: true,
+            materialId: true,
+            equipmentId: true,
+            subcontractorId: true,
+          },
+        },
+      },
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    });
+    const candidates: MappingReuseCandidate[] = rows.flatMap((row) => {
+      const item = row.costItem;
+      // Defense in depth: the source assembly is org-scoped and its items
+      // are installed same-org by construction, but a foreign Cost Item
+      // attached to the source must never leak into another tenant's
+      // suggestions. Inactive items are not reusable either.
+      if (!item || !item.isActive || item.orgId !== input.orgId) return [];
+      return [{
+        id: item.id,
+        code: item.code,
+        name: item.name,
+        unitOfMeasure: item.unitOfMeasure,
+        subcategoryId: item.subcategoryId,
+        productionRate: item.productionRate == null ? null : Number(item.productionRate),
+        isActive: item.isActive,
+        laborRateId: item.laborRateId,
+        materialId: item.materialId,
+        equipmentId: item.equipmentId,
+        subcontractorId: item.subcontractorId,
+      }];
+    });
+    const result = suggestBulkMapping(template, { id: source.id, name: source.name }, candidates);
+    return {
+      ...result,
+      suggestions: result.suggestions.map((suggestion) => ({
+        ...suggestion,
+        // The UI builds a full CostItemCatalogRecord from each mapped
+        // suggestion for the install compatibility re-check.
+        orgId: suggestion.costItemId ? input.orgId : null,
+      })),
+    };
   }
 
   private async pageAssemblies(

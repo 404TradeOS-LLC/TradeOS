@@ -106,6 +106,23 @@ follow-up gated on S065 (takeoff MVP) + S4 (estimate-line snapshots).
 No change to Estimate Engine snapshot semantics, material-price history,
 auth/RLS, supplier feeds or migrations. Hosted verification remains pending.
 
+## Starter-catalog bulk mapping reuse (DEV-17 S9, issue #518)
+
+`GET /api/v1/costbook/assemblies/starter-catalog/:templateId/mapping-suggestions?sourceAssemblyId=<assembly-id>`
+(and the compatible `GET /api/v1/assemblies/starter-catalog/:templateId/mapping-suggestions`)
+requires `costbook.read` and returns `{ templateId, sourceAssemblyId, sourceAssemblyName, suggestions, mappedCount, unmappedComponentKeys }`.
+Each suggestion carries the target `componentKey`/`componentLabel` plus the
+suggested Cost Item's id, code, name, unit, subcategory, production rate,
+active flag, org, and kind ids — enough for the UI to build a full catalog
+record for the install compatibility re-check. Unknown templates and
+out-of-org source assemblies return 404; source-blocked research templates
+return 422 before any read. The endpoint is read-only: it suggests, never
+installs. The starter-catalog UI offers the reuse block above the per-slot
+mapping list (installed template assemblies as sources), fills only
+unmapped slots, and still installs through the unchanged
+`POST .../starter-catalog/install` contract. No migration, no install-path
+change, no new pricing.
+
 ## ABC Supply sandbox OAuth reauthorization (2026-10-11)
 
 ABC requires user-authorized access for third-party customer-specific
