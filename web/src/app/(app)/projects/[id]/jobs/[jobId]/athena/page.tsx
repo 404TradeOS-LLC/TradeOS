@@ -1,8 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { getAthenaCapabilities, getFieldJob, getOrganizationSettings } from "@/lib/api";
+import { getAthenaCapabilities, getFieldJob, getOrganizationSettings, listChangeOrdersByProject } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { canReviewAthenaApprovals, canUseJobAthena } from "@/lib/athena-job-access";
+import { describeLatestChangeOrder } from "@/lib/athena-change-order-scope";
 import { formatScheduleInZone } from "@/lib/document-workflow";
 import { readApprovedJobBaseline } from "@/lib/job-approved-baseline";
 import { PageHeader } from "@/components/shared/page-header";
@@ -89,10 +90,19 @@ export default async function JobAthenaPage({
   }
 
   const latestNote = job.notes[0];
+
+  // The canonical context rail (Figma 289:2) lists the project's latest
+  // change order alongside the job, customer, and estimate. Fail soft like
+  // the capability check: a failed list omits the row instead of failing
+  // the workspace (DESIGN.md §12: partial query failures stay local).
+  const changeOrders = await listChangeOrdersByProject(token, projectId).catch(() => []);
+  const latestChangeOrder = describeLatestChangeOrder(changeOrders);
+
   const scopeDetails: Record<string, string> = {
     Job: `${job.title} · ${job.jobNumber} · ${job.status}`,
     Project: job.project?.name ?? "No project linked",
     Customer: job.customer?.name ?? "No customer linked",
+    ...(latestChangeOrder ? { "Change order": latestChangeOrder.detail } : {}),
     ...(approved ? { Estimate: "Accepted proposal baseline" } : {}),
     ...(latestNote
       ? { "Field notes": `Latest note ${formatScheduleInZone(latestNote.createdAt, timezone)}` }
