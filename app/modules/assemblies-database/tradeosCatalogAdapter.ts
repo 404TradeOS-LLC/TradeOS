@@ -15,6 +15,7 @@ import {
   type AssemblyCatalogTemplate,
   type AssemblyCatalogUnit,
 } from "./catalog";
+import { assessTemplateMeasurement } from "./measurement";
 
 const registeredSources = new Set(TRADEOS_ASSEMBLY_SOURCES.map((source) => source.sourceId));
 
@@ -41,7 +42,7 @@ export const TRADEOS_RESEARCH_CATALOG: readonly ResearchAssemblyCatalogTemplate[
     .filter((component) => !normalizeAssemblyCatalogUnit(component.compatibleUnits[0] ?? ""))
     .map((component) => component.key);
 
-  return {
+  const template: ResearchAssemblyCatalogTemplate = {
     id: `tradeos:${assembly.id}`,
     code: assembly.code,
     name: assembly.name,
@@ -88,24 +89,44 @@ export const TRADEOS_RESEARCH_CATALOG: readonly ResearchAssemblyCatalogTemplate[
       allowedCostItemKinds: [...component.allowedCostItemKinds] as AssemblyCatalogCostItemKind[],
     })),
   };
+
+  // Measurement contracts (issue #518 S8) fail closed the same way missing
+  // sources do: a template whose measurement contract does not hold cannot be
+  // installed until the recipe is repaired.
+  const measurement = assessTemplateMeasurement(template);
+  return {
+    ...template,
+    blockingReasons: [
+      ...template.blockingReasons,
+      ...measurement.reasons.map((reason) => `Measurement contract: ${reason}`),
+    ],
+  };
 });
 
 /** Fail closed on registry drift for the two new manufacturer-guided scope recipes. */
 export const VERIFIED_KITCHEN_GAP_CATALOG = KITCHEN_GAP_CATALOG.map((recipe) => {
   const missing = recipe.evidenceRefs.filter((ref) => !registeredSources.has(ref));
+  const measurement = assessTemplateMeasurement(recipe);
   return {
     ...recipe,
-    blockingReasons: [...recipe.blockingReasons, ...(missing.length ? [`Missing kitchen source references: ${missing.join(", ")}`] : [])],
+    blockingReasons: [
+      ...recipe.blockingReasons,
+      ...(missing.length ? [`Missing kitchen source references: ${missing.join(", ")}`] : []),
+      ...measurement.reasons.map((reason) => `Measurement contract: ${reason}`),
+    ],
   };
 });
 
 /** Resolve manufacturer reference IDs before making any new research recipe installable. */
 export const VERIFIED_OPENINGS_APPLIANCE_GAP_CATALOG = OPENINGS_APPLIANCE_GAP_CATALOG.map((recipe) => {
   const missing = recipe.evidenceRefs.filter((ref) => !registeredSources.has(ref));
+  const measurement = assessTemplateMeasurement(recipe);
   return {
     ...recipe,
     blockingReasons: [...recipe.blockingReasons,
-      ...(missing.length ? [`Missing openings/appliance source references: ${missing.join(", ")}`] : [])],
+      ...(missing.length ? [`Missing openings/appliance source references: ${missing.join(", ")}`] : []),
+      ...measurement.reasons.map((reason) => `Measurement contract: ${reason}`),
+    ],
   };
 });
 
