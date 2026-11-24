@@ -82,6 +82,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - the 2026-10-04 AI Estimate Assist apply repair changed the existing per-estimate PostgreSQL advisory-lock call from Prisma `$queryRaw` to `$executeRaw` because the lock function returns `void`; this is recorded here only because AI Estimate Assist shares this ownership group and it does not change ActivityEvent, notification, intelligence, audit, or attribution semantics
 - the 2026-10-31 saved-line reconciliation slice adds the matched `lineItemId` to idempotent Apply skips and verifies acknowledgements through the existing authorized Estimate detail read; the existing `estimate.ai_estimator_review_applied` event, bounded counts and line-item IDs are unchanged, and no new ActivityEvent or intelligence read/write path is introduced
 - the 2026-11-24 quantity-scanner slice (see `modules/ai-estimate-assist.md`) replaces the polynomial quantity regexes in `knowledge-runtime/matcher.ts` and `ai-estimate-assist/*` with the shared linear-time scanner in `app/modules/shared/quantityText.ts`; noted here only because this doc shares the same `DOC_OWNERSHIP.yml` grouping — it did not change activity events, notifications, or anything in `app/modules/intelligence/*`
+- the 2026-11-24 tag slugify fix (CodeQL #38) replaced the polynomial edge-dash trim `/^-+|-+$/g` in `app/modules/intelligence/service.ts` with a linear index scan (`trimEdgeDashes`); `slugify` is now exported and behavior-pinned by tests in `app/tests/intelligence.service.test.ts`, and generated slugs are byte-identical to before
 
 ## Known limitations
 
