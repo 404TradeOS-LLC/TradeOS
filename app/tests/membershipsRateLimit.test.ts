@@ -86,6 +86,7 @@ describe("memberships rate limit (CodeQL alert 43, js/missing-rate-limiting)", (
       )
     );
     expect(handles).toContain(membershipsRateLimit);
+    expect(handles).toContain(requireAuth);
     expect(handles.indexOf(requireAuth)).toBeLessThan(handles.indexOf(membershipsRateLimit));
   });
 });
