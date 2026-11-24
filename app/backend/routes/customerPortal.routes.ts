@@ -22,6 +22,7 @@ customerPortalRouter.use(requireCustomerPortalSession, customerPortalDatabaseSes
 customerPortalRouter.get("/session", asyncHandler(ctrl.session));
 customerPortalRouter.get("/projects", asyncHandler(ctrl.listProjects));
 customerPortalRouter.get("/projects/:id", asyncHandler(ctrl.getProject));
+customerPortalRouter.get("/projects/:id/closeout/document", asyncHandler(ctrl.getCloseoutDocument));
 customerPortalRouter.get("/proposals/:id", asyncHandler(ctrl.getProposal));
 customerPortalRouter.get("/proposals/:id/pdf", asyncHandler(ctrl.getProposalPdf));
 customerPortalRouter.get("/invoices/:id", asyncHandler(ctrl.getInvoice));

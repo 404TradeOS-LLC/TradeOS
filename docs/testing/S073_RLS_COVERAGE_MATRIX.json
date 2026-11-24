@@ -498,6 +498,59 @@
       "scopeTest": "enforces project-inherited RLS on proposals, invoices, and contracts end to end",
       "status": "COVERED",
       "routeServiceOwner": "app/modules/invoices/service.ts"
+    },
+    {
+      "model": "PunchItem",
+      "table": "punch_items",
+      "journeys": [
+        "closeout",
+        "handoff"
+      ],
+      "role": "child/inherited",
+      "tenantSource": "org_id direct",
+      "migration": "20261124120000_add_closeout_warranty_workspace/migration.sql",
+      "policy": "punch_items_select_policy, punch_items_insert_policy, punch_items_update_policy, punch_items_delete_policy",
+      "sameOrg": "enforces closeout and warranty tenant boundaries",
+      "crossOrg": "enforces closeout and warranty tenant boundaries",
+      "scopeTest": "enforces closeout and warranty tenant boundaries",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/closeout/service.ts"
+    },
+    {
+      "model": "ProjectCloseout",
+      "table": "project_closeouts",
+      "journeys": [
+        "closeout",
+        "handoff",
+        "customer-portal"
+      ],
+      "role": "primary",
+      "tenantSource": "org_id direct",
+      "migration": "20261124120000_add_closeout_warranty_workspace/migration.sql",
+      "policy": "project_closeouts_select_policy, project_closeouts_insert_policy, project_closeouts_update_policy, project_closeouts_delete_policy",
+      "sameOrg": "enforces closeout and warranty tenant boundaries",
+      "crossOrg": "enforces closeout and warranty tenant boundaries",
+      "scopeTest": "enforces closeout and warranty tenant boundaries",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/closeout/service.ts"
+    },
+    {
+      "model": "WarrantyRecord",
+      "table": "warranty_records",
+      "journeys": [
+        "closeout",
+        "handoff",
+        "customer-portal"
+      ],
+      "role": "child/inherited",
+      "tenantSource": "org_id direct",
+      "migration": "20261124120000_add_closeout_warranty_workspace/migration.sql",
+      "policy": "warranty_records_select_policy, warranty_records_insert_policy, warranty_records_update_policy, warranty_records_delete_policy",
+      "sameOrg": "enforces closeout and warranty tenant boundaries",
+      "crossOrg": "enforces closeout and warranty tenant boundaries",
+      "scopeTest": "enforces closeout and warranty tenant boundaries",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/closeout/service.ts"
     }
   ],
   "exclusions": [

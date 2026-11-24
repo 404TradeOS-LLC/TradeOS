@@ -3,7 +3,10 @@ import { ProjectTaskAssignmentForm } from "@/components/projects/project-task-as
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { createEstimateAction, deleteProjectTaskAction, duplicateEstimateAction, rejectChangeOrderAction, updateProjectStatusAction, updateProjectTaskStatusAction, approveChangeOrderAction } from "@/app/actions/projects";
+import { deleteWarrantyAction, markCloseoutReadyAction, recordCloseoutHandoffAction, reopenPunchItemAction, resolvePunchItemAction, verifyPunchItemAction } from "@/app/actions/closeout";
 import { ChangeOrderLineItemForm, ChangeOrderCreateForm } from "@/components/projects/change-order-forms";
+import { CloseoutStartForm, PunchItemCreateForm, WarrantyCreateForm } from "@/components/projects/closeout-forms";
+import type { ProjectCloseoutData } from "@/components/projects/workspace-types";
 import { ProjectDocumentUpload } from "@/components/projects/project-document-upload";
 import { ProjectPhotoPanel } from "@/components/projects/project-photo-panel";
 import { ProjectStatusTimeline } from "@/components/projects/project-status-timeline";
@@ -16,7 +19,8 @@ import { SummaryMetricCard } from "@/components/shared/summary-metric-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import type { ChangeOrder, ChangeOrderLineItem, Contract, Customer, Estimate, Invoice, JobSummary, Project, ProjectFile, ProjectTask, Proposal, SiteVisit } from "@/lib/api";
+import type { ChangeOrder, ChangeOrderLineItem, Contract, Customer, Estimate, Invoice, JobSummary, Project, ProjectFile, ProjectTask, Proposal, PunchItem, SiteVisit, WarrantyRecord } from "@/lib/api";
+import { buildCloseoutChecklistArtifacts } from "@/lib/api";
 import {
   buildProjectActivity,
   buildProjectNotifications,
@@ -49,6 +53,7 @@ interface ProjectWorkspaceProps {
   currentRole: string;
   canAssignTaskIdentity?: boolean;
   taskMembers?: Array<{ userId: string; fullName: string | null; email: string; status: string }>;
+  closeoutData?: ProjectCloseoutData | null;
 }
 
 export async function ProjectWorkspace({
@@ -67,6 +72,7 @@ export async function ProjectWorkspace({
   currentRole,
   taskMembers = [],
   canAssignTaskIdentity = false,
+  closeoutData = null,
 }: ProjectWorkspaceProps) {
   const activity = buildProjectActivity({ ...project, customer, estimates, siteVisits, projectFiles, proposals, invoices, contracts, changeOrders, tasks });
   const notifications = buildProjectNotifications({ ...project, proposals, contracts, invoices });
@@ -560,6 +566,17 @@ export async function ProjectWorkspace({
           )}
         </div>
       );
+    case "closeout":
+      return (
+        <CloseoutTab
+          project={project}
+          jobs={jobs}
+          contracts={contracts}
+          invoices={invoices}
+          taskMembers={taskMembers}
+          closeoutData={closeoutData}
+        />
+      );
     case "timeline":
       return <ActivityTimeline title="Project timeline" items={activity} />;
     case "warranty":
@@ -635,6 +652,291 @@ export async function ProjectWorkspace({
     default:
       return null;
   }
+}
+
+const CLOSEOUT_STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
+  ready: "Ready",
+  handed_off: "Handed off",
+};
+
+const ARTIFACT_STATE_LABELS: Record<string, string> = {
+  present: "Present",
+  missing: "Missing",
+  not_applicable: "Not applicable",
+};
+
+function CloseoutTab({
+  project,
+  jobs,
+  contracts,
+  invoices,
+  taskMembers,
+  closeoutData,
+}: {
+  project: Project;
+  jobs: JobSummary[];
+  contracts: Contract[];
+  invoices: Invoice[];
+  taskMembers: Array<{ userId: string; fullName: string | null; email: string; status: string }>;
+  closeoutData: ProjectCloseoutData | null;
+}) {
+  if (!closeoutData) {
+    return (
+      <EmptyState
+        title="Closeout data unavailable"
+        description="Closeout information could not be loaded for this project. Refresh the page to try again."
+      />
+    );
+  }
+  if (closeoutData.closeoutUnavailable) {
+    return (
+      <EmptyState
+        title="Closeout could not be loaded"
+        description="The closeout service did not answer. Punch items, warranties, and the closeout record are unavailable right now — the rest of the project workspace is unaffected."
+      />
+    );
+  }
+
+  const { closeout, checklist, punchItems, warranties } = closeoutData;
+  const hasCompletedJob = jobs.some((job) => job.status === "completed");
+  const openPunchItems = punchItems.filter((item) => item.status === "open" || item.status === "in_progress");
+  const resolvedPunchItems = punchItems.filter((item) => item.status === "resolved" || item.status === "verified");
+  // The backend's readiness verdict, rendered verbatim: completed job,
+  // signed contract, final invoice, accepted proposal, open punch items.
+  const missingForReady = checklist?.missing ?? [];
+  const checklistArtifacts = checklist ? buildCloseoutChecklistArtifacts(checklist) : [];
+  const closeoutDocumentHref = `/api/documents/closeout/projects/${project.id}/closeout/document`;
+
+  return (
+    <div className="grid gap-6">
+      {closeout ? (
+        checklist ? (
+        <Card className="border-border/70">
+          <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4">
+            <div>
+              <CardTitle>Closeout status</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {closeout.status === "handed_off"
+                  ? `Handed off${closeout.handedOffAt ? ` ${formatDateTime(closeout.handedOffAt)}` : ""}.`
+                  : closeout.status === "ready"
+                    ? `Ready for handoff${closeout.completedAt ? ` since ${formatDateTime(closeout.completedAt)}` : ""}.`
+                    : "Draft — work through the checklist and punch list below."}
+              </p>
+            </div>
+            <StatusBadge status={CLOSEOUT_STATUS_LABELS[closeout.status] ?? closeout.status} />
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <InfoPairs
+              pairs={[
+                { label: "Completed job", value: checklist.completedJobs.count > 0 ? "Yes — a job on this project is completed" : "No completed job yet" },
+                { label: "Open punch items", value: String(checklist.openPunchCount) },
+                { label: "Ready to hand off", value: checklist.ready ? "Yes" : "No — see missing items below" },
+              ]}
+            />
+            <div>
+              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Artifact checklist</div>
+              <div className="mt-2 grid gap-2">
+                {checklistArtifacts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No required artifacts listed for this closeout.</p>
+                ) : (
+                  checklistArtifacts.map((artifact) => (
+                    <div key={artifact.key} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 p-4">
+                      <span className="text-sm font-medium text-foreground">{artifact.label}</span>
+                      <StatusBadge status={ARTIFACT_STATE_LABELS[artifact.state] ?? artifact.state} />
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            {closeout.status === "draft" ? (
+              <div className="grid gap-3">
+                {missingForReady.length > 0 ? (
+                  <div className="rounded-xl border border-warning/40 bg-warning/10 p-4 text-sm text-foreground">
+                    <div className="font-medium">Not ready yet — still missing:</div>
+                    <ul className="mt-2 list-disc pl-5 text-muted-foreground">
+                      {missingForReady.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                <div>
+                  <form action={markCloseoutReadyAction}>
+                    <input type="hidden" name="projectId" value={project.id} />
+                    <button type="submit" disabled={!checklist.ready} className={buttonVariants()}>
+                      Mark ready
+                    </button>
+                  </form>
+                </div>
+              </div>
+            ) : null}
+            {closeout.status === "ready" ? (
+              <form action={recordCloseoutHandoffAction}>
+                <input type="hidden" name="projectId" value={project.id} />
+                <button type="submit" className={buttonVariants()}>
+                  Record handoff
+                </button>
+              </form>
+            ) : null}
+            <div>
+              <a href={closeoutDocumentHref} target="_blank" rel="noreferrer" className={buttonVariants({ variant: "outline" })}>
+                View closeout document
+              </a>
+            </div>
+          </CardContent>
+        </Card>
+        ) : (
+          <EmptyState
+            title="Closeout checklist could not be loaded"
+            description="The closeout record exists, but its readiness checklist did not load. Refresh the page to try again."
+          />
+        )
+      ) : (
+        <CloseoutStartForm projectId={project.id} hasCompletedJob={hasCompletedJob} />
+      )}
+
+      <Card className="border-border/70">
+        <CardHeader>
+          <CardTitle>Punch list</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {openPunchItems.length} open · {resolvedPunchItems.length} resolved or verified
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <PunchItemCreateForm
+            projectId={project.id}
+            jobOptions={jobs.map((job) => ({ id: job.id, label: `${job.title} #${job.jobNumber}` }))}
+            memberOptions={taskMembers.map((member) => ({ userId: member.userId, label: member.fullName ?? member.email }))}
+          />
+          {punchItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No punch items yet.</p>
+          ) : (
+            punchItems.map((item) => <PunchItemRow key={item.id} projectId={project.id} item={item} jobs={jobs} />)
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/70">
+        <CardHeader>
+          <CardTitle>Warranties</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">Only warranties the contractor actually gave are recorded here.</p>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <WarrantyCreateForm
+            projectId={project.id}
+            sourceOptions={[
+              ...contracts.map((contract) => ({
+                id: contract.id,
+                label: `Contract — ${contract.status}${contract.signedAt ? `, signed ${formatDate(contract.signedAt)}` : ""}`,
+                type: "contract" as const,
+              })),
+              ...invoices.map((invoice) => ({
+                id: invoice.id,
+                label: `Invoice #${invoice.invoiceNumber}`,
+                type: "invoice" as const,
+              })),
+            ]}
+          />
+          {warranties.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No warranty recorded for this project</p>
+          ) : (
+            warranties.map((warranty) => <WarrantyRow key={warranty.id} projectId={project.id} warranty={warranty} />)
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function PunchItemRow({ projectId, item, jobs }: { projectId: string; item: PunchItem; jobs: JobSummary[] }) {
+  const linkedJob = item.jobId ? jobs.find((job) => job.id === item.jobId) ?? null : null;
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-foreground">{item.title}</span>
+            <StatusBadge status={item.status} />
+            <StatusBadge status={item.priority} />
+          </div>
+          <div className="mt-1 text-sm text-muted-foreground">
+            {item.description ?? "No description recorded"}
+            {linkedJob ? ` • ${linkedJob.title} #${linkedJob.jobNumber}` : ""}
+            {item.assignedTo ? ` • Assigned to ${item.assignedTo}` : " • Unassigned"}
+            {item.dueDate ? ` • Due ${formatDate(item.dueDate)}` : ""}
+            {item.resolvedAt ? ` • Resolved ${formatDateTime(item.resolvedAt)}` : ""}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {(item.status === "open" || item.status === "in_progress") && (
+            <form action={resolvePunchItemAction}>
+              <input type="hidden" name="projectId" value={projectId} />
+              <input type="hidden" name="punchItemId" value={item.id} />
+              <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                Resolve
+              </button>
+            </form>
+          )}
+          {item.status === "resolved" && (
+            <>
+              <form action={verifyPunchItemAction}>
+                <input type="hidden" name="projectId" value={projectId} />
+                <input type="hidden" name="punchItemId" value={item.id} />
+                <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  Verify
+                </button>
+              </form>
+              <form action={reopenPunchItemAction}>
+                <input type="hidden" name="projectId" value={projectId} />
+                <input type="hidden" name="punchItemId" value={item.id} />
+                <button type="submit" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                  Reopen
+                </button>
+              </form>
+            </>
+          )}
+          {item.status === "verified" && (
+            <form action={reopenPunchItemAction}>
+              <input type="hidden" name="projectId" value={projectId} />
+              <input type="hidden" name="punchItemId" value={item.id} />
+              <button type="submit" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                Reopen
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WarrantyRow({ projectId, warranty }: { projectId: string; warranty: WarrantyRecord }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-foreground">{warranty.title}</span>
+            <StatusBadge status={warranty.sourceType} />
+          </div>
+          <p className="whitespace-pre-wrap text-sm text-muted-foreground">{warranty.coverageText}</p>
+          <div className="text-sm text-muted-foreground">
+            Starts {warranty.startsAt ? formatDate(warranty.startsAt) : "No start date recorded"}
+            {" • "}
+            Ends {warranty.endsAt ? formatDate(warranty.endsAt) : "No end date recorded"}
+          </div>
+        </div>
+        <form action={deleteWarrantyAction}>
+          <input type="hidden" name="projectId" value={projectId} />
+          <input type="hidden" name="warrantyId" value={warranty.id} />
+          <button type="submit" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+            Remove
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 function FieldDashboard({ projectId }: { projectId: string }) {

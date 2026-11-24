@@ -12,7 +12,7 @@ import {
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { getPortalProject } from "@/lib/api";
+import { getPortalProject, buildCloseoutChecklistArtifacts } from "@/lib/api";
 import {
   formatCurrency,
   formatInvoiceCurrency,
@@ -29,6 +29,18 @@ function customerGreeting(name: string | null | undefined) {
 function contractNeedsSignature(status: string) {
   return status !== "signed" && status !== "voided";
 }
+
+const PORTAL_CLOSEOUT_STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
+  ready: "Ready",
+  handed_off: "Handed off",
+};
+
+const PORTAL_ARTIFACT_STATE_LABELS: Record<string, string> = {
+  present: "Present",
+  missing: "Missing",
+  not_applicable: "Not applicable",
+};
 
 function DocumentRow({
   icon,
@@ -257,6 +269,66 @@ export default async function CustomerPortalProjectPage({ params }: { params: Pr
             </section>
           </aside>
         </div>
+
+        <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5" aria-labelledby="closeout-handoff-heading">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 id="closeout-handoff-heading" className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Closeout handoff
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">Read-only — the same closeout truth your contractor sees.</p>
+            </div>
+          </div>
+
+          {project.closeout ? (
+            <div className="mt-4 grid gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-foreground">Closeout status</span>
+                <StatusBadge status={PORTAL_CLOSEOUT_STATUS_LABELS[project.closeout.status] ?? project.closeout.status} />
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Artifact checklist</p>
+                <div className="mt-2 grid gap-2">
+                  {buildCloseoutChecklistArtifacts(project.closeout.checklist).map((artifact) => (
+                    <div key={artifact.key} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 p-3">
+                      <span className="text-sm font-medium text-foreground">{artifact.label}</span>
+                      <StatusBadge status={PORTAL_ARTIFACT_STATE_LABELS[artifact.state] ?? artifact.state} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                Punch items: {project.closeout.resolvedPunchCount} resolved · {project.closeout.openPunchCount} open
+              </p>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Warranties</p>
+                {project.closeout.warranties.length === 0 ? (
+                  <p className="mt-2 text-sm text-muted-foreground">No warranty recorded for this project</p>
+                ) : (
+                  <div className="mt-2 grid gap-2">
+                    {project.closeout.warranties.map((warranty) => (
+                      <div key={warranty.id} className="rounded-xl border border-border/60 bg-muted/20 p-3">
+                        <p className="text-sm font-medium text-foreground">{warranty.title}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{warranty.coverageText}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {project.closeout.documentHref ? (
+                <Link href={project.closeout.documentHref} className={cn(buttonVariants({ variant: "outline" }), "w-fit")}>
+                  View closeout document
+                </Link>
+              ) : null}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-muted-foreground">Your contractor hasn&apos;t shared a closeout handoff for this project yet.</p>
+          )}
+        </section>
       </div>
     </main>
   );

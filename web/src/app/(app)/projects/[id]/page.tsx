@@ -3,10 +3,32 @@ import { ProjectHeader } from "@/components/projects/project-header";
 import { ProjectSidebar } from "@/components/projects/project-sidebar";
 import { ProjectWorkspace } from "@/components/projects/project-workspace";
 import { ProjectWorkspaceTabs, resolveProjectWorkspaceTab } from "@/components/projects/project-workspace-tabs";
-import { getProjectTaskAssignees, getOrganizationSettings, getProject } from "@/lib/api";
+import { getProjectTaskAssignees, getOrganizationSettings, getProject, getProjectCloseout, listPunchItems, listWarranties } from "@/lib/api";
+import type { ProjectCloseoutData } from "@/components/projects/workspace-types";
 import { getSessionToken } from "@/lib/session";
 
 const JOB_MANAGER_ROLES = new Set(["owner", "admin", "dispatcher"]);
+
+async function loadProjectCloseoutData(token: string, projectId: string): Promise<ProjectCloseoutData> {
+  const [closeoutResult, punchItems, warranties] = await Promise.all([
+    getProjectCloseout(token, projectId).catch(() => null),
+    listPunchItems(token, projectId).catch(() => null),
+    listWarranties(token, projectId).catch(() => null),
+  ]);
+  return {
+    // The backend returns { closeout, checklist } as one payload; the
+    // checklist is the backend's computed readiness verdict, not a field
+    // on the closeout row.
+    closeout: closeoutResult?.closeout ?? null,
+    checklist: closeoutResult?.checklist ?? null,
+    punchItems: punchItems ?? [],
+    warranties: warranties ?? [],
+    // All three calls failed: the closeout service is unreachable, which the
+    // tab reports explicitly. A 404 on the closeout record alone (no record
+    // yet) returns null for just that call and is not an outage.
+    closeoutUnavailable: closeoutResult === null && punchItems === null && warranties === null,
+  };
+}
 
 export default async function ProjectDetailPage({
   params,
@@ -23,6 +45,13 @@ export default async function ProjectDetailPage({
     getProjectTaskAssignees(token ?? "", id).catch(() => ({ canAssign: false, members: [] })),
   ]);
   const activeTab = resolveProjectWorkspaceTab(resolvedSearchParams.tab);
+  // Closeout data is loaded only for the Closeout tab, and each call degrades
+  // independently: a missing closeout record (or an unreachable closeout
+  // service) stays local to the tab instead of failing the whole workspace.
+  const closeoutData: ProjectCloseoutData | null =
+    activeTab === "closeout"
+      ? await loadProjectCloseoutData(token ?? "", id)
+      : null;
   // Presentation gate only; the PATCH /api/v1/projects/:id endpoint and the
   // updateProjectAction independently require crm.write and tenant scope.
   const canEditProject = ["owner", "admin", "dispatcher", "estimator"].includes(settings.currentRole);
@@ -94,6 +123,7 @@ export default async function ProjectDetailPage({
           currentRole={settings.currentRole}
           taskMembers={assignees.members}
           canAssignTaskIdentity={assignees.canAssign}
+          closeoutData={closeoutData}
         />
 
         <ProjectSidebar

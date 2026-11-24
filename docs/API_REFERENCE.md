@@ -367,6 +367,7 @@ organization or customer id:
 
 - `GET /api/v1/customer-portal/projects`
 - `GET /api/v1/customer-portal/projects/:id`
+- `GET /api/v1/customer-portal/projects/:id/closeout/document` — the rendered closeout packet as `text/html` (S069; read-only, no portal mutation exists)
 - `GET /api/v1/customer-portal/proposals/:id`
 - `GET /api/v1/customer-portal/proposals/:id/pdf`
 - `GET /api/v1/customer-portal/invoices/:id`
@@ -490,6 +491,7 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/schedule`
 - `/api/v1/notes`
 - `/api/v1/change-orders`
+- `/api/v1/closeout` — closeout and warranty workspace (S069); see below.
 - `/api/v1/supplier-integrations`
 - `/api/v1/project-intake`
 - `/api/v1/knowledge`
@@ -506,6 +508,81 @@ Mounted route groups from `app/backend/server.ts`:
 ABC Supply refresh-token rotation is durable-first: `ABC_SUPPLY_SANDBOX_REFRESH_TOKEN` is bootstrap/recovery configuration, while the default supplier feed reads/writes the current rotated token through private `tradeos_private` functions backed by Supabase Vault. Those functions require the active owner/admin tenant session and the configured `ABC_SUPPLY` supplier row; `tradeos_app` is not granted direct Vault table/view access.
 
 Change-order reads require `billing.read`; all change-order mutations, including line-item changes and approval/rejection, require `billing.write`. Approval and rejection additionally emit an attributable `ActivityEvent` (`entityType: "change_order"`, `eventType: "change_order.approved" | "change_order.rejected"`) recording the authenticated staff user as actor, with the previous/new status, change-order number, project, and recalculated amount in metadata; `billing.write` is unchanged and no customer-portal approve/reject path exists (ADR-010 limits customer-originated writes to signing pending contracts). Supplier reads at `/api/v1/suppliers` require `costbook.read`; supplier create, update, and delete require `costbook.manage`. Both surfaces remain organization-scoped through the authenticated request session and forced RLS.
+
+### Closeout and warranty workspace (S069)
+
+Mounted at `/api/v1/closeout` (`app/backend/routes/closeout.routes.ts`,
+`app/modules/closeout/service.ts`). No new permission is introduced: reads
+and punch/warranty writes reuse `crm.read` / `crm.write`, and no closeout
+operation writes a Contract, Proposal, Invoice, or Estimate row.
+
+- Project closeout (one row per project; created at field completion):
+  - `POST /projects/:projectId/closeout` — `crm.write`. Body `{ notes? }`.
+    `201` with the closeout (`draft`, linked to the most recently completed
+    job). `409` when the project has no completed job, or already has a
+    closeout.
+  - `GET /projects/:projectId/closeout` — `crm.read`. Returns
+    `{ closeout, checklist }`; the checklist is computed at read time
+    (completed job, signed contract, final invoice, accepted proposal,
+    open punch count, `missing[]`, `ready`).
+  - `POST /projects/:projectId/closeout/ready` — `crm.write` + manager role
+    (`owner` / `admin` / `dispatcher`). `409` unless the closeout is
+    `draft` with a ready checklist. Stamps `completedAt` /
+    `completedById`.
+  - `POST /projects/:projectId/closeout/handoff` — `crm.write` + manager
+    role. `409` unless the closeout is `ready`. Stamps `handedOffAt` /
+    `handedOffById`.
+  - `GET /projects/:projectId/closeout/document` — `crm.read`. Serves the
+    closeout packet as `text/html` (`Content-Disposition: inline`), the
+    rendered closeout frame with each rendered warranty frame's page
+    appended. No PDF rendering exists for these frames.
+- Punch items (the project's explicit unresolved-items list):
+  - `POST /projects/:projectId/punch-items` — `crm.write`. Body
+    `{ jobId?, title, description?, priority? ("low" | "medium" |
+    "high"), assignedUserId?, assignedTo?, dueDate? }`. `201`, status
+    `open`. The assignee must be an active member of the organization.
+  - `GET /projects/:projectId/punch-items` — `crm.read`. Lists the
+    project's punch items.
+  - `GET /punch-items/:id` — `crm.read`.
+  - `PATCH /punch-items/:id` — `crm.write`. `409` on a `verified` punch
+    item.
+  - `POST /punch-items/:id/resolve` — manager role or the assigned
+    technician (no permission-key gate: the service enforces the field
+    boundary, the same reason JobsService field transitions carry no
+    key). `409` unless the punch item is `open` or `in_progress`. Stamps
+    `resolvedAt` / `resolvedById`.
+  - `POST /punch-items/:id/verify` — `crm.write` + manager role. `409`
+    unless the punch item is `resolved`.
+  - `POST /punch-items/:id/reopen` — `crm.write` + manager role. `409`
+    unless the punch item is `resolved` or `verified`; clears
+    `resolvedAt` / `resolvedById`.
+- Warranty records (only warranties the contractor actually gave):
+  - `POST /projects/:projectId/warranties` — `crm.write`. Body
+    `{ jobId?, contractId?, invoiceId?, title, coverageText, sourceType
+    ("contract" | "invoice" | "other"), sourceId?, startsAt?, endsAt? }`.
+    `coverageText` is staff-supplied and must quote the source document;
+    no coverage term is invented. `201`.
+  - `GET /projects/:projectId/warranties` — `crm.read`.
+  - `GET /warranties/:id` — `crm.read`.
+  - `PATCH /warranties/:id` — `crm.write`. Updatable fields are `title`,
+    `coverageText`, `startsAt`, `endsAt` only.
+  - `DELETE /warranties/:id` — `crm.write`. Returns `204`.
+
+Every create and transition records an attributable `ActivityEvent`
+(`entityType` `punch_item` / `project_closeout` / `warranty_record`)
+with the acting user as actor. Cross-organization ids read as `404`;
+a verified punch item cannot be edited and a non-draft closeout cannot
+be re-readied or re-handed-off (`409`); a technician who is not the
+assignee, or any staff without `crm.write`, is denied with `403`.
+
+The customer portal shows the same handoff read-only: `GET
+/api/v1/customer-portal/projects/:id` carries `closeout: { status,
+checklist, resolvedPunchCount, openPunchCount, warranties,
+documentHref }` (or `null` when no closeout exists yet), and `GET
+/api/v1/customer-portal/projects/:id/closeout/document` serves the
+rendered closeout packet as `text/html` to the verified portal session.
+The portal exposes no closeout mutation; the web portal proxy route
+exports only `GET`.
 
 ### CRM Customer search and service addresses
 

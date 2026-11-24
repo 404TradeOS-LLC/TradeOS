@@ -76,6 +76,11 @@ export const customerPortalController = {
     sendPdf(res, document);
   },
 
+  async getCloseoutDocument(req: CustomerPortalRequest, res: Response) {
+    const document = await service.getCloseoutDocument(requirePortal(req), req.params.id);
+    sendHtml(res, document);
+  },
+
   async signContract(req: CustomerPortalRequest, res: Response) {
     const body = signSchema.parse(req.body);
     const portal = requirePortal(req);
@@ -92,4 +97,10 @@ function sendPdf(res: Response, document: { buffer: Buffer; contentType: string;
   res.setHeader("Content-Type", document.contentType);
   res.setHeader("Content-Disposition", `inline; filename="${sanitizeDownloadFilename(document.filename)}"`);
   res.send(document.buffer);
+}
+
+function sendHtml(res: Response, document: { html: string; filename: string }): void {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Content-Disposition", `inline; filename="${sanitizeDownloadFilename(document.filename)}"`);
+  res.send(document.html);
 }

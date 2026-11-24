@@ -44,6 +44,7 @@ related_code:
   - .github/workflows/s027-browser-evidence.yml
   - .github/workflows/s059-browser-evidence.yml
   - .github/workflows/s068-browser-evidence.yml
+  - .github/workflows/s069-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
   - .github/workflows/merge-readiness.yml
   - .github/workflows/merge-queue.yml
@@ -170,6 +171,25 @@ is BLOCKED by design (ADR-010 limits customer-originated writes to signing
 pending contracts) and is not attempted. See
 [S068 certification evidence](architecture/S068_CERTIFICATION_EVIDENCE.md).
 This tooling does not change product behavior or complete S068 until a full
+exact-SHA non-production run passes with retained artifacts.
+
+S069's authenticated evidence workflow certifies the closeout and warranty
+workspace the same way: staff closeout creation after job completion, punch
+create/assign/resolve/verify, warranty recording quoted from the signed
+contract, mark-ready and handoff with attributable activity records, and the
+negative matrix (mark-ready after handoff, handoff before ready, verify of
+an open punch, resolve of a verified punch, second closeout, wrong-role,
+cross-tenant, unauthenticated, unknown ids, portal document POST) at
+1440/1024/768/390px. Deployment identity is proven through the Vercel API
+plus the API deployment's `/health` SHA and `/ready` data-plane project ref.
+The technician-session punch resolve and the wrong-role and cross-tenant
+probes are BLOCKED until their fixtures are provisioned (owner: Billy); the
+substitute is live-PostgreSQL carve-out and audit evidence in
+`app/tests/rls.integration.ts` and `app/tests/s069.closeout.integration.ts`.
+The customer portal handoff view is read-only by design and no portal
+mutation is attempted. See
+[S069 certification evidence](architecture/S069_CLOSEOUT_WARRANTY_EVIDENCE.md).
+This tooling does not change product behavior or complete S069 until a full
 exact-SHA non-production run passes with retained artifacts.
 
 The general [Beta Evidence](testing/BETA_EVIDENCE.md) workflow retains the `canonical` scenario and provides opt-in `s053` authenticated Scope → Athena → reviewed Estimate Engine certification. S053 captures the Apply acknowledgement, verifies the reviewed target and saved-line values against the authenticated Estimate read and visible rows, hard-reloads the existing builder, and checks persistence. Its foreign Estimate ID can independently drive the authenticated detail GET denial probe; a nested browser probe additionally needs a foreign Project ID. This evidence tooling does not change product behavior or complete S053 until a full exact-SHA non-production run passes with retained artifacts.

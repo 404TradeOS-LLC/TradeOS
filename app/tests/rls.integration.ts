@@ -3804,6 +3804,214 @@ describe("live organization row-level security", () => {
       expect(counts).toEqual({ selections: 1, allowances: 1 });
     });
   });
+
+  describe("closeout and warranty workspace RLS (S069)", () => {
+    it("enforces closeout and warranty tenant boundaries", async () => {
+      // S069 tables carry a direct org_id with forced RLS
+      // (20261124120000_add_closeout_warranty_workspace): org-scoped reads
+      // for every role; writes are owner/admin/estimator (via
+      // current_app_can_write()) plus dispatcher; punch-item updates add
+      // the one field-staff carve-out — the assigned technician may update
+      // only the punch item assigned to them. The RLS assertions below go
+      // through the request-scoped session (inSession /
+      // currentTransaction), never through mocked Prisma; the admin client
+      // only seeds fixtures and cleans up.
+      const punchA = randomUUID();
+      const punchB = randomUUID();
+      const punchUnassigned = randomUUID();
+      const closeoutA = randomUUID();
+      const closeoutB = randomUUID();
+      const warrantyA = randomUUID();
+      const warrantyB = randomUUID();
+      const dispatcherUser = randomUUID();
+      const dispatcherMembership = randomUUID();
+      await adminClient.punchItem.createMany({
+        data: [
+          { id: punchA, orgId: orgA, projectId: projectA, jobId: jobA, title: "Touch up paint at entry trim", status: "open", priority: "high", assignedUserId: technicianUser, createdById: adminUser },
+          { id: punchB, orgId: orgB, projectId: projectB, title: "Foreign punch item", status: "open", createdById: otherUser },
+          { id: punchUnassigned, orgId: orgA, projectId: projectA, jobId: jobA, title: "Unassigned punch item", status: "open", createdById: adminUser },
+        ],
+      });
+      await adminClient.projectCloseout.createMany({
+        data: [
+          { id: closeoutA, orgId: orgA, projectId: projectA, jobId: jobA, status: "draft" },
+          { id: closeoutB, orgId: orgB, projectId: projectB, status: "draft" },
+        ],
+      });
+      await adminClient.warrantyRecord.createMany({
+        data: [
+          { id: warrantyA, orgId: orgA, projectId: projectA, jobId: jobA, title: "Workmanship warranty", coverageText: "One-year workmanship coverage per the signed contract.", sourceType: "other", createdById: adminUser },
+          { id: warrantyB, orgId: orgB, projectId: projectB, title: "Foreign warranty", coverageText: "Foreign coverage.", sourceType: "other", createdById: otherUser },
+        ],
+      });
+      await adminClient.appUser.create({
+        data: { id: dispatcherUser, authSubject: "rls-s069-dispatcher", email: "rls-s069-dispatcher@example.com" },
+      });
+      await adminClient.organizationMembership.create({
+        data: { id: dispatcherMembership, orgId: orgA, userId: dispatcherUser, role: "dispatcher", status: "active" },
+      });
+      try {
+        // Same-org reads are allowed on all three tables, for every role:
+        // the select policies are org-scoped, not assignment-scoped.
+        const visiblePunch = await inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().punchItem.findMany({ where: { projectId: projectA } }),
+        );
+        expect(visiblePunch.map((row) => row.id).sort()).toEqual([punchA, punchUnassigned].sort());
+        const visibleCloseout = await inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().projectCloseout.findUnique({ where: { id: closeoutA } }),
+        );
+        expect(visibleCloseout?.id).toBe(closeoutA);
+        const visibleWarranty = await inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().warrantyRecord.findUnique({ where: { id: warrantyA } }),
+        );
+        expect(visibleWarranty?.id).toBe(warrantyA);
+        const technicianVisible = await inSession(technicianUser, orgA, "technician", async () =>
+          currentTransaction().punchItem.findUnique({ where: { id: punchA } }),
+        );
+        expect(technicianVisible?.id).toBe(punchA);
+
+        // Cross-org reads are hidden on all three tables.
+        const hiddenPunch = await inSession(otherUser, orgB, "owner", async () =>
+          currentTransaction().punchItem.findUnique({ where: { id: punchA } }),
+        );
+        expect(hiddenPunch).toBeNull();
+        const hiddenCloseout = await inSession(otherUser, orgB, "owner", async () =>
+          currentTransaction().projectCloseout.findUnique({ where: { id: closeoutA } }),
+        );
+        expect(hiddenCloseout).toBeNull();
+        const hiddenWarranty = await inSession(otherUser, orgB, "owner", async () =>
+          currentTransaction().warrantyRecord.findUnique({ where: { id: warrantyA } }),
+        );
+        expect(hiddenWarranty).toBeNull();
+        const foreignOnly = await inSession(otherUser, orgB, "owner", async () =>
+          currentTransaction().punchItem.findMany(),
+        );
+        expect(foreignOnly.map((row) => row.id)).toEqual([punchB]);
+
+        // Cross-org writes are denied even with a matching org_id claim.
+        await expect(
+          inSession(otherUser, orgB, "owner", async () =>
+            currentTransaction().punchItem.create({
+              data: { orgId: orgA, projectId: projectA, title: "Cross-org punch item", createdById: otherUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(otherUser, orgB, "owner", async () =>
+            currentTransaction().punchItem.update({ where: { id: punchA }, data: { status: "resolved" } }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(otherUser, orgB, "owner", async () =>
+            currentTransaction().projectCloseout.update({ where: { id: closeoutA }, data: { status: "ready" } }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(otherUser, orgB, "owner", async () =>
+            currentTransaction().warrantyRecord.delete({ where: { id: warrantyA } }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(otherUser, orgB, "owner", async () =>
+            currentTransaction().warrantyRecord.create({
+              data: { orgId: orgA, projectId: projectA, title: "Cross-org warranty", coverageText: "Cross-org coverage.", sourceType: "other", createdById: otherUser },
+            }),
+          ),
+        ).rejects.toThrow();
+
+        // Viewers may read their own org's rows but cannot write them.
+        await expect(
+          inSession(viewerUser, orgA, "viewer", async () =>
+            currentTransaction().punchItem.create({
+              data: { orgId: orgA, projectId: projectA, title: "Viewer punch item", createdById: viewerUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(viewerUser, orgA, "viewer", async () =>
+            currentTransaction().projectCloseout.update({ where: { id: closeoutA }, data: { notes: "Viewer note" } }),
+          ),
+        ).rejects.toThrow();
+
+        // Technicians cannot insert punch items or write closeouts /
+        // warranties at all — their only write is the assigned-punch
+        // carve-out below.
+        await expect(
+          inSession(technicianUser, orgA, "technician", async () =>
+            currentTransaction().punchItem.create({
+              data: { orgId: orgA, projectId: projectA, title: "Technician punch item", createdById: technicianUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(technicianUser, orgA, "technician", async () =>
+            currentTransaction().projectCloseout.update({ where: { id: closeoutA }, data: { status: "ready" } }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(technicianUser, orgA, "technician", async () =>
+            currentTransaction().warrantyRecord.update({ where: { id: warrantyA }, data: { title: "Technician edit" } }),
+          ),
+        ).rejects.toThrow();
+
+        // The assigned technician may update only their assigned punch item.
+        const resolved = await inSession(technicianUser, orgA, "technician", async () =>
+          currentTransaction().punchItem.update({ where: { id: punchA }, data: { status: "in_progress" } }),
+        );
+        expect(resolved.status).toBe("in_progress");
+        // …but not a punch item assigned to someone else (or no one).
+        await expect(
+          inSession(technicianUser, orgA, "technician", async () =>
+            currentTransaction().punchItem.update({ where: { id: punchUnassigned }, data: { status: "in_progress" } }),
+          ),
+        ).rejects.toThrow();
+        const untouched = await adminClient.punchItem.findUniqueOrThrow({ where: { id: punchUnassigned } });
+        expect(untouched.status).toBe("open");
+
+        // Dispatcher writes are allowed on all three tables: the closeout
+        // manager role holds crm.write in app/domain/contracts.ts, and
+        // the S069 policies name dispatcher explicitly because
+        // current_app_can_write() (owner/admin/estimator) would deny it.
+        const dispatcherPunch = await inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().punchItem.create({
+            data: { orgId: orgA, projectId: projectA, jobId: jobA, title: "Dispatcher punch item", createdById: dispatcherUser },
+          }),
+        );
+        expect(dispatcherPunch.orgId).toBe(orgA);
+        const dispatcherCloseout = await inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().projectCloseout.update({ where: { id: closeoutA }, data: { notes: "Dispatcher note" } }),
+        );
+        expect(dispatcherCloseout.notes).toBe("Dispatcher note");
+        const dispatcherWarranty = await inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().warrantyRecord.create({
+            data: { orgId: orgA, projectId: projectA, title: "Dispatcher warranty", coverageText: "Dispatcher coverage.", sourceType: "other", createdById: dispatcherUser },
+          }),
+        );
+        expect(dispatcherWarranty.orgId).toBe(orgA);
+        const dispatcherDeleted = await inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().punchItem.delete({ where: { id: dispatcherPunch.id } }),
+        );
+        expect(dispatcherDeleted.id).toBe(dispatcherPunch.id);
+        await adminClient.warrantyRecord.delete({ where: { id: dispatcherWarranty.id } });
+
+        // The denied writes changed nothing.
+        const counts = await inSession(adminUser, orgA, "admin", async () => ({
+          punchItems: await currentTransaction().punchItem.count({ where: { projectId: projectA } }),
+          closeouts: await currentTransaction().projectCloseout.count({ where: { projectId: projectA } }),
+          warranties: await currentTransaction().warrantyRecord.count({ where: { projectId: projectA } }),
+        }));
+        expect(counts).toEqual({ punchItems: 2, closeouts: 1, warranties: 1 });
+        const closeoutAfter = await adminClient.projectCloseout.findUniqueOrThrow({ where: { id: closeoutA } });
+        expect(closeoutAfter.status).toBe("draft");
+      } finally {
+        await adminClient.warrantyRecord.deleteMany({ where: { id: { in: [warrantyA, warrantyB] } } });
+        await adminClient.projectCloseout.deleteMany({ where: { id: { in: [closeoutA, closeoutB] } } });
+        await adminClient.punchItem.deleteMany({ where: { id: { in: [punchA, punchB, punchUnassigned] } } });
+        await adminClient.organizationMembership.deleteMany({ where: { id: dispatcherMembership } });
+        await adminClient.appUser.deleteMany({ where: { id: dispatcherUser } });
+      }
+    });
+  });
 });
 
 function inSession<T>(userId: string, orgId: string, role: SupportedRole, operation: () => Promise<T>): Promise<T> {
