@@ -28,6 +28,8 @@ import { logoutAction } from "@/app/actions/auth";
 import { CommandPaletteTrigger } from "@/components/shared/global-command-palette";
 import { KeyboardShortcutsOverlay } from "@/components/shared/keyboard-shortcuts-overlay";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { WorkspaceSwitcher } from "@/components/shared/workspace-switcher";
+import type { WorkspaceMembership } from "@/lib/api";
 import { MetalLogo } from "@/components/entry/metal-logo";
 import { WhatsNewPopover } from "@/components/shared/whats-new-popover";
 import { Button } from "@/components/ui/button";
@@ -168,6 +170,8 @@ function NavPill({
 export function AppNav({
   email,
   currentRole = null,
+  currentOrgId = null,
+  workspaceMemberships = [],
   athenaEnabled = false,
   athenaCapabilityRetryKey = null,
   teamTimeEnabled = false,
@@ -175,6 +179,8 @@ export function AppNav({
 }: {
   email?: string | null;
   currentRole?: string | null;
+  currentOrgId?: string | null;
+  workspaceMemberships?: WorkspaceMembership[];
   athenaEnabled?: boolean;
   athenaCapabilityRetryKey?: string | null;
   teamTimeEnabled?: boolean;
@@ -391,7 +397,11 @@ export function AppNav({
 
             <div className="hidden min-w-0 rounded-lg border border-border/70 bg-card/80 px-3 py-2 2xl:block">
               <div className="max-w-[14rem] truncate text-sm font-medium text-foreground">{email ?? "Signed in"}</div>
-              <div className="text-xs text-muted-foreground">Secure workspace</div>
+              {workspaceMemberships.length > 1 ? (
+                <WorkspaceSwitcher memberships={workspaceMemberships} currentOrgId={currentOrgId} />
+              ) : (
+                <div className="text-xs text-muted-foreground">Secure workspace</div>
+              )}
             </div>
 
             <form action={logoutAction} className="hidden 2xl:block">
@@ -514,7 +524,11 @@ export function AppNav({
             <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-card/80 px-3 py-3">
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium text-foreground">{email ?? "Signed in"}</div>
-                <div className="text-xs text-muted-foreground">Secure workspace</div>
+                {workspaceMemberships.length > 1 ? (
+                  <WorkspaceSwitcher memberships={workspaceMemberships} currentOrgId={currentOrgId} />
+                ) : (
+                  <div className="text-xs text-muted-foreground">Secure workspace</div>
+                )}
               </div>
               <WhatsNewPopover />
               <ThemeToggle />

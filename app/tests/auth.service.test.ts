@@ -10,6 +10,7 @@ const mockTransactionClient = {
   },
   organizationMembership: {
     findFirst: jest.fn(),
+    findMany: jest.fn(),
     upsert: jest.fn(),
   },
   organization: {
@@ -663,6 +664,88 @@ describe("AuthService", () => {
       orgId: "10000000-0000-0000-0000-000000000001",
       recipientDigest: createHash("sha256").update("tech@example.com").digest("hex"),
     });
+  });
+
+  it("lists a user's active workspace memberships earliest-first with organization names", async () => {
+    mockTransactionClient.organizationMembership.findMany.mockResolvedValue([
+      { orgId: "org-1", role: "owner", createdAt: new Date("2026-01-01T00:00:00Z") },
+      { orgId: "org-2", role: "technician", createdAt: new Date("2026-02-01T00:00:00Z") },
+    ]);
+    mockTransactionClient.organization.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
+      Promise.resolve({ id: where.id, name: where.id === "org-1" ? "My Workspace" : "TEST Org" })
+    );
+
+    const result = await new AuthService().listMemberships("user-1");
+
+    expect(result).toEqual([
+      { orgId: "org-1", organizationName: "My Workspace", role: "owner", createdAt: "2026-01-01T00:00:00.000Z" },
+      { orgId: "org-2", organizationName: "TEST Org", role: "technician", createdAt: "2026-02-01T00:00:00.000Z" },
+    ]);
+    expect(mockTransactionClient.organizationMembership.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: "user-1", status: "active" } })
+    );
+  });
+
+  it("lists no memberships when the user has no active memberships", async () => {
+    mockTransactionClient.organizationMembership.findMany.mockResolvedValue([]);
+
+    await expect(new AuthService().listMemberships("user-1")).resolves.toEqual([]);
+  });
+
+  it("selects a workspace and issues a session bound to the selected membership", async () => {
+    mockTransactionClient.appUser.findUnique.mockResolvedValue({
+      id: "user-1",
+      authSubject: "local:abc",
+      email: "tech@example.com",
+      fullName: "Tech Person",
+      isActive: true,
+    });
+    mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({
+      id: "membership-2",
+      orgId: "org-2",
+      role: "technician",
+    });
+    mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-2", name: "TEST Org" });
+
+    const result = await new AuthService().selectOrganization("user-1", "org-2");
+    const claims = verifyAuthToken(result.token, process.env.AUTH_JWT_SECRET ?? "");
+
+    expect(result.organization).toEqual({ id: "org-2", name: "TEST Org" });
+    expect(result.role).toBe("technician");
+    expect(claims.orgId).toBe("org-2");
+    expect(mockTransactionClient.authRefreshToken.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ orgId: "org-2", membershipId: "membership-2" }) })
+    );
+  });
+
+  it("rejects selecting a workspace the user does not belong to", async () => {
+    mockTransactionClient.appUser.findUnique.mockResolvedValue({
+      id: "user-1",
+      authSubject: "local:abc",
+      email: "tech@example.com",
+      fullName: "Tech Person",
+      isActive: true,
+    });
+    mockTransactionClient.organizationMembership.findFirst.mockResolvedValue(null);
+
+    await expect(new AuthService().selectOrganization("user-1", "org-9")).rejects.toThrow(
+      "Authenticated user does not belong to the requested organization"
+    );
+    expect(mockTransactionClient.authRefreshToken.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects selecting a workspace for an inactive user", async () => {
+    mockTransactionClient.appUser.findUnique.mockResolvedValue({
+      id: "user-1",
+      authSubject: "local:abc",
+      email: "tech@example.com",
+      fullName: "Tech Person",
+      isActive: false,
+    });
+
+    await expect(new AuthService().selectOrganization("user-1", "org-2")).rejects.toThrow(
+      "Authenticated user does not belong to the requested organization"
+    );
   });
 });
 

@@ -2,8 +2,8 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { apiFetch, ApiClientError } from "@/lib/api";
-import { clearLocalSessionCookies, clearSessionCookie, setLocalSession } from "@/lib/session";
+import { apiFetch, ApiClientError, selectWorkspace } from "@/lib/api";
+import { clearLocalSessionCookies, clearSessionCookie, getSessionToken, setLocalSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 
 export type AuthActionState = { error?: string; success?: string; recoveryError?: boolean } | undefined;
@@ -353,6 +353,28 @@ export async function finishSetupAction(_prev: AuthActionState, formData: FormDa
 export async function logoutAction(): Promise<void> {
   await clearSessionCookie();
   redirect("/login");
+}
+
+// Activates one of the caller's workspaces: the backend validates an
+// active membership in the requested org and returns a fresh session
+// whose token carries that org, then the new tokens replace the current
+// local session cookies. The caller refreshes the page so every server
+// component re-resolves in the selected workspace. The requested org is
+// never trusted on its own — the backend 403s without a membership.
+export async function switchWorkspaceAction(orgId: string): Promise<{ error?: string; switchedTo?: string }> {
+  if (!orgId) return { error: "Choose a workspace to switch to." };
+  const token = await getSessionToken();
+  if (!token) return { error: "You are not signed in." };
+
+  let session;
+  try {
+    session = await selectWorkspace(token, orgId);
+  } catch (error) {
+    return { error: error instanceof ApiClientError ? error.message : "Could not switch workspaces." };
+  }
+
+  await setLocalSession(session.token, session.refreshToken);
+  return { switchedTo: session.organization.name };
 }
 
 // Calls the backend's idempotent bootstrap endpoint: it looks up an
