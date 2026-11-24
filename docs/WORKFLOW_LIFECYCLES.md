@@ -253,7 +253,7 @@ Current enforced transitions:
 
 - create without schedule: `unscheduled`
 - create with schedule: `scheduled`
-- `unscheduled|scheduled|dispatched` can be scheduled or rescheduled subject to conflict rules
+- `unscheduled|scheduled|dispatched` can be scheduled or rescheduled subject to conflict rules; rescheduling a dispatched job reverses its dispatch and requires explicit confirmation (`confirmDispatchReversal`), returning the job to `scheduled` and recording `job.dispatch_reversed` — the job must then be explicitly redispatched
 - `scheduled -> dispatched`
 - `dispatched -> traveling`
 - `traveling -> on_site`
@@ -262,7 +262,7 @@ Current enforced transitions:
 - `on_site -> completed`; `traveling` and `paused` must return to `on_site` before completion
 - `scheduled|dispatched|paused -> cancelled`
 - `completed -> unscheduled|scheduled` through owner/admin reopen
-- transitions, scheduling/rescheduling, and reopen accept an optional `expectedUpdatedAt` revision token: a stale token fails with HTTP 409 before any other guard, the write is predicated on the token (or the just-read revision when omitted), and a lost-update (P2025) maps to the same 409. The frontend does not send the token yet.
+- transitions, scheduling/rescheduling, and reopen accept an optional `expectedUpdatedAt` revision token: a stale token fails with HTTP 409 before any other guard, the write is predicated on the token (or the just-read revision when omitted), and a lost-update (P2025) maps to the same 409. The Dispatcher Workspace and field actions send the token (`withJobRevision`); ready-for-invoice accepts it too (DEV-22).
 
 Privileged override actions:
 

@@ -13,6 +13,19 @@ export interface ApprovedJobBaseline {
   priceHigh: string | null;
   termsAndConditions: string | null;
   paymentMilestones: Array<{ label: string; amountPercent: number }>;
+  /** DEV-22(b): customer / service-address identity frozen at acceptance. Null on baselines recorded before the freeze. */
+  acceptedCustomerId: string | null;
+  acceptedServiceAddressId: string | null;
+  acceptedServiceAddress: {
+    id: string;
+    label: string | null;
+    addressLine1: string;
+    addressLine2: string | null;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string | null;
+  } | null;
 }
 function stringOrNull(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
@@ -36,6 +49,25 @@ export function readApprovedJobBaseline(value: unknown): ApprovedJobBaseline | n
         : [];
     })
     : [];
+  const addressRaw = data.serviceAddress;
+  const acceptedServiceAddress =
+    addressRaw && typeof addressRaw === "object" && !Array.isArray(addressRaw) &&
+    stringOrNull((addressRaw as Record<string, unknown>).id) &&
+    stringOrNull((addressRaw as Record<string, unknown>).addressLine1) &&
+    stringOrNull((addressRaw as Record<string, unknown>).city) &&
+    stringOrNull((addressRaw as Record<string, unknown>).state) &&
+    stringOrNull((addressRaw as Record<string, unknown>).postalCode)
+      ? {
+          id: stringOrNull((addressRaw as Record<string, unknown>).id) as string,
+          label: stringOrNull((addressRaw as Record<string, unknown>).label),
+          addressLine1: stringOrNull((addressRaw as Record<string, unknown>).addressLine1) as string,
+          addressLine2: stringOrNull((addressRaw as Record<string, unknown>).addressLine2),
+          city: stringOrNull((addressRaw as Record<string, unknown>).city) as string,
+          state: stringOrNull((addressRaw as Record<string, unknown>).state) as string,
+          postalCode: stringOrNull((addressRaw as Record<string, unknown>).postalCode) as string,
+          country: stringOrNull((addressRaw as Record<string, unknown>).country),
+        }
+      : null;
   return {
     proposalId: data.proposalId as string,
     estimateId: stringOrNull(data.estimateId),
@@ -48,6 +80,9 @@ export function readApprovedJobBaseline(value: unknown): ApprovedJobBaseline | n
     priceHigh: priceOrNull(data.priceHigh),
     termsAndConditions: stringOrNull(data.termsAndConditions),
     paymentMilestones: milestones,
+    acceptedCustomerId: stringOrNull(data.customerId),
+    acceptedServiceAddressId: stringOrNull(data.serviceAddressId),
+    acceptedServiceAddress,
   };
 }
 export function formatApprovedMoney(value: string | null): string {

@@ -227,6 +227,26 @@ describe("JobsService", () => {
     );
   });
 
+  it("rejects a direct create that links a proposal from another organization", async () => {
+    // DEV-22(a): the database FK rejects dangling references; the service
+    // rejects cross-organization links with the same 404 as a missing
+    // proposal so RLS never leaks cross-tenant existence.
+    mockDb.proposal.findFirst.mockResolvedValue({ id: "proposal-9", project: { orgId: "org-2" } });
+    const service = new JobsService(mockDb as never);
+
+    await expect(service.create({
+      orgId: "org-1",
+      actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+      projectId: "project-1",
+      customerId: "customer-1",
+      serviceAddressId: "address-1",
+      title: "AC tune-up",
+      jobType: "HVAC Service",
+      sourceProposalId: "proposal-9",
+    })).rejects.toMatchObject({ statusCode: 404 });
+    expect(mockDb.job.create).not.toHaveBeenCalled();
+  });
+
 
   const acceptedProposal = {
     id: "proposal-1",
@@ -285,6 +305,19 @@ describe("JobsService", () => {
           scopeOfWork: "Refinish fifteen cabinets",
           exclusions: "Countertop replacement",
           termsAndConditions: "Net 15",
+          // DEV-22(b): the accepted customer / service-address identity is frozen in the baseline.
+          customerId: "customer-1",
+          serviceAddressId: "address-1",
+          serviceAddress: {
+            id: "address-1",
+            label: "Primary",
+            addressLine1: "123 Main St",
+            addressLine2: null,
+            city: "Indianapolis",
+            state: "IN",
+            postalCode: "46201",
+            country: "US",
+          },
         }),
       }),
     }));
@@ -355,7 +388,6 @@ describe("JobsService", () => {
   it.each([
     ["projectId", "project-2"],
     ["customerId", "customer-2"],
-    ["serviceAddressId", "address-2"],
   ] as const)("rejects proposal-derived job reparenting through %s", async (field, value) => {
     mockDb.job.findFirst.mockResolvedValue({ ...scheduledJob, sourceProposalId: "proposal-1" });
     const service = new JobsService(mockDb as never);
@@ -363,6 +395,21 @@ describe("JobsService", () => {
       orgId: "org-1", actor: conversionInput.actor, [field]: value,
     })).rejects.toMatchObject({ statusCode: 409 });
     expect(mockDb.job.update).not.toHaveBeenCalled();
+  });
+
+  it("allows a proposal-derived job's live service address to change for field work", async () => {
+    // DEV-22(b): the live address stays editable; only the accepted address
+    // frozen in the baseline is immutable.
+    mockDb.job.findFirst.mockResolvedValue({ ...scheduledJob, sourceProposalId: "proposal-1" });
+    mockDb.job.update.mockResolvedValue({ ...scheduledJob, sourceProposalId: "proposal-1", serviceAddressId: "address-2" });
+    const service = new JobsService(mockDb as never);
+    const job = await service.update("job-1", {
+      orgId: "org-1", actor: conversionInput.actor, serviceAddressId: "address-2",
+    });
+    expect(job.serviceAddressId).toBe("address-2");
+    expect(mockDb.job.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ serviceAddressId: "address-2" }) })
+    );
   });
 
   it("does not expose accepted commercial pricing to assigned technician job reads", async () => {
@@ -1073,6 +1120,68 @@ describe("JobsService", () => {
         service.dispatch("job-1", { orgId: "org-1", actor: dispatcher })
       ).rejects.toMatchObject({ statusCode: 409 });
       expect(mockDb.job.update).not.toHaveBeenCalled();
+    });
+
+    it("requires explicit confirmation to reschedule a dispatched job", async () => {
+      // DEV-22(c): rescheduling silently un-dispatches field work, so the
+      // service refuses without confirmDispatchReversal.
+      mockDb.job.findFirst.mockResolvedValue(rowWith("dispatched"));
+      const service = new JobsService(mockDb as never);
+
+      await expect(
+        service.reschedule("job-1", {
+          orgId: "org-1",
+          actor: dispatcher,
+          scheduledStart: new Date("2026-07-17T13:00:00.000Z"),
+          scheduledEnd: new Date("2026-07-17T15:00:00.000Z"),
+        })
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        message: expect.stringContaining("reverses its dispatch"),
+      });
+      expect(mockDb.job.update).not.toHaveBeenCalled();
+      expect(mockDb.activityEvent.create).not.toHaveBeenCalled();
+    });
+
+    it("records the dispatch reversal with a confirmed reschedule and returns the job to scheduled", async () => {
+      // DEV-22(c): confirmed reschedule returns the job to scheduled and
+      // records both the reschedule and the dispatch reversal; the job
+      // must then be explicitly redispatched.
+      mockDb.job.findFirst.mockResolvedValue(rowWith("dispatched"));
+      mockDb.job.update.mockResolvedValue(rowWith("scheduled", {
+        scheduledStart: new Date("2026-07-17T13:00:00.000Z"),
+        scheduledEnd: new Date("2026-07-17T15:00:00.000Z"),
+      }));
+      const service = new JobsService(mockDb as never);
+
+      const job = await service.reschedule("job-1", {
+        orgId: "org-1",
+        actor: dispatcher,
+        scheduledStart: new Date("2026-07-17T13:00:00.000Z"),
+        scheduledEnd: new Date("2026-07-17T15:00:00.000Z"),
+        confirmDispatchReversal: true,
+      });
+
+      expect(job.status).toBe("scheduled");
+      expect(mockDb.job.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: "scheduled" }) })
+      );
+      expect(mockDb.activityEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            eventType: "job.rescheduled",
+            metadataJson: expect.objectContaining({ dispatchReversed: true, previousStatus: "dispatched" }),
+          }),
+        })
+      );
+      expect(mockDb.activityEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            eventType: "job.dispatch_reversed",
+            metadataJson: expect.objectContaining({ previousStatus: "dispatched", newStatus: "scheduled" }),
+          }),
+        })
+      );
     });
 
     it("starts travel from dispatched and records arrival with an actual start", async () => {

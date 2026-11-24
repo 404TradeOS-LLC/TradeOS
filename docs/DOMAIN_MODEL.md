@@ -673,7 +673,7 @@ The previously out-of-repository staging Team & Time schema is represented by tw
 
 The deployed v6 Edge Function's server-only PostgREST client runs with a service-role secret, which bypasses PostgreSQL RLS even under FORCE. Therefore JWT verification, active membership, organization-bound lookups, supervisor approval checks, job assignment and shift ownership are mandatory service controls. An isolated synthetic transport test exercises denied cross-tenant, unassigned and non-supervisor calls. No direct public client grants, policy escape hatches or production activation are introduced. All code remains unshipped until protected staging review and runtime acceptance.
 
-## Proposal-derived Job source and approval baseline — PR #810 (pending)
+## Proposal-derived Job source and approval baseline — PR #810 (merged) + DEV-22 follow-ups
 
 The canonical `Job` adds nullable `sourceProposalId` (unique globally) and
 nullable `acceptedBaselineJson` as an additive migration. Standalone jobs
@@ -684,5 +684,22 @@ scope, assumptions, exclusions, timeline, Decimal amounts serialized as
 strings, payment milestones, terms and accepted timestamp). It is neither a
 replacement Estimate/Proposal entity nor a costbook repricing operation.
 Tenant and ownership checks precede creation; subsequent job mutations cannot
-reparent a proposal-derived job to a different project, customer, or address.
-The change is unmerged and migration-dependent.
+reparent a proposal-derived job to a different project or customer — the live
+service address stays editable for field ops, while the address accepted with
+the proposal is frozen in the baseline (see below).
+
+DEV-22 (2026-11-24, migration `20261124141015_add_job_source_proposal_fk`)
+backs `sourceProposalId` with a real foreign key: the column is UUID
+(`proposals.id` is UUID; the #810 migration added it as TEXT), constrained by
+`FOREIGN KEY (source_proposal_id) REFERENCES proposals(id) ON DELETE RESTRICT
+ON UPDATE CASCADE` with the Prisma `JobSourceProposal` relation
+(`Job.sourceProposal` / `Proposal.job`). The migration audits first — it
+refuses to apply while any job references a proposal from another org — and a
+direct create linking a cross-org proposal fails with the same 404 as a
+missing one, so RLS never leaks cross-tenant existence. Deleting a proposal a
+job derives from is rejected (RESTRICT); no proposal delete path exists in the
+service today, so the constraint bites on direct database deletes and any
+future delete path. The version-1 baseline now also freezes `customerId`,
+`serviceAddressId`, and the structured `serviceAddress` (id, label, line 1/2,
+city, state, postal code, country) accepted with the proposal; older baselines
+recorded without those fields keep them absent and are never rewritten.

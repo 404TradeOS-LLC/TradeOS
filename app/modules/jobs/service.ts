@@ -312,11 +312,35 @@ export class JobsService {
       // Store customer-facing monetary values as decimal strings, not JS floats.
       // Standalone jobs have no accepted baseline. This copy never changes when
       // estimate lines, pricing sources, or later change orders are edited.
+      // DEV-22(b): also freeze the accepted customer / service-address
+      // identity in the baseline. The live address stays editable for field
+      // ops (see update()); this snapshot is the immutable record of what
+      // was accepted. Older baselines keep version 1 without these fields
+      // and are never rewritten.
+      const { serviceAddress: acceptedServiceAddress } = await this.assertJobContext(
+        tx,
+        input.orgId,
+        proposal.projectId,
+        proposal.project.customerId,
+        input.serviceAddressId
+      );
       const acceptedBaselineJson: Record<string, unknown> = {
         version: 1,
         proposalId: proposal.id,
         estimateId: proposal.estimateId,
         projectId: proposal.projectId,
+        customerId: proposal.project.customerId,
+        serviceAddressId: input.serviceAddressId,
+        serviceAddress: {
+          id: acceptedServiceAddress.id,
+          label: acceptedServiceAddress.label,
+          addressLine1: acceptedServiceAddress.addressLine1,
+          addressLine2: acceptedServiceAddress.addressLine2,
+          city: acceptedServiceAddress.city,
+          state: acceptedServiceAddress.state,
+          postalCode: acceptedServiceAddress.postalCode,
+          country: acceptedServiceAddress.country,
+        },
         acceptedAt: proposal.respondedAt?.toISOString() ?? null,
         scopeOfWork: proposal.scopeOfWork,
         assumptions: proposal.assumptions,
@@ -375,6 +399,20 @@ export class JobsService {
     assertManager(input.actor.role);
     return runInDatabaseTransaction(this.db, async (tx) => {
       await this.assertJobContext(tx, input.orgId, input.projectId, input.customerId, input.serviceAddressId);
+      // DEV-22(a): the database FK (jobs_source_proposal_id_fkey) rejects
+      // dangling references, but check tenant consistency here so a
+      // cross-organization proposal fails with the same 404 as a missing
+      // one — RLS hides other orgs' proposals, so existence is never leaked
+      // across tenants.
+      if (input.sourceProposalId) {
+        const sourceProposal = await tx.proposal.findFirst({
+          where: { id: input.sourceProposalId },
+          include: { project: { select: { orgId: true } } },
+        });
+        if (!sourceProposal || sourceProposal.project.orgId !== input.orgId) {
+          throw new ApiError(404, `Source proposal ${input.sourceProposalId} not found`);
+        }
+      }
       const technicianIds = uniqueValues(input.technicianIds);
       await this.assertAssignableTechnicians(tx, input.orgId, technicianIds, true);
       validateScheduleRange(input.scheduledStart ?? null, input.scheduledEnd ?? null, input.arrivalWindowStart ?? null, input.arrivalWindowEnd ?? null);
@@ -474,12 +512,15 @@ export class JobsService {
     return runInDatabaseTransaction(this.db, async (tx) => {
       const existing = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, true);
       if (existing.archivedAt) throw new ApiError(409, `Job ${jobId} is archived`);
+      // DEV-22(b): proposal-derived jobs keep their accepted project and
+      // customer, but the live service address stays editable for field
+      // ops — the address accepted with the proposal is frozen in the
+      // approval baseline (acceptedBaselineJson), not in the live row.
       if (existing.sourceProposalId && (
         (input.projectId !== undefined && input.projectId !== existing.projectId) ||
-        (input.customerId !== undefined && input.customerId !== existing.customerId) ||
-        (input.serviceAddressId !== undefined && input.serviceAddressId !== existing.serviceAddressId)
+        (input.customerId !== undefined && input.customerId !== existing.customerId)
       )) {
-        throw new ApiError(409, "Proposal-derived jobs cannot be reassigned to another project, customer, or address");
+        throw new ApiError(409, "Proposal-derived jobs cannot be reassigned to another project or customer");
       }
 
       const projectId = input.projectId ?? existing.projectId;
@@ -1022,6 +1063,19 @@ export class JobsService {
         throw new ApiError(409, `Job ${job.id} cannot be rescheduled from status ${job.status}`);
       }
 
+      // DEV-22(c): rescheduling a dispatched job reverses its dispatch —
+      // the job returns to scheduled and must be explicitly redispatched.
+      // Require an explicit confirmation so a routine schedule edit cannot
+      // silently un-dispatch field work.
+      const isDispatchReversal = currentStatus === "dispatched";
+      if (isDispatchReversal && !input.confirmDispatchReversal) {
+        throw new ApiError(409, `Rescheduling dispatched job ${job.id} reverses its dispatch; confirm the reversal to continue`, {
+          code: "dispatch_reversal_confirmation_required",
+          jobId: job.id,
+          currentStatus,
+        });
+      }
+
       validateScheduleRange(input.scheduledStart, input.scheduledEnd, input.arrivalWindowStart ?? null, input.arrivalWindowEnd ?? null);
       validateDuration(input.estimatedDurationMinutes ?? null);
 
@@ -1059,12 +1113,31 @@ export class JobsService {
         metadata: {
           previousStatus: job.status,
           newStatus: nextStatus,
+          dispatchReversed: isDispatchReversal,
           previousScheduledStart: job.scheduledStart?.toISOString() ?? null,
           previousScheduledEnd: job.scheduledEnd?.toISOString() ?? null,
           scheduledStart: input.scheduledStart.toISOString(),
           scheduledEnd: input.scheduledEnd.toISOString(),
         },
       });
+
+      if (isDispatchReversal) {
+        await this.recordJobEvent(tx, {
+          orgId: input.orgId,
+          jobId: row.id,
+          eventType: "job.dispatch_reversed",
+          title: `Dispatch reversed by reschedule: ${row.jobNumber}`,
+          actorUserId: input.actor.userId,
+          metadata: {
+            previousStatus: "dispatched",
+            newStatus: nextStatus,
+            previousScheduledStart: job.scheduledStart?.toISOString() ?? null,
+            previousScheduledEnd: job.scheduledEnd?.toISOString() ?? null,
+            scheduledStart: input.scheduledStart.toISOString(),
+            scheduledEnd: input.scheduledEnd.toISOString(),
+          },
+        });
+      }
 
       if (conflicts.length > 0) {
         await this.recordJobEvent(tx, {
