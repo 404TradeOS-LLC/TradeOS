@@ -44,7 +44,7 @@ export function SendInviteForm() {
       });
       setEmail("");
       setSuccess(
-        `Invite sent to ${invite.email} as ${roleLabel}. It expires ${expires} — they'll get an email with a link to accept and create their TradeOS sign-in.`
+        `Invite created for ${invite.email} as ${roleLabel}. It expires ${expires}. The invitation email has been scheduled for delivery.`
       );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not send this invite. Try again.");
@@ -58,10 +58,10 @@ export function SendInviteForm() {
       <CardHeader>
         <CardTitle>Send invite</CardTitle>
         <CardDescription>
-          Invite a person who does not have a TradeOS account yet. They&rsquo;ll get an email with a link
-          to accept the invite and create their sign-in. Invites are for Technician or Dispatcher only
-          and expire in 7 days. A pending invite is not listed in the team directory — the person shows
-          up there once they accept.
+          Invite a person who does not have a TradeOS account yet. An invitation email is scheduled
+          when you send the invite; the recipient follows the link in it to accept and create their
+          sign-in. Invites are for Technician or Dispatcher only and expire in 7 days. A pending
+          invite is not listed in the team directory — the person shows up there once they accept.
         </CardDescription>
       </CardHeader>
       <CardContent>

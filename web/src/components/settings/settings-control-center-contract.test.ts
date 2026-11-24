@@ -178,8 +178,14 @@ test("Send invite is owner-only, invites only technician/dispatcher, and never h
   assert.match(form, /useState<SendInviteRole>\("technician"\)/);
   assert.match(form, /expire in 7 days/);
   assert.match(form, /not listed in the team directory/);
-  assert.match(form, /Invite sent to/);
+  assert.match(form, /Invite created for/);
+  assert.match(form, /scheduled for delivery/);
   assert.match(form, /Could not send invite:/);
+  // A 201 means the invite was created and the email scheduled — not that
+  // it was delivered (production delivery silently fails until #872 is
+  // fixed). The copy must never promise the recipient will get the email.
+  assert.doesNotMatch(form, /Invite sent to/);
+  assert.doesNotMatch(form, /get an email|will receive email/);
   // The raw invitation token is a non-production server extra: neither the
   // form nor the helper may name it, render it, or return it.
   assert.doesNotMatch(form, /inviteToken/);
