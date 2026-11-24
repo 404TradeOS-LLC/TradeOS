@@ -4,6 +4,7 @@ import { ClientApiError } from "./clientApi.ts";
 import {
   addMemberRoleOptions,
   isAuthSubject,
+  SIGN_IN_ID_PLACEHOLDER,
   submitAddMember,
   validateAddMemberInput,
   type AddMemberInput,
@@ -45,6 +46,15 @@ function mockFetch(status: number, body: unknown) {
   };
   return calls;
 }
+
+test("sign-in ID placeholder is the RFC 4122 example UUID, never a real person's ID", () => {
+  // Regression: the form previously used a real staging account's application
+  // user ID as its placeholder, so owners pasted the wrong identifier and the
+  // submit failed with a duplicate-record error (staging, 2026-11-23).
+  assert.equal(SIGN_IN_ID_PLACEHOLDER, "123e4567-e89b-12d3-a456-426614174000");
+  assert.notEqual(SIGN_IN_ID_PLACEHOLDER, "6daf2a3b-d4be-4479-8540-dd64356dbdb5");
+  assert.equal(isAuthSubject(SIGN_IN_ID_PLACEHOLDER), true);
+});
 
 test("validation rejects a malformed email without calling the API", () => {
   const calls = mockFetch(201, memberResponse);

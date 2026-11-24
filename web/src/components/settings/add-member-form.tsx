@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
-import { addMemberRoleOptions, submitAddMember } from "@/lib/add-member";
+import { addMemberRoleOptions, SIGN_IN_ID_PLACEHOLDER, submitAddMember } from "@/lib/add-member";
 import type { SettingsTeamMember } from "@/lib/settings";
 
 interface AddMemberFormProps {
@@ -109,7 +109,7 @@ export function AddMemberForm({ orgId, currentRole, onMemberAdded }: AddMemberFo
               id="add-member-user-id"
               type="text"
               autoComplete="off"
-              placeholder="6daf2a3b-d4be-4479-8540-dd64356dbdb5"
+              placeholder={SIGN_IN_ID_PLACEHOLDER}
               value={authSubject}
               onChange={(event) => setAuthSubject(event.target.value)}
               disabled={isSubmitting}
