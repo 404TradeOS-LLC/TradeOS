@@ -789,6 +789,61 @@ describe("JobsService", () => {
     expect(mockDb.activityEvent.create).not.toHaveBeenCalled();
   });
 
+  it("rejects a stale expectedUpdatedAt token on ready-for-invoice with 409 and no update", async () => {
+    // DEV-22 (Codex review on #1074): the forwarded token was previously
+    // accepted by the controller but never enforced here, so a stale
+    // workspace could mark a job ready instead of failing with 409.
+    mockDb.job.findFirst.mockResolvedValue({
+      ...scheduledJob,
+      status: "completed",
+      completedAt: new Date("2026-07-16T15:00:00.000Z"),
+      readyForInvoiceAt: null,
+    });
+    const service = new JobsService(mockDb as never);
+
+    await expect(
+      service.readyForInvoice("job-1", {
+        orgId: "org-1",
+        actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        expectedUpdatedAt: new Date("2026-07-13T12:00:00.000Z"),
+      })
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "This job changed since you opened it. Refresh the source workspace before saving again.",
+    });
+    expect(mockDb.job.update).not.toHaveBeenCalled();
+    expect(mockDb.activityEvent.create).not.toHaveBeenCalled();
+  });
+
+  it("predicates the ready-for-invoice write on the supplied token", async () => {
+    const readyAt = new Date("2026-07-16T15:05:00.000Z");
+    mockDb.job.findFirst.mockResolvedValue({
+      ...scheduledJob,
+      status: "completed",
+      completedAt: new Date("2026-07-16T15:00:00.000Z"),
+      readyForInvoiceAt: null,
+    });
+    mockDb.job.update.mockResolvedValue({
+      ...scheduledJob,
+      status: "completed",
+      completedAt: new Date("2026-07-16T15:00:00.000Z"),
+      readyForInvoiceAt: readyAt,
+    });
+    const service = new JobsService(mockDb as never);
+
+    const result = await service.readyForInvoice("job-1", {
+      orgId: "org-1",
+      actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+      expectedUpdatedAt: scheduledJob.updatedAt,
+    });
+
+    expect(result.readyForInvoiceAt).toBe(readyAt.toISOString());
+    const updateCall = mockDb.job.update.mock.calls[0][0];
+    expect(updateCall.where).toEqual({ id: "job-1", updatedAt: scheduledJob.updatedAt });
+    expect(updateCall.data.updatedAt).toBeInstanceOf(Date);
+    expect(updateCall.data.updatedAt.getTime()).toBeGreaterThan(scheduledJob.updatedAt.getTime());
+  });
+
   describe("list", () => {
     // buildJobWhere composes optional predicates as separate entries in a
     // shared `AND` array (rather than spreading each one directly onto the

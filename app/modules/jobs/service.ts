@@ -954,6 +954,10 @@ export class JobsService {
     assertManager(input.actor.role);
     return runInDatabaseTransaction(this.db, async (tx) => {
       const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, false);
+      // DEV-22 (Codex review on #1074): the forwarded expectedUpdatedAt
+      // must be enforced like every other transition — a stale token fails
+      // before any other guard, and the write is predicated on the token.
+      assertJobRevision(job, input.expectedUpdatedAt);
       const currentStatus = normalizeJobStatus(job.status);
       if (!isAllowedJobAction("readyForInvoice", currentStatus)) {
         throw new ApiError(409, `Job ${job.id} must be completed before it is ready for invoice`);
@@ -961,10 +965,8 @@ export class JobsService {
       if (job.readyForInvoiceAt) {
         return this.hydrateJobDTO(tx, input.orgId, job);
       }
-      const row = await tx.job.update({
-        where: { id: job.id },
-        data: { readyForInvoiceAt: new Date() },
-        include: jobDetailInclude,
+      const row = await updateJobWithRevision(tx, job, input.expectedUpdatedAt, {
+        readyForInvoiceAt: new Date(),
       });
       await this.recordJobEvent(tx, {
         orgId: input.orgId,
