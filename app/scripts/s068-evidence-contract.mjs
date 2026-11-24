@@ -253,16 +253,27 @@ export function assertChangeOrdersTab({ pathname, search, projectId, status, bod
 /**
  * The approval-history line the workspace renders per change order
  * ("Approval history: Approved <date>" / "Rejected <date>"). The timestamp
- * itself is product-rendered; the assertion is that the decision word and
- * the label are both present, so a bare status badge cannot stand in for
- * the history line.
+ * itself is product-rendered with `formatDateTime` (en-US medium date +
+ * short time, e.g. "Nov 24, 2026, 9:48 PM"); the assertion requires the
+ * decision word followed by a timestamp, so a bare status badge — or a
+ * decision word with no timestamp ("Approved missing") — cannot stand in
+ * for the history line. The day-first 24-hour shape is accepted too; it
+ * predates this change in the contract tests.
  */
+const DECISION_TIMESTAMP_PATTERN =
+  /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4},\s+\d{1,2}:\d{2}\s*[AP]M|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4},\s+\d{1,2}:\d{2})/;
+
 export function assertDecisionHistory({ bodyText, decision }) {
   assert.ok(decision === "approved" || decision === "rejected", "Decision must be approved or rejected");
   const text = (bodyText ?? "").trim();
-  assert.ok(text.includes("Approval history"), "Change order must render the Approval history line");
+  // Case-insensitive: the workspace renders InfoPairs labels with CSS
+  // `uppercase`, so document.body.innerText reports "APPROVAL HISTORY"
+  // while the source label is "Approval history". The decision word and
+  // timestamp render in normal case and stay case-sensitive.
+  assert.ok(text.toLowerCase().includes("approval history"), "Change order must render the Approval history line");
+  const decisionWord = decision === "approved" ? "Approved" : "Rejected";
   assert.ok(
-    text.includes(decision === "approved" ? "Approved " : "Rejected "),
+    new RegExp(`${decisionWord} ${DECISION_TIMESTAMP_PATTERN.source}`).test(text),
     `Approval history must record the ${decision} decision with a timestamp`,
   );
 }
