@@ -3,6 +3,20 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const layoutUrl = new URL("./layout.tsx", import.meta.url);
+const apiUrl = new URL("../../lib/api.ts", import.meta.url);
+
+test("workspace memberships fetch is never cached", async () => {
+  const source = await readFile(apiUrl, "utf8");
+  const fnIndex = source.indexOf("export function getWorkspaceMemberships");
+  assert.notEqual(fnIndex, -1);
+  const fnSource = source.slice(fnIndex, fnIndex + 400);
+  // Per-user auth-scoped data: a cached response could serve one user's
+  // memberships to another session, so the fetch must opt out explicitly.
+  assert.ok(
+    fnSource.includes('cache: "no-store"'),
+    "getWorkspaceMemberships must pass cache: \"no-store\""
+  );
+});
 
 test("workspace memberships lookup gets a realistic timeout budget", async () => {
   const source = await readFile(layoutUrl, "utf8");
