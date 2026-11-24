@@ -1,4 +1,5 @@
-import rateLimit, { MemoryStore } from "express-rate-limit";
+import { rateLimit } from "express-rate-limit";
+import type { MemoryStore } from "express-rate-limit";
 import { Request, Response } from "express";
 import type { AuthedRequest } from "./auth";
 
@@ -30,7 +31,12 @@ import type { AuthedRequest } from "./auth";
  * through createMembershipsRateLimit left the route flagged (proven by the
  * PR #1066 CodeQL check). The factory below exists only so tests can pass
  * a fresh store and a tight budget; production always uses the direct
- * export.
+ * export. The import shape is deliberate too: `rateLimit` is imported as a
+ * NAMED export (the query models `moduleImport("express-rate-limit")` and
+ * its `rateLimit` member). A default import combined with a named
+ * `MemoryStore` import left the route flagged even as a direct call —
+ * the second PR #1066 CodeQL run proved it — so do not switch this back
+ * to a default import; `MemoryStore` is imported type-only for that reason.
  *
  * Per-instance budget (accepted limitation, same as authRateLimit and
  * platformProvisioningRateLimit): the default memory store keeps counts
