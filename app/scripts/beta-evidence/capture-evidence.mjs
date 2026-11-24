@@ -954,11 +954,19 @@ try {
   // orchestrator 45472743863 failed exactly here, last checkpoint
   // 05-estimate-reloaded). Check both boxes through the UI, then settle
   // on the persisted state: the "Checklist complete" text renders only
-  // after both PATCH refetches land. Each check is its own mutation, so
-  // the second check must resolve against the refetched DOM (locators
-  // are live, so a sequential check is safe).
-  await page.getByLabel("Exclusions reviewed", { exact: true }).check();
-  await page.getByLabel("Price sources reviewed", { exact: true }).check();
+  // after both PATCH refetches land.
+  //
+  // Use .click(), NOT .check(): the checkboxes are controlled by the
+  // persisted timestamp props, so their checked state only flips after
+  // the PATCH + query refetch — and Playwright's .check() verifies the
+  // state immediately after clicking instead of polling for the async
+  // update, throwing "Clicking the checkbox did not change its state"
+  // (verified empirically: .check() throws within ~1s when the state
+  // flips after a 2s round-trip; Codex P2 on PR #1083). .click() returns
+  // after the click action, and the waitForFunction below is the
+  // retrying settle signal for both mutations.
+  await page.getByLabel("Exclusions reviewed", { exact: true }).click();
+  await page.getByLabel("Price sources reviewed", { exact: true }).click();
   await page.waitForFunction(
     () => document.body.innerText.includes("Checklist complete"),
     undefined,

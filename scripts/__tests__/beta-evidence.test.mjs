@@ -474,9 +474,17 @@ test("estimate finalize completes the Review readiness checklist first (DES-10-F
   // out (staging orchestrator 45472743863, last checkpoint
   // 05-estimate-reloaded). The script must check both boxes through the
   // UI and settle on the persisted "Checklist complete" state first.
+  // The clicks must be .click(), not .check(): the checkboxes are
+  // controlled by persisted server state, so their checked state only
+  // flips after the PATCH + refetch — and Playwright's .check() verifies
+  // the state immediately after clicking instead of polling, throwing
+  // "Clicking the checkbox did not change its state" (Codex P2 on PR
+  // #1083, verified empirically against a 2s delayed state flip).
   const finalizeClick = 'getByRole("button", { name: "Finalize estimate" }).click()';
-  assert.match(capture, /getByLabel\("Exclusions reviewed", \{ exact: true \}\)\.check\(\)/);
-  assert.match(capture, /getByLabel\("Price sources reviewed", \{ exact: true \}\)\.check\(\)/);
+  assert.match(capture, /getByLabel\("Exclusions reviewed", \{ exact: true \}\)\.click\(\)/);
+  assert.match(capture, /getByLabel\("Price sources reviewed", \{ exact: true \}\)\.click\(\)/);
+  assert.doesNotMatch(capture, /getByLabel\("Exclusions reviewed", \{ exact: true \}\)\.check\(\)/);
+  assert.doesNotMatch(capture, /getByLabel\("Price sources reviewed", \{ exact: true \}\)\.check\(\)/);
   assert.match(capture, /Checklist complete/);
   assert.ok(capture.indexOf('getByLabel("Exclusions reviewed"') < capture.indexOf(finalizeClick));
   assert.ok(capture.indexOf('getByLabel("Price sources reviewed"') < capture.indexOf(finalizeClick));
