@@ -69,12 +69,27 @@ function toStringArray(value: Prisma.JsonValue | null): string[] {
   return value.filter((item): item is string => typeof item === "string");
 }
 
-function slugify(value: string): string {
-  return value
+export function slugify(value: string): string {
+  const slug = value
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9]+/g, "-");
+  return trimEdgeDashes(slug);
+}
+
+/**
+ * Removes leading/trailing "-" with a linear scan. The previous
+ * `.replace(/^-+|-+$/g, "")` backtracked polynomially on long interior dash
+ * runs (CodeQL js/polynomial-redos #38: 147ms for a 10k-dash run); the
+ * `/[^a-z0-9]+/g` step above is a single character-class repetition and is
+ * already linear.
+ */
+function trimEdgeDashes(value: string): string {
+  let start = 0;
+  let end = value.length;
+  while (start < end && value[start] === "-") start += 1;
+  while (end > start && value[end - 1] === "-") end -= 1;
+  return value.slice(start, end);
 }
 
 function tokenize(value: string): string[] {
