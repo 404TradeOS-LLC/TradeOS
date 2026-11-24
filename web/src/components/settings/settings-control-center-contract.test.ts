@@ -194,3 +194,17 @@ test("Send invite is owner-only, invites only technician/dispatcher, and never h
   assert.match(lib, /"\/api\/v1\/account\/invites"/);
   assert.match(lib, /sendInviteRoles = \["technician", "dispatcher"\]/);
 });
+
+test("Settings draft is initialized once from props and never re-synced — the shell remount is what discards it", async () => {
+  const source = await readSource("./settings-console.tsx");
+
+  // useState takes the initial draft only on mount. A workspace switch that
+  // re-renders the page with the next workspace's settings passes a new
+  // initialDraft prop, but this component keeps the old draft — and Save
+  // PATCHes that draft under the current session. The (app) shell's
+  // workspace key must therefore remount this component on every switch;
+  // no prop-sync effect here may silently "fix" it by discarding edits.
+  assert.match(source, /const \[draft, setDraft\] = useState\(initialDraft\);/);
+  assert.match(source, /const \[savedDraft, setSavedDraft\] = useState\(initialDraft\);/);
+  assert.doesNotMatch(source, /setDraft\(initialDraft\)/);
+});
