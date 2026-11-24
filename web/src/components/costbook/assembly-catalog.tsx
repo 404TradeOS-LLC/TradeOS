@@ -370,6 +370,11 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, reuseRefr
 
   function invalidateReuseRequest() {
     reuseRequestSeqRef.current += 1;
+    // The superseded request's finally block deliberately skips clearing
+    // reuseLoading (it only clears when its own sequence is current), so
+    // invalidation must clear it here — otherwise the reuse selector and
+    // Apply button stay disabled until reload.
+    setReuseLoading(false);
   }
   const facets = useMemo(() => buildStarterCatalogFacets(templates), [templates]);
   const filtered = filterStarterCatalogTemplates(templates, filters, installedCodes);

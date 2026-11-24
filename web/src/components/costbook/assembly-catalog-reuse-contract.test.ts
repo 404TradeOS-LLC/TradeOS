@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import type { CostItemCatalogRecord } from "./cost-item-catalog-actions.ts";
 import {
@@ -116,4 +117,16 @@ test("collectPagedCatalogItems dedupes repeated ids and caps pages", async () =>
   }, 3);
   assert.equal(calls, 3);
   assert.equal(capped.length, 3);
+});
+
+test("invalidating a reuse request clears the loading state", async () => {
+  const ui = await readFile(new URL("./assembly-catalog.tsx", import.meta.url), "utf8");
+  // A superseded request's finally block only clears reuseLoading when its
+  // own sequence is current, so invalidation must clear it here —
+  // otherwise the reuse selector and Apply button stay disabled until reload.
+  const invalidate = ui.slice(ui.indexOf("function invalidateReuseRequest()"), ui.indexOf("const facets = useMemo"));
+  assert.match(invalidate, /reuseRequestSeqRef\.current \+= 1/);
+  assert.match(invalidate, /setReuseLoading\(false\)/);
+  // The Apply button and reuse selector are gated on reuseLoading.
+  assert.match(ui, /disabled=\{!canWrite \|\| saving \|\| reuseLoading\}/);
 });
