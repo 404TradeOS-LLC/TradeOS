@@ -7,6 +7,7 @@ import {
   hashPortalSecret,
   type CustomerPortalContext,
 } from "../modules/customer-portal/service";
+import { ProposalsService } from "../modules/proposals/service";
 
 /**
  * DES-10-F7 — live-PostgreSQL evidence for governed public-portal proposal
@@ -66,12 +67,15 @@ const proposalSiblingA = randomUUID();
 const proposalB = randomUUID();
 const proposalNoEmail = randomUUID();
 const proposalStale = randomUUID();
+const proposalTriggerReject = randomUUID();
+const proposalTriggerAccept = randomUUID();
+const proposalChildBump = randomUUID();
 const farFuture = new Date("2099-01-01T00:00:00.000Z");
 
 const staffAuth = { userId: staffUser, orgId: orgA, role: "admin" as const };
 const customerIds = [customerA, customerSiblingA, customerB, customerNoEmail];
 const projectIds = [projectA1, projectA2, projectSiblingA, projectB, projectNoEmail];
-const proposalIds = [proposalAccept, proposalDecline, proposalDraft, proposalDouble, proposalSiblingA, proposalB, proposalNoEmail, proposalStale];
+const proposalIds = [proposalAccept, proposalDecline, proposalDraft, proposalDouble, proposalSiblingA, proposalB, proposalNoEmail, proposalStale, proposalTriggerReject, proposalTriggerAccept, proposalChildBump];
 
 const SIGNATURE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==";
 
@@ -116,6 +120,9 @@ describe("DES-10-F7 portal proposal approval + signature (live PostgreSQL)", () 
         { id: proposalB, projectId: projectB, status: "sent", scopeOfWork: "Other org scope", finalPrice: 300 },
         { id: proposalNoEmail, projectId: projectNoEmail, status: "sent", scopeOfWork: "No email scope", finalPrice: 400 },
         { id: proposalStale, projectId: projectA1, status: "sent", scopeOfWork: "Stale revision scope", finalPrice: 600 },
+        { id: proposalTriggerReject, projectId: projectA1, status: "sent", scopeOfWork: "Trigger magic-byte reject scope", finalPrice: 700 },
+        { id: proposalTriggerAccept, projectId: projectA1, status: "sent", scopeOfWork: "Trigger magic-byte accept scope", finalPrice: 800 },
+        { id: proposalChildBump, projectId: projectA1, status: "sent", scopeOfWork: "Child mutation revision scope", finalPrice: 900 },
       ],
     });
   });
@@ -281,6 +288,27 @@ describe("DES-10-F7 portal proposal approval + signature (live PostgreSQL)", () 
     expect((await admin.proposal.findUniqueOrThrow({ where: { id: proposalStale } })).status).toBe("sent");
   });
 
+  it("an allowance change after the approval page rendered invalidates the reviewed revision", async () => {
+    const context = await portalContextFor(customerA);
+    const rendered = await admin.proposal.findUniqueOrThrow({ where: { id: proposalChildBump } });
+    // Staff change an allowance after the customer opened the approval
+    // page: the child mutation must advance the parent revision, so the
+    // expectedUpdatedAt the page rendered with no longer matches.
+    await runWithDatabaseSession(app, staffAuth, () =>
+      new ProposalsService().createAllowance(proposalChildBump, { description: "PENDANT LIGHTING", amount: 1200 }, orgA),
+    );
+    await expect(
+      inPortalSession(context, () =>
+        service.acceptProposal(context.session, proposalChildBump, {
+          signerName: "F7 Customer A",
+          signatureDataUrl: SIGNATURE,
+          expectedUpdatedAt: rendered.updatedAt.toISOString(),
+        }),
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect((await admin.proposal.findUniqueOrThrow({ where: { id: proposalChildBump } })).status).toBe("sent");
+  });
+
   it("an accept of the current revision succeeds", async () => {
     const context = await portalContextFor(customerA);
     const current = await admin.proposal.findUniqueOrThrow({ where: { id: proposalStale } });
@@ -373,6 +401,56 @@ describe("DES-10-F7 portal proposal approval + signature (live PostgreSQL)", () 
       }),
     ).resolves.toBeUndefined();
     expect((await admin.proposal.findUniqueOrThrow({ where: { id: proposalSiblingA } })).status).toBe("sent");
+  });
+
+  it("the trigger rejects a signature that decodes to bytes but is not an image", async () => {
+    const context = await portalContextFor(customerA);
+    // The service validator rejects this first, so prove the database
+    // last line directly: a raw UPDATE under the portal session, keyed to
+    // this proposal, with a one-zero-byte signature must raise in the
+    // trigger and roll the transaction back. The trigger raise aborts the
+    // transaction, so the rejection surfaces from the session wrapper.
+    await expect(
+      inPortalSession(context, async () => {
+        await prisma.$queryRaw`
+          select set_config('app.portal_proposal_id', ${proposalTriggerReject}, true)
+        `;
+        await prisma.$executeRaw`
+          update public.proposals
+          set status = 'accepted',
+            responded_at = now(),
+            signer_name = 'F7 Customer A',
+            signer_email = 'f7-customer-a@example.invalid',
+            signature_data_url = 'data:image/png;base64,AA==',
+            signed_at = now()
+          where id = ${proposalTriggerReject}::uuid
+        `;
+      }),
+    ).rejects.toThrow("Customer portal proposal response may only record");
+    expect((await admin.proposal.findUniqueOrThrow({ where: { id: proposalTriggerReject } })).status).toBe("sent");
+  });
+
+  it("the trigger accepts a real 1x1 PNG signature", async () => {
+    const context = await portalContextFor(customerA);
+    await inPortalSession(context, async () => {
+      await prisma.$queryRaw`
+        select set_config('app.portal_proposal_id', ${proposalTriggerAccept}, true)
+      `;
+      const updated = await prisma.$executeRaw`
+        update public.proposals
+        set status = 'accepted',
+          responded_at = now(),
+          signer_name = 'F7 Customer A',
+          signer_email = 'f7-customer-a@example.invalid',
+          signature_data_url = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+          signed_at = now()
+        where id = ${proposalTriggerAccept}::uuid
+      `;
+      expect(updated).toBe(1);
+    });
+    const accepted = await admin.proposal.findUniqueOrThrow({ where: { id: proposalTriggerAccept } });
+    expect(accepted.status).toBe("accepted");
+    expect(accepted.signerName).toBe("F7 Customer A");
   });
 });
 

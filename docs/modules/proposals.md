@@ -81,7 +81,7 @@ Endpoints (`billing.read` for reads, `documents.manage` for writes):
 - `GET /api/v1/proposals/:id/selections`, `POST /api/v1/proposals/:id/selections`, `PATCH /api/v1/proposals/:id/selections/:selectionId`, `DELETE /api/v1/proposals/:id/selections/:selectionId`
 - `GET /api/v1/proposals/:id/allowances`, `POST /api/v1/proposals/:id/allowances`, `PATCH /api/v1/proposals/:id/allowances/:allowanceId`, `DELETE /api/v1/proposals/:id/allowances/:allowanceId`
 
-Writes follow the same draft rules as the proposal itself: an accepted proposal, or one with a contract, rejects every selection/allowance write with `409`; a missing or foreign-org proposal returns `404`. Each create/update/delete runs in one transaction that first takes a `FOR UPDATE` row lock on the parent proposal and re-checks editability, so acceptance committing mid-mutation cannot create a row on an accepted proposal (acceptance's conditional update blocks on the same row lock). Duplicating a proposal carries its selections and allowances to the copy.
+Writes follow the same draft rules as the proposal itself: an accepted proposal, or one with a contract, rejects every selection/allowance write with `409`; a missing or foreign-org proposal returns `404`. Each create/update/delete runs in one transaction that first takes a `FOR UPDATE` row lock on the parent proposal and re-checks editability, so acceptance committing mid-mutation cannot create a row on an accepted proposal (acceptance's conditional update blocks on the same row lock). Each child mutation also advances the parent proposal's `updatedAt` in the same transaction, so a portal accept bound to the previously rendered revision (`expectedUpdatedAt`) is rejected with 409 after a staff selection or allowance change. Duplicating a proposal carries its selections and allowances to the copy.
 
 Display: the staff proposal detail page (`/projects/[id]/proposals/[proposalId]`) shows both sections with add/edit/delete forms (read-only once accepted); the customer portal proposal page shows them read-only and renders nothing when a proposal has neither. Both surfaces state that allowances are not added to the proposal total.
 
@@ -121,9 +121,14 @@ Copperline TARGET frames (425:45123 / 425:46807) plus the signature flow
 acceptAsPortalCustomer`, via `CustomerPortalService.acceptProposal`) moves a
 `sent`/`viewed` proposal to `accepted` only with a drawn signature image
 (a base64 raster image — `data:image/png|jpeg|gif|webp;base64,…` — that
-decodes to bytes, ≤ 2,000,000 chars; a bare `data:image/` prefix with no
-payload is rejected with `400` at the HTTP boundary, in the service, and
-by the migration trigger) plus the printed name; a typed name
+decodes to bytes starting with the magic bytes of the declared type, ≤
+2,000,000 chars; a bare `data:image/` prefix with no payload, a one-byte
+payload, and base64-encoded prose are rejected with `400` at the HTTP
+boundary, in the service, and by the migration trigger — the trigger check
+was strengthened to magic bytes by migration
+`20261124185609_add_signature_image_magic_bytes`, which replaces the trigger
+function without editing the landed `20261124150000` migration) plus the
+printed name; a typed name
 alone is rejected with `400`. The signer email is the customer record's email
 on file, never a request value. The proposal records `signerName`,
 `signerEmail`, `signatureDataUrl`, reported IP/user agent, `signedAt`, and
@@ -144,7 +149,10 @@ revision predicate too). Both accept and decline take an optional
 `expectedUpdatedAt` (the proposal's `updatedAt` as rendered on the portal
 page): a staff edit after the page rendered bumps `updatedAt`, so the
 response is rejected with 409 and the customer must review the updated
-document before answering.
+document before answering. Selection and allowance create/update/delete
+each advance the parent proposal's `updatedAt` in the same transaction as
+the child write, so a staff change to either list after the page rendered
+invalidates the reviewed revision the same way a direct proposal edit does.
 
 Governance is three layers: the portal service asserts the proposal belongs
 to the session's customer (404 first); the conditional update requires

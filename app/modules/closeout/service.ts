@@ -212,7 +212,17 @@ export class CloseoutService {
     if (existing.status !== "resolved") {
       throw new ApiError(409, `PunchItem ${id} cannot be verified from status ${existing.status}`);
     }
-    const row = await prisma.punchItem.update({ where: { id }, data: { status: "verified" } });
+    // The resolved-status check above and this write must be atomic: a
+    // concurrent reopen between the read and the write must not be
+    // silently overwritten with verified. The write matches only a
+    // still-resolved row and reports 409 when nothing matches.
+    const result = await prisma.punchItem.updateMany({
+      where: { id, status: "resolved" },
+      data: { status: "verified" },
+    });
+    if (result.count !== 1) throw new ApiError(409, `PunchItem ${id} was reopened before it could be verified`);
+    const row = await prisma.punchItem.findFirst({ where: { id } });
+    if (!row) throw new ApiError(404, `PunchItem ${id} not found`);
     const verified = toPunchDTO(row);
     await this.recordEvent({
       orgId,
