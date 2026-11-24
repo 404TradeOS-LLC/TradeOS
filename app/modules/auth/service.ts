@@ -17,6 +17,7 @@ import {
   ResetPasswordInput,
   SignupInput,
   SupabaseBootstrapInput,
+  WorkspaceMembership,
 } from "./types";
 import { normalizeRole } from "../../domain";
 import { runInDatabaseTransaction } from "../../db/requestSession";
@@ -88,6 +89,96 @@ export class AuthService {
 
       const organization = await transaction.organization.findUnique({ where: { id: membership.orgId } });
       if (!organization) throw new ApiError(401, INVALID_CREDENTIALS);
+
+      return { user, membership, organization };
+    });
+
+    return this.issueSession({
+      userId: result.user.id,
+      authSubject: result.user.authSubject,
+      email: result.user.email,
+      fullName: result.user.fullName,
+      orgId: result.membership.orgId,
+      orgName: result.organization.name,
+      membershipId: result.membership.id,
+      role: result.membership.role,
+    });
+  }
+
+  /**
+   * Lists the caller's active workspace memberships, earliest first.
+   * Runs under the login_lookup flag so RLS exposes every membership of
+   * this user (the per-request org policy would otherwise hide all but
+   * the currently resolved org). Organization names are read one org at
+   * a time: the organizations policy only exposes the org named by
+   * app.org_id. Membership counts are tiny (a user belongs to a handful
+   * of orgs), so the per-org read is bounded and explicit.
+   */
+  async listMemberships(userId: string): Promise<WorkspaceMembership[]> {
+    return basePrisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw(Prisma.sql`
+        select
+          set_config('app.login_lookup', 'true', true),
+          set_config('app.user_id', ${userId}, true)
+      `);
+
+      const memberships = await transaction.organizationMembership.findMany({
+        where: { userId, status: "active" },
+        orderBy: { createdAt: "asc" },
+        select: { orgId: true, role: true, createdAt: true },
+      });
+
+      const result: WorkspaceMembership[] = [];
+      for (const membership of memberships) {
+        await transaction.$queryRaw(Prisma.sql`select set_config('app.org_id', ${membership.orgId}, true)`);
+        const organization = await transaction.organization.findUnique({
+          where: { id: membership.orgId },
+          select: { name: true },
+        });
+        result.push({
+          orgId: membership.orgId,
+          organizationName: organization?.name ?? "Workspace",
+          role: membership.role,
+          createdAt: membership.createdAt.toISOString(),
+        });
+      }
+      return result;
+    });
+  }
+
+  /**
+   * Activates one of the caller's workspaces: validates an active
+   * membership in the requested org, then issues a fresh session whose
+   * token carries that orgId — resolveAuthContext() honors the claim, so
+   * every subsequent request lands in the selected workspace. The refresh
+   * token is bound to the selected membership, so refresh preserves the
+   * switch. A user with no active membership in the org gets 403; the
+   * requested orgId is never trusted on its own.
+   */
+  async selectOrganization(userId: string, orgId: string): Promise<AuthSessionResult> {
+    const result = await basePrisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw(Prisma.sql`select set_config('app.login_lookup', 'true', true)`);
+
+      const user = await transaction.appUser.findUnique({ where: { id: userId } });
+      if (!user || !user.isActive) {
+        throw new ApiError(403, "Authenticated user does not belong to the requested organization");
+      }
+
+      await transaction.$queryRaw(Prisma.sql`select set_config('app.user_id', ${user.id}, true)`);
+
+      const membership = await transaction.organizationMembership.findFirst({
+        where: { userId: user.id, orgId, status: "active" },
+      });
+      if (!membership) {
+        throw new ApiError(403, "Authenticated user does not belong to the requested organization");
+      }
+
+      await transaction.$queryRaw(Prisma.sql`select set_config('app.org_id', ${membership.orgId}, true)`);
+
+      const organization = await transaction.organization.findUnique({ where: { id: membership.orgId } });
+      if (!organization) {
+        throw new ApiError(403, "Authenticated user does not belong to the requested organization");
+      }
 
       return { user, membership, organization };
     });

@@ -44,6 +44,12 @@ const refreshSchema = z
   })
   .strict();
 
+const selectOrganizationSchema = z
+  .object({
+    orgId: z.string().uuid(),
+  })
+  .strict();
+
 const requestResetSchema = z
   .object({
     email: z.string().trim().email().max(320),
@@ -137,5 +143,14 @@ export const authController = {
   async totpStatus(req: Request, res: Response) {
     const auth = requireAuthContext(req);
     res.json(await service.getTotpSetupStatus(auth.userId));
+  },
+  async listMemberships(req: Request, res: Response) {
+    const auth = requireAuthContext(req);
+    res.json(await service.listMemberships(auth.userId));
+  },
+  async selectOrganization(req: Request, res: Response) {
+    const auth = requireAuthContext(req);
+    const input = selectOrganizationSchema.parse(req.body);
+    res.json(await service.selectOrganization(auth.userId, input.orgId));
   },
 };
