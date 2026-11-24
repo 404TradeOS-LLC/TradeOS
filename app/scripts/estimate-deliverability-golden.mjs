@@ -78,7 +78,13 @@ async function runWorkflow(page, runNumber) {
   await page.locator("#custom-section").fill("Demolition");
   await page.locator("#custom-cost-type").selectOption("labor");
   await page.getByRole("button", { name: "Add custom" }).click();
-  await page.getByText("Remove glued-down linoleum", { exact: true }).waitFor();
+  // Scope line waits to the Items stage list: the builder renders all four
+  // stages in the DOM at once, so Review duplicates every line description
+  // and the materials checklist duplicates material descriptions — a bare
+  // getByText(...) wait trips Playwright strict mode once the duplicates
+  // land (see the same fix in app/scripts/beta-evidence/capture-evidence.mjs).
+  const savedItems = page.locator('ul[aria-label="Saved estimate items"]');
+  await savedItems.getByText("Remove glued-down linoleum", { exact: true }).waitFor();
 
   await custom.fill("Flooring material allowance");
   await page.locator("#custom-quantity").fill("850");
@@ -88,7 +94,7 @@ async function runWorkflow(page, runNumber) {
   await page.locator("#custom-cost-type").selectOption("material");
   await page.getByLabel("Taxable", { exact: true }).check();
   await page.getByRole("button", { name: "Add custom" }).click();
-  await page.getByText("Flooring material allowance", { exact: true }).waitFor();
+  await savedItems.getByText("Flooring material allowance", { exact: true }).waitFor();
 
   // Edit a persisted line after it has been rendered, then reload and assert it remains.
   const editableLine = page.locator("li").filter({ hasText: "Remove glued-down linoleum" });
@@ -96,8 +102,8 @@ async function runWorkflow(page, runNumber) {
   await editableLine.getByLabel("Description").fill("Remove glued-down linoleum (revised)");
   await editableLine.getByRole("button", { name: "Save" }).click();
   await page.reload({ waitUntil: "networkidle" });
-  await page.getByText("Remove glued-down linoleum (revised)", { exact: true }).waitFor();
-  await page.getByText("Flooring material allowance", { exact: true }).waitFor();
+  await savedItems.getByText("Remove glued-down linoleum (revised)", { exact: true }).waitFor();
+  await savedItems.getByText("Flooring material allowance", { exact: true }).waitFor();
 
   await page.getByLabel("Overhead %").fill("10");
   await page.getByLabel("Tax %").fill("7");
@@ -114,7 +120,10 @@ async function runWorkflow(page, runNumber) {
   await page.getByText("$6,732.00", { exact: true }).waitFor();
   await page.getByText("$7,105.07", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Finalize estimate" }).click();
-  await page.getByText("ready", { exact: true }).waitFor();
+  // The estimate status badge renders twice (page-header actions row +
+  // Review-stage panel); scope the wait to the Estimate workflow region
+  // (same fix as capture-evidence.mjs) instead of a bare getByText.
+  await page.getByRole("region", { name: "Estimate workflow" }).getByText("ready", { exact: true }).waitFor();
 
   await page.getByRole("link", { name: "Create proposal" }).click();
   await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/new`));
