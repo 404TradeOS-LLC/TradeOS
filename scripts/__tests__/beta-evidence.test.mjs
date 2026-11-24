@@ -468,6 +468,20 @@ test("estimate line waits are scoped to the saved-items list (strict-mode safe)"
   assert.doesNotMatch(capture, /page\.getByText\("Flooring material allowance"/);
 });
 
+test("estimate finalize completes the Review readiness checklist first (DES-10-F2)", () => {
+  // DES-10-F2 gates Finalize on two persisted attestations; the button
+  // stays disabled until both are saved, so a bare Finalize click times
+  // out (staging orchestrator 45472743863, last checkpoint
+  // 05-estimate-reloaded). The script must check both boxes through the
+  // UI and settle on the persisted "Checklist complete" state first.
+  const finalizeClick = 'getByRole("button", { name: "Finalize estimate" }).click()';
+  assert.match(capture, /getByLabel\("Exclusions reviewed", \{ exact: true \}\)\.check\(\)/);
+  assert.match(capture, /getByLabel\("Price sources reviewed", \{ exact: true \}\)\.check\(\)/);
+  assert.match(capture, /Checklist complete/);
+  assert.ok(capture.indexOf('getByLabel("Exclusions reviewed"') < capture.indexOf(finalizeClick));
+  assert.ok(capture.indexOf('getByLabel("Price sources reviewed"') < capture.indexOf(finalizeClick));
+});
+
 test("canonical evidence navigates focused estimate stages at 390/768 and checks active step", () => {
   assert.match(capture, /async function navigateEstimateStage\(stage\)/);
   assert.match(capture, /getByRole\("navigation", \{ name: "Estimate stages" \}\)/);

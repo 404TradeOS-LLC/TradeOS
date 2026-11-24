@@ -947,6 +947,23 @@ try {
   );
 
   await navigateEstimateStage("Review");
+  // DES-10-F2: Finalize is gated on the Review readiness checklist —
+  // the button stays disabled until both attestations are saved server
+  // side, and the server enforces the same preconditions in finalize(),
+  // so a bare click on the disabled button times out after 30s (staging
+  // orchestrator 45472743863 failed exactly here, last checkpoint
+  // 05-estimate-reloaded). Check both boxes through the UI, then settle
+  // on the persisted state: the "Checklist complete" text renders only
+  // after both PATCH refetches land. Each check is its own mutation, so
+  // the second check must resolve against the refetched DOM (locators
+  // are live, so a sequential check is safe).
+  await page.getByLabel("Exclusions reviewed", { exact: true }).check();
+  await page.getByLabel("Price sources reviewed", { exact: true }).check();
+  await page.waitForFunction(
+    () => document.body.innerText.includes("Checklist complete"),
+    undefined,
+    { timeout: 30_000 },
+  );
   await page.getByRole("button", { name: "Finalize estimate" }).click();
   // The builder renders the estimate status badge twice (page-header
   // actions row + Review-stage "Internal estimate review" panel), so a
