@@ -7,6 +7,7 @@ import {
   hashPortalSecret,
   type CustomerPortalContext,
 } from "../modules/customer-portal/service";
+import { ProposalsService } from "../modules/proposals/service";
 
 /**
  * DES-10-F7 — live-PostgreSQL evidence for governed public-portal proposal
@@ -68,12 +69,13 @@ const proposalNoEmail = randomUUID();
 const proposalStale = randomUUID();
 const proposalTriggerReject = randomUUID();
 const proposalTriggerAccept = randomUUID();
+const proposalChildBump = randomUUID();
 const farFuture = new Date("2099-01-01T00:00:00.000Z");
 
 const staffAuth = { userId: staffUser, orgId: orgA, role: "admin" as const };
 const customerIds = [customerA, customerSiblingA, customerB, customerNoEmail];
 const projectIds = [projectA1, projectA2, projectSiblingA, projectB, projectNoEmail];
-const proposalIds = [proposalAccept, proposalDecline, proposalDraft, proposalDouble, proposalSiblingA, proposalB, proposalNoEmail, proposalStale, proposalTriggerReject, proposalTriggerAccept];
+const proposalIds = [proposalAccept, proposalDecline, proposalDraft, proposalDouble, proposalSiblingA, proposalB, proposalNoEmail, proposalStale, proposalTriggerReject, proposalTriggerAccept, proposalChildBump];
 
 const SIGNATURE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==";
 
@@ -120,6 +122,7 @@ describe("DES-10-F7 portal proposal approval + signature (live PostgreSQL)", () 
         { id: proposalStale, projectId: projectA1, status: "sent", scopeOfWork: "Stale revision scope", finalPrice: 600 },
         { id: proposalTriggerReject, projectId: projectA1, status: "sent", scopeOfWork: "Trigger magic-byte reject scope", finalPrice: 700 },
         { id: proposalTriggerAccept, projectId: projectA1, status: "sent", scopeOfWork: "Trigger magic-byte accept scope", finalPrice: 800 },
+        { id: proposalChildBump, projectId: projectA1, status: "sent", scopeOfWork: "Child mutation revision scope", finalPrice: 900 },
       ],
     });
   });
@@ -283,6 +286,27 @@ describe("DES-10-F7 portal proposal approval + signature (live PostgreSQL)", () 
       ),
     ).rejects.toMatchObject({ statusCode: 409 });
     expect((await admin.proposal.findUniqueOrThrow({ where: { id: proposalStale } })).status).toBe("sent");
+  });
+
+  it("an allowance change after the approval page rendered invalidates the reviewed revision", async () => {
+    const context = await portalContextFor(customerA);
+    const rendered = await admin.proposal.findUniqueOrThrow({ where: { id: proposalChildBump } });
+    // Staff change an allowance after the customer opened the approval
+    // page: the child mutation must advance the parent revision, so the
+    // expectedUpdatedAt the page rendered with no longer matches.
+    await runWithDatabaseSession(app, staffAuth, () =>
+      new ProposalsService().createAllowance(proposalChildBump, { description: "PENDANT LIGHTING", amount: 1200 }, orgA),
+    );
+    await expect(
+      inPortalSession(context, () =>
+        service.acceptProposal(context.session, proposalChildBump, {
+          signerName: "F7 Customer A",
+          signatureDataUrl: SIGNATURE,
+          expectedUpdatedAt: rendered.updatedAt.toISOString(),
+        }),
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect((await admin.proposal.findUniqueOrThrow({ where: { id: proposalChildBump } })).status).toBe("sent");
   });
 
   it("an accept of the current revision succeeds", async () => {
