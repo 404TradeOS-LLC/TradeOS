@@ -12,6 +12,13 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Staging Add member button — 2026-11-23
+
+- Classification: NEW_WORK_REQUIRED. Staging Settings had no usable add-member control (verified live in the staging UI), blocking the field-closeout technician attach. The add-member form exists on main (#1052) but not on the staging branch (7c428acd); no open staging PR or branch covers it.
+- Scope: frontend-only port to the staging branch — `web/src/lib/add-member.ts` + `add-member.test.ts` (11 tests), `web/src/components/settings/add-member-form.tsx`, Team & Access integration in `settings-console.tsx`, `docs/CURRENT_STATE.md` note. No backend, schema, auth-policy, or invite-email change; the form calls the existing POST /organizations/:id/members admin endpoint through the authenticated proxy.
+- Founder authorized 2026-11-23 ("Add the button to staging") after the tradeoff was stated: staging moves off the frozen 7c428acd candidate and the field-closeout run re-verifies against the new build.
+- Validation: web tests 775 pass, lint + build pass, docs:check PASS (base origin/staging). PR targets staging; see the PR for exact-head CI, merge, and landed-SHA proof. After merge: verify the staging redeploy + binding at the new SHA, add the staging technician via the button, then run the field-closeout scenarios.
+
 ## Beta Proposal PDF layout repair — 2026-11-14
 
 Sprint ID: NONE. Resumed understood uncommitted renderer and regression tests in `/workspace/TradeOS-pdf`, branch `fix/proposal-pdf-wrapped-content`; existing baseline `eab54f2c` fast-forwarded to reviewed main `6cc54a99`. Live overlap check found no competing Proposal renderer repair. Scope is the shared PDF metadata/narrative layout, its behavioral tests and required owner documentation. No schema, roles, pricing, routes or staging changes. Final command results and exact-head hosted checks belong in the PR; root coordinates staged acceptance. The original rendered beta PDF independently reproduced wrapped-field overlap and CRLF control glyphs; Poppler-only font spacing is excluded from this repair.
