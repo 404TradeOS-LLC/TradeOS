@@ -12,6 +12,13 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Staging sign-in ID display — 2026-11-24
+
+- Classification: NEW_WORK_REQUIRED. The staging Add member form (#1060) cannot attach any existing user: it needs the person's Supabase Auth UUID, but Settings never displays the sign-in ID anywhere — the only UUID shown is the application user ID under Supplier workflow IDs, which the backend lookup does not match on (verified live 2026-11-23 ~23:44 EST: submit with the application ID failed with a duplicate-record error; the technician's own Settings page shows no sign-in ID field). No open PR or branch covers it.
+- Scope: frontend-only — Settings page resolves the session subject via `getSession()` and passes it as `signInId` to `SettingsConsole`, which renders a "Your TradeOS sign-in ID" card under Team & Access (all signed-in users, not only owners/admins, since technicians must share their own ID); the Add member form placeholder becomes the RFC 4122 example UUID instead of a real account's application ID. No backend, schema, auth-policy, RLS, or invite-email change; the Supplier workflow IDs card is untouched.
+- Founder authorized 2026-11-24 ~00:13 EST ("Build both fixes") — this fix plus the parallel ledger fix; the field-closeout run re-verifies against the new build.
+- Validation: web tests + lint + build, docs:check PASS (base origin/staging). PR targets staging; see the PR for exact-head CI, merge, and landed-SHA proof. After merge: verify the staging redeploy at the new SHA, add the staging technician via the button, then run the field-closeout scenarios.
+
 ## Staging migration ledger fix — 2026-11-24
 
 - Classification: NEW_WORK_REQUIRED. The staging orchestrator run 45327738142 (push of `d663c210`) failed preflight-db with `Prisma ledger mismatch: expected=72 applied=76 unfinished=0`: the staging branch tracked 72 migration files while the staging DB ledger held 76 (applied 2026-11-22 by deploy-staging-migrations run 44986340125). No open PR or remote branch covers the ledger gap.

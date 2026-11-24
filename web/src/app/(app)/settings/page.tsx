@@ -5,7 +5,7 @@ import { SettingsConsole } from "@/components/settings/settings-console";
 import { getOrganizationSettings } from "@/lib/api";
 import { mergeTradeOsSettingsDraft } from "@/lib/settings";
 import { resolveSupplierWorkflowIdentity } from "@/lib/supplierWorkflowIdentity";
-import { getSessionToken } from "@/lib/session";
+import { getSession, getSessionToken } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Settings | TradeOS",
@@ -18,6 +18,7 @@ export default async function SettingsPage({
   searchParams: Promise<{ abc_oauth?: string | string[] }>;
 }) {
   const token = await getSessionToken();
+  const session = await getSession();
   const persisted = token ? await getOrganizationSettings(token) : null;
   const supplierWorkflowIdentity = resolveSupplierWorkflowIdentity(persisted);
   const gitCommit =
@@ -44,6 +45,7 @@ export default async function SettingsPage({
       </div>
       <SettingsConsole
         supplierWorkflowIdentity={supplierWorkflowIdentity}
+        signInId={session?.sub ?? null}
         initialDraft={mergeTradeOsSettingsDraft(persisted?.settings)}
         persistedSettingKeys={Object.keys(persisted?.settings ?? {})}
         initialAbcOAuthResult={initialAbcOAuthResult}

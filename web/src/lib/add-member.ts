@@ -5,6 +5,15 @@ import type { SettingsTeamMember } from "./settings.ts";
 export const addMemberRoles = ["owner", "admin", "dispatcher", "technician"] as const;
 export type AddMemberRole = (typeof addMemberRoles)[number];
 
+/**
+ * Placeholder for the sign-in ID field: the RFC 4122 example UUID, never a
+ * real person's identifier. A previous placeholder showed a real staging
+ * account's application user ID, which owners then pasted into the form —
+ * the backend lookup missed and the submit failed with a duplicate-record
+ * error (staging, 2026-11-23). Placeholders must stay recognizably fake.
+ */
+export const SIGN_IN_ID_PLACEHOLDER = "123e4567-e89b-12d3-a456-426614174000";
+
 export interface AddMemberInput {
   email: string;
   fullName?: string;
