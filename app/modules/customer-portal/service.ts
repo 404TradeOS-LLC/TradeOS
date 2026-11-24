@@ -431,6 +431,7 @@ export class CustomerPortalService {
     signatureDataUrl: string;
     signatureIpReported?: string;
     signatureUserAgentReported?: string;
+    expectedUpdatedAt?: string;
   }) {
     const proposal = await this.assertProposal(context, proposalId);
     if (proposal.status === "draft") throw new ApiError(404, `Proposal ${proposalId} not found`);
@@ -448,16 +449,18 @@ export class CustomerPortalService {
       signatureDataUrl: input.signatureDataUrl,
       signatureIpReported: input.signatureIpReported,
       signatureUserAgentReported: input.signatureUserAgentReported,
+      expectedUpdatedAt: input.expectedUpdatedAt,
     });
   }
 
   /**
-   * DES-10-F7: governed public-portal proposal decline. Same single-proposal
-   * token scoping as the accept path; the optional reason is recorded in
-   * the audit event, and the project is deliberately left untouched (see
+   * DES-10-F7: governed public-portal proposal decline. Same
+   * organization/customer-scoped token as the accept path, with the
+   * transaction-local proposal write scope; the optional reason is recorded
+   * in the audit event, and the project is deliberately left untouched (see
    * ProposalsService.declineAsPortalCustomer).
    */
-  async declineProposal(context: CustomerPortalContext, proposalId: string, input: { reason?: string }) {
+  async declineProposal(context: CustomerPortalContext, proposalId: string, input: { reason?: string; expectedUpdatedAt?: string }) {
     const proposal = await this.assertProposal(context, proposalId);
     if (proposal.status === "draft") throw new ApiError(404, `Proposal ${proposalId} not found`);
     return this.proposals.declineAsPortalCustomer(proposal.id, {
@@ -465,6 +468,7 @@ export class CustomerPortalService {
       customerId: context.customerId,
       portalSessionId: context.sessionId,
       reason: input.reason,
+      expectedUpdatedAt: input.expectedUpdatedAt,
     });
   }
 

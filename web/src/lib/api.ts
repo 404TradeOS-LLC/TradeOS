@@ -1242,6 +1242,10 @@ export interface Proposal {
   signedAt?: string | null;
   declinedReason?: string | null;
   createdAt: string;
+  // DES-10-F7: the revision the customer reviewed. Optional because web
+  // and API deploy independently — an older API omits it and the form
+  // then sends no expectedUpdatedAt, so the API skips the revision guard.
+  updatedAt?: string;
   deliveries: ProposalDelivery[];
   // DES-10-F8: Copperline proposal sections 03 (selections) and 04
   // (allowances). Optional here because web and API deploy independently —

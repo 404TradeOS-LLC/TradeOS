@@ -134,6 +134,7 @@ export interface ProposalDTO {
   signedAt: Date | null;
   declinedReason: string | null;
   createdAt: Date;
+  updatedAt: Date;
   deliveries: ProposalDeliveryDTO[];
   selections: ProposalSelectionDTO[];
   allowances: ProposalAllowanceDTO[];

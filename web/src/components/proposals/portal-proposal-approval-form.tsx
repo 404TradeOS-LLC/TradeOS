@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
  * every requirement. Declining is the same governed path minus the
  * signature, with an optional reason recorded in the audit event.
  */
-export function PortalProposalApprovalForm({ proposalId, projectId }: { proposalId: string; projectId: string }) {
+export function PortalProposalApprovalForm({ proposalId, projectId, expectedUpdatedAt }: { proposalId: string; projectId: string; expectedUpdatedAt?: string }) {
   const [acceptState, acceptAction, acceptPending] = useActionState(acceptPortalProposalAction, undefined);
   const [declineState, declineAction, declinePending] = useActionState(declinePortalProposalAction, undefined);
   const [reviewed, setReviewed] = useState(false);
@@ -32,6 +32,7 @@ export function PortalProposalApprovalForm({ proposalId, projectId }: { proposal
       <form action={acceptAction} className="flex flex-col gap-4">
         <input type="hidden" name="proposalId" value={proposalId} />
         <input type="hidden" name="projectId" value={projectId} />
+        {expectedUpdatedAt ? <input type="hidden" name="expectedUpdatedAt" value={expectedUpdatedAt} /> : null}
         <label className="flex items-start gap-3 text-sm">
           <input
             type="checkbox"
@@ -70,6 +71,7 @@ export function PortalProposalApprovalForm({ proposalId, projectId }: { proposal
       <form action={declineAction} className="flex flex-col gap-4 border-t border-border/60 pt-6">
         <input type="hidden" name="proposalId" value={proposalId} />
         <input type="hidden" name="projectId" value={projectId} />
+        {expectedUpdatedAt ? <input type="hidden" name="expectedUpdatedAt" value={expectedUpdatedAt} /> : null}
         <div className="flex flex-col gap-2">
           <Label htmlFor="portal-decline-reason">Decline reason (optional)</Label>
           <Textarea id="portal-decline-reason" name="reason" maxLength={500} rows={3} />

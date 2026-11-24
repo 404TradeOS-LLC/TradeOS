@@ -5,6 +5,7 @@ import { requireAuthContext, requireOrgId, requirePermissions } from "../request
 import { ApiError } from "../middleware/errorHandler";
 import { CustomerPortalService } from "../../modules/customer-portal/service";
 import { sanitizeDownloadFilename } from "../../modules/documents/format";
+import { isValidSignatureDataUrl } from "../../modules/proposals/signatureValidation";
 
 const service = new CustomerPortalService();
 
@@ -17,18 +18,23 @@ const signSchema = z.object({
   signatureUserAgentReported: z.string().trim().max(512).optional(),
 });
 // DES-10-F7: portal proposal acceptance requires a drawn signature — a
-// typed name alone is not attributable. The data URL must be an image.
+// typed name alone is not attributable. The data URL must decode to an
+// actual image (see modules/proposals/signatureValidation.ts), and the
+// response is bound to the revision the customer reviewed via
+// expectedUpdatedAt (the proposal's updatedAt as rendered).
 const acceptProposalSchema = z.object({
   signerName: z.string().trim().min(1).max(200),
   signatureDataUrl: z
     .string()
     .max(2_000_000)
-    .refine((value) => value.startsWith("data:image/"), { message: "A drawn signature is required" }),
+    .refine(isValidSignatureDataUrl, { message: "A drawn signature is required" }),
   signatureIpReported: z.string().trim().max(120).optional(),
   signatureUserAgentReported: z.string().trim().max(512).optional(),
+  expectedUpdatedAt: z.string().datetime().optional(),
 });
 const declineProposalSchema = z.object({
   reason: z.string().trim().max(500).optional(),
+  expectedUpdatedAt: z.string().datetime().optional(),
 });
 
 export const customerPortalController = {

@@ -413,13 +413,32 @@ export async function acceptOfflineProposalAction(_prev: FormActionState, formDa
  * caller-supplied value. On success the page re-renders with the recorded
  * approval instead of the form, so a refresh cannot re-submit it.
  */
+
+// DES-10-F7 (review repair): the API is authoritative, but the action
+// pre-checks the same rule so an empty payload never leaves the server:
+// the data URL must be a base64 raster image that decodes to bytes, not a
+// bare `data:image/` prefix. Mirrors
+// app/modules/proposals/signatureValidation.ts.
+const SIGNATURE_DATA_URL_PATTERN = /^data:image\/(png|jpeg|jpg|gif|webp);base64,([A-Za-z0-9+/]+={0,2})$/;
+
+function isValidSignatureDataUrl(value: string): boolean {
+  const match = SIGNATURE_DATA_URL_PATTERN.exec(value);
+  if (!match) return false;
+  try {
+    return atob(match[2]).length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function acceptPortalProposalAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
   const id = String(formData.get("proposalId") ?? "");
   const projectId = String(formData.get("projectId") ?? "");
   const signerName = String(formData.get("signerName") ?? "").trim();
   const signatureDataUrl = String(formData.get("signatureDataUrl") ?? "").trim();
+  const expectedUpdatedAt = String(formData.get("expectedUpdatedAt") ?? "").trim() || undefined;
   const reviewed = formData.get("reviewed") === "true";
-  if (!reviewed || !signerName || !signatureDataUrl.startsWith("data:image/")) {
+  if (!reviewed || !signerName || !signatureDataUrl.startsWith("data:image/") || !isValidSignatureDataUrl(signatureDataUrl)) {
     return { error: "Review the scope, allowances, and terms, enter your full name, and draw your signature." };
   }
 
@@ -433,6 +452,7 @@ export async function acceptPortalProposalAction(_prev: FormActionState, formDat
         signatureDataUrl,
         signatureIpReported: forwardedFor || requestHeaders.get("x-real-ip") || undefined,
         signatureUserAgentReported: requestHeaders.get("user-agent") || undefined,
+        expectedUpdatedAt,
       }),
     });
   } catch (err) {
@@ -453,6 +473,7 @@ export async function declinePortalProposalAction(_prev: FormActionState, formDa
   const id = String(formData.get("proposalId") ?? "");
   const projectId = String(formData.get("projectId") ?? "");
   const reason = String(formData.get("reason") ?? "").trim();
+  const expectedUpdatedAt = String(formData.get("expectedUpdatedAt") ?? "").trim() || undefined;
   if (reason.length > 500) {
     return { error: "Decline reason must be 500 characters or fewer." };
   }
@@ -460,7 +481,7 @@ export async function declinePortalProposalAction(_prev: FormActionState, formDa
   try {
     await customerPortalApiFetch(`/api/v1/customer-portal/proposals/${id}/decline`, {
       method: "POST",
-      body: JSON.stringify({ reason: reason || undefined }),
+      body: JSON.stringify({ reason: reason || undefined, expectedUpdatedAt }),
     });
   } catch (err) {
     return { error: err instanceof ApiClientError || err instanceof Error ? err.message : "Something went wrong." };

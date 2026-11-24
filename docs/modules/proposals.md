@@ -120,7 +120,10 @@ Copperline TARGET frames (425:45123 / 425:46807) plus the signature flow
 /api/v1/customer-portal/proposals/:id/accept` (`ProposalsService.
 acceptAsPortalCustomer`, via `CustomerPortalService.acceptProposal`) moves a
 `sent`/`viewed` proposal to `accepted` only with a drawn signature image
-(`data:image/...`, ≤ 2,000,000 chars) plus the printed name; a typed name
+(a base64 raster image — `data:image/png|jpeg|gif|webp;base64,…` — that
+decodes to bytes, ≤ 2,000,000 chars; a bare `data:image/` prefix with no
+payload is rejected with `400` at the HTTP boundary, in the service, and
+by the migration trigger) plus the printed name; a typed name
 alone is rejected with `400`. The signer email is the customer record's email
 on file, never a request value. The proposal records `signerName`,
 `signerEmail`, `signatureDataUrl`, reported IP/user agent, `signedAt`, and
@@ -136,7 +139,12 @@ delivery event with `deliveryChannel: "portal"` and `actorType:
 activity row; neither publishes an Athena event nor sends email. Drafts 404,
 foreign-customer and cross-org proposals 404, a second response 409s, and
 concurrent double-responses allow exactly one (conditional update on the
-status predicate).
+status predicate — and, when the caller sends `expectedUpdatedAt`, on the
+revision predicate too). Both accept and decline take an optional
+`expectedUpdatedAt` (the proposal's `updatedAt` as rendered on the portal
+page): a staff edit after the page rendered bumps `updatedAt`, so the
+response is rejected with 409 and the customer must review the updated
+document before answering.
 
 Governance is three layers: the portal service asserts the proposal belongs
 to the session's customer (404 first); the conditional update requires
@@ -145,6 +153,9 @@ to the session's customer (404 first); the conditional update requires
 UPDATE policy keyed by the transaction-local `app.portal_proposal_id` plus a
 trigger pinning every column except the response itself — the portal displays
 what the proposal already says and cannot rewrite scope, prices, or terms.
+An error response rolls the portal transaction back (the middleware rejects
+the session operation when the response status is 400+, so a response written
+before a later failure is not left standing while the client sees an error).
 The project award uses a second transaction-local id,
 `app.portal_proposal_project_id`, because a subquery over proposals inside
 the projects policy recurses through the proposals SELECT policy (PostgreSQL

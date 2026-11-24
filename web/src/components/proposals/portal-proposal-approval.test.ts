@@ -18,7 +18,22 @@ test("portal acceptance requires review confirmation, printed name, and a drawn 
 test("a typed name alone cannot submit: the server re-checks the drawn signature", () => {
   assert.match(actions, /export async function acceptPortalProposalAction/);
   assert.match(actions, /!signatureDataUrl\.startsWith\("data:image\/"\)/);
+  // A bare `data:image/` prefix with no decodable image must not pass.
+  assert.match(actions, /isValidSignatureDataUrl\(signatureDataUrl\)/);
   assert.match(actions, /Review the scope, allowances, and terms, enter your full name, and draw your signature\./);
+});
+
+test("the response is bound to the revision the customer reviewed", () => {
+  assert.match(form, /expectedUpdatedAt\?: string/);
+  assert.match(form, /name="expectedUpdatedAt"/);
+  assert.match(actions, /formData\.get\("expectedUpdatedAt"\)/);
+  assert.match(actions, /expectedUpdatedAt,/);
+  assert.match(portalPage, /expectedUpdatedAt=\{proposal\.updatedAt\}/);
+});
+
+test("the signature statement shows only when signature evidence exists", () => {
+  assert.match(portalPage, /proposal\.signatureDataUrl \?/);
+  assert.match(portalPage, /The signature is recorded with this proposal, together with the portal link it was accepted from\./);
 });
 
 test("portal accept/decline go through the token-scoped portal endpoints, never the staff routes", () => {
@@ -46,4 +61,5 @@ test("the portal proposal type carries the approval record for the accepted/decl
   assert.match(api, /signatureDataUrl\?: string \| null;/);
   assert.match(api, /signedAt\?: string \| null;/);
   assert.match(api, /declinedReason\?: string \| null;/);
+  assert.match(api, /updatedAt\?: string;/);
 });

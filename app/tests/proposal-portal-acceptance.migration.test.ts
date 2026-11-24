@@ -38,7 +38,9 @@ describe("proposal portal acceptance policy migration", () => {
     expect(migration).toContain("create or replace function public.enforce_customer_portal_proposal_response()");
     expect(migration).toContain("Customer portal proposal response may only record the governed accept or decline of the sent proposal");
     expect(migration).toContain("create trigger proposals_customer_portal_response_integrity");
-    expect(migration).toContain("data:image/%");
+    // The trigger requires a real decodable image data URL — a bare
+    // `data:image/` prefix with no payload must not pass.
+    expect(migration).toContain("data:image/(png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$");
   });
 
   it("lets the portal record the response event and activity row for that proposal only", () => {

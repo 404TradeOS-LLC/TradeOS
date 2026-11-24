@@ -12,6 +12,7 @@ import { legacyProposalStatusMap, normalizeEstimateStatus, normalizeProposalStat
 import { clampQueueLimit, decodeUpdatedAtCursor, encodeUpdatedAtCursor, buildUpdatedAtRange, QueuePage } from "../shared/pagination";
 import { expandCanonicalStatusFilter } from "../shared/statusFilter";
 import { CreateProposalAllowanceInput, CreateProposalInput, CreateProposalSelectionInput, ProposalAllowanceDTO, ProposalDTO, ProposalDeliveryDTO, ProposalDraftPreviewDTO, ProposalQueueFilters, ProposalQueueItemDTO, ProposalSelectionDTO, ProposalSelectionStatus, UpdateProposalAllowanceInput, UpdateProposalSelectionInput } from "./types";
+import { isValidSignatureDataUrl } from "./signatureValidation";
 
 
 function canonicalize(value: unknown): unknown {
@@ -691,12 +692,15 @@ export class ProposalsService {
    *
    * Governance, in order: the portal service asserts the proposal belongs
    * to this session's customer (404 otherwise, before any write); the
-   * conditional update requires sent/viewed and the org/customer project
-   * scope; the 20261124150000 migration grants one narrow portal UPDATE
-   * policy keyed by the transaction-local portal proposal id and a trigger
-   * that pins every column except the response itself. A second accept, an
-   * accept of a draft/declined proposal, or a replayed token all fail here
-   * with 409/404 before anything is recorded.
+   * response is bound to the revision the customer reviewed
+   * (expectedUpdatedAt — a staff edit after the page rendered is a 409,
+   * and the conditional update also predicates on it, so the check is
+   * atomic); the conditional update requires sent/viewed and the
+   * org/customer project scope; the 20261124150000 migration grants one
+   * narrow portal UPDATE policy keyed by the transaction-local portal
+   * proposal id and a trigger that pins every column except the response
+   * itself. A second accept, an accept of a draft/declined proposal, or a
+   * replayed token all fail here with 409/404 before anything is recorded.
    *
    * No Athena event is published and no email is sent — this records the
    * customer's own answer, it does not originate a staff action.
@@ -712,6 +716,7 @@ export class ProposalsService {
       signatureDataUrl: string;
       signatureIpReported?: string;
       signatureUserAgentReported?: string;
+      expectedUpdatedAt?: string;
     },
   ): Promise<ProposalDTO> {
     const signerName = input.signerName?.trim() ?? "";
@@ -721,12 +726,10 @@ export class ProposalsService {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.signerEmail ?? "")) {
       throw new ApiError(409, "Customer email is required to attribute a signature");
     }
-    if (
-      !input.signatureDataUrl?.startsWith("data:image/") ||
-      input.signatureDataUrl.length > 2_000_000
-    ) {
+    if (!isValidSignatureDataUrl(input.signatureDataUrl) || input.signatureDataUrl.length > 2_000_000) {
       throw new ApiError(400, "A drawn signature is required to accept this proposal");
     }
+    const expectedUpdatedAt = parseExpectedUpdatedAt(input.expectedUpdatedAt);
 
     const row = await this.findOrThrow(id, input.orgId);
     const currentStatus = normalizeProposalStatus(row.status);
@@ -736,6 +739,7 @@ export class ProposalsService {
     if (row.project.customer?.id !== input.customerId) {
       throw new ApiError(404, `Proposal ${id} not found`);
     }
+    assertReviewedRevision(row, expectedUpdatedAt);
 
     // Portal sessions carry app.role = 'portal_customer', so the staff
     // proposals write policy denies them. The 20261124150000 migration
@@ -756,7 +760,12 @@ export class ProposalsService {
     }
     const now = new Date();
     const updated = await prisma.proposal.updateMany({
-      where: { id, status: currentStatus, project: { orgId: input.orgId, customerId: input.customerId } },
+      where: {
+        id,
+        status: currentStatus,
+        ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt } : {}),
+        project: { orgId: input.orgId, customerId: input.customerId },
+      },
       data: {
         status: "accepted",
         respondedAt: now,
@@ -809,10 +818,11 @@ export class ProposalsService {
    */
   async declineAsPortalCustomer(
     id: string,
-    input: { orgId: string; customerId: string; portalSessionId: string; reason?: string },
+    input: { orgId: string; customerId: string; portalSessionId: string; reason?: string; expectedUpdatedAt?: string },
   ): Promise<ProposalDTO> {
     const reason = input.reason?.trim() ?? "";
     if (reason.length > 500) throw new ApiError(400, "Decline reason must be 500 characters or fewer");
+    const expectedUpdatedAt = parseExpectedUpdatedAt(input.expectedUpdatedAt);
 
     const row = await this.findOrThrow(id, input.orgId);
     const currentStatus = normalizeProposalStatus(row.status);
@@ -822,12 +832,18 @@ export class ProposalsService {
     if (row.project.customer?.id !== input.customerId) {
       throw new ApiError(404, `Proposal ${id} not found`);
     }
+    assertReviewedRevision(row, expectedUpdatedAt);
 
     if (typeof prisma.$queryRaw === "function") {
       await prisma.$queryRaw(Prisma.sql`select set_config('app.portal_proposal_id', ${id}, true)`);
     }
     const updated = await prisma.proposal.updateMany({
-      where: { id, status: currentStatus, project: { orgId: input.orgId, customerId: input.customerId } },
+      where: {
+        id,
+        status: currentStatus,
+        ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt } : {}),
+        project: { orgId: input.orgId, customerId: input.customerId },
+      },
       data: { status: "declined", respondedAt: new Date(), declinedReason: reason || null },
     });
     if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before it could be declined`);
@@ -1178,6 +1194,31 @@ function toQueueItemDTO(row: {
   };
 }
 
+/**
+ * DES-10-F7 (review repair): bind a portal response to the revision the
+ * customer reviewed. The portal page renders the proposal's updatedAt and
+ * the form returns it as expectedUpdatedAt; a staff edit after the page
+ * rendered bumps updatedAt (Prisma @updatedAt), so the response is
+ * rejected with 409 and the customer must review the updated document.
+ * Omitted when the caller cannot send a revision (older clients) — the
+ * status + scope predicates remain the guard then. The conditional update
+ * also predicates on updatedAt, so the check is atomic.
+ */
+function parseExpectedUpdatedAt(value: string | undefined): Date | undefined {
+  if (value === undefined) return undefined;
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    throw new ApiError(400, "expectedUpdatedAt must be a valid date-time");
+  }
+  return parsed;
+}
+
+function assertReviewedRevision(row: { updatedAt: Date }, expectedUpdatedAt: Date | undefined): void {
+  if (expectedUpdatedAt && row.updatedAt.getTime() !== expectedUpdatedAt.getTime()) {
+    throw new ApiError(409, "Proposal changed since it was reviewed — please review the updated proposal before responding");
+  }
+}
+
 function toDTO(row: {
   id: string;
   projectId: string;
@@ -1204,6 +1245,7 @@ function toDTO(row: {
   signedAt: Date | null;
   declinedReason: string | null;
   createdAt: Date;
+  updatedAt: Date;
   deliveries?: Array<{
     id: string;
     proposalId: string;
@@ -1264,6 +1306,7 @@ function toDTO(row: {
     signedAt: row.signedAt ?? null,
     declinedReason: row.declinedReason ?? null,
     createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
     deliveries: (row.deliveries ?? []).map(toDeliveryDTO),
     selections,
     allowances,

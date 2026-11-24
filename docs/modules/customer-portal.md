@@ -77,10 +77,17 @@ approval form (`PortalProposalApprovalForm`): a review confirmation ("I have
 reviewed the scope, allowances, and terms."), the customer's full name, and a
 drawn signature (`SignaturePad`, shared with contract signing). Acceptance
 requires all three — the submit stays disabled until the pad holds ink, and
-the server re-checks every requirement. A separate decline form takes an
-optional reason (≤ 500 chars). Once answered, the page renders the recorded
-response instead of the form (signed by + date, or declined + reason), so a
-refresh cannot re-submit it.
+the server re-checks every requirement: the signature data URL must decode
+to an actual image, not a bare `data:image/` prefix. The form carries the
+rendered revision as a hidden `expectedUpdatedAt` (the proposal's
+`updatedAt`), so a staff edit after the page rendered is a 409 and the
+customer re-reviews before answering; the decline form carries it too. A
+separate decline form takes an optional reason (≤ 500 chars). Once answered,
+the page renders the recorded response instead of the form (signed by +
+date, or declined + reason), so a refresh cannot re-submit it. The accepted
+state states that the signature was recorded only when a signature is
+actually recorded — an older API can return an accepted proposal without the
+signature fields, and that renders a neutral acceptance line instead.
 
 The server path is `acceptPortalProposalAction` /
 `declinePortalProposalAction` (`web/src/app/actions/proposals.ts`) →

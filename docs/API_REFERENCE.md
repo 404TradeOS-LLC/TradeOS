@@ -399,12 +399,16 @@ customer id, and portal session id. The portal principal cannot call staff
 
 DES-10-F7 (2026-11-24, founder decision): the portal also answers proposals.
 `POST /api/v1/customer-portal/proposals/:id/accept` accepts `{ signerName,
-signatureDataUrl, signatureIpReported?, signatureUserAgentReported? }` and
-moves a `sent`/`viewed` proposal to `accepted`; `POST
-/api/v1/customer-portal/proposals/:id/decline` accepts `{ reason? }` (≤ 500
-chars) and moves it to `declined`. The signature must be a drawn image
-(`data:image/...`) — a typed name alone is rejected with `400`. The signer
-email is re-derived from the customer record, never taken from the request.
+signatureDataUrl, signatureIpReported?, signatureUserAgentReported?,
+expectedUpdatedAt? }` and moves a `sent`/`viewed` proposal to `accepted`;
+`POST /api/v1/customer-portal/proposals/:id/decline` accepts `{ reason?,
+expectedUpdatedAt? }` (≤ 500 chars) and moves it to `declined`. The signature
+must be a drawn image that decodes to bytes
+(`data:image/png|jpeg|gif|webp;base64,…`, ≤ 2,000,000 chars) — a bare
+`data:image/` prefix with no payload is rejected with `400`. `expectedUpdatedAt`
+is the proposal's `updatedAt` as rendered; when sent, a staff edit after the
+page rendered is a 409. The signer email is re-derived from the customer
+record, never taken from the request.
 Acceptance records the signer name/email, signature image, reported IP/user
 agent, and `signedAt` on the proposal, awards the owning project
 (`estimating` → `awarded`, staff accept parity), and writes a

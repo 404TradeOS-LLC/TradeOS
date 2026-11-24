@@ -115,7 +115,7 @@ begin
         or new.signer_email is null
         or btrim(new.signer_email) = ''
         or new.signature_data_url is null
-        or new.signature_data_url not like 'data:image/%'
+        or new.signature_data_url !~ '^data:image/(png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$'
         or new.signed_at is null
         or new.declined_reason is not null
       ))

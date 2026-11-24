@@ -179,6 +179,67 @@ describe("ProposalsService portal acceptance (DES-10-F7)", () => {
       expect(mockPrisma.proposal.updateMany).not.toHaveBeenCalled();
     });
 
+    it("rejects a signature data URL with no decodable image", async () => {
+      mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("sent"));
+      const service = new ProposalsService();
+
+      for (const signatureDataUrl of [
+        "data:image/",
+        "data:image/png;base64,",
+        "data:image/png;base64,!!!",
+        "data:image/svg+xml;base64,PHN2Zz4=",
+        "data:image/png;base64,A",
+      ]) {
+        await expect(
+          service.acceptAsPortalCustomer("proposal-1", { ...acceptInput, signatureDataUrl })
+        ).rejects.toMatchObject({ statusCode: 400 });
+      }
+      expect(mockPrisma.proposal.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("rejects an accept of a revision the customer did not review", async () => {
+      mockPrisma.proposal.findFirst.mockResolvedValue(
+        proposalRow("sent", { updatedAt: new Date("2026-11-24T12:00:00.000Z") })
+      );
+      const service = new ProposalsService();
+
+      await expect(
+        service.acceptAsPortalCustomer("proposal-1", { ...acceptInput, expectedUpdatedAt: "2026-11-24T11:00:00.000Z" })
+      ).rejects.toMatchObject({ statusCode: 409 });
+      expect(mockPrisma.proposal.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("accepts when the reviewed revision matches and predicates the write on it", async () => {
+      mockPrisma.proposal.findFirst
+        .mockResolvedValueOnce(proposalRow("sent", { updatedAt: new Date("2026-11-24T12:00:00.000Z") }))
+        .mockResolvedValueOnce(
+          proposalRow("accepted", { updatedAt: new Date("2026-11-24T12:00:00.000Z"), respondedAt: new Date(), signerName: "Sarah Johnson", signedAt: new Date() })
+        );
+      const service = new ProposalsService();
+
+      const result = await service.acceptAsPortalCustomer("proposal-1", {
+        ...acceptInput,
+        expectedUpdatedAt: "2026-11-24T12:00:00.000Z",
+      });
+
+      expect(result.status).toBe("accepted");
+      expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ updatedAt: new Date("2026-11-24T12:00:00.000Z") }),
+        })
+      );
+    });
+
+    it("rejects an unparseable expectedUpdatedAt", async () => {
+      mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("sent"));
+      const service = new ProposalsService();
+
+      await expect(
+        service.acceptAsPortalCustomer("proposal-1", { ...acceptInput, expectedUpdatedAt: "not-a-date" })
+      ).rejects.toMatchObject({ statusCode: 400 });
+      expect(mockPrisma.proposal.updateMany).not.toHaveBeenCalled();
+    });
+
     it("rejects an empty signer name", async () => {
       mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("sent"));
       const service = new ProposalsService();
@@ -270,6 +331,18 @@ describe("ProposalsService portal acceptance (DES-10-F7)", () => {
       const service = new ProposalsService();
 
       await expect(service.declineAsPortalCustomer("proposal-1", declineInput)).rejects.toMatchObject({ statusCode: 409 });
+      expect(mockPrisma.proposal.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("rejects a decline of a revision the customer did not review", async () => {
+      mockPrisma.proposal.findFirst.mockResolvedValue(
+        proposalRow("sent", { updatedAt: new Date("2026-11-24T12:00:00.000Z") })
+      );
+      const service = new ProposalsService();
+
+      await expect(
+        service.declineAsPortalCustomer("proposal-1", { ...declineInput, expectedUpdatedAt: "2026-11-24T11:00:00.000Z" })
+      ).rejects.toMatchObject({ statusCode: 409 });
       expect(mockPrisma.proposal.updateMany).not.toHaveBeenCalled();
     });
 

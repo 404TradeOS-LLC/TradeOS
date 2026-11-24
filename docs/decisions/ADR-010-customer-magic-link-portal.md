@@ -68,12 +68,19 @@ governed proposal response:
   `declined`, with an optional reason (≤ 500 chars) recorded in the audit
   event.
 
-The identity model is unchanged: the same magic-link principal, the same
-single-proposal token scoping (the service asserts the proposal belongs to
-the session's customer before any write; a dedicated RLS policy keyed by
-the transaction-local `app.portal_proposal_id` plus a trigger pinning every
-column except the response itself is the second layer), and no staff role
-or staff-wide write helper for the portal. The portal displays what the
+The identity model is unchanged: the same organization/customer-scoped
+magic-link principal (the service asserts the proposal belongs to the
+session's customer before any write; the single-proposal scope is
+transaction-local — a dedicated RLS policy keyed by
+`app.portal_proposal_id` plus a trigger pinning every column except the
+response itself is the second layer), and no staff role or staff-wide write
+helper for the portal. The signature must decode to an actual image (a
+bare `data:image/` prefix with no payload is rejected at the HTTP boundary,
+in the service, and by the trigger). Both responses take an optional
+`expectedUpdatedAt` binding the answer to the revision the customer
+reviewed — a staff edit after the page rendered is a 409. An error
+response rolls the portal transaction back rather than committing a
+half-recorded response. The portal displays what the
 proposal already says — scope, prices, and terms cannot be rewritten from
 the portal. Acceptance also awards the owning project (`estimating` →
 `awarded`, staff accept parity, under its own narrow policy); declining

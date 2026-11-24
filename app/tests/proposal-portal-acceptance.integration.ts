@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
+import { prisma } from "../db/client";
 import { runWithDatabaseSession, runWithPortalDatabaseSession } from "../db/requestSession";
 import {
   CustomerPortalService,
@@ -64,12 +65,13 @@ const proposalDouble = randomUUID();
 const proposalSiblingA = randomUUID();
 const proposalB = randomUUID();
 const proposalNoEmail = randomUUID();
+const proposalStale = randomUUID();
 const farFuture = new Date("2099-01-01T00:00:00.000Z");
 
 const staffAuth = { userId: staffUser, orgId: orgA, role: "admin" as const };
 const customerIds = [customerA, customerSiblingA, customerB, customerNoEmail];
 const projectIds = [projectA1, projectA2, projectSiblingA, projectB, projectNoEmail];
-const proposalIds = [proposalAccept, proposalDecline, proposalDraft, proposalDouble, proposalSiblingA, proposalB, proposalNoEmail];
+const proposalIds = [proposalAccept, proposalDecline, proposalDraft, proposalDouble, proposalSiblingA, proposalB, proposalNoEmail, proposalStale];
 
 const SIGNATURE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==";
 
@@ -113,6 +115,7 @@ describe("DES-10-F7 portal proposal approval + signature (live PostgreSQL)", () 
         { id: proposalSiblingA, projectId: projectSiblingA, status: "sent", scopeOfWork: "Sibling scope", finalPrice: 200 },
         { id: proposalB, projectId: projectB, status: "sent", scopeOfWork: "Other org scope", finalPrice: 300 },
         { id: proposalNoEmail, projectId: projectNoEmail, status: "sent", scopeOfWork: "No email scope", finalPrice: 400 },
+        { id: proposalStale, projectId: projectA1, status: "sent", scopeOfWork: "Stale revision scope", finalPrice: 600 },
       ],
     });
   });
@@ -247,6 +250,50 @@ describe("DES-10-F7 portal proposal approval + signature (live PostgreSQL)", () 
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
+  it("a signature data URL with no decodable image is rejected before any write", async () => {
+    const context = await portalContextFor(customerA);
+    for (const signatureDataUrl of ["data:image/", "data:image/png;base64,", "data:image/png;base64,!!!"]) {
+      await expect(
+        inPortalSession(context, () =>
+          service.acceptProposal(context.session, proposalStale, {
+            signerName: "F7 Customer A",
+            signatureDataUrl,
+          }),
+        ),
+      ).rejects.toMatchObject({ statusCode: 400 });
+    }
+    expect((await admin.proposal.findUniqueOrThrow({ where: { id: proposalStale } })).status).toBe("sent");
+  });
+
+  it("an accept of a stale revision is rejected with 409 and leaves the proposal sent", async () => {
+    const context = await portalContextFor(customerA);
+    const current = await admin.proposal.findUniqueOrThrow({ where: { id: proposalStale } });
+    const stale = new Date(current.updatedAt.getTime() - 60_000).toISOString();
+    await expect(
+      inPortalSession(context, () =>
+        service.acceptProposal(context.session, proposalStale, {
+          signerName: "F7 Customer A",
+          signatureDataUrl: SIGNATURE,
+          expectedUpdatedAt: stale,
+        }),
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect((await admin.proposal.findUniqueOrThrow({ where: { id: proposalStale } })).status).toBe("sent");
+  });
+
+  it("an accept of the current revision succeeds", async () => {
+    const context = await portalContextFor(customerA);
+    const current = await admin.proposal.findUniqueOrThrow({ where: { id: proposalStale } });
+    const accepted = await inPortalSession(context, () =>
+      service.acceptProposal(context.session, proposalStale, {
+        signerName: "F7 Customer A",
+        signatureDataUrl: SIGNATURE,
+        expectedUpdatedAt: current.updatedAt.toISOString(),
+      }),
+    );
+    expect(accepted.status).toBe("accepted");
+  });
+
   it("accepting or declining a draft proposal returns 404 and leaves it a draft", async () => {
     const context = await portalContextFor(customerA);
     await expect(
@@ -303,11 +350,21 @@ describe("DES-10-F7 portal proposal approval + signature (live PostgreSQL)", () 
     // in the same portal session must affect zero rows.
     await expect(
       inPortalSession(context, async () => {
-        const rows = await app.$queryRaw<Array<{ id: string }>>`
+        // The probe must run through the request-scoped `prisma` proxy:
+        // a plain client has no ALS transaction, so its raw calls would
+        // run with no portal context at all and a zero-row result would
+        // prove nothing about the policy. Assert the context first.
+        const rows = await prisma.$queryRaw<Array<{ set_config: string }>>`
           select set_config('app.portal_proposal_id', ${proposalAccept}, true)
         `;
         expect(rows).toBeDefined();
-        const updated = await app.$executeRaw`
+        const settings = await prisma.$queryRaw<Array<{ role: string; proposal_id: string }>>`
+          select current_setting('app.role') as role, current_setting('app.portal_proposal_id') as proposal_id
+        `;
+        expect(settings).toHaveLength(1);
+        expect(settings[0].role).toBe("portal_customer");
+        expect(settings[0].proposal_id).toBe(proposalAccept);
+        const updated = await prisma.$executeRaw`
           update public.proposals
           set status = 'accepted', responded_at = now()
           where id = ${proposalSiblingA}::uuid
