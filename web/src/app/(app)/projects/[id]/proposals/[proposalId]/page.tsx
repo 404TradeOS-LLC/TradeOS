@@ -4,6 +4,7 @@ import { ConnectionLine } from "@/components/motion/connection-line";
 import { ProposalContextPanel } from "@/components/proposals/proposal-context-panel";
 import { ProposalLifecyclePanel } from "@/components/proposals/proposal-lifecycle-panel";
 import { ProposalReviewForm } from "@/components/proposals/proposal-review-form";
+import { ProposalSelectionsAllowances } from "@/components/proposals/proposal-selections-allowances";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { SummaryMetricCard } from "@/components/shared/summary-metric-card";
@@ -32,14 +33,18 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
       />
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <Card className="border-border/70">
-          <CardHeader>
-            <CardTitle>Draft editor</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ProposalReviewForm projectId={projectId} proposal={proposal} />
-          </CardContent>
-        </Card>
+        <div className="grid gap-6">
+          <Card className="border-border/70">
+            <CardHeader>
+              <CardTitle>Draft editor</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ProposalReviewForm projectId={projectId} proposal={proposal} />
+            </CardContent>
+          </Card>
+
+          <ProposalSelectionsAllowances projectId={projectId} proposal={proposal} />
+        </div>
 
         <div className="grid gap-6">
           <Card className="border-border/70 bg-muted/10">

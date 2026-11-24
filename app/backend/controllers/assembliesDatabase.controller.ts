@@ -15,7 +15,12 @@ const createSchema = z.object({
   isTemplate: z.boolean().optional(),
 }).strict();
 
-const updateSchema = createSchema.partial().extend({ isActive: z.boolean().optional() }).refine(
+const updateSchema = createSchema.partial().extend({
+  isActive: z.boolean().optional(),
+  // DEV-17 S10: number sets, null clears, omitted leaves unchanged.
+  wasteOverridePct: z.number().finite().min(0).max(100).nullable().optional(),
+  productionRateFactor: z.number().finite().positive().max(10).nullable().optional(),
+}).refine(
   (value) => Object.keys(value).length > 0,
   { message: "At least one assembly field is required" }
 );
@@ -40,6 +45,16 @@ const installCatalogSchema = z.object({
     componentKey: z.string().trim().min(1).max(100),
     costItemId: z.guid(),
   }).strict()).min(1).max(50),
+  // DEV-17 S10 install overrides (optional; omitted = recipe defaults).
+  // Waste is an absolute percentage (0-100); the production override is a
+  // dimensionless factor on the mapped CostItem's rate (>0, at most 10x).
+  wasteOverridePct: z.number().finite().min(0).max(100).optional(),
+  productionRateFactor: z.number().finite().positive().max(10).optional(),
+}).strict();
+
+// DEV-17 S9: reuse a previous install's mapping for another template.
+const mappingSuggestionsQuerySchema = z.object({
+  sourceAssemblyId: z.guid(),
 }).strict();
 
 export const assembliesDatabaseController = {
@@ -51,6 +66,15 @@ export const assembliesDatabaseController = {
     requirePermissions(req, ["costbook.write"]);
     const body = installCatalogSchema.parse(req.body);
     res.status(201).json(await service.installStarterCatalogAssembly({ ...body, orgId: requireOrgId(req) }));
+  },
+  async mappingSuggestions(req: Request, res: Response) {
+    requirePermissions(req, ["costbook.read"]);
+    const query = mappingSuggestionsQuerySchema.parse(req.query);
+    res.json(await service.suggestCatalogMappingReuse({
+      templateId: req.params.templateId,
+      sourceAssemblyId: query.sourceAssemblyId,
+      orgId: requireOrgId(req),
+    }));
   },
   async list(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);

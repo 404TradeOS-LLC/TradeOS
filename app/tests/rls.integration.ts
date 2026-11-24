@@ -9,6 +9,13 @@ import {
 } from "../db/requestSession";
 import { resolveAuthContext } from "../backend/auth/session";
 import type { SupportedRole } from "../domain";
+import type { AuthContext } from "../backend/auth/context";
+import {
+  approveCodeSource,
+  getCodeSource,
+  ingestOfficialCodeSource,
+} from "../modules/costbook/codes/ingestion";
+import { PrismaCodesSourceStore } from "../modules/costbook/codes/store";
 import { OrganizationProvisioningService } from "../modules/organization-provisioning/service";
 import { MaterialDatabaseService } from "../modules/material-database/service";
 import { SupplierIntegrationService } from "../modules/supplier-integration/service";
@@ -24,6 +31,7 @@ import { InvoicesService } from "../modules/invoices/service";
 import { CrmService } from "../modules/crm/service";
 import { ContractsService } from "../modules/contracts/service";
 import { ProjectTasksService } from "../modules/project-tasks/service";
+import { CodesPermitTasksService } from "../modules/costbook/codes/permitTasks.service";
 import { JobsService } from "../modules/jobs/service";
 import { JobExpensesService } from "../modules/expenses/service";
 import { AuthService } from "../modules/auth/service";
@@ -1264,6 +1272,226 @@ describe("live organization row-level security", () => {
     ).rejects.toThrow();
   });
 
+  it("enforces codes permit task and fee review isolation, role gates, and fee no-op", async () => {
+    const taskId = randomUUID();
+    const otherTaskId = randomUUID();
+    const feeId = randomUUID();
+    const before = await adminClient.estimate.findUniqueOrThrow({
+      where: { id: estimateA },
+      select: { subtotalCost: true, totalPrice: true },
+    });
+    await adminClient.codesPermitTask.createMany({
+      data: [
+        { id: taskId, orgId: orgA, projectId: projectA, taskKind: "permit", title: "File county sign permit", permitStatus: "not_submitted", assigneeId: technicianUser },
+        { id: otherTaskId, orgId: orgA, projectId: projectA, taskKind: "inspection", title: "Unassigned inspection", permitStatus: "not_submitted" },
+      ],
+    });
+    await adminClient.codesFeeReview.create({
+      data: { id: feeId, orgId: orgA, projectId: projectA, estimateId: estimateA, feeCents: 12500, feeSource: "quoted", currency: "USD", status: "pending" },
+    });
+    try {
+      // Own-org reads see the rows; the other tenant sees nothing.
+      const visible = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesPermitTask.findUnique({ where: { id: taskId } }),
+      );
+      expect(visible?.id).toBe(taskId);
+      const hiddenTask = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().codesPermitTask.findUnique({ where: { id: taskId } }),
+      );
+      expect(hiddenTask).toBeNull();
+      const hiddenFee = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().codesFeeReview.findUnique({ where: { id: feeId } }),
+      );
+      expect(hiddenFee).toBeNull();
+
+      // Cross-org writes are refused by RLS even with a matching org_id claim.
+      await expect(
+        inSession(otherUser, orgB, "owner", async () =>
+          currentTransaction().codesPermitTask.create({
+            data: { orgId: orgA, projectId: projectA, taskKind: "permit", title: "Cross-org task", permitStatus: "not_submitted" },
+          }),
+        ),
+      ).rejects.toThrow();
+
+      // Role narrowing is the service's job: a technician lists only tasks
+      // assigned to them, even though RLS select is org-scoped.
+      const techTasks = await inSession(technicianUser, orgA, "technician", async () =>
+        new CodesPermitTasksService(currentTransaction() as unknown as typeof appClient).list(orgA, "technician", technicianUser, projectA),
+      );
+      expect(techTasks.map((row) => row.id)).toEqual([taskId]);
+
+      // The assigned technician may update their own task's explicit status.
+      const techUpdated = await inSession(technicianUser, orgA, "technician", async () =>
+        currentTransaction().codesPermitTask.update({ where: { id: taskId }, data: { permitStatus: "inspection_scheduled" } }),
+      );
+      expect(techUpdated.permitStatus).toBe("inspection_scheduled");
+      // …but not a task assigned to someone else (or no one).
+      await expect(
+        inSession(technicianUser, orgA, "technician", async () =>
+          currentTransaction().codesPermitTask.update({ where: { id: otherTaskId }, data: { permitStatus: "approved" } }),
+        ),
+      ).rejects.toThrow();
+      // Viewers may not create permit tasks.
+      await expect(
+        inSession(viewerUser, orgA, "viewer", async () =>
+          currentTransaction().codesPermitTask.create({
+            data: { orgId: orgA, projectId: projectA, taskKind: "permit", title: "Viewer task", permitStatus: "not_submitted" },
+          }),
+        ),
+      ).rejects.toThrow();
+
+      // Fee-review writes are owner/admin only.
+      await expect(
+        inSession(technicianUser, orgA, "technician", async () =>
+          currentTransaction().codesFeeReview.update({ where: { id: feeId }, data: { status: "approved" } }),
+        ),
+      ).rejects.toThrow();
+      const approved = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesFeeReview.update({
+          where: { id: feeId },
+          data: { status: "approved", reviewedBy: adminUser, reviewedAt: new Date() },
+        }),
+      );
+      expect(approved.status).toBe("approved");
+
+      // Financial no-op: approving the fee changed no estimate total.
+      const after = await adminClient.estimate.findUniqueOrThrow({
+        where: { id: estimateA },
+        select: { subtotalCost: true, totalPrice: true },
+      });
+      expect(after.subtotalCost.toString()).toBe(before.subtotalCost.toString());
+      expect(after.totalPrice.toString()).toBe(before.totalPrice.toString());
+    } finally {
+      await adminClient.codesFeeReview.deleteMany({ where: { id: feeId } });
+      await adminClient.codesPermitTask.deleteMany({ where: { id: { in: [taskId, otherTaskId] } } });
+    }
+  });
+
+  it("rejects dispatcher writes, dispatcher-as-assignee updates, and cross-org parent references on permit tasks and fee reviews", async () => {
+    const dispatcherUser = randomUUID();
+    const dispatcherMembership = randomUUID();
+    const assessmentA = randomUUID();
+    const assessmentB = randomUUID();
+    const dispatcherTaskId = randomUUID();
+    const plainTaskId = randomUUID();
+    const feeId = randomUUID();
+    await adminClient.appUser.create({
+      data: { id: dispatcherUser, authSubject: "rls-dispatcher", email: "rls-dispatcher@example.com" },
+    });
+    await adminClient.organizationMembership.create({
+      data: { id: dispatcherMembership, orgId: orgA, userId: dispatcherUser, role: "dispatcher", status: "active" },
+    });
+    await adminClient.codesJobAssessment.createMany({
+      data: [
+        { id: assessmentA, orgId: orgA, projectId: projectA, estimateId: estimateA, workType: "sign replacement", status: "needs_review", citations: [], unknowns: [], createdBy: adminUser },
+        { id: assessmentB, orgId: orgB, projectId: projectB, workType: "sign replacement", status: "needs_review", citations: [], unknowns: [], createdBy: otherUser },
+      ],
+    });
+    await adminClient.codesPermitTask.createMany({
+      data: [
+        { id: dispatcherTaskId, orgId: orgA, projectId: projectA, taskKind: "permit", title: "Dispatcher-assigned task", permitStatus: "not_submitted", assigneeId: dispatcherUser },
+        { id: plainTaskId, orgId: orgA, projectId: projectA, taskKind: "inspection", title: "Plain inspection task", permitStatus: "not_submitted" },
+      ],
+    });
+    await adminClient.codesFeeReview.create({
+      data: { id: feeId, orgId: orgA, projectId: projectA, estimateId: estimateA, feeCents: 1000, feeSource: "quoted", currency: "USD", status: "pending" },
+    });
+    try {
+      // Dispatcher writes are rejected on both tables: the admin branches
+      // require owner/admin explicitly, not current_app_can_administer().
+      await expect(
+        inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().codesPermitTask.create({
+            data: { orgId: orgA, projectId: projectA, taskKind: "permit", title: "Dispatcher task", permitStatus: "not_submitted" },
+          }),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().codesPermitTask.delete({ where: { id: plainTaskId } }),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().codesFeeReview.create({
+            data: { orgId: orgA, projectId: projectA, feeCents: 1000, feeSource: "quoted", currency: "USD", status: "pending" },
+          }),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().codesFeeReview.update({ where: { id: feeId }, data: { status: "approved" } }),
+        ),
+      ).rejects.toThrow();
+
+      // A dispatcher assigned to a task still cannot update it: the
+      // assignee exception requires the technician role as well as the
+      // matching assignee id.
+      await expect(
+        inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().codesPermitTask.update({ where: { id: dispatcherTaskId }, data: { permitStatus: "under_review" } }),
+        ),
+      ).rejects.toThrow();
+      const untouched = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesPermitTask.findUnique({ where: { id: dispatcherTaskId } }),
+      );
+      expect(untouched?.permitStatus).toBe("not_submitted");
+
+      // Cross-org parent references are refused even with a matching
+      // org_id claim: project, assessment, and (for fee reviews) estimate.
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().codesPermitTask.create({
+            data: { orgId: orgA, projectId: projectB, taskKind: "permit", title: "Cross-org project task", permitStatus: "not_submitted" },
+          }),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().codesPermitTask.create({
+            data: { orgId: orgA, projectId: projectA, assessmentId: assessmentB, taskKind: "permit", title: "Cross-org assessment task", permitStatus: "not_submitted" },
+          }),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().codesFeeReview.create({
+            data: { orgId: orgA, projectId: projectB, feeCents: 1000, feeSource: "quoted", currency: "USD", status: "pending" },
+          }),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().codesFeeReview.create({
+            data: { orgId: orgA, projectId: projectA, assessmentId: assessmentB, feeCents: 1000, feeSource: "quoted", currency: "USD", status: "pending" },
+          }),
+        ),
+      ).rejects.toThrow();
+
+      // Valid same-org associations still work for owner/admin.
+      const sameOrgTask = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesPermitTask.create({
+          data: { orgId: orgA, projectId: projectA, assessmentId: assessmentA, assigneeId: technicianUser, taskKind: "permit", title: "Same-org task", permitStatus: "not_submitted" },
+        }),
+      );
+      expect(sameOrgTask.assessmentId).toBe(assessmentA);
+      const sameOrgFee = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesFeeReview.create({
+          data: { orgId: orgA, projectId: projectA, estimateId: estimateA, assessmentId: assessmentA, feeCents: 1000, feeSource: "quoted", currency: "USD", status: "pending" },
+        }),
+      );
+      expect(sameOrgFee.assessmentId).toBe(assessmentA);
+      await adminClient.codesFeeReview.delete({ where: { id: sameOrgFee.id } });
+      await adminClient.codesPermitTask.delete({ where: { id: sameOrgTask.id } });
+    } finally {
+      await adminClient.codesFeeReview.deleteMany({ where: { id: feeId } });
+      await adminClient.codesPermitTask.deleteMany({ where: { id: { in: [dispatcherTaskId, plainTaskId] } } });
+      await adminClient.codesJobAssessment.deleteMany({ where: { id: { in: [assessmentA, assessmentB] } } });
+      await adminClient.organizationMembership.deleteMany({ where: { id: dispatcherMembership } });
+      await adminClient.appUser.deleteMany({ where: { id: dispatcherUser } });
+    }
+  });
+
   it("serializes concurrent task revisions without losing a saved update or tenant isolation", async () => {
     const task = await adminClient.projectTask.create({ data: { projectId: projectA, title: "Guarded concurrent task", status: "todo", priority: "high" } });
     const revision = task.updatedAt;
@@ -1714,6 +1942,11 @@ describe("live organization row-level security", () => {
       currentTransaction().activityEvent.findUnique({ where: { id: activityEventA } })
     );
     expect(visibleActivity?.orgId).toBe(orgA);
+
+    const hiddenActivity = await inSession(otherUser, orgB, "owner", async () =>
+      currentTransaction().activityEvent.findUnique({ where: { id: activityEventA } })
+    );
+    expect(hiddenActivity).toBeNull();
 
     const hiddenNotification = await inSession(otherUser, orgB, "owner", async () =>
       currentTransaction().notification.findUnique({ where: { id: notificationA } })
@@ -2970,6 +3203,1126 @@ describe("live organization row-level security", () => {
       expect(signed.event.actorUserId).toBeNull();
       expect(signed.event.metadataJson).toMatchObject({ actorType: "customer_portal", customerId: customerA });
       expect(signed.activity.actorUserId).toBeNull();
+    });
+
+    // DES-7 (c): portal mark-viewed is the second customer-originated
+    // write. The portal session carries app.role = 'portal_customer', so
+    // the staff write policies deny it; the 20261123120100 migration grants
+    // one narrowly scoped portal UPDATE policy + trigger keyed by the
+    // transaction-local app.portal_invoice_id.
+    it("lets a portal session record the first view of its own sent invoice, and nothing else", async () => {
+      const invoice = await inSession(adminUser, orgA, "admin", async () =>
+        new InvoicesService().create({
+          orgId: orgA,
+          projectId: projectA,
+          actorUserId: adminUser,
+          actorRole: "admin",
+          lineItems: [{ description: "Portal view fixture", quantity: 1, unitOfMeasure: "EA", unitPrice: 250 }],
+        })
+      );
+      const sent = await inSession(adminUser, orgA, "admin", async () => new InvoicesService().send(invoice.id, orgA, adminUser, "admin"));
+      expect(sent.status).toBe("sent");
+
+      const portalContext = (accessTokenId: string, orgId: string, customerId: string) => ({
+        sessionId: portalSessionId,
+        accessTokenId,
+        orgId,
+        customerId,
+      });
+
+      // A portal session for another tenant cannot even see the invoice.
+      await expect(
+        runWithPortalDatabaseSession(
+          appClient,
+          portalContext("10000000-0000-0000-0000-000000000306", orgB, customerB),
+          async () => new InvoicesService().markViewed(invoice.id, orgB)
+        )
+      ).rejects.toMatchObject({ statusCode: 404 });
+
+      // The owning customer's portal session marks it viewed exactly once.
+      const viewed = await runWithPortalDatabaseSession(
+        appClient,
+        portalContext("10000000-0000-0000-0000-000000000307", orgA, customerA),
+        async () => new InvoicesService().markViewed(invoice.id, orgA)
+      );
+      expect(viewed.status).toBe("viewed");
+      expect(viewed.viewedAt).not.toBeNull();
+
+      const deliveries = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().invoiceDelivery.findMany({ where: { invoiceId: invoice.id }, orderBy: { occurredAt: "desc" } })
+      );
+      const viewedEvents = deliveries.filter((delivery) => delivery.eventType === "invoice.viewed");
+      expect(viewedEvents).toHaveLength(1);
+      expect(viewedEvents[0]?.deliveryChannel).toBe("portal");
+      expect(viewedEvents[0]?.actorUserId).toBeNull();
+
+      // A repeat view writes nothing new.
+      const again = await runWithPortalDatabaseSession(
+        appClient,
+        portalContext("10000000-0000-0000-0000-000000000308", orgA, customerA),
+        async () => new InvoicesService().markViewed(invoice.id, orgA)
+      );
+      expect(again.status).toBe("viewed");
+      const deliveriesAfter = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().invoiceDelivery.findMany({ where: { invoiceId: invoice.id, eventType: "invoice.viewed" } })
+      );
+      expect(deliveriesAfter).toHaveLength(1);
+
+      // A portal session cannot rewrite the invoice: the trigger rejects
+      // anything beyond recording the first view.
+      await expect(
+        runWithPortalDatabaseSession(
+          appClient,
+          portalContext("10000000-0000-0000-0000-000000000309", orgA, customerA),
+          async () => {
+            await currentTransaction().$queryRaw(Prisma.sql`select set_config('app.portal_invoice_id', ${invoice.id}, true)`);
+            return currentTransaction().invoice.updateMany({ where: { id: invoice.id }, data: { amount: 1 } });
+          }
+        )
+      ).rejects.toThrow("Customer portal viewing may only record the first view");
+    });
+  });
+
+  describe("codes_job_assessment row-level security", () => {
+    const assessmentA = "10000000-0000-0000-0000-000000000131";
+
+    beforeAll(async () => {
+      await adminClient.codesJobAssessment.create({
+        data: {
+          id: assessmentA,
+          orgId: orgA,
+          projectId: projectA,
+          estimateId: estimateA,
+          workType: "sign replacement",
+          status: "needs_review",
+          citations: [{ source_id: "vigo-zoning-signs", rationale: "County sign rules must be confirmed." }],
+          unknowns: ["Confirm the zoning district."],
+          createdBy: adminUser,
+        },
+      });
+    });
+
+    it("shows an assessment only to its own org, never across tenants", async () => {
+      const visible = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesJobAssessment.findUnique({ where: { id: assessmentA } }),
+      );
+      expect(visible?.orgId).toBe(orgA);
+      expect(visible?.projectId).toBe(projectA);
+
+      const hiddenCrossOrg = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().codesJobAssessment.findUnique({ where: { id: assessmentA } }),
+      );
+      expect(hiddenCrossOrg).toBeNull();
+    });
+
+    it("allows a same-org insert for the org's own project and estimate", async () => {
+      const inserted = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesJobAssessment.create({
+          data: {
+            id: randomUUID(),
+            orgId: orgA,
+            projectId: projectA,
+            estimateId: estimateA,
+            workType: "electrical run",
+            status: "needs_review",
+            citations: [],
+            unknowns: ["Confirm the authorized connection."],
+            createdBy: adminUser,
+          },
+        }),
+      );
+      expect(inserted.orgId).toBe(orgA);
+      expect(inserted.projectId).toBe(projectA);
+    });
+
+    it("refuses a cross-tenant insert for another org's project", async () => {
+      await expect(
+        inSession(otherUser, orgB, "owner", async () =>
+          currentTransaction().codesJobAssessment.create({
+            data: {
+              id: randomUUID(),
+              orgId: orgB,
+              projectId: projectA,
+              estimateId: estimateA,
+              workType: "sign replacement",
+              status: "needs_review",
+              citations: [],
+              unknowns: [],
+              createdBy: otherUser,
+            },
+          }),
+        ),
+      ).rejects.toThrow();
+    });
+
+    it("refuses an insert that spoofs another org's id from inside a session", async () => {
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().codesJobAssessment.create({
+            data: {
+              id: randomUUID(),
+              orgId: orgB,
+              projectId: projectA,
+              workType: "sign replacement",
+              status: "needs_review",
+              citations: [],
+              unknowns: [],
+              createdBy: adminUser,
+            },
+          }),
+        ),
+      ).rejects.toThrow();
+    });
+
+    it("refuses an insert whose estimate does not belong to the project", async () => {
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().codesJobAssessment.create({
+            data: {
+              id: randomUUID(),
+              orgId: orgA,
+              projectId: projectA,
+              estimateId: randomUUID(),
+              workType: "sign replacement",
+              status: "needs_review",
+              citations: [],
+              unknowns: [],
+              createdBy: adminUser,
+            },
+          }),
+        ),
+      ).rejects.toThrow();
+    });
+
+    it("refuses cross-tenant updates and deletes (zero rows affected)", async () => {
+      const updated = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().codesJobAssessment.updateMany({
+          where: { id: assessmentA },
+          data: { status: "owner_approved", ownerSignoff: true },
+        }),
+      );
+      expect(updated.count).toBe(0);
+
+      const deleted = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().codesJobAssessment.deleteMany({ where: { id: assessmentA } }),
+      );
+      expect(deleted.count).toBe(0);
+
+      const intact = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesJobAssessment.findUnique({ where: { id: assessmentA } }),
+      );
+      expect(intact?.status).toBe("needs_review");
+      expect(intact?.ownerSignoff).toBe(false);
+    });
+
+    it("refuses a same-org update that re-points the assessment at another org's project", async () => {
+      // The update policy WITH CHECK enforces the same parent-reference
+      // invariant as the insert policy: project_id must belong to the
+      // session org. Re-pointing at org B's project must fail outright.
+      await expect(
+        inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().codesJobAssessment.updateMany({
+            where: { id: assessmentA },
+            data: { projectId: projectB },
+          }),
+        ),
+      ).rejects.toThrow();
+
+      const intact = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesJobAssessment.findUnique({ where: { id: assessmentA } }),
+      );
+      expect(intact?.projectId).toBe(projectA);
+      expect(intact?.status).toBe("needs_review");
+    });
+
+    it("allows a same-org update that keeps the assessment on its own project", async () => {
+      // Guards the new WITH CHECK against breaking legitimate updates:
+      // the sign-off path updates status/signoff on the same row.
+      const updated = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesJobAssessment.updateMany({
+          where: { id: assessmentA },
+          data: { unknowns: ["Confirm the zoning district.", "Confirm the permit office."] },
+        }),
+      );
+      expect(updated.count).toBe(1);
+
+      const row = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesJobAssessment.findUnique({ where: { id: assessmentA } }),
+      );
+      expect(row?.unknowns).toHaveLength(2);
+      await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().codesJobAssessment.updateMany({
+          where: { id: assessmentA },
+          data: { unknowns: ["Confirm the zoning district."] },
+        }),
+      );
+    });
+  });
+  describe("codes_source governed ingestion RLS (issue #946, TODO 3)", () => {
+    // Depends on TODO 2's tables (codes_source, codes_source_history) and
+    // its seed rows (PR #960, `feat/codes-permits-registry-946`, head
+    // 9cdea60d). Jurisdiction/authority ids below are TODO 2's FIXED seed
+    // UUIDs, so no seeder is needed: the migration inserts them
+    // idempotently (ON CONFLICT DO NOTHING).
+    //   INDOT authority  94600001-0000-4000-8000-000000000003
+    //   Indiana (INDOT) jurisdiction 94600002-0000-4000-8000-000000000003
+    //
+    // Uniqueness note (#960): (authority_id, code_family, citation,
+    // version_label) is UNIQUE, so every seeded/ingested row in this block
+    // uses a DISTINCT citation — two rows for one citation would collide
+    // even on different URLs.
+    const codesStore = new PrismaCodesSourceStore();
+    const codesJurisdictionId = "94600002-0000-4000-8000-000000000003";
+    const codesAuthorityId = "94600001-0000-4000-8000-000000000003";
+    // Deliberately distinct from every URL seeded by the other tests in
+    // this block: the ingest test expects its first version to be `v1`,
+    // which only holds when no earlier version exists for the same citation.
+    const codesSourceUrl = "https://www.in.gov/indot/permits/governed-ingest-test/";
+    const codesAdminAuth: AuthContext = { userId: adminUser, orgId: orgA, role: "admin" };
+    const codesOtherAuth: AuthContext = { userId: otherUser, orgId: orgB, role: "owner" };
+    const codesTechnicianAuth: AuthContext = { userId: technicianUser, orgId: orgA, role: "technician" };
+
+    // The integration suites share one disposable database and run in
+    // band with rls.integration.ts first, so rows this block inserts are
+    // visible to later suites: the registry suite counts statewide
+    // reviewed rows and total codes_source rows. Remove exactly the rows
+    // this block created (distinct citations, history first — its
+    // source_id FK is Restrict), restoring the shared DB to seed state.
+    // ActivityEvents are org-scoped audit rows on another table and go
+    // away with the outer afterAll's org cleanup.
+    const codesFixtureCitations = [
+      "INDOT — Global read fixture",
+      "INDOT — Direct write fixture",
+      "INDOT — Governed ingest test",
+      "INDOT — Approval test",
+      "INDOT — Expired fixture",
+    ];
+    afterAll(async () => {
+      await adminClient.$queryRaw(Prisma.sql`
+        delete from codes_source_history where source_id in (
+          select id from codes_source where citation in (${Prisma.join(codesFixtureCitations)})
+        )
+      `);
+      await adminClient.$queryRaw(Prisma.sql`
+        delete from codes_source where citation in (${Prisma.join(codesFixtureCitations)})
+      `);
+    });
+
+    async function seedReviewedSource(input: { citation: string; sourceUrl: string; expiryDate: string | null; sourceHash: string }): Promise<string> {
+      const id = randomUUID();
+      await adminClient.$queryRaw(Prisma.sql`
+        insert into codes_source (
+          id, jurisdiction_id, authority_id, code_family, section, citation, title,
+          source_url, source_hash, license_note,
+          published_date, amended_date, effective_date, expiry_date,
+          status, reviewed_at, reviewed_by, version_label, supersedes_id
+        ) values (
+          ${id}::uuid, ${codesJurisdictionId}::uuid, ${codesAuthorityId}::uuid, 'sign-permits', null,
+          ${input.citation}, 'INDOT outdoor advertising sign permits',
+          ${input.sourceUrl}, ${input.sourceHash}, null,
+          null, null, null, ${input.expiryDate ? Prisma.sql`${input.expiryDate}::date` : Prisma.sql`NULL`},
+          'reviewed', now(), ${adminUser}, 'v1', NULL
+        )
+      `);
+      return id;
+    }
+
+    it("reads the shared reference globally: both tenants see the same reviewed source", async () => {
+      const sourceId = await seedReviewedSource({
+        citation: "INDOT — Global read fixture",
+        sourceUrl: "https://www.in.gov/indot/doing-business-with-indot/permits/",
+        expiryDate: null,
+        sourceHash: "a".repeat(64),
+      });
+      const seenByOrgA = await inSession(adminUser, orgA, "admin", () => codesStore.getById(sourceId));
+      const seenByOrgB = await inSession(otherUser, orgB, "owner", () => codesStore.getById(sourceId));
+      expect(seenByOrgA?.id).toBe(sourceId);
+      expect(seenByOrgB?.id).toBe(sourceId);
+      const listedByOrgB = await inSession(otherUser, orgB, "owner", () => codesStore.list({}));
+      expect(listedByOrgB.some((row) => row.id === sourceId)).toBe(true);
+    });
+
+    it("denies direct tenant writes without the ingestion flag", async () => {
+      const sourceId = await seedReviewedSource({
+        citation: "INDOT — Direct write fixture",
+        sourceUrl: "https://www.in.gov/dhs/boards-and-commissions/fpbsc-rules/",
+        expiryDate: null,
+        sourceHash: "b".repeat(64),
+      });
+      await expect(
+        inSession(adminUser, orgA, "admin", () =>
+          currentTransaction().$queryRaw(Prisma.sql`
+            insert into codes_source (
+              jurisdiction_id, authority_id, code_family, section, citation, title,
+              source_url, source_hash, license_note,
+              published_date, amended_date, effective_date, expiry_date,
+              status, reviewed_at, reviewed_by, version_label, supersedes_id
+            ) values (
+              ${codesJurisdictionId}::uuid, ${codesAuthorityId}::uuid, 'sign-permits', null, 'direct', 'direct',
+              'https://www.in.gov/indot/direct-write/', ${"c".repeat(64)}, null,
+              null, null, null, null,
+              'research', null, null, 'v1', null
+            )
+          `),
+        ),
+      ).rejects.toThrow(/row-level security/);
+      // UPDATE/DELETE under RLS do NOT throw: a row the session's policy
+      // hides is silently skipped, so the denial is proven by effect —
+      // zero rows affected — not by an error. (INSERT does throw, via
+      // WITH CHECK, and keeps the rejects assertion above. The sibling
+      // registry suite documents the same split: denial reaches Prisma
+      // as 42501 or P2025 through the client, and as zero affected rows
+      // through raw SQL.)
+      const updated = await inSession(adminUser, orgA, "admin", () =>
+        currentTransaction().$executeRaw(Prisma.sql`
+          update codes_source set title = 'direct edit' where id = ${sourceId}::uuid
+        `),
+      );
+      expect(updated).toBe(0);
+      const deleted = await inSession(adminUser, orgA, "admin", () =>
+        currentTransaction().$executeRaw(Prisma.sql`
+          delete from codes_source where id = ${sourceId}::uuid
+        `),
+      );
+      expect(deleted).toBe(0);
+      await expect(
+        inSession(adminUser, orgA, "admin", () =>
+          currentTransaction().$queryRaw(Prisma.sql`
+            insert into codes_source_history (source_id, version_label, source_hash, status, change_summary, recorded_by)
+            values (${sourceId}::uuid, 'v1', ${"b".repeat(64)}, 'reviewed', 'direct write attempt', ${adminUser})
+          `),
+        ),
+      ).rejects.toThrow(/row-level security/);
+      // The denied writes changed nothing.
+      const stillThere = await inSession(adminUser, orgA, "admin", () => codesStore.getById(sourceId));
+      expect(stillThere?.title).toBe("INDOT outdoor advertising sign permits");
+    });
+
+    it("ingests through the governed service under the flag and is idempotent", async () => {
+      const fetchImpl = (async () =>
+        new Response(new TextEncoder().encode("live indot permits bytes"), { status: 200 })) as typeof fetch;
+      const input = {
+        jurisdictionId: codesJurisdictionId,
+        authorityId: codesAuthorityId,
+        codeFamily: "sign-permits",
+        citation: "INDOT — Governed ingest test",
+        title: "INDOT outdoor advertising sign permits",
+        sourceUrl: codesSourceUrl,
+      };
+      const first = await inSession(adminUser, orgA, "admin", () =>
+        ingestOfficialCodeSource(codesAdminAuth, input, { fetchImpl }),
+      );
+      expect(first.outcome).toBe("created");
+      expect(first.source.status).toBe("research");
+      expect(first.source.versionLabel).toBe("v1");
+      const second = await inSession(adminUser, orgA, "admin", () =>
+        ingestOfficialCodeSource(codesAdminAuth, input, { fetchImpl }),
+      );
+      expect(second.outcome).toBe("unchanged");
+      expect(second.source.id).toBe(first.source.id);
+      const historyCount = await adminClient.$queryRaw<Array<{ total: number }>>(Prisma.sql`
+        select count(*)::int as total from codes_source_history where source_id = ${first.source.id}::uuid
+      `);
+      expect(historyCount[0]?.total).toBe(1);
+    });
+
+    it("refuses technician ingest and enforces single human approval", async () => {
+      const fetchImpl = (async () =>
+        new Response(new TextEncoder().encode("technician attempt bytes"), { status: 200 })) as typeof fetch;
+      await expect(
+        inSession(technicianUser, orgA, "technician", () =>
+          ingestOfficialCodeSource(codesTechnicianAuth, {
+            jurisdictionId: codesJurisdictionId,
+            authorityId: codesAuthorityId,
+            codeFamily: "sign-permits",
+            citation: "INDOT — Approval test",
+            title: "INDOT outdoor advertising sign permits",
+            sourceUrl: "https://www.in.gov/indot/technician-attempt/",
+          }, { fetchImpl }),
+        ),
+      ).rejects.toMatchObject({ statusCode: 403 });
+
+      const created = await inSession(adminUser, orgA, "admin", () =>
+        ingestOfficialCodeSource(codesAdminAuth, {
+          jurisdictionId: codesJurisdictionId,
+          authorityId: codesAuthorityId,
+          codeFamily: "sign-permits",
+          citation: "INDOT — Approval test",
+          title: "INDOT outdoor advertising sign permits",
+          sourceUrl: "https://www.in.gov/indot/approval-attempt/",
+        }, { fetchImpl }),
+      );
+      const approved = await inSession(adminUser, orgA, "admin", () =>
+        approveCodeSource(codesAdminAuth, created.source.id, {}, {}),
+      );
+      expect(approved.status).toBe("reviewed");
+      expect(approved.reviewedBy).toBe(adminUser);
+      await expect(
+        inSession(adminUser, orgA, "admin", () => approveCodeSource(codesAdminAuth, created.source.id, {}, {})),
+      ).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    it("surfaces expired warnings on live reads", async () => {
+      const sourceId = await seedReviewedSource({
+        citation: "INDOT — Expired fixture",
+        sourceUrl: "https://www.in.gov/indot/expired-source/",
+        expiryDate: "2020-01-01",
+        sourceHash: "d".repeat(64),
+      });
+      const read = await inSession(otherUser, orgB, "owner", () => getCodeSource(codesOtherAuth, sourceId, {}));
+      expect(read.status).toBe("reviewed");
+      expect(read.warnings).toContain("expired");
+    });
+  });
+
+  // DES-10-F8: live RLS coverage for proposal_selections and
+  // proposal_allowances. The migration tests only inspect SQL strings and
+  // the service tests mock Prisma, so neither proves tenant isolation,
+  // portal customer isolation, or role-based write denial against a real
+  // database. A second orgA customer (customerA2) proves portal isolation
+  // *within* one org, not just across orgs. Fixtures live only for this
+  // block — afterAll removes every row — so no later test sees the extra
+  // project, and this block runs last in the file for the same reason.
+  describe("proposal selections and allowances RLS (DES-10-F8)", () => {
+    const customerA2 = "10000000-0000-0000-0000-000000000220";
+    const projectA2 = "10000000-0000-0000-0000-000000000221";
+    const proposalA = "10000000-0000-0000-0000-000000000222";
+    const proposalA2 = "10000000-0000-0000-0000-000000000223";
+    const proposalB = "20000000-0000-0000-0000-000000000224";
+    const selectionA = "10000000-0000-0000-0000-000000000225";
+    const selectionA2 = "10000000-0000-0000-0000-000000000226";
+    const selectionB = "20000000-0000-0000-0000-000000000227";
+    const allowanceA = "10000000-0000-0000-0000-000000000228";
+    const allowanceA2 = "10000000-0000-0000-0000-000000000229";
+    const allowanceB = "20000000-0000-0000-0000-000000000230";
+    const portalSessionId = "10000000-0000-0000-0000-000000000231";
+
+    beforeAll(async () => {
+      await adminClient.customer.create({
+        data: { id: customerA2, orgId: orgA, name: "Org A Second Customer", email: "orga2@example.com" },
+      });
+      await adminClient.project.create({
+        data: { id: projectA2, orgId: orgA, customerId: customerA2, name: "Org A Second Project" },
+      });
+      await adminClient.proposal.createMany({
+        data: [
+          { id: proposalA, projectId: projectA, status: "draft" },
+          { id: proposalA2, projectId: projectA2, status: "draft" },
+          { id: proposalB, projectId: projectB, status: "draft" },
+        ],
+      });
+      await adminClient.proposalSelection.createMany({
+        data: [
+          { id: selectionA, orgId: orgA, proposalId: proposalA, label: "PENDANTS" },
+          { id: selectionA2, orgId: orgA, proposalId: proposalA2, label: "CABINET FINISH" },
+          { id: selectionB, orgId: orgB, proposalId: proposalB, label: "COUNTERTOP" },
+        ],
+      });
+      await adminClient.proposalAllowance.createMany({
+        data: [
+          { id: allowanceA, orgId: orgA, proposalId: proposalA, description: "PENDANT LIGHTING", amount: 1200 },
+          { id: allowanceA2, orgId: orgA, proposalId: proposalA2, description: "CABINET HARDWARE", amount: 1600 },
+          { id: allowanceB, orgId: orgB, proposalId: proposalB, description: "RANGE HOOD", amount: 900 },
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await adminClient.proposalSelection.deleteMany({ where: { id: { in: [selectionA, selectionA2, selectionB] } } });
+      await adminClient.proposalAllowance.deleteMany({ where: { id: { in: [allowanceA, allowanceA2, allowanceB] } } });
+      await adminClient.proposal.deleteMany({ where: { id: { in: [proposalA, proposalA2, proposalB] } } });
+      await adminClient.project.delete({ where: { id: projectA2 } });
+      await adminClient.customer.delete({ where: { id: customerA2 } });
+    });
+
+    it("isolates selections and allowances by tenant for staff reads and writes", async () => {
+      const visibleSelections = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().proposalSelection.findMany({ where: { proposalId: proposalA }, orderBy: { id: "asc" } })
+      );
+      expect(visibleSelections.map((row) => row.id)).toEqual([selectionA]);
+
+      const crossOrgSelections = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().proposalSelection.findMany({ where: { proposalId: proposalA } })
+      );
+      expect(crossOrgSelections).toEqual([]);
+      const crossOrgLookup = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().proposalSelection.findUnique({ where: { id: selectionA } })
+      );
+      expect(crossOrgLookup).toBeNull();
+
+      const visibleAllowances = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().proposalAllowance.findMany({ where: { proposalId: proposalA } })
+      );
+      expect(visibleAllowances.map((row) => row.id)).toEqual([allowanceA]);
+      const crossOrgAllowance = await inSession(otherUser, orgB, "owner", async () =>
+        currentTransaction().proposalAllowance.findUnique({ where: { id: allowanceA } })
+      );
+      expect(crossOrgAllowance).toBeNull();
+
+      // Same-org staff write through the service; a cross-org service call
+      // cannot see the parent proposal at all.
+      const created = await inSession(adminUser, orgA, "admin", async () =>
+        new ProposalsService().createSelection(proposalA, { label: "COUNTERTOP" }, orgA)
+      );
+      expect(created.proposalId).toBe(proposalA);
+      await inSession(adminUser, orgA, "admin", async () =>
+        new ProposalsService().deleteSelection(created.id, proposalA, orgA)
+      );
+      await expect(
+        inSession(otherUser, orgB, "owner", async () =>
+          new ProposalsService().createSelection(proposalA, { label: "COUNTERTOP" }, orgB)
+        )
+      ).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    it("scopes portal customer reads to the verified customer's own proposals", async () => {
+      const portal = (customerId: string, accessTokenId: string) => ({
+        sessionId: portalSessionId,
+        accessTokenId,
+        orgId: orgA,
+        customerId,
+      });
+
+      const customerAView = await runWithPortalDatabaseSession(
+        appClient,
+        portal(customerA, "10000000-0000-0000-0000-000000000232"),
+        async () => ({
+          selections: await currentTransaction().proposalSelection.findMany({ orderBy: { id: "asc" } }),
+          allowances: await currentTransaction().proposalAllowance.findMany({ orderBy: { id: "asc" } }),
+          foreignSelection: await currentTransaction().proposalSelection.findUnique({ where: { id: selectionA2 } }),
+          foreignAllowance: await currentTransaction().proposalAllowance.findUnique({ where: { id: allowanceA2 } }),
+        })
+      );
+      expect(customerAView.selections.map((row) => row.id)).toEqual([selectionA]);
+      expect(customerAView.allowances.map((row) => row.id)).toEqual([allowanceA]);
+      expect(customerAView.foreignSelection).toBeNull();
+      expect(customerAView.foreignAllowance).toBeNull();
+
+      // Same org, different customer: sees only its own proposal's rows.
+      const customerA2View = await runWithPortalDatabaseSession(
+        appClient,
+        portal(customerA2, "10000000-0000-0000-0000-000000000233"),
+        async () => ({
+          selections: await currentTransaction().proposalSelection.findMany({ orderBy: { id: "asc" } }),
+          allowances: await currentTransaction().proposalAllowance.findMany({ orderBy: { id: "asc" } }),
+        })
+      );
+      expect(customerA2View.selections.map((row) => row.id)).toEqual([selectionA2]);
+      expect(customerA2View.allowances.map((row) => row.id)).toEqual([allowanceA2]);
+    });
+
+    it("denies selections and allowances writes to viewers and portal customers at the database boundary", async () => {
+      // Viewers can read the org's rows but cannot write them: the write
+      // policy requires current_app_can_write().
+      await expect(
+        inSession(viewerUser, orgA, "viewer", async () =>
+          currentTransaction().proposalSelection.create({
+            data: { orgId: orgA, proposalId: proposalA, label: "PENDANTS" },
+          })
+        )
+      ).rejects.toThrow();
+      await expect(
+        inSession(viewerUser, orgA, "viewer", async () =>
+          new ProposalsService().createAllowance(proposalA, { description: "PENDANT LIGHTING", amount: 100 }, orgA)
+        )
+      ).rejects.toThrow();
+
+      // A portal customer cannot write either, even to its own proposal's rows.
+      await expect(
+        runWithPortalDatabaseSession(
+          appClient,
+          { sessionId: portalSessionId, accessTokenId: "10000000-0000-0000-0000-000000000234", orgId: orgA, customerId: customerA },
+          async () =>
+            currentTransaction().proposalAllowance.create({
+              data: { orgId: orgA, proposalId: proposalA, description: "PENDANT LIGHTING", amount: 100 },
+            })
+        )
+      ).rejects.toThrow();
+
+      // The denied writes changed nothing.
+      const counts = await inSession(adminUser, orgA, "admin", async () => ({
+        selections: await currentTransaction().proposalSelection.count({ where: { proposalId: proposalA } }),
+        allowances: await currentTransaction().proposalAllowance.count({ where: { proposalId: proposalA } }),
+      }));
+      expect(counts).toEqual({ selections: 1, allowances: 1 });
+    });
+  });
+
+  describe("closeout and warranty workspace RLS (S069)", () => {
+    it("enforces closeout and warranty tenant boundaries", async () => {
+      // S069 tables carry a direct org_id with forced RLS
+      // (20261124120000_add_closeout_warranty_workspace): org-scoped reads
+      // for every role; writes are owner/admin/estimator (via
+      // current_app_can_write()) plus dispatcher; punch-item updates add
+      // the one field-staff carve-out — the assigned technician may update
+      // only the punch item assigned to them. The RLS assertions below go
+      // through the request-scoped session (inSession /
+      // currentTransaction), never through mocked Prisma; the admin client
+      // only seeds fixtures and cleans up.
+      const punchA = randomUUID();
+      const punchB = randomUUID();
+      const punchUnassigned = randomUUID();
+      const punchViewerAssigned = randomUUID();
+      const closeoutA = randomUUID();
+      const closeoutB = randomUUID();
+      const warrantyA = randomUUID();
+      const warrantyB = randomUUID();
+      const warrantyForeignProject = randomUUID();
+      const punchForeignProject = randomUUID();
+      const proposalB = randomUUID();
+      const contractB = randomUUID();
+      const invoiceB = randomUUID();
+      const dispatcherUser = randomUUID();
+      const dispatcherMembership = randomUUID();
+      await adminClient.punchItem.createMany({
+        data: [
+          { id: punchA, orgId: orgA, projectId: projectA, jobId: jobA, title: "Touch up paint at entry trim", status: "open", priority: "high", assignedUserId: technicianUser, createdById: adminUser },
+          { id: punchB, orgId: orgB, projectId: projectB, title: "Foreign punch item", status: "open", createdById: otherUser },
+          { id: punchUnassigned, orgId: orgA, projectId: projectA, jobId: jobA, title: "Unassigned punch item", status: "open", createdById: adminUser },
+          { id: punchViewerAssigned, orgId: orgA, projectId: projectA, jobId: jobA, title: "Viewer-assigned punch item", status: "open", assignedUserId: viewerUser, createdById: adminUser },
+        ],
+      });
+      // Foreign-parent fixtures for the parent-ownership checks: a project,
+      // job, contract, and invoice that all belong to orgB.
+      await adminClient.proposal.create({
+        data: { id: proposalB, projectId: projectB, status: "sent", finalPrice: 100, priceLow: 90, priceHigh: 110 },
+      });
+      await adminClient.contract.create({
+        data: { id: contractB, projectId: projectB, proposalId: proposalB, status: "pending_signature", termsText: "Foreign contract" },
+      });
+      await adminClient.invoice.create({
+        data: { id: invoiceB, projectId: projectB, proposalId: proposalB, invoiceNumber: 991, status: "sent", amount: 100 },
+      });
+      await adminClient.punchItem.create({
+        data: { id: punchForeignProject, orgId: orgA, projectId: projectB, title: "Own-org punch on a foreign project", status: "open", createdById: adminUser },
+      });
+      await adminClient.projectCloseout.createMany({
+        data: [
+          { id: closeoutA, orgId: orgA, projectId: projectA, jobId: jobA, status: "draft" },
+          { id: closeoutB, orgId: orgB, projectId: projectB, status: "draft" },
+        ],
+      });
+      await adminClient.warrantyRecord.createMany({
+        data: [
+          { id: warrantyA, orgId: orgA, projectId: projectA, jobId: jobA, title: "Workmanship warranty", coverageText: "One-year workmanship coverage per the signed contract.", sourceType: "other", createdById: adminUser },
+          { id: warrantyB, orgId: orgB, projectId: projectB, title: "Foreign warranty", coverageText: "Foreign coverage.", sourceType: "other", createdById: otherUser },
+          { id: warrantyForeignProject, orgId: orgA, projectId: projectB, title: "Own-org warranty on a foreign project", coverageText: "Foreign-project coverage.", sourceType: "other", createdById: adminUser },
+        ],
+      });
+      await adminClient.appUser.create({
+        data: { id: dispatcherUser, authSubject: "rls-s069-dispatcher", email: "rls-s069-dispatcher@example.com" },
+      });
+      await adminClient.organizationMembership.create({
+        data: { id: dispatcherMembership, orgId: orgA, userId: dispatcherUser, role: "dispatcher", status: "active" },
+      });
+      try {
+        // Same-org reads are allowed on all three tables, for every role:
+        // the select policies are org-scoped, not assignment-scoped.
+        const visiblePunch = await inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().punchItem.findMany({ where: { projectId: projectA } }),
+        );
+        expect(visiblePunch.map((row) => row.id).sort()).toEqual([punchA, punchUnassigned, punchViewerAssigned].sort());
+        const visibleCloseout = await inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().projectCloseout.findUnique({ where: { id: closeoutA } }),
+        );
+        expect(visibleCloseout?.id).toBe(closeoutA);
+        const visibleWarranty = await inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().warrantyRecord.findUnique({ where: { id: warrantyA } }),
+        );
+        expect(visibleWarranty?.id).toBe(warrantyA);
+        const technicianVisible = await inSession(technicianUser, orgA, "technician", async () =>
+          currentTransaction().punchItem.findUnique({ where: { id: punchA } }),
+        );
+        expect(technicianVisible?.id).toBe(punchA);
+
+        // Cross-org reads are hidden on all three tables.
+        const hiddenPunch = await inSession(otherUser, orgB, "owner", async () =>
+          currentTransaction().punchItem.findUnique({ where: { id: punchA } }),
+        );
+        expect(hiddenPunch).toBeNull();
+        const hiddenCloseout = await inSession(otherUser, orgB, "owner", async () =>
+          currentTransaction().projectCloseout.findUnique({ where: { id: closeoutA } }),
+        );
+        expect(hiddenCloseout).toBeNull();
+        const hiddenWarranty = await inSession(otherUser, orgB, "owner", async () =>
+          currentTransaction().warrantyRecord.findUnique({ where: { id: warrantyA } }),
+        );
+        expect(hiddenWarranty).toBeNull();
+        const foreignOnly = await inSession(otherUser, orgB, "owner", async () =>
+          currentTransaction().punchItem.findMany(),
+        );
+        expect(foreignOnly.map((row) => row.id)).toEqual([punchB]);
+
+        // Cross-org writes are denied even with a matching org_id claim.
+        await expect(
+          inSession(otherUser, orgB, "owner", async () =>
+            currentTransaction().punchItem.create({
+              data: { orgId: orgA, projectId: projectA, title: "Cross-org punch item", createdById: otherUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(otherUser, orgB, "owner", async () =>
+            currentTransaction().punchItem.update({ where: { id: punchA }, data: { status: "resolved" } }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(otherUser, orgB, "owner", async () =>
+            currentTransaction().projectCloseout.update({ where: { id: closeoutA }, data: { status: "ready" } }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(otherUser, orgB, "owner", async () =>
+            currentTransaction().warrantyRecord.delete({ where: { id: warrantyA } }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(otherUser, orgB, "owner", async () =>
+            currentTransaction().warrantyRecord.create({
+              data: { orgId: orgA, projectId: projectA, title: "Cross-org warranty", coverageText: "Cross-org coverage.", sourceType: "other", createdById: otherUser },
+            }),
+          ),
+        ).rejects.toThrow();
+
+        // Viewers may read their own org's rows but cannot write them.
+        await expect(
+          inSession(viewerUser, orgA, "viewer", async () =>
+            currentTransaction().punchItem.create({
+              data: { orgId: orgA, projectId: projectA, title: "Viewer punch item", createdById: viewerUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(viewerUser, orgA, "viewer", async () =>
+            currentTransaction().projectCloseout.update({ where: { id: closeoutA }, data: { notes: "Viewer note" } }),
+          ),
+        ).rejects.toThrow();
+
+        // Technicians cannot insert punch items or write closeouts /
+        // warranties at all — their only write is the assigned-punch
+        // carve-out below.
+        await expect(
+          inSession(technicianUser, orgA, "technician", async () =>
+            currentTransaction().punchItem.create({
+              data: { orgId: orgA, projectId: projectA, title: "Technician punch item", createdById: technicianUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(technicianUser, orgA, "technician", async () =>
+            currentTransaction().projectCloseout.update({ where: { id: closeoutA }, data: { status: "ready" } }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(technicianUser, orgA, "technician", async () =>
+            currentTransaction().warrantyRecord.update({ where: { id: warrantyA }, data: { title: "Technician edit" } }),
+          ),
+        ).rejects.toThrow();
+
+        // The assigned technician may update only their assigned punch item.
+        const resolved = await inSession(technicianUser, orgA, "technician", async () =>
+          currentTransaction().punchItem.update({ where: { id: punchA }, data: { status: "in_progress" } }),
+        );
+        expect(resolved.status).toBe("in_progress");
+        // …but not a punch item assigned to someone else (or no one).
+        await expect(
+          inSession(technicianUser, orgA, "technician", async () =>
+            currentTransaction().punchItem.update({ where: { id: punchUnassigned }, data: { status: "in_progress" } }),
+          ),
+        ).rejects.toThrow();
+        const untouched = await adminClient.punchItem.findUniqueOrThrow({ where: { id: punchUnassigned } });
+        expect(untouched.status).toBe("open");
+
+        // The assignee carve-out is technician-only: a viewer assigned to a
+        // punch item still cannot update it.
+        await expect(
+          inSession(viewerUser, orgA, "viewer", async () =>
+            currentTransaction().punchItem.update({ where: { id: punchViewerAssigned }, data: { status: "in_progress" } }),
+          ),
+        ).rejects.toThrow();
+        const viewerAssignedUntouched = await adminClient.punchItem.findUniqueOrThrow({ where: { id: punchViewerAssigned } });
+        expect(viewerAssignedUntouched.status).toBe("open");
+
+        // Parent ownership: a row carrying the caller's org_id but a foreign
+        // project_id is denied — the foreign-key check bypasses RLS, so
+        // org_id alone cannot prove the parent belongs to the caller.
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().projectCloseout.create({
+              data: { orgId: orgA, projectId: projectB, status: "draft" },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().warrantyRecord.create({
+              data: { orgId: orgA, projectId: projectB, title: "Foreign-project warranty", coverageText: "Coverage.", sourceType: "other", createdById: adminUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().punchItem.create({
+              data: { orgId: orgA, projectId: projectB, title: "Foreign-project punch item", createdById: adminUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        // The same parent check applies to each optional reference: a
+        // foreign job, contract, or invoice denies the write even when the
+        // project itself belongs to the caller.
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().punchItem.create({
+              data: { orgId: orgA, projectId: projectA, jobId: jobB, title: "Foreign-job punch item", createdById: adminUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().warrantyRecord.create({
+              data: { orgId: orgA, projectId: projectA, jobId: jobB, title: "Foreign-job warranty", coverageText: "Coverage.", sourceType: "other", createdById: adminUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().warrantyRecord.create({
+              data: { orgId: orgA, projectId: projectA, contractId: contractB, title: "Foreign-contract warranty", coverageText: "Coverage.", sourceType: "contract", createdById: adminUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().warrantyRecord.create({
+              data: { orgId: orgA, projectId: projectA, invoiceId: invoiceB, title: "Foreign-invoice warranty", coverageText: "Coverage.", sourceType: "invoice", createdById: adminUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        // UPDATE is gated the same way: a row seeded with a foreign parent
+        // cannot be updated even by the owning org's admin, and moving a
+        // closeout onto a foreign job is denied by WITH CHECK.
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().punchItem.update({ where: { id: punchForeignProject }, data: { title: "Edited" } }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().warrantyRecord.update({ where: { id: warrantyForeignProject }, data: { title: "Edited" } }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().projectCloseout.update({ where: { id: closeoutA }, data: { jobId: jobB } }),
+          ),
+        ).rejects.toThrow();
+        expect((await adminClient.punchItem.findUniqueOrThrow({ where: { id: punchForeignProject } })).title).toBe(
+          "Own-org punch on a foreign project",
+        );
+        expect((await adminClient.warrantyRecord.findUniqueOrThrow({ where: { id: warrantyForeignProject } })).title).toBe(
+          "Own-org warranty on a foreign project",
+        );
+        expect((await adminClient.projectCloseout.findUniqueOrThrow({ where: { id: closeoutA } })).jobId).toBe(jobA);
+
+        // Dispatcher writes are allowed on all three tables: the closeout
+        // manager role holds crm.write in app/domain/contracts.ts, and
+        // the S069 policies name dispatcher explicitly because
+        // current_app_can_write() (owner/admin/estimator) would deny it.
+        const dispatcherPunch = await inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().punchItem.create({
+            data: { orgId: orgA, projectId: projectA, jobId: jobA, title: "Dispatcher punch item", createdById: dispatcherUser },
+          }),
+        );
+        expect(dispatcherPunch.orgId).toBe(orgA);
+        const dispatcherCloseout = await inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().projectCloseout.update({ where: { id: closeoutA }, data: { notes: "Dispatcher note" } }),
+        );
+        expect(dispatcherCloseout.notes).toBe("Dispatcher note");
+        const dispatcherWarranty = await inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().warrantyRecord.create({
+            data: { orgId: orgA, projectId: projectA, title: "Dispatcher warranty", coverageText: "Dispatcher coverage.", sourceType: "other", createdById: dispatcherUser },
+          }),
+        );
+        expect(dispatcherWarranty.orgId).toBe(orgA);
+        const dispatcherDeleted = await inSession(dispatcherUser, orgA, "dispatcher", async () =>
+          currentTransaction().punchItem.delete({ where: { id: dispatcherPunch.id } }),
+        );
+        expect(dispatcherDeleted.id).toBe(dispatcherPunch.id);
+        await adminClient.warrantyRecord.delete({ where: { id: dispatcherWarranty.id } });
+
+        // The denied writes changed nothing.
+        const counts = await inSession(adminUser, orgA, "admin", async () => ({
+          punchItems: await currentTransaction().punchItem.count({ where: { projectId: projectA } }),
+          closeouts: await currentTransaction().projectCloseout.count({ where: { projectId: projectA } }),
+          warranties: await currentTransaction().warrantyRecord.count({ where: { projectId: projectA } }),
+        }));
+        expect(counts).toEqual({ punchItems: 3, closeouts: 1, warranties: 1 });
+        const closeoutAfter = await adminClient.projectCloseout.findUniqueOrThrow({ where: { id: closeoutA } });
+        expect(closeoutAfter.status).toBe("draft");
+      } finally {
+        await adminClient.warrantyRecord.deleteMany({ where: { id: { in: [warrantyA, warrantyB, warrantyForeignProject] } } });
+        await adminClient.projectCloseout.deleteMany({ where: { id: { in: [closeoutA, closeoutB] } } });
+        await adminClient.punchItem.deleteMany({ where: { id: { in: [punchA, punchB, punchUnassigned, punchViewerAssigned, punchForeignProject] } } });
+        await adminClient.invoice.deleteMany({ where: { id: invoiceB } });
+        await adminClient.contract.deleteMany({ where: { id: contractB } });
+        await adminClient.proposal.deleteMany({ where: { id: proposalB } });
+        await adminClient.organizationMembership.deleteMany({ where: { id: dispatcherMembership } });
+        await adminClient.appUser.deleteMany({ where: { id: dispatcherUser } });
+      }
+    });
+
+    it("scopes portal customer reads to the verified customer's own closeout rows and completed jobs", async () => {
+      // Same organization, two customers: the portal session of one must
+      // never see the other's punch items, closeouts, warranties, or
+      // completed jobs (S069 restrictive portal-scope policies +
+      // app_completed_job_ids_for_project). Fixtures live only for this
+      // test — the first test in this describe already cleaned its own.
+      const siblingCustomer = randomUUID();
+      const siblingProject = randomUUID();
+      const siblingAddress = randomUUID();
+      const ownPunch = randomUUID();
+      const siblingPunch = randomUUID();
+      const ownCloseout = randomUUID();
+      const siblingCloseout = randomUUID();
+      const ownWarranty = randomUUID();
+      const siblingWarranty = randomUUID();
+      const ownCompletedJob = randomUUID();
+      const siblingCompletedJob = randomUUID();
+      const portal = (customerId: string) => ({
+        sessionId: randomUUID(),
+        accessTokenId: randomUUID(),
+        orgId: orgA,
+        customerId,
+      });
+      const probe = (projectId: string) =>
+        currentTransaction().$queryRaw<Array<{ job_ids: string[] }>>(
+          Prisma.sql`SELECT public.app_completed_job_ids_for_project(${projectId}::uuid) AS job_ids`,
+        );
+      try {
+        await adminClient.customer.create({
+          data: { id: siblingCustomer, orgId: orgA, name: "Org A Sibling Customer", email: "orga-sibling@example.com" },
+        });
+        await adminClient.serviceAddress.create({
+          data: {
+            id: siblingAddress,
+            orgId: orgA,
+            customerId: siblingCustomer,
+            addressLine1: "2 S069 Way",
+            city: "Terre Haute",
+            state: "IN",
+            postalCode: "47802",
+          },
+        });
+        await adminClient.project.create({
+          data: { id: siblingProject, orgId: orgA, customerId: siblingCustomer, name: "Org A Sibling Project" },
+        });
+        await adminClient.job.createMany({
+          data: [
+            {
+              id: ownCompletedJob,
+              orgId: orgA,
+              projectId: projectA,
+              customerId: customerA,
+              serviceAddressId: serviceAddressA,
+              jobNumber: "JOB-2026-000069-PORTAL",
+              title: "Org A Completed Job",
+              jobType: "General Contracting",
+              status: "completed",
+              completedAt: new Date("2026-11-21T15:00:00.000Z"),
+              createdById: adminUser,
+            },
+            {
+              id: siblingCompletedJob,
+              orgId: orgA,
+              projectId: siblingProject,
+              customerId: siblingCustomer,
+              serviceAddressId: siblingAddress,
+              jobNumber: "JOB-2026-000069-SIBLING",
+              title: "Sibling Completed Job",
+              jobType: "General Contracting",
+              status: "completed",
+              completedAt: new Date("2026-11-21T16:00:00.000Z"),
+              createdById: adminUser,
+            },
+          ],
+        });
+        await adminClient.punchItem.createMany({
+          data: [
+            { id: ownPunch, orgId: orgA, projectId: projectA, title: "Own punch item", status: "open", createdById: adminUser },
+            { id: siblingPunch, orgId: orgA, projectId: siblingProject, title: "Sibling punch item", status: "open", createdById: adminUser },
+          ],
+        });
+        await adminClient.projectCloseout.createMany({
+          data: [
+            { id: ownCloseout, orgId: orgA, projectId: projectA, status: "draft" },
+            { id: siblingCloseout, orgId: orgA, projectId: siblingProject, status: "draft" },
+          ],
+        });
+        await adminClient.warrantyRecord.createMany({
+          data: [
+            { id: ownWarranty, orgId: orgA, projectId: projectA, title: "Own warranty", coverageText: "Own coverage.", sourceType: "other", createdById: adminUser },
+            { id: siblingWarranty, orgId: orgA, projectId: siblingProject, title: "Sibling warranty", coverageText: "Sibling coverage.", sourceType: "other", createdById: adminUser },
+          ],
+        });
+
+        const ownView = await runWithPortalDatabaseSession(appClient, portal(customerA), async () => ({
+          punches: await currentTransaction().punchItem.findMany({ orderBy: { id: "asc" } }),
+          closeouts: await currentTransaction().projectCloseout.findMany({ orderBy: { id: "asc" } }),
+          warranties: await currentTransaction().warrantyRecord.findMany({ orderBy: { id: "asc" } }),
+          foreignPunch: await currentTransaction().punchItem.findUnique({ where: { id: siblingPunch } }),
+          foreignCloseout: await currentTransaction().projectCloseout.findUnique({ where: { id: siblingCloseout } }),
+          foreignWarranty: await currentTransaction().warrantyRecord.findUnique({ where: { id: siblingWarranty } }),
+          ownCompletedJobs: await probe(projectA),
+          foreignCompletedJobs: await probe(siblingProject),
+        }));
+        expect(ownView.punches.map((row) => row.id)).toEqual([ownPunch]);
+        expect(ownView.closeouts.map((row) => row.id)).toEqual([ownCloseout]);
+        expect(ownView.warranties.map((row) => row.id)).toEqual([ownWarranty]);
+        expect(ownView.foreignPunch).toBeNull();
+        expect(ownView.foreignCloseout).toBeNull();
+        expect(ownView.foreignWarranty).toBeNull();
+        expect(ownView.ownCompletedJobs).toEqual([{ job_ids: [ownCompletedJob] }]);
+        expect(ownView.foreignCompletedJobs).toEqual([{ job_ids: [] }]);
+
+        const siblingView = await runWithPortalDatabaseSession(appClient, portal(siblingCustomer), async () => ({
+          punches: await currentTransaction().punchItem.findMany({ orderBy: { id: "asc" } }),
+          closeouts: await currentTransaction().projectCloseout.findMany({ orderBy: { id: "asc" } }),
+          warranties: await currentTransaction().warrantyRecord.findMany({ orderBy: { id: "asc" } }),
+          foreignPunch: await currentTransaction().punchItem.findUnique({ where: { id: ownPunch } }),
+          foreignCloseout: await currentTransaction().projectCloseout.findUnique({ where: { id: ownCloseout } }),
+          foreignWarranty: await currentTransaction().warrantyRecord.findUnique({ where: { id: ownWarranty } }),
+          ownCompletedJobs: await probe(siblingProject),
+          foreignCompletedJobs: await probe(projectA),
+        }));
+        expect(siblingView.punches.map((row) => row.id)).toEqual([siblingPunch]);
+        expect(siblingView.closeouts.map((row) => row.id)).toEqual([siblingCloseout]);
+        expect(siblingView.warranties.map((row) => row.id)).toEqual([siblingWarranty]);
+        expect(siblingView.foreignPunch).toBeNull();
+        expect(siblingView.foreignCloseout).toBeNull();
+        expect(siblingView.foreignWarranty).toBeNull();
+        expect(siblingView.ownCompletedJobs).toEqual([{ job_ids: [siblingCompletedJob] }]);
+        expect(siblingView.foreignCompletedJobs).toEqual([{ job_ids: [] }]);
+
+        // Staff reads are unchanged: an admin still sees both customers'
+        // rows in the org (the restrictive policies pass trivially for
+        // non-portal roles).
+        const staffView = await inSession(adminUser, orgA, "admin", async () => ({
+          punches: await currentTransaction().punchItem.findMany({ orderBy: { id: "asc" } }),
+          closeouts: await currentTransaction().projectCloseout.findMany({ orderBy: { id: "asc" } }),
+          warranties: await currentTransaction().warrantyRecord.findMany({ orderBy: { id: "asc" } }),
+        }));
+        expect(staffView.punches.map((row) => row.id).sort()).toEqual([ownPunch, siblingPunch].sort());
+        expect(staffView.closeouts.map((row) => row.id).sort()).toEqual([ownCloseout, siblingCloseout].sort());
+        expect(staffView.warranties.map((row) => row.id).sort()).toEqual([ownWarranty, siblingWarranty].sort());
+      } finally {
+        await adminClient.warrantyRecord.deleteMany({ where: { id: { in: [ownWarranty, siblingWarranty] } } });
+        await adminClient.projectCloseout.deleteMany({ where: { id: { in: [ownCloseout, siblingCloseout] } } });
+        await adminClient.punchItem.deleteMany({ where: { id: { in: [ownPunch, siblingPunch] } } });
+        await adminClient.job.deleteMany({ where: { id: { in: [ownCompletedJob, siblingCompletedJob] } } });
+        await adminClient.project.deleteMany({ where: { id: siblingProject } });
+        await adminClient.serviceAddress.deleteMany({ where: { id: siblingAddress } });
+        await adminClient.customer.deleteMany({ where: { id: siblingCustomer } });
+      }
     });
   });
 });

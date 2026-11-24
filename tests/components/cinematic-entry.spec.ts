@@ -136,7 +136,7 @@ for (const width of [390, 768, 1024, 1440]) {
     await expect(
       page.getByRole("dialog", { name: "TradeOS introduction" }),
     ).toHaveCount(0);
-    const email = page.getByLabel("Email address", { exact: true }),
+    const email = page.getByLabel("Email", { exact: true }),
       password = page.getByLabel("Password", { exact: true }),
       submit = page.getByRole("button", { name: "Sign in", exact: true });
     for (const field of [email, password, submit])
@@ -208,7 +208,7 @@ test("first and returning intro complete on schedule and support keyboard skip",
   await expect(page.getByRole("button", { name: "Skip intro" })).toBeFocused();
   await page.clock.runFor(4000);
   await expect(intro).toBeHidden();
-  await expect(page.getByLabel("Email address")).toBeEnabled();
+  await expect(page.getByLabel("Email", { exact: true })).toBeEnabled();
   await page.reload();
   // The virtual clock stays installed across the reload (verified: a
   // reloaded page's timer still answers to runFor), so the returning intro
@@ -295,7 +295,7 @@ test("intro dismisses on the wall-clock schedule in a real browser", async ({
     }
   };
   const dismissAndProveReachable = async () => {
-    const email = page.getByLabel("Email address", { exact: true });
+    const email = page.getByLabel("Email", { exact: true });
     await expect(email).toBeEnabled();
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(email).toBeFocused();

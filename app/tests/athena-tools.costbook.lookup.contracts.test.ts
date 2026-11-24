@@ -35,6 +35,8 @@ function makeAssembly(overrides: Partial<AssemblyDTO> = {}): AssemblyDTO {
     description: null,
     isTemplate: false,
     isActive: true,
+    wasteOverridePct: null,
+    productionRateFactor: null,
     ...overrides,
   };
 }

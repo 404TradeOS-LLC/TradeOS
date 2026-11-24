@@ -1,7 +1,9 @@
 # TradeOS Motion System — Implementation Record
 
-Branch: `feat/tradeos-signature-motion` (off `main` 7aa851cf). No PR opened;
-opening one needs Billy's separate word.
+Branch: `feat/tradeos-signature-motion` (off `main` 7aa851cf) — deleted; the
+work landed via PR #918 opened on this branch (merged 2026-11-11, squash
+`0b8b6f5d`). Do not open a new PR for follow-up motion work without Billy's
+separate word.
 
 ## Provenance and reconciliation
 

@@ -53,7 +53,62 @@ test("invoice document actions use the real PDF and staff portal destinations", 
   assert.match(source, /\/portal\/invoices\/\$\{invoice\.id\}/);
   assert.match(source, /Open PDF/);
   assert.match(source, /Customer Portal/);
-  assert.match(source, /Customer-view telemetry is not currently recorded/);
+  // DES-7 (c): the portal view is now recorded — the "not recorded" copy is
+  // gone; the page shows the viewed time, or that it has not been viewed yet.
+  assert.doesNotMatch(source, /Customer-view telemetry is not currently recorded/);
+  assert.match(source, /Viewed by the customer \{formatDateTime\(invoice\.viewedAt\)\}\./);
+  assert.match(source, /Not viewed by the customer yet/);
+});
+
+// DES-7 (a): Send + Open PDF sit near the top on mobile (390px). The top
+// action row renders only below `xl`; the aside copies are hidden below
+// `xl` so the actions are never rendered twice on the same screen.
+test("mobile draft detail leads with Send invoice and Open PDF near the top", async () => {
+  const source = await readSource("./page.tsx");
+  const topActions = await readSource("./top-actions.tsx");
+
+  assert.match(source, /<InvoiceTopActions isDraft=\{isDraft\} projectId=\{projectId\} invoiceId=\{invoice\.id\} \/>/);
+  assert.match(topActions, /aria-label="Invoice actions"/);
+  assert.match(topActions, /className="grid gap-2 sm:grid-cols-2 xl:hidden"/);
+  assert.match(topActions, /Send invoice/);
+  assert.match(topActions, /Open PDF/);
+  assert.match(topActions, /\/api\/documents\/invoices\/\$\{invoiceId\}\/pdf/);
+  // The top row comes before the financial summary in source order.
+  assert.ok(source.indexOf("<InvoiceTopActions") < source.indexOf('aria-label="Invoice financial summary"'));
+  // The aside keeps the same actions for desktop only.
+  assert.match(source, /<div className="max-xl:hidden">\s*<form action=\{sendInvoiceAction\}>/);
+  assert.match(source, /buttonVariants\(\{ variant: "outline", className: "max-xl:hidden" \}\)/);
+});
+
+// DES-7 (c): the Viewed state surfaces on the draft detail page once the
+// customer has opened the invoice in the portal.
+test("viewed invoices surface their viewed time on the detail page", async () => {
+  const source = await readSource("./page.tsx");
+
+  assert.match(source, /invoice\.viewedAt \? \(/);
+  assert.match(source, /Viewed \{formatDateTime\(invoice\.viewedAt\)\}/);
+});
+
+// DES-7 (d): a failed manual record-payment attempt is the Payment Failure
+// state, shown with the recorded reason instead of silently keeping the
+// prior state.
+test("a failed manual record-payment attempt shows Payment Failure with its reason", async () => {
+  const source = await readSource("./page.tsx");
+  const form = await readSource("./record-payment-form.tsx");
+
+  assert.match(source, /getLatestPaymentFailure\(invoice\)/);
+  assert.match(source, /role="alert"/);
+  assert.match(source, />Payment Failure</);
+  assert.match(source, /The last attempt to record a payment failed/);
+  assert.match(source, /latestPaymentFailure\.reason/);
+  assert.match(form, />Payment Failure</);
+  // DES-7 (d) round-2: the alert shows only the error reason. The old
+  // "balance is unchanged / failure is recorded" sentence is not
+  // guaranteed on every error path (the failure post is best-effort, and
+  // unconfirmed attempts record no failure at all).
+  assert.doesNotMatch(form, /The invoice balance is unchanged/);
+  assert.doesNotMatch(form, /the failure is recorded on this invoice/);
+  assert.match(form, /\{state\.error\}/);
 });
 
 test("invoice workspace keeps work performed and activity as the production record surface", async () => {
@@ -70,7 +125,9 @@ test("zero-dollar drafts keep Send invoice reachable independent of balance", as
   const source = await readSource("./page.tsx");
 
   assert.match(source, /const showNextActionPanel = isDraft \|\| \(hasOpenBalance && !isPaid && !isVoided\);/);
-  assert.match(source, /\{isDraft \? \(\s*<form action=\{sendInvoiceAction\}>/);
+  // The aside Send form is desktop-only (the mobile top row carries it
+  // below `xl`); the zero-dollar draft still reaches Send either way.
+  assert.match(source, /\{isDraft \? \(\s*<div className="max-xl:hidden">\s*<form action=\{sendInvoiceAction\}>/);
   assert.match(source, /Zero-dollar drafts can still be sent/);
 });
 

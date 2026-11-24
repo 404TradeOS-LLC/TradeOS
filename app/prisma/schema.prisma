@@ -51,6 +51,12 @@ model Organization {
   jobAssignments JobAssignment[]
   jobExpenses    JobExpense[]
   jobExpenseEvents JobExpenseEvent[]
+  codesJobAssessments CodesJobAssessment[]
+  permitTasks    CodesPermitTask[]
+  punchItems     PunchItem[]
+  projectCloseouts ProjectCloseout[]
+  warrantyRecords WarrantyRecord[]
+  feeReviews     CodesFeeReview[]
   estimates      Estimate[]
   serviceAgreements ServiceAgreement[]
   payments       Payment[]
@@ -63,6 +69,8 @@ model Organization {
   brandDocumentSettings BrandDocumentSettings?
   activityEvents ActivityEvent[]
   proposalDeliveries ProposalDelivery[]
+  proposalSelections ProposalSelection[]
+  proposalAllowances ProposalAllowance[]
   invoiceDeliveries InvoiceDelivery[]
   contractEvents  ContractEvent[]
   notifications  Notification[]
@@ -277,6 +285,13 @@ model AppUser {
   totpCredential UserTotpCredential?
   sentInvites   OrganizationInvite[] @relation("InviteSender")
   createdJobs   Job[]                @relation("JobCreatedBy")
+  assignedPermitTasks CodesPermitTask[] @relation("CodesPermitTaskAssignee")
+  assignedPunchItems PunchItem[] @relation("PunchItemAssignee")
+  resolvedPunchItems PunchItem[] @relation("PunchItemResolver")
+  createdPunchItems PunchItem[] @relation("PunchItemCreator")
+  completedCloseouts ProjectCloseout[] @relation("ProjectCloseoutCompletedBy")
+  handedOffCloseouts ProjectCloseout[] @relation("ProjectCloseoutHandedOffBy")
+  createdWarrantyRecords WarrantyRecord[] @relation("WarrantyRecordCreator")
   createdJobExpenses JobExpense[]   @relation("JobExpenseCreatedBy")
   voidedJobExpenses JobExpense[] @relation("JobExpenseVoidedBy")
   createdJobExpenseEvents JobExpenseEvent[] @relation("JobExpenseEventActor")
@@ -772,6 +787,7 @@ model CostItem {
   assemblyItems    AssemblyItem[]
   estimateLineItems EstimateLineItem[]
   changeOrderLineItems ChangeOrderLineItem[]
+  feeReviews       CodesFeeReview[]
   promotedFromCandidate CostbookResearchCandidate?
 
   @@unique([orgId, code])
@@ -795,6 +811,21 @@ model Assembly {
   // RLS model without a separate mechanism.
   isTemplate    Boolean  @default(false) @map("is_template")
   isActive      Boolean  @default(true) @map("is_active")
+  // DEV-17 S10 install overrides (issue #518): job-specific assumptions
+  // recorded per installed assembly, never a price. wasteOverridePct is an
+  // absolute waste percentage (0-100) that replaces each mapped Material's
+  // own wasteFactorPct for this assembly's material legs; NULL means the
+  // recipe/mapped-item defaults apply. productionRateFactor is a
+  // dimensionless multiplier on each mapped CostItem's productionRate for
+  // this assembly's labor/equipment legs (1.0 = recipe default, 0.8 = crew
+  // produces at 80% of the assumed rate); an absolute rate is not
+  // expressible across mixed component units (SF vs CY vs EA), so the
+  // override is a factor, not a rate. NULL on either column means no
+  // override. Applied at pricing time by getAssemblyUnitCost; the stored
+  // AssemblyItem quantities are the recipe quantities and are never
+  // rewritten by an override.
+  wasteOverridePct     Decimal? @map("waste_override_pct") @db.Decimal(5, 2)
+  productionRateFactor Decimal? @map("production_rate_factor") @db.Decimal(6, 4)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
@@ -822,6 +853,115 @@ model AssemblyItem {
 
   @@index([assemblyId])
   @@map("assembly_items")
+}
+
+// Codes & Permits registry (issue #946 TODO 2; migration
+// 20261109220000_add_codes_authority_jurisdiction_source). Global reference
+// tables: no org_id, no tenant rows, no pricing / CostItem / estimate data.
+// RLS (raw SQL in the migration, Prisma cannot express it): FORCE ROW LEVEL
+// SECURITY with a SELECT-only policy for authenticated sessions; no
+// INSERT/UPDATE/DELETE policy for tenant roles — writes go only through the
+// governed ingestion path (TODO 3). codes_source_history is append-only.
+// The partial unique index enforcing the unversioned
+// (authority, family, citation) singleton lives in the migration only.
+// Full model-code text is NEVER stored here: citation + URL + hash +
+// metadata only.
+model CodesAuthority {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String
+  authorityKind String   @map("authority_kind")
+  state         String   @db.Char(2)
+  county        String?
+  sourceUrl     String?  @map("source_url")
+  contact       String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  jurisdictions CodesJurisdiction[] @relation("CodesAuthorityJurisdictions")
+  sources       CodesSource[]       @relation("CodesAuthoritySources")
+
+  @@unique([name, state, county])
+  @@map("codes_authority")
+}
+
+model CodesJurisdiction {
+  id               String   @id @default(uuid()) @db.Uuid
+  authorityId      String   @map("authority_id") @db.Uuid
+  name             String
+  jurisdictionKind String   @map("jurisdiction_kind")
+  state            String   @db.Char(2)
+  county           String?
+  gisRef           String?  @map("gis_ref")
+  parentId         String?  @map("parent_id") @db.Uuid
+  notes            String?
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  authority CodesAuthority       @relation("CodesAuthorityJurisdictions", fields: [authorityId], references: [id], onDelete: Restrict)
+  parent    CodesJurisdiction?   @relation("CodesJurisdictionParent", fields: [parentId], references: [id], onDelete: SetNull)
+  children  CodesJurisdiction[]  @relation("CodesJurisdictionParent")
+  sources   CodesSource[]        @relation("CodesJurisdictionSources")
+
+  @@unique([authorityId, name, jurisdictionKind])
+  @@index([state, county])
+  @@map("codes_jurisdiction")
+}
+
+model CodesSource {
+  id              String    @id @default(uuid()) @db.Uuid
+  jurisdictionId  String?   @map("jurisdiction_id") @db.Uuid
+  authorityId     String    @map("authority_id") @db.Uuid
+  codeFamily      String    @map("code_family")
+  section         String?
+  citation        String
+  title           String
+  sourceUrl       String    @map("source_url")
+  sourceHash      String?   @map("source_hash")
+  licenseNote     String?   @map("license_note")
+  publishedDate   DateTime? @map("published_date") @db.Date
+  amendedDate     DateTime? @map("amended_date") @db.Date
+  effectiveDate   DateTime? @map("effective_date") @db.Date
+  expiryDate      DateTime? @map("expiry_date") @db.Date
+  status          String    @default("research")
+  reviewedAt      DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  reviewedBy      String?   @map("reviewed_by")
+  versionLabel    String?   @map("version_label")
+  supersedesId    String?   @map("supersedes_id") @db.Uuid
+  // Presentation text carried over from the #945 pilot registry so the
+  // DB-backed API response stays identical. Nullable: governed ingestion
+  // (TODO 3) is not forced to supply them for every new source.
+  topics          String[]  @default([])
+  summary         String?
+  nextAction      String?   @map("next_action")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  jurisdiction CodesJurisdiction? @relation("CodesJurisdictionSources", fields: [jurisdictionId], references: [id], onDelete: SetNull)
+  authority    CodesAuthority     @relation("CodesAuthoritySources", fields: [authorityId], references: [id], onDelete: Restrict)
+  supersedes   CodesSource?       @relation("CodesSourceSupersedes", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy CodesSource[]      @relation("CodesSourceSupersedes")
+  history      CodesSourceHistory[] @relation("CodesSourceHistory")
+
+  @@unique([authorityId, codeFamily, citation, versionLabel])
+  @@index([jurisdictionId])
+  @@index([authorityId, codeFamily])
+  @@map("codes_source")
+}
+
+model CodesSourceHistory {
+  id            String   @id @default(uuid()) @db.Uuid
+  sourceId      String   @map("source_id") @db.Uuid
+  versionLabel  String   @map("version_label")
+  sourceHash    String?  @map("source_hash")
+  status        String
+  changeSummary String?  @map("change_summary")
+  recordedAt    DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  recordedBy    String?  @map("recorded_by")
+
+  source CodesSource @relation("CodesSourceHistory", fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@index([sourceId, recordedAt])
+  @@map("codes_source_history")
 }
 
 model Customer {
@@ -918,6 +1058,7 @@ model Project {
   customer     Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
   region       Region?        @relation(fields: [regionId], references: [id], onDelete: SetNull)
   estimates    Estimate[]
+  codesJobAssessments CodesJobAssessment[]
   changeOrders ChangeOrder[]
   proposals    Proposal[]
   invoices     Invoice[]
@@ -925,6 +1066,11 @@ model Project {
   siteVisits   SiteVisit[]
   projectFiles ProjectFile[]
   tasks        ProjectTask[]
+  punchItems   PunchItem[]
+  closeouts    ProjectCloseout[]
+  warrantyRecords WarrantyRecord[]
+  permitTasks  CodesPermitTask[]
+  feeReviews   CodesFeeReview[]
   jobs         Job[]
   serviceAgreements ServiceAgreement[]
 
@@ -946,15 +1092,19 @@ model Estimate {
   totalPrice       Decimal  @default(0) @map("total_price") @db.Decimal(14, 2)
   taxPct           Decimal  @default(0) @map("tax_pct") @db.Decimal(5, 2)
   taxAmount        Decimal  @default(0) @map("tax_amount") @db.Decimal(14, 2)
+  exclusionsReviewedAt   DateTime? @map("exclusions_reviewed_at")
+  priceSourcesReviewedAt DateTime? @map("price_sources_reviewed_at")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
 
   organization Organization?       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   project      Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
   lineItems    EstimateLineItem[]
+  codesJobAssessments CodesJobAssessment[]
   changeOrders ChangeOrder[]
   proposals    Proposal[]
   invoices     Invoice[]
+  feeReviews   CodesFeeReview[]
 
   @@index([projectId])
   @@unique([projectId, version])
@@ -1046,6 +1196,17 @@ model Proposal {
   sentAt             DateTime? @map("sent_at")
   viewedAt           DateTime? @map("viewed_at")
   respondedAt        DateTime? @map("responded_at")
+  // DES-10-F7: governed public-portal approval + signature. The portal
+  // accept path records the drawn signature + printed name attributed to
+  // the token holder's email on file; the portal decline path records an
+  // optional reason. Staff accept()/reject() leave these null.
+  signerName       String?   @map("signer_name")
+  signerEmail      String?   @map("signer_email")
+  signatureDataUrl String?   @map("signature_data_url")
+  signatureIpReported      String?   @map("signature_ip_reported")
+  signatureUserAgentReported String? @map("signature_user_agent_reported")
+  signedAt         DateTime? @map("signed_at")
+  declinedReason   String?   @map("declined_reason")
   idempotencyKey     String?   @map("idempotency_key")
   idempotencyHash    String?   @map("idempotency_hash")
   createdAt          DateTime  @default(now()) @map("created_at")
@@ -1053,14 +1214,69 @@ model Proposal {
 
   project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   estimate  Estimate?  @relation(fields: [estimateId], references: [id], onDelete: SetNull)
+  job       Job?       @relation("JobSourceProposal")
   invoices  Invoice[]
   contracts Contract[]
   deliveries ProposalDelivery[]
+  selections ProposalSelection[]
+  allowances ProposalAllowance[]
 
   @@unique([projectId, idempotencyKey], map: "proposals_project_id_idempotency_key_key")
   @@index([projectId])
   @@index([estimateId])
   @@map("proposals")
+}
+
+// DES-10-F8: Copperline proposal sections 03 (selections) and 04
+// (allowances). Additive tables only; nothing here feeds the proposal total
+// (finalPrice) — allowances are displayed and summed for display only, and
+// wiring them into totals is a separate follow-up (see
+// docs/modules/proposals.md). Like ProposalDelivery, each row carries its own
+// orgId so forced RLS can scope it directly; the service sets orgId from the
+// owning proposal's project and never trusts a caller-supplied value.
+model ProposalSelection {
+  id         String    @id @default(uuid())
+  orgId      String    @map("org_id")
+  proposalId String    @map("proposal_id")
+  // Selection category as shown in the Copperline document, e.g.
+  // "CABINET FINISH", "COUNTERTOP", "PENDANTS".
+  label      String
+  // Chosen option text, e.g. "Rift white oak · clear matte". Null while the
+  // decision is still open (Figma shows the prompt "Choose by Oct 09" instead).
+  detail     String?
+  // "action_required" (Figma ACTION REQUIRED) or "confirmed" (Figma CONFIRMED).
+  status     String    @default("action_required")
+  // Decision deadline, e.g. the Figma "Choose by Oct 09". Nullable: confirmed
+  // selections and open decisions without a deadline carry none.
+  dueDate    DateTime? @map("due_date")
+  sortOrder  Int       @default(0) @map("sort_order")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  proposal     Proposal     @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId, sortOrder, createdAt])
+  @@map("proposal_selections")
+}
+
+model ProposalAllowance {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  proposalId  String   @map("proposal_id")
+  // Allowance description as shown in the Copperline document, e.g.
+  // "PENDANT LIGHTING", "CABINET HARDWARE".
+  description String
+  amount      Decimal  @db.Decimal(14, 2)
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  proposal     Proposal     @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId, sortOrder, createdAt])
+  @@map("proposal_allowances")
 }
 
 model SiteVisit {
@@ -1112,6 +1328,171 @@ model ProjectTask {
   @@map("project_tasks")
 }
 
+// S069 closeout and warranty workspace. Punch items are the project's
+// explicit unresolved-items list; the closeout record is the single
+// per-project handoff record; warranty records organize only warranties
+// the contractor actually gave (coverageText is staff-supplied and must
+// quote the source document — there is no default or invented term, and
+// no warranty given means no WarrantyRecord row). All three tables carry
+// a direct orgId (like JobExpense) with forced RLS; see migration
+// 20261124120000_add_closeout_warranty_workspace. No closeout operation
+// ever mutates a Contract, Proposal, Invoice, or Estimate row.
+model PunchItem {
+  id             String    @id @default(uuid())
+  orgId          String    @map("org_id")
+  projectId      String    @map("project_id")
+  jobId          String?   @map("job_id")
+  title          String
+  description    String    @default("")
+  status         String    @default("open")
+  priority       String    @default("medium")
+  assignedUserId String?   @map("assigned_user_id")
+  assignedTo     String?   @map("assigned_to")
+  dueDate        DateTime? @map("due_date")
+  resolvedAt     DateTime? @map("resolved_at")
+  resolvedById   String?   @map("resolved_by_id")
+  createdById    String    @map("created_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  job          Job?         @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  assignee     AppUser?     @relation("PunchItemAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  resolver     AppUser?     @relation("PunchItemResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  creator      AppUser      @relation("PunchItemCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([orgId, projectId])
+  @@index([projectId, status])
+  @@index([jobId, status])
+  @@index([assignedUserId, status])
+  @@map("punch_items")
+}
+
+model ProjectCloseout {
+  id            String    @id @default(uuid())
+  orgId         String    @map("org_id")
+  projectId     String    @map("project_id")
+  jobId         String?   @map("job_id")
+  status        String    @default("draft")
+  notes         String?
+  completedAt   DateTime? @map("completed_at")
+  completedById String?   @map("completed_by_id")
+  handedOffAt   DateTime? @map("handed_off_at")
+  handedOffById String?   @map("handed_off_by_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  job          Job?         @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  completedBy  AppUser?     @relation("ProjectCloseoutCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  handedOffBy  AppUser?     @relation("ProjectCloseoutHandedOffBy", fields: [handedOffById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId])
+  @@index([orgId, projectId])
+  @@map("project_closeouts")
+}
+
+model WarrantyRecord {
+  id           String    @id @default(uuid())
+  orgId        String    @map("org_id")
+  projectId    String    @map("project_id")
+  jobId        String?   @map("job_id")
+  contractId   String?   @map("contract_id")
+  invoiceId    String?   @map("invoice_id")
+  title        String
+  coverageText String    @map("coverage_text")
+  sourceType   String    @map("source_type")
+  sourceId     String?   @map("source_id")
+  startsAt     DateTime? @map("starts_at")
+  endsAt       DateTime? @map("ends_at")
+  createdById  String    @map("created_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  job          Job?         @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  contract     Contract?    @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  invoice      Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  creator      AppUser      @relation("WarrantyRecordCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([orgId, projectId])
+  @@index([projectId])
+  @@index([contractId])
+  @@index([invoiceId])
+  @@map("warranty_records")
+}
+
+// Codes & Permits execution (issue #946, TODO 5). Companion to the
+// read-only advisory pilot (#945): these are the only permit-task and
+// fee-review records. permit_status is explicit-only — never inferred —
+// and no row here ever mutates an estimate (see CodesFeeReview).
+// assessmentId is a plain nullable uuid: the foreign key to TODO 4's
+// codes_job_assessment table is enforced by migration SQL only
+// (20261110000000_add_codes_permit_tasks_fee_reviews), because TODO 4's
+// model does not exist on main yet. Do not add a Prisma relation until
+// TODO 4's model lands.
+model CodesPermitTask {
+  id           String    @id @default(uuid())
+  orgId        String    @map("org_id")
+  projectId    String    @map("project_id")
+  assessmentId String?   @map("assessment_id")
+  taskKind     String    @map("task_kind")
+  title        String
+  permitNumber String?   @map("permit_number")
+  permitStatus String    @default("not_submitted") @map("permit_status")
+  assigneeId   String?   @map("assignee_id")
+  dueDate      DateTime? @map("due_date") @db.Date
+  evidence     Json      @default("[]")
+  history      Json      @default("[]")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee     AppUser?     @relation("CodesPermitTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, projectId, createdAt], map: "codes_permit_task_org_project_idx")
+  @@index([orgId, assigneeId, dueDate], map: "codes_permit_task_org_assignee_idx")
+  @@index([assessmentId], map: "codes_permit_task_assessment_idx")
+  @@map("codes_permit_task")
+}
+
+// Price-neutral permit-fee review (issue #946, TODO 5). A fee is research
+// until a human approves it, and even an approved fee affects estimated
+// cost ONLY when a CostItem was explicitly selected — the cost effect
+// itself goes through the existing explicit CostItem write semantics.
+// This model and its service contain no Estimate write of any kind.
+model CodesFeeReview {
+  id           String    @id @default(uuid())
+  orgId        String    @map("org_id")
+  projectId    String    @map("project_id")
+  estimateId   String?   @map("estimate_id")
+  assessmentId String?   @map("assessment_id")
+  feeCents     Int?      @map("fee_cents")
+  feeSource    String?   @map("fee_source")
+  currency     String    @default("USD")
+  status       String    @default("pending")
+  costItemId   String?   @map("cost_item_id")
+  note         String?
+  reviewedBy   String?   @map("reviewed_by")
+  reviewedAt   DateTime? @map("reviewed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  estimate     Estimate?    @relation(fields: [estimateId], references: [id], onDelete: SetNull)
+  costItem     CostItem?    @relation(fields: [costItemId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, projectId, createdAt], map: "codes_fee_review_org_project_idx")
+  @@index([orgId, estimateId], map: "codes_fee_review_org_estimate_idx")
+  @@index([assessmentId], map: "codes_fee_review_assessment_idx")
+  @@map("codes_fee_review")
+}
+
 model Job {
   id                       String   @id @default(uuid())
   orgId                    String   @map("org_id")
@@ -1145,11 +1526,15 @@ model Job {
   project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   customer       Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
   serviceAddress ServiceAddress @relation(fields: [serviceAddressId], references: [id], onDelete: Cascade)
+  sourceProposal Proposal?      @relation("JobSourceProposal", fields: [sourceProposalId], references: [id], onDelete: Restrict)
   createdBy      AppUser        @relation("JobCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   completedBy    AppUser?       @relation("JobCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
   assignments    JobAssignment[]
   equipmentLinks JobEquipment[]
   tasks          ProjectTask[]
+  punchItems     PunchItem[]
+  closeouts      ProjectCloseout[]
+  warrantyRecords WarrantyRecord[]
   siteVisits     SiteVisit[]
   expenses       JobExpense[]
   expenseEvents JobExpenseEvent[]
@@ -1222,6 +1607,38 @@ model JobExpenseEvent {
   @@map("job_expense_events")
 }
 
+// Tenant-scoped Codes & Permits job assessment (issue #946, TODO 4).
+// Explicit Project/Estimate context, proposed work type, citations with
+// rationale, unknowns, needs-review statuses, owner signoff, audit trail.
+// Citations are {source_id, rationale} JSON arrays; source_id references a
+// TODO 2 codes_source id (or pilot registry id) by string, not by FK, so
+// this table lands independently of TODO 2. RLS: FORCE ROW LEVEL SECURITY,
+// org-scoped policies — see migration 20261109220000_add_codes_job_assessment.
+model CodesJobAssessment {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  projectId    String   @map("project_id")
+  estimateId   String?  @map("estimate_id")
+  workType     String   @map("work_type")
+  status       String   @default("needs_review")
+  citations    Json     @default("[]")
+  unknowns     Json     @default("[]")
+  ownerSignoff Boolean  @default(false) @map("owner_signoff")
+  signedOffBy  String?  @map("signed_off_by")
+  signedOffAt  DateTime? @map("signed_off_at")
+  createdBy    String?  @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  estimate     Estimate?    @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, projectId], map: "codes_job_assessment_org_project_idx")
+  @@index([orgId, estimateId], map: "codes_job_assessment_org_estimate_idx")
+  @@map("codes_job_assessment")
+}
+
 model JobAssignment {
   id             String   @id @default(uuid())
   orgId          String   @map("org_id")
@@ -1292,6 +1709,7 @@ model Invoice {
   taxAmount       Decimal   @default(0) @map("tax_amount") @db.Decimal(14, 2)
   dueDate         DateTime? @map("due_date")
   sentAt          DateTime? @map("sent_at")
+  viewedAt        DateTime? @map("viewed_at")
   paidAt          DateTime? @map("paid_at")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
@@ -1302,6 +1720,7 @@ model Invoice {
   lineItems InvoiceLineItem[]
   payments  Payment[]
   deliveries InvoiceDelivery[]
+  warrantyRecords WarrantyRecord[]
 
   @@unique([projectId, invoiceNumber])
   @@unique([projectId, createRequestKey], map: "invoices_project_create_request_key")
@@ -1499,6 +1918,7 @@ model Contract {
   project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   events   ContractEvent[]
+  warrantyRecords WarrantyRecord[]
 
   @@index([projectId])
   @@index([proposalId])

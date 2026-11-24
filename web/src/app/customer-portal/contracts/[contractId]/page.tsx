@@ -9,7 +9,15 @@ import { SignContractForm } from "@/app/(app)/projects/[id]/contracts/[contractI
 
 export default async function CustomerPortalContractPage({ params }: { params: Promise<{ contractId: string }> }) {
   const { contractId } = await params;
-  const contract = await getPortalContract(contractId);
-  const project = await getPortalProject(contract.projectId);
+  let contract: Awaited<ReturnType<typeof getPortalContract>> | undefined;
+  let project: Awaited<ReturnType<typeof getPortalProject>> | undefined;
+  let accessUnavailable = false;
+  try {
+    contract = await getPortalContract(contractId);
+    project = await getPortalProject(contract.projectId);
+  } catch {
+    accessUnavailable = true;
+  }
+  if (accessUnavailable || !contract || !project) return <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-4 px-6"><h1 className="text-2xl font-semibold">Portal access required</h1><p className="text-muted-foreground">Open the customer portal invitation from your contractor to continue.</p></main>;
   return <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 px-6 py-10"><div className="space-y-3"><Link href={`/customer-portal/projects/${project.id}`} className="text-sm text-muted-foreground underline">← Back to project</Link><h1 className="text-3xl font-semibold tracking-tight">Contract review</h1><StatusBadge status={contract.status} /></div><div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]"><Card><CardHeader><CardTitle>Agreement summary</CardTitle></CardHeader><CardContent className="space-y-4 text-sm"><div><div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Project</div><div className="mt-1 font-medium">{project.name}</div></div><div><div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Agreed amount</div><div className="mt-1 font-medium">{contract.contractAmount == null ? "Not set" : formatInvoiceCurrency(contract.contractAmount)}</div></div><div><div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Scope</div><div className="mt-1 whitespace-pre-wrap text-muted-foreground">{contract.snapshot && typeof contract.snapshot.scopeOfWork === "string" ? contract.snapshot.scopeOfWork : "Legacy contract: immutable scope snapshot unavailable."}</div></div><div><div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Terms</div><div className="mt-1 whitespace-pre-wrap text-muted-foreground">{contract.termsText}</div></div></CardContent></Card><ActivityTimeline title="Contract timeline" items={buildContractTimeline(contract)} /></div><Card><CardHeader><CardTitle>Signature</CardTitle></CardHeader><CardContent className="space-y-4">{contract.status !== "signed" && contract.status !== "voided" ? <SignContractForm contractId={contract.id} projectId={project.id} portal /> : <p className="text-sm text-muted-foreground">Signed on {formatDateTime(contract.signedAt)}. The customer identity and reported browser metadata are retained with the signature event.</p>}<a href={`/api/customer-portal/contracts/${contract.id}/pdf`} target="_blank" rel="noreferrer" className={buttonVariants({ variant: "outline" })}>Download contract PDF</a></CardContent></Card></main>;
 }

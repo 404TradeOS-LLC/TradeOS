@@ -86,6 +86,12 @@ const STATUS_TONES: Record<string, string> = {
   won: TONE_SUCCESS,
   warranty: TONE_WARNING,
 
+  // DES-10-F8: Copperline proposal selection decisions (section 03).
+  // ACTION REQUIRED is an open decision needing attention; CONFIRMED is a
+  // settled decision.
+  action_required: TONE_WARNING,
+  confirmed: TONE_SUCCESS,
+
   // Athena kernel execution states (AthenaKernelState) and telemetry span
   // statuses (AthenaTelemetryStatus) - A10 observability. None of these
   // strings collide with an existing key above, so they share the same
@@ -126,15 +132,22 @@ const STATUS_LABELS: Record<string, string> = {
   partially_succeeded: "Partially Succeeded",
 };
 
+export function formatStatusLabel(status: string): string {
+  const normalizedStatus = status.toLowerCase().replaceAll(" ", "_");
+  const labeled = STATUS_LABELS[normalizedStatus];
+  if (labeled) return labeled;
+  return status.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   const normalizedStatus = status.toLowerCase().replaceAll(" ", "_");
 
   return (
     <Badge
       variant="outline"
-      className={cn("border-border/70 capitalize", STATUS_TONES[normalizedStatus] ?? "bg-muted/60 text-foreground", className)}
+      className={cn("border-border/70", STATUS_TONES[normalizedStatus] ?? "bg-muted/60 text-foreground", className)}
     >
-      {STATUS_LABELS[normalizedStatus] ?? status.replaceAll("_", " ")}
+      {formatStatusLabel(status)}
     </Badge>
   );
 }

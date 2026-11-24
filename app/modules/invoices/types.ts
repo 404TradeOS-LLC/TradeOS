@@ -104,6 +104,10 @@ export interface InvoiceDTO {
   taxAmount: number;
   dueDate: Date | null;
   sentAt: Date | null;
+  // DES-7 (c): first portal view, null until the customer views the
+  // invoice in the portal. Optional on the DTO so hand-built fixtures
+  // (which predate the field) keep compiling; toInvoiceDTO always sets it.
+  viewedAt?: Date | null;
   paidAt: Date | null;
   createdAt: Date;
   paidAmount: number;

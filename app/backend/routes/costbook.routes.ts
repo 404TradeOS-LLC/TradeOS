@@ -3,6 +3,9 @@ import rateLimit from "express-rate-limit";
 import { SharedSupplierCronRateLimitStore } from "./supplierCronRateLimitStore";
 import { isCatalogEnabled } from "../../modules/supplier-integration/abcCatalog";
 import { costbookController as ctrl } from "../controllers/costbook.controller";
+import { costbookCodesController } from "../controllers/costbookCodes.controller";
+import { codesPermitTasksController as permitTasksCtrl } from "../controllers/costbookCodesPermitTasks.controller";
+import { codesFeeReviewsController as feeReviewsCtrl } from "../controllers/costbookCodesFeeReviews.controller";
 import { costbookPricingController as pricingCtrl } from "../controllers/costbookPricing.controller";
 import { costDatabaseController as costItemCtrl } from "../controllers/costDatabase.controller";
 import { assembliesDatabaseController as assemblyCtrl } from "../controllers/assembliesDatabase.controller";
@@ -10,10 +13,42 @@ import { costbookCandidatesController as candidateCtrl } from "../controllers/co
 import { costbookCompositeBenchmarksController as compositeBenchmarkCtrl } from "../controllers/costbookCompositeBenchmarks.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { davisBaconController as davisBaconCtrl } from "../controllers/davisBacon.controller";
+import { costbookCodesJurisdictionController as codesJurisdictionCtrl } from "../controllers/costbookCodesJurisdiction.controller";
+import { costbookCodesIngestionController as codesIngestionCtrl } from "../controllers/costbookCodesIngestion.controller";
 
 export const costbookRouter = Router();
 
+/**
+ * Ingest-only router, mounted in server.ts after requireAuth but BEFORE
+ * databaseSession (same pattern as recoverableInvoiceCreateRouter): the
+ * official-source fetch must complete before any database transaction
+ * opens and without holding a pooled connection. The handler is still
+ * JWT-authenticated and permission-gated (costbook.manage); the store
+ * opens its own transaction for the persist phase and satisfies the
+ * ingestion RLS write gate with the transaction-local
+ * app.codes_ingestion flag.
+ */
+export const costbookCodesIngestionRouter = Router();
+costbookCodesIngestionRouter.post("/codes/sources/ingest", asyncHandler(codesIngestionCtrl.ingest));
+
 costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
+// Advisory official references only: no pricing, permit approval or parcel determination.
+costbookRouter.get("/codes", asyncHandler(costbookCodesController.list));
+// Permit/inspection execution (#946 TODO 5): explicit statuses only, no
+// auto-submit, no estimate mutation. Fee reviews are price-neutral by
+// construction; see app/modules/costbook/codes/feeReviews.service.ts.
+costbookRouter.get("/codes/permit-tasks", asyncHandler(permitTasksCtrl.list));
+costbookRouter.post("/codes/permit-tasks", asyncHandler(permitTasksCtrl.create));
+costbookRouter.get("/codes/permit-tasks/:taskId", asyncHandler(permitTasksCtrl.getById));
+costbookRouter.patch("/codes/permit-tasks/:taskId", asyncHandler(permitTasksCtrl.update));
+costbookRouter.post("/codes/permit-tasks/:taskId/submit", asyncHandler(permitTasksCtrl.submit));
+costbookRouter.delete("/codes/permit-tasks/:taskId", asyncHandler(permitTasksCtrl.remove));
+costbookRouter.get("/codes/fee-reviews", asyncHandler(feeReviewsCtrl.list));
+costbookRouter.post("/codes/fee-reviews", asyncHandler(feeReviewsCtrl.create));
+costbookRouter.get("/codes/fee-reviews/:feeReviewId", asyncHandler(feeReviewsCtrl.getById));
+costbookRouter.post("/codes/fee-reviews/:feeReviewId/review", asyncHandler(feeReviewsCtrl.review));
+costbookRouter.post("/codes/fee-reviews/:feeReviewId/select-cost-item", asyncHandler(feeReviewsCtrl.selectCostItem));
+costbookRouter.delete("/codes/fee-reviews/:feeReviewId", asyncHandler(feeReviewsCtrl.remove));
 // Product API browsing and details use one shared global rate-limit budget.
 const abcCatalogLimiter = rateLimit({
   store: new SharedSupplierCronRateLimitStore("abc-catalog"),
@@ -40,6 +75,16 @@ costbookRouter.get("/davis-bacon/determinations", asyncHandler(davisBaconCtrl.li
 costbookRouter.get("/davis-bacon/rates", asyncHandler(davisBaconCtrl.listRates));
 costbookRouter.get("/davis-bacon/county-rates", asyncHandler(davisBaconCtrl.countyRates));
 
+// Codes & Permits jurisdiction matching and job assessments (issue #946,
+// TODO 4). Read-only matching/hints plus the tenant-scoped assessment write
+// path; the matcher fails closed to needs_verification until TODO 2's
+// jurisdiction records land.
+costbookRouter.get("/codes/jurisdiction", asyncHandler(codesJurisdictionCtrl.getJurisdiction));
+costbookRouter.get("/codes/estimates/:estimateId/hints", asyncHandler(codesJurisdictionCtrl.getEstimateHints));
+costbookRouter.get("/codes/assessments", asyncHandler(codesJurisdictionCtrl.listAssessments));
+costbookRouter.post("/codes/assessments", asyncHandler(codesJurisdictionCtrl.createAssessment));
+costbookRouter.post("/codes/assessments/:id/sign-off", asyncHandler(codesJurisdictionCtrl.signOffAssessment));
+
 costbookRouter.get("/cost-items", asyncHandler(costItemCtrl.list));
 costbookRouter.get("/cost-items/search", asyncHandler(costItemCtrl.search));
 costbookRouter.get("/cost-items/:id/unit-cost", asyncHandler(costItemCtrl.getUnitCost));
@@ -52,6 +97,7 @@ costbookRouter.get("/assemblies", asyncHandler(assemblyCtrl.list));
 costbookRouter.get("/assemblies/search", asyncHandler(assemblyCtrl.search));
 costbookRouter.get("/assemblies/templates", asyncHandler(assemblyCtrl.templates));
 costbookRouter.get("/assemblies/starter-catalog", asyncHandler(assemblyCtrl.starterCatalog));
+costbookRouter.get("/assemblies/starter-catalog/:templateId/mapping-suggestions", asyncHandler(assemblyCtrl.mappingSuggestions));
 costbookRouter.post("/assemblies/starter-catalog/install", asyncHandler(assemblyCtrl.installStarterCatalog));
 costbookRouter.get("/assemblies/:id/unit-cost", asyncHandler(assemblyCtrl.getUnitCost));
 costbookRouter.get("/assemblies/:id/items", asyncHandler(assemblyCtrl.listItems));
@@ -115,3 +161,21 @@ costbookRouter.get("/candidates/:id", asyncHandler(candidateCtrl.getById));
 costbookRouter.get("/candidates/:id/match", asyncHandler(candidateCtrl.match));
 costbookRouter.post("/candidates/:id/review", asyncHandler(candidateCtrl.review));
 costbookRouter.post("/candidates/:id/promote", asyncHandler(candidateCtrl.promote));
+
+// Governed Codes & Permits source/review pipeline (issue #946, TODO 3; see
+// docs/architecture/COSTBOOK_CODES_INGESTION.md). The reference tables are
+// global-read, but every write goes through the ingestion service only:
+// approve/reject are the only paths to `reviewed`/`superseded`.
+// POST /ingest fetches exactly one allowlisted official URL (explicit human
+// trigger — no background fetch, scraper, or cron) and versions it as
+// `research`. It lives in costbookCodesIngestionRouter (mounted in
+// server.ts BEFORE databaseSession) instead of costbookRouter: the fetch
+// must complete before any database transaction opens and without holding a
+// pooled connection, and every route in costbookRouter runs inside the
+// request-scoped database session. Do not move it back here.
+// Static segments must precede "/:id" so they are not parsed as a source id.
+costbookRouter.get("/codes/sources/review-queue", asyncHandler(codesIngestionCtrl.reviewQueue));
+costbookRouter.get("/codes/sources", asyncHandler(codesIngestionCtrl.list));
+costbookRouter.get("/codes/sources/:id", asyncHandler(codesIngestionCtrl.getById));
+costbookRouter.post("/codes/sources/:id/approve", asyncHandler(codesIngestionCtrl.approve));
+costbookRouter.post("/codes/sources/:id/reject", asyncHandler(codesIngestionCtrl.reject));

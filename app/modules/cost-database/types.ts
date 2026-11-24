@@ -66,6 +66,18 @@ export interface UnitCostBreakdown {
   totalUnitCost: number;
 }
 
+/**
+ * Per-resolution assumption overrides (DEV-17 S10). Passed by the assemblies
+ * service from an installed assembly's stored overrides; never persisted on
+ * the CostItem itself. wasteFactorPct replaces the mapped Material's own
+ * waste % on the material leg; productionRateFactor multiplies the mapped
+ * CostItem's productionRate on the labor/equipment legs.
+ */
+export interface UnitCostOverrides {
+  wasteFactorPct?: number;
+  productionRateFactor?: number;
+}
+
 export interface BulkImportCostItemRow {
   subcategoryId: string;
   code: string;

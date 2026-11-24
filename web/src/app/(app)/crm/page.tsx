@@ -38,7 +38,7 @@ export default async function CrmPage() {
   // customer-page-load.ts): a hung fetch rejects after the bound and lands
   // in the per-source fallback banner below instead of hanging the page.
   const [projectsResult, customersResult, tasksResult, proposalsResult, siteVisitsResult] = await loadCrmPageData(token, {
-    listProjects: (authToken, signal) => listProjects(authToken, signal),
+    listProjects: (authToken, signal) => listProjects(authToken, { signal }),
     listCustomers: (authToken, signal) => listCustomers(authToken, { signal }),
     listOrganizationProjectTasks: (authToken, signal) =>
       listOrganizationProjectTasks(authToken, { limit: 50, includeCompleted: false, signal }),

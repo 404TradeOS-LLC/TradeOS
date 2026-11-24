@@ -51,6 +51,14 @@ export interface UpdateEstimateInput {
   orgId: string;
   overheadPct?: number;
   taxPct?: number;
+  /**
+   * DES-10-F2 review readiness checklist. Setting a flag records the
+   * review time (server `now()`); clearing it sets the timestamp back
+   * to null. Both flags must be set before `finalize()` allows the
+   * draft -> ready transition.
+   */
+  exclusionsReviewed?: boolean;
+  priceSourcesReviewed?: boolean;
 }
 
 export interface UpdateLineItemInput {
@@ -89,7 +97,25 @@ export interface EstimateDTO {
   taxAmount: number;
   costAfterOverhead: number;
   preTaxTotalPrice: number;
+  /** DES-10-F2: review checklist attestations; null means not reviewed. */
+  exclusionsReviewedAt: string | null;
+  priceSourcesReviewedAt: string | null;
 }
+
+/**
+ * Price-readiness signal for one estimate line, derived at detail-read time
+ * from the line's supplier-price evidence (DES-10-F3). `null` means no
+ * supplier material price backs the line, so no readiness signal applies.
+ * The value is absent on write-path responses, which do not evaluate it.
+ */
+export type LinePriceReadiness =
+  | "missing"
+  | "current"
+  | "warn"
+  | "refresh"
+  | "reject"
+  | "unverified"
+  | null;
 
 export interface EstimateLineItemDTO {
   id: string;
@@ -109,6 +135,12 @@ export interface EstimateLineItemDTO {
   section: string;
   costType: EstimateCostType;
   taxable: boolean;
+  /**
+   * Price-readiness signal, present only on detail reads (`getById`).
+   * Write-path responses omit it; `null` means no supplier material price
+   * backs the line.
+   */
+  priceReadiness?: LinePriceReadiness;
 }
 
 export interface EstimateComparisonSideDTO {

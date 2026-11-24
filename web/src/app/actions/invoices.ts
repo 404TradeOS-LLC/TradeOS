@@ -2,9 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { apiFetch, ApiClientError, Invoice } from "@/lib/api";
+import { apiFetch, ApiClientError, getInvoice, Invoice } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { FormActionState } from "./customers";
+import {
+  isUnconfirmedPaymentError,
+  reconcileRecordedPayment,
+} from "./invoice-payment-reconciliation";
 import {
   parseManualLineItems,
   scaleManualLinesForProgress,
@@ -144,10 +148,37 @@ export async function recordInvoicePaymentAction(_prev: FormActionState, formDat
   const notes = String(formData.get("notes") ?? "").trim();
   const amount = Number(amountRaw);
 
-  if (!Number.isFinite(amount) || amount <= 0) return { error: "Enter a payment amount greater than zero." };
-  if (!paymentDate) return { error: "Choose the payment date." };
-  if (!method) return { error: "Choose a payment method." };
+  // DES-7 (d): Payment Failure is a failed manual record-payment attempt.
+  // A failed attempt — validation or server error — records the reason on
+  // the invoice (`invoice.payment_failed`) so the detail page shows the
+  // Payment Failure state instead of silently staying in its prior state.
+  // Recording is best-effort: if it fails, the original failure is still
+  // what the form reports.
+  const recordFailure = async (message: string): Promise<FormActionState> => {
+    if (id) {
+      try {
+        await apiFetch(`/api/v1/invoices/${id}/payment-failures`, {
+          method: "POST",
+          token: token ?? undefined,
+          body: JSON.stringify({ reason: message }),
+        });
+      } catch {
+        // The original failure is what the form reports.
+      }
+    }
+    revalidatePath(`/projects/${projectId}/invoices/${id}`);
+    return { error: message };
+  };
 
+  if (!Number.isFinite(amount) || amount <= 0) return recordFailure("Enter a payment amount greater than zero.");
+  if (!paymentDate) return recordFailure("Choose the payment date.");
+  if (!method) return recordFailure("Choose a payment method.");
+
+  // DES-7 (d) round-3: the attempt start binds reconciliation to THIS
+  // attempt. The recorded payment carries no idempotency key, so without
+  // this bound an earlier identical payment inside the window would
+  // falsely confirm a new attempt that failed before committing.
+  const attemptStartedAt = new Date();
   try {
     await apiFetch(`/api/v1/invoices/${id}/payments`, {
       method: "POST",
@@ -161,7 +192,28 @@ export async function recordInvoicePaymentAction(_prev: FormActionState, formDat
       }),
     });
   } catch (err) {
-    return { error: err instanceof ApiClientError ? err.message : "Something went wrong." };
+    // DES-7 (d) round-2: a transport failure, or a 2xx whose body cannot be
+    // parsed, does not mean the payment failed — the payments POST commits
+    // before the backend writes its 201, so the payment may already be
+    // recorded. Reconcile the invoice's recorded payments first: a match
+    // means the payment landed and the action succeeds; no match (or a
+    // failed reconciliation read) is UNCONFIRMED — return it without
+    // persisting a `payment_failed` event, so the detail page never claims
+    // a recorded payment failed and never tells the contractor to record
+    // it again. Only a confirmed HTTP rejection records a failure.
+    if (isUnconfirmedPaymentError(err)) {
+      const recorded = await reconcileRecordedPayment(() => getInvoice(token ?? "", id), { amount, paymentDate, method, }, new Date(), attemptStartedAt);
+      if (recorded) {
+        revalidatePath(`/projects/${projectId}/invoices/${id}`);
+        redirect(`/projects/${projectId}/invoices/${id}`);
+      }
+      revalidatePath(`/projects/${projectId}/invoices/${id}`);
+      return {
+        error: "Could not confirm whether the payment was recorded. Check the payment list on this invoice before recording it again.",
+        unconfirmed: true,
+      };
+    }
+    return recordFailure(err instanceof ApiClientError ? err.message : "Something went wrong.");
   }
 
   revalidatePath(`/projects/${projectId}/invoices/${id}`);

@@ -12,6 +12,10 @@ export interface CostbookAssembly {
   description: string | null;
   isTemplate: boolean;
   isActive: boolean;
+  /** Absolute waste % override for this install (null = recipe/mapped-item defaults). DEV-17 S10. */
+  wasteOverridePct: number | null;
+  /** Production-rate factor override for this install (null = recipe default, 1.0). DEV-17 S10. */
+  productionRateFactor: number | null;
 }
 
 export interface CostbookAssemblyItem {
@@ -54,6 +58,9 @@ export interface CostbookResolvedPriceAlternative {
   observedAt: string;
   supplierName: string | null;
   storeName: string | null;
+  marketCode: string | null;
+  city: string | null;
+  state: string | null;
   postalCode: string | null;
   source: string;
   sourceUrl: string | null;
@@ -69,6 +76,9 @@ export interface CostbookResolvedPrice {
   source: string;
   supplierName: string | null;
   storeName: string | null;
+  marketCode: string | null;
+  city: string | null;
+  state: string | null;
   postalCode: string | null;
   observedAt: string;
   confidence: CostbookPriceConfidence;

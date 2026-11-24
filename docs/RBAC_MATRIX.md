@@ -68,7 +68,7 @@ Shared permission keys from `app/domain/contracts.ts`:
 
 Costbook hierarchy PATCH operations intentionally split ordinary editing from lifecycle control. Changes to Division, Category, or Subcategory fields such as `code`, `name`, and `sortOrder` require `costbook.write`; any PATCH that includes `isActive` additionally requires `costbook.manage`, matching the existing manage-only DELETE/deactivation boundary. Owner/admin currently hold both permissions, but this distinction is enforced independently so a future write-only Costbook role cannot activate or deactivate hierarchy records.
 
-Change-order reads require `billing.read`; change-order creation, edits, line-item changes, deletion, approval, and rejection require `billing.write`. Supplier reads require `costbook.read`; supplier creation, edits, and deletion require `costbook.manage`. These are application-layer gates in addition to the existing forced-RLS tenant floor.
+Change-order reads require `billing.read`; change-order creation, edits, line-item changes, deletion, approval, and rejection require `billing.write`. Approval and rejection emit an attributable activity event (`entityType: "change_order"`, `eventType: "change_order.approved" | "change_order.rejected"`) with the authenticated staff user as actor and the previous/new status, change-order number, project, and recalculated amount in metadata; the permission itself is unchanged, and customer-portal approve/reject does not exist for change orders (ADR-010 as amended by DES-10-F7, which adds a governed proposal-only approve/reject path — proposals only, never change orders). Closeout reads require `crm.read`; closeout creation, punch and warranty writes, ready, and handoff require `crm.write`. Mark-ready, verify, reopen, and handoff are additionally manager-only (owner/admin/dispatcher); punch resolve is manager-or-assigned-technician, enforced in `CloseoutService` because the shared permission keys cannot express "the assigned technician" (the same reason job field transitions carry no permission key). The portal's completed-job probe (`app_completed_job_ids_for_project()`) grants no permission and changes no role: it is a read-only, org/customer-scoped evidence read for the portal checklist only, and portal reads of the closeout tables are additionally customer-scoped by restrictive RLS policies — a portal customer still cannot write closeout rows and still cannot read another customer's rows. Supplier reads require `costbook.read`; supplier creation, edits, and deletion require `costbook.manage`. These are application-layer gates in addition to the existing forced-RLS tenant floor.
 
 S008 changes estimate lifecycle normalization only. It does not change estimate permissions, roles, organization scoping, or the existing `crm.read`/`crm.write` boundaries.
 
@@ -77,7 +77,7 @@ S008 changes estimate lifecycle normalization only. It does not change estimate 
 - all roles are tenant-scoped by organization membership
 - no role bypasses RLS
 - cross-organization reads and writes are denied by session-scoped RLS
-- customer portal sessions are scoped to one organization and customer; they can read only that customer's shared project documents and can write only the exact pending contract-sign transition
+- customer portal requests are scoped by forced RLS to the organization, customer, and exact validated session digest; sibling and cross-organization sessions remain hidden, missing session context fails closed, and portal access can read only that customer's shared project documents and write only the exact pending contract-sign transition, the exact first-view invoice transition (`viewedAt` from null; `status` changes only from `sent` to `viewed`, or stays unchanged for any non-draft invoice; every other invoice column pinned by trigger; see `docs/modules/invoices-and-payments.md`), and the exact governed proposal response transition (DES-10-F7: `sent`/`viewed` → `accepted` with a drawn signature + printed name attributed to the customer record, or → `declined` with an optional reason; every other proposal column pinned by trigger; accepting also awards the owning project, declining leaves it untouched; see `docs/modules/proposals.md`)
 - PDF download filename sanitization changes no permission: invoice, contract, and proposal PDF reads still require `billing.read`, and portal PDF reads remain portal-session-scoped; only the `Content-Disposition` filename is folded to printable ASCII so non-Latin-1 project names cannot break the header
 - issuing and emailing a customer portal access link remains a staff-only `documents.manage` action; delivery is a server-side side effect and grants no additional staff or portal permission
 - the Resend delivery journal (`email_delivery_messages`, `email_delivery_events`) has no API surface and no role permission: no staff role can read or write it through the API, tenant reads are org-scoped at the database boundary, user-wide password-reset rows are visible to no tenant, and writes are server-only behind the transaction-local `app.resend_webhook` flag set inside the verified-webhook store transaction. A bounce or complaint only sets a `suppression_candidate` flag; no delivery suppression is performed from it (see `docs/modules/resend-delivery-suppression-policy.md`)
@@ -109,6 +109,7 @@ Jobs have extra scope restrictions beyond the shared permission map:
 - Job scheduling/job-number and AI Estimate Assist advisory locks now use Prisma `$executeRaw` for the existing PostgreSQL lock statements; this concurrency implementation repair does not change authentication, organization membership, forced-RLS enforcement, lifecycle authority, or any role permission.
 - `GET /api/v1/jobs/dispatch-summary` (the Dispatcher Workspace's org-wide attention aggregate) requires authentication but no elevated role — it introduces no new privilege check. The existing `jobs_select_policy` RLS narrowing above still applies to its underlying `count()` queries, so a non-owner/admin/dispatcher caller receives real, correctly-scoped-to-them counts rather than an org-wide total; the response labels this via a `scope` field so the UI never presents a narrowed count as if it were org-wide
 - S033 invoice-readiness acknowledgement uses the existing manager boundary (`owner`/`admin`/`dispatcher`); technicians cannot invoke it. The route remains organization-scoped under forced RLS and does not create invoice or payment records.
+- rescheduling a dispatched job requires the same schedule permission as any reschedule plus an explicit `confirmDispatchReversal` confirmation; the confirmation is a caller acknowledgement, not a new role or privilege — dispatchers, owners, and admins who may reschedule may confirm the reversal, and no role gains dispatch authority from it.
 
 ## Athena business tools (A12)
 
@@ -150,7 +151,8 @@ See `docs/athena/roadmap/A12-business-tool-rollout-implementation-plan.md` secti
 
 - first-owner provisioning creates an `owner`; this only happens once per identity — `POST /api/v1/auth/bootstrap` looks up an existing membership (by verified `authSubject`/email) before ever provisioning, so calling it again for an already-bootstrapped user (which the frontend now does on every login, not just at signup) returns their existing role and never creates a second organization or membership, and the client-supplied `organizationName` is ignored entirely once a membership already exists. That lookup runs inside a transaction that explicitly sets the `app.login_lookup` → `app.user_id` → `app.org_id` RLS session flags in sequence (a fixed production bug — see `docs/modules/auth-and-tenancy.md`'s Database security invariants), since the request has no established org context yet
 - `organizationName` (and only `organizationName`/`regionCode`/`fullName`) is the sole client input the first-owner provisioning path accepts; `bootstrapSchema` (`app/backend/controllers/auth.controller.ts`) is a Zod `.strict()` object, so a request body carrying `role`, `userId`, `authSubject`, or `organizationId` is rejected outright (`400`, before any provisioning logic runs) — see `app/tests/auth.controller.bootstrap.test.ts`. Role is always the hardcoded `"owner"` literal in `OrganizationProvisioningService.provision`; identity is always the verified JWT's `authSubject`/email, never the request body
-- workspace switching adds no role or permission: `GET /api/v1/auth/memberships` and `POST /api/v1/auth/select-organization` are authenticated-user operations scoped to the caller's own active memberships. Selection 403s without an active membership in the requested org (including for inactive users) and never trusts a client-supplied org id on its own; the issued token's org claim is server-derived from the verified membership. Listing is un-rate-limited by design (the app shell calls it per page load); selection carries the shared auth rate limit
+- workspace switching adds no role or permission: `GET /api/v1/auth/memberships` and `POST /api/v1/auth/select-organization` are authenticated-user operations scoped to the caller's own active memberships. Selection 403s without an active membership in the requested org (including for inactive users) and never trusts a client-supplied org id on its own; the issued token's org claim is server-derived from the verified membership. Listing carries a dedicated per-user rate limit (600 requests per 15 minutes, keyed on a SHA-256 hash of the Authorization header value and running before requireAuth so the JWT verification itself is rate-limited — the app shell calls it per page load, so the budget is generous, and IP-scoped limiting would throttle all users together through shared Vercel egress IPs); selection carries the shared auth rate limit. The routes run without the request `databaseSession` middleware because the service methods open their own transactions; that is a transaction-session design point, not an authorization change — the 403 rule and the forced-RLS floor are unchanged.
+- bearer extraction is not an authorization change: `requireAuth` and bootstrap now read the token through the linear parser `extractBearerToken` (`app/backend/auth/bearer.ts`) instead of the regex `/^Bearer\s+(.+)$/i` (CodeQL #19, #4); acceptance is identical, so no role, permission, membership, or RLS rule changes
 - team invites are currently limited to `dispatcher` and `technician` roles
 - password-reset delivery is public and rate-limited; invite delivery does not change the existing owner/admin write boundary, tenant scoping, or forced-RLS floor
 - compatibility values may still appear in stored memberships but are normalized during auth/session resolution
@@ -262,3 +264,35 @@ Invitation acceptance likewise conditionally claims a pending, unaccepted, unexp
 After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
 
 Refresh rotation records the replacement refresh-row UUID in `replaced_by_id`, while the opaque token hash remains only in `token_hash`. The conditional single-use rotation and replacement row creation remain in one transaction; replay and logout continue to reject revoked refresh sessions.
+## Proposed staff offline proposal acceptance
+
+`POST /api/v1/proposals/:id/accept-offline` requires `documents.manage`,
+matching the normal internal proposal accept/send management boundary.
+The API derives actor and tenant identifiers exclusively from the authenticated
+request, rejects unknown/absent actor/org, and does not accept caller-provided
+tenant identifiers. Owners/admins and any other explicitly authorized
+`documents.manage` role may record offline acceptance; non-authorized
+technician/viewer roles receive 403. The service conditionally updates only a
+proposal whose parent Project matches the authenticated organization, and
+forced RLS remains in effect. A confirmation checkbox and approval note do
+not grant permission on their own. Customer portal contexts cannot invoke
+the staff-only action or view the staff's private acceptance note. This
+transition remains an unshipped feature until reviewed staging acceptance.
+
+## Staff-recorded offline proposal acceptance (proposed)
+
+`POST /api/v1/proposals/:id/accept-offline` requires an authenticated organization
+member with `documents.manage`, as does the normal internal proposal acceptance.
+The controller never accepts org or actor identifiers from the request body; it derives
+them from the verified session. A technician without that permission is denied 403.
+Staff must positively confirm that the customer approved a written scope and final
+price outside TradeOS, choose in-person/phone/external signed-copy channel, and enter
+an audit note. The service conditionally transitions only an org-scoped **draft**
+proposal to accepted and rejects stale or concurrent changes. This route
+creates no customer portal acceptance or signature authority of its own —
+portal acceptance authority comes only from the governed portal endpoints
+(DES-10-F7: `POST /api/v1/customer-portal/proposals/:id/accept|decline`),
+never from a staff-recorded offline acceptance. Customers can see an approval milestone,
+but the customer projection strips all internal acceptance note/method, actor and
+recipient details, retaining only the offline source indicator. This route remains
+unreleased until reviewed and staged.

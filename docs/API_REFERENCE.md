@@ -91,8 +91,37 @@ such as BOX/EA are not accepted without explicit conversion. Installed
 assemblies retain source IDs in their description for later review and
 remain price-neutral until resolved by the canonical Costbook cost service.
 
+Measurement contracts (issue #518 S8) add one more fail-closed install reason
+with no schema, body, or authorization change: a template whose measurement
+contract does not hold (empty measurement basis, non-catalog output unit,
+roofing-square output without the 100-SF definition, non-positive or
+unrecognized component unit, allowance component not LS-denominated or not
+exactly 1 per assembly unit) carries `Measurement contract: ...` entries in
+`blockingReasons` and the install returns HTTP 422 before DB mutation. All 107
+catalog templates satisfy the contract as served, so no installable recipe
+gains a new block. There is no takeoff endpoint yet: `deriveAssemblyQuantity`
+is a pure library derivation, and the persisted takeoff-record connection is a
+follow-up gated on S065 (takeoff MVP) + S4 (estimate-line snapshots).
+
 No change to Estimate Engine snapshot semantics, material-price history,
 auth/RLS, supplier feeds or migrations. Hosted verification remains pending.
+
+## Starter-catalog bulk mapping reuse (DEV-17 S9, issue #518)
+
+`GET /api/v1/costbook/assemblies/starter-catalog/:templateId/mapping-suggestions?sourceAssemblyId=<assembly-id>`
+(and the compatible `GET /api/v1/assemblies/starter-catalog/:templateId/mapping-suggestions`)
+requires `costbook.read` and returns `{ templateId, sourceAssemblyId, sourceAssemblyName, suggestions, mappedCount, unmappedComponentKeys }`.
+Each suggestion carries the target `componentKey`/`componentLabel` plus the
+suggested Cost Item's id, code, name, unit, subcategory, production rate,
+active flag, org, and kind ids — enough for the UI to build a full catalog
+record for the install compatibility re-check. Unknown templates and
+out-of-org source assemblies return 404; source-blocked research templates
+return 422 before any read. The endpoint is read-only: it suggests, never
+installs. The starter-catalog UI offers the reuse block above the per-slot
+mapping list (installed template assemblies as sources), fills only
+unmapped slots, and still installs through the unchanged
+`POST .../starter-catalog/install` contract. No migration, no install-path
+change, no new pricing.
 
 ## ABC Supply sandbox OAuth reauthorization (2026-10-11)
 
@@ -201,8 +230,14 @@ or ABC Production API entitlement.
 `POST /api/v1/supplier-integrations/abc/selected-price-probe` requires an
 authenticated workspace owner/admin with `costbook.manage`, and a strict body:
 `{ "shipToNumber": "...", "branchNumber": "...", "sku": "654210" }`.
-For now `sku` is restricted to `654210` or the ABC documented sample
-`02GASTZ3WW` (not guaranteed to be priceable in the sandbox). Callers cannot
+`sku` is restricted to a closed allowlist: the pilot SKUs `654210` and the ABC
+documented sample `02GASTZ3WW`, plus the test SKUs ABC API Support provided
+2026-11-24 for issue #711 — branch 254 items `17CTRV12FN`, `0150013884`;
+branch 340 priced items `02IKDYARAB`, `02IKDYARCA`, `0150013846`,
+`0170030023`, `0150013902`, `02CTL303GG`, `05CTSRR10`, `02GATZ3WW`,
+`04CTPRSTWW`, `01CT25BK`, `14MIDEGBK`; branch 340 $0-price items
+`07CS300054`, `07GAEGUCGY`, `08GAEPADH`, `23CTCI9GG`, `GGC615VGWH` (none
+guaranteed to be priceable in the sandbox). Callers cannot
 specify tenant, supplier, URL, quantity, unit, or purpose. This is a single
 explicit user-initiated diagnostic, not scheduled price synchronization.
 
@@ -300,7 +335,7 @@ Locally issued HS256 access tokens carry a finite expiration (one hour by defaul
 
 `POST /api/v1/auth/logout` requires the normal bearer and active-membership checks, then revokes the caller's active local refresh sessions. Refresh rotation is conditional and single-use under concurrent requests; password-reset confirmation also revokes the user's active local refresh sessions. Supabase JWTs must carry finite `exp` and `iat` claims.
 
-Workspace switching: `GET /api/v1/auth/memberships` lists the caller's own active memberships (org id, organization name, role, created at), earliest first, under the normal bearer and active-membership checks — no role permission, because the result is scoped to the authenticated user by construction, and no rate limit, because the app shell calls it on every page load. `POST /api/v1/auth/select-organization` activates one of those workspaces: the body is a Zod `.strict()` `{ orgId }` (UUID), the service re-verifies an active membership in the requested org (403 otherwise, including for inactive users), and the issued session carries the selected org with its refresh token bound to the selected membership, so refresh preserves the switch. Selection is rate-limited with the shared auth limit. The frontend switcher (`web/src/components/shared/workspace-switcher.tsx`) is shown only when the user belongs to more than one workspace; the (app) layout resolves the list server-side and the switch action replaces the local session cookies before the page refreshes into the selected workspace.
+Workspace switching: `GET /api/v1/auth/memberships` lists the caller's own active memberships (org id, organization name, role, created at), earliest first, under the normal bearer and active-membership checks — no role permission, because the result is scoped to the authenticated user by construction, and a dedicated per-user rate limit (600 requests per 15 minutes, keyed on a SHA-256 hash of the Authorization header value, running before requireAuth so the JWT verification itself is rate-limited), because the app shell calls it on every page load: a shared-IP limit would 429 normal navigation, and the layout fetches server-side from shared Vercel egress IPs. `POST /api/v1/auth/select-organization` activates one of those workspaces: the body is a Zod `.strict()` `{ orgId }` (UUID), the service re-verifies an active membership in the requested org (403 otherwise, including for inactive users), and the issued session carries the selected org with its refresh token bound to the selected membership, so refresh preserves the switch. Selection is rate-limited with the shared auth limit. The frontend switcher (`web/src/components/shared/workspace-switcher.tsx`) is shown only when the user belongs to more than one workspace; the (app) layout resolves the list server-side and the switch action replaces the local session cookies before the page refreshes into the selected workspace. Both routes run without the request `databaseSession` middleware: the service methods open their own `basePrisma.$transaction` (the pooler's single connection would deadlock on a nested acquisition), and set their own login-lookup / user / org flags inside those transactions, like login, refresh, and bootstrap.
 
 Public routes are limited to:
 
@@ -308,7 +343,7 @@ Public routes are limited to:
 - `/api/v1/platform/organizations`
 - `/api/v1/customer-portal/redeem`
 
-`POST /api/v1/auth/bootstrap` is the one auth route that requires a bearer token (a verified Supabase or local JWT) despite living under the public `/api/v1/auth/*` prefix — it links that verified identity to an application user/organization/membership, is idempotent (safe to call repeatedly for an already-bootstrapped identity, which never touches the request body's `organizationName`), and never trusts a client-supplied role or organization id (`bootstrapSchema` is a Zod `.strict()` object accepting only `organizationName`/`regionCode`/`fullName` — any other field is a `400`). A `400` for a brand-new identity with no `organizationName` carries `details: { code: "organization_name_required" }`, a stable discriminator the frontend uses to route to `/finish-setup` rather than parsing the error message text. A `409` means the identity has an `AppUser` record but no active `OrganizationMembership` (a genuinely rare data-integrity edge case, not a normal path). See [modules/auth-and-tenancy.md](modules/auth-and-tenancy.md) for the full lifecycle, including a previously-fixed production bug where every already-provisioned identity's second-and-later call falsely hit that `409`.
+`POST /api/v1/auth/bootstrap` is the one auth route that requires a bearer token (a verified Supabase or local JWT) despite living under the public `/api/v1/auth/*` prefix — it links that verified identity to an application user/organization/membership, is idempotent (safe to call repeatedly for an already-bootstrapped identity, which never touches the request body's `organizationName`), and never trusts a client-supplied role or organization id (`bootstrapSchema` is a Zod `.strict()` object accepting only `organizationName`/`regionCode`/`fullName` — any other field is a `400`). A `400` for a brand-new identity with no `organizationName` carries `details: { code: "organization_name_required" }`, a stable discriminator the frontend uses to route to `/finish-setup` rather than parsing the error message text. A `409` means the identity has an `AppUser` record but no active `OrganizationMembership` (a genuinely rare data-integrity edge case, not a normal path). See [modules/auth-and-tenancy.md](modules/auth-and-tenancy.md) for the full lifecycle, including a previously-fixed production bug where every already-provisioned identity's second-and-later call falsely hit that `409`. Bearer extraction for this route and for `requireAuth` is the linear parser `extractBearerToken` (`app/backend/auth/bearer.ts`), which replaced `/^Bearer\s+(.+)$/i` (CodeQL #19, #4) with identical acceptance.
 
 ## Customer magic-link portal
 
@@ -338,6 +373,7 @@ organization or customer id:
 
 - `GET /api/v1/customer-portal/projects`
 - `GET /api/v1/customer-portal/projects/:id`
+- `GET /api/v1/customer-portal/projects/:id/closeout/document` — the rendered closeout packet as `text/html` (S069; read-only, no portal mutation exists)
 - `GET /api/v1/customer-portal/proposals/:id`
 - `GET /api/v1/customer-portal/proposals/:id/pdf`
 - `GET /api/v1/customer-portal/invoices/:id`
@@ -345,9 +381,14 @@ organization or customer id:
 - `GET /api/v1/customer-portal/contracts/:id`
 - `GET /api/v1/customer-portal/contracts/:id/pdf`
 - `POST /api/v1/customer-portal/contracts/:id/sign`
+- `POST /api/v1/customer-portal/proposals/:id/accept` — governed portal acceptance (DES-10-F7; see below)
+- `POST /api/v1/customer-portal/proposals/:id/decline` — governed portal decline (DES-10-F7; see below)
 
 Every resource lookup requires the project to belong to both the session's
-organization and customer. Portal signing accepts a signer name and optional
+organization and customer. A successful `GET /api/v1/customer-portal/invoices/:id`
+is also the mark-viewed writer: a `sent` invoice moves to persisted `viewed`
+and records `viewedAt` (idempotent on repeat views; drafts are never served).
+Portal signing accepts a signer name and optional
 drawn signature data; the signer email is re-derived from the customer record.
 The transition is limited by a dedicated RLS policy to the session customer,
 the exact pending contract, and `pending_signature -> signed`. Signature IP
@@ -355,6 +396,47 @@ and user agent are explicitly reported metadata because the web tier may proxy
 the request; the contract event records `actorType: customer_portal`, the
 customer id, and portal session id. The portal principal cannot call staff
 `/api/v1/*` routes.
+
+DES-10-F7 (2026-11-24, founder decision): the portal also answers proposals.
+`POST /api/v1/customer-portal/proposals/:id/accept` accepts `{ signerName,
+signatureDataUrl, signatureIpReported?, signatureUserAgentReported?,
+expectedUpdatedAt? }` and moves a `sent`/`viewed` proposal to `accepted`;
+`POST /api/v1/customer-portal/proposals/:id/decline` accepts `{ reason?,
+expectedUpdatedAt? }` (≤ 500 chars) and moves it to `declined`. The signature
+must be a drawn image that decodes to bytes
+(`data:image/png|jpeg|gif|webp;base64,…`, ≤ 2,000,000 chars) — a bare
+`data:image/` prefix with no payload is rejected with `400`. `expectedUpdatedAt`
+is the proposal's `updatedAt` as rendered; when sent, a staff edit after the
+page rendered is a 409. The signer email is re-derived from the customer
+record, never taken from the request.
+Acceptance records the signer name/email, signature image, reported IP/user
+agent, and `signedAt` on the proposal, awards the owning project
+(`estimating` → `awarded`, staff accept parity), and writes a
+`proposal.accepted` delivery event (`delivery_channel: "portal"`,
+`actorType: "customer_portal"`, customer id, portal session id) plus the
+matching activity row. Decline records an optional `declinedReason` and a
+`proposal.declined` event the same way, and deliberately leaves the project
+untouched (a project may carry several proposals; declining one must not
+un-award a project won through another — unlike staff reject, which sets
+`estimating` unconditionally). Drafts 404; foreign-customer and cross-org
+proposals 404; a second response, or a response after the proposal moved,
+409s. The writes run under the same narrow-policy shape as contract signing
+(`proposals_portal_response_policy` + trigger, migration
+`20261124150000_add_proposal_portal_acceptance`, keyed by the
+transaction-local `app.portal_proposal_id`; the project award uses a second
+transaction-local id, `app.portal_proposal_project_id`, because a subquery
+over proposals inside the projects policy recurses through the proposals
+SELECT policy — PostgreSQL rejects that cycle as infinite recursion). No
+Athena event is published and no email is sent. See the DES-10-F7 amendment
+in [ADR-010](decisions/ADR-010-customer-magic-link-portal.md).
+
+After middleware validates a portal bearer session, the request transaction
+sets transaction-local `app.portal_session_hash` to the SHA-256 digest of that
+session, together with its organization, customer, and session IDs. Forced RLS
+uses that digest to expose only the exact validated session row; sibling and
+cross-organization sessions remain hidden. A missing validated digest exposes
+no portal session rows. The raw bearer value is not attached to the request
+context or logged.
 
 ## Transactional email behavior
 
@@ -406,6 +488,15 @@ pool instead of returning a transaction-acquisition `500` after two seconds.
 - The key is unique within the project resolved from the authenticated organization; the request fingerprint uses SHA-256 over key-order-independent JSON. The database unique index resolves simultaneous creates.
 - Invalid supplied keys fail validation before a proposal is written. Keyless legacy requests follow the original non-idempotent create behavior. This contract does not auto-retry requests or send the proposal.
 
+## Proposal selections and allowances (DES-10-F8)
+
+Copperline proposal sections 03 (selections) and 04 (allowances) are persisted as `ProposalSelection` and `ProposalAllowance` rows and returned on the proposal representation as `selections`, `allowances`, and a display-only `allowancesTotal` (the sum of the allowance rows). Reads require `billing.read`; writes require `documents.manage`.
+
+- `GET /api/v1/proposals/:id/selections`, `POST /api/v1/proposals/:id/selections`, `PATCH /api/v1/proposals/:id/selections/:selectionId`, `DELETE /api/v1/proposals/:id/selections/:selectionId`
+- `GET /api/v1/proposals/:id/allowances`, `POST /api/v1/proposals/:id/allowances`, `PATCH /api/v1/proposals/:id/allowances/:allowanceId`, `DELETE /api/v1/proposals/:id/allowances/:allowanceId`
+
+A selection carries `label` (1–120 chars), nullable `detail` (≤ 500 chars), `status` (`action_required` | `confirmed`), and a nullable ISO `dueDate`. An allowance carries `description` (1–200 chars) and `amount` (>= 0). Writes on an accepted proposal, or one with a contract, fail with `409`; a missing or foreign-org proposal fails with `404`. Duplicating a proposal carries its selections and allowances to the copy. The allowances total is display-only: it is never added to `finalPrice`, and the customer-portal proposal representation includes the same fields. See [modules/proposals.md](modules/proposals.md).
+
 ## Route groups
 
 Mounted route groups from `app/backend/server.ts`:
@@ -441,6 +532,7 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/schedule`
 - `/api/v1/notes`
 - `/api/v1/change-orders`
+- `/api/v1/closeout` — closeout and warranty workspace (S069); see below.
 - `/api/v1/supplier-integrations`
 - `/api/v1/project-intake`
 - `/api/v1/knowledge`
@@ -450,13 +542,102 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/brand-studio`
 - `/api/v1/intelligence`
 - `/api/v1/athena`
-  - `GET /api/v1/athena/capabilities` — authenticated, read-only deployment capability discovery. Returns `{ kernelEnabled: boolean }` from the same `ATHENA_KERNEL_ENABLED` feature gate that controls `POST /api/v1/athena/chat`. It exposes no customer, tenant, model, provider, or permission payload and exists so contractor navigation can fail closed when Athena is disabled.
+  - `GET /api/v1/athena/capabilities` — authenticated, read-only deployment capability discovery. Returns `{ kernelEnabled: boolean }` from the same `ATHENA_KERNEL_ENABLED` feature gate that controls `POST /api/v1/athena/chat`. It exposes no customer, tenant, model, provider, or permission payload and exists so contractor navigation can fail closed when Athena is disabled. It does not reflect model-provider health: with `ATHENA_PROVIDER_MODE=google` and a bad or missing `GEMINI_API_KEY`, the kernel still reports enabled and the failure surfaces on the first chat call as a 502 with the safe summary only.
   - `POST /api/v1/athena/chat` — authenticated Athena kernel request boundary. Selected scope narrows context but does not authorize it; existing service permissions, approval/risk policy, idempotency, request-scoped database session, and forced RLS remain authoritative.
 - `/api/v1/athena/observability`
 
 ABC Supply refresh-token rotation is durable-first: `ABC_SUPPLY_SANDBOX_REFRESH_TOKEN` is bootstrap/recovery configuration, while the default supplier feed reads/writes the current rotated token through private `tradeos_private` functions backed by Supabase Vault. Those functions require the active owner/admin tenant session and the configured `ABC_SUPPLY` supplier row; `tradeos_app` is not granted direct Vault table/view access.
 
-Change-order reads require `billing.read`; all change-order mutations, including line-item changes and approval/rejection, require `billing.write`. Supplier reads at `/api/v1/suppliers` require `costbook.read`; supplier create, update, and delete require `costbook.manage`. Both surfaces remain organization-scoped through the authenticated request session and forced RLS.
+Change-order reads require `billing.read`; all change-order mutations, including line-item changes and approval/rejection, require `billing.write`. Approval and rejection additionally emit an attributable `ActivityEvent` (`entityType: "change_order"`, `eventType: "change_order.approved" | "change_order.rejected"`) recording the authenticated staff user as actor, with the previous/new status, change-order number, project, and recalculated amount in metadata; `billing.write` is unchanged and no customer-portal approve/reject path exists for change orders — the only portal approve/reject path is the governed proposal response (DES-10-F7 amendment to ADR-010; proposals only, never change orders, contracts, or invoices). Supplier reads at `/api/v1/suppliers` require `costbook.read`; supplier create, update, and delete require `costbook.manage`. Both surfaces remain organization-scoped through the authenticated request session and forced RLS.
+
+### Closeout and warranty workspace (S069)
+
+Mounted at `/api/v1/closeout` (`app/backend/routes/closeout.routes.ts`,
+`app/modules/closeout/service.ts`). No new permission is introduced: reads
+and punch/warranty writes reuse `crm.read` / `crm.write`, and no closeout
+operation writes a Contract, Proposal, Invoice, or Estimate row.
+
+- Project closeout (one row per project; created at field completion):
+  - `POST /projects/:projectId/closeout` — `crm.write`. Body `{ notes? }`.
+    `201` with the closeout (`draft`, linked to the most recently completed
+    job). `409` when the project has no completed job, or already has a
+    closeout.
+  - `GET /projects/:projectId/closeout` — `crm.read`. Returns
+    `{ closeout, checklist }`; the checklist is computed at read time
+    (completed job, signed contract, final invoice, accepted proposal,
+    open punch count, `missing[]`, `ready`).
+  - `POST /projects/:projectId/closeout/ready` — `crm.write` + manager role
+    (`owner` / `admin` / `dispatcher`). `409` unless the closeout is
+    `draft` with a ready checklist. Stamps `completedAt` /
+    `completedById`.
+  - `POST /projects/:projectId/closeout/handoff` — `crm.write` + manager
+    role. `409` unless the closeout is `ready`. Stamps `handedOffAt` /
+    `handedOffById`. Handoff rechecks the readiness checklist first (for
+    the detailed `409`), and the write itself is conditional in a single
+    statement — still `ready` and no `open` / `in_progress` punch item —
+    so a punch item reopened or created between the recheck and the
+    write makes the write match zero rows and the handoff `409`s instead
+    of landing with an open punch item.
+  - `GET /projects/:projectId/closeout/document` — `crm.read`. Serves the
+    closeout packet as `text/html` (`Content-Disposition: inline`), the
+    rendered closeout frame with each rendered warranty frame's page
+    appended. No PDF rendering exists for these frames.
+- Punch items (the project's explicit unresolved-items list):
+  - `POST /projects/:projectId/punch-items` — `crm.write`. Body
+    `{ jobId?, title, description?, priority? ("low" | "medium" |
+    "high"), assignedUserId?, assignedTo?, dueDate? }`. `201`, status
+    `open`. The assignee must be an active member of the organization.
+  - `GET /projects/:projectId/punch-items` — `crm.read`. Lists the
+    project's punch items.
+  - `GET /punch-items/:id` — `crm.read`.
+  - `PATCH /punch-items/:id` — `crm.write`. `409` on a `verified` punch
+    item.
+  - `POST /punch-items/:id/resolve` — manager role or the assigned
+    technician (no permission-key gate: the service enforces the field
+    boundary, the same reason JobsService field transitions carry no
+    key). `409` unless the punch item is `open` or `in_progress`. Stamps
+    `resolvedAt` / `resolvedById`.
+  - `POST /punch-items/:id/verify` — `crm.write` + manager role. `409`
+    unless the punch item is `resolved`.
+  - `POST /punch-items/:id/reopen` — `crm.write` + manager role. `409`
+    unless the punch item is `resolved` or `verified`; clears
+    `resolvedAt` / `resolvedById`.
+- Warranty records (only warranties the contractor actually gave):
+  - `POST /projects/:projectId/warranties` — `crm.write`. Body
+    `{ jobId?, contractId?, invoiceId?, title, coverageText, sourceType
+    ("contract" | "invoice" | "other"), sourceId?, startsAt?, endsAt? }`.
+    `coverageText` is staff-supplied and must quote the source document;
+    no coverage term is invented. `201`.
+  - `GET /projects/:projectId/warranties` — `crm.read`.
+  - `GET /warranties/:id` — `crm.read`.
+  - `PATCH /warranties/:id` — `crm.write`. Updatable fields are `title`,
+    `coverageText`, `startsAt`, `endsAt` only.
+  - `DELETE /warranties/:id` — `crm.write`. Returns `204`.
+
+Every create and transition records an attributable `ActivityEvent`
+(`entityType` `punch_item` / `project_closeout` / `warranty_record`)
+with the acting user as actor. Cross-organization ids read as `404`;
+a verified punch item cannot be edited and a non-draft closeout cannot
+be re-readied or re-handed-off (`409`); a technician who is not the
+assignee, or any staff without `crm.write`, is denied with `403`.
+
+The customer portal shows the same handoff read-only: `GET
+/api/v1/customer-portal/projects/:id` carries `closeout: { status,
+checklist, resolvedPunchCount, openPunchCount, warranties,
+documentHref }` (or `null` when no closeout exists yet), and `GET
+/api/v1/customer-portal/projects/:id/closeout/document` serves the
+rendered closeout packet as `text/html` to the verified portal session.
+The portal exposes no closeout mutation; the web portal proxy route
+exports only `GET`. Portal reads of the closeout tables are
+additionally customer-scoped at the database boundary (restrictive
+`*_customer_portal_scope_policy` on each table), and the portal
+checklist's completed-job evidence comes from the narrow read-only
+`app_completed_job_ids_for_project()` probe — a portal session cannot
+read jobs (`jobs_select_policy` is staff-only), so the plain jobs read
+would always report the completed-job artifact missing; jobs RLS itself
+is untouched. Each rendered warranty frame shows the recorded expiry
+("Expires", from `endsAt`) and "Not recorded" when none was recorded;
+the portal handoff section shows the same ("Coverage ends …").
 
 ### CRM Customer search and service addresses
 
@@ -469,7 +650,7 @@ Change-order reads require `billing.read`; all change-order mutations, including
 
 `runWithBackgroundDatabaseSession` passes its resolved, membership-derived `AuthContext` to the operation it runs rather than only using it to establish the Postgres RLS session. Existing zero-argument callbacks remain compatible. `app/scripts/ingest-jones-and-sons-candidates.ts` uses that verified context to submit Jones & Sons Terre Haute research candidates without trusting a caller-supplied role.
 
-`GET /api/v1/intelligence/financial-summary` requires `billing.read` and derives organization scope only from the authenticated request. It returns `generatedAt` plus five source-aware sections: `cashCollected`, `receivables`, `unsignedOpportunity`, `projectedCommittedMargin`, and `actualJobCosts`. Cash uses recorded Payment rows in the current organization week. Receivables aggregate every non-paid/non-void invoice balance after recorded payments and identify overdue exposure at the generated instant. Unsigned opportunity sums known `Proposal.finalPrice` values and reports partial coverage when an unsigned proposal has no final price. Projected committed margin uses unique Estimate snapshots linked to accepted proposals, overhead-adjusted persisted cost, and pre-tax persisted sell value. `actualJobCosts` remains `null`/`unavailable` because no actual job-cost ledger exists. A source read failure returns null values and `coverage.status = "unavailable"`; unknown financial values are never coerced to zero.
+`GET /api/v1/intelligence/financial-summary` requires `billing.read` and derives organization scope only from the authenticated request. It returns `generatedAt` plus five source-aware sections: `cashCollected`, `receivables`, `unsignedOpportunity`, `projectedCommittedMargin`, and `actualJobCosts`. Cash uses recorded Payment rows in the current organization week. Receivables aggregate every non-paid/non-void invoice balance after recorded payments and identify overdue exposure at the generated instant. Unsigned opportunity sums known `Proposal.finalPrice` values and reports partial coverage when an unsigned proposal has no final price. Projected committed margin uses unique Estimate snapshots linked to accepted proposals, overhead-adjusted persisted cost, and pre-tax persisted sell value. `actualJobCosts` remains `null`/`unavailable` because no actual job-cost ledger exists. A source read failure returns null values and `coverage.status = "unavailable"`; unknown financial values are never coerced to zero. Tag names are slugified on creation (lowercased, non-alphanumeric runs collapsed to one dash, edge dashes trimmed); the edge-trim is a linear scan in `app/modules/intelligence/service.ts` (`slugify` / `trimEdgeDashes`), which replaced a polynomial edge-trim regex (CodeQL #38) with identical slugs.
 
 Background scheduler jobs are not REST endpoints. The existing one-shot supplier
 price-sync and Athena observability scripts run each configured organization
@@ -489,6 +670,8 @@ been configured.
 
 `POST /api/v1/invoices/:id/payments` is the authenticated payment-recording boundary used by the invoice detail form. It requires the canonical `billing.write` permission; an authenticated user without that permission receives `403` before any payment is recorded. A valid recorded payment is reconciled inside the authenticated request transaction while the target Invoice row is locked; fully covered eligible `sent` or existing raw `overdue` invoices persist `paid` and emit one transactional `invoice.paid` event. Partial payment and new overdue persistence remain derived, and persisted `paid` invoices are excluded from unpaid/partially-paid/overdue follow-up filters. The form captures amount, date, method, reference, and notes; no contractor-customer payment processor or public checkout contract is introduced.
 
+`POST /api/v1/invoices/:id/payment-failures` records a failed manual record-payment attempt as an `invoice.payment_failed` delivery event carrying the failure reason. It requires `billing.write` and organization scope and returns 204; the invoice status never changes. The web record-payment action calls it (best-effort, never masking the original failure) for validation failures as well as server errors, and the detail page derives the Payment Failure display from the latest such event. Payment Failure is a display state, not a persisted invoice status, and there is no online payment flow to fail.
+
 ### TradeOS subscription billing
 
 `GET /api/v1/billing` and `GET /api/v1/billing/catalog` require `billing.read`. The summary is the tenant-scoped Stripe subscription projection; the catalog is the server-owned Starter/Pro/Business/Scale presentation and price contract used by both checkout validation and the billing UI. `POST /api/v1/billing/checkout` and `POST /api/v1/billing/portal` require an organization owner or admin. Checkout requests validate the configured Stripe Price against the selected catalog amount, currency, and recurring interval; an organization-scoped persisted checkout attempt and stable Stripe idempotency key prevent duplicate sessions. `POST /api/v1/billing/webhook` accepts only a valid Stripe-signed raw body. Webhook event claiming is atomic, and subscription events hydrate the current Stripe subscription before updating the local projection so out-of-order delivery cannot restore stale access. Only `active` and `trialing` states grant entitlements.
@@ -503,10 +686,12 @@ The projection includes `paidAmount` and `balanceDue` derived from `Payment`
 rows whose status is `recorded`, plus a sanitized `payments` array containing
 amount, payment date, method, and creation time. Pending/failed payment rows,
 internal notes, and payment-entry actions are not exposed through this
-presentation projection. Persisted `paid` remains authoritative for a zero
-`balanceDue` even when manual mark-paid has no corresponding Payment row. The
-organization remains derived from authenticated membership context and forced
-RLS.
+presentation projection. The projection also includes `viewedAt` (null until
+the customer first opens the invoice in the portal) and the `deliveries`
+history, which carries any `invoice.payment_failed` record. Persisted `paid`
+remains authoritative for a zero `balanceDue` even when manual mark-paid has
+no corresponding Payment row. The organization remains derived from
+authenticated membership context and forced RLS.
 
 `/api/v1/knowledge/*` reads from data vendored into `app/vendor/knowledge-engine/` at build time (`app/scripts/vendor-knowledge-engine.js`) rather than directly from `packages/knowledge-engine/` — that package lives outside the `tradeos-costbook` Vercel project's Root Directory (`app`) and is not present at runtime in production otherwise. The Vercel function package explicitly includes that vendored tree via `app/vercel.json` (`functions.index.ts.includeFiles: "vendor/knowledge-engine/**"`), and the loader resolves both source-style Vercel execution and compiled `dist/` execution paths. No `/api/v1/knowledge/*` request or response contract changes are introduced by that packaging fix. See [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)'s Known Limitations.
 
@@ -521,7 +706,7 @@ AI estimating routes under `/api/v1/estimates`:
 - `POST /api/v1/estimates/:id/ai-estimator/draft`
 - `POST /api/v1/estimates/:id/ai-estimator/apply`
 
-`ai-suggestions` requires `crm.read`; `ai-suggestions/apply` requires `crm.write`. The structured AI estimator endpoints (`ai-estimator/draft`, `ai-estimator/apply`) require `billing.write` and are additionally authenticated, rate-limited, and tenant-scoped like other estimate routes. Draft generation returns reviewable line items, server-signed review tokens for resolved targets, tool-run metadata, target-resolution status, and cost breakdowns. Apply accepts reviewed line items, requires accepted lines to present a matching unexpired review token, validates accepted targets against org-scoped active cost items or assemblies, serializes concurrent apply attempts per estimate, skips duplicate or already-existing reviewed lines, and writes estimate lines only by calling the existing Estimate Engine line-item service. Newly applied entries identify `draftLineItemId`, `lineItemId`, and quantity. An idempotent skip for an already-saved reviewed line also includes its matched `lineItemId`; rejected, pending, unresolved, invalid, or duplicate-payload skips do not claim a saved-line ID. The full-review client reconciles acknowledged IDs through the existing `GET /api/v1/estimates/:id` organization-scoped detail response before presenting a verified saved line.
+`ai-suggestions` requires `crm.read`; `ai-suggestions/apply` requires `crm.write`. The structured AI estimator endpoints (`ai-estimator/draft`, `ai-estimator/apply`) require `billing.write` and are additionally authenticated, rate-limited, and tenant-scoped like other estimate routes. Draft generation returns reviewable line items, server-signed review tokens for resolved targets, tool-run metadata, target-resolution status, and cost breakdowns. Quantity extraction from the submitted scope text (area/length/volume/squares/hours/count plus slab thickness) is done by the shared linear-time scanner in `app/modules/shared/quantityText.ts`, which replaced polynomial quantity regexes (CodeQL #33–#37, #39) with identical outputs; no request or response field changed. Apply accepts reviewed line items, requires accepted lines to present a matching unexpired review token, validates accepted targets against org-scoped active cost items or assemblies, serializes concurrent apply attempts per estimate, skips duplicate or already-existing reviewed lines, and writes estimate lines only by calling the existing Estimate Engine line-item service. Newly applied entries identify `draftLineItemId`, `lineItemId`, and quantity. An idempotent skip for an already-saved reviewed line also includes its matched `lineItemId`; rejected, pending, unresolved, invalid, or duplicate-payload skips do not claim a saved-line ID. The full-review client reconciles acknowledged IDs through the existing `GET /api/v1/estimates/:id` organization-scoped detail response before presenting a verified saved line. That detail response also attaches a read-time `priceReadiness` field per line item (`"missing" | "current" | "warn" | "refresh" | "reject" | "unverified" | null`, DES-10-F3) derived from the line's supplier-price evidence; write-path line responses omit it. The field is display-only and changes no price, state, or transition.
 
 Every `/api/v1/knowledge/*` search/match result, and every `ai-suggestions`/`ai-estimator/draft` line item, now includes an additive `provenanceStatus` field (`"documented" | "unverified-legacy" | "placeholder"`). It reflects the trust state of the Knowledge Engine pricing behind the suggestion, resolved per-trade from `packages/knowledge-engine/knowledge/knowledge/trade-progress.json` — currently `"unverified-legacy"` for all 24 legacy trades and `"placeholder"` for Tree Service; no trade is `"documented"` yet. This field does not change any existing response field, pricing value, confidence score, or matched target; a caller that ignores it sees no behavior change. See [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md) and `docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.md`.
 
@@ -532,6 +717,7 @@ Estimate lifecycle behavior:
 - Estimate responses and organization-queue results use the canonical states `draft`, `ready`, `sent`, `viewed`, `approved`, `declined`, `expired`, and `superseded`.
 - Historical `rejected` values normalize to `declined`; canonical `sent` remains distinct from `ready` and is accepted by the estimate queue status filter.
 - The currently implemented Estimate Engine mutation path remains draft-only until `POST /api/v1/estimates/:id/finalize` transitions the estimate to `ready`. This S008 slice does not add customer-facing send/view/approve/expire/supersede routes.
+- `POST /api/v1/estimates/:id/finalize` additionally requires the DES-10-F2 Review readiness checklist: both review attestations (`exclusionsReviewedAt`, `priceSourcesReviewedAt`) set, otherwise 409. There is no line-count gate — decision 22-B (Billy's word 2026-11-23) allows finalizing a $0 estimate. The attestations are set/cleared through `PATCH /api/v1/estimates/:id` with `exclusionsReviewed` / `priceSourcesReviewed` booleans and are returned on every estimate response as nullable ISO timestamps.
 - Estimate mutations remain organization-scoped inside the authenticated request session; the parent-row lock query explicitly casts both estimate and organization parameters to UUID before draft validation. A cross-organization estimate read or update therefore returns the existing not-found response without changing the public API shape. S040 regression coverage exercises this boundary in the live PostgreSQL/RLS suite.
 
 Project Athena A12 business tools (`app/modules/athena-tools/**`) add no new REST routes under `/api/v1/estimates` or `/api/v1/jobs` — they are invoked through the existing Athena kernel chat endpoint (`POST /api/v1/athena/chat`, dark behind `ATHENA_KERNEL_ENABLED`), calling application services directly rather than adding tool-specific HTTP endpoints. `EstimateEngineService` gained one new read-only method, `compareEstimates()` (no route). `EstimateEngineService.create()`/`finalize()` and `JobsService.schedule()`/`addAssignment()`/`complete()` retain the existing additive, optional `athenaEvent` response metadata. A12.1 changes the covered mutation semantics: for `EstimateStarted`, `EstimateCompleted`, `JobScheduled`, `TechnicianAssigned`, `WorkCompleted`, and `ProposalSent`, durable canonical-event persistence is required in the same database transaction as the corresponding business mutation. A required event-persistence failure now rolls the mutation back instead of being treated as a non-blocking publish failure. Subscriber delivery/retry/dead-letter/replay remain asynchronous after commit. No new REST route or response field is introduced by A12.1. See [athena/roadmap/A12.1-transactional-event-reliability-plan.md](athena/roadmap/A12.1-transactional-event-reliability-plan.md).
@@ -653,6 +839,11 @@ cursor.
 - `POST /api/v1/costbook/cost-items` — requires `costbook.write`; creates a CostItem for the authenticated organization. Strict required body fields: `subcategoryId`, `code`, `name`, `unitOfMeasure`. Optional fields: `productionRate`, `laborRateId`, `materialId`, `equipmentId`, `subcontractorId`, `notes`.
 - `PATCH /api/v1/costbook/cost-items/:id` — requires `costbook.write`; supports partial edits without re-parenting `subcategoryId`. Nullable `productionRate`, `laborRateId`, `materialId`, `equipmentId`, and `subcontractorId` can be explicitly cleared. A PATCH containing `isActive` additionally requires `costbook.manage`.
 - `DELETE /api/v1/costbook/cost-items/:id` — requires `costbook.manage`; soft-deactivates the CostItem to preserve historical Estimate references.
+- `GET /api/v1/costbook/codes/jurisdiction?projectId=…` — requires `costbook.read`; resolves the governing jurisdictions for a project's site from reviewed records and fails closed to `needs_verification` when a required fact is missing, stale, or ambiguous. Optional caller-supplied verified site facts: `state`, `county`, `city`, `parcelId`, `incorporated`, `zoningDistrict`, `signCategory`, `nearStateRoad`, `crossesRoadEdge`, `rightOfWayBoundaryVerified`, `signDetailsVerified`, `electricalConnectionVerified`, `workType`. Until TODO 2's jurisdiction records land, the record store is empty and every project resolves to `needs_verification`; the matcher never infers a setback, footing size, wiring method, or permit fee.
+- `GET /api/v1/costbook/codes/estimates/:estimateId/hints` — requires `costbook.read`; returns the read-only Estimate Scope/Review hints payload: the saved estimate total echoed verbatim, `financialEffect: "none"`, the jurisdiction resolution, the project's job assessments, hint lines, open questions, citations, and the research-only disclaimer. Hints never change estimated cost.
+- `GET /api/v1/costbook/codes/assessments?projectId=…` or `?estimateId=…` (exactly one) — requires `costbook.read`; lists tenant-scoped job assessments newest first.
+- `POST /api/v1/costbook/codes/assessments` — requires `costbook.write`; creates one job assessment for the authenticated organization (201). Strict body: `projectId`, optional `estimateId`, `workType`, optional `status` (`needs_review` | `in_review` | `needs_verification`), `citations` (max 20 `{source_id, rationale}`), `unknowns` (max 20). Owner approval cannot be set at creation.
+- `POST /api/v1/costbook/codes/assessments/:id/sign-off` — owner/admin only; marks the assessment `owner_approved` with actor and timestamp, and refuses a second approval with 409.
 
 CostItem writes never accept a caller-controlled organization id. Before create/update, the service validates the referenced Subcategory and any supplied LaborRate, Material, Equipment, or Subcontractor against the authenticated organization. The same checks back the legacy `/api/v1/cost-database/cost-items/*` compatibility endpoints, which now explicitly require `costbook.read`, `costbook.write`, or `costbook.manage` according to the same read/write/lifecycle split. Existing forced RLS remains database-level defense in depth.
 
@@ -758,6 +949,15 @@ Stage 6 research-candidate review queue under `/api/v1/costbook` (see [architect
 - `GET /api/v1/costbook/candidates/corpus-report` — requires `costbook.read`; deterministic classification of the shared read-only Knowledge Engine corpus (`totalItems`, `documented`, `unverifiedLegacy`, `placeholder`, `candidateReady`, `blocked`, and per-reason block counts) plus a plain-language `interpretation`. Reads static files, not tenant data, so it is identical for every organization. The counts are produced by the same normalizer the ingestion route uses, so the report can never claim an item is candidate-ready that ingestion would reject.
 - `GET /api/v1/costbook/candidates/:id/match` — requires `costbook.read`; read-only duplicate analysis of one candidate against the authenticated organization's own catalog through the canonical `CostDatabaseService` search and unit-cost calculation. Returns `new-candidate`, `probable-match`, `ambiguous-match`, or `conflict` with signed price deltas. An ambiguous match never names a best match, so name similarity alone can never steer an overwrite. Mutates nothing.
 - `POST /api/v1/costbook/candidates/from-knowledge` — requires `costbook.write`; strict body `{ knowledgeItemId }`. Normalizes one Knowledge Engine corpus item into a candidate through the Stage 2/3 normalizer and persists it in the `candidate` review state, exactly like a hand-submitted candidate. Fails closed with 422 listing the missing evidence (`missing-source`, `missing-source-date`, `missing-retrieved-at`, `missing-confidence`, `unverified-provenance`, `placeholder-pricing`, unsupported unit, unusable cost) when the corpus item cannot support a traceable candidate, and 404 for an unknown item id. Ingestion can never approve or promote.
+
+Governed Codes & Permits source/review pipeline under `/api/v1/costbook` (issue #946, TODO 3; see [architecture/COSTBOOK_CODES_INGESTION.md](architecture/COSTBOOK_CODES_INGESTION.md)). Depends on TODO 2's `codes_source` / `codes_source_history` tables — merge TODO 2 first. The reference tables are global-read (no `org_id`); every write goes through the ingestion service under a transaction-local `app.codes_ingestion` RLS flag. There is no background fetch, scraper, or cron: each ingest fetches exactly one allowlisted official URL on an explicit human call.
+
+- `POST /api/v1/costbook/codes/sources/ingest` — requires `costbook.manage`; strict body `{ jurisdictionId, authorityId, codeFamily, section?, citation, title, sourceUrl, licenseNote?, publishedDate?, amendedDate?, effectiveDate?, expiryDate? }` (dates are `YYYY-MM-DD`, NULL unless the source itself states them — never guessed). Fetches the URL only if its host is allowlisted (`vigocounty.in.gov`, `in.gov` including subdomains; https only, no credentials, no IP literal, no non-443 port), hashes the exact bytes (sha256), and versions the row: unchanged content is an idempotent no-op, changed content creates a new `research` version (`v<n>`) and supersedes the old head. Returns `{ outcome: "created" | "unchanged", source, sourceHash, fetchedBytes }`. Fetched bytes are never stored, parsed, or logged.
+- `GET /api/v1/costbook/codes/sources` — requires `costbook.read`; all versions with `warnings` (`expired` | `superseded` | `superseded_by_newer_version`) and `hasNewerVersion` per row; optional `status` filter and `limit` (default 25, max 100). `Cache-Control: private, no-store`.
+- `GET /api/v1/costbook/codes/sources/review-queue` — requires `costbook.read`; pending `research` heads only (a stale non-head research row stays in the full list with its warning, not in the queue).
+- `GET /api/v1/costbook/codes/sources/:id` — requires `costbook.read`; one version with warnings, or 404.
+- `POST /api/v1/costbook/codes/sources/:id/approve` — requires `costbook.manage`; `research` → `reviewed` on the current head only. `reviewedBy` is always `auth.userId`, never a caller-supplied string. Optional `reviewNotes` are recorded in the audit event only. Fails with 409 if already reviewed or superseded by a newer version.
+- `POST /api/v1/costbook/codes/sources/:id/reject` — requires `costbook.manage`; `research` → `superseded` on the current head only; strict body `{ reason, reviewNotes? }` with `reason` required. The reason lives in the `ActivityEvent` audit metadata (the TODO 2 contract has no reason column). Approve/reject both append a `codes_source_history` entry and an immutable `ActivityEvent` (`entityType: "codes_source"`, `eventType: "costbook.codes_source.approved" | ".rejected" | ".ingested"`) inside the same transaction.
 
 Candidate DTO (fields mirror the Stage 5 contract plus review/promotion linkage):
 
@@ -871,7 +1071,7 @@ routes, and permissions are unchanged.
 
 PR #216 extends the existing Costbook namespace without adding parallel domain systems: `/api/v1/costbook/assemblies` exposes the existing Assembly model and composition service; `POST /api/v1/costbook/pricing/preview` is calculation-only and reuses Estimate pricing formulas; `GET /api/v1/costbook/pricing/resolve` is the read-only canonical-price trust contract added by the 2026-10-02 data foundation; and `GET /api/v1/costbook/price-history` returns tenant-scoped `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport remains under the existing supplier-integration surface, accepts endpoints only from trusted server configuration, and enqueues review proposals rather than mutating Material prices automatically. PR #684 originally added a sandbox-only ABC Supply feed adapter (`app/modules/supplier-integration/abcSupply.ts`), including refresh-token auth and batched `purpose=estimating` line mapping. **That legacy scheduled ABC integration has since been superseded:** `fetchDefaultSupplierFeed` now rejects the designated `ABC_SUPPLY_SANDBOX_SUPPLIER_ID` background target with a terminal, non-retryable `abc_user_present_required` failure before reading Vault or calling ABC. It does not fall back to a generic endpoint. Other supplier jobs keep their review-first flow. User-initiated sandbox account discovery/selected quote endpoints remain explicitly authenticated, tenant-scoped and read-only, using durable Vault token rotation with a 15-second timeout; no estimate or Material cost is updated. These changes preserve the existing `costbook.read` / `costbook.write` / `costbook.manage` split.
 
-`GET /api/v1/costbook/assemblies/starter-catalog` requires `costbook.read` and returns `{ catalogVersion, coverage, items }`. The web Assembly starter browser derives combined NAHB/CSI/trade/unit facets locally from this full **static starter payload**, using tenant-scoped active Assembly codes for the installed/not-installed facet. This does not filter a bounded DB page or add a new API write path. Recipes include NAHB work groups, CSI codes, measurement bases, review/version metadata, and component slots with `compatibleUnits` and `allowedCostItemKinds`; `coverage` is derived from those recipes. The response contains no prices. `POST /api/v1/costbook/assemblies/starter-catalog/install` requires `costbook.write`; its strict body contains `templateId` and a `componentMappings` array of `{ componentKey, costItemId }`. Every required slot and every distinct Cost Item must appear exactly once. Each Cost Item must be active, owned by the authenticated organization, and compatible with the slot's unit and kind. The route atomically creates an ordinary tenant-scoped reusable Assembly and AssemblyItem set by joining the active request transaction or opening a direct-service transaction. Duplicate assembly codes return `409`; missing, unknown, or duplicate mappings return `400`; unavailable or cross-tenant Cost Items return `404`; incompatible unit/type mappings return `422`.
+`GET /api/v1/costbook/assemblies/starter-catalog` requires `costbook.read` and returns `{ catalogVersion, coverage, items }`. The web Assembly starter browser derives combined NAHB/CSI/trade/unit facets locally from this full **static starter payload**, using tenant-scoped active Assembly codes for the installed/not-installed facet. This does not filter a bounded DB page or add a new API write path. Recipes include NAHB work groups, CSI codes, measurement bases, review/version metadata, and component slots with `compatibleUnits` and `allowedCostItemKinds`; `coverage` is derived from those recipes. The response contains no prices. `POST /api/v1/costbook/assemblies/starter-catalog/install` requires `costbook.write`; its strict body contains `templateId` and a `componentMappings` array of `{ componentKey, costItemId }`. Every required slot and every distinct Cost Item must appear exactly once. Each Cost Item must be active, owned by the authenticated organization, and compatible with the slot's unit and kind. The route atomically creates an ordinary tenant-scoped reusable Assembly and AssemblyItem set by joining the active request transaction or opening a direct-service transaction. Duplicate assembly codes return `409`; missing, unknown, or duplicate mappings return `400`; unavailable or cross-tenant Cost Items return `404`; incompatible unit/type mappings return `422`. The install body also accepts two optional override fields (DEV-17 S10): `wasteOverridePct` (absolute percentage, 0–100) and `productionRateFactor` (dimensionless multiplier, greater than 0 and at most 10). They are stored on the installed Assembly (nullable; omitted means the recipe defaults) and applied at pricing time through the existing unit-cost resolver — the waste override replaces each mapped Material's own `wasteFactorPct` on material legs, the production factor multiplies each mapped CostItem's `productionRate` on labor/equipment legs — while stored item quantities stay the recipe quantities and a child assembly resolves with its own overrides. The Assembly DTO exposes `wasteOverridePct` and `productionRateFactor` (numbers or `null`); the Assembly PATCH endpoint accepts the same two fields (number sets, `null` clears). No price is embedded by either field.
 
 The S027 catalog continuation applies the same page envelope and opaque
 keyset-cursor contract to materials, labor rates, equipment, hierarchy,
@@ -884,7 +1084,7 @@ bounded response as a complete catalog.
 **Unreleased (PR `#257`):** Supplier price-proposal approval and rejection use an atomic pending-status claim inside the existing transaction: only the reviewer that successfully claims the organization-scoped pending row may continue, and a competing reviewer receives conflict/fail-closed behavior. A downstream Material or audit failure rolls the claim back to `pending`; feeds remain review-first and never auto-apply Material pricing. Approve/reject routes require `costbook.manage`. This is a concurrency repair only: it changes neither the Costbook architecture nor its permission model.
 
 `GET /api/v1/costbook/supplier-evidence` requires `costbook.read` and returns bounded tenant-scoped observation rows for review. Optional `supplierId`, `priceStatus`, `q`, `cursor`, and `limit` filters are server-validated; `cursor` is an organization-scoped observation UUID used as a stable continuation point for the `observedAt DESC, id DESC` ordering. Each row includes both the observation id and its `supplierProductId`, plus supplier/product identity, canonical key, stored `currency`, observed status/price/unit, and source-file facts; the product id is the server-derived key used by the canonical-match review surface and is never accepted as tenant scope. `GET /api/v1/costbook/supplier-evidence/products/:id/canonical-match` requires `costbook.read` and previews the deterministic 12-item pilot matcher against one organization-scoped supplier product without writing. `POST /api/v1/costbook/supplier-evidence/products/:id/canonical-match` requires `costbook.manage`, accepts `{ canonicalMaterialKey }`, validates that key against the governed pilot registry, re-runs the matcher against the current supplier-product identity, rejects a key the matcher did not suggest, and refuses changing an already-linked product to a different key. Supplier-evidence import may auto-link only an unambiguous `AUTO_LINK` result; ambiguous/unknown products remain unlinked. Canonical-match review never changes `Material.unitCost` or Estimate pricing.
-`POST /api/v1/costbook/pricing/preview` requires `costbook.read`. `GET /api/v1/costbook/pricing/resolve` requires `costbook.read` and accepts query fields `canonicalMaterialKey` (required), `postalCode` and `unit`; organization scope always comes from the authenticated request. It returns either `null` when no eligible evidence exists or a resolved trust record with `selectedPrice`, `currency`, `unit`, source/supplier/location, `observedAt`, `confidence`, `evidenceTier`, `verifiedVsInferred`, `freshness`, `sourceUrl`, up to five alternatives, `oneLineProvenance`, `reasonSelected`, and warnings. Current `SupplierPriceObservation` evidence enters as `RECENT_RETAIL_VALIDATION`; the endpoint does not infer account/negotiated/authorized pricing from a supplier name. `GET /api/v1/costbook/price-history` requires `costbook.manage`; that permission is granted to owner and admin roles, and the controller does not apply a separate manager-role check.
+`POST /api/v1/costbook/pricing/preview` requires `costbook.read`. `GET /api/v1/costbook/pricing/resolve` requires `costbook.read` and accepts query fields `canonicalMaterialKey` (required), `postalCode` and `unit`; organization scope always comes from the authenticated request. It returns either `null` when no eligible evidence exists or a resolved trust record with `selectedPrice`, `currency`, `unit`, source/supplier/location, recorded `marketCode`, `city`, `state`, and `postalCode`, `observedAt`, `confidence`, `evidenceTier`, `verifiedVsInferred`, `freshness`, `sourceUrl`, up to five alternatives, `oneLineProvenance`, `reasonSelected`, and warnings. Missing location fields are null and are not inferred. Current `SupplierPriceObservation` evidence enters as `RECENT_RETAIL_VALIDATION`; the endpoint does not infer account/negotiated/authorized pricing from a supplier name. `GET /api/v1/costbook/price-history` requires `costbook.manage`; that permission is granted to owner and admin roles, and the controller does not apply a separate manager-role check.
 
 ## Detailed module links
 
@@ -965,7 +1165,9 @@ already acknowledged. Job summaries expose additive `completedAt` and
 `readyForInvoiceAt` timestamps. `POST /api/v1/jobs/:jobId/ready-for-invoice` is
 limited to owner/admin/dispatcher actors, accepts only completed jobs, records
 `job.ready_for_invoice`, and is idempotent on repeat. It does not create or send
-invoices.
+invoices. It accepts the same optional `expectedUpdatedAt` revision token as
+the other job transitions (DEV-22); the Dispatcher Workspace sends the token
+with the acknowledgement.
 
 ## Scheduling conflict rules (S031)
 
@@ -988,6 +1190,17 @@ ordinary scheduling and assignments but cannot override conflicts. Conflict
 checks and the subsequent mutation run under transaction-scoped,
 organization/technician-keyed PostgreSQL advisory locks so concurrent scheduling
 attempts cannot both pass the check for the same technician.
+
+Rescheduling a dispatched job reverses its dispatch (DEV-22): the schedule and
+reschedule routes accept an optional `confirmDispatchReversal` boolean. Without
+it, rescheduling a dispatched job fails with HTTP 409 and
+`code: "dispatch_reversal_confirmation_required"` and no write occurs. With it,
+the job returns to `scheduled`, the `job.rescheduled` event records
+`dispatchReversed: true`, and a dedicated `job.dispatch_reversed` activity
+event is written in the same transaction; the job must then be explicitly
+redispatched (`scheduled -> dispatched` still requires at least one active
+assignment). The Dispatcher Workspace shows the reversal warning with a
+confirmation checkbox before the reschedule proceeds.
 
 
 ## ABC Supply reviewed Material activation (operator-only, PR #701)
@@ -1185,8 +1398,38 @@ Invitation acceptance likewise conditionally claims a pending, unaccepted, unexp
 
 After a successful invitation claim, the existing transaction-local provisioning context is bound to the invitation organization. Existing users are bound as the current user before credential updates; new-user creation and membership writes use the established provisioning RLS policies. No privilege is enabled before token validation/claim, and transaction exit clears these settings.
 
+## Costbook Codes & Permits references — proposed 2026-11-08
+
+`GET /api/v1/costbook/codes?state=IN&county=Vigo&topic=signage&q=...` — authenticated, `costbook.read`, read-only, `Cache-Control: private, no-store`. Backed by the `codes_*` DB tables since #946 TODO 2 (seeded from the #945 pilot registry); response shape unchanged.
+
+Query: required two-letter alphabetic `state`, optional `county` (1–80 characters after trimming; omit when no county is selected), `topic` in `signage|permits|electrical|structural|right-of-way`, `q` (max 120). Unknown query fields are rejected. No caller-supplied tenant ID. Result: `{status:"advisory",disclaimer,total,items}`; each item includes source URL, issuer, citation, geographic scope, source/review dates, next verification action and `applicability:"unverified"`. Unknown jurisdictions return no local records; no fees, compliance, permit approval, or Estimate writes. Read-only source-backed Vigo/Indiana pilot, not yet deployed. [Pilot detail](architecture/COSTBOOK_CODES_PERMITS_PILOT.md).
+
+## Athena source research addendum (proposed 2026-11-08)
+
+The registered Athena tool ID `tradeos.athena.tools.costbook.code.references` is available through the existing governed Athena tool-dispatch contract rather than a new ad-hoc HTTP endpoint. It requires `costbook.read` and accepts a two-letter `state`, optional `county`, optional `topic`, and bounded `q`; responses are advisory source references, a warning when county is omitted, and a separate warning when the selected county has no indexed local sources, independent of search filters. It cannot write prices, permits or estimates. Production invocation/browser verification remains pending.
+
+
 Refresh rotation records the replacement refresh-row UUID in `replaced_by_id`, while the opaque token hash remains only in `token_hash`. The conditional single-use rotation and replacement row creation remain in one transaction; replay and logout continue to reject revoked refresh sessions.
 
 ### Administrative member upsert
 
 `POST /api/v1/admin/organizations/:id/members` retains its existing request and response shapes. The service verifies the active administrator membership before provisioning a new application user under forced RLS. Adding an existing identity from another organization attaches a membership without changing its global email, name or active flag. User/membership/audit writes are atomic; denied actor or organization checks do not enable provisioning. See [the shared administrative provisioning boundary](ARCHITECTURE.md#administrative-membership-provisioning-boundary).
+## Staff-recorded offline acceptance — proposed
+
+`POST /api/v1/proposals/:id/accept-offline`: authenticated
+`documents.manage` only. JSON body: `{"channel":"in_person",
+"note":"Customer approved the final scope and price on site.",
+"confirmed":true}` (method alternatives: `phone`, `signed_document`).
+Rejects missing confirmation/invalid method or 10–500-character note (400);
+insufficient role (403); non-draft/missing final approved written scope or
+positive final price, concurrent status transition (409); tenant mismatches
+fail closed through authenticated org scope and forced RLS. Successful 200
+returns the accepted proposal; no outgoing email and no `sentAt` mutation.
+This is an internal staff record, **not** an e-signature or customer portal
+assertion.
+
+## Estimate materials checklist PDF (proposed, 2026-11-13)
+
+`GET /api/v1/estimates/:id/materials/pdf` generates a customer-readable shopping checklist from the **saved explicit material lines** of an organization-owned Estimate. Requires existing authenticated `crm.read`. The server reads the Estimate and owning Project with the request organization ID. On success it returns `200 application/pdf` and `Content-Disposition: attachment` with a sanitized project filename, or `inline` only when `?disposition=inline`. The existing authenticated Next.js `GET /api/documents/estimates/:id/materials/pdf` binary proxy forwards the PDF, without leaking bearer tokens to client JavaScript.
+
+The PDF includes project/customer context, material descriptions, quantities, units and sections, plus a note for unexpanded assemblies. No snapshot costs, unit/line pricing, overhead, markup, margins or totals are rendered. Zero material lines or invalid material entries return `409`; foreign/missing Estimate/Project IDs return `404` under the existing tenant guards; callers without `crm.read` receive `403`. The PDF is generated on request without storing or sending a customer document. It is **not** an assembly/material decomposition or supplier quote.

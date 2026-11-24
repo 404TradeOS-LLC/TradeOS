@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getFieldJob, getOrganizationSettings } from "@/lib/api";
+import { getAthenaCapabilities, getFieldJob, getOrganizationSettings } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { formatApprovedMoney, readApprovedJobBaseline } from "@/lib/job-approved-baseline";
 import { PageHeader } from "@/components/shared/page-header";
@@ -25,6 +25,13 @@ export default async function JobApprovalHandoffPage({
   const job = await getFieldJob(token, jobId);
   if (job.project?.id !== projectId) notFound();
   const approved = readApprovedJobBaseline(job.acceptedBaselineJson);
+
+  // Same capability gate as the app-shell navigation: do not advertise the
+  // Athena workspace when the kernel is disabled. A failed check hides the
+  // link (fail closed, like the shell's server resolution); the route itself
+  // still renders on a failed check and surfaces the backend error.
+  const athenaCapabilities = await getAthenaCapabilities(token).catch(() => null);
+  const athenaEnabled = athenaCapabilities?.kernelEnabled === true;
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
@@ -101,6 +108,9 @@ export default async function JobApprovalHandoffPage({
       <div className="flex flex-wrap gap-4 text-sm">
         <Link href={`/projects/${projectId}`} className="font-medium text-copper underline">Project workspace</Link>
         <Link href={`/dispatch?view=all&q=${encodeURIComponent(job.jobNumber)}`} className="font-medium text-copper underline">Open Dispatch</Link>
+        {athenaEnabled ? (
+          <Link href={`/projects/${projectId}/jobs/${jobId}/athena`} className="font-medium text-copper underline">Ask Athena</Link>
+        ) : null}
       </div>
     </div>
   );

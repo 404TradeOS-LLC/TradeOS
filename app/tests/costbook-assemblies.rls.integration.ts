@@ -118,6 +118,54 @@ describe("live Costbook assembly RLS", () => {
     expect(foreignView).toBeNull();
   });
 
+  it("stores install overrides on the assembly and prices with them, invisibly to other tenants (DEV-17 S10)", async () => {
+    const materialId = "76000000-0000-0000-0000-000000000081";
+    const laborRateId = "76000000-0000-0000-0000-000000000082";
+    const deviceItemId = "76000000-0000-0000-0000-000000000083";
+    const wireItemId = "76000000-0000-0000-0000-000000000084";
+    const receptacleLaborItemId = "76000000-0000-0000-0000-000000000085";
+
+    await inSession(ownerA, orgA, "owner", () => prisma.material.create({
+      data: { id: materialId, orgId: orgA, name: "Duplex receptacle", unitOfMeasure: "EA", unitCost: 10, wasteFactorPct: 5 },
+    }));
+    await inSession(ownerA, orgA, "owner", () => prisma.laborRate.create({
+      data: { id: laborRateId, orgId: orgA, role: "Electrician", trade: "Electrical", hourlyCost: 40, billRate: 60, baseHourlyRate: 40, burdenPct: 0 },
+    }));
+    await inSession(ownerA, orgA, "owner", () => prisma.costItem.createMany({ data: [
+      { id: deviceItemId, orgId: orgA, subcategoryId: subA, code: "DEV-A", name: "Duplex device", unitOfMeasure: "EA", materialId },
+      { id: wireItemId, orgId: orgA, subcategoryId: subA, code: "WIRE-A", name: "Box and wire allowance", unitOfMeasure: "EA" },
+      { id: receptacleLaborItemId, orgId: orgA, subcategoryId: subA, code: "LAB-A", name: "Electrician labor", unitOfMeasure: "EA", productionRate: 10, laborRateId },
+    ] }));
+
+    const installed = await inSession(ownerA, orgA, "owner", () => service.installStarterCatalogAssembly({
+      orgId: orgA,
+      templateId: "receptacle",
+      componentMappings: [
+        { componentKey: "device", costItemId: deviceItemId },
+        { componentKey: "box-wire", costItemId: wireItemId },
+        { componentKey: "labor", costItemId: receptacleLaborItemId },
+      ],
+      wasteOverridePct: 15,
+      productionRateFactor: 0.8,
+    }));
+
+    expect(installed.wasteOverridePct).toBe(15);
+    expect(installed.productionRateFactor).toBe(0.8);
+
+    const stored = await inSession(ownerA, orgA, "owner", () => prisma.assembly.findFirst({ where: { id: installed.id } }));
+    expect(stored).not.toBeNull();
+    expect(Number(stored!.wasteOverridePct)).toBe(15);
+    expect(Number(stored!.productionRateFactor)).toBe(0.8);
+
+    // Material $10 at the 15% override (not the mapped 5%) = $11.50;
+    // labor 1/(10 x 0.8)h x $40 = $5.00; allowance $0.
+    const priced = await inSession(ownerA, orgA, "owner", () => service.getAssemblyUnitCost(installed.id, undefined, new Set(), orgA));
+    expect(priced.unitCost).toBeCloseTo(16.5, 2);
+
+    const foreignView = await inSession(ownerB, orgB, "owner", () => prisma.assembly.findFirst({ where: { id: installed.id } }));
+    expect(foreignView).toBeNull();
+  });
+
   it("rejects foreign starter mappings without leaving a partial assembly", async () => {
     await expect(inSession(ownerA, orgA, "owner", () => service.installStarterCatalogAssembly({
       orgId: orgA,
@@ -134,6 +182,42 @@ describe("live Costbook assembly RLS", () => {
       where: { orgId: orgA, code: "03 30 00-TOS-001" },
     }));
     expect(partial).toBeNull();
+  });
+
+  it("reuses an installed assembly's mapping for a related recipe, and never exposes a foreign tenant's mapping (DEV-17 S9)", async () => {
+    const equipmentForeign = "86000000-0000-0000-0000-000000000066";
+    const itemForeign = "86000000-0000-0000-0000-000000000067";
+    await inSession(ownerB, orgB, "owner", () => prisma.equipment.create({
+      data: { id: equipmentForeign, orgId: orgB, name: "Foreign excavation crew" },
+    }));
+    await inSession(ownerB, orgB, "owner", () => prisma.costItem.create({
+      data: { id: itemForeign, orgId: orgB, subcategoryId: subB, code: "EXC-B", name: "Foreign excavation", unitOfMeasure: "CY", equipmentId: equipmentForeign },
+    }));
+    // Assembly items carry no org column, so the source's rows are attached
+    // by the admin client. The foreign item is deliberately first in
+    // sort order: without the service's org filter it would win the
+    // excavation slot.
+    await adminClient.assemblyItem.createMany({ data: [
+      { assemblyId: assemblyA, costItemId: itemForeign, quantityPerUnit: 1, sortOrder: 1 },
+      { assemblyId: assemblyA, costItemId: excavationItemA, quantityPerUnit: 1, sortOrder: 2 },
+      { assemblyId: assemblyA, costItemId: haulItemA, quantityPerUnit: 1, sortOrder: 3 },
+    ] });
+
+    const reused = await inSession(ownerA, orgA, "owner", () => service.suggestCatalogMappingReuse({
+      orgId: orgA,
+      templateId: "site-excavation",
+      sourceAssemblyId: assemblyA,
+    }));
+
+    expect(reused.mappedCount).toBe(2);
+    expect(reused.suggestions.map((suggestion) => suggestion.costItemId)).toEqual([excavationItemA, haulItemA]);
+    expect(JSON.stringify(reused)).not.toContain(itemForeign);
+
+    await expect(inSession(ownerB, orgB, "owner", () => service.suggestCatalogMappingReuse({
+      orgId: orgB,
+      templateId: "site-excavation",
+      sourceAssemblyId: assemblyA,
+    }))).rejects.toThrow("not found");
   });
 });
 

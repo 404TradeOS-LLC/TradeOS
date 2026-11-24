@@ -1,11 +1,17 @@
 ---
 status: current
 owner: costbook
-last_verified: 2026-09-19
+last_verified: 2026-11-23
 source_of_truth: true
 related_code:
   - app/modules/assemblies-database/catalog.ts
+  - app/modules/assemblies-database/tradeosCatalogAdapter.ts
+  - app/modules/assemblies-database/kitchenGapCatalog.ts
+  - app/modules/assemblies-database/openingsApplianceGapCatalog.ts
+  - app/modules/costbook/tradeosAssemblies.ts
+  - app/modules/costbook/tradeosAssemblySources.ts
   - app/modules/assemblies-database/service.ts
+  - app/modules/assemblies-database/measurement.ts
   - app/backend/controllers/assembliesDatabase.controller.ts
   - app/backend/routes/costbook.routes.ts
   - web/src/components/costbook/assembly-catalog.tsx
@@ -15,19 +21,41 @@ related_code:
 
 ## Outcome
 
-TradeOS exposes a contractor-facing residential starter catalog organized by
+TradeOS exposes a contractor-facing residential assembly catalog organized by
 familiar NAHB work groups while retaining CSI MasterFormat division and section
-codes. Installing a starter creates a real, tenant-scoped `Assembly` and its
-`AssemblyItem` rows. It does not create a parallel assembly table or pricing
+codes. Installing a catalog recipe creates a real, tenant-scoped `Assembly` and
+its `AssemblyItem` rows. It does not create a parallel assembly table or pricing
 engine.
 
-The starter library contains 14 review-first recipes covering site work,
-concrete, framing, roofing, siding, openings, drywall, painting, flooring,
-finish carpentry, electrical, plumbing, HVAC, and decks.
+The catalog contains **107 templates** (verified 2026-11-23 at main `255bbc41`):
+
+- **14 reviewed starter recipes** — TradeOS-authored, `review.status =
+  "reviewed"`, `reviewedOn: 2026-09-17`, covering site work, concrete, framing,
+  roofing, siding, openings, drywall, painting, flooring, finish carpentry,
+  electrical, plumbing, HVAC, and decks.
+- **88 research recipes** — the TradeOS research corpus (`TRADEOS_ASSEMBLIES`),
+  `review.status = "research"`, `reviewedOn: ""`, sourced from Billy's assembly
+  research (Google Drive, pulled 2026-10-06). Estimator review is required
+  before install; the UI labels them "research review required."
+- **2 kitchen-gap recipes** — prefabricated wall-cabinet installation and
+  straight-run laminate countertop (CSI 12, NAHB phase 5000), source-backed
+  (SRC-0069, SRC-0070).
+- **3 openings/appliance recipes** — new-construction flanged vinyl window,
+  sectional steel garage door, ready-connection built-in dishwasher (CSI 08/08/11),
+  source-backed (SRC-0071–SRC-0073).
+
+The API serves all 107 as one expanded catalog with version string
+`2026.09.1+research88+kitchen2+openings3`. **105 of the 107 are installable.**
+Two research recipes are install-blocked on unregistered evidence sources and
+the install API rejects them with 422 (see "Source-blocked recipes" below).
+
+In flight at this writing: PR #1037 (DEV-17 S9, bulk mapping reuse) is open
+and unmerged; it changes mapping suggestions only and does not change template
+counts.
 
 ## Safety and pricing contract
 
-- The shared starter catalog contains quantities and classification, not prices.
+- The catalog contains quantities and classification, not prices.
 - The estimator must map every recipe slot to an active Cost Item owned by the
   authenticated organization before installation.
 - The server rejects duplicate, missing, or unknown recipe slots.
@@ -40,16 +68,42 @@ finish carpentry, electrical, plumbing, HVAC, and decks.
   background, and direct-service execution. Forced RLS remains the database
   boundary.
 - Installed assemblies reuse current Costbook unit-cost resolution and Estimate
-  pricing snapshots. Starter installation never rewrites historical estimates.
+  pricing snapshots. Installation never rewrites historical estimates.
 - Recipe quantities are estimating defaults. The UI requires review of waste,
   production, code, permit, access, and local-condition assumptions.
+- Installation accepts optional per-install waste/production overrides
+  (`wasteOverridePct` 0–100, `productionRateFactor` >0, ≤10; PR #1036) stored
+  on the installed assembly and applied at pricing time; recipe quantities are
+  never rewritten and child assemblies resolve with their own overrides.
+- Research recipes fail closed on unregistered evidence sources: a recipe whose
+  `evidenceRefs` do not all resolve against `TRADEOS_ASSEMBLY_SOURCES` carries
+  `blockingReasons` and cannot be installed until its provenance is repaired.
+
+## Source-blocked recipes (2 of 107)
+
+| Recipe | CSI | NAHB phase | Missing source |
+|---|---|---|---|
+| `tradeos:demo-roofing-shingle-tearoff-2layers` | 02 | 1000 | SRC-0049 (unregistered — no repo text names its intended source) |
+| `tradeos:demo-cabinet-kitchen-base-wall` | 02 | 1000 | SRC-0050 (unregistered — same) |
+
+History: 11 research recipes originally cited SRC-0041–SRC-0050 with none of
+them registered. PR #1018 (issue #518 S1, squash `1d1e23fe`, merged
+2026-11-22) registered SRC-0041–SRC-0048 from the standard named in each citing
+assembly's own assumption text (publisher homepage URL only; no edition years
+or document URLs asserted beyond that, because the research corpus records
+none). SRC-0049/SRC-0050 remain unregistered deliberately: their intended
+source is Billy's call, not a guess. The two blocked recipes render in browse
+with a visible "Research evidence pending" alert and are not installable.
 
 ## API
 
 - `GET /api/v1/costbook/assemblies/starter-catalog` requires `costbook.read`.
+  Returns `{ catalogVersion, coverage, items }` where `coverage` is the derived
+  NAHB × CSI matrix (`EXPANDED_ASSEMBLY_CATALOG_COVERAGE`) and `items` is the
+  full 107-template expanded catalog.
 - `POST /api/v1/costbook/assemblies/starter-catalog/install` requires
   `costbook.write` and accepts `templateId` plus one Cost Item mapping per
-  required component key.
+  required component key. Rejects source-blocked recipes with 422.
 - Compatibility aliases exist under `/api/v1/assemblies`.
 
 ## Implementation checklist
@@ -81,23 +135,54 @@ finish carpentry, electrical, plumbing, HVAC, and decks.
   authenticated tenant, not guessed from the current page or source recipe.
   Filtering clears stale recipe mapping/preview state and disables installation
   for read-only actors or already-installed recipe codes.
+- [x] Expand the catalog trade by trade beyond the initial 14: 88 research
+  recipes activated (#771), 2 kitchen-gap recipes (#773), 3 openings/appliance
+  recipes (#774). All 93 carry evidence refs and install through the same
+  tenant-mapping pipeline; 2 remain install-blocked on SRC-0049/SRC-0050 (see
+  above). "Reviewed" still applies only to the 14 starters — the 93 research
+  recipes are explicitly unreviewed.
+- [x] Add formal measurement contracts and takeoff derivation for assemblies
+  (issue #518 S8, PR #1035, squash `efdc5364`, merged 2026-11-23): five
+  takeoff families (area, linear, count, volume, allowance) plus mass/time
+  component families; exact area-only conversion; contract failures fail
+  closed at install (422).
+- [x] Support waste/production overrides at assembly install (issue #518 S10,
+  PR #1036, squash `255bbc41`, merged 2026-11-23): optional `wasteOverridePct`
+  (0–100) and `productionRateFactor` (>0, ≤10) stored per installed assembly
+  and applied at pricing time through the existing `getUnitCost` path; recipe
+  quantities are never rewritten.
 - [ ] Add authenticated rendered browser evidence for owner/admin and read-only
   roles against a disposable tenant. A manual SHA-attested, two-identity,
   1440/390px Playwright evidence workflow has been added but **has not yet
   produced authenticated runtime screenshots**; keep this item open until a
   sanitized, non-production, exact-deployment run has passed and artifacts
-  have been reviewed.
-- [ ] Expand the reviewed recipe library trade by trade after qualified-estimator
-  review; do not silently promote Knowledge Engine legacy assemblies.
+  have been reviewed. (Issue #518 S5; 7/7 workflow runs failed as of the
+  2026-11-21 triage, latest 2026-10-11. Diagnosed 2026-11-22, DEV-17 S5: the
+  failures were a workflow-file parse error, already fixed on main via #853;
+  a green run is still blocked on Billy-only read-only smoke secrets.)
 - [ ] Add a mapping-quality review queue and version history before supporting
-  organization-wide recipe upgrades.
-- [ ] Connect future plan takeoff quantities only after the installed assembly
-  workflow has production evidence.
+  organization-wide recipe upgrades. (Issue #518 S2/S3: `Assembly` still has no
+  template-origin fields; install bakes version into free-text `description`.)
+- [ ] Connect derived takeoff quantities to takeoff records (S8b): the S8
+  measurement contracts and derivation are merged (PR #1035), but the
+  takeoff-record connection remains a named follow-up gated on S065 + S4; the
+  installed-assembly workflow still needs production evidence first.
+- [ ] Surface `reviewedOn` / `regionalBasis` in the catalog UI. The API serves
+  both fields, but the browse/detail UI does not render them (verified
+  2026-11-23); it shows evidence-ref count, measurement basis, waste guidance,
+  and blocking reasons only.
+- [ ] Fix the CSI division 04 gap in `CSI_DIVISIONS`: two research recipes use
+  division 04 (Masonry) but the constant omits it, so division-04 recipes are
+  invisible to any facet/validation built on that list. (Found 2026-11-22,
+  S11 review; still open at main `255bbc41`.)
+- [ ] Normalize trade-family strings: "Finish carpentry" vs "Finish Carpentry"
+  and "Sitework" vs "Site Work" are near-duplicate facet values. (Found
+  2026-11-22, S11 review.)
 
 ## Browse-facet contract (October 2026)
 
 The starter catalog endpoint is unchanged: it returns one bounded,
-price-neutral reviewed catalog containing NAHB and CSI classification. The
+price-neutral catalog containing NAHB and CSI classification. The
 web UI derives four classification/unit dropdowns from returned recipes and
 adds an **Installed / Not installed** facet using the complete active
 Assembly-code list loaded in the authenticated workspace. Combined searches
@@ -105,9 +190,9 @@ are case-insensitive; empty sets, clear filters, and matching-result counts are
 explicit. Changing any facet deselects the prior recipe and clears Cost Item
 mappings and unit-cost preview so no hidden recipe inherits stale mappings.
 Selecting a new template restores the existing review and mapping workflow.
-These are **client-side starter-template facets**, not a server query over a
+These are **client-side catalog facets**, not a server query over a
 bounded tenant catalog or a second pricing system. The existing Assembly list
-above/below the starter browser remains keyset-paginated and tenant-scoped.
+above/below the catalog browser remains keyset-paginated and tenant-scoped.
 No backend write path, schema migration, source recipe, cost or Estimate
 snapshot was altered. Authenticated owner/admin and read-only browser captures
 at desktop and 390px remain required before release certification.
@@ -138,27 +223,45 @@ Two additional CI secrets must be provisioned for the reader identity:
 `BETA_RC_READONLY_SMOKE_EMAIL` and `BETA_RC_READONLY_SMOKE_PASSWORD`. The
 existing owner smoke identity and Vercel/RC Supabase secrets are reused.
 
-## Current catalog coverage
+## Current catalog coverage (verified 2026-11-23 at main `255bbc41`)
 
 The API derives this matrix from the recipes rather than maintaining a second
-hand-counted registry.
+hand-counted registry. Two NAHB vocabularies are overlaid: the 14 starters use
+10 browse groups; the 93 research/gap recipes use 6 build phases (1000–6000).
+Rows below are the 15 non-empty labels the API serves.
 
-| Residential work group | Recipes | CSI divisions | Output units |
-| --- | ---: | --- | --- |
-| Site work | 1 | 31 | CY |
-| Foundation | 1 | 03 | SF |
-| Framing | 1 | 06 | SF |
-| Exterior shell | 2 | 07 | SF, SQ |
-| Interior finishes | 4 | 08, 09 | EA, SF |
-| Cabinets and trim | 1 | 06 | LF |
-| Electrical | 1 | 26 | EA |
-| Plumbing | 1 | 22 | EA |
-| Mechanical | 1 | 23 | EA |
-| Outdoor living | 1 | 06 | SF |
+| NAHB label | Recipes | CSI divisions | Output units |
+|---|---:|---|---|
+| Site work (starter group) | 1 | 31 | CY |
+| Foundation (starter group) | 1 | 03 | SF |
+| Framing (starter group) | 1 | 06 | SF |
+| Exterior shell (starter group) | 2 | 07 | SF, SQ |
+| Interior finishes (starter group) | 4 | 08, 09 | EA, SF |
+| Cabinets and trim (starter group) | 1 | 06 | LF |
+| Electrical (starter group) | 1 | 26 | EA |
+| Plumbing (starter group) | 1 | 22 | EA |
+| Mechanical (starter group) | 1 | 23 | EA |
+| Outdoor living (starter group) | 1 | 06 | SF |
+| 1000 Preparation Preliminaries | 13 | 02, 32 | LF, SF, SQ |
+| 2000 Excavation and Foundation | 11 | 03, 04, 07, 31 | CY, EA, LF, SF |
+| 3000 Rough Structure | 10 | 06 | LF, SF |
+| 4000 Full Enclosure (Dry-in) | 18 | 04, 07, 08 | EA, LF, SF, SQ |
+| 5000 Finishing Trades | 41 | 06, 07, 08, 09, 11, 12, 22, 23, 26 | EA, LF, SF |
 
-This is a deliberately small baseline, not a claim of comprehensive residential
+CSI division totals across all 107: 02: 9, 03: 6, 04: 2, 06: 21, 07: 21,
+08: 5, 09: 16, 11: 1, 12: 3, 22: 5, 23: 4, 26: 5, 31: 4, 32: 4.
+Fourteen CSI divisions are represented. NAHB phase 6000 (Completion and
+Inspection) has **zero** recipes — the only structurally empty phase; whether
+it is in scope is an open question for the founder (see the S11 coverage-gap
+assessment, issue #518).
+
+This is a working residential catalog, not a claim of comprehensive residential
 scope. Catalog expansion remains qualified-estimator work with versioned recipe
-review.
+review. A reviewed gap statement distinguishing intentionally-empty from
+genuinely-missing NAHB × CSI cells is recorded in the S11 assessment
+(`hidden_files/dev-17-s11-coverage-gap-assessment.md` in the PR-queue goal
+workspace, 2026-11-22); its headline is that intent is undetermined for every
+empty cell except phase 6000, which is provisionally genuinely missing.
 
 ## Classification note
 

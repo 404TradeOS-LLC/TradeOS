@@ -70,7 +70,7 @@ Current transition posture:
 - project status is partly direct and partly side-effect-driven from proposal and job workflows
 - proposal send/resend currently pushes persisted project status toward canonical `estimating`
 - proposal accept currently pushes persisted project status toward canonical `awarded`
-- proposal draft creation/duplication and decline currently push persisted project status toward canonical `estimating`
+- proposal draft creation/duplication and decline currently push persisted project status toward canonical `estimating` — except a decline from the public portal (DES-10-F7), which deliberately leaves the project untouched: a project may carry several proposals, and declining one must not un-award a project won through another
 - full canonical project transition enforcement remains a compatibility layer, not a single dedicated state machine
 
 ## Estimates
@@ -91,6 +91,7 @@ Job scheduling conflict serialization and job-number allocation continue to use 
 Current enforced transitions:
 
 - `draft -> ready` is enforced by `EstimateEngineService.finalize`
+- `draft -> ready` additionally requires the DES-10-F2 Review readiness checklist: both review attestations (`exclusions_reviewed_at`, `price_sources_reviewed_at`) set. There is no line-count gate — decision 22-B (Billy's word 2026-11-23) allows finalizing a $0 estimate. A duplicated draft starts with null attestations and must be re-reviewed.
 - draft-only mutations are blocked after an estimate leaves `draft`
 
 Compatibility persistence:
@@ -106,6 +107,7 @@ Pricing snapshot invariant:
 - estimate recalculation uses persisted line costs; it does not re-fetch current CostItem/Assembly pricing for existing lines
 - a newly added CostItem or Assembly line captures the current Costbook cost at creation time
 - duplication/versioning preserves the persisted source and pricing snapshot values
+- the estimate detail read additionally attaches a display-only per-line `priceReadiness` signal (DES-10-F3) derived from the backing material's last price update; it changes no state, transition, or price
 
 Implementation notes:
 
@@ -176,6 +178,12 @@ only one winning terminal result; the losing request fails closed without a
 second delivery/activity event or project-side-effect overwrite. Repeated
 terminal approval/decline remains an invalid transition.
 
+Selection and allowance writes (DES-10-F8) are draft-only mutations, not
+lifecycle transitions: they are allowed in any non-accepted state and rejected
+with `409` once the proposal is accepted or has a contract, following the same
+immutability rule as the proposal update path. They never change the proposal
+status, the estimate, or `finalPrice` — the allowances total is display-only.
+
 Compatibility note:
 
 - the `/reject` route and service method remain for API compatibility, but the mutation writes canonical `declined` and records `proposal.declined`; historical `rejected` values remain read-compatible
@@ -245,7 +253,7 @@ Current enforced transitions:
 
 - create without schedule: `unscheduled`
 - create with schedule: `scheduled`
-- `unscheduled|scheduled|dispatched` can be scheduled or rescheduled subject to conflict rules
+- `unscheduled|scheduled|dispatched` can be scheduled or rescheduled subject to conflict rules; rescheduling a dispatched job reverses its dispatch and requires explicit confirmation (`confirmDispatchReversal`), returning the job to `scheduled` and recording `job.dispatch_reversed` — the job must then be explicitly redispatched
 - `scheduled -> dispatched`
 - `dispatched -> traveling`
 - `traveling -> on_site`
@@ -254,7 +262,7 @@ Current enforced transitions:
 - `on_site -> completed`; `traveling` and `paused` must return to `on_site` before completion
 - `scheduled|dispatched|paused -> cancelled`
 - `completed -> unscheduled|scheduled` through owner/admin reopen
-- transitions, scheduling/rescheduling, and reopen accept an optional `expectedUpdatedAt` revision token: a stale token fails with HTTP 409 before any other guard, the write is predicated on the token (or the just-read revision when omitted), and a lost-update (P2025) maps to the same 409. The frontend does not send the token yet.
+- transitions, scheduling/rescheduling, and reopen accept an optional `expectedUpdatedAt` revision token: a stale token fails with HTTP 409 before any other guard, the write is predicated on the token (or the just-read revision when omitted), and a lost-update (P2025) maps to the same 409. The Dispatcher Workspace and field actions send the token (`withJobRevision`); ready-for-invoice accepts it too (DEV-22).
 
 Privileged override actions:
 
@@ -312,7 +320,8 @@ Compatibility persistence:
 - `InvoicesService.void()` persists raw `void` so the transition satisfies the live `invoices_status_check` constraint; delivery/activity metadata still records canonical `invoice.voided` / `newStatus: "voided"`
 - `cancelled` remains a defensive legacy normalization synonym, although the live constraint has never permitted that value
 - `partially_paid` and `overdue` remain derived read/reporting states; they are not persisted by the current Invoice payment path
-- `viewed` remains canonical vocabulary without a current Invoice persistence or tracking path
+- `viewed` is persisted by the portal mark-viewed writer (DES-7): a customer portal view moves a `sent` invoice to `viewed` and records `viewedAt` (additive nullable column, migration `20261123120000_add_invoice_viewed_at`); repeat views are idempotent and drafts cannot be marked viewed. An invoice already past viewed keeps its status and only gains its first `viewedAt`.
+- Payment Failure is not a persisted status: it is the display state for a failed manual record-payment attempt (validation or server error), recorded as an `invoice.payment_failed` delivery event carrying the reason and shown on the detail page while it is the latest payment outcome; a later successful recorded payment (or mark-paid) supersedes it. There is no online payment flow to fail.
 
 Organization work-queue reads (`GET /api/v1/invoices`, see `docs/modules/invoices-and-payments.md`):
 
@@ -470,3 +479,21 @@ proposal. Its executable description comes only from that accepted scope, never
 from the Project's current `simpleScope`. Missing accepted scope fails closed
 with HTTP 409; an existing conversion remains retrievable on an idempotent retry.
 The guard does not modify the accepted proposal or create replacement terms.
+
+## Distinct internal offline proposal acceptance — proposed
+
+The existing customer-facing route keeps `sent|viewed -> accepted`. A
+separate staff-only, explicitly confirmed `draft -> accepted` route is for
+already-approved written scopes/prices that were accepted outside TradeOS.
+The actor, approval channel, and note are recorded in the existing
+tenant-scoped `proposal.accepted` activity/delivery journal, tagged as
+`staff_recorded_offline`. This mode does not manufacture `sentAt`,
+`proposal.sent`, a customer signature, or a customer-portal interaction.
+Concurrent requests still use a compare-and-swap write scoped to the
+authenticated organization; accepted proposals remain immutable. The
+downstream `accepted -> contract/job` baseline remains unchanged. Until
+deployed and accepted in staging, this is an unshipped PR capability.
+
+## Estimate material checklist export (proposed, 2026-11-13)
+
+A saved Estimate can generate a read-only, price-free materials checklist from explicitly material-classified lines, before or after Estimate finalization. Export does **not** transition Estimate, Proposal, Job, purchasing, or billing state, does not modify source lines or reserve stock, and does not imply that a list has been delivered to a customer. Assemblies are not decomposed; any assembly lines require review before treating the checklist as complete. Finalization and customer proposal lifecycle rules remain unchanged.

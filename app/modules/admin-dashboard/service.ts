@@ -4,6 +4,15 @@ import { AuthContext } from "../../backend/auth/context";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { MaterialDatabaseService } from "../material-database/service";
 import { hasAnyPermission, normalizeRole } from "../../domain";
+
+// Roles the database predicate current_app_can_administer() admits (owner,
+// admin). The app.provisioning flag bypasses RLS policies gated on that
+// predicate, so the database-verified membership check in
+// upsertOrganizationMember must require the same administrator set: a
+// permission check alone also admits dispatcher and estimator via
+// company.manage/settings.manage.
+const administratorRoles: readonly string[] = ["owner", "admin"];
+
 import { runInDatabaseTransaction } from "../../db/requestSession";
 import {
   OrganizationDTO,
@@ -197,6 +206,7 @@ export class AdminDashboardService {
         include: { user: { select: { isActive: true } } },
       });
       if (!actorMembership?.user.isActive || actorMembership.role !== actor.role ||
+          !administratorRoles.includes(actorMembership.role) ||
           !hasAnyPermission(actorMembership.role, ["team.manage", "company.manage", "settings.manage"])) {
         throw new ApiError(403, "Active organization administrator membership required");
       }

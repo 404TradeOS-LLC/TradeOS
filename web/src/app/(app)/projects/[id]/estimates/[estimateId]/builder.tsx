@@ -11,22 +11,26 @@ import { assessCostItemMapping, type StarterCatalogComponent, type StarterCatalo
 import { MappingResolveChecklist } from "@/components/costbook/mapping-resolve-checklist";
 import type { CostItemCatalogRecord } from "@/components/costbook/cost-item-catalog-actions";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { StickyTaskAction } from "@/components/shared/sticky-task-action";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FeedbackState } from "@/components/ui/feedback-state";
 import { Textarea } from "@/components/ui/textarea";
-import type { Estimate } from "@/lib/api";
+import type { Estimate, EstimateLinePriceReadiness } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { markerGeometry, type MarkerGeometry } from "@/lib/motion/lifecycle";
 import { PriceDelta } from "@/components/motion/price-delta";
 import { nextRecalculationSnapshot, toMinorUnits } from "@/lib/motion/price-delta";
 import type { RecalculationSnapshot } from "@/lib/motion/price-delta";
 import { groupSavedDirectCosts } from "@/lib/estimate-direct-costs";
+import { isLowGrossMargin, priceReadinessCountsFor, summarizePriceReadiness } from "@/lib/estimate-price-readiness";
 import { canAddReviewedEstimateCatalogItem } from "@/lib/estimate-catalog-review";
 import { createEstimateReviewNavigator } from "@/lib/estimate-review-navigation";
+import { EstimateCodesHints } from "@/components/estimate/estimate-codes-hints";
 
 interface LineItem {
   id: string;
@@ -40,6 +44,8 @@ interface LineItem {
   section: string;
   costType: "labor" | "material" | "equipment" | "disposal" | "subcontractor" | "other";
   taxable: boolean;
+  /** Price-readiness signal attached by the estimate detail endpoint (DES-10-F3). */
+  priceReadiness?: EstimateLinePriceReadiness;
 }
 
 interface EstimateDetail extends Estimate {
@@ -70,7 +76,7 @@ interface AssemblyPreviewData {
   total: number;
 }
 
-export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null }) {
+export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope, customerName, jobType }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null; customerName?: string | null; jobType?: string | null }) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const reviewNavigator = useRef(createEstimateReviewNavigator());
@@ -207,6 +213,16 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
 
   const isDraft = estimate.status === "draft";
 
+  // DES-10-F5 identity header (existing data only): the customer name comes
+  // from the project record's customer, and the job description is the saved
+  // project scope with the project job type as fallback. Either line renders
+  // nothing when its source data is absent. There is no sequential estimate
+  // number in the data model (Estimate carries only a uuid id and a
+  // per-project version), so no number is invented here — the title keeps
+  // the existing `Estimate v{version}` identifier and the numbering scheme
+  // (canonical vs new-series format) is a founder decision, not code.
+  const jobDescription = persistedScope.trim() || jobType?.trim() || null;
+
   const openFullReview = () => {
     if (saveScope.isPending) return;
     void reviewNavigator.current({
@@ -261,6 +277,13 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
           </div>
         }
       />
+
+      {customerName || jobDescription ? (
+        <div className="min-w-0 space-y-0.5" aria-label="Estimate identity">
+          {customerName ? <p className="min-w-0 truncate text-sm font-medium text-foreground">{customerName}</p> : null}
+          {jobDescription ? <p className="line-clamp-2 text-sm text-muted-foreground">{jobDescription}</p> : null}
+        </div>
+      ) : null}
 
       <div className="hidden grid-cols-2 gap-x-5 gap-y-3 border-y border-border/70 bg-muted/20 px-3 py-3 sm:grid-cols-4 sm:px-4 lg:grid" aria-label="Estimate summary">
         <SummaryValue label="Job cost" value={formatCurrency(runningTotals.subtotalCost)} />
@@ -413,6 +436,14 @@ function EstimateStageFlow({
   finalizeError: string | null;
   recalculationDelta: { previousTotalMinor: number; currentTotalMinor: number; reason: string } | null;
 }) {
+  // DES-10-F2: the Review readiness checklist gates Finalize. The flags
+  // are server state (persisted review attestations); the button stays
+  // disabled until both are set, and the server enforces the same
+  // preconditions in finalize() so a direct API call cannot bypass it.
+  // There is no line-count gate: decision 22-B (Billy's word 2026-11-23)
+  // allows finalizing a $0 estimate, so the button must not disable on
+  // an empty line list.
+  const reviewChecklistComplete = estimate.exclusionsReviewedAt != null && estimate.priceSourcesReviewedAt != null;
   const stages: Array<{ id: EstimateStage; label: string }> = [
     { id: "scope", label: "Scope" },
     { id: "items", label: "Items" },
@@ -507,7 +538,7 @@ function EstimateStageFlow({
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)]">
         <div className="min-w-0 bg-card px-4 py-6 sm:px-6">
-          <div hidden={activeStage !== "scope"} className="space-y-4 pb-24 lg:pb-0">
+          <div hidden={activeStage !== "scope"} className="space-y-4">
             <h2 ref={(node) => { stageHeadingRefs.current.scope = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Start with the work.</h2>
             <EstimateScopeEditor
               value={simpleScope}
@@ -521,10 +552,11 @@ function EstimateStageFlow({
             <div className="text-sm text-muted-foreground">
               Athena suggestions are review-first. Nothing is added automatically; open Athena review for deeper scope analysis.
             </div>
-            <EstimateStageAction label={scopeSavePending ? "Saving scope…" : "Continue to items"} onClick={advance} disabled={scopeSavePending} />
+            <EstimateCodesHints estimateId={estimateId} />
+            <StickyTaskAction label={scopeSavePending ? "Saving scope…" : "Continue to items"} onClick={advance} disabled={scopeSavePending} />
           </div>
 
-          <div hidden={activeStage !== "items"} className="space-y-4 pb-24 lg:pb-0">
+          <div hidden={activeStage !== "items"} className="space-y-4">
             <div>
               <h2 ref={(node) => { stageHeadingRefs.current.items = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Estimate items</h2>
               <p className="mt-1 text-sm text-muted-foreground">{estimate.lineItems.length} saved lines · review sources, quantities and costs before pricing.</p>
@@ -561,10 +593,10 @@ function EstimateStageFlow({
                 </ul>
               </div>
             )}
-            <EstimateStageAction label="Continue to price" onClick={advance} />
+            <StickyTaskAction label="Continue to price" onClick={advance} />
           </div>
 
-          <div hidden={activeStage !== "price"} className="space-y-4 pb-24 lg:pb-0">
+          <div hidden={activeStage !== "price"} className="space-y-4">
             <h2 ref={(node) => { stageHeadingRefs.current.price = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Price the work</h2>
             <p className="text-sm text-muted-foreground">Use Apply or Save overhead / tax to save pricing changes. Review uses the saved estimate total.</p>
             {recalculationDelta ? (
@@ -576,6 +608,11 @@ function EstimateStageFlow({
                 label="Last recalculation"
               />
             ) : null}
+            <PriceReadinessSignals
+              lineItems={estimate.lineItems}
+              marginPct={runningTotals.marginPct}
+              onReviewPrices={() => void goToStage("items")}
+            />
             <EstimateDirectCostBreakdown lineItems={estimate.lineItems} />
             <PricingPanel
               estimateId={estimateId}
@@ -585,10 +622,10 @@ function EstimateStageFlow({
               isDraft={isDraft}
               onUpdated={onUpdated}
             />
-            <EstimateStageAction label="Continue to review" onClick={advance} />
+            <StickyTaskAction label="Continue to review" onClick={advance} />
           </div>
 
-          <div hidden={activeStage !== "review"} className="space-y-5 pb-24 lg:pb-0">
+          <div hidden={activeStage !== "review"} className="space-y-5">
             <div className="border-b border-border/70 pb-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -623,11 +660,17 @@ function EstimateStageFlow({
               </div>
               <p className="mt-2 text-sm text-muted-foreground">{formatPercent(runningTotals.marginPct)} gross margin · {runningTotals.lineItemCount} line items</p>
             </div>
+            <EstimateCodesHints estimateId={estimateId} />
             {isDraft ? (
               <>
+                <EstimateReviewChecklist
+                  estimateId={estimateId}
+                  exclusionsReviewedAt={estimate.exclusionsReviewedAt}
+                  priceSourcesReviewedAt={estimate.priceSourcesReviewedAt}
+                />
                 <p className="text-sm text-muted-foreground">Finalizing locks this reviewed estimate version. The next step is creating the customer proposal. Nothing is sent to the customer by finalizing.</p>
                 {finalizeError ? <EstimateFinalizationError message={finalizeError} /> : null}
-                <EstimateStageAction label={finalizePending ? "Finalizing…" : finalizeError ? "Retry finalization" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
+                <StickyTaskAction label={finalizePending ? "Finalizing…" : finalizeError ? "Retry finalization" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || !reviewChecklistComplete} />
               </>
             ) : (
               <Link href={`/projects/${estimate.projectId}/proposals/new?estimateId=${estimateId}`} className={buttonVariants({ variant: "default" }) + " flex min-h-11 w-full items-center justify-center"}>
@@ -687,8 +730,155 @@ function EstimateFinalizationError({ message }: { message: string }) {
   );
 }
 
+/**
+ * DES-10-F2 — Review readiness checklist (Figma 378:443 / 287:240).
+ * Two persisted attestations gate `Finalize estimate`. There is no
+ * line-count gate: decision 22-B (Billy's word 2026-11-23) allows
+ * finalizing a $0 estimate, so the checklist attestation is the gate,
+ * not the line count. The checked state is server state: each toggle
+ * PATCHes the estimate through the existing draft-update path
+ * (`exclusionsReviewed` / `priceSourcesReviewed`) and the query
+ * refetch renders the persisted value, so a completed checklist
+ * survives a reload. A failed save leaves the checkbox at the server
+ * value — never an optimistic checked state.
+ *
+ * Shipped items only. Figma item 01 (reconcile the $1,670 difference)
+ * depends on DES-10-F4 (no imported-draft concept exists); item 02
+ * (review the footing assumption) depends on DES-10-F1 (Codex lane).
+ */
+function EstimateReviewChecklist({
+  estimateId,
+  exclusionsReviewedAt,
+  priceSourcesReviewedAt,
+}: {
+  estimateId: string;
+  exclusionsReviewedAt: string | null;
+  priceSourcesReviewedAt: string | null;
+}) {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const exclusionsId = useId();
+  const priceSourcesId = useId();
+
+  const saveReview = useMutation({
+    mutationFn: ({ field, reviewed }: { field: "exclusions" | "priceSources"; reviewed: boolean }) =>
+      clientFetch(`/estimates/${estimateId}`, {
+        method: "PATCH",
+        body: JSON.stringify(field === "exclusions" ? { exclusionsReviewed: reviewed } : { priceSourcesReviewed: reviewed }),
+      }),
+    onSuccess: () => {
+      setError(null);
+      void queryClient.invalidateQueries({ queryKey: ["estimate", estimateId] });
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "Unable to save the review checklist. Try again."),
+  });
+
+  const complete = exclusionsReviewedAt != null && priceSourcesReviewedAt != null;
+
+  return (
+    <section aria-label="Review readiness checklist" className="space-y-3 rounded-lg border border-border/70 bg-muted/10 p-4">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Before finalizing</h3>
+        <p className="mt-1 text-xs text-muted-foreground">Finalizing stays blocked until exclusions and price sources have been reviewed.</p>
+      </div>
+      <div className="space-y-3">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id={exclusionsId}
+            checked={exclusionsReviewedAt != null}
+            disabled={saveReview.isPending}
+            onCheckedChange={(checked) => saveReview.mutate({ field: "exclusions", reviewed: checked === true })}
+            className="mt-0.5"
+          />
+          <div className="min-w-0">
+            <Label htmlFor={exclusionsId} className="text-sm font-medium">Exclusions reviewed</Label>
+            <p className="mt-0.5 text-xs text-muted-foreground">Confirm the exclusions that will appear on the customer proposal have been reviewed. Exclusions are entered on the proposal form after finalizing.</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id={priceSourcesId}
+            checked={priceSourcesReviewedAt != null}
+            disabled={saveReview.isPending}
+            onCheckedChange={(checked) => saveReview.mutate({ field: "priceSources", reviewed: checked === true })}
+            className="mt-0.5"
+          />
+          <div className="min-w-0">
+            <Label htmlFor={priceSourcesId} className="text-sm font-medium">Price sources reviewed</Label>
+            <p className="mt-0.5 text-xs text-muted-foreground">Confirm each line&apos;s Costbook price source was reviewed in Items before adding.</p>
+          </div>
+        </div>
+      </div>
+      {complete ? <p className="text-xs text-muted-foreground">Checklist complete — Finalize estimate is available.</p> : null}
+      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+    </section>
+  );
+}
+
+/** Price readiness signals (DES-10-F3): missing / stale supplier prices, low margin, omission check. Display only — nothing here reprices a line or blocks finalization. */
+function PriceReadinessSignals({
+  lineItems,
+  marginPct,
+  onReviewPrices,
+}: {
+  lineItems: LineItem[];
+  marginPct: number;
+  onReviewPrices: () => void;
+}) {
+  const summary = summarizePriceReadiness(lineItems);
+  const lowMargin = isLowGrossMargin(marginPct);
+  const attentionCount = summary.missing + summary.toReview;
+  const namedLines = (names: string[], limit = 3) =>
+    names.length > limit ? `${names.slice(0, limit).join(", ")} +${names.length - limit} more` : names.join(", ");
+  return (
+    <section aria-label="Pricing readiness" className="space-y-3 rounded-lg border border-border/70 bg-muted/10 p-4">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Pricing readiness</h3>
+        <p className="mt-1 text-xs text-muted-foreground">Missing and stale supplier prices on the saved lines. This check never changes a price.</p>
+      </div>
+      {attentionCount > 0 || summary.unchecked > 0 || lowMargin ? (
+        <ul className="flex flex-wrap gap-2" aria-label="Price readiness signals">
+          {summary.missing > 0 ? (
+            <li><Badge variant="destructive">{summary.missing} missing {summary.missing === 1 ? "price" : "prices"}</Badge></li>
+          ) : null}
+          {summary.toReview > 0 ? (
+            <li><Badge variant="outline">{summary.toReview} to review</Badge></li>
+          ) : null}
+          {summary.unchecked > 0 ? (
+            <li><Badge variant="outline">{summary.unchecked} unchecked</Badge></li>
+          ) : null}
+          {lowMargin ? (
+            <li><Badge variant="outline">Low margin: {formatPercent(marginPct)}</Badge></li>
+          ) : null}
+        </ul>
+      ) : null}
+      {attentionCount > 0 ? (
+        <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning" role="alert">
+          <p>
+            Supplier prices need action —{" "}
+            {summary.missing > 0 ? `${namedLines(summary.missingLines)} ${summary.missing === 1 ? "has" : "have"} no recorded supplier cost.` : null}
+            {summary.missing > 0 && summary.toReview > 0 ? " " : null}
+            {summary.toReview > 0 ? `${namedLines(summary.toReviewLines)} ${summary.toReview === 1 ? "needs" : "need"} a price review.` : null}
+          </p>
+          <Button type="button" variant="outline" size="sm" className="mt-2" onClick={onReviewPrices}>
+            Review in Items
+          </Button>
+        </div>
+      ) : null}
+      <p className="text-sm text-muted-foreground">
+        {summary.unchecked > 0
+          ? `Omission check incomplete · ${summary.unchecked} ${summary.unchecked === 1 ? "price" : "prices"} could not be checked${attentionCount > 0 ? ` · ${summary.missing} missing · ${summary.toReview} to review` : ""}.`
+          : attentionCount > 0
+            ? `Omission check: ${summary.missing} missing · ${summary.toReview} to review.`
+            : "Omission check complete · no missing or stale prices."}
+      </p>
+    </section>
+  );
+}
+
 function EstimateDirectCostBreakdown({ lineItems }: { lineItems: LineItem[] }) {
   const amounts = groupSavedDirectCosts(lineItems);
+  const readiness = summarizePriceReadiness(lineItems);
   return (
     <section aria-label="Internal direct cost breakdown" className="space-y-3 rounded-lg border border-border/70 bg-muted/10 p-4">
       <div>
@@ -697,25 +887,30 @@ function EstimateDirectCostBreakdown({ lineItems }: { lineItems: LineItem[] }) {
       </div>
       {lineItems.length === 0 ? <p className="text-sm text-muted-foreground">Add priced items in Items to see the breakdown.</p> : (
         <dl className="space-y-2 text-sm">
-          {amounts.map((item) => (
-            <div key={item.type} className="flex items-center justify-between gap-3">
-              <dt>{item.label}</dt>
-              <dd className="font-mono tabular-nums">{item.amount === null ? "Unavailable" : formatCurrency(item.amount)}</dd>
-            </div>
-          ))}
+          {amounts.map((item) => {
+            const counts = priceReadinessCountsFor(readiness, item.type);
+            return (
+              <div key={item.type} className="flex items-center justify-between gap-3">
+                <dt>
+                  {item.label}
+                  {counts.missing > 0 || counts.toReview > 0 || counts.unchecked > 0 ? (
+                    <span className="text-muted-foreground">
+                      {" · "}
+                      {counts.missing > 0 ? `${counts.missing} missing` : ""}
+                      {counts.missing > 0 && counts.toReview > 0 ? " · " : ""}
+                      {counts.toReview > 0 ? `${counts.toReview} to review` : ""}
+                      {(counts.missing > 0 || counts.toReview > 0) && counts.unchecked > 0 ? " · " : ""}
+                      {counts.unchecked > 0 ? `${counts.unchecked} unchecked` : ""}
+                    </span>
+                  ) : null}
+                </dt>
+                <dd className="font-mono tabular-nums">{item.amount === null ? "Unavailable" : formatCurrency(item.amount)}</dd>
+              </div>
+            );
+          })}
         </dl>
       )}
     </section>
-  );
-}
-
-function EstimateStageAction({ label, onClick, disabled = false }: { label: string; onClick: () => void; disabled?: boolean }) {
-  return (
-    <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 border-t border-border/70 bg-background/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
-      <Button type="button" className="min-h-11 w-full lg:w-auto" onClick={onClick} disabled={disabled}>
-        {label}
-      </Button>
-    </div>
   );
 }
 

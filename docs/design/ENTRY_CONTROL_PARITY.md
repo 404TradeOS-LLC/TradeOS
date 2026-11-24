@@ -2,6 +2,21 @@
 
 Classification: **NEW_WORK_REQUIRED** after fetch/prune, open/closed PR and branch/commit reconciliation. Entry implementation #640 is merged; no open Entry-control repair lane was found. #731 is the independent onboarding lane.
 
+## Status — 2026-11-23 (issue #1026, PR fixing it)
+
+Closed by the #1026 fix (this PR): the entry controls now render **48px** via the
+cinematic entry module itself — `web/src/components/entry/entry.module.css`
+sets `.field input` and `.primary` to `height: 48px`, the password visibility
+toggle keeps its 44px target with 2px vertical margins inside the 48px field,
+and the Forgot-password link stays 44px. The email label reads "Email",
+matching Figma frame 548:2780. The `min-h-12` callsite prescription in the
+"Reference and change" section below was **never applied and is superseded**:
+the heights live in the entry module, not at shared-component callsites, and
+its premise (shared Input `h-8` / Button 36px with no page override) was
+stale — the cinematic entry module overrides both. The `aria-busy` part of
+that section is implemented. Rendered 390/768/1024/1440 geometry still needs
+browser evidence (TODO 2 below).
+
 Base: `6096d806782382c987c7e0c15df1da9cb4d30ad4`.
 Branch: `fix/entry-mobile-control-parity`.
 Allowed: login page and meaningful Current State/design evidence docs. Backend/auth actions, shared primitive defaults, brand assets, dependencies, onboarding and schema are excluded.

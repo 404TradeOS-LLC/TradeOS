@@ -43,6 +43,55 @@ export type PrStatus = {
   checks: CheckState[]; requiredChecksKnown: boolean; requiredCheckNames: string[]; requiredChecks?: RequiredCheckBinding[]; error: string | null;
 };
 
+/** Allow only the exact owner and admin roles to access the control surface. */
+export function isBetaReadinessOperatorRole(role: unknown): role is 'owner' | 'admin' {
+  return role === 'owner' || role === 'admin';
+}
+
+/** Label a closed PR's status as disposition and an open PR's as mergeability. */
+export function prStatusTileLabel(state: string): string {
+  return state === 'closed' ? 'Disposition' : 'Mergeability';
+}
+
+/**
+ * Incomplete collector data must not masquerade as a confirmed check failure.
+ * Only a check actually observed from an applicable required context/app can
+ * remain BLOCKED when another required row is missing and collection failed.
+ */
+function hasObservedUnsuccessfulRequiredCheck(pr: PrStatus): boolean {
+  const requirements = pr.requiredChecks?.length
+    ? pr.requiredChecks
+    : pr.requiredCheckNames.map(name => ({name, integrationIds: [] as number[]}));
+  return requirements.some(({name, integrationIds}) =>
+    pr.checks.some(c => c.name === name &&
+      (integrationIds.length === 0 || (c.appId != null && integrationIds.includes(c.appId))) &&
+      (c.status !== 'completed' || c.conclusion !== 'success')));
+}
+
+/**
+ * Summarize PR disposition and evidence. Closed, unmerged #905/#906 lanes are
+ * superseded; merging either overlapping migration lane is unsafe. Known
+ * failures remain blocked even when another evidence source is unavailable.
+ */
+export function prCardStatus(pr: PrStatus): string {
+  if (pr.number === 905 || pr.number === 906) {
+    if (pr.state === 'closed') return pr.merged === false ? 'superseded' : 'blocked';
+  }
+  if (pr.state === 'closed') return pr.merged === true ? 'merged' : 'blocked';
+  // Known draft/non-mergeable states survive a collector failure: a failed
+  // read must not demote a known DRAFT or BLOCKED card to UNVERIFIED.
+  if (pr.draft === true) return 'draft';
+  if (pr.mergeable === false) return 'blocked';
+  if (pr.error) {
+    // Missing rows with an unsuccessful collector are unknown, not a known
+    // failure. An observed pending/failed required check remains blocked.
+    return hasObservedUnsuccessfulRequiredCheck(pr) ? 'blocked' : 'unverified';
+  }
+  const checks = evaluateChecks(pr);
+  if (checks.state === 'verified' && (pr.review !== 'approved' || pr.unresolvedThreads !== 0 || pr.mergeable !== true || pr.draft !== false)) return 'unverified';
+  return checks.state;
+}
+
 // Parses the GET /rules/branches/main response: an array of rule entries, one
 // per rule, each carrying its ruleset id. Only required_status_checks entries
 // contribute; contexts are grouped so one context bound by several rulesets
@@ -198,11 +247,28 @@ function isClosedSupersededLane(pr: PrStatus): boolean {
   return (pr.number === 905 || pr.number === 906) && pr.state === 'closed' && pr.merged === false;
 }
 
+/** Post-merge evidence action for a merged lane; null when no lane-specific action applies. */
+function mergedLaneEvidenceAction(pr: PrStatus): string | null {
+  if (pr.number===810) return 'Attest matching nonproduction API/web bindings and capture authenticated step-9, concurrency and rollback evidence.';
+  if (pr.number===891) return 'Run protected staging Expense baseline then separately approved payer migration; verify RLS, receipts and owner/technician acceptance.';
+  return null;
+}
+
+/** Select the next release action from the PR's disposition and available evidence. */
 export function nextSafeAction(pr: PrStatus): string {
-  if (pr.error) return 'Restore read-only GitHub visibility and refresh; keep every release gate blocked.';
+  // Closure/merged disposition is read from the PR itself. Historical check
+  // visibility is immaterial to a closed-unmerged, superseded release lane.
   if (isClosedSupersededLane(pr)) return 'Superseded migration lane closed without merge; retain #907 and its protected staging workflow. No duplicate migration action is required.';
+  if (pr.error) return 'Restore read-only GitHub visibility and refresh; keep every release gate blocked.';
   if ((pr.number===905 || pr.number===906) && pr.merged===true) return 'An overlapping migration lane was merged: verify workflow conflicts and protected staging policy before any release.';
   if (pr.number===905 || pr.number===906) return 'Compare this overlapping migration path with merged #907; reconcile and close the superseded lane after review. Do not merge duplicate staging workflows.';
+  // A closed PR never needs a branch update, thread resolution, review, or
+  // merge action, however stale its recorded currency is. Closed-unmerged
+  // lanes stop here; merged lanes keep their post-merge evidence actions.
+  if (pr.state === 'closed') {
+    if (pr.merged === true) return mergedLaneEvidenceAction(pr) ?? 'Merged; no branch, review, or merge action applies.';
+    return 'Closed without merge; no branch, review, or merge action applies.';
+  }
   if (pr.draft) return 'Keep draft; reconcile exact-head tests, review findings and staging dependency before requesting ready-for-review.';
   if (pr.behind !== null && pr.behind > 0) return 'Safely update/rebase against current main, then rerun exact-head required checks.';
   if (pr.behind === null) return 'Verify branch currency against main before any merge recommendation.';
@@ -212,8 +278,8 @@ export function nextSafeAction(pr: PrStatus): string {
   const checks=evaluateChecks(pr);
   if (checks.state!=='verified') return `Reconcile current-head CI: ${checks.detail}.`;
   if (pr.mergeable!==true) return 'Resolve GitHub merge conflicts or unknown mergeability; do not force merge.';
-  if (pr.number===810) return 'Attest matching nonproduction API/web bindings and capture authenticated step-9, concurrency and rollback evidence.';
-  if (pr.number===891) return 'Run protected staging Expense baseline then separately approved payer migration; verify RLS, receipts and owner/technician acceptance.';
+  const mergedEvidence = mergedLaneEvidenceAction(pr);
+  if (mergedEvidence) return mergedEvidence;
   return 'Complete protected staging proof before final release review.';
 }
 

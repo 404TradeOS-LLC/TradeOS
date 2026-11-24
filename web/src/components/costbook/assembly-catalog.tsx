@@ -13,9 +13,13 @@ import type { CostItemCatalogRecord } from "@/components/costbook/cost-item-cata
 import {
   assessCostItemMapping,
   buildStarterCatalogFacets,
+  collectPagedCatalogItems,
   DEFAULT_STARTER_CATALOG_FILTERS,
   filterStarterCatalogTemplates,
   isStarterCatalogInstalled,
+  mergeReuseMappingSuggestions,
+  REUSE_SOURCE_PAGE_LIMIT,
+  type MappingReuseResult,
   type StarterCatalogFilters,
   type StarterCatalogInstallation,
   type StarterCatalogComponent,
@@ -66,6 +70,11 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
   const [saving, setSaving] = useState(false);
   const [loadingItems, setLoadingItems] = useState(Boolean(initialSelectedId));
   const [error, setError] = useState<string | null>(null);
+  // DEV-17 S9 repair: the starter catalog's reuse-source list is fetched
+  // inside StarterAssemblyCatalog; bumping this key after an install or a
+  // deactivation makes it refetch instead of showing a stale list until
+  // the page reloads.
+  const [reuseRefreshKey, setReuseRefreshKey] = useState(0);
   const selected = assemblies.find((item) => item.id === selectedId) ?? null;
   const childOptions = useMemo(() => availableChildAssemblies.filter((item) => item.id !== selectedId), [availableChildAssemblies, selectedId]);
 
@@ -149,6 +158,27 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
     setAvailableChildAssemblies((current) => current.map((item) => item.id === updated.id ? updated : item).sort((a, b) => a.name.localeCompare(b.name)));
   }
 
+  // DEV-17 S10: saving pricing overrides changes the resolved unit cost on
+  // the backend, so the displayed cost must be refetched after an edit save
+  // — the selectedId effect alone does not rerun. Mirrors the
+  // add/remove-component refresh: clear the stale value if it fails.
+  async function refreshSelectedUnitCost(requestAssemblyId: string) {
+    try {
+      const cost = await clientFetch<AssemblyCost>(`/costbook/assemblies/${requestAssemblyId}/unit-cost`);
+      if (selectedIdRef.current === requestAssemblyId) setUnitCost(cost.unitCost);
+    } catch {
+      if (selectedIdRef.current === requestAssemblyId) {
+        setUnitCost(null);
+        setError("Assembly was updated, but the current unit cost could not be refreshed. Refresh the assembly to retry the calculation.");
+      }
+    }
+  }
+
+  function handleAssemblyUpdated(updated: CostbookAssembly) {
+    updateAssemblyInList(updated);
+    void refreshSelectedUnitCost(updated.id);
+  }
+
   async function deactivateSelected() {
     if (!selected || !window.confirm(`Deactivate ${selected.name}? Existing estimate history will be preserved.`)) return;
     setSaving(true);
@@ -158,6 +188,7 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
       const remaining = assemblies.filter((item) => item.id !== selected.id);
       setAssemblies(remaining);
       setAvailableChildAssemblies((current) => current.filter((item) => item.id !== selected.id));
+      setReuseRefreshKey((current) => current + 1);
       selectAssembly(remaining[0]?.id ?? "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Assembly could not be deactivated.");
@@ -232,12 +263,14 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
       costItems={costItems}
       canWrite={canWrite}
       installedCodes={new Set(availableChildAssemblies.map((assembly) => assembly.code.trim().toUpperCase()))}
+      reuseRefreshKey={reuseRefreshKey}
       saving={saving}
       onSaving={setSaving}
       onError={setError}
       onInstalled={(created) => {
         setAssemblies((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
         setAvailableChildAssemblies((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
+        setReuseRefreshKey((current) => current + 1);
         selectAssembly(created.id);
       }}
     />
@@ -275,7 +308,7 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
               {canManage ? <Button type="button" variant="outline" size="sm" onClick={deactivateSelected} disabled={saving}><Trash2 className="size-4" aria-hidden="true" />Deactivate</Button> : null}
             </div>
           </div>
-          {canWrite ? <AssemblyEditForm key={selected.id} assembly={selected} saving={saving} onSaving={setSaving} onError={setError} onUpdated={updateAssemblyInList} /> : null}
+          {canWrite ? <AssemblyEditForm key={selected.id} assembly={selected} saving={saving} onSaving={setSaving} onError={setError} onUpdated={handleAssemblyUpdated} /> : null}
         </div>
 
         {canWrite ? <form onSubmit={addComponent} className="grid gap-3 rounded-lg border border-border/70 bg-card p-4 md:grid-cols-[160px_1fr_120px_auto] md:items-end">
@@ -292,10 +325,11 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
   </div>;
 }
 
-function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, onSaving, onError, onInstalled }: {
+function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, reuseRefreshKey, saving, onSaving, onError, onInstalled }: {
   costItems: CostItemCatalogRecord[];
   canWrite: boolean;
   installedCodes: Set<string>;
+  reuseRefreshKey: number;
   saving: boolean;
   onSaving: (value: boolean) => void;
   onError: (value: string | null) => void;
@@ -309,8 +343,34 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
   const [mappingItems, setMappingItems] = useState<Record<string, CostItemCatalogRecord>>({});
   const [filters, setFilters] = useState<StarterCatalogFilters>({ ...DEFAULT_STARTER_CATALOG_FILTERS });
   const [previewQuantity, setPreviewQuantity] = useState("1");
+  // DEV-17 S10 install overrides: blank = recipe/mapped-item defaults.
+  const [wasteOverridePct, setWasteOverridePct] = useState("");
+  const [productionRateFactor, setProductionRateFactor] = useState("");
   const [costPreview, setCostPreview] = useState<Record<string, CostPreview>>({});
   const [loading, setLoading] = useState(true);
+  // DEV-17 S9: reuse a previous install's mapping for this template.
+  // A reuse suggestion belongs to one template: every site that changes
+  // the selection (template button, updateFilter, resetFilters) clears
+  // the reuse source choice, note, and error alongside the mappings.
+  const [reuseSources, setReuseSources] = useState<CostbookAssembly[]>([]);
+  const [reuseSourceId, setReuseSourceId] = useState("");
+  const [reuseNote, setReuseNote] = useState<string | null>(null);
+  const [reuseError, setReuseError] = useState<string | null>(null);
+  const [reuseLoading, setReuseLoading] = useState(false);
+  // DEV-17 S9 repair: these refs mirror the latest committed mapping state
+  // so a reuse response merges against the state at apply time, not the
+  // copies captured when the request started. The sequence number
+  // invalidates responses from a superseded selection — every handler that
+  // changes the selection bumps it (see invalidateReuseRequest).
+  const mappingsRef = useRef(mappings);
+  const mappingItemsRef = useRef(mappingItems);
+  const reuseRequestSeqRef = useRef(0);
+  useEffect(() => { mappingsRef.current = mappings; }, [mappings]);
+  useEffect(() => { mappingItemsRef.current = mappingItems; }, [mappingItems]);
+
+  function invalidateReuseRequest() {
+    reuseRequestSeqRef.current += 1;
+  }
   const facets = useMemo(() => buildStarterCatalogFacets(templates), [templates]);
   const filtered = filterStarterCatalogTemplates(templates, filters, installedCodes);
   // A filtered-out template is never allowed to retain visible mapping inputs.
@@ -320,18 +380,30 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
 
   function updateFilter<K extends keyof StarterCatalogFilters>(key: K, value: StarterCatalogFilters[K]) {
     setFilters((current) => ({ ...current, [key]: value }));
+    invalidateReuseRequest();
     setSelectedTemplateId("");
     setMappings({});
     setMappingItems({});
     setCostPreview({});
+    setWasteOverridePct("");
+    setProductionRateFactor("");
+    setReuseSourceId("");
+    setReuseNote(null);
+    setReuseError(null);
   }
 
   function resetFilters() {
     setFilters({ ...DEFAULT_STARTER_CATALOG_FILTERS });
+    invalidateReuseRequest();
     setSelectedTemplateId("");
     setMappings({});
     setMappingItems({});
     setCostPreview({});
+    setWasteOverridePct("");
+    setProductionRateFactor("");
+    setReuseSourceId("");
+    setReuseNote(null);
+    setReuseError(null);
   }
 
   const mappedCount = selected ? selected.components.filter((component) => mappings[component.key]).length : 0;
@@ -380,6 +452,54 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
     return () => { active = false; };
   }, [onError]);
 
+  // DEV-17 S9 repair: follow every page cursor so the selector sees all
+  // active template assemblies, not just the first 100. Refreshed on mount
+  // and whenever the parent reports an install or deactivation
+  // (reuseRefreshKey), so a newly installed recipe is reusable in the
+  // same session and a deactivated source drops out.
+  useEffect(() => {
+    let active = true;
+    collectPagedCatalogItems<CostbookAssembly>((cursor) =>
+      clientFetch<{ items: CostbookAssembly[]; total: number; nextCursor: string | null }>(
+        `/costbook/assemblies?isTemplate=true&active=true&limit=${REUSE_SOURCE_PAGE_LIMIT}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+      ),
+    )
+      .then((items) => { if (active) setReuseSources(items); })
+      .catch(() => { if (active) setReuseSources([]); });
+    return () => { active = false; };
+  }, [reuseRefreshKey]);
+
+  async function applyReuseMapping() {
+    if (!selected || !reuseSourceId) return;
+    const requestSource = reuseSources.find((assembly) => assembly.id === reuseSourceId);
+    const requestSeq = ++reuseRequestSeqRef.current;
+    setReuseLoading(true);
+    setReuseError(null);
+    try {
+      const result = await clientFetch<MappingReuseResult>(`/costbook/assemblies/starter-catalog/${selected.id}/mapping-suggestions?sourceAssemblyId=${encodeURIComponent(reuseSourceId)}`);
+      // A response for an earlier selection must not touch the current
+      // state: the estimator may have picked another recipe or changed
+      // filters while this request was in flight (those handlers bump the
+      // sequence, invalidating this response).
+      if (reuseRequestSeqRef.current !== requestSeq) return;
+      // Merge against the CURRENT mappings (refs hold the latest committed
+      // state), so a slot mapped by hand during the request is preserved
+      // and a suggestion colliding with a retained manual mapping is
+      // skipped instead of assigning the same Cost Item twice.
+      const merged = mergeReuseMappingSuggestions(mappingsRef.current, mappingItemsRef.current, result.suggestions);
+      setMappings(merged.mappings);
+      setMappingItems(merged.items);
+      setReuseNote(merged.stillMissing.length
+        ? `Applied ${merged.applied} of ${result.suggestions.length} slots from ${requestSource?.name ?? "the source assembly"}; ${merged.stillMissing.length} still need${merged.stillMissing.length === 1 ? "s" : ""} mapping: ${merged.stillMissing.join(", ")}.`
+        : `Applied ${merged.applied} of ${result.suggestions.length} slots from ${requestSource?.name ?? "the source assembly"}.`);
+    } catch (err) {
+      if (reuseRequestSeqRef.current !== requestSeq) return;
+      setReuseError(err instanceof Error ? err.message : "Mapping suggestions could not be loaded.");
+    } finally {
+      if (reuseRequestSeqRef.current === requestSeq) setReuseLoading(false);
+    }
+  }
+
   async function install() {
     if (!selected) return;
     if (selected.blockingReasons?.length) {
@@ -406,12 +526,29 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
       onError(`${incompatible.label} is mapped to an incompatible Cost Item. Choose a matching unit and cost type.`);
       return;
     }
+    // DEV-17 S10: blank means "recipe defaults" (no override). Out-of-range
+    // values are rejected here; the API validates them again.
+    const parsedWaste = wasteOverridePct.trim() === "" ? undefined : Number(wasteOverridePct);
+    const parsedFactor = productionRateFactor.trim() === "" ? undefined : Number(productionRateFactor);
+    if (parsedWaste !== undefined && (!Number.isFinite(parsedWaste) || parsedWaste < 0 || parsedWaste > 100)) {
+      onError("Waste override must be between 0 and 100 percent.");
+      return;
+    }
+    if (parsedFactor !== undefined && (!Number.isFinite(parsedFactor) || parsedFactor <= 0 || parsedFactor > 10)) {
+      onError("Production factor must be greater than 0 and at most 10.");
+      return;
+    }
     onSaving(true);
     onError(null);
     try {
       const created = await clientFetch<CostbookAssembly>("/costbook/assemblies/starter-catalog/install", {
         method: "POST",
-        body: JSON.stringify({ templateId: selected.id, componentMappings }),
+        body: JSON.stringify({
+          templateId: selected.id,
+          componentMappings,
+          ...(parsedWaste !== undefined ? { wasteOverridePct: parsedWaste } : {}),
+          ...(parsedFactor !== undefined ? { productionRateFactor: parsedFactor } : {}),
+        }),
       });
       onInstalled(created);
     } catch (err) {
@@ -465,7 +602,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
         </div>
         <div className="max-h-[420px] overflow-y-auto divide-y divide-border/70">{filtered.map((template) => {
           const installed = isStarterCatalogInstalled(template, installedCodes);
-          return <button key={template.id} type="button" aria-label={`Review assembly ${template.name}`} onClick={() => { setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); setCostPreview({}); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
+          return <button key={template.id} type="button" aria-label={`Review assembly ${template.name}`} onClick={() => { invalidateReuseRequest(); setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); setCostPreview({}); setWasteOverridePct(""); setProductionRateFactor(""); setReuseSourceId(""); setReuseNote(null); setReuseError(null); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
             <span className="flex items-start justify-between gap-3"><span className="font-medium text-foreground">{template.name}</span>{installed ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-label="Installed" /> : null}</span>
             <span className="mt-1 block text-xs text-muted-foreground">{template.nahbPhase ? `NAHB ${template.nahbPhase} · ` : ""}{template.nahbGroup} · CSI {template.csiDivision} · {template.unitOfMeasure}{template.blockingReasons?.length ? " · Evidence pending" : ""}</span>
           </button>;
@@ -477,6 +614,18 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
           <div className="grid justify-items-end gap-1"><span className="w-fit rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">NAHB {selected.nahbPhase ?? ""} · {selected.nahbGroup}</span>{selected.evidenceRefs?.length ? <span className="text-xs text-muted-foreground">{selected.evidenceRefs.length} referenced sources · research review required</span> : null}</div>
         </div>
         {selected.blockingReasons?.length ? <p role="alert" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-foreground">Research evidence pending: {selected.blockingReasons.join("; ")}. This recipe can be inspected but not installed until its source references are repaired.</p> : null}
+        {reuseSources.length > 0 ? <div className="grid gap-2 rounded-lg border border-border/70 bg-background/70 p-3">
+          <div><h4 className="font-medium text-foreground">Reuse mapping from an installed assembly</h4><p className="text-sm text-muted-foreground">Apply a related install&apos;s Cost Items to the slots they fit. Slots you already mapped by hand are left alone; anything left unmapped still needs a manual choice.</p></div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <select aria-label="Reuse mapping from installed assembly" className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm" value={reuseSourceId} onChange={(event) => { setReuseSourceId(event.target.value); setReuseNote(null); setReuseError(null); }} disabled={!canWrite || saving || reuseLoading}>
+              <option value="">Choose an installed assembly…</option>
+              {reuseSources.map((assembly) => <option key={assembly.id} value={assembly.id}>{assembly.code} · {assembly.name}</option>)}
+            </select>
+            <Button type="button" variant="outline" size="sm" onClick={applyReuseMapping} disabled={!canWrite || saving || reuseLoading || !reuseSourceId}>Apply compatible mappings</Button>
+          </div>
+          {reuseNote ? <p role="status" className="text-sm text-muted-foreground">{reuseNote}</p> : null}
+          {reuseError ? <p role="alert" className="text-sm text-destructive">{reuseError}</p> : null}
+        </div> : null}
         <div className="grid gap-3"><div><h4 className="font-medium text-foreground">Map the recipe</h4><p className="text-sm text-muted-foreground">Each slot must point to an active Cost Item. Quantities are per 1 {selected.unitOfMeasure} of assembly output.</p></div>
           {selected.components.map((component) => {
             const unavailableIds = new Set(Object.entries(mappings).filter(([key]) => key !== component.key).map(([, id]) => id));
@@ -487,6 +636,11 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
           <div><p className="text-xs font-semibold uppercase tracking-wide text-primary">Pre-install cost preview</p><p className="mt-1 text-sm text-muted-foreground">{mappingComplete ? "Read-only estimate from the mapped Cost Items. Installation still requires review of local production assumptions." : `Map ${selected.components.length - mappedCount} more component${selected.components.length - mappedCount === 1 ? "" : "s"} to preview cost.`}</p></div>
           <label className="grid gap-1 text-sm font-medium"><span>Output quantity</span><Input type="number" min="0.0001" step="0.0001" value={previewQuantity} onChange={(event) => setPreviewQuantity(event.target.value)} disabled={!mappingComplete || saving} /></label>
           <div className="min-w-36 text-right"><p className="text-xs text-muted-foreground">{previewLoading ? "Loading cost" : previewUnitCost === null ? "Unit cost" : `Per 1 ${selected.unitOfMeasure}`}</p><p className="text-lg font-semibold text-foreground">{previewLoading ? "…" : previewUnitCost === null ? "—" : money(previewUnitCost)}</p><p className="text-xs text-muted-foreground">{previewError ? "Cost unavailable" : previewJobCost === null ? "Complete mapping first" : `Job cost · ${money(previewJobCost)}`}</p></div>
+          <div className="grid gap-3 sm:col-span-3 sm:grid-cols-2">
+            <label className="grid gap-1 text-sm font-medium"><span>Waste override (%) — optional</span><Input type="number" min="0" max="100" step="0.5" value={wasteOverridePct} onChange={(event) => setWasteOverridePct(event.target.value)} disabled={!mappingComplete || saving} placeholder="Recipe default" /></label>
+            <label className="grid gap-1 text-sm font-medium"><span>Production factor — optional</span><Input type="number" min="0.1" max="10" step="0.1" value={productionRateFactor} onChange={(event) => setProductionRateFactor(event.target.value)} disabled={!mappingComplete || saving} placeholder="1.0 = recipe default" /></label>
+            <p className="text-xs text-muted-foreground sm:col-span-2">Preview above uses the waste and production rate of each mapped item. The waste override replaces the waste % of each mapped material for this install; the production factor multiplies the production rate of each mapped item (0.8 = a crew producing at 80% of the assumed rate). Both apply when the assembly is installed, and stay recorded on it — blank means the recipe defaults.</p>
+          </div>
         </div>
         <div className="flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">Review production rates, waste, code, permits, and local conditions before using the installed assembly in an estimate.</p><Button type="button" onClick={install} disabled={!canWrite || saving || Boolean(selected.blockingReasons?.length) || !mappingComplete || !previewReady || isStarterCatalogInstalled(selected, installedCodes)}>{isStarterCatalogInstalled(selected, installedCodes) ? "Installed" : saving ? "Installing" : "Install assembly"}</Button></div>
       </div>}
@@ -556,15 +710,28 @@ function AssemblyEditForm({ assembly, saving, onSaving, onError, onUpdated }: {
     description: assembly.description ?? "",
     isTemplate: assembly.isTemplate,
   });
+  // DEV-17 S10: strings so blank can mean "clear the override" (null).
+  const [editWasteOverridePct, setEditWasteOverridePct] = useState(assembly.wasteOverridePct == null ? "" : String(assembly.wasteOverridePct));
+  const [editProductionRateFactor, setEditProductionRateFactor] = useState(assembly.productionRateFactor == null ? "" : String(assembly.productionRateFactor));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const parsedWaste = editWasteOverridePct.trim() === "" ? null : Number(editWasteOverridePct);
+    const parsedFactor = editProductionRateFactor.trim() === "" ? null : Number(editProductionRateFactor);
+    if (parsedWaste !== null && (!Number.isFinite(parsedWaste) || parsedWaste < 0 || parsedWaste > 100)) {
+      onError("Waste override must be between 0 and 100 percent.");
+      return;
+    }
+    if (parsedFactor !== null && (!Number.isFinite(parsedFactor) || parsedFactor <= 0 || parsedFactor > 10)) {
+      onError("Production factor must be greater than 0 and at most 10.");
+      return;
+    }
     onSaving(true);
     onError(null);
     try {
       const updated = await clientFetch<CostbookAssembly>(`/costbook/assemblies/${assembly.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ ...edit, description: edit.description.trim() || null }),
+        body: JSON.stringify({ ...edit, description: edit.description.trim() || null, wasteOverridePct: parsedWaste, productionRateFactor: parsedFactor }),
       });
       onUpdated(updated);
     } catch (err) {
@@ -579,6 +746,9 @@ function AssemblyEditForm({ assembly, saving, onSaving, onError, onUpdated }: {
     <Input aria-label="Assembly name" value={edit.name} onChange={(event) => setEdit({ ...edit, name: event.target.value })} required disabled={saving} />
     <Input aria-label="Assembly unit" value={edit.unitOfMeasure} onChange={(event) => setEdit({ ...edit, unitOfMeasure: event.target.value })} required disabled={saving} />
     <Input aria-label="Assembly description" value={edit.description} onChange={(event) => setEdit({ ...edit, description: event.target.value })} disabled={saving} />
+    <label className="grid gap-1 text-sm font-medium"><span>Waste override (%)</span><Input aria-label="Waste override percent" type="number" min="0" max="100" step="any" value={editWasteOverridePct} onChange={(event) => setEditWasteOverridePct(event.target.value)} disabled={saving} placeholder="Recipe default" /></label>
+    <label className="grid gap-1 text-sm font-medium"><span>Production factor</span><Input aria-label="Production factor" type="number" min="0" max="10" step="any" value={editProductionRateFactor} onChange={(event) => setEditProductionRateFactor(event.target.value)} disabled={saving} placeholder="1.0 = recipe default" /></label>
+    <p className="text-xs text-muted-foreground md:col-span-2">Blank clears the override back to the recipe defaults. Waste replaces the waste % of each mapped material; production factor multiplies the production rate of each mapped item.</p>
     <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={edit.isTemplate} onChange={(event) => setEdit({ ...edit, isTemplate: event.target.checked })} disabled={saving} />Reusable template</label>
     <div className="md:text-right"><Button type="submit" size="sm" disabled={saving}>{saving ? "Saving" : "Save changes"}</Button></div>
   </form>;

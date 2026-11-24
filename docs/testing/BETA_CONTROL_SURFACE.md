@@ -2,6 +2,8 @@
 
 Path: `/beta-readiness` (TradeOS web application, authenticated **TradeOS operator-organization** owner/admin only).
 
+The **More → Tools & admin** navigation includes **Beta readiness** only when the authenticated user is an `owner` or `admin` of the server-configured operator organization (`TRADEOS_BETA_OPERATOR_ORG_ID`); a customer organization's owner/admin, unknown roles, and technicians never receive this link, and no one receives it when operator access is not configured. Link visibility is convenience only and is not a substitute for the server-side authorization check on the route. The explicit opt-in browser suite checks visible operator-owner navigation and absent technician and other-customer-owner navigation at all four widths.
+
 This is a **read-only observation console** around `.github/workflows/beta-evidence.yml`, not a new test runner, migration executor, deployment orchestrator, release approver, or merge bot. The existing workflow remains the sole canonical preflight/full evidence runner. The site never dispatches workflow runs, writes databases, touches production, uploads receipts, or changes PR state.
 
 ## Data sources
@@ -13,7 +15,7 @@ This is a **read-only observation console** around `.github/workflows/beta-evide
 
 Required fail-closed operator authorization (server-only):
 
-- `TRADEOS_BETA_OPERATOR_ORG_ID`: exactly one UUID identifying the approved TradeOS platform operator organization. This value must be independently verified against the backend-authenticated `/api/v1/settings` `orgId` and set only on approved deployments. Never use a customer organization, an array/wildcard, or a `NEXT_PUBLIC_` variable. If unset, malformed, or mismatched, the page returns 404 **before any platform snapshot is fetched**. A customer organization's owner/admin role alone is not authorization. Deployments without this value intentionally cannot expose the console; configuring it requires a separate protected operator decision. Do not put actual organization IDs in the repository or public evidence.
+- `TRADEOS_BETA_OPERATOR_ORG_ID`: exactly one UUID identifying the approved TradeOS platform operator organization. This value must be independently verified against the backend-authenticated `/api/v1/settings` `orgId` and set only on approved deployments. Never use a customer organization, an array/wildcard, or a `NEXT_PUBLIC_` variable. If unset, malformed, or mismatched, the page denies with the not-found UI **before any platform snapshot is fetched**. (The app streams a loading shell first, so the document response may carry HTTP 200 even though the not-found UI renders; the acceptance suite asserts the rendered denial, not the status code.) A customer organization's owner/admin role alone is not authorization. Deployments without this value intentionally cannot expose the console; configuring it requires a separate protected operator decision. Do not put actual organization IDs in the repository or public evidence.
 
 Server-only optional environment variables:
 
@@ -57,3 +59,29 @@ Captured against supplied final head `c41f3db77e17cc8589b260527dcf7ca96c76ba2e` 
 | Medium — documentation and dependency drift | `docs/CURRENT_STATE.md` still labels #915 unmerged/proposed; dependency prose describes #905/#906 as proposed even though collection supports closed-unmerged disposition. Older PR summaries conflict with the final-head CI report. | Documentation owner should reconcile merged source status and dependency disposition against verified landed/current state, retain the distinction from production deployment, and link exact-head checks separately from missing authenticated/release evidence. Do not treat historical PR prose as live state. |
 
 The four final-head repairs (collector-error downgrade, conflicting same-name statuses, closed-unmerged alternate lanes, and failed review reads) are present in the supplied code and are not reopened here. No API/schema migration was introduced by #915. Reader scope approval and head-specific independent release review remain separate requirements; this register authorizes neither credentials nor operational execution.
+
+
+## Non-production owner/technician viewport acceptance
+
+An additional **read-only**, opt-in browser suite is checked in at `tests/playwright/beta-readiness.spec.ts`. It validates that a signed-in owner can inspect the HOLD-only control surface, while a *separately authenticated technician* receives a server-side 404 instead of any release data. Both cases run at **1440, 1024, 768, and 390 px**. The owner case also opens the migration-evidence panel and checks for unintended horizontal overflow. No button dispatches a workflow or authorizes a merge.
+
+The suite **skips by default**, so green general CI and the mere existence of twelve role/width test definitions are **not** authenticated acceptance evidence. When `TRADEOS_BETA_CONTROL_ACCEPTANCE=true` is set, missing synthetic operator-owner, customer-owner or technician storage-state files, two distinct organization UUIDs, base URL, or sanitized preview/staging identity fail the run rather than skipping or passing. The test verifies each session's role from authenticated `/api/proxy/settings` before asserting dashboard access/denial; the technician must belong to the operator organization to isolate role denial, and the customer owner must belong to a different organization to isolate organization denial. Do not pass production URLs or customer accounts. The root Playwright target guard rejects unsafe hosts and requires independently attested identity for immutable Vercel preview deployments.
+
+To execute after non-production RC authorization (use secret-managed files, never commit or print storage state):
+
+```bash
+TRADEOS_BETA_CONTROL_ACCEPTANCE=true \
+TRADEOS_BETA_OWNER_STORAGE_STATE=/secure/test-owner.json \
+TRADEOS_BETA_TECHNICIAN_STORAGE_STATE=/secure/test-technician.json \
+TRADEOS_BETA_CUSTOMER_OWNER_STORAGE_STATE=/secure/test-customer-owner.json \
+TRADEOS_BETA_OPERATOR_ORG_ID=<approved-operator-org-uuid> \
+TRADEOS_BETA_CUSTOMER_ORG_ID=<approved-separate-customer-org-uuid> \
+TRADEOS_AGENT_BASE_URL=https://<approved-immutable-preview-origin>.vercel.app \
+TRADEOS_AGENT_ENVIRONMENT=preview \
+TRADEOS_AGENT_SANITIZED_TENANT=true \
+npx playwright test tests/playwright/beta-readiness.spec.ts
+```
+
+Additional deployment-attestation flags may be required by `tests/playwright/target.mjs`; set them only after obtaining the actual reviewed proof. This suite never creates session state or loads secrets from public artifacts, and it disables traces, screenshots and video to avoid leaking synthetic account cookies. Collect the four-width authoritative screenshots, artifact validation, cross-tenant evidence and protected staging runtime proofs through the **existing** `.github/workflows/beta-evidence.yml`, not through this auxiliary test. An operator-owner session that cannot load `/beta-readiness`, a technician session that redirects to login, or a customer-owner session whose identity does not show an explicitly distinct customer organization must **fail**, not count as a pass. The server-side operator ID must also be configured through the separately approved environment setting introduced in #928; the test runner's value does not configure the deployed application. A customer owner receiving a valid 200 release dashboard is a security failure.
+
+The closed-unmerged #905 and #906 alternative migration PRs are presented as **superseded**, not active failures, while merged overlapping migration proposals remain blocking. This does not change any protected migration ledger, #907 approvals, or the final-release HOLD.

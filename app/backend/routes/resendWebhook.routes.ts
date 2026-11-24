@@ -2,8 +2,15 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { logInfo, logWarn } from "../logging";
 import { verifyResendWebhook, type ResendWebhookHeaders } from "../../modules/email/webhook";
+import {
+  processVerifiedResendDeliveryEvent,
+  RetryableDeliveryError,
+  type DeliveryJournalStore,
+} from "../../modules/email/deliveryJournal";
+import { resendDeliveryJournalStore } from "../../db/resendDeliveryJournalStore";
 
-export const resendWebhookRouter = Router();
+export function createResendWebhookRouter(store: DeliveryJournalStore = resendDeliveryJournalStore) {
+  const router = Router();
 
 const ATTENTION_EVENTS = new Set([
   "email.bounced",
@@ -23,7 +30,7 @@ const resendWebhookRateLimit = rateLimit({
   message: { error: "Too many webhook requests" },
 });
 
-resendWebhookRouter.post("/", resendWebhookRateLimit, (req, res) => {
+router.post("/", resendWebhookRateLimit, async (req, res) => {
   const secret = process.env.RESEND_WEBHOOK_SECRET?.trim();
   // A missing or malformed signing secret means the endpoint is not provisioned.
   // Fail closed rather than accidentally accepting unsigned delivery notices.
@@ -50,17 +57,42 @@ resendWebhookRouter.post("/", resendWebhookRateLimit, (req, res) => {
     return;
   }
 
-  // Record only trusted event metadata. Never log recipients, subjects,
-  // private access tokens or the full event payload.
-  const metadata = { eventType: event.type, eventId: req.header("svix-id") };
-  if (ATTENTION_EVENTS.has(event.type)) {
-    logWarn("email.resend_delivery_attention", metadata);
-  } else {
-    logInfo("email.resend_webhook_accepted", metadata);
+  let outcome: Awaited<ReturnType<typeof processVerifiedResendDeliveryEvent>>;
+  try {
+    outcome = await processVerifiedResendDeliveryEvent(store, {
+      svixId: req.header("svix-id") as string,
+      type: event.type,
+      createdAt: event.created_at,
+      data: event.data,
+      rawPayload: req.body,
+    });
+  } catch (error) {
+    if (error instanceof RetryableDeliveryError) {
+      // Do not expose database/provider details. Resend will retry this event.
+      res.status(503).json({ error: "Resend webhook could not be durably recorded" });
+      return;
+    }
+    // The signed payload did not meet the delivery-journal envelope contract.
+    res.status(400).json({ error: "Invalid Resend webhook" });
+    return;
   }
 
-  // Ack only; durable per-tenant delivery state, suppressions, and event replay
-  // deduplication require separate reviewed storage and tenant mapping. Do not
-  // register this receiver for production webhooks until those are available.
+  // Observability must not turn a successfully committed event into a failure
+  // acknowledgement. No payload, recipient or action token is logged.
+  const metadata = { eventType: event.type, eventId: req.header("svix-id"), outcome: outcome.outcome };
+  try {
+    if (ATTENTION_EVENTS.has(event.type)) {
+      logWarn("email.resend_delivery_attention", metadata);
+    } else {
+      logInfo("email.resend_webhook_accepted", metadata);
+    }
+  } catch {
+    // The event is already durable. A provider retry must not be caused by telemetry.
+  }
   res.status(200).json({ received: true });
 });
+
+  return router;
+}
+
+export const resendWebhookRouter = createResendWebhookRouter();

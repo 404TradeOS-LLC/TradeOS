@@ -168,3 +168,128 @@ export function filterStarterCatalogTemplates(
     ].some((value) => value.toLocaleLowerCase().includes(text));
   });
 }
+
+/**
+ * DEV-17 S9 (issue #518): bulk mapping reuse.
+ *
+ * A reuse suggestion carries the full Cost Item record fields the install UI
+ * needs to build a CostItemCatalogRecord for the install compatibility
+ * re-check. These shapes mirror the backend MappingReuseSuggestion /
+ * MappingReuseResult contracts; the component maps the API payload onto
+ * them unchanged.
+ */
+export type MappingReuseSuggestion = {
+  componentKey: string;
+  componentLabel: string;
+  costItemId: string | null;
+  costItemCode: string | null;
+  costItemName: string | null;
+  costItemUnitOfMeasure: string | null;
+  costItemSubcategoryId: string | null;
+  costItemProductionRate: number | null;
+  costItemIsActive: boolean;
+  orgId: string | null;
+  laborRateId: string | null;
+  materialId: string | null;
+  equipmentId: string | null;
+  subcontractorId: string | null;
+  compatible: boolean;
+  reasons: string[];
+};
+
+export type MappingReuseResult = {
+  templateId: string;
+  sourceAssemblyId: string;
+  sourceAssemblyName: string;
+  suggestions: MappingReuseSuggestion[];
+  mappedCount: number;
+  unmappedComponentKeys: string[];
+};
+
+/**
+ * Merge reuse suggestions into the CURRENT mapping state (DEV-17 S9
+ * CodeRabbit repair). Callers must pass the mappings as they stand when
+ * the response is applied — not the copies captured when the request
+ * started — so a slot the estimator mapped by hand while the request was
+ * in flight is never overwritten.
+ *
+ * - Slots already mapped by hand are left alone.
+ * - A suggestion whose Cost Item is already held by a retained manual
+ *   mapping is skipped (and reported as still missing) instead of
+ *   assigning the same item twice, which the install distinct-item check
+ *   would reject.
+ * - Slots with no suggested item are reported as still missing.
+ */
+export function mergeReuseMappingSuggestions(
+  currentMappings: Readonly<Record<string, string>>,
+  currentItems: Readonly<Record<string, CostItemCatalogRecord>>,
+  suggestions: readonly MappingReuseSuggestion[],
+): {
+  mappings: Record<string, string>;
+  items: Record<string, CostItemCatalogRecord>;
+  applied: number;
+  stillMissing: string[];
+} {
+  const usedIds = new Set(Object.values(currentMappings).filter(Boolean));
+  const mappings: Record<string, string> = { ...currentMappings };
+  const items: Record<string, CostItemCatalogRecord> = { ...currentItems };
+  const stillMissing: string[] = [];
+  let applied = 0;
+  for (const suggestion of suggestions) {
+    if (currentMappings[suggestion.componentKey]) continue;
+    if (!suggestion.costItemId) {
+      stillMissing.push(suggestion.componentLabel);
+      continue;
+    }
+    if (usedIds.has(suggestion.costItemId)) {
+      stillMissing.push(suggestion.componentLabel);
+      continue;
+    }
+    usedIds.add(suggestion.costItemId);
+    mappings[suggestion.componentKey] = suggestion.costItemId;
+    items[suggestion.componentKey] = {
+      id: suggestion.costItemId,
+      orgId: suggestion.orgId,
+      subcategoryId: suggestion.costItemSubcategoryId ?? "",
+      code: suggestion.costItemCode ?? "",
+      name: suggestion.costItemName ?? "",
+      unitOfMeasure: suggestion.costItemUnitOfMeasure ?? "",
+      productionRate: suggestion.costItemProductionRate,
+      laborRateId: suggestion.laborRateId,
+      materialId: suggestion.materialId,
+      equipmentId: suggestion.equipmentId,
+      subcontractorId: suggestion.subcontractorId,
+      isActive: suggestion.costItemIsActive,
+    };
+    applied += 1;
+  }
+  return { mappings, items, applied, stillMissing };
+}
+
+export const REUSE_SOURCE_PAGE_LIMIT = 100;
+export const MAX_CATALOG_PAGES = 50;
+
+/**
+ * Follow a cursor-paginated catalog listing until `nextCursor` is null
+ * (DEV-17 S9 CodeRabbit repair: the reuse-source selector must see every
+ * active template assembly, not just the first page). Items are deduped by
+ * id, and the page count is capped so a misbehaving cursor cannot loop
+ * forever.
+ */
+export async function collectPagedCatalogItems<T extends { id: string }>(
+  fetchPage: (cursor: string | null) => Promise<{ items: readonly T[]; nextCursor: string | null }>,
+  maxPages: number = MAX_CATALOG_PAGES,
+): Promise<T[]> {
+  const byId = new Map<string, T>();
+  let cursor: string | null = null;
+  let pages = 0;
+  do {
+    const page = await fetchPage(cursor);
+    for (const item of page.items) {
+      if (!byId.has(item.id)) byId.set(item.id, item);
+    }
+    cursor = page.nextCursor;
+    pages += 1;
+  } while (cursor !== null && pages < maxPages);
+  return [...byId.values()];
+}

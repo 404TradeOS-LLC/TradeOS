@@ -20,6 +20,7 @@ import {
   Plus,
   Receipt,
   Settings,
+  ShieldAlert,
   Sparkles,
   UserPlus,
   Users,
@@ -33,7 +34,7 @@ import type { WorkspaceMembership } from "@/lib/api";
 import { MetalLogo } from "@/components/entry/metal-logo";
 import { WhatsNewPopover } from "@/components/shared/whats-new-popover";
 import { Button } from "@/components/ui/button";
-import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { clientFetch } from "@/lib/clientApi";
 import { buildUniversalCreateHref, type UniversalCreateKind } from "@/lib/universal-create";
 import { canUseUniversalCreate } from "@/lib/universal-create-access";
@@ -67,6 +68,15 @@ const TEAM_TIME_NAV_LINK: NavLink = {
   label: "Team & Time",
   shortLabel: "Team",
   icon: Clock3,
+};
+
+// Read-only release intelligence; direct server route continues to enforce
+// the authenticated owner/admin role. Never render this for unknown/field roles.
+const BETA_READINESS_NAV_LINK: NavLink = {
+  href: "/beta-readiness",
+  label: "Beta readiness",
+  shortLabel: "Beta",
+  icon: ShieldAlert,
 };
 
 const ATHENA_NAV_LINK: NavLink = {
@@ -167,11 +177,13 @@ function NavPill({
   );
 }
 
+/** Render navigation for the current role and enabled capabilities. */
 export function AppNav({
   email,
   currentRole = null,
   currentOrgId = null,
   workspaceMemberships = [],
+  betaReadinessVisible = false,
   athenaEnabled = false,
   athenaCapabilityRetryKey = null,
   teamTimeEnabled = false,
@@ -181,6 +193,10 @@ export function AppNav({
   currentRole?: string | null;
   currentOrgId?: string | null;
   workspaceMemberships?: WorkspaceMembership[];
+  // Server-resolved operator-organization eligibility (see (app)/layout.tsx).
+  // The client must never decide this from role alone: a customer owner/admin
+  // would otherwise see a link whose route always 404s for their org.
+  betaReadinessVisible?: boolean;
   athenaEnabled?: boolean;
   athenaCapabilityRetryKey?: string | null;
   teamTimeEnabled?: boolean;
@@ -191,13 +207,15 @@ export function AppNav({
   const [createOpen, setCreateOpen] = useState(false);
   const [clientDispatchAttentionCount, setClientDispatchAttentionCount] = useState<number | null>(null);
   const [clientAthenaCapability, setClientAthenaCapability] = useState<{ key: string; enabled: boolean } | null>(null);
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const createSheetRef = useRef<HTMLDivElement>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
   const dockMoreButtonRef = useRef<HTMLButtonElement>(null);
   const effectiveDispatchAttentionCount = clientDispatchAttentionCount ?? dispatchAttentionCount;
   const dispatchBadgeCount = Math.max(effectiveDispatchAttentionCount ?? 0, 0);
-  const secondaryLinks = teamTimeEnabled ? [...SECONDARY_NAV_LINKS, TEAM_TIME_NAV_LINK] : SECONDARY_NAV_LINKS;
+  const secondaryLinks = [
+    ...SECONDARY_NAV_LINKS,
+    ...(teamTimeEnabled ? [TEAM_TIME_NAV_LINK] : []),
+    ...(betaReadinessVisible ? [BETA_READINESS_NAV_LINK] : []),
+  ];
 
   const effectiveAthenaEnabled = athenaCapabilityRetryKey
     ? clientAthenaCapability?.key === athenaCapabilityRetryKey && clientAthenaCapability.enabled
@@ -206,8 +224,6 @@ export function AppNav({
   const createOptions = CREATE_OPTIONS
     .filter((option) => canUseUniversalCreate(option.kind, currentRole, Boolean(effectiveAthenaEnabled)))
     .map((option) => ({ ...option, href: buildUniversalCreateHref(option.kind, pathname) }));
-
-  useBodyScrollLock(mobileOpen || createOpen);
 
   useEffect(() => {
     if (!athenaCapabilityRetryKey) return;
@@ -272,86 +288,6 @@ export function AppNav({
     return () => window.removeEventListener("popstate", closeSheetOnHistoryNavigation);
   }, []);
 
-  // Standard dialog behavior the sheet was missing: trap focus inside while
-  // open, close on Escape, block the page behind from scrolling, and return
-  // focus to the dock's More button on close so keyboard/screen-reader users
-  // don't lose their place.
-  useEffect(() => {
-    if (!mobileOpen) return;
-
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    const fallbackFocusTarget = dockMoreButtonRef.current;
-    sheetRef.current?.focus();
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setMobileOpen(false);
-        return;
-      }
-      if (event.key !== "Tab" || !sheetRef.current) return;
-      const focusable = sheetRef.current.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input, [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const activeElement = document.activeElement;
-      const focusOutsideSheet = !sheetRef.current.contains(activeElement);
-      if (event.shiftKey && (focusOutsideSheet || activeElement === sheetRef.current || activeElement === first)) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && (focusOutsideSheet || activeElement === sheetRef.current || activeElement === last)) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      (previouslyFocused ?? fallbackFocusTarget)?.focus();
-    };
-  }, [mobileOpen]);
-
-  useEffect(() => {
-    if (!createOpen) return;
-
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    const fallbackFocusTarget = createButtonRef.current;
-    createSheetRef.current?.focus();
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setCreateOpen(false);
-        return;
-      }
-      if (event.key !== "Tab" || !createSheetRef.current) return;
-      const focusable = createSheetRef.current.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input, [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const activeElement = document.activeElement;
-      const focusOutsideSheet = !createSheetRef.current.contains(activeElement);
-      if (event.shiftKey && (focusOutsideSheet || activeElement === createSheetRef.current || activeElement === first)) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && (focusOutsideSheet || activeElement === createSheetRef.current || activeElement === last)) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      (previouslyFocused ?? fallbackFocusTarget)?.focus();
-    };
-  }, [createOpen]);
-
   return (
     <>
     <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur-xl supports-[backdrop-filter]:bg-background/75">
@@ -383,6 +319,18 @@ export function AppNav({
           </div>
 
           <div className="flex items-center gap-2">
+            {effectiveAthenaEnabled ? (
+              <Link
+                href={buildUniversalCreateHref("athena", pathname)}
+                aria-label="Ask Athena"
+                aria-current={pathname === "/athena" ? "page" : undefined}
+                title="Ask Athena"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-2.5 text-foreground outline-none transition-colors hover:bg-primary/10 focus-visible:ring-3 focus-visible:ring-ring/50 sm:px-3"
+              >
+                <Sparkles size={19} className="text-primary" aria-hidden="true" />
+                <span className="hidden text-sm font-semibold sm:inline">Ask Athena</span>
+              </Link>
+            ) : null}
             <div className="hidden 2xl:block">
               <WhatsNewPopover />
             </div>
@@ -415,132 +363,113 @@ export function AppNav({
     </header>
 
     {createOpen ? (
-      <div role="dialog" aria-modal="true" aria-label="Create" className="fixed inset-0 z-50">
-        <button
-          type="button"
-          aria-label="Close create menu"
-          className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px] animate-in fade-in-0 duration-(--dur-2)"
-          onClick={() => setCreateOpen(false)}
-        />
-        <div
-          ref={createSheetRef}
-          tabIndex={-1}
-          className="absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-2xl border-t border-border/70 bg-card p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] sm:left-1/2 sm:right-auto sm:w-[min(42rem,calc(100%_-_2rem))] sm:-translate-x-1/2 shadow-(--elev-4) outline-none animate-in slide-in-from-bottom duration-(--dur-3) ease-(--ease-emphasized)"
-        >
-          <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-border" aria-hidden="true" />
-          <div className="mb-4 flex items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-copper">Create</p>
-              <h2 className="mt-1 text-xl font-semibold text-foreground">What are you starting?</h2>
-            </div>
-            <button type="button" onClick={() => setCreateOpen(false)} className="min-h-11 rounded-lg px-3 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
-              Close
-            </button>
+      <BottomSheet
+        label="Create"
+        closeLabel="Close create menu"
+        onClose={() => setCreateOpen(false)}
+        panelClassName="sm:left-1/2 sm:right-auto sm:w-[min(42rem,calc(100%_-_2rem))] sm:-translate-x-1/2"
+        returnFocusRef={createButtonRef}
+      >
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-copper">Create</p>
+            <h2 className="mt-1 text-xl font-semibold text-foreground">What are you starting?</h2>
           </div>
-          {createOptions.length === 0 ? (
-            <p role="status" className="mb-4 text-sm text-muted-foreground">
-              {currentRole
-                ? "No creation workflows are available for your workspace access."
-                : "Could not confirm your workspace access. Reload to try again."}
-            </p>
-          ) : null}
-          <nav aria-label="Create options" className="grid gap-2">
-            {createOptions.map((option) => {
-              const Icon = option.icon;
-              return (
-                <Link
-                  key={option.label}
-                  href={option.href}
-                  onClick={() => setCreateOpen(false)}
-                  className={cn(
-                    "group flex min-h-14 items-center gap-3 rounded-xl border px-3 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
-                    option.featured
-                      ? "border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15"
-                      : "border-border/70 bg-background/70 text-foreground hover:bg-muted"
-                  )}
-                >
-                  <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg", option.featured ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-                    <Icon className="size-5" aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{option.label}</span>
-                    <span className="mt-0.5 block text-sm text-muted-foreground">{option.helper}</span>
-                  </span>
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                </Link>
-              );
-            })}
-          </nav>
+          <button type="button" onClick={() => setCreateOpen(false)} className="min-h-11 rounded-lg px-3 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
+            Close
+          </button>
         </div>
-      </div>
+        {createOptions.length === 0 ? (
+          <p role="status" className="mb-4 text-sm text-muted-foreground">
+            {currentRole
+              ? "No creation workflows are available for your workspace access."
+              : "Could not confirm your workspace access. Reload to try again."}
+          </p>
+        ) : null}
+        <nav aria-label="Create options" className="grid gap-2">
+          {createOptions.map((option) => {
+            const Icon = option.icon;
+            return (
+              <Link
+                key={option.label}
+                href={option.href}
+                onClick={() => setCreateOpen(false)}
+                className={cn(
+                  "group flex min-h-14 items-center gap-3 rounded-xl border px-3 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+                  option.featured
+                    ? "border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15"
+                    : "border-border/70 bg-background/70 text-foreground hover:bg-muted"
+                )}
+              >
+                <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg", option.featured ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                  <Icon className="size-5" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{option.label}</span>
+                  <span className="mt-0.5 block text-sm text-muted-foreground">{option.helper}</span>
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+              </Link>
+            );
+          })}
+        </nav>
+      </BottomSheet>
     ) : null}
 
     {mobileOpen ? (
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="More navigation"
-        className="fixed inset-0 z-50"
+      <BottomSheet
+        label="More navigation"
+        closeLabel="Close more menu"
+        onClose={() => setMobileOpen(false)}
+        panelClassName="max-h-[75dvh] sm:left-1/2 sm:right-auto sm:w-[min(42rem,calc(100%_-_2rem))] sm:-translate-x-1/2"
+        returnFocusRef={dockMoreButtonRef}
       >
-        <button
-          type="button"
-          aria-label="Close more menu"
-          className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px] animate-in fade-in-0 duration-(--dur-2)"
-          onClick={() => setMobileOpen(false)}
-        />
-        <div
-          ref={sheetRef}
-          tabIndex={-1}
-          className="absolute inset-x-0 bottom-0 max-h-[75dvh] overflow-y-auto rounded-t-2xl border-t border-border/70 bg-card p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] sm:left-1/2 sm:right-auto sm:w-[min(42rem,calc(100%_-_2rem))] sm:-translate-x-1/2 shadow-(--elev-4) outline-none animate-in slide-in-from-bottom duration-(--dur-3) ease-(--ease-emphasized)"
-        >
-          <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-border" aria-hidden="true" />
-          <div className="grid gap-4">
-            <CommandPaletteTrigger onBeforeOpen={() => setMobileOpen(false)} />
+        <div className="grid gap-4">
+          <CommandPaletteTrigger onBeforeOpen={() => setMobileOpen(false)} />
 
-            <div className="grid gap-2">
-              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Workspace</div>
-              <nav className="grid gap-2" aria-label="More: workspace">
-                {primaryLinks.map((link) => (
-                  <NavPill
-                    key={link.href}
-                    link={link}
-                    pathname={pathname}
-                    onNavigate={() => setMobileOpen(false)}
-                    badgeCount={link.href === "/dispatch" ? dispatchBadgeCount : 0}
-                  />
-                ))}
-              </nav>
-            </div>
+          <div className="grid gap-2">
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Workspace</div>
+            <nav className="grid gap-2" aria-label="More: workspace">
+              {primaryLinks.map((link) => (
+                <NavPill
+                  key={link.href}
+                  link={link}
+                  pathname={pathname}
+                  onNavigate={() => setMobileOpen(false)}
+                  badgeCount={link.href === "/dispatch" ? dispatchBadgeCount : 0}
+                />
+              ))}
+            </nav>
+          </div>
 
-            <div className="grid gap-2">
-              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Tools & admin</div>
-              <nav className="grid gap-2" aria-label="More: tools and administration">
-                {secondaryLinks.map((link) => (
-                  <NavPill key={link.href} link={link} pathname={pathname} onNavigate={() => setMobileOpen(false)} />
-                ))}
-              </nav>
-            </div>
+          <div className="grid gap-2">
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Tools & admin</div>
+            <nav className="grid gap-2" aria-label="More: tools and administration">
+              {secondaryLinks.map((link) => (
+                <NavPill key={link.href} link={link} pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+              ))}
+            </nav>
+          </div>
 
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-card/80 px-3 py-3">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-foreground">{email ?? "Signed in"}</div>
-                {workspaceMemberships.length > 1 ? (
-                  <WorkspaceSwitcher memberships={workspaceMemberships} currentOrgId={currentOrgId} />
-                ) : (
-                  <div className="text-xs text-muted-foreground">Secure workspace</div>
-                )}
-              </div>
-              <WhatsNewPopover />
-              <ThemeToggle />
-              <form action={logoutAction}>
-                <Button type="submit" variant="outline" size="sm">
-                  Sign out
-                </Button>
-              </form>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-card/80 px-3 py-3">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium text-foreground">{email ?? "Signed in"}</div>
+              {workspaceMemberships.length > 1 ? (
+                <WorkspaceSwitcher memberships={workspaceMemberships} currentOrgId={currentOrgId} />
+              ) : (
+                <div className="text-xs text-muted-foreground">Secure workspace</div>
+              )}
             </div>
+            <WhatsNewPopover />
+            <ThemeToggle />
+            <form action={logoutAction}>
+              <Button type="submit" variant="outline" size="sm">
+                Sign out
+              </Button>
+            </form>
           </div>
         </div>
-      </div>
+      </BottomSheet>
     ) : null}
 
     <nav

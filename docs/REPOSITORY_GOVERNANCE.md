@@ -58,7 +58,7 @@ related_code:
 
 ## Autonomous workstream continuity — PR #979 (proposed)
 
-The standing founder direction authorizes routine repository investigation, bounded repairs, branch/PR preparation, exact-head review reconciliation, and permitted low-risk auto-merge *only through the existing protected pull-request path*. At the end of a completed mission, the coordinator may begin a **new** eligible mission with a fresh overlap check, base verification, and branch/worktree; no cross-task branch reuse or duplicate PR. This does not confer new GitHub token permissions, bypass required checks/review conversations or replace ADR-009's per-PR evidence. Read-only tasks remain read-only. Protected environments, schema, secrets, billing, tenant isolation, financial correctness and release certification require their established decisions and approvals. Tools and dependency failures must be classified, safely repaired in scope where possible, or recorded before independently eligible work continues.
+The standing founder direction authorizes routine repository investigation, bounded repairs, branch/PR preparation, exact-head review reconciliation, and permitted low-risk auto-merge *only through the existing protected pull-request path*. At the end of a completed mission, the coordinator may begin a **new** eligible mission with a fresh overlap check, base verification, and branch/worktree; no cross-task branch reuse or duplicate PR. This does not confer new GitHub token permissions, bypass required checks/review conversations, or replace ADR-009's per-PR evidence (the record now cites the 2026-11-21 blanket authorization instead of a per-item word). Read-only tasks remain read-only. Schema, secrets, billing, tenant isolation, financial correctness, and release certification require their established decisions and approvals; staging-environment approvals are agent-permitted when the staging candidate is verified, and production touches are agent-permitted within the task's scope (never delete production data, send invoices/payments, or change customer financial records). Tools and dependency failures must be classified, safely repaired in scope where possible, or recorded before independently eligible work continues.
 
 ## Invited PDF beta evidence boundary — 2026-11-06
 
@@ -166,7 +166,7 @@ Within `Verify repository`, App typecheck, unit tests, Athena contracts/smoke, a
 
 Supplemental workflows such as `Sprint governance`, `Migration safety`, `PR branch currency`, `Live documentation reconciliation`, `Merge readiness`, authenticated browser evidence, nightly full regression, and workflow-health reporting provide earlier or richer evidence. Their presence in the repository does not make them required branch-protection checks or grant merge authority; only live GitHub ruleset configuration can do that. `docs/CI_ACCELERATION.md` documents their operating intent and credentials/evidence boundaries.
 
-The dedicated `Dependency review` workflow is an additional pull-request security signal. It runs with read-only repository contents access and fails when a pull request introduces a dependency with a known high or critical vulnerability. It complements the package-manager audits in the normal verification workflow; it does not replace them. The workflow uses `actions/dependency-review-action@v5`, whose internal Node 24 runtime is isolated from the explicit Node versions used for TradeOS workload verification. Whether `Dependency review` is a required branch-protection check is live GitHub state and must be verified before being described as enforced.
+The dedicated `Dependency review` workflow is an additional pull-request security signal. It runs with read-only repository contents access and fails when a pull request introduces a dependency with a known high or critical vulnerability. It complements the package-manager audits in the normal verification workflow; it does not replace them. The workflow uses `actions/dependency-review-action@v5`, whose internal Node 24 runtime is isolated from the explicit Node versions used for TradeOS workload verification. PR #1056 refreshes the action from v5.0.0 to v5.0.1 (SHA-pinned to `bbc44d14a204704ccc493733616cd1e93a0321ec`) as CI-runtime maintenance only; the `fail-on-severity: high` threshold, read-only contents access, and workflow permissions, secrets, and triggers are unchanged. Whether `Dependency review` is a required branch-protection check is live GitHub state and must be verified before being described as enforced.
 
 A green required-check set is the minimum evidence for autonomous merge eligibility. Agents must not weaken, skip, mark non-blocking, or remove a gate merely to make a PR mergeable. A failing security audit, schema validation, migration rehearsal, test, typecheck, lint, build, or clean-tree check in a relevant lane is a real blocker until root-caused and either repaired or explicitly approved through a governance change. S041 PR #351 and its completion-evidence lane are the current example of this one-lane process: legacy SQL role semantics remain fail-closed while application permission gates are verified separately, and the merged evidence records the final repository truth.
 
@@ -175,6 +175,8 @@ The exact GitHub check names remain the source of truth and must be verified bef
 Workflow action implementations must stay on supported action-runtime majors. Upgrading `actions/checkout` or `actions/setup-node` to a supported major is maintenance of the CI execution environment; it does not by itself change the explicit `node-version` values used to test or deploy TradeOS. As of 2026-08-18, workflow checkout call sites are maintained on `actions/checkout@v7.0.1`; this patch refresh does not change application runtime policy.
 
 PR #308 applies the same CI-runtime-maintenance principle to `actions/upload-artifact`, moving the existing RC smoke and S027 browser-evidence artifact steps from v6 to v7 while retaining their normal archived artifact names and paths. The workflows do not set `archive: false` or otherwise opt into v7 direct-upload behavior, and the change does not alter workflow permissions, secrets, triggers, explicit TradeOS Node workload versions, auth/RLS, schema, or product behavior.
+
+PR #1007 applies the same CI-runtime-maintenance principle as a patch refresh within the v7 major, moving every `actions/upload-artifact` call site from v7.0.1 to v7.0.2 (SHA-pinned sites to `cf430e030ddbb5b0abf93d22962f4752f3646cd9`, tag-form sites to `@v7.0.2`) while retaining their normal archived artifact names and paths. The workflows do not set `archive: false` or otherwise opt into v7 direct-upload behavior, and the change does not alter workflow permissions, secrets, triggers, explicit TradeOS Node workload versions, auth/RLS, schema, or product behavior.
 
 The S047 RC smoke workflow is an operator-triggered, non-production evidence
 lane. Its workflow inputs offer only Preview and Staging, require a dedicated
@@ -213,7 +215,7 @@ tests.
 
 Workflow-file changes are also subject to the supplemental `Workflow security` workflow. It runs pinned `actionlint` directly on the GitHub-hosted runner and rejects default-prohibited patterns including `pull_request_target`, `permissions: write-all`, `actions: write`, `id-token: write`, and direct interpolation of untrusted event payload content into shell/script commands. Exceptions require an explicit reviewed governance change. The workflow is not part of the documented required-check set unless live branch protection separately confirms it has been added there.
 
-**Recorded exception (2026-11-10, founder-authorized):** `.github/workflows/pr-commander.yml`, job `act`, `actions: write` — granted by Billy ("Policy exceprion", 2026-11-10) so the armed Commander can dispatch `pr-maintenance.yml` for REPAIRABLE behind-branch verdicts. Scope is exactly that dispatch: the exception does not cover `id-token: write`, `permissions: write-all`, `pull_request_target`, any other job, or any other workflow, and it does not authorize the CodeQL on-demand dispatch (still unwired). The exception is implemented as a named entry in the `Workflow security` policy script (`POLICY_EXCEPTIONS`) so the check itself enforces the scope; widening it requires a new reviewed governance change. End-to-end rebase dispatch additionally depends on PR #965's numeric-input fix in `pr-maintenance.yml`.
+**Recorded exception (2026-11-10, founder-authorized; widened 2026-11-23):** `.github/workflows/pr-commander.yml`, job `act`, `actions: write` — granted by Billy ("Policy exceprion", 2026-11-10) so the armed Commander can dispatch `pr-maintenance.yml` for REPAIRABLE behind-branch verdicts. Scope is exactly that dispatch plus, since the widening, the CodeQL on-demand dispatch: Billy's word 2026-11-23 (decision #18-A) widened the exception to also cover dispatching `codeql-autofix.yml` from the armed `act` job, at most once per Commander run and one repair attempt per head, only for REPAIRABLE PRs carrying a security reason. The exception does not cover `id-token: write`, `permissions: write-all`, `pull_request_target`, any other job, or any other workflow, and it does not authorize restructuring `codeql-autofix.yml` as `workflow_call` (the alternative Billy rejected in #18-A). The exception is implemented as a named entry in the `Workflow security` policy script (`POLICY_EXCEPTIONS`) so the check itself enforces the scope; the entry is keyed on the permission, not the dispatch target, so widening the target scope required this reviewed governance change, not a script change. End-to-end rebase dispatch additionally depends on PR #965's numeric-input fix in `pr-maintenance.yml`.
 
 ## Solo-maintainer review posture
 
@@ -230,7 +232,11 @@ The founder-only merge exception is now an accepted governance path under
 [ADR-009](decisions/ADR-009-solo-maintainer-founder-merge-exception.md): when
 there is no qualified independent reviewer, the founder may authorize a
 founder/administrator merge after the PR records the exception and all
-technical gates pass. The record must state the authorization, unavailable
+technical gates pass. Since 2026-11-21 the authorization is the founder's
+standing blanket authorization — the per-item founder-word gates for merges,
+review dismissals, staging-apply gate clicks, and production touches were
+removed — so the record cites that blanket authorization instead of a per-item
+word. The record must still state the authorization, unavailable
 reviewer, risk boundaries, rollback/recovery plan, final-head validation,
 required-check evidence, and the trigger for restoring independent review.
 It must not claim that self-review is independent approval.
@@ -328,9 +334,15 @@ ruleset mutation, or admin bypass is implemented by this action.
 `.github/workflows/pr-commander.yml` is the autonomous PR coordinator. It
 sweeps every open pull request hourly at :17 UTC (plus a read-only fast path
 on `pull_request` events for the changed PR only), evaluates each PR against
-the unchanged merge bar — non-draft, the four required checks green, current
-branch, zero unresolved threads, no standing change request, ADR-009 record
-where required — repairs what is deterministically repairable, invokes the
+the Commander's merge bar — non-draft, the four required checks green, current
+branch, zero unresolved threads, no standing change request (the Commander has
+no review-dismissal path; agents may dismiss a review after verifying its
+findings are addressed on the current head, per the 2026-11-21 blanket
+authorization), ADR-009 record where required (citing the 2026-11-21 blanket
+authorization instead of a per-item word; the exact-head snapshot carries
+the PR body so the gate detects the record where it is written — fixed
+2026-11-23 after the snapshot never set the record flag and every migration
+PR mis-evaluated as BLOCKED) — repairs what is deterministically repairable, invokes the
 installed Codex app once per head for REPAIRABLE PRs the deterministic tier
 could not fix (Phase 4 AI repair worker), requests
 CodeRabbit re-review, and enables native auto-merge
@@ -367,9 +379,16 @@ threads in v1 (deliberate fail-closed omission — the thread-to-fix mapping
 is not established), never undrafts a PR, never applies migrations or
 dispatches staging-apply/migration jobs, never changes RLS/auth on its own
 authority, never touches production, never spends money, and never creates,
-edits, enables, or disables a ruleset. Review dismissals, undraft
-decisions, staging-apply gate clicks, and production touches remain
-founder-only, per PR / per item.
+edits, enables, or disables a ruleset. Review dismissals, staging-apply gate
+clicks, and production touches are **no longer** founder-only (2026-11-21
+blanket authorization): agents may dismiss a review after verifying its
+findings are addressed on the current head, click a staging-apply gate when
+the staging candidate is verified, and touch production within the task's
+scope — but the Commander workflow itself has no paths for those actions, so
+it still escalates them for an agent to handle. Undrafting a draft that is
+not READY, secret creation/rotation, closing a PR as superseded, pushing to
+main, bypassing protections, posting a GitHub review, and merging a
+do-not-merge hold remain founder-gated.
 
 Copilot Agent Merge is not available as a delegation path (0 org seats, no
 billing source, quota failures on review, review ruleset disabled — verified
@@ -400,24 +419,28 @@ Autonomous agents may diagnose, repair, test, publish, and merge bounded work
 when the live branch rules permit it and the final head satisfies every
 required check, up-to-date requirement, review-thread requirement, ownership
 requirement, and merge-readiness condition. The ADR-009 founder-only exception
-may authorize a protected merge when independent review is unavailable, but it
-does not waive technical gates or permit an unrecorded administrator bypass. A
-maintenance agent must prefer advancing an existing overlapping PR over
-creating a competing implementation.
+— since 2026-11-21 citing the founder's blanket authorization instead of a
+per-item word — may authorize a protected merge when independent review is
+unavailable, but it does not waive technical gates or permit an unrecorded
+administrator bypass. A maintenance agent must prefer advancing an existing
+overlapping PR over creating a competing implementation.
 
-The following remain founder-decision or PR-only boundaries unless a narrower
-approved runbook explicitly authorizes the exact operation: new or materially
-changed database migrations, destructive data operations, authentication or
-authorization policy changes, RLS redesign, production secrets or credential
-rotation, billing or money movement, major architecture or repository-boundary
-changes, and new production trust boundaries. ADR-009 changes who may complete
-the merge review in the solo-maintainer case; it does not silently approve
-those product or operational decisions. Agents must never bypass required
-checks, push directly to `main`, or convert an unverified result into a pass.
+The following remain PR-only boundaries (a reviewed PR plus the ADR-009 record
+is required; agents may merge them when the record is present and the merge
+bar passes): new or materially changed database migrations, authentication or
+authorization policy changes, RLS redesign, billing or money movement, major
+architecture or repository-boundary changes, and new production trust
+boundaries. Destructive data operations and production secrets or credential
+rotation remain founder-gated — the 2026-11-21 blanket authorization does not
+cover them. ADR-009 changes who may complete the merge review in the
+solo-maintainer case; it does not silently approve product or operational
+decisions that fall outside the blanket authorization. Agents must never
+bypass required checks, push directly to `main`, or convert an unverified
+result into a pass.
 
-Athena approval/audit hardening is an example of this protected class: even when the implementation is narrow, any change that adds approval-backed tables, changes RLS policies, or tightens operator review boundaries must stop at a reviewable PR and may not be autonomously merged.
+Athena approval/audit hardening is an example of this protected class: even when the implementation is narrow, any change that adds approval-backed tables, changes RLS policies, or tightens operator review boundaries must stop at a reviewable PR with the ADR-009 record; it may then be autonomously merged when the merge bar passes.
 
-This governance model intentionally separates **technical merge evidence** from **product or operational authority**: green CI is necessary for autonomous merge, but it is not sufficient when the change falls inside a protected human-decision category.
+This governance model intentionally separates **technical merge evidence** from **product or operational authority**: green CI is necessary for autonomous merge, but it is not sufficient on its own — the PR must also carry the ADR-009 record (citing the 2026-11-21 blanket authorization) when it falls inside a protected category, and the actions the blanket authorization does not cover remain founder-gated.
 
 ### Pull-request throughput and deterministic repair
 
@@ -518,9 +541,13 @@ For GitHub Actions Node-bootstrap maintenance, upgrading `actions/setup-node` to
 
 `docs/DOC_OWNERSHIP.yml` is enforced repository policy.
 
+Exemption semantics (fixed 2026-11-23): an `exemptions:` entry suppresses an ownership rule only when every changed file that triggers the rule is covered by an exemption path; a rule still fires if any triggering file is not exempt. Before this fix the checker computed exemption matches but never applied them, so the mechanism could not exempt anything. Exemptions are path-based only and cannot express "version-only" or "author-only": no exemption covers `.github/workflows/**`, so a version-only Dependabot workflow bump still requires the owning documentation (per the setup-node paragraph above); narrowing that rule is a governance decision for the founder, not a checker fix.
+
 When a changed file triggers an ownership requirement, the owning document must be included and updated meaningfully in the same PR. Do not add an empty or cosmetic edit merely to satisfy the checker.
 
 Changes to `docs/DOC_OWNERSHIP.yml` itself must include this file (`docs/REPOSITORY_GOVERNANCE.md`, which defines the enforced policy) and `docs/README.md` (the docs entrypoint), not only `docs/ENGINEERING_COMMAND_CENTER.md` — a PR that only touches `DOC_OWNERSHIP.yml` and the Command Center can otherwise change enforced ownership rules without the document that describes them to contributors ever being reviewed.
+
+Bible-touch rule (decided 2026-11-21, founder word): routine corrections to the sprint queue (`docs/SPRINT_BACKLOG.md`) or the autonomous startup protocol (`docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`) no longer require `docs/TRADEOS_BIBLE.md` to change in the same PR. The rule previously forced a Bible touch on every planning-doc correction, which blocked verified staleness fixes (PRs #1010, #1015) whose briefs forbade Bible edits. A Bible edit still requires the backlog, Command Center, and handoff to be updated alongside it. This changes the enforcement in `docs/DOC_OWNERSHIP.yml` only; the Bible remains the top of the authority hierarchy in `AGENTS.md`, and the Bible itself still defines doctrine.
 
 Ownership is not limited to `app/**` and `web/**`. A package-level data corpus can be its own owning subject with its own README as the canonical entry point, rather than requiring a `docs/modules/*.md` file for every change. `packages/knowledge-engine/README.md` is the first instance of this pattern: it owns the package's canonical-path, provenance, and cleanup-history documentation, separate from `app/modules/knowledge-runtime/README.md`, which owns the live API consumer's documentation.
 
@@ -541,6 +568,10 @@ The Bible does not replace:
 
 `.github/workflows/preview-smoke-check.yml` is a diagnostic, non-blocking workflow, not a merge-time authority — it is not part of the required-check set. It runs `web/scripts/preview-smoke-check.mjs` against a live Vercel Preview deployment (and, when a backend URL is supplied, the shared staging backend) to catch staging-isolation regressions early; see `docs/DEPLOYMENT_GUIDE.md`'s "Environment architecture" section for the full staging setup this checks against. It has two triggers: `workflow_dispatch` (always reliable, run manually against any known Preview URL) and `deployment_status` (best-effort automatic trigger, filtered to the frontend project's successful Preview deployments). The `deployment_status` filter has not been confirmed against a live event in this repository — if it does not fire as expected, use `workflow_dispatch` rather than loosening the filter blindly. The workflow has read-only repository contents access and only makes outbound HTTP requests to the URLs it is given; it does not deploy, mutate data, or touch Production.
 
+## Preview DATABASE_URL drift detector workflow
+
+`.github/workflows/preview-database-url-drift.yml` is a read-only diagnostic workflow, not a merge-time authority — it is not part of the required-check set. It catches the failure mode from #945, where a stale Preview `DATABASE_URL` made API previews answer `not_ready` on a database error with nothing detecting it until acceptance: on a daily schedule, on `deployment_status`, or on manual dispatch, it GETs `/ready` on the staging API alias and on the latest READY Preview deployments of the API project (plus, on `deployment_status`, the deployment that just succeeded), and compares each deployment's effective database project ref (`checks.database.projectRef`, parsed from its `DATABASE_URL` by `resolveDatabaseProjectRef()` — if `DATABASE_URL` is unset the ref falls back to `SUPABASE_URL`, so a matching ref confirms the deployment's data plane, not that `DATABASE_URL` itself is set) against the canonical staging ref `qfbgdkbamfaasmtjfyru`. On any mismatch — including an unreachable or `not_ready` endpoint, or an unparseable ref — it opens or updates exactly one GitHub issue, deduped by title, carrying the deployment, the expected ref, and the observed `/ready` output. Drift issues are opened unlabeled: the `type:bug`/`area:backend` labels do not exist as GitHub labels in this repo, and the first live dry run (run 44978646509) failed on `gh issue create --label` for that reason. It never reads, logs, or changes any env var value, never deploys, and never touches production or staging data. Permissions are minimal (`contents: read`, `issues: write`). The `deployment_status` filter shares the preview-smoke-check limitation (not yet confirmed against a live event in this repository); the schedule and dispatch paths are the reliable ones.
+
 ## Beta evidence workflow
 
 `.github/workflows/beta-evidence.yml` is an operator-triggered release-evidence workflow, not a merge-time authority — it is not part of the required-check set. It captures the authenticated contractor workflow against an approved non-production release-candidate deployment at 1440, 1024, 768, and 390 pixels and retains validated artifacts for 30 days. It runs in one of two dispatch modes: `preflight`, which verifies configuration, guards, and credential availability and reports readiness without capturing evidence or claiming a PASS; and `full`, which captures real evidence and therefore creates records in the release-candidate tenant. Full runs default to the established `canonical` scenario. The opt-in `s052` scenario adds Customer → ServiceAddress → Project certification with dedicated synthetic admin/inactive identities, exact SHA correlation, responsive owner/admin evidence, and required foreign Customer/Project denials. The opt-in `s053` scenario adds review-first Athena generation/apply/persistence/pricing assertions. Both preserve the same non-production, credential, tenant, and artifact guards.
@@ -548,6 +579,116 @@ The Bible does not replace:
 The workflow holds read-only repository contents permission, is serialized through the `tradeos-beta-evidence` concurrency group so two runs cannot corrupt shared smoke data, and carries no `continue-on-error` on any release-critical step. It fail-closes before doing anything destructive: production hosts, the Production alias, and `-git-main-` previews are refused outright; environment identity must be explicitly declared and self-consistent; and a mutating run additionally requires a Supabase project ref proving the release-candidate deployment does not share the production database. Authenticated session state is generated at runtime, written outside the working tree, deleted in an `always()` step, and never uploaded; the evidence bundle is scanned for credential material before publication. See [testing/BETA_EVIDENCE.md](testing/BETA_EVIDENCE.md) for the full contract and acceptance criteria.
 
 Beta evidence is UNVERIFIED until a `full` run passes. Neither this document nor the workflow's existence is evidence of live runtime behavior.
+
+## S059 browser evidence workflow
+
+`.github/workflows/s059-browser-evidence.yml` is an operator-triggered
+release-evidence workflow, not a merge-time authority — it is not part of the
+required-check set. It certifies the ADR-010 magic-link customer portal
+against an approved non-production deployment at 1440, 1024, 768, and 390
+pixels: staff issuance (UI preferred, authenticated API fallback), single-use
+redemption, customer-scoped portal reads, contract signing with a synthetic
+signer name, and the negative security matrix (replay, revoked-before and
+revoked-after redemption, malformed, cross-customer, cross-tenant,
+unauthenticated, wrong-role, draft exclusion, cross-origin). Fixtures
+(synthetic customers A/B, project, non-draft proposal/invoice, pending
+contract, draft proposal/invoice) are created at run time in the sanitized
+TEST Org through the shipped staff API; cleanup revokes every token the run
+created and deletes nothing else. Deployment identity is proven before capture
+through the Vercel API (READY + deployed SHA) plus the API deployment's
+`/health` SHA and `/ready` data-plane project ref — it deliberately does not
+reuse S027's Vercel env-inventory assertion, which fails on current
+Preview/staging env metadata. Tokens exist only in process memory; staff and
+customer browser contexts never share storage state; trace/video/HAR are off;
+screenshots start only after the clean `/access/confirm` URL loads; the
+credential scan (S027/Beta grep plus the portal cookie names and
+`x-tradeos-portal-session`) gates artifact upload, and the artifact is
+retained 30 days. Expired-token and expired-session browser states are
+recorded BLOCKED (they need staging-DB write access, owner: Billy); the
+substitute is live-PostgreSQL expiry evidence in
+`app/tests/s059.portal.integration.ts`. See
+[testing/S059_CUSTOMER_PORTAL_EVIDENCE.md](testing/S059_CUSTOMER_PORTAL_EVIDENCE.md)
+for the capture contract and
+[architecture/S059_CERTIFICATION_EVIDENCE.md](architecture/S059_CERTIFICATION_EVIDENCE.md)
+for the certification step list, the staging-vs-main portal diff (staging
+`7c428acd` lacks main's #1001 session-hash scoping and #937 proposal
+redaction), and the run record. This tooling does not change product behavior
+or complete S059 until a full exact-SHA non-production run passes with
+retained artifacts.
+
+## S068 browser evidence workflow
+
+`.github/workflows/s068-browser-evidence.yml` is an operator-triggered
+release-evidence workflow, not a merge-time authority — it is not part of the
+required-check set. It certifies the change-order customer workflow against
+an approved non-production deployment at 1440, 1024, 768, and 390 pixels:
+staff draft creation, priced line-item entry, approve and reject through the
+project workspace with attributable `change_order.approved` /
+`change_order.rejected` activity records, and the negative matrix
+(re-approve, re-reject, draft edit after decision, wrong-role, cross-tenant,
+unauthenticated, unknown ids, absent portal endpoint). Fixtures (synthetic
+customer, project, and change orders) are created at run time in the
+sanitized TEST Org through the shipped staff UI with an authenticated API
+fallback that re-reads live state first; nothing is deleted. Deployment
+identity is proven before capture through the Vercel API (READY + deployed
+SHA) plus the API deployment's `/health` SHA and `/ready` data-plane
+project ref. Bearer and session material is never written to disk, logs, or
+`report.json`; the credential scan gates artifact upload, and the artifact is
+retained 30 days. The wrong-role probe runs only when a low-permission staff
+identity is provisioned (owner: Billy) and the cross-tenant probe only when
+a foreign change-order id is supplied; both record BLOCKED otherwise and
+never pass or fail the run. Customer portal approve/reject is BLOCKED by
+design (ADR-010 limits customer-originated writes to signing pending
+contracts) and is not attempted; the script proves the endpoint's absence
+instead. The substitute for the blocked probes is live-PostgreSQL
+decision/audit evidence in `app/tests/s068.change-orders.integration.ts`.
+See [testing/S068_CHANGE_ORDER_EVIDENCE.md](testing/S068_CHANGE_ORDER_EVIDENCE.md)
+for the capture contract and
+[architecture/S068_CERTIFICATION_EVIDENCE.md](architecture/S068_CERTIFICATION_EVIDENCE.md)
+for the certification step list and the run record. This tooling does not
+change product behavior or complete S068 until a full exact-SHA
+non-production run passes with retained artifacts.
+
+## S069 browser evidence workflow
+
+`.github/workflows/s069-browser-evidence.yml` is an operator-triggered
+release-evidence workflow, not a merge-time authority — it is not part of the
+required-check set. It certifies the closeout and warranty workspace against
+an approved non-production deployment at 1440, 1024, 768, and 390 pixels:
+fixtures in the sanitized TEST Org, job completion as API setup through
+staffProxy (not a staff-UI journey — the capture script drives fixture
+creation and job completion through authenticated staffProxy calls, and
+certifies the closeout UI from the closeout tab onward), closeout creation, punch create/assign/resolve/verify, warranty
+recording of the staff-supplied warranty coverage text, mark-ready and handoff with
+attributable `punch_item.created` / `punch_item.resolved` /
+`punch_item.verified` / `project_closeout.created` /
+`project_closeout.ready` / `project_closeout.handed_off` /
+`warranty_record.created` activity records, the read-only customer portal
+handoff view, and the negative matrix (mark-ready after handoff, handoff
+before ready, verify of an open punch, resolve of a verified punch, second
+closeout, wrong-role, cross-tenant, unauthenticated, unknown ids, portal
+document POST). Fixtures (synthetic customer, project, proposal, contract,
+invoice, and job) are created at run time in the sanitized TEST Org through
+authenticated staffProxy API calls; nothing is deleted. Deployment identity is proven before
+capture through the Vercel API (READY + deployed SHA) plus the API
+deployment's `/health` SHA and `/ready` data-plane project ref. Bearer and
+session material is never written to disk, logs, or `report.json`; the
+credential scan gates artifact upload, and the artifact is retained 30 days.
+The technician-session punch resolve runs only when a technician sign-in is
+provisioned (owner: Billy) — owner resolve is the certified path — and the
+wrong-role probe runs only when a low-permission staff identity is
+provisioned and the cross-tenant probe only when a foreign project id is
+supplied; each records BLOCKED otherwise and never passes or fails the run.
+Job dispatch needs an active technician member in the TEST Org. The
+substitute for the blocked probes is live-PostgreSQL carve-out and audit
+evidence in `app/tests/rls.integration.ts` and
+`app/tests/s069.closeout.integration.ts`. See
+[testing/S069_CLOSEOUT_WARRANTY_EVIDENCE.md](testing/S069_CLOSEOUT_WARRANTY_EVIDENCE.md)
+for the capture contract and
+[architecture/S069_CLOSEOUT_WARRANTY_EVIDENCE.md](architecture/S069_CLOSEOUT_WARRANTY_EVIDENCE.md)
+for the certification step list and the run record. This tooling does not
+change product behavior or complete S069 until a full exact-SHA
+non-production run passes with retained artifacts.
 
 ## Staging orchestrator workflow
 
@@ -607,7 +748,9 @@ A PR is ready for required review or founder-authorized merge only when:
 
 If no independent reviewer exists, the PR must also contain the complete
 founder-only exception record from ADR-009 before an administrator enables or
-uses the merge path. The exception record is not an approval and must not be
+uses the merge path; since 2026-11-21 the record cites the founder's blanket
+authorization (removal of the per-item founder-word gates) instead of a
+per-item word. The exception record is not an approval and must not be
 used to conceal unresolved findings.
 
 For an otherwise-safe low-risk PR, enabling auto-merge is preferred to waiting for a second manual merge action after the ruleset becomes satisfied. Auto-merge does not waive any required status, freshness, or conversation-resolution condition.
@@ -734,6 +877,21 @@ agent browsing may inspect any HTTP(S) origin, but does not grant production
 write authority or release certification. The standard `playwright.config.ts`,
 GitHub Actions evidence workflows, environment approvals, and governed
 authenticated release path retain their independent validation requirements.
+
+The MCP Firefox browser is portable and environment-aware: the config reads
+its egress proxy from `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` (either
+case) at runtime and never hardcodes a proxy address or credential, the seed
+forwards the resolved proxy into the persistent Firefox context (which does
+not inherit the config's `use.proxy`), proxy credentials travel as separate
+`username` / `password` fields because Playwright drops userinfo from
+`server`, and the sandbox egress CA is re-synced into the persistent Firefox
+profile at every MCP launch (`tests/playwright/sync-egress-ca.mjs`, run by
+`mcp-server.mjs` before the server starts) because that CA rotates within
+minutes — a profile synced once at setup time goes stale and every HTTPS
+navigation fails with `SEC_ERROR_UNKNOWN`. Diagnose staleness in seconds with
+`node tests/playwright/sync-egress-ca.mjs --check` (exit 2 when stale).
+TLS validation stays fully on: never add `ignoreHTTPSErrors`, and never
+commit a temporary local relay.
 
 ## Production Costbook 47802 supplier evidence seed
 
@@ -862,4 +1020,4 @@ including percent-encoded spellings, because Prisma gives that parameter
 precedence over the validated URL authority. Approved direct and session-pooler
 connections retain their existing validation; errors never include credentials.
 
-The main-only, protected staging [actual public database restore rehearsal](operations/staging-database-restore.md) retains only sanitized seven-day evidence; raw backups stay ephemeral and source access is read-only. Passing this workflow does not certify Auth/storage or production recovery.
+The main-only, protected staging [actual public database restore rehearsal](operations/staging-database-restore.md) retains only sanitized seven-day evidence; raw backups stay ephemeral and source access is read-only. Passing this workflow does not certify Auth/storage or production recovery. Actual `tradeos_private` dependency DDL is included without private table data; its restored tables must be empty. Disposable service logging is disabled so cleanup cannot publish failed SQL.

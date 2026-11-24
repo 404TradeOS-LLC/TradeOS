@@ -1,6 +1,7 @@
 import { getProject } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { EstimateBuilder } from "./builder";
+import { EstimateMaterialsPanel } from "@/components/estimate/estimate-materials-panel";
 
 export default async function EstimateBuilderPage({ params }: { params: Promise<{ id: string; estimateId: string }> }) {
   const { id, estimateId } = await params;
@@ -8,7 +9,8 @@ export default async function EstimateBuilderPage({ params }: { params: Promise<
   const project = await getProject(token ?? "", id);
   return (
     <div className="flex flex-col gap-6">
-      <EstimateBuilder key={`${id}:${estimateId}`} projectId={id} projectName={project.name} simpleScope={project.simpleScope} estimateId={estimateId} />
+      <EstimateMaterialsPanel estimateId={estimateId} projectId={id} />
+      <EstimateBuilder key={`${id}:${estimateId}`} projectId={id} projectName={project.name} simpleScope={project.simpleScope} estimateId={estimateId} customerName={project.customer?.name ?? null} jobType={project.jobType} />
     </div>
   );
 }

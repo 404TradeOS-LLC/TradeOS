@@ -6,7 +6,7 @@ const read = (path: string) => readFile(new URL(path, import.meta.url), "utf8");
 test("all Today entry points share the authenticated loader and interactive experience", async () => {
   for (const route of ["dashboard/page.tsx", "dashboard/needs-you/page.tsx", "dashboard/work/page.tsx"]) {
     const page = await read(`../../app/(app)/${route}`);
-    assert.match(page, /await loadTodayData\(\)/);
+    assert.match(page, route.includes("needs-you") ? /await loadTodayData\(true\)/ : /await loadTodayData\(\)/);
     assert.match(page, /if \(!data\) return <TodayAccessState/);
     assert.match(page, /TodayExperience data=\{data\}/);
   }
@@ -28,7 +28,7 @@ test("context workspace uses native modal focus semantics, restoration and scrol
 test("real Athena component carries page scope and remains capability gated", async () => {
   const ui = await read("./today-experience.tsx");
   assert.match(ui, /data.athenaEnabled \?/);
-  assert.match(ui, /<AthenaWorkspace selectedScope=\{\{ page:/);
+  assert.match(ui, /<AthenaWorkspace key=\{data\.viewer\.estimateHandoffIdentity \?\? "no-estimate-handoff"\} selectedScope=\{\{ page:/);
   assert.doesNotMatch(ui, /approve.*onClick|Action completed successfully|Math.random/);
 });
 test("responsive theme and reduced-motion contracts cover the command center", async () => {

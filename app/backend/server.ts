@@ -16,7 +16,7 @@ import {
 import { buildHealthPayload, checkReadiness } from "./health";
 import { adminUiRouter } from "./routes/adminUi.routes";
 import { davisBaconSyncCronRouter } from "./routes/davisBaconSyncCron.routes";
-import { costbookRouter } from "./routes/costbook.routes";
+import { costbookCodesIngestionRouter, costbookRouter } from "./routes/costbook.routes";
 import { costDatabaseRouter } from "./routes/costDatabase.routes";
 import { laborDatabaseRouter } from "./routes/laborDatabase.routes";
 import { materialDatabaseRouter } from "./routes/materialDatabase.routes";
@@ -33,6 +33,7 @@ import { adminDashboardRouter } from "./routes/adminDashboard.routes";
 import { projectCustomerScopeRouter } from "./routes/projectCustomerScope.routes";
 import { projectsRouter } from "./routes/projects.routes";
 import { changeOrdersRouter } from "./routes/changeOrders.routes";
+import { closeoutRouter } from "./routes/closeout.routes";
 import { supplierIntegrationRouter, abcOAuthCallbackRouter } from "./routes/supplierIntegration.routes";
 import { supplierPriceSyncCronRouter } from "./routes/supplierPriceSyncCron.routes";
 import { organizationProvisioningRouter } from "./routes/organizationProvisioning.routes";
@@ -71,7 +72,7 @@ export function createServer() {
   // establishes its own tenant-scoped database session before writing.
   app.use("/api/v1/webhooks/stripe", express.raw({ type: "application/json" }), stripeWebhookRouter);
   // Resend also signs the exact raw bytes. Fail closed without a dedicated signing secret.
-  // This pilot endpoint acknowledges verified events but performs no tenant or billing writes.
+  // The route verifies first, commits its durable journal transaction, then acknowledges.
   app.use("/api/v1/webhooks/resend", express.raw({ type: "application/json", limit: "64kb" }), resendWebhookRouter);
 
   // Only the bounded regional-supplier import needs the larger JSON allowance.
@@ -109,6 +110,12 @@ export function createServer() {
   app.use("/api/v1/supplier-integrations", abcOAuthCallbackRouter);
   app.use("/api/v1", requireAuth);
   app.use("/api/v1/invoices", recoverableInvoiceCreateRouter);
+  // Governed Codes & Permits ingestion (issue #946, TODO 3): the ingest
+  // fetch must complete before any database transaction opens and without
+  // holding a pooled connection, so this route is mounted after requireAuth
+  // but before databaseSession. The store opens its own transaction for the
+  // persist phase; the request-scoped session is not needed here.
+  app.use("/api/v1/costbook", costbookCodesIngestionRouter);
   app.use("/api/v1", databaseSession);
   app.use("/api/v1/account", accountRouter);
   app.use("/api/v1/billing", billingRouter);
@@ -136,6 +143,7 @@ export function createServer() {
   app.use("/api/v1/schedule", scheduleRouter);
   app.use("/api/v1/notes", notesRouter);
   app.use("/api/v1/change-orders", changeOrdersRouter);
+  app.use("/api/v1/closeout", closeoutRouter);
   app.use("/api/v1/supplier-integrations", supplierIntegrationRouter);
   app.use("/api/v1/project-intake", projectIntakeRouter);
   app.use("/api/v1/knowledge", knowledgeRuntimeRouter);

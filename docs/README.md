@@ -35,12 +35,16 @@ related_code:
   - .github/workflows/workflow-security.yml
   - .github/workflows/nightly-repository-health.yml
   - .github/workflows/preview-smoke-check.yml
+  - .github/workflows/preview-database-url-drift.yml  # drift issues are filed unlabeled (the type:bug/area:backend labels do not exist as GitHub labels)
   - .github/workflows/sprint-governance.yml
   - .github/workflows/migration-safety.yml
   - .github/workflows/s036-index-evidence.yml
   - app/scripts/s036-index-evidence.sh
   - .github/workflows/stale-pr-check.yml
   - .github/workflows/s027-browser-evidence.yml
+  - .github/workflows/s059-browser-evidence.yml
+  - .github/workflows/s068-browser-evidence.yml
+  - .github/workflows/s069-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
   - .github/workflows/merge-readiness.yml
   - .github/workflows/merge-queue.yml
@@ -114,9 +118,12 @@ of them. It ships **dry-run by default**: `pull_request` runs can never act, and
 variable `TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly `"true"` **and**
 a manual dispatch with `mode=armed` (for dispatch runs) or both variables set (for schedule runs). The variable is set and the Commander
 is armed; its first dry-run and armed runs verified from main on PR #953.
-**Policy exception (founder, 2026-11-10):** the armed `act` job holds
+The ADR-009 gate detects the record from the PR body (snapshot carries
+`body`; fixed 2026-11-23 after the snapshot never set the record flag and
+every migration PR mis-evaluated as BLOCKED).
+**Policy exception (founder, 2026-11-10; widened 2026-11-23, decision #18-A):** the armed `act` job holds
 `actions: write`, scoped to dispatching `pr-maintenance.yml` for REPAIRABLE
-behind-branch verdicts (recorded in the `Workflow security` policy script
+behind-branch verdicts and `codeql-autofix.yml` on demand (at most once per Commander run, one repair attempt per head, REPAIRABLE PRs with a security reason only; recorded in the `Workflow security` policy script
 and in `docs/REPOSITORY_GOVERNANCE.md`; end-to-end dispatch depends on
 PR #965's numeric-input fix). Founder-only boundaries are unchanged: the
 Commander never dismisses a blocking review, never undrafts a PR, never
@@ -134,6 +141,56 @@ S027's authenticated evidence workflow captures all nine Costbook routes at
 1440/1024/768/390px using the existing Beta smoke identity. Required Preview,
 deployment identity, test-tenant, mutation, and artifact controls are described
 in [COSTBOOK_S027_READINESS.md](architecture/COSTBOOK_S027_READINESS.md).
+
+S059's authenticated evidence workflow certifies the ADR-010 magic-link
+customer portal the same way: staff issuance, single-use redemption, portal
+reads, contract signing, and the negative security matrix (replay, revoked,
+malformed, cross-customer, cross-tenant, unauthenticated, wrong-role, draft
+exclusion) at 1440/1024/768/390px. Deployment identity is proven through the
+Vercel API plus the API deployment's `/health` SHA and `/ready` data-plane
+project ref — it deliberately does not reuse S027's Vercel env-inventory
+assertion, which fails on current Preview/staging env metadata. Expired-token
+and expired-session browser states are BLOCKED on staging-DB write access
+(owner: Billy); the substitute is live-PostgreSQL expiry evidence in
+`app/tests/s059.portal.integration.ts`. See
+[S059 certification evidence](architecture/S059_CERTIFICATION_EVIDENCE.md).
+This tooling does not change product behavior or complete S059 until a full
+exact-SHA non-production run passes with retained artifacts.
+
+S068's authenticated evidence workflow certifies the change-order customer
+workflow the same way: staff draft creation, priced line items, approve and
+reject with attributable activity records, and the negative matrix
+(re-approve, re-reject, draft edit after decision, wrong-role, cross-tenant,
+unauthenticated, unknown ids) at 1440/1024/768/390px. Deployment identity is
+proven through the Vercel API plus the API deployment's `/health` SHA and
+`/ready` data-plane project ref. The wrong-role and cross-tenant probes are
+BLOCKED until their fixtures are provisioned (owner: Billy); the substitute
+is live-PostgreSQL decision/audit evidence in
+`app/tests/s068.change-orders.integration.ts`. Customer portal approve/reject
+is BLOCKED by design (ADR-010 limits customer-originated writes to signing
+pending contracts) and is not attempted. See
+[S068 certification evidence](architecture/S068_CERTIFICATION_EVIDENCE.md).
+This tooling does not change product behavior or complete S068 until a full
+exact-SHA non-production run passes with retained artifacts.
+
+S069's authenticated evidence workflow certifies the closeout and warranty
+workspace the same way: staff closeout creation after job completion, punch
+create/assign/resolve/verify, warranty recording quoted from the signed
+contract, mark-ready and handoff with attributable activity records, and the
+negative matrix (mark-ready after handoff, handoff before ready, verify of
+an open punch, resolve of a verified punch, second closeout, wrong-role,
+cross-tenant, unauthenticated, unknown ids, portal document POST) at
+1440/1024/768/390px. Deployment identity is proven through the Vercel API
+plus the API deployment's `/health` SHA and `/ready` data-plane project ref.
+The technician-session punch resolve and the wrong-role and cross-tenant
+probes are BLOCKED until their fixtures are provisioned (owner: Billy); the
+substitute is live-PostgreSQL carve-out and audit evidence in
+`app/tests/rls.integration.ts` and `app/tests/s069.closeout.integration.ts`.
+The customer portal handoff view is read-only by design and no portal
+mutation is attempted. See
+[S069 certification evidence](architecture/S069_CLOSEOUT_WARRANTY_EVIDENCE.md).
+This tooling does not change product behavior or complete S069 until a full
+exact-SHA non-production run passes with retained artifacts.
 
 The general [Beta Evidence](testing/BETA_EVIDENCE.md) workflow retains the `canonical` scenario and provides opt-in `s053` authenticated Scope → Athena → reviewed Estimate Engine certification. S053 captures the Apply acknowledgement, verifies the reviewed target and saved-line values against the authenticated Estimate read and visible rows, hard-reloads the existing builder, and checks persistence. Its foreign Estimate ID can independently drive the authenticated detail GET denial probe; a nested browser probe additionally needs a foreign Project ID. This evidence tooling does not change product behavior or complete S053 until a full exact-SHA non-production run passes with retained artifacts.
 
@@ -270,11 +327,13 @@ The expensive App and Web verification work is additionally split into independe
 
 `Docs consistency` also validates that the PR body contains every required default-template section and a real non-placeholder Summary before installing the docs checker dependencies. It then runs the focused PR-preflight tests, autonomy-reconciliation tests, and documentation ownership validation. This converts missing PR-template sections and missing owner docs into early, deterministic failures rather than late review churn.
 
-The dedicated dependency-review workflow is a pull-request security gate with read-only repository contents access. It fails when a PR introduces a dependency with a known high or critical vulnerability. This is additive to the existing package-manager production dependency audits and does not replace the normal repository verification workflow. The gate uses `actions/dependency-review-action@v5`; its internal Node 24 action runtime is CI implementation detail and does not change TradeOS workload runtime versions.
+The dedicated dependency-review workflow is a pull-request security gate with read-only repository contents access. It fails when a PR introduces a dependency with a known high or critical vulnerability. This is additive to the existing package-manager production dependency audits and does not replace the normal repository verification workflow. The gate uses `actions/dependency-review-action@v5`; its internal Node 24 action runtime is CI implementation detail and does not change TradeOS workload runtime versions. PR #1056 refreshes the gate from v5.0.0 to v5.0.1 (SHA-pinned to `bbc44d14a204704ccc493733616cd1e93a0321ec`); the `fail-on-severity: high` threshold and read-only repository contents access are unchanged.
 
 The workflow implementation uses supported major versions of `actions/checkout` and `actions/setup-node`. As of 2026-08-18, checkout call sites are maintained on the v7.0.1 patch release; this action-runtime maintenance does not change the explicit Node versions used for TradeOS workload testing or deployment.
 
 PR #308 updates the existing artifact publication steps in `.github/workflows/rc-smoke.yml` and `.github/workflows/s027-browser-evidence.yml` from `actions/upload-artifact@v6` to `@v7`. The workflows retain their existing artifact names and directory paths and do not opt into v7 direct-upload mode (`archive: false`); this is GitHub Actions runtime maintenance only and does not change workflow permissions, secrets, triggers, explicit TradeOS Node workload versions, auth/RLS, schema, or product behavior.
+
+PR #1007 moves every `actions/upload-artifact` call site from v7.0.1 to v7.0.2 (SHA-pinned sites to `cf430e030ddbb5b0abf93d22962f4752f3646cd9`, tag-form sites to `@v7.0.2`). The workflows retain their existing artifact names and directory paths and do not opt into v7 direct-upload mode (`archive: false`); this is GitHub Actions runtime maintenance only and does not change workflow permissions, secrets, triggers, explicit TradeOS Node workload versions, auth/RLS, schema, or product behavior.
 
 Changes under `.github/workflows/**` and `.github/actions/**` additionally trigger `workflow-security.yml`. Workflow YAML is inspected directly; for a change anywhere under a local action directory, the gate resolves and inspects that changed file's enclosing `action.yml` or `action.yaml` manifest and fails closed if no manifest exists. It runs pinned `actionlint` directly on the hosted runner and rejects the repository's default-prohibited workflow patterns. This remains supplemental CI unless live branch protection is separately configured to require the check.
 
@@ -345,6 +404,10 @@ Each exemption supports:
 - `reason`: required explanation for why doc updates are not required
 
 Rules are additive. If multiple rules match the same code changes, the checker requires the union of all referenced docs.
+
+Exemptions suppress a rule only when every changed file that triggers the rule is covered by an exemption path; a rule still fires if any triggering file is not exempt, so an exemption can never silently waive a requirement for a change that also touches non-exempt paths. Suppressed rules are listed in the `docs:check` report. Exemptions are path-based only and cannot express "version-only" or "author-only" — no exemption covers `.github/workflows/**`, so a version-only Dependabot workflow bump still requires the owning docs; narrowing that rule is a governance decision, not a checker fix.
+
+Ownership rule change (2026-11-21): routine corrections to `docs/SPRINT_BACKLOG.md` or `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` no longer require `docs/TRADEOS_BIBLE.md` to change alongside them — the Bible is a trigger for the rule, not a requirement. A Bible edit still requires the backlog, Command Center, and handoff to be updated alongside it. The Bible remains the top of the authority hierarchy in `AGENTS.md`; this change only stops forcing a Bible touch on every planning-doc correction.
 
 Rename handling:
 
@@ -538,3 +601,5 @@ precedence over the validated URL authority. Approved direct and session-pooler
 connections retain their existing validation; errors never include credentials.
 
 The main-only, protected staging [actual public database restore rehearsal](operations/staging-database-restore.md) retains only sanitized seven-day evidence; raw backups stay ephemeral and source access is read-only. Passing this workflow does not certify Auth/storage or production recovery.
+
+The [staging restore rehearsal](operations/staging-database-restore.md) includes actual private dependency DDL without private table data; only sanitized receipts are retained, and disposable service logs cannot expose failed SQL.

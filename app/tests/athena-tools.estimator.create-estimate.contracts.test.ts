@@ -24,6 +24,8 @@ function createFakeEstimateEngine(): EstimateCreateToolDeps["estimateEngine"] {
       costAfterOverhead: 0,
       preTaxTotalPrice: 0,
       totalPrice: 0,
+      exclusionsReviewedAt: null,
+      priceSourcesReviewedAt: null,
       athenaEvent: { type: "EstimateStarted", id: "event-1" },
     })),
   };
@@ -74,6 +76,8 @@ describe("athena-tools estimator: create-estimate", () => {
         costAfterOverhead: 0,
         preTaxTotalPrice: 0,
         totalPrice: 0,
+        exclusionsReviewedAt: null,
+        priceSourcesReviewedAt: null,
         athenaEvent: undefined,
       })),
     };

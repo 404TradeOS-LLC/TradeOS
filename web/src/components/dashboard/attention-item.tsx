@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import "./attention-item.css";
 
@@ -10,11 +11,12 @@ export interface AttentionItemProps {
   severity: AttentionItemSeverity;
   status: string;
   action: string;
+  actionHref?: string;
   onAction: () => void;
 }
 
 /** A production Needs You row that keeps severity readable without relying on color alone. */
-export function AttentionItem({ title, description, meta, severity, status, action, onAction }: AttentionItemProps) {
+export function AttentionItem({ title, description, meta, severity, status, action, actionHref, onAction }: AttentionItemProps) {
   return <li className="today-attention-row" data-severity={severity}>
     <span className="today-attention-severity-bar" aria-hidden="true" />
     <div className="today-attention-content">
@@ -24,9 +26,13 @@ export function AttentionItem({ title, description, meta, severity, status, acti
     </div>
     <div className="today-attention-actions">
       <span className="today-attention-status" data-severity={severity}>{status}</span>
-      <button type="button" className="today-row-action" onClick={onAction} aria-label={`${action}: ${title}`}>
+      {actionHref ? (
+        <Link href={actionHref} className="today-row-action" aria-label={`${action}: ${title}`}>
+          {action}<ChevronRight size={14} aria-hidden="true" />
+        </Link>
+      ) : <button type="button" className="today-row-action" onClick={onAction} aria-label={`${action}: ${title}`}>
         {action}<ChevronRight size={14} aria-hidden="true" />
-      </button>
+      </button>}
     </div>
   </li>;
 }

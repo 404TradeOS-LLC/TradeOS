@@ -69,11 +69,14 @@ test("canRecordPayment excludes technician and viewer, matching their lack of bi
   assert.ok(!frontendRoles.includes("viewer"), "viewer does not have billing.write and must not see the payment form");
 });
 
-test("the payment form is gated on billing.write, positive balance, and an eligible sent/overdue invoice", () => {
+test("the payment form is gated on billing.write, positive balance, and an eligible sent/viewed/overdue invoice", () => {
   const source = readPageSource();
   assert.match(source, /const hasOpenBalance = invoice\.balanceDue > 0;/);
-  assert.match(source, /const canShowPaymentEntry =\s*canRecordPayment &&\s*hasOpenBalance &&\s*\(invoice\.status === "sent" \|\| invoice\.status === "overdue"\);/);
+  assert.match(source, /const canShowPaymentEntry =\s*canRecordPayment &&\s*hasOpenBalance &&\s*\(invoice\.status === "sent" \|\| invoice\.status === "viewed" \|\| invoice\.status === "overdue"\);/);
   assert.match(source, /canShowPaymentEntry \? \(\s*<RecordPaymentForm/);
+  // A customer view must not remove the contractor's payment controls:
+  // mark-paid without a payment stays offered for viewed invoices too.
+  assert.match(source, /const canMarkPaidWithoutPayment = invoice\.status === "sent" \|\| invoice\.status === "viewed" \|\| invoice\.status === "overdue";/);
 });
 
 test("the invoice detail page offers an edit link only for drafts to billing.write roles", () => {

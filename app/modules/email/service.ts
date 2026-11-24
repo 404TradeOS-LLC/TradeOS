@@ -39,6 +39,10 @@ interface EmailMessage {
   html: string;
   text: string;
   idempotencyKey: string;
+  template: {
+    id: "tradeos-password-reset" | "tradeos-team-invitation" | "tradeos-customer-portal-access";
+    variables: Record<string, string>;
+  };
 }
 
 interface ResendSendResponse {
@@ -81,6 +85,10 @@ export class EmailService {
 
     return this.send({
       to: input.to,
+      template: {
+        id: "tradeos-password-reset",
+        variables: { RESET_URL: resetUrl, EXPIRES_AT: expiresAt },
+      },
       subject: "Reset your TradeOS password",
       html: [
         "<p>We received a request to reset your TradeOS password.</p>",
@@ -105,6 +113,10 @@ export class EmailService {
 
     return this.send({
       to: input.to,
+      template: {
+        id: "tradeos-team-invitation",
+        variables: { ROLE: role, INVITE_URL: inviteUrl, EXPIRES_AT: expiresAt },
+      },
       subject: "You have been invited to TradeOS",
       html: [
         "<p>You have been invited to join a TradeOS workspace as a " + escapeHtml(role) + ".</p>",
@@ -126,6 +138,10 @@ export class EmailService {
 
     return this.send({
       to: input.to,
+      template: {
+        id: "tradeos-customer-portal-access",
+        variables: { PORTAL_URL: accessUrl, EXPIRES_AT: expiresAt },
+      },
       subject: "Your TradeOS customer portal is ready",
       html: [
         "<p>Your contractor has shared a secure TradeOS project portal with you.</p>",
@@ -176,13 +192,22 @@ export class EmailService {
         "Content-Type": "application/json",
         "Idempotency-Key": message.idempotencyKey,
       },
-      body: JSON.stringify({
-        from,
-        to: [message.to],
-        subject: message.subject,
-        html: renderTradeOsEmail(message.html),
-        text: message.text,
-      }),
+      // Published Resend templates are opt-in. Keep existing HTML/plain-text
+      // sends as the default until authenticated staging acceptance is recorded.
+      // Never retry a template failure as inline mail: that could send twice.
+      body: JSON.stringify(process.env.RESEND_TEMPLATE_MODE === "dashboard"
+        ? {
+            from,
+            to: [message.to],
+            template: message.template,
+          }
+        : {
+            from,
+            to: [message.to],
+            subject: message.subject,
+            html: renderTradeOsEmail(message.html),
+            text: message.text,
+          }),
       signal: AbortSignal.timeout(10_000),
     });
 

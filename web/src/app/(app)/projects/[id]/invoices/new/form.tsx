@@ -44,6 +44,22 @@ export function NewInvoiceForm({ projectId, projectName, customerName, estimates
   // The estimate is optional: with no estimate selected, the invoice is built
   // from the manual line items below instead of an estimate's priced scope.
   const manualMode = estimateId === "";
+  // DES-7 (b): the design's "NOT SAVED" badge shows whenever the form holds
+  // unsaved changes. Dirty means any field differs from its initial value:
+  // a chosen estimate/proposal, a type/progress/due-date entry, or any manual
+  // line edit. It clears on save (confirmed) and never shows while the save
+  // is pending or awaiting an unconfirmed-save retry.
+  const isDirty =
+    type !== "full" ||
+    percentComplete !== "" ||
+    dueDate !== "" ||
+    estimateId !== "" ||
+    proposalId !== "" ||
+    lines.length !== 1 ||
+    lines[0]?.description !== "" ||
+    lines[0]?.quantity !== "1" ||
+    lines[0]?.unitPrice !== "";
+  const showNotSavedBadge = isDirty && !confirmed && !unconfirmed && !isPending;
 
   useEffect(() => {
     if (!isPending && state && "error" in state) errorContext.current?.focus();
@@ -57,6 +73,16 @@ export function NewInvoiceForm({ projectId, projectName, customerName, estimates
     <Card className="w-full max-w-[680px] [--card-spacing:--spacing(5)]">
       <CardHeader>
         <p className="text-xs font-medium uppercase text-accent-foreground">{isPending ? "Saving draft" : unconfirmed ? "Save not confirmed" : confirmed ? "Draft · not sent" : "Not saved"}</p>
+        {showNotSavedBadge ? (
+          <p>
+            <span
+              data-testid="not-saved-badge"
+              className="inline-flex items-center rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400"
+            >
+              NOT SAVED
+            </span>
+          </p>
+        ) : null}
         <CardTitle>{projectName}</CardTitle>
         <p className="text-xs text-muted-foreground">{unconfirmed ? "Retry with these details. If you leave or reload, check the project’s invoices before creating another." : "Choose how to price this invoice."}</p>
       </CardHeader>
@@ -202,9 +228,13 @@ export function NewInvoiceForm({ projectId, projectName, customerName, estimates
               {unconfirmed && <p>Retry the same draft here, or check this project’s invoices before starting another draft.</p>}
             </div>
           )}
-          <p role="status" className="sr-only">{isPending ? "Saving invoice draft" : confirmed ? "Invoice draft saved" : ""}</p>
+          {/* DES-7 (b) round-2: the NOT SAVED badge appears outside a live
+              region, so announce the unsaved state from this persistently
+              mounted status region instead — it exists (empty) before the
+              message changes, and the saving/saved messages are preserved. */}
+          <p role="status" className="sr-only">{isPending ? "Saving invoice draft" : confirmed ? "Invoice draft saved" : showNotSavedBadge ? "Not saved — unsaved changes" : ""}</p>
           <Button type="submit" className="h-11 w-full sm:max-w-[300px]" disabled={isPending || Boolean(confirmed)}>
-            {isPending ? "Saving…" : confirmed ? "Draft saved" : unconfirmed ? "Retry same draft" : "Create invoice"}
+            {isPending ? "Saving…" : confirmed ? "Draft saved" : unconfirmed ? "Retry same draft" : "Save invoice draft"}
           </Button>
         </form>
       </CardContent>

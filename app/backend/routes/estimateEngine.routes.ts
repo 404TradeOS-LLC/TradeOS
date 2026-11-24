@@ -7,6 +7,7 @@ export const estimateEngineRouter = Router();
 estimateEngineRouter.post("/", asyncHandler(ctrl.create));
 estimateEngineRouter.get("/", asyncHandler(ctrl.listOrganizationQueue));
 estimateEngineRouter.get("/by-project/:projectId", asyncHandler(ctrl.listByProject));
+estimateEngineRouter.get("/:id/materials/pdf", asyncHandler(ctrl.getMaterialsPdf));
 estimateEngineRouter.get("/:id", asyncHandler(ctrl.getById));
 estimateEngineRouter.patch("/:id", asyncHandler(ctrl.updateEstimate));
 estimateEngineRouter.post("/:id/line-items", asyncHandler(ctrl.addLineItem));

@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
-import { getRequestDatabaseClient } from "../../db/requestSession";
+import { getRequestDatabaseClient, runInDatabaseTransaction } from "../../db/requestSession";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { ProposalGeneratorService } from "../proposal-generator/service";
 import { ProposalDocument } from "../proposal-generator/types";
@@ -11,7 +11,8 @@ import { getDefaultAthenaEventService } from "../athena-events/service";
 import { legacyProposalStatusMap, normalizeEstimateStatus, normalizeProposalStatus } from "../../domain";
 import { clampQueueLimit, decodeUpdatedAtCursor, encodeUpdatedAtCursor, buildUpdatedAtRange, QueuePage } from "../shared/pagination";
 import { expandCanonicalStatusFilter } from "../shared/statusFilter";
-import { CreateProposalInput, ProposalDTO, ProposalDeliveryDTO, ProposalDraftPreviewDTO, ProposalQueueFilters, ProposalQueueItemDTO } from "./types";
+import { CreateProposalAllowanceInput, CreateProposalInput, CreateProposalSelectionInput, ProposalAllowanceDTO, ProposalDTO, ProposalDeliveryDTO, ProposalDraftPreviewDTO, ProposalQueueFilters, ProposalQueueItemDTO, ProposalSelectionDTO, ProposalSelectionStatus, UpdateProposalAllowanceInput, UpdateProposalSelectionInput } from "./types";
+import { isValidSignatureDataUrl } from "./signatureValidation";
 
 
 function canonicalize(value: unknown): unknown {
@@ -103,7 +104,15 @@ export class ProposalsService {
     const findReplay = async () => {
       const existing = await prisma.proposal.findFirst({
         where: { projectId, idempotencyKey, project: { orgId: input.orgId } },
-        include: { deliveries: { orderBy: { occurredAt: "desc" } } },
+        // Load the child collections too: a replay returns the original
+        // proposal, and Prisma excludes relations unless requested, so
+        // without these the replay would report empty selections and a
+        // zero allowances total for a proposal that has both.
+        include: {
+          deliveries: { orderBy: { occurredAt: "desc" } },
+          selections: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+          allowances: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+        },
       });
       if (!existing) return null;
       if (existing.idempotencyHash !== requestHash) {
@@ -133,7 +142,14 @@ export class ProposalsService {
   async listByProject(projectId: string, orgId?: string): Promise<ProposalDTO[]> {
     const rows = await prisma.proposal.findMany({
       where: { projectId, project: orgId ? { orgId } : undefined },
-      include: { deliveries: { orderBy: { occurredAt: "desc" } } },
+      // Load the child collections too: Prisma excludes relations unless
+      // requested, so without these every listed proposal would report
+      // empty selections and a zero allowances total.
+      include: {
+        deliveries: { orderBy: { occurredAt: "desc" } },
+        selections: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+        allowances: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+      },
       orderBy: { createdAt: "desc" },
     });
     return rows.map(toDTO);
@@ -201,6 +217,224 @@ export class ProposalsService {
   async getById(id: string, orgId?: string): Promise<ProposalDTO> {
     const row = await this.findOrThrow(id, orgId);
     return toDTO(row);
+  }
+
+  // --- DES-10-F8: proposal selections (Copperline section 03) ---
+  // Selections and allowances are editable through the same draft rules as
+  // the proposal itself (see update()): an accepted proposal, or one with a
+  // contract, is immutable. Nothing here touches acceptance, estimate
+  // finalization, or totals — allowancesTotal is display-only.
+
+  /**
+   * Serialize child mutations against proposal acceptance. Acceptance
+   * commits through a conditional update on the proposal row, so taking a
+   * row lock on the parent first — inside the same transaction as the child
+   * write — orders the two: whichever commits first wins, and the loser
+   * re-reads the committed state (the editability check below, or the
+   * conditional updateMany/deleteMany predicate) instead of racing past it.
+   * Mirrors EstimateEngineService.lockEstimateForMutation. Skipped when the
+   * client cannot run raw SQL (mocked Prisma in unit tests), where the
+   * conditional predicates remain the only guard.
+   */
+  private async lockProposalForMutation(proposalId: string): Promise<void> {
+    if (typeof prisma.$queryRaw !== "function") return;
+    await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT id
+      FROM public.proposals
+      WHERE id = CAST(${proposalId} AS uuid)
+      FOR UPDATE
+    `);
+  }
+
+  /**
+   * Run a child mutation inside one transaction (reusing the active request
+   * transaction when one exists) so the parent lock above and the child
+   * write commit or roll back together. Falls through to the direct call
+   * when the client has no $transaction (mocked Prisma in unit tests);
+   * there the request-scoped transaction already provides the boundary, or
+   * there is no concurrent writer to serialize against.
+   */
+  private async inProposalMutationTransaction<T>(operation: () => Promise<T>): Promise<T> {
+    if (typeof prisma.$transaction !== "function") return operation();
+    return runInDatabaseTransaction(prisma, operation);
+  }
+
+  async listSelections(proposalId: string, orgId?: string): Promise<ProposalSelectionDTO[]> {
+    await this.findOrThrow(proposalId, orgId);
+    const rows = await prisma.proposalSelection.findMany({
+      where: { proposalId, proposal: { project: orgId ? { orgId } : undefined } },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+    return rows.map(toSelectionDTO);
+  }
+
+  async createSelection(proposalId: string, input: CreateProposalSelectionInput, orgId?: string): Promise<ProposalSelectionDTO> {
+    return this.inProposalMutationTransaction(() => this.createSelectionInTransaction(proposalId, input, orgId));
+  }
+
+  private async createSelectionInTransaction(proposalId: string, input: CreateProposalSelectionInput, orgId?: string): Promise<ProposalSelectionDTO> {
+    await this.lockProposalForMutation(proposalId);
+    const parent = await this.findEditableProposal(proposalId, orgId);
+    const validated = validateSelectionInput(input);
+    if (validated.label === undefined) throw new ApiError(400, "Selection label must be 1-120 characters");
+    const childOrgId = parent.project.orgId ?? orgId;
+    if (!childOrgId) throw new ApiError(500, `Proposal ${proposalId} is missing organization scope`);
+    // Allocate after the highest surviving row, not the row count: after a
+    // delete, count() would reuse a deleted slot and the new row could land
+    // before a surviving one. Runs under the parent row lock, inside the
+    // same transaction as the insert (see lockProposalForMutation).
+    const maxSortOrder = await prisma.proposalSelection.aggregate({ where: { proposalId }, _max: { sortOrder: true } });
+    const sortOrder = (maxSortOrder._max.sortOrder ?? -1) + 1;
+    const row = await prisma.proposalSelection.create({
+      data: {
+        orgId: childOrgId,
+        proposalId,
+        sortOrder,
+        label: validated.label,
+        detail: validated.detail ?? null,
+        status: validated.status ?? "action_required",
+        dueDate: validated.dueDate ?? null,
+      },
+    });
+    return toSelectionDTO(row);
+  }
+
+  async updateSelection(selectionId: string, proposalId: string, input: UpdateProposalSelectionInput, orgId?: string): Promise<ProposalSelectionDTO> {
+    return this.inProposalMutationTransaction(() => this.updateSelectionInTransaction(selectionId, proposalId, input, orgId));
+  }
+
+  private async updateSelectionInTransaction(selectionId: string, proposalId: string, input: UpdateProposalSelectionInput, orgId?: string): Promise<ProposalSelectionDTO> {
+    await this.lockProposalForMutation(proposalId);
+    const validated = validateSelectionInput(input, true);
+    const updated = await prisma.proposalSelection.updateMany({
+      where: {
+        id: selectionId,
+        proposal: {
+          id: proposalId,
+          status: { not: "accepted" },
+          contracts: { none: {} },
+          project: orgId ? { orgId } : undefined,
+        },
+      },
+      data: {
+        label: validated.label,
+        detail: validated.detail,
+        status: validated.status,
+        dueDate: validated.dueDate,
+      },
+    });
+    if (updated.count !== 1) throw await this.selectionWriteError(selectionId, proposalId, orgId);
+    const row = await prisma.proposalSelection.findFirstOrThrow({ where: { id: selectionId } });
+    return toSelectionDTO(row);
+  }
+
+  async deleteSelection(selectionId: string, proposalId: string, orgId?: string): Promise<void> {
+    return this.inProposalMutationTransaction(() => this.deleteSelectionInTransaction(selectionId, proposalId, orgId));
+  }
+
+  private async deleteSelectionInTransaction(selectionId: string, proposalId: string, orgId?: string): Promise<void> {
+    await this.lockProposalForMutation(proposalId);
+    const deleted = await prisma.proposalSelection.deleteMany({
+      where: {
+        id: selectionId,
+        proposal: {
+          id: proposalId,
+          status: { not: "accepted" },
+          contracts: { none: {} },
+          project: orgId ? { orgId } : undefined,
+        },
+      },
+    });
+    if (deleted.count !== 1) throw await this.selectionWriteError(selectionId, proposalId, orgId);
+  }
+
+  // --- DES-10-F8: proposal allowances (Copperline section 04) ---
+
+  async listAllowances(proposalId: string, orgId?: string): Promise<ProposalAllowanceDTO[]> {
+    await this.findOrThrow(proposalId, orgId);
+    const rows = await prisma.proposalAllowance.findMany({
+      where: { proposalId, proposal: { project: orgId ? { orgId } : undefined } },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+    return rows.map(toAllowanceDTO);
+  }
+
+  async createAllowance(proposalId: string, input: CreateProposalAllowanceInput, orgId?: string): Promise<ProposalAllowanceDTO> {
+    return this.inProposalMutationTransaction(() => this.createAllowanceInTransaction(proposalId, input, orgId));
+  }
+
+  private async createAllowanceInTransaction(proposalId: string, input: CreateProposalAllowanceInput, orgId?: string): Promise<ProposalAllowanceDTO> {
+    await this.lockProposalForMutation(proposalId);
+    const parent = await this.findEditableProposal(proposalId, orgId);
+    const validated = validateAllowanceInput(input);
+    if (validated.description === undefined || validated.amount === undefined) {
+      throw new ApiError(400, "Allowance description and amount are required");
+    }
+    const childOrgId = parent.project.orgId ?? orgId;
+    if (!childOrgId) throw new ApiError(500, `Proposal ${proposalId} is missing organization scope`);
+    // Allocate after the highest surviving row, not the row count: after a
+    // delete, count() would reuse a deleted slot and the new row could land
+    // before a surviving one. Runs under the parent row lock, inside the
+    // same transaction as the insert (see lockProposalForMutation).
+    const maxSortOrder = await prisma.proposalAllowance.aggregate({ where: { proposalId }, _max: { sortOrder: true } });
+    const sortOrder = (maxSortOrder._max.sortOrder ?? -1) + 1;
+    const row = await prisma.proposalAllowance.create({
+      data: {
+        orgId: childOrgId,
+        proposalId,
+        sortOrder,
+        description: validated.description,
+        amount: validated.amount,
+      },
+    });
+    return toAllowanceDTO(row);
+  }
+
+  async updateAllowance(allowanceId: string, proposalId: string, input: UpdateProposalAllowanceInput, orgId?: string): Promise<ProposalAllowanceDTO> {
+    return this.inProposalMutationTransaction(() => this.updateAllowanceInTransaction(allowanceId, proposalId, input, orgId));
+  }
+
+  private async updateAllowanceInTransaction(allowanceId: string, proposalId: string, input: UpdateProposalAllowanceInput, orgId?: string): Promise<ProposalAllowanceDTO> {
+    await this.lockProposalForMutation(proposalId);
+    const validated = validateAllowanceInput(input, true);
+    const updated = await prisma.proposalAllowance.updateMany({
+      where: {
+        id: allowanceId,
+        proposal: {
+          id: proposalId,
+          status: { not: "accepted" },
+          contracts: { none: {} },
+          project: orgId ? { orgId } : undefined,
+        },
+      },
+      data: {
+        description: validated.description,
+        amount: validated.amount,
+      },
+    });
+    if (updated.count !== 1) throw await this.allowanceWriteError(allowanceId, proposalId, orgId);
+    const row = await prisma.proposalAllowance.findFirstOrThrow({ where: { id: allowanceId } });
+    return toAllowanceDTO(row);
+  }
+
+  async deleteAllowance(allowanceId: string, proposalId: string, orgId?: string): Promise<void> {
+    return this.inProposalMutationTransaction(() => this.deleteAllowanceInTransaction(allowanceId, proposalId, orgId));
+  }
+
+  private async deleteAllowanceInTransaction(allowanceId: string, proposalId: string, orgId?: string): Promise<void> {
+    await this.lockProposalForMutation(proposalId);
+    const deleted = await prisma.proposalAllowance.deleteMany({
+      where: {
+        id: allowanceId,
+        proposal: {
+          id: proposalId,
+          status: { not: "accepted" },
+          contracts: { none: {} },
+          project: orgId ? { orgId } : undefined,
+        },
+      },
+    });
+    if (deleted.count !== 1) throw await this.allowanceWriteError(allowanceId, proposalId, orgId);
   }
 
   async previewProjectDraft(projectId: string, orgId?: string, companyName?: string): Promise<ProposalDraftPreviewDTO> {
@@ -292,7 +526,13 @@ export class ProposalsService {
     const row = await this.findOrThrow(id, orgId);
     if (row.status !== "draft") throw new ApiError(409, `Proposal ${id} has already been sent`);
     this.normalizePaymentSchedule(row.paymentScheduleJson);
-    const updated = await prisma.proposal.update({ where: { id }, data: { status: "sent", sentAt: new Date() } });
+    // Sending and staff-recorded offline approval compete for the same draft.
+    // Require the exact revision we validated so neither can overwrite the other.
+    const updated = await prisma.proposal.updateMany({
+      where: { id, status: "draft", updatedAt: row.updatedAt, project: orgId ? { orgId } : undefined },
+      data: { status: "sent", sentAt: new Date() },
+    });
+    if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before it could be sent`);
     try {
       await getDefaultAthenaEventService().publish({
         orgId: orgId ?? row.project.orgId ?? "",
@@ -317,7 +557,7 @@ export class ProposalsService {
       metadata: { previousStatus: row.status, newStatus: "sent" },
     });
     await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
-    return this.getById(updated.id, orgId);
+    return this.getById(id, orgId);
   }
 
   async markViewed(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
@@ -369,6 +609,57 @@ export class ProposalsService {
     return this.getById(row.id, orgId);
   }
 
+  /**
+   * Staff-recorded customer approval received outside TradeOS.
+   * This is deliberately distinct from send: it never sets sentAt,
+   * triggers email delivery, or manufactures a ProposalSent event.
+   */
+  async acceptOffline(
+    id: string,
+    input: { channel: "in_person" | "phone" | "signed_document"; note: string },
+    orgId?: string,
+    actorUserId?: string
+  ): Promise<ProposalDTO> {
+    if (!orgId || !actorUserId) throw new ApiError(403, "Authenticated organization and actor are required");
+    const note = input.note?.trim() ?? "";
+    if (!["in_person", "phone", "signed_document"].includes(input.channel) || note.length < 10 || note.length > 500) {
+      throw new ApiError(400, "Provide the acceptance method and a 10-500 character audit note");
+    }
+
+    const row = await this.findOrThrow(id, orgId);
+    const currentStatus = normalizeProposalStatus(row.status);
+    if (currentStatus !== "draft") {
+      throw new ApiError(409, `Proposal ${id} is not a draft and cannot be recorded as accepted offline`);
+    }
+    if (!row.scopeOfWork?.trim() || row.finalPrice == null || !Number.isFinite(Number(row.finalPrice)) || Number(row.finalPrice) <= 0) {
+      throw new ApiError(409, "Finish the written scope and final price before recording customer acceptance");
+    }
+    this.normalizePaymentSchedule(row.paymentScheduleJson);
+    const updated = await prisma.proposal.updateMany({
+      where: { id, status: "draft", updatedAt: row.updatedAt, project: { orgId } },
+      data: { status: "accepted", respondedAt: new Date() },
+    });
+    if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before offline acceptance could be recorded`);
+
+    await this.recordDeliveryEvent({
+      orgId,
+      proposalId: row.id,
+      projectId: row.projectId,
+      actorUserId,
+      eventType: "proposal.accepted",
+      recipientEmail: null,
+      metadata: {
+        previousStatus: "draft",
+        newStatus: "accepted",
+        acceptanceChannel: input.channel,
+        acceptanceNote: note,
+        source: "staff_recorded_offline",
+      },
+    });
+    await prisma.project.update({ where: { id: row.projectId }, data: { status: "awarded" } });
+    return this.getById(row.id, orgId);
+  }
+
   async reject(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
     const row = await this.findOrThrow(id, orgId);
     const currentStatus = normalizeProposalStatus(row.status);
@@ -389,6 +680,190 @@ export class ProposalsService {
     });
     await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
     return this.getById(row.id, orgId);
+  }
+
+  /**
+   * DES-10-F7: governed public-portal acceptance. The customer answers from
+   * a redeemed magic-link session (ADR-010) — no staff JWT, no customer
+   * account. The caller is the token holder: signerEmail comes from the
+   * customer record on file (passed in by CustomerPortalService, never from
+   * the HTTP body), and the signature must be a drawn image, not a
+   * free-text field alone.
+   *
+   * Governance, in order: the portal service asserts the proposal belongs
+   * to this session's customer (404 otherwise, before any write); the
+   * response is bound to the revision the customer reviewed
+   * (expectedUpdatedAt — a staff edit after the page rendered is a 409,
+   * and the conditional update also predicates on it, so the check is
+   * atomic); the conditional update requires sent/viewed and the
+   * org/customer project scope; the 20261124150000 migration grants one
+   * narrow portal UPDATE policy keyed by the transaction-local portal
+   * proposal id and a trigger that pins every column except the response
+   * itself. A second accept, an accept of a draft/declined proposal, or a
+   * replayed token all fail here with 409/404 before anything is recorded.
+   *
+   * No Athena event is published and no email is sent — this records the
+   * customer's own answer, it does not originate a staff action.
+   */
+  async acceptAsPortalCustomer(
+    id: string,
+    input: {
+      orgId: string;
+      customerId: string;
+      portalSessionId: string;
+      signerName: string;
+      signerEmail: string;
+      signatureDataUrl: string;
+      signatureIpReported?: string;
+      signatureUserAgentReported?: string;
+      expectedUpdatedAt?: string;
+    },
+  ): Promise<ProposalDTO> {
+    const signerName = input.signerName?.trim() ?? "";
+    if (signerName.length < 1 || signerName.length > 200) {
+      throw new ApiError(400, "Signer name is required");
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.signerEmail ?? "")) {
+      throw new ApiError(409, "Customer email is required to attribute a signature");
+    }
+    if (!isValidSignatureDataUrl(input.signatureDataUrl) || input.signatureDataUrl.length > 2_000_000) {
+      throw new ApiError(400, "A drawn signature is required to accept this proposal");
+    }
+    const expectedUpdatedAt = parseExpectedUpdatedAt(input.expectedUpdatedAt);
+
+    const row = await this.findOrThrow(id, input.orgId);
+    const currentStatus = normalizeProposalStatus(row.status);
+    if (!["sent", "viewed"].includes(currentStatus)) {
+      throw new ApiError(409, `Proposal ${id} cannot be accepted from status ${currentStatus}`);
+    }
+    if (row.project.customer?.id !== input.customerId) {
+      throw new ApiError(404, `Proposal ${id} not found`);
+    }
+    assertReviewedRevision(row, expectedUpdatedAt);
+
+    // Portal sessions carry app.role = 'portal_customer', so the staff
+    // proposals write policy denies them. The 20261124150000 migration
+    // grants one narrowly scoped portal UPDATE policy keyed by this
+    // transaction-local proposal id (same shape as app.portal_contract_id
+    // for contract signing); the whole portal request runs in one
+    // transaction, so the setting covers the update, the award, and the
+    // response-event inserts below. Staff sessions ignore it — their own
+    // write policy already permits the update. Skipped when the client
+    // cannot run raw SQL (mocked Prisma in unit tests), where the
+    // conditional predicates remain the only guard.
+    if (typeof prisma.$queryRaw === "function") {
+      await prisma.$queryRaw(Prisma.sql`
+        select
+          set_config('app.portal_proposal_id', ${id}, true),
+          set_config('app.portal_proposal_project_id', ${row.projectId}, true)
+      `);
+    }
+    const now = new Date();
+    const updated = await prisma.proposal.updateMany({
+      where: {
+        id,
+        status: currentStatus,
+        ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt } : {}),
+        project: { orgId: input.orgId, customerId: input.customerId },
+      },
+      data: {
+        status: "accepted",
+        respondedAt: now,
+        signerName,
+        signerEmail: input.signerEmail,
+        signatureDataUrl: input.signatureDataUrl,
+        signatureIpReported: input.signatureIpReported,
+        signatureUserAgentReported: input.signatureUserAgentReported,
+        signedAt: now,
+      },
+    });
+    if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before it could be accepted`);
+    await this.recordDeliveryEvent({
+      orgId: input.orgId,
+      proposalId: row.id,
+      projectId: row.projectId,
+      eventType: "proposal.accepted",
+      deliveryChannel: "portal",
+      recipientEmail: input.signerEmail,
+      metadata: {
+        previousStatus: currentStatus,
+        newStatus: "accepted",
+        actorType: "customer_portal",
+        customerId: input.customerId,
+        portalSessionId: input.portalSessionId,
+        signerName,
+        signatureIpReported: input.signatureIpReported ?? null,
+        signatureUserAgentReported: input.signatureUserAgentReported ?? null,
+      },
+    });
+    // Staff accept parity: award the project. Best-effort under the portal
+    // session — the narrow award policy only permits estimating -> awarded
+    // for this proposal's project, so a project already awarded through
+    // another proposal simply stays awarded and the acceptance still stands.
+    await prisma.project.updateMany({
+      where: { id: row.projectId, status: "estimating", orgId: input.orgId, customerId: input.customerId },
+      data: { status: "awarded" },
+    });
+    return this.getById(row.id, input.orgId);
+  }
+
+  /**
+   * DES-10-F7: governed public-portal decline. Same token scoping and
+   * audit trail as the portal accept, minus the signature: declining
+   * records who declined (the token holder's customer + session), when,
+   * and the optional reason. It deliberately does NOT touch the project:
+   * a project may carry several proposals, and declining one must not
+   * un-award a project won through another (unlike staff reject(), which
+   * sets 'estimating' unconditionally).
+   */
+  async declineAsPortalCustomer(
+    id: string,
+    input: { orgId: string; customerId: string; portalSessionId: string; reason?: string; expectedUpdatedAt?: string },
+  ): Promise<ProposalDTO> {
+    const reason = input.reason?.trim() ?? "";
+    if (reason.length > 500) throw new ApiError(400, "Decline reason must be 500 characters or fewer");
+    const expectedUpdatedAt = parseExpectedUpdatedAt(input.expectedUpdatedAt);
+
+    const row = await this.findOrThrow(id, input.orgId);
+    const currentStatus = normalizeProposalStatus(row.status);
+    if (!["sent", "viewed"].includes(currentStatus)) {
+      throw new ApiError(409, `Proposal ${id} cannot be declined from status ${currentStatus}`);
+    }
+    if (row.project.customer?.id !== input.customerId) {
+      throw new ApiError(404, `Proposal ${id} not found`);
+    }
+    assertReviewedRevision(row, expectedUpdatedAt);
+
+    if (typeof prisma.$queryRaw === "function") {
+      await prisma.$queryRaw(Prisma.sql`select set_config('app.portal_proposal_id', ${id}, true)`);
+    }
+    const updated = await prisma.proposal.updateMany({
+      where: {
+        id,
+        status: currentStatus,
+        ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt } : {}),
+        project: { orgId: input.orgId, customerId: input.customerId },
+      },
+      data: { status: "declined", respondedAt: new Date(), declinedReason: reason || null },
+    });
+    if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before it could be declined`);
+    await this.recordDeliveryEvent({
+      orgId: input.orgId,
+      proposalId: row.id,
+      projectId: row.projectId,
+      eventType: "proposal.declined",
+      deliveryChannel: "portal",
+      recipientEmail: row.project.customer?.email ?? null,
+      metadata: {
+        previousStatus: currentStatus,
+        newStatus: "declined",
+        actorType: "customer_portal",
+        customerId: input.customerId,
+        portalSessionId: input.portalSessionId,
+        declinedReason: reason || null,
+      },
+    });
+    return this.getById(row.id, input.orgId);
   }
 
   async resend(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
@@ -437,8 +912,76 @@ export class ProposalsService {
         termsAndConditions: row.termsAndConditions,
       },
     });
+    // A duplicate is a fresh draft revision of the same proposal: carry the
+    // customer's pending decisions and allowance lines with it so the copy
+    // does not silently lose them.
+    const [selections, allowances] = await Promise.all([
+      prisma.proposalSelection.findMany({ where: { proposalId: id }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
+      prisma.proposalAllowance.findMany({ where: { proposalId: id }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
+    ]);
+    if (selections.length > 0) {
+      await prisma.proposalSelection.createMany({
+        data: selections.map((selection) => ({
+          orgId: selection.orgId,
+          proposalId: duplicated.id,
+          label: selection.label,
+          detail: selection.detail,
+          status: selection.status,
+          dueDate: selection.dueDate,
+          sortOrder: selection.sortOrder,
+        })),
+      });
+    }
+    if (allowances.length > 0) {
+      await prisma.proposalAllowance.createMany({
+        data: allowances.map((allowance) => ({
+          orgId: allowance.orgId,
+          proposalId: duplicated.id,
+          description: allowance.description,
+          amount: allowance.amount,
+          sortOrder: allowance.sortOrder,
+        })),
+      });
+    }
     await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
-    return toDTO(duplicated);
+    // Reload the copy: the bare create result carries no relations, so
+    // returning it directly would report empty selections and a zero
+    // allowances total even though the children were just copied.
+    const reloaded = await this.findOrThrow(duplicated.id, orgId);
+    return toDTO(reloaded);
+  }
+
+  private async findEditableProposal(proposalId: string, orgId?: string) {
+    const row = await prisma.proposal.findFirst({
+      where: { id: proposalId, project: orgId ? { orgId } : undefined },
+      include: {
+        project: { select: { orgId: true } },
+        contracts: { select: { id: true }, take: 1 },
+      },
+    });
+    if (!row) throw new ApiError(404, `Proposal ${proposalId} not found`);
+    if (normalizeProposalStatus(row.status) === "accepted" || row.contracts.length > 0) {
+      throw new ApiError(409, `Proposal ${proposalId} is immutable after acceptance or contract creation; use a change order or duplicate revision`);
+    }
+    return row;
+  }
+
+  private async selectionWriteError(selectionId: string, proposalId: string, orgId?: string): Promise<ApiError> {
+    const existing = await prisma.proposalSelection.findFirst({
+      where: { id: selectionId, proposal: { id: proposalId, project: orgId ? { orgId } : undefined } },
+      include: { proposal: { include: { contracts: { select: { id: true }, take: 1 } } } },
+    });
+    if (!existing) return new ApiError(404, `Proposal selection ${selectionId} not found`);
+    return new ApiError(409, `Proposal ${proposalId} is immutable after acceptance or contract creation; use a change order or duplicate revision`);
+  }
+
+  private async allowanceWriteError(allowanceId: string, proposalId: string, orgId?: string): Promise<ApiError> {
+    const existing = await prisma.proposalAllowance.findFirst({
+      where: { id: allowanceId, proposal: { id: proposalId, project: orgId ? { orgId } : undefined } },
+      include: { proposal: { include: { contracts: { select: { id: true }, take: 1 } } } },
+    });
+    if (!existing) return new ApiError(404, `Proposal allowance ${allowanceId} not found`);
+    return new ApiError(409, `Proposal ${proposalId} is immutable after acceptance or contract creation; use a change order or duplicate revision`);
   }
 
   private async findOrThrow(id: string, orgId?: string) {
@@ -446,6 +989,8 @@ export class ProposalsService {
       where: { id, project: orgId ? { orgId } : undefined },
       include: {
         deliveries: { orderBy: { occurredAt: "desc" } },
+        selections: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+        allowances: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
         project: {
           include: {
             customer: {
@@ -465,6 +1010,7 @@ export class ProposalsService {
     projectId: string;
     actorUserId?: string;
     eventType: string;
+    deliveryChannel?: string;
     recipientEmail?: string | null;
     metadata?: Record<string, unknown>;
   }): Promise<void> {
@@ -476,6 +1022,7 @@ export class ProposalsService {
         orgId: input.orgId,
         proposalId: input.proposalId,
         eventType: input.eventType,
+        deliveryChannel: input.deliveryChannel ?? "app",
         recipientEmail: input.recipientEmail,
         actorUserId: input.actorUserId,
         metadataJson: input.metadata as Prisma.InputJsonValue | undefined,
@@ -647,6 +1194,31 @@ function toQueueItemDTO(row: {
   };
 }
 
+/**
+ * DES-10-F7 (review repair): bind a portal response to the revision the
+ * customer reviewed. The portal page renders the proposal's updatedAt and
+ * the form returns it as expectedUpdatedAt; a staff edit after the page
+ * rendered bumps updatedAt (Prisma @updatedAt), so the response is
+ * rejected with 409 and the customer must review the updated document.
+ * Omitted when the caller cannot send a revision (older clients) — the
+ * status + scope predicates remain the guard then. The conditional update
+ * also predicates on updatedAt, so the check is atomic.
+ */
+function parseExpectedUpdatedAt(value: string | undefined): Date | undefined {
+  if (value === undefined) return undefined;
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    throw new ApiError(400, "expectedUpdatedAt must be a valid date-time");
+  }
+  return parsed;
+}
+
+function assertReviewedRevision(row: { updatedAt: Date }, expectedUpdatedAt: Date | undefined): void {
+  if (expectedUpdatedAt && row.updatedAt.getTime() !== expectedUpdatedAt.getTime()) {
+    throw new ApiError(409, "Proposal changed since it was reviewed — please review the updated proposal before responding");
+  }
+}
+
 function toDTO(row: {
   id: string;
   projectId: string;
@@ -667,7 +1239,13 @@ function toDTO(row: {
   sentAt: Date | null;
   viewedAt: Date | null;
   respondedAt: Date | null;
+  signerName: string | null;
+  signerEmail: string | null;
+  signatureDataUrl: string | null;
+  signedAt: Date | null;
+  declinedReason: string | null;
   createdAt: Date;
+  updatedAt: Date;
   deliveries?: Array<{
     id: string;
     proposalId: string;
@@ -679,7 +1257,29 @@ function toDTO(row: {
     occurredAt: Date;
     createdAt: Date;
   }>;
+  selections?: Array<{
+    id: string;
+    proposalId: string;
+    label: string;
+    detail: string | null;
+    status: string;
+    dueDate: Date | null;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
+  allowances?: Array<{
+    id: string;
+    proposalId: string;
+    description: string;
+    amount: unknown;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
 }): ProposalDTO {
+  const selections = (row.selections ?? []).map(toSelectionDTO);
+  const allowances = (row.allowances ?? []).map(toAllowanceDTO);
   return {
     id: row.id,
     projectId: row.projectId,
@@ -700,9 +1300,135 @@ function toDTO(row: {
     sentAt: row.sentAt,
     viewedAt: row.viewedAt,
     respondedAt: row.respondedAt,
+    signerName: row.signerName ?? null,
+    signerEmail: row.signerEmail ?? null,
+    signatureDataUrl: row.signatureDataUrl ?? null,
+    signedAt: row.signedAt ?? null,
+    declinedReason: row.declinedReason ?? null,
     createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
     deliveries: (row.deliveries ?? []).map(toDeliveryDTO),
+    selections,
+    allowances,
+    allowancesTotal: allowances.reduce((sum, allowance) => sum + allowance.amount, 0),
   };
+}
+
+function toSelectionDTO(row: {
+  id: string;
+  proposalId: string;
+  label: string;
+  detail: string | null;
+  status: string;
+  dueDate: Date | null;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): ProposalSelectionDTO {
+  return {
+    id: row.id,
+    proposalId: row.proposalId,
+    label: row.label,
+    detail: row.detail,
+    status: normalizeSelectionStatus(row.status),
+    dueDate: row.dueDate ? row.dueDate.toISOString() : null,
+    sortOrder: row.sortOrder,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toAllowanceDTO(row: {
+  id: string;
+  proposalId: string;
+  description: string;
+  amount: unknown;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): ProposalAllowanceDTO {
+  return {
+    id: row.id,
+    proposalId: row.proposalId,
+    description: row.description,
+    amount: toNullableNumber(row.amount) ?? 0,
+    sortOrder: row.sortOrder,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+const PROPOSAL_SELECTION_STATUSES: readonly ProposalSelectionStatus[] = ["action_required", "confirmed"];
+
+function normalizeSelectionStatus(status: string): ProposalSelectionStatus {
+  return (PROPOSAL_SELECTION_STATUSES as readonly string[]).includes(status)
+    ? (status as ProposalSelectionStatus)
+    : "action_required";
+}
+
+function validateSelectionInput(
+  input: CreateProposalSelectionInput | UpdateProposalSelectionInput,
+  partial = false
+): { label?: string; detail?: string | null; status?: ProposalSelectionStatus; dueDate?: Date | null } {
+  const result: { label?: string; detail?: string | null; status?: ProposalSelectionStatus; dueDate?: Date | null } = {};
+
+  if (input.label !== undefined || !partial) {
+    const label = typeof input.label === "string" ? input.label.trim() : "";
+    if (label.length < 1 || label.length > 120) {
+      throw new ApiError(400, "Selection label must be 1-120 characters");
+    }
+    result.label = label;
+  }
+  if (input.detail !== undefined) {
+    if (input.detail === null) {
+      result.detail = null;
+    } else {
+      const detail = typeof input.detail === "string" ? input.detail.trim() : "";
+      if (detail.length > 500) throw new ApiError(400, "Selection detail must be at most 500 characters");
+      result.detail = detail === "" ? null : detail;
+    }
+  }
+  if (input.status !== undefined) {
+    if (!(PROPOSAL_SELECTION_STATUSES as readonly string[]).includes(input.status)) {
+      throw new ApiError(400, "Selection status must be action_required or confirmed");
+    }
+    result.status = input.status;
+  }
+  if (input.dueDate !== undefined) {
+    if (input.dueDate === null) {
+      result.dueDate = null;
+    } else {
+      const dueDate = new Date(input.dueDate);
+      if (Number.isNaN(dueDate.getTime())) throw new ApiError(400, "Selection due date must be a valid date");
+      result.dueDate = dueDate;
+    }
+  }
+  return result;
+}
+
+function validateAllowanceInput(
+  input: CreateProposalAllowanceInput | UpdateProposalAllowanceInput,
+  partial = false
+): { description?: string; amount?: number } {
+  const result: { description?: string; amount?: number } = {};
+
+  if (input.description !== undefined || !partial) {
+    const description = typeof input.description === "string" ? input.description.trim() : "";
+    if (description.length < 1 || description.length > 200) {
+      throw new ApiError(400, "Allowance description must be 1-200 characters");
+    }
+    result.description = description;
+  }
+  if (input.amount !== undefined) {
+    const amount = typeof input.amount === "number" ? input.amount : Number(input.amount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      throw new ApiError(400, "Allowance amount must be a finite number of 0 or more");
+    }
+    result.amount = amount;
+  } else if (!partial) {
+    throw new ApiError(400, "Allowance amount must be a finite number of 0 or more");
+  }
+  return result;
 }
 
 function toDeliveryDTO(row: {

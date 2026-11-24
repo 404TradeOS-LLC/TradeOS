@@ -52,6 +52,9 @@ const scheduleSchema = z.object({
   estimatedDurationMinutes: z.coerce.number().int().positive().optional(),
   overrideConflict: z.boolean().optional(),
   overrideReason: z.string().trim().optional(),
+  // DEV-22(c): rescheduling a dispatched job reverses its dispatch; the
+  // caller must confirm the reversal explicitly.
+  confirmDispatchReversal: z.boolean().optional(),
   expectedUpdatedAt: z.string().datetime().optional(),
 });
 
@@ -241,6 +244,7 @@ export const jobsController = {
         estimatedDurationMinutes: body.estimatedDurationMinutes,
         overrideConflict: body.overrideConflict,
         overrideReason: body.overrideReason,
+        confirmDispatchReversal: body.confirmDispatchReversal,
         expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined,
       })
     );
@@ -260,6 +264,7 @@ export const jobsController = {
         estimatedDurationMinutes: body.estimatedDurationMinutes,
         overrideConflict: body.overrideConflict,
         overrideReason: body.overrideReason,
+        confirmDispatchReversal: body.confirmDispatchReversal,
         expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined,
       })
     );
@@ -323,8 +328,8 @@ export const jobsController = {
 
   async readyForInvoice(req: Request, res: Response) {
     const auth = requireAuthContext(req);
-    const body = reasonSchema.parse(req.body);
-    res.json(await service.readyForInvoice(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason }));
+    const body = transitionSchema.parse(req.body);
+    res.json(await service.readyForInvoice(req.params.jobId, { orgId: requireOrgId(req), actor: auth, reason: body.reason, expectedUpdatedAt: body.expectedUpdatedAt ? new Date(body.expectedUpdatedAt) : undefined }));
   },
 
   async listAssignments(req: Request, res: Response) {

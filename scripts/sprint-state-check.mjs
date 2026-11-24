@@ -2,14 +2,14 @@ import fs from "node:fs";
 
 const backlogPath = process.argv[2] || "docs/SPRINT_BACKLOG.md";
 const text = fs.readFileSync(backlogPath, "utf8");
-const allowed = new Set(["DONE", "IN_REVIEW", "READY", "BLOCKED", "PLANNED", "DEFERRED", "CANCELLED"]);
+const allowed = new Set(["DONE", "IN_REVIEW", "READY", "BLOCKED", "PLANNED", "PARTLY DONE", "DEFERRED", "CANCELLED"]);
 
 const sprintPattern = /^### (S\d{3}) — ([^\n]+)\n([\s\S]*?)(?=^### S\d{3} — |\n## |\Z)/gm;
 const sprints = new Map();
 let match;
 while ((match = sprintPattern.exec(text)) !== null) {
   const [, id, title, body] = match;
-  const status = body.match(/^Status:\s+([A-Z_]+)\s*$/m)?.[1];
+  const status = body.match(/^Status:\s+([A-Z][A-Z_ ]*?)\s*$/m)?.[1];
   const depsRaw = body.match(/^Dependencies:\s+(.+)\s*$/m)?.[1] ?? "none";
   const dependencies = depsRaw === "none"
     ? []

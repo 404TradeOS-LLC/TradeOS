@@ -29,7 +29,12 @@ test("mobile estimate keeps the canonical four-stage workflow", async () => {
   assert.match(builder, /Continue to items/);
   assert.match(builder, /Continue to price/);
   assert.match(builder, /Continue to review/);
-  assert.match(builder, /safe-area-inset-bottom/);
+  // The sticky shell with safe-area clearance now lives in the shared
+  // StickyTaskAction (DES-10-F6 convergence, following the #1031 Site Visit
+  // precedent): the builder pins the usage, and the shared component's own
+  // contract test pins the shell classes.
+  assert.match(builder, /<StickyTaskAction/);
+  assert.doesNotMatch(builder, /function EstimateStageAction/);
 });
 
 
@@ -189,6 +194,30 @@ test("Price groups only persisted line costs and keeps customer sell total separ
   assert.doesNotMatch(builder, /Customer-facing review/);
 });
 
+test("Review readiness checklist gates Finalize until exclusions and price sources are reviewed", async () => {
+  const builder = await readSource("./builder.tsx");
+  assert.match(builder, /aria-label="Review readiness checklist"/);
+  assert.match(builder, /Before finalizing/);
+  assert.match(builder, /Exclusions reviewed/);
+  assert.match(builder, /Confirm the exclusions that will appear on the customer proposal have been reviewed/);
+  assert.match(builder, /Price sources reviewed/);
+  assert.match(builder, /Confirm each line&apos;s Costbook price source was reviewed in Items before adding/);
+  assert.match(builder, /Finalizing stays blocked until exclusions and price sources have been reviewed/);
+  // Persisted through the existing draft-update path: each toggle PATCHes
+  // the estimate and the checked state renders from the stored
+  // timestamps, so a completed checklist survives a reload.
+  assert.match(builder, /exclusionsReviewed: reviewed/);
+  assert.match(builder, /priceSourcesReviewed: reviewed/);
+  assert.match(builder, /checked=\{exclusionsReviewedAt != null\}/);
+  assert.match(builder, /checked=\{priceSourcesReviewedAt != null\}/);
+  assert.match(builder, /reviewChecklistComplete = estimate\.exclusionsReviewedAt != null && estimate\.priceSourcesReviewedAt != null/);
+  // Finalize stays blocked until the checklist is complete. There is
+  // no line-count gate: decision 22-B (Billy's word 2026-11-23) allows
+  // finalizing a $0 estimate, so an empty line list must not disable it.
+  assert.match(builder, /disabled=\{finalizePending \|\| !reviewChecklistComplete\}/);
+  assert.match(builder, /Checklist complete — Finalize estimate is available/);
+});
+
 test("failed finalization preserves the saved estimate and offers a retry without inventing success", async () => {
   const builder = await readSource("./builder.tsx");
   assert.match(builder, /method: "POST"/);
@@ -250,4 +279,34 @@ test("desktop and mobile share a labeled scope editor with retained failure inpu
   assert.match(builder, /aria-busy=\{pending\}/);
   assert.match(builder, /Your scope is still in the editor/);
   assert.match(builder, /Item removal was not confirmed/);
+});
+
+
+test("estimate builder header shows customer and job-description identity lines from existing data only (DES-10-F5)", async () => {
+  const builder = await readSource("./builder.tsx");
+  const page = await readSource("./page.tsx");
+
+  // The server page passes the customer name and job type it already loads
+  // via getProject (project.customer is embedded in that response); the
+  // builder takes no new fetch for identity data.
+  assert.match(page, /customerName=\{project\.customer\?\.name \?\? null\}/);
+  assert.match(page, /jobType=\{project\.jobType\}/);
+  assert.match(builder, /customerName\?: string \| null/);
+  assert.match(builder, /jobType\?: string \| null/);
+
+  // Identity block sits directly under the header: customer line, then the
+  // saved scope as the job-description line with the project job type as
+  // fallback. Either line renders nothing when its source data is absent.
+  assert.match(builder, /aria-label="Estimate identity"/);
+  assert.match(builder, /const jobDescription = persistedScope\.trim\(\) \|\| jobType\?\.trim\(\) \|\| null;/);
+  assert.match(builder, /\{customerName \|\| jobDescription \? \(/);
+  assert.match(builder, /className="min-w-0 truncate text-sm font-medium text-foreground">\{customerName\}/);
+  assert.match(builder, /className="line-clamp-2 text-sm text-muted-foreground">\{jobDescription\}/);
+
+  // The existing version identifier and status badge are kept; no sequential
+  // estimate number is invented (none exists in the data model — Estimate
+  // carries only a uuid id and a per-project version).
+  assert.match(builder, /title=\{`Estimate v\$\{estimate\.version\}`\}/);
+  assert.match(builder, /<StatusBadge status=\{estimate\.status\} \/>/);
+  assert.doesNotMatch(builder, /EST-\d+|ESTIMATE #\d+/);
 });

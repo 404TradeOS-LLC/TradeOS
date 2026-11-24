@@ -213,6 +213,18 @@ describe("estimateEngineController", () => {
     expect(res.json).toHaveBeenCalledWith({ id: "estimate-1", taxPct: 7 });
   });
 
+  it("passes review checklist flags through the authenticated route", async () => {
+    updateEstimateMock.mockResolvedValue({ id: "estimate-1", exclusionsReviewedAt: "2026-11-23T12:00:00.000Z" });
+    recordMock.mockResolvedValue({});
+    const req = buildRequest("dispatcher", { exclusionsReviewed: true, priceSourcesReviewed: true });
+    const res = buildResponse();
+
+    await estimateEngineController.updateEstimate(req, res);
+
+    expect(updateEstimateMock).toHaveBeenCalledWith({ estimateId: "estimate-1", orgId: "org-1", exclusionsReviewed: true, priceSourcesReviewed: true });
+    expect(res.json).toHaveBeenCalledWith({ id: "estimate-1", exclusionsReviewedAt: "2026-11-23T12:00:00.000Z" });
+  });
+
   it("rejects a pricing mode without its matching percentage", async () => {
     const req = buildRequest("dispatcher", { mode: "markup" });
     await expect(estimateEngineController.setPricingMode(req, buildResponse())).rejects.toThrow(/markupPct is required/);

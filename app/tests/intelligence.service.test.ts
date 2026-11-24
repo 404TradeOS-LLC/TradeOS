@@ -10,7 +10,7 @@ const mockPrisma = {
 
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
 
-import { FeatureFlagsService, GlobalSearchService, RecentlyViewedService, scoreSearchDocument } from "../modules/intelligence/service";
+import { FeatureFlagsService, GlobalSearchService, RecentlyViewedService, scoreSearchDocument, slugify } from "../modules/intelligence/service";
 
 describe("intelligence foundation services", () => {
   beforeEach(() => {
@@ -116,5 +116,23 @@ describe("intelligence foundation services", () => {
 
     expect(result.enabled).toBe(true);
     expect(result.matchedScope).toBe("user");
+  });
+});
+
+describe("slugify", () => {
+  it("lowercases, hyphenates, and trims edge dashes", () => {
+    expect(slugify("My Cool Tag!")).toBe("my-cool-tag");
+    expect(slugify("  --Roofing & Gutters-- ")).toBe("roofing-gutters");
+    expect(slugify("a--b")).toBe("a-b");
+    expect(slugify("---")).toBe("");
+    expect(slugify("already-slug")).toBe("already-slug");
+  });
+
+  it("handles a long interior dash run in linear time", () => {
+    // The old /^-+|-+$/ trim took ~147ms on this input (CodeQL #38).
+    const name = `x${"-".repeat(10000)}y`;
+    const startedAt = Date.now();
+    expect(slugify(name)).toBe("x-y");
+    expect(Date.now() - startedAt).toBeLessThan(500);
   });
 });

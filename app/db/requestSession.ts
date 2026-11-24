@@ -53,7 +53,8 @@ export async function runWithPortalDatabaseSession<T>(
   client: PrismaClient,
   portal: CustomerPortalContext,
   operation: () => Promise<T>,
-  sessionSource = "customer_portal"
+  sessionSource = "customer_portal",
+  portalSessionHash = ""
 ): Promise<T> {
   const maxWait = getDatabaseTransactionMaxWait();
   const timeout = parseTransactionTimeout(process.env.RLS_TRANSACTION_TIMEOUT_MS);
@@ -67,6 +68,7 @@ export async function runWithPortalDatabaseSession<T>(
           set_config('app.role', 'portal_customer', true),
           set_config('app.portal_customer_id', ${portal.customerId}, true),
           set_config('app.portal_session_id', ${portal.sessionId}, true),
+          set_config('app.portal_session_hash', ${portalSessionHash}, true),
           set_config('app.session_source', ${sessionSource}, true)
       `);
 

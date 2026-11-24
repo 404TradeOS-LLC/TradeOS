@@ -13,16 +13,17 @@ test("Settings shows the signed-in user's own sign-in ID under Team & Access", a
   // The page resolves the session subject (the Supabase Auth UUID, or
   // local:<uuid> for a local-auth account) and hands it to the console.
   assert.match(page, /getSession\(\)/);
-  assert.match(page, /signInId=\{session\?\.sub \?\? null\}/);
+  assert.match(page, /const authSubject = session\?\.sub \?\? null;/);
+  assert.match(page, /authSubject=\{authSubject\}/);
 
   // The console renders it as its own card in the team section, from the
-  // signInId prop — never from the application user UUID.
-  assert.match(consoleSource, /signInId: string \| null/);
+  // authSubject prop — never from the application user UUID.
+  assert.match(consoleSource, /authSubject: string \| null/);
   assert.match(consoleSource, /Your TradeOS sign-in ID/);
-  assert.match(consoleSource, /selectedSection\.id === "team" && signInId/);
+  assert.match(consoleSource, /selectedSection\.id === "team" && authSubject/);
   const card = consoleSource.match(/Your TradeOS sign-in ID[\s\S]*?AddMemberForm/);
   assert.ok(card, "expected the sign-in ID card directly above the Add member form");
-  assert.match(card[0], /\{signInId\}/);
+  assert.match(card[0], /\{authSubject\}/);
   assert.doesNotMatch(card[0], /supplierWorkflowIdentity\.userId/);
 });
 

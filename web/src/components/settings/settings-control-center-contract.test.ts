@@ -131,3 +131,80 @@ test("selected sandbox diagnostics show only server-screened failed-line explana
   assert.match(source, /ABC says:/);
   assert.match(source, /No price or account preference was saved/);
 });
+
+test("Add member uses the session subject as the sign-in ID, not the application user UUID", async () => {
+  const page = await readSource("../../app/(app)/settings/page.tsx");
+  const consoleSource = await readSource("./settings-console.tsx");
+  const form = await readSource("./add-member-form.tsx");
+
+  // The page derives the displayed ID from the verified session subject —
+  // the authentication subject the backend looks members up by — and never
+  // from the application user UUID.
+  assert.match(page, /const session = await getSession\(\);/);
+  assert.match(page, /const authSubject = session\?\.sub \?\? null;/);
+  assert.match(page, /authSubject=\{authSubject\}/);
+  assert.doesNotMatch(page, /authSubject=\{.*currentUserId/);
+  assert.match(consoleSource, /authSubject: string \| null;/);
+  assert.match(consoleSource, /Your TradeOS sign-in ID/);
+  assert.match(consoleSource, /it is not the application user UUID shown under Supplier workflow IDs/);
+  assert.match(consoleSource, /selectedSection\.id === "team" && authSubject/);
+  // The form must point the owner at the sign-in ID, never at the Supplier
+  // workflow IDs card that shows the application user UUID.
+  assert.match(form, /TradeOS sign-in ID/);
+  assert.match(form, /Your TradeOS\s+sign-in ID/);
+  assert.match(form, /Do not use the application user UUID under Supplier workflow IDs/);
+  assert.doesNotMatch(form, /shown on the person.*under Supplier workflow IDs/);
+});
+
+test("Send invite is owner-only, invites only technician/dispatcher, and never handles the raw token", async () => {
+  const consoleSource = await readSource("./settings-console.tsx");
+  const form = await readSource("./send-invite-form.tsx");
+  const lib = await readSource("../../lib/send-invite.ts");
+
+  // The console shows the form only to owners: the invite endpoint is
+  // owner-only (requireRoles ["owner"]), while Add member is offered to
+  // owner/admin via canManageWorkspace. An admin must never see a form
+  // that would 403 on submit.
+  assert.match(consoleSource, /import { SendInviteForm } from "\.\/send-invite-form";/);
+  assert.match(
+    consoleSource,
+    /selectedSection\.id === "team" && initialWorkspaceData\.currentRole === "owner"/
+  );
+  assert.match(consoleSource, /<SendInviteForm \/>/);
+  // The form is the invite counterpart to Add member: it emails a person
+  // with no account yet, it does not attach an existing sign-in.
+  assert.match(form, /does not have a TradeOS account yet/);
+  assert.match(form, /submitSendInvite/);
+  assert.match(form, /useState<SendInviteRole>\("technician"\)/);
+  assert.match(form, /expire in 7 days/);
+  assert.match(form, /not listed in the team directory/);
+  assert.match(form, /Invite created for/);
+  assert.match(form, /scheduled for delivery/);
+  assert.match(form, /Could not send invite:/);
+  // A 201 means the invite was created and the email scheduled — not that
+  // it was delivered (production delivery silently fails until #872 is
+  // fixed). The copy must never promise the recipient will get the email.
+  assert.doesNotMatch(form, /Invite sent to/);
+  assert.doesNotMatch(form, /get an email|will receive email/);
+  // The raw invitation token is a non-production server extra: neither the
+  // form nor the helper may name it, render it, or return it.
+  assert.doesNotMatch(form, /inviteToken/);
+  assert.doesNotMatch(lib, /inviteToken/);
+  assert.match(lib, /method: "POST"/);
+  assert.match(lib, /"\/api\/v1\/account\/invites"/);
+  assert.match(lib, /sendInviteRoles = \["technician", "dispatcher"\]/);
+});
+
+test("Settings draft is initialized once from props and never re-synced — the shell remount is what discards it", async () => {
+  const source = await readSource("./settings-console.tsx");
+
+  // useState takes the initial draft only on mount. A workspace switch that
+  // re-renders the page with the next workspace's settings passes a new
+  // initialDraft prop, but this component keeps the old draft — and Save
+  // PATCHes that draft under the current session. The (app) shell's
+  // workspace key must therefore remount this component on every switch;
+  // no prop-sync effect here may silently "fix" it by discarding edits.
+  assert.match(source, /const \[draft, setDraft\] = useState\(initialDraft\);/);
+  assert.match(source, /const \[savedDraft, setSavedDraft\] = useState\(initialDraft\);/);
+  assert.doesNotMatch(source, /setDraft\(initialDraft\)/);
+});

@@ -7,6 +7,7 @@ export const assembliesDatabaseRouter = Router();
 assembliesDatabaseRouter.get("/search", asyncHandler(ctrl.search));
 assembliesDatabaseRouter.get("/templates", asyncHandler(ctrl.templates));
 assembliesDatabaseRouter.get("/starter-catalog", asyncHandler(ctrl.starterCatalog));
+assembliesDatabaseRouter.get("/starter-catalog/:templateId/mapping-suggestions", asyncHandler(ctrl.mappingSuggestions));
 assembliesDatabaseRouter.post("/starter-catalog/install", asyncHandler(ctrl.installStarterCatalog));
 assembliesDatabaseRouter.get("/", asyncHandler(ctrl.list));
 assembliesDatabaseRouter.get("/:id/unit-cost", asyncHandler(ctrl.getUnitCost));

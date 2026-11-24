@@ -196,6 +196,33 @@ never persisted as a completed action; mobile field context remains
 `text`; and the assembled bounded context is forwarded into both downstream
 tool execution and the model-provider seam. These are correctness fixes inside
 the existing A14 architecture, not a new milestone or broader authority grant.
+
+## Google Gemini model provider
+
+`GoogleGeminiAthenaProvider` (`app/modules/athena-kernel/provider.ts`) is the
+first real model behind the `AthenaProviderAdapter` seam, selected by
+`ATHENA_PROVIDER_MODE=google`. It calls the Google AI Studio API
+(`POST /v1beta/models/{model}:generateContent`) with global `fetch` and no new
+dependency; the default model is `gemini-3.5-flash-lite` (override with
+`ATHENA_GEMINI_MODEL`). A real answer needs two flags, not one:
+`ATHENA_KERNEL_ENABLED=true` and `ATHENA_DRAFT_RESPONSES_ENABLED=true` — the
+kernel short-circuits before any provider call without the second. With
+`google` selected but no `GEMINI_API_KEY`, resolution fails closed to the
+disabled provider; there is no startup crash and no partial answer. The adapter
+is draft-only: one stateless `generateContent` call per kernel request, no
+conversation history, no tools, no streaming, and no approval/action path —
+the DEV-17 S12 findings on the unconnected approval/write path are unchanged.
+The prompt is rendered from the minimal A1 context only (role, selected-scope
+ids, channel metadata) and truncated to `ATHENA_CONTEXT_BUDGET`; scope ids are
+never silently dropped. Token counts come from the response `usageMetadata`
+only, and `estimatedUsd` is a telemetry estimate at the checked paid-tier
+rates ($0.30/1M input, $2.50/1M output, checked 2026-11-23), never the bill.
+Known gap: `GET /api/v1/athena/capabilities` reports kernel state only and does
+not reflect provider health — a bad key still reports the kernel as enabled
+and the failure surfaces on the first chat call as a 502 with the safe summary
+only. Staging-first verification with a real Gemini call is required before any
+production env change; the API key is a Vercel env var only, supplied by the
+founder via the Secure Vault.
 ## Patched tool input validation
 
 Athena tool inputs now use the API’s patched Zod 4 runtime. UUID-shaped inputs preserve their former accepted shapes through `z.guid()`; malformed IDs remain invalid. Explicit record schemas retain plugin metadata/action dictionary semantics. Tool permissions, confirmation policy, idempotency, audit and domain ownership remain unchanged. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
@@ -217,3 +244,7 @@ unchanged. High-risk confirmation/resume is still a separate contract; this
 change does not turn an approval state into success or resubmit restricted
 actions. Action-engine dispatch is required for receipt guarantees; calling
 the service or tool handler directly does not provide deduplication.
+
+## Codes & Permits source research (proposed, 2026-11-08)
+
+The Costbook domain exposes a new static, read-only `tradeos.athena.tools.costbook.code.references` capability through the existing production Athena tool registry. Input: required two-letter state, optional county, `signage|permits|electrical|structural|right-of-way` topic and search text. Output contains official source citations, source/review dates, jurisdiction, a required verification action and `applicability:"unverified"`. Permission is `costbook.read`, risk low, no confirmation, no persistence, no external calls, no estimate/permit/price mutation. An omitted county gets a separate warning that local sources were excluded; an explicitly selected county with no indexed local sources gets a distinct warning based on unfiltered county coverage. **Not a legal compliance decision or automatically current code.** The branch is draft/unreleased; see `docs/architecture/COSTBOOK_CODES_PERMITS_PILOT.md`.

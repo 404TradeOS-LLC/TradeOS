@@ -30,6 +30,7 @@ jest.mock("../db/client", () => ({ basePrisma: mockBasePrisma, prisma: mockPrism
 jest.mock("../modules/proposals/service", () => ({ ProposalsService: jest.fn().mockImplementation(() => ({})) }));
 jest.mock("../modules/invoices/service", () => ({ InvoicesService: jest.fn().mockImplementation(() => ({})) }));
 jest.mock("../modules/contracts/service", () => ({ ContractsService: jest.fn().mockImplementation(() => ({})) }));
+jest.mock("../modules/closeout/service", () => ({ CloseoutService: jest.fn().mockImplementation(() => ({})) }));
 
 const mockSendCustomerPortalAccess = jest.fn();
 const mockRecordOutbound = jest.fn().mockResolvedValue({ created: true });
@@ -48,6 +49,7 @@ jest.mock("../db/resendDeliveryJournalStore", () => ({
 }));
 
 import { createHash } from "node:crypto";
+import { ApiError } from "../backend/middleware/errorHandler";
 import { CustomerPortalService, hashPortalSecret } from "../modules/customer-portal/service";
 
 describe("CustomerPortalService", () => {
@@ -215,6 +217,190 @@ describe("CustomerPortalService", () => {
     const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
     await expect(service.getProposal(context, "proposal-a")).rejects.toThrow("not found");
     await expect(service.getInvoice(context, "invoice-a")).rejects.toThrow("not found");
+  });
+
+  // DES-7 (c): the portal read is the mark-viewed writer — a sent invoice
+  // viewed in the portal is recorded viewed, idempotently, while drafts
+  // never reach the writer.
+  it("marks a sent invoice viewed on portal read and returns the viewed record", async () => {
+    const service = new CustomerPortalService() as any;
+    const viewed = { id: "invoice-a", status: "viewed", viewedAt: new Date() };
+    service.invoices = {
+      getById: jest.fn().mockResolvedValue({ id: "invoice-a", status: "sent" }),
+      markViewed: jest.fn().mockResolvedValue(viewed),
+    };
+    mockPrisma.invoice.findFirst.mockResolvedValue({ id: "invoice-a", status: "sent" });
+    const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
+
+    await expect(service.getInvoice(context, "invoice-a")).resolves.toEqual(viewed);
+    expect(service.invoices.markViewed).toHaveBeenCalledWith("invoice-a", "org-a");
+  });
+
+  it("does not mark a draft invoice viewed", async () => {
+    const service = new CustomerPortalService() as any;
+    service.invoices = {
+      getById: jest.fn().mockResolvedValue({ id: "invoice-a", status: "draft" }),
+      markViewed: jest.fn(),
+    };
+    mockPrisma.invoice.findFirst.mockResolvedValue({ id: "invoice-a", status: "draft" });
+    const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
+
+    await expect(service.getInvoice(context, "invoice-a")).rejects.toThrow("not found");
+    expect(service.invoices.markViewed).not.toHaveBeenCalled();
+  });
+
+  it("does not expose internal offline acceptance notes in customer-portal proposal responses", async () => {
+    const service = new CustomerPortalService() as any;
+    const staffNote = "Customer called staff privately; internal approval case ID 123";
+    const accepted = {
+      id: "proposal-a", status: "accepted", deliveries: [
+        { id: "event-1", eventType: "proposal.accepted", actorUserId: "user-internal-123", recipientEmail: "private@example.invalid", metadata: {
+          source: "staff_recorded_offline", acceptanceNote: staffNote, acceptanceChannel: "phone",
+        } },
+        { id: "event-2", eventType: "proposal.viewed", metadata: { previousStatus: "sent" } },
+      ],
+    };
+    service.proposals = { getById: jest.fn().mockResolvedValue(accepted) };
+    mockPrisma.proposal.findFirst.mockResolvedValue({ id: "proposal-a", status: "accepted" });
+
+    const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
+    const response = await service.getProposal(context, "proposal-a");
+
+    expect(JSON.stringify(response)).not.toContain(staffNote);
+    expect(JSON.stringify(response)).not.toContain("user-internal-123");
+    expect(JSON.stringify(response)).not.toContain("private@example.invalid");
+    expect(response.deliveries[0].actorUserId).toBeNull();
+    expect(response.deliveries[0].recipientEmail).toBeNull();
+    expect(response.deliveries[0].metadata).toEqual({ source: "staff_recorded_offline" });
+    expect(response.deliveries[1].metadata).toEqual({ previousStatus: "sent" });
+    expect(accepted.deliveries[0].metadata.acceptanceNote).toBe(staffNote); // keep internal record untouched
+  });
+
+  it("also redacts staff-only approval metadata from proposal summaries on the portal project", async () => {
+    const service = new CustomerPortalService() as any;
+    const staffNote = "Private staff conversation note not for the portal";
+    service.proposals = {
+      listByProject: jest.fn().mockResolvedValue([
+        { id: "proposal-a", status: "accepted", deliveries: [
+          { eventType: "proposal.accepted", actorUserId: "staff-private-id", recipientEmail: "staff-private@example.invalid", metadata: { source: "staff_recorded_offline", acceptanceNote: staffNote } },
+        ] },
+      ]),
+    };
+    service.invoices = { listByProject: jest.fn().mockResolvedValue([]) };
+    service.contracts = { listByProject: jest.fn().mockResolvedValue([]) };
+    // This project has no closeout yet: the handoff resolves to null.
+    service.closeout = {
+      getCloseoutByProject: jest.fn().mockRejectedValue(new ApiError(404, "Project project-a has no closeout")),
+    };
+    mockPrisma.project.findFirst.mockResolvedValue({ id: "project-a", name: "Synthetic job", status: "estimating", siteAddress: null });
+    const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
+    const response = await service.getProject(context, "project-a");
+    expect(JSON.stringify(response)).not.toContain(staffNote);
+    expect(JSON.stringify(response)).not.toContain("staff-private-id");
+    expect(JSON.stringify(response)).not.toContain("staff-private@example.invalid");
+    expect(response.proposals[0].deliveries[0].metadata).toEqual({ source: "staff_recorded_offline" });
+  });
+
+  // S069 portal handoff: the portal project carries the same closeout truth
+  // staff see — status, the backend's computed checklist, the resolved/open
+  // punch summary, warranties exactly as stored, and the portal-scoped
+  // document link. Staff-only record fields never reach the portal.
+  const closeoutChecklist = {
+    completedJobs: { count: 1, ids: ["job-1"] },
+    signedContract: { present: true, contractId: "contract-1" },
+    finalInvoice: { present: true, invoiceId: "invoice-1" },
+    acceptedProposal: { status: "present", proposalId: "proposal-1" },
+    openPunchCount: 1,
+    missing: ["open punch items (1)"],
+    ready: false,
+  };
+
+  function stubProjectLists(service: any) {
+    service.proposals = { listByProject: jest.fn().mockResolvedValue([]) };
+    service.invoices = { listByProject: jest.fn().mockResolvedValue([]) };
+    service.contracts = { listByProject: jest.fn().mockResolvedValue([]) };
+  }
+
+  it("includes the project's closeout handoff on the portal project", async () => {
+    const service = new CustomerPortalService() as any;
+    stubProjectLists(service);
+    service.closeout = {
+      getCloseoutByProject: jest.fn().mockResolvedValue({
+        closeout: { id: "closeout-1", status: "handed_off" },
+        checklist: closeoutChecklist,
+      }),
+      listPunchItemsByProject: jest.fn().mockResolvedValue([
+        { id: "punch-1", status: "verified" },
+        { id: "punch-2", status: "open" },
+      ]),
+      listWarrantyRecordsByProject: jest.fn().mockResolvedValue([
+        {
+          id: "warranty-1", projectId: "project-a", orgId: "org-a", jobId: null, contractId: "contract-1", invoiceId: null,
+          title: "Workmanship", coverageText: "Two years per contract.", sourceType: "contract", sourceId: "contract-1",
+          startsAt: null, endsAt: null, createdById: "staff-1",
+          createdAt: "2026-11-20T00:00:00.000Z", updatedAt: "2026-11-20T00:00:00.000Z",
+        },
+      ]),
+    };
+    mockPrisma.project.findFirst.mockResolvedValue({ id: "project-a", name: "Synthetic job", status: "completed", siteAddress: null });
+    const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
+    const response = await service.getProject(context, "project-a");
+
+    expect(response.closeout.status).toBe("handed_off");
+    expect(response.closeout.checklist).toEqual(closeoutChecklist);
+    expect(response.closeout.resolvedPunchCount).toBe(1);
+    expect(response.closeout.openPunchCount).toBe(1);
+    expect(response.closeout.warranties).toEqual([
+      {
+        id: "warranty-1", projectId: "project-a", jobId: null, contractId: "contract-1", invoiceId: null,
+        title: "Workmanship", coverageText: "Two years per contract.", sourceType: "contract", sourceId: "contract-1",
+        startsAt: null, endsAt: null, createdAt: "2026-11-20T00:00:00.000Z", updatedAt: "2026-11-20T00:00:00.000Z",
+      },
+    ]);
+    expect(response.closeout.documentHref).toBe("/api/customer-portal/projects/project-a/closeout/document");
+    expect(JSON.stringify(response.closeout)).not.toContain("staff-1");
+    expect(service.closeout.getCloseoutByProject).toHaveBeenCalledWith("project-a", "org-a", { portalCustomerId: "customer-a" });
+    expect(service.closeout.listPunchItemsByProject).toHaveBeenCalledWith("project-a", "org-a");
+    expect(service.closeout.listWarrantyRecordsByProject).toHaveBeenCalledWith("project-a", "org-a");
+  });
+
+  it("returns closeout null on the portal project when no closeout exists yet", async () => {
+    const service = new CustomerPortalService() as any;
+    stubProjectLists(service);
+    service.closeout = {
+      getCloseoutByProject: jest.fn().mockRejectedValue(new ApiError(404, "Project project-a has no closeout")),
+      listPunchItemsByProject: jest.fn(),
+      listWarrantyRecordsByProject: jest.fn(),
+    };
+    mockPrisma.project.findFirst.mockResolvedValue({ id: "project-a", name: "Synthetic job", status: "completed", siteAddress: null });
+    const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
+
+    const response = await service.getProject(context, "project-a");
+
+    expect(response.closeout).toBeNull();
+    expect(service.closeout.listPunchItemsByProject).not.toHaveBeenCalled();
+    expect(service.closeout.listWarrantyRecordsByProject).not.toHaveBeenCalled();
+  });
+
+  it("serves the closeout document to the owning portal customer", async () => {
+    const service = new CustomerPortalService() as any;
+    const document = { html: "<!doctype html><html></html>", filename: "closeout-synthetic-job.html" };
+    service.closeout = { getCloseoutDocumentHtml: jest.fn().mockResolvedValue(document) };
+    mockPrisma.project.findFirst.mockResolvedValue({ id: "project-a", name: "Synthetic job", status: "completed", siteAddress: null });
+    const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
+
+    await expect(service.getCloseoutDocument(context, "project-a")).resolves.toEqual(document);
+    expect(service.closeout.getCloseoutDocumentHtml).toHaveBeenCalledWith("project-a", "org-a", { portalCustomerId: "customer-a" });
+  });
+
+  it("denies another tenant's closeout document before any closeout read", async () => {
+    const service = new CustomerPortalService() as any;
+    service.closeout = { getCloseoutDocumentHtml: jest.fn() };
+    mockPrisma.project.findFirst.mockResolvedValue(null);
+    const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
+
+    await expect(service.getCloseoutDocument(context, "project-b")).rejects.toThrow("Project project-b not found");
+    expect(service.closeout.getCloseoutDocumentHtml).not.toHaveBeenCalled();
   });
 
   it("denies expired and revoked sessions before loading customer records", async () => {

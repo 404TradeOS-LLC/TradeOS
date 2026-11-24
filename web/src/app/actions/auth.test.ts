@@ -410,6 +410,7 @@ test("loginAction rejects a wrong password by surfacing Supabase's error rather 
   const catchBlock = errorBlock.slice(catchIndex, catchIndex + 100);
   assert.match(catchBlock, /return\s*\{\s*error:\s*error\.message\s*\}/);
 });
+
 test("switchWorkspaceAction selects the requested workspace and replaces the local session", () => {
   const source = readAuthActionsSource();
   const fnIndex = source.indexOf("export async function switchWorkspaceAction");

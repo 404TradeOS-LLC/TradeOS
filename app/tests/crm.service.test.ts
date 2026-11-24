@@ -364,6 +364,44 @@ describe("CrmService", () => {
     );
   });
 
+  it("persists paid and records one audit event when recorded payments fully cover a viewed invoice", async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        id: "invoice-1",
+        project_id: "project-1",
+        invoice_number: 1,
+        status: "viewed",
+        amount: "500.00",
+        recipient_email: "billing@example.com",
+      },
+    ]);
+    mockPrisma.payment.create.mockResolvedValue({ id: "payment-2", amount: 300 });
+    mockPrisma.payment.aggregate.mockResolvedValue({ _sum: { amount: "500.00" } });
+
+    await new CrmService().createPayment(
+      "org-1",
+      "invoice-1",
+      { amount: 300, paymentDate: "2026-07-02T00:00:00.000Z", method: "card" },
+      "user-1",
+      "owner"
+    );
+
+    expect(mockPrisma.invoice.update).toHaveBeenCalledWith({
+      where: { id: "invoice-1" },
+      data: { status: "paid", paidAt: expect.any(Date) },
+    });
+    expect(recordPaidEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: "org-1",
+        invoiceId: "invoice-1",
+        actorUserId: "user-1",
+        paymentId: "payment-2",
+        previousStatus: "viewed",
+        recordedPaymentTotal: "500.00",
+      })
+    );
+  });
+
   it("does not count a non-recorded payment toward reconciliation", async () => {
     mockPrisma.$queryRaw.mockResolvedValue([
       { id: "invoice-1", project_id: "project-1", invoice_number: 1, status: "sent", amount: "500.00", recipient_email: null },

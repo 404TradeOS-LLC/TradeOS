@@ -109,9 +109,22 @@ export function evaluateOwnership({ changedFiles, config }) {
   const changedSet = new Set(changedFiles);
   const docChanges = changedFiles.filter((file) => file.startsWith("docs/"));
   const exemptionMatches = collectMatches(changedFiles, config.exemptions);
+  const exemptedFiles = new Set(
+    changedFiles.filter((file) => config.exemptions.some((entry) => entry.paths.some((pattern) => pathMatches(file, pattern)))),
+  );
   const matchingRules = collectMatches(changedFiles, config.rules);
+  // An exemption suppresses a rule only when EVERY changed file that triggers
+  // the rule is covered by an exemption path. A rule still fires when any
+  // triggering file is not exempt, so exemptions can never silently waive a
+  // requirement for a change that also touches non-exempt paths.
+  const suppressedRules = [];
   const requiredDocs = new Set();
   for (const rule of matchingRules) {
+    const triggerFiles = changedFiles.filter((file) => rule.paths.some((pattern) => pathMatches(file, pattern)));
+    if (triggerFiles.length > 0 && triggerFiles.every((file) => exemptedFiles.has(file))) {
+      suppressedRules.push(rule);
+      continue;
+    }
     for (const doc of rule.requires) {
       requiredDocs.add(doc);
     }
@@ -122,6 +135,7 @@ export function evaluateOwnership({ changedFiles, config }) {
     docChanges,
     matchingRules,
     exemptionMatches,
+    suppressedRules,
     requiredDocs: [...requiredDocs].sort(),
     missingDocs,
   };
@@ -155,6 +169,12 @@ export function formatReport({ baseRef, result }) {
     lines.push("Matched exemptions:");
     for (const exemption of result.exemptionMatches) {
       lines.push(`  - ${exemption.paths.join(", ")} (${exemption.reason})`);
+    }
+  }
+  if (result.suppressedRules.length > 0) {
+    lines.push("Suppressed ownership rules (every triggering file exempt):");
+    for (const rule of result.suppressedRules) {
+      lines.push(`  - ${rule.paths.join(", ")}`);
     }
   }
   if (result.requiredDocs.length === 0) {

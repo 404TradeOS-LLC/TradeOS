@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-03
+last_verified: 2026-11-24
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -30,6 +30,8 @@ related_code:
   - app/scripts/s036-index-evidence.sh
   - .github/workflows/stale-pr-check.yml
   - .github/workflows/s027-browser-evidence.yml
+  - .github/workflows/s059-browser-evidence.yml
+  - .github/workflows/s068-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
   - .github/workflows/merge-readiness.yml
   - .github/workflows/merge-queue.yml
@@ -48,9 +50,9 @@ related_code:
 
 # TradeOS Engineering Command Center
 
-## Autonomous coordinator execution — PR #979 (proposed)
+## Autonomous coordinator execution — PR #979 (merged 2026-11-13 as `e30b8d4a`)
 
-Founder-requested default: `EXECUTE → VERIFY → RECONCILE → ADVANCE` for an approved engineering workstream. One coordinator checks actual connected tool capabilities and permissions, selects the highest-priority independent eligible task, repairs validated code/CI/review findings through the existing PR, runs exact-head gates, and advances after a fresh per-mission preflight. No new commander service, repo boundary, blanket production approval, automatic paid dependency installation, or unverified acceptance is implied. Current proposal updates AGENTS and the canonical next-sprint protocol; it does **not** assert that the PR Commander runtime or schedules now implement autonomous repair/dispatch. Implementing and proving that behavior remains a separate existing-work reconciliation task. See `docs/REPOSITORY_GOVERNANCE.md`.
+Founder-requested default: `EXECUTE → VERIFY → RECONCILE → ADVANCE` for an approved engineering workstream. One coordinator checks actual connected tool capabilities and permissions, selects the highest-priority independent eligible task, repairs validated code/CI/review findings through the existing PR, runs exact-head gates, and advances after a fresh per-mission preflight. No new commander service, repo boundary, blanket production approval, automatic paid dependency installation, or unverified acceptance is implied. Merged PR #979 updates AGENTS and the canonical next-sprint protocol; it does **not** assert that the PR Commander runtime or schedules now implement autonomous repair/dispatch. Implementing and proving that behavior remains a separate existing-work reconciliation task. See `docs/REPOSITORY_GOVERNANCE.md`.
 
 ## Invited beta mission — 2026-11-06
 
@@ -102,9 +104,27 @@ What the orchestrator does NOT do yet, stated plainly: it has not demonstrated a
 Production SQL read verification after the 47802 evidence seed reports 3,188 SupplierProducts, 3,188 source price observations, six Suppliers, and **zero active Materials / zero SupplierPriceUpdates**; observations are assigned to one tenant and historical rather than authenticated live ABC quotes. The new protected GitHub Actions workflow `preview-abc-supply-material.yml` makes the existing exact-product activation operator's **read-only** mode available to an owner/admin on mobile using the application user/organization IDs exposed by Settings → Costbook. Actual activation still needs independent SKU/UOM and baseline-cost authorization and explicit `--apply` outside this workflow. Live ABC sandbox quote and durable token rotation remain unproven until a reviewed Material becomes eligible.
 
 
-## S073 release-critical RLS coverage — READY 2026-10-05
+## S073 release-critical RLS coverage — DONE 2026-11-22
 
 Founder authorization starts S073 from current `main` `37deee0bad44d8c3ca4ad65f7e89d15190d7cae3`. Dependency S051 is DONE and no live S073 implementation lane exists. The implementation target is evidence, not policy redesign: derive every S052-S060 persisted resource from the S051 matrix/current route-service code, map it to current forced-RLS migration/policy evidence, and require disposable-PostgreSQL same-org/cross-org proof. Existing `rls.integration.ts` covers many core records, but direct live coverage is absent for at least customer-portal token/session rows, estimate line items, and invoice line items. If testing exposes a policy defect, record a blocking owner and stop before schema/migration/RLS/auth changes.
+
+Completed: implementation PR #1000 merged 2026-11-21 as `4d8f8a74` (coverage matrix, deterministic validator, live PostgreSQL evidence); portal request-context repair PR #1001 merged 2026-11-18 as `6f860f34`. S073 is DONE. S082's S073 dependency is satisfied; S082 remains BLOCKED until its full acceptance/evidence set is reconciled.
+
+## S059 customer portal access and session certification — IN_REVIEW (implemented by merged PR #1032, 2026-11-23; READY 2026-11-22)
+
+Governance-only readiness promotion from current `main` `c430fd17`. Dependency S051 is DONE (PR #538); live overlap rechecked 2026-11-22 found zero open PRs and no S059 lane. The prior readiness branch `origin/docs/s059-readiness-promotion` (PR #619, closed unmerged 2026-10-04 as superseded behind then-READY S053) is stale and was not reused. ADR-010 (Accepted) governs the magic-link model, implemented on main: staff issuance, single-use hashed tokens, short-lived hashed sessions, fail-closed redemption, replay/revocation protection, forced-RLS customer-scoped reads; S073 live PostgreSQL evidence covers `customer_portal_access_tokens` and `customer_portal_sessions`. The sprint certifies that model with retained authenticated browser evidence at 1440/1024/768/390 plus negative security evidence (replay, expiry, revocation, malformed, cross-tenant, cross-customer, unauthenticated, wrong-role), without broadening customer authorization or retaining bearer material. No new customer identity/authorization model, RLS-policy, migration, role/permission, authentication, portal-principal, or production database change is authorized; S054's separate portal decision is not a dependency. Update 2026-11-23: implementation merged as PR #1032 (squash `0a3aeefe`); S059 is now `IN_REVIEW` with full acceptance still owed (browser-evidence workflow dispatch + B6/E4 staging-DB write access, both Billy-only). No sprint is currently `READY`; next eligible sprint NONE. S068/S069/S071 remain `PLANNED` (higher-numbered, each needing its own promotion).
+
+## S068 readiness — READY 2026-11-23
+
+Governance-only readiness promotion from current `main` `bf23a3f5` on the founder's word ("promote every sprint that is ready"). S068 has no dependencies; live overlap rechecked 2026-11-23 found no competing lane (open PRs #1044, #1045, #1048, #1049, #1052, #1053 own none of the change-order scope). S068 certifies the implemented change-order contract (draft/approved/rejected state machine, portal review, audit, downstream visibility without mutating historical snapshots) per `docs/architecture/S068_CHANGE_ORDER_CUSTOMER_WORKFLOW_PLAN.md`. S069 and S071 also have satisfied `Dependencies:` but stay `PLANNED` — the sprint-state validator allows at most one `READY` sprint at a time, so each gets its own promotion after S068 leaves `READY`. `Release certification prerequisites:` are reference-validated only and do not block `READY`. No migration, role/permission, auth/RBAC/RLS policy, or production change is authorized by this promotion. S068 is the next eligible sprint. Update 2026-11-24: implementation in branch `feat/s068-change-order-certification` (03:00 sprint runner) — attributable `change_order.approved` / `change_order.rejected` activity events with the acting staff user as actor (GAP-1 fix, draft-only guard added), focused service/controller tests, live-PostgreSQL snapshot-stability integration test (CI-verified-only), S068 browser-evidence workflow + capture script + contract test (16/16), and `change_order` registered as an `IntelligenceEntityType` so the decision events are queryable through the typed activity filter. Customer portal approve/reject stays BLOCKED by design (ADR-010); no downstream roll-up into estimates/invoices/contracts exists (GAP-3, founder decision). S068 moves to `IN_REVIEW` on merge; browser-evidence dispatch from `main` is still owed and staging promotion waits for the field-closeout run to finish.
+
+## S069 readiness — READY 2026-11-24
+
+Governance-only readiness promotion from current `main` `1388baae` on the founder's word ("promote every sprint that is ready"). S069 has no dependencies; live overlap rechecked 2026-11-24 found no competing lane (sole open PR #1066, CodeQL memberships rate limit, owns no closeout/warranty scope; #1065 Copilot repair lane owns disjoint switcher files). S069 is build work — no punch/closeout/warranty models exist on main — building the field-completion → punch/closeout documents → customer handoff → warranty record workspace per `docs/architecture/S069_CLOSEOUT_WARRANTY_WORKSPACE_PLAN.md`, tenant-scoped and auditable, without inventing unsupported warranty promises. S071 also has satisfied `Dependencies:` but stays `PLANNED` — the sprint-state validator allows at most one `READY` sprint at a time, so it gets its own promotion after S069 leaves `READY`. `Release certification prerequisites:` (S057/S058, both PLANNED) are reference-validated only and do not block `READY`. The promotion authorizes no specific migration, role/permission, auth/RBAC/RLS policy, or production change; the implementation PR's migration follows the normal queue path. S069 is the next eligible sprint. Update 2026-11-24: implementation in branch `feat/s069-closeout-warranty-workspace` (base main `efcaa8f2`, rebased from `a4144ff0` after CodeQL warning fixes #1070–#1072 merged) — three new models with forced RLS (`PunchItem`, `ProjectCloseout`, `WarrantyRecord`, migration `20261124120000_add_closeout_warranty_workspace`), closeout service/controller/routes at `/api/v1/closeout`, project-workspace Closeout tab, read-only portal handoff, closeout document served as HTML, live-PostgreSQL RLS + snapshot-stability integration coverage, S073 matrix extension, and S069 browser-evidence workflow + capture script + contract test (19/19). The RLS test caught a real defect: the deployed `current_app_can_write()` helper includes technician, so the migration spells out the manager roles explicitly in all 12 policy predicates. S069 moves to `IN_REVIEW` on merge; browser-evidence dispatch from `main` is still owed.
+
+## S071 readiness — READY 2026-11-24
+
+Governance-only readiness promotion from current `main` `0d2ec04b` on the founder's word ("promote every sprint that is ready"). S071 has one dependency — S051, `DONE` through merged PR #538; live overlap rechecked 2026-11-24 found zero open PRs, no S071 remote branch, and no live S071 lane (the F7 public-portal lane owns disjoint customer-portal/proposal files). S071 is contract + evidence-automation work, not certification of an implemented contract: `/health` already reports `commitSha` and `/ready` already reports the non-secret `checks.database.projectRef` on main, and per-workflow identity proof already exists (`app/scripts/s059-deployment-identity.mjs`, reused by the S068/S069 browser-evidence workflows) — but the expected SHA is operator-attested (`BETA_RC_DEPLOYMENT_SHA` / `S059_EXPECTED_SHA`), the runtime publishes no environment or backend host, and each workflow re-proves identity ad hoc. S071 replaces that with a runtime build/environment identity contract (commit, environment, backend host, non-secret data-plane identifier, fail-closed on mismatch) per `docs/architecture/S071_DEPLOYMENT_IDENTITY_PLAN.md`. No secret fetched, decrypted, asserted, or retained; no production deployment or production data plane accepted; no new deployment pipeline, hosting change, or trust boundary. The promotion authorizes no specific code change beyond the contract; the implementation PR follows the normal queue path. S071 is the next eligible sprint.
 
 
 Costbook Data Foundation (merged 2026-10-04): founder-authorized non-numbered PR #628 landed on `main` as `8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf`, extending the existing Costbook supplier-evidence, canonical-key, BLS research-candidate, forced-RLS, Assembly, and Estimate snapshot boundaries. It does not create a second Costbook or change the numbered-sprint selector.
@@ -155,6 +175,8 @@ S049 (stale branch/PR/worktree retirement) is `DONE` as of 2026-09-12: a governa
 
 This is the concise operating overview for TradeOS engineering. It does not replace the Bible, Current State, Sprint Backlog, Session Handoff, module contracts, ADRs, or research evidence.
 
+Documentation-ownership note (2026-11-21): routine corrections to the sprint backlog or the startup protocol no longer force a Bible change in the same PR. A Bible edit still requires the backlog, this Command Center, and the handoff to be updated alongside it. The Bible remains the top of the authority hierarchy; this only stops the checker from demanding a Bible touch on every planning-doc correction.
+
 Start with:
 
 1. [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md)
@@ -189,6 +211,7 @@ The repository now has a stronger autonomous-maintenance safety envelope:
 - **API development toolchain:** PR #169 merged as `919beaaec3b08d92d268b3a8ac24f11842eb7a82`, advancing the backend development stack through TypeScript 6 and Jest 30 with explicit compatibility migrations and full App/Web/docs/live migration rehearsal validation.
 - **GitHub Actions runtime:** PR #181 merged as `1d6120ad4598b60d3c14a91366cb73b2bf42bd48`, replacing stale #130/#131 with one governed update to `actions/checkout@v7` and `actions/setup-node@v7` while preserving the explicit TradeOS Node workload versions. Checkout call sites are maintained on v7.0.1 as of 2026-08-18; this patch maintenance does not alter the workload runtime matrix.
 - **Artifact upload runtime maintenance:** PR #308 updates the authenticated RC smoke and S027 browser-evidence artifact publication steps from `actions/upload-artifact@v6` to `@v7`. Existing artifact names and directory paths remain unchanged, v7 direct-upload mode is not enabled, and no workflow permission/secret/trigger, explicit Node workload version, auth/RLS, schema, or TradeOS product-runtime behavior changes.
+- **Artifact upload patch maintenance:** PR #1007 moves every `actions/upload-artifact` call site from v7.0.1 to v7.0.2 (SHA-pinned sites to `cf430e030ddbb5b0abf93d22962f4752f3646cd9`, tag-form sites to `@v7.0.2`). Existing artifact names and directory paths remain unchanged, v7 direct-upload mode is not enabled, and no workflow permission/secret/trigger, explicit Node workload version, auth/RLS, schema, or TradeOS product-runtime behavior changes.
 
 These changes improve evidence for low-risk automated repair. They do not grant autonomous authority over migrations, auth/RLS policy, destructive data operations, secrets, billing, major architecture, or other protected decisions.
 
@@ -269,6 +292,10 @@ The S036 disposable index-evidence workflow is a supplemental, pull-request-scop
 
 The authenticated S027 browser workflow remains operator-triggered and uses the Beta smoke credentials to create fresh runtime authentication state outside the checkout; no serialized Playwright storage-state secret is required. S047 is complete through PR #397 and its completion evidence. The RC workflow no longer depends on baked owner/admin or technician cookie jars: it exercises the owner authentication lifecycle with the maintained Beta smoke credentials, creates fresh owner/admin state through the real login form using those credentials, validates the named organization, and fresh-authenticates the organization-matched technician with its isolated field password for the Field leg. Runtime state stays outside the checkout and is removed before artifact publication. The workflow binds mutating golden runs to the approved `tradeos-costbook-*.vercel.app` and `tradeos-costbook-web-*.vercel.app` Preview host patterns, excludes `-git-main-` previews and Production aliases, runs the S047 golden and resource-backed business-flow checks, publishes failure diagnostics, and fail-closes mutation or screenshot publication outside the documented sanitized non-production boundary. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the workflow inventory and evidence boundaries.
 
+The authenticated S059 browser workflow certifies the ADR-010 magic-link customer portal the same way: operator-triggered, staff issuance (UI preferred, authenticated API fallback), single-use redemption, portal reads, contract signing, and the negative security matrix at 1440/1024/768/390, with fixtures created at run time in the sanitized TEST Org and every issued token revoked in cleanup. Deployment identity is proven through the Vercel API plus the API deployment's `/health` SHA and `/ready` data-plane project ref — it deliberately does not reuse S027's Vercel env-inventory assertion, which fails on current Preview/staging env metadata. Expired-token and expired-session browser states are BLOCKED on staging-DB write access (owner: Billy); the substitute is live-PostgreSQL expiry evidence in `app/tests/s059.portal.integration.ts`. Staging `7c428acd` lacks main's #1001 session-hash scoping and #937 proposal redaction, so a browser run against staging certifies the staging portal surface, not main's; see [S059 certification evidence](architecture/S059_CERTIFICATION_EVIDENCE.md). This tooling does not change product behavior or complete S059 until a full exact-SHA non-production run passes with retained artifacts.
+
+The authenticated S068 browser workflow certifies the change-order customer workflow the same way: operator-triggered, staff draft creation, priced line items, approve and reject with attributable activity records, and the negative matrix (re-approve, re-reject, draft edit after decision, wrong-role, cross-tenant, unauthenticated, unknown ids, absent portal endpoint) at 1440/1024/768/390, with fixtures created at run time in the sanitized TEST Org and nothing deleted. Deployment identity is proven through the Vercel API plus the API deployment's `/health` SHA and `/ready` data-plane project ref. The wrong-role and cross-tenant probes are BLOCKED until their fixtures are provisioned (owner: Billy); the substitute is live-PostgreSQL decision/audit evidence in `app/tests/s068.change-orders.integration.ts`. Customer portal approve/reject is BLOCKED by design (ADR-010) and is not attempted. See [S068 certification evidence](architecture/S068_CERTIFICATION_EVIDENCE.md). This tooling does not change product behavior or complete S068 until a full exact-SHA non-production run passes with retained artifacts.
+
 RC smoke run #11 identified a staging deployment configuration failure before credential evaluation: the stable backend returned `SUPABASE_URL is not configured`. The guarded `Repair staging Supabase auth configuration` workflow owns that exact recovery by restoring the public TradeOS Staging URL only to Preview scope for the `staging` branch, redeploying the stable backend, and checking `/ready`. It does not copy Production configuration or change application auth policy.
 
 The first repair dispatch stopped before redeployment because Vercel CLI 59.11.2 required explicit confirmation for `env update` and no longer accepted `--yes` for `redeploy`. A later dispatch restored the branch-scoped staging Supabase URL but exposed a stale pinned deployment URL. The workflow uses `env update --value ... --yes` with pinned Vercel CLI 59.11.2. Its repair helper resolves structured deployment data for the captured staging branch SHA, verifies project/team/repository and Preview identity, redeploys by ID, and checks the replacement immutable URL for runtime SHA, database/schema readiness, and invalid Supabase token rejection after issuer initialization. It retains deployment identity on failure instead of certifying a moving alias. Regression coverage rejects stale commits, foreign targets, redirects, and failed readiness. A fresh repair dispatch and authenticated evidence remain required; this repository change does not establish current-main release certification.
@@ -292,7 +319,7 @@ Expected required CI jobs include:
 
 Pushes to `main` run all app, integration, and web verification lanes. App/Web child-lane path scoping reduces unrelated CI work; the required integration suite always executes, and required check names and branch protection remain unchanged. The required App and Web summary jobs aggregate parallel child jobs so the branch-protection interface remains stable while wall-clock verification is reduced.
 
-Repository workflows use supported action-runtime majors (`actions/checkout@v7` and `actions/setup-node@v7`) independently of the explicit Node versions exercised by the jobs. The 2026-08-18 checkout patch refresh to v7.0.1 is CI-runtime maintenance only; application runtime versions are unchanged. The dedicated dependency-review gate now uses `actions/dependency-review-action@v5`; that action's internal runtime is Node 24 and does not change the Node versions used to build or test TradeOS.
+Repository workflows use supported action-runtime majors (`actions/checkout@v7` and `actions/setup-node@v7`) independently of the explicit Node versions exercised by the jobs. The 2026-08-18 checkout patch refresh to v7.0.1 is CI-runtime maintenance only; application runtime versions are unchanged. The dedicated dependency-review gate now uses `actions/dependency-review-action@v5`; that action's internal runtime is Node 24 and does not change the Node versions used to build or test TradeOS. PR #1056 refreshes the gate from v5.0.0 to v5.0.1 (SHA-pinned to `bbc44d14a204704ccc493733616cd1e93a0321ec`); the `fail-on-severity: high` threshold and read-only contents access are unchanged, and no workflow permission, secret, trigger, explicit Node workload version, auth/RLS, schema, or TradeOS product-runtime behavior changes.
 
 The optional Dependabot patch auto-merge workflow is deliberately narrower than required CI: it can only enable GitHub auto-merge for same-repository Dependabot PRs targeting `main` whose metadata is `version-update:semver-patch`. Minor/major updates remain manual, and required checks, branch freshness, review threads, and branch protection still determine whether a patch PR actually lands. Its metadata step is pinned to the immutable `dependabot/fetch-metadata` v3.1.0 commit and runs from the normal `pull_request` event rather than `pull_request_target`; the action's Node 24 runtime is limited to GitHub Actions and does not change TradeOS workload runtimes.
 
@@ -310,6 +337,8 @@ git diff --check
 
 The exact required-check and ruleset configuration remains live GitHub state and must be verified before changing repository controls.
 
+Exemption semantics (fixed 2026-11-23): `docs:check` suppresses an ownership rule only when every changed file triggering the rule is covered by an `exemptions:` path; a rule still fires if any triggering file is not exempt. Suppressed rules are listed in the check report. Exemptions are path-based only — no exemption covers `.github/workflows/**`, so a version-only Dependabot workflow bump still requires the owning docs; narrowing that rule is a governance decision, not a checker fix.
+
 ## Current risks and guarded areas
 
 - Production migration changes remain manual/approval-gated; pull-request CI may rehearse tracked migrations only against disposable databases.
@@ -317,7 +346,7 @@ The exact required-check and ruleset configuration remains live GitHub state and
 - Settings/Brand Studio asset persistence must keep service-role access server-only and organization-scoped.
 - S027 implementation must extend existing Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and Estimate Engine seams; do not create mock production data or autonomous AI write paths.
 - PR #257 does not alter Costbook architecture or permissions. Its supplier proposal claim is transactional and review-first: only a successfully claimed pending row may mutate Material/audit state.
-- CODEOWNERS currently provides routing/visibility. ADR-009 records the founder-authorized solo-maintainer merge exception: live rules must keep required checks and review-thread resolution while removing the implicit extra-approval deadlock; code-owner approval should be raised only when another qualified maintainer joins.
+- CODEOWNERS currently provides routing/visibility. ADR-009 records the founder-authorized solo-maintainer merge exception: live rules must keep required checks and review-thread resolution while removing the implicit extra-approval deadlock; code-owner approval should be raised only when another qualified maintainer joins. Since 2026-11-21 the ADR-009 record cites the founder's blanket authorization (per-item founder-word gates for merges, review dismissals, staging-apply gate clicks, and production touches removed) instead of a per-item word.
 - `.coderabbit.yaml` was deleted 2026-09-15, removing its per-path automated review guidance for auth/tenant-isolation/RLS, Athena boundaries, behavioral coverage, and server/client boundary checks.
 - The CodeRabbit GitHub App's repository access was not revoked by that deletion, so default app review behavior may continue independently of repository configuration until access is explicitly reconciled.
 - **Sensitive-change review gap:** CODEOWNERS routes these paths but does not itself require an approving review. Until equivalent path-specific review is restored, a green PR can still lack explicit review of JWT/membership/forced-RLS tenant boundaries, migration and data-integrity effects, API/server-client compatibility, or the regression tests that demonstrate those contracts. For each affected PR, record the relevant contract and test evidence in its risk review and verify the final head before merge.
@@ -374,9 +403,12 @@ TradeOS includes two governed maintenance workflows: CodeQL remediation runs on 
 The [PR Commander](PR_COMMANDER.md) (`.github/workflows/pr-commander.yml`,
 merged as PR #964, squash `0526b61f`, main) adds a third, queue-wide
 automation lane: an hourly sweep at :17 UTC plus a read-only fast path on
-every `pull_request` event, evaluating every open PR against the unchanged
-merge bar and enabling native auto-merge only when every gate passes at one
-exact head SHA. It composes the existing verify / merge-readiness /
+every `pull_request` event, evaluating every open PR against the Commander's
+merge bar — unchanged for the workflow, which still requires no standing
+change request because it has no review-dismissal path (the agent merge bar
+in AGENTS.md no longer includes that element, per the 2026-11-21 blanket
+authorization) — and enabling native auto-merge only when every gate passes
+at one exact head SHA. It composes the existing verify / merge-readiness /
 pr-maintenance / CodeQL-autofix pieces and rebuilds none of them. **Status:
 live and armed.** Write action requires the repository variable
 `TRADEOS_PR_COMMANDER_WRITE_ENABLED` set to exactly `"true"` **and** a manual
@@ -384,7 +416,9 @@ dispatch with `mode=armed` (for dispatch runs) or both variables exactly
 `"true"` (`TRADEOS_PR_COMMANDER_WRITE_ENABLED` and
 `TRADEOS_PR_COMMANDER_UNATTENDED_ENABLED`, for schedule runs); `pull_request`
 runs can never act, and schedule runs are read-only unless both variables are
-set. Exact `"true"` is enforced by a case-sensitive shell check at the top of the "Apply verdicts" step, before any write — the job `if:` compares strings case-insensitively and cannot enforce it alone. The variable is set and the founder-installed
+set. The ADR-009 gate detects the record from the PR body (snapshot carries
+`body`; fixed 2026-11-23 after the snapshot never set the record flag and
+every migration PR mis-evaluated as BLOCKED). Exact `"true"` is enforced by a case-sensitive shell check at the top of the "Apply verdicts" step, before any write — the job `if:` compares strings case-insensitively and cannot enforce it alone. The variable is set and the founder-installed
 repair-push secret `TRADEOS_PR_COMMANDER_PUSH_TOKEN` is in place. First
 post-merge dry-run (run 42930226341) and first armed run (42930606887) both
 verified from main on PR #953: dry-run verdict BLOCKED fail-closed on a
@@ -393,18 +427,15 @@ transient unknown merge state with zero writes; armed verdict REPAIRABLE
 exception (founder, 2026-11-10):** the armed `act` job holds
 `actions: write`, scoped to dispatching `pr-maintenance.yml` for REPAIRABLE
 behind-branch verdicts — the first armed run proved the dispatch was not
-wired in v1 (a behind PR got a verdict comment only). The exception is
+wired in v1 (a behind PR got a verdict comment only) — and, since the
+2026-11-23 widening (founder decision #18-A), to dispatching
+`codeql-autofix.yml` on demand (at most once per Commander run, one
+repair attempt per head, REPAIRABLE PRs with a security reason only).
+The exception is
 recorded in the `Workflow security` policy script (`POLICY_EXCEPTIONS`) and
 in [Repository governance](REPOSITORY_GOVERNANCE.md); end-to-end rebase
 dispatch depends on PR #965's numeric-input fix in `pr-maintenance.yml`.
-Founder-only boundaries are unchanged: the Commander never dismisses a
-blocking review, never auto-resolves threads in v1, never undrafts a PR,
-never applies migrations or staging-apply gates, never touches production,
-and never changes a ruleset. Copilot Agent Merge is not available as a
-delegation path (0 org seats, quota failures, disabled review ruleset —
-verified 2026-11-10); delegation is deterministic repair, CodeQL Autofix,
-and CodeRabbit re-review. Setup and disable steps are in
-[PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
+Founder-only boundaries changed 2026-11-21: review dismissals, staging-apply gate clicks, and production touches are no longer founder-only (blanket authorization) — agents may do them under the conditions in AGENTS.md and Repository governance — while secret creation/rotation, closing PRs as superseded, pushing to main, bypassing protections, posting GitHub reviews, undrafting unready drafts, and do-not-merge holds remain founder-gated. The Commander workflow itself is unchanged: it never dismisses a blocking review, never auto-resolves threads in v1, never undrafts a PR, never applies migrations or staging-apply gates, never touches production, and never changes a ruleset, so it still escalates those actions for an agent to handle. Copilot Agent Merge is not available as a delegation path (0 org seats, quota failures, disabled review ruleset — verified 2026-11-10); delegation is deterministic repair, CodeQL Autofix, and CodeRabbit re-review. Setup and disable steps are in [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md).
 
 ### GitHub Actions runtime maintenance
 
@@ -513,6 +544,8 @@ Staging Prisma migration execution is wired through `.github/workflows/deploy-st
 
 The manual, reviewer-gated `.github/workflows/attest-staging-preview.yml` workflow provides read-only effective Preview configuration checks when this connector cannot list Vercel environment metadata (403). Dispatch from `main` only, after workflow review. It accesses the existing GitHub `staging` Environment, pins both Vercel project IDs and the `staging` Git branch, and runs `scripts/staging-preview-attest.mjs` inside Vercel's in-memory `env run` scope. It verifies the staging Supabase issuer/database host and frontend staging API origin. No credentials are printed, and it cannot update envs, deploy, or migrate. A green attestation does not verify the service-role key's project provenance, staging migration ledger, matching deployments, or authenticated Today workflows; these remain separate gates.
 
+The `.github/workflows/preview-database-url-drift.yml` detector runs daily (07:00 UTC), on Preview `deployment_status`, and on manual dispatch, comparing each checked API deployment's effective database project ref from `/ready` against the canonical staging ref `qfbgdkbamfaasmtjfyru`. On drift it opens or updates exactly one GitHub issue (deduped by title) with the deployment, the expected ref, and the observed `/ready` output. Drift issues are filed unlabeled — the `type:bug`/`area:backend` labels do not exist as GitHub labels, and the first live dry run failed on them. Read-only: it never reads or changes any env var value. It exists because a stale Preview `DATABASE_URL` once made API previews answer `not_ready` on a database error (#945) with nothing detecting it until acceptance.
+
 ## Isolated frontend component browser verification
 
 The existing Verify repository Web unit-test job also installs the pinned
@@ -587,4 +620,4 @@ including percent-encoded spellings, because Prisma gives that parameter
 precedence over the validated URL authority. Approved direct and session-pooler
 connections retain their existing validation; errors never include credentials.
 
-The main-only, protected staging [actual public database restore rehearsal](operations/staging-database-restore.md) retains only sanitized seven-day evidence; raw backups stay ephemeral and source access is read-only. Passing this workflow does not certify Auth/storage or production recovery.
+The main-only, protected staging [actual public database restore rehearsal](operations/staging-database-restore.md) retains only sanitized seven-day evidence; raw backups stay ephemeral and source access is read-only. Passing this workflow does not certify Auth/storage or production recovery. Actual `tradeos_private` dependency DDL is included without private table data; its restored tables must be empty. Disposable service logging is disabled so cleanup cannot publish failed SQL.

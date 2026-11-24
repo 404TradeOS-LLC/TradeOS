@@ -6,12 +6,27 @@ import sys
 from unittest.mock import patch
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 spec = importlib.util.spec_from_file_location('restore', Path(__file__).with_name('staging-database-restore.py'))
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
 
 
 class GuardTests(unittest.TestCase):
+    def test_manifest_failure_identifies_only_fixed_component(self):
+        hashes = {name: 'same' for name in ('tables', 'columns', 'policies', 'constraints', 'indexes', 'triggers', 'functions')}
+        before = {'counts': {'private-looking-name': 3}, 'component_digests': hashes, 'schema_digest': 'same'}
+        after = {**before, 'component_digests': {**hashes, 'functions': 'changed'}}
+        with self.assertRaises(m.PreflightError) as caught:
+            m.assert_manifest_matches(before, after)
+        self.assertEqual(m.failure_metadata(caught.exception)['code'], 'MANIFEST_FUNCTIONS_MISMATCH')
+        self.assertNotIn('private-looking-name', str(m.failure_metadata(caught.exception)))
+        with self.assertRaises(m.PreflightError) as caught:
+            m.assert_manifest_matches(before, {**before, 'counts': {'private-looking-name': 4}})
+        self.assertEqual(caught.exception.code, 'MANIFEST_PUBLIC_COUNTS_MISMATCH')
+        m.assert_manifest_matches(before, before)
+
     def test_canonical_direct_and_session_only(self):
         base = f'postgresql://postgres:secret@db.{m.REF}.supabase.co/postgres'
         self.assertEqual(m.source_config(base)['sslmode'], 'require')
@@ -107,6 +122,17 @@ class GuardTests(unittest.TestCase):
         edges = [(2, 20, 1, 10, 'a'), (2, 20, 3, 30, 'n'), (3, 30, 4, 40, 'e')]
         self.assertEqual(m.public_extension_dependencies([(1, 10)], edges,
                          [(4, 40, 'pg_trgm', 'public')]), [('pg_trgm', 'public')])
+
+    def test_private_trigger_dependency_is_schema_only_and_server_errors_stay_private(self):
+        script = Path(m.__file__).read_text()
+        workflow = Path('.github/workflows/staging-database-restore.yml').read_text()
+        self.assertIn("'--schema=tradeos_private', '--exclude-table-data=tradeos_private.*'", script)
+        self.assertIn('if any(dependency_counts.values()):', script)
+        self.assertIn("schema_only_dependency_counts=dependency_counts", script)
+        self.assertIn('--log-driver none', workflow)
+        self.assertIn('-c log_min_error_statement=panic -c log_min_messages=panic', script)
+        # This is a dependency recovery, not a replacement audit function stub.
+        self.assertNotIn('CREATE FUNCTION', script)
 
     def test_failure_metadata_never_contains_exception_text(self):
         error = RuntimeError('password=secret row=email@example.test')

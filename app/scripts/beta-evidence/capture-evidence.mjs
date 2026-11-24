@@ -1005,7 +1005,7 @@ try {
       timeout: 60_000,
     });
     await page.locator("select[name=estimateId]").selectOption(estimateId);
-    await page.getByRole("button", { name: "Create invoice" }).click();
+    await page.getByRole("button", { name: "Save invoice draft" }).click();
     await page.waitForURL(new RegExp(`/projects/${projectId}/invoices/[^/]+$`), { timeout: 60_000 });
     invoiceId = /\/invoices\/([^/?]+)/.exec(page.url())?.[1];
     assertBusiness("invoice resolves an id", Boolean(invoiceId), `url was ${page.url()}`);

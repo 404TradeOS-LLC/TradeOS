@@ -1,4 +1,5 @@
 import { test as base, expect, devices } from '@playwright/test';
+import { resolveMcpProxy } from './proxy-env.mjs';
 
 // MCP interactive-page seed. When TRADEOS_MCP_FIREFOX_USER_DATA_DIR points
 // at a persistent Firefox profile (the TradeOS MCP agent profile, which
@@ -10,7 +11,15 @@ import { test as base, expect, devices } from '@playwright/test';
 // unaffected. The persistent profile is used ONLY for the MCP Firefox
 // project: a Chromium run with the variable set must still test Chromium,
 // so any non-Firefox project gets a standard context from its own browser.
+//
+// The egress proxy is resolved from the environment and forwarded into
+// both contexts explicitly: `launchPersistentContext` builds its own
+// options and does NOT inherit the `proxy` from the config's `use`, so
+// putting the proxy only in `playwright.mcp.config.ts` would leave the
+// interactive page unconfigured. Without any proxy variable set this
+// resolves to undefined and no `proxy` option is passed.
 const userDataDir = process.env.TRADEOS_MCP_FIREFOX_USER_DATA_DIR;
+const mcpProxy = resolveMcpProxy(process.env);
 
 const test = userDataDir
   ? base.extend({
@@ -21,6 +30,7 @@ const test = userDataDir
           // variable set. The seed only needs the target origin.
           const context = await browser.newContext({
             baseURL: process.env.TRADEOS_AGENT_BASE_URL || 'http://127.0.0.1:3000',
+            ...(mcpProxy ? { proxy: mcpProxy } : {}),
           });
           await use(context);
           await context.close();
@@ -36,6 +46,7 @@ const test = userDataDir
           baseURL: process.env.TRADEOS_AGENT_BASE_URL || 'http://127.0.0.1:3000',
           viewport: devices['Desktop Firefox'].viewport,
           userAgent: devices['Desktop Firefox'].userAgent,
+          ...(mcpProxy ? { proxy: mcpProxy } : {}),
         });
         await use(context);
         await context.close();
@@ -52,7 +63,7 @@ test.describe('TradeOS entry', () => {
       if (other !== page) await other.close();
     }
     await page.goto('/login');
-    await expect(page.getByLabel('Email address', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Email', { exact: true })).toBeVisible();
     await expect(page.getByLabel('Password', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
   });

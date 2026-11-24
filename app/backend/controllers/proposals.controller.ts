@@ -53,6 +53,42 @@ const updateSchema = z.object({
   termsAndConditions: z.string().optional(),
 });
 
+const offlineAcceptanceSchema = z.object({
+  channel: z.enum(["in_person", "phone", "signed_document"]),
+  note: z.string().trim().min(10).max(500),
+  confirmed: z.literal(true),
+}).strict();
+
+// DES-10-F8: Copperline proposal sections 03 (selections) and 04
+// (allowances). Statuses mirror the Figma badges: ACTION REQUIRED and
+// CONFIRMED. Due dates arrive as ISO datetimes; the web forms convert a
+// date-picker value before sending.
+const selectionStatusSchema = z.enum(["action_required", "confirmed"]);
+
+const createSelectionSchema = z.object({
+  label: z.string().trim().min(1).max(120),
+  detail: z.string().trim().max(500).nullable().optional(),
+  status: selectionStatusSchema.optional(),
+  dueDate: z.string().datetime().nullable().optional(),
+}).strict();
+
+const updateSelectionSchema = z.object({
+  label: z.string().trim().min(1).max(120).optional(),
+  detail: z.string().trim().max(500).nullable().optional(),
+  status: selectionStatusSchema.optional(),
+  dueDate: z.string().datetime().nullable().optional(),
+}).strict();
+
+const createAllowanceSchema = z.object({
+  description: z.string().trim().min(1).max(200),
+  amount: z.number().finite().min(0),
+}).strict();
+
+const updateAllowanceSchema = z.object({
+  description: z.string().trim().min(1).max(200).optional(),
+  amount: z.number().finite().min(0).optional(),
+}).strict();
+
 export const proposalsController = {
   async listByProject(req: Request, res: Response) {
     requirePermissions(req, ["billing.read"]);
@@ -112,6 +148,44 @@ export const proposalsController = {
     res.setHeader("Content-Disposition", `${disposition}; filename="${sanitizeDownloadFilename(doc.filename)}"`);
     res.send(doc.buffer);
   },
+  async listSelections(req: Request, res: Response) {
+    requirePermissions(req, ["billing.read"]);
+    res.json(await service.listSelections(req.params.id, requireOrgId(req)));
+  },
+  async createSelection(req: Request, res: Response) {
+    requirePermissions(req, ["documents.manage"]);
+    const input = createSelectionSchema.parse(req.body);
+    res.status(201).json(await service.createSelection(req.params.id, input, requireOrgId(req)));
+  },
+  async updateSelection(req: Request, res: Response) {
+    requirePermissions(req, ["documents.manage"]);
+    const input = updateSelectionSchema.parse(req.body);
+    res.json(await service.updateSelection(req.params.selectionId, req.params.id, input, requireOrgId(req)));
+  },
+  async deleteSelection(req: Request, res: Response) {
+    requirePermissions(req, ["documents.manage"]);
+    await service.deleteSelection(req.params.selectionId, req.params.id, requireOrgId(req));
+    res.status(204).send();
+  },
+  async listAllowances(req: Request, res: Response) {
+    requirePermissions(req, ["billing.read"]);
+    res.json(await service.listAllowances(req.params.id, requireOrgId(req)));
+  },
+  async createAllowance(req: Request, res: Response) {
+    requirePermissions(req, ["documents.manage"]);
+    const input = createAllowanceSchema.parse(req.body);
+    res.status(201).json(await service.createAllowance(req.params.id, input, requireOrgId(req)));
+  },
+  async updateAllowance(req: Request, res: Response) {
+    requirePermissions(req, ["documents.manage"]);
+    const input = updateAllowanceSchema.parse(req.body);
+    res.json(await service.updateAllowance(req.params.allowanceId, req.params.id, input, requireOrgId(req)));
+  },
+  async deleteAllowance(req: Request, res: Response) {
+    requirePermissions(req, ["documents.manage"]);
+    await service.deleteAllowance(req.params.allowanceId, req.params.id, requireOrgId(req));
+    res.status(204).send();
+  },
   async send(req: Request, res: Response) {
     requirePermissions(req, ["documents.manage"]);
     res.json(await service.send(req.params.id, requireOrgId(req), requireAuthContext(req).userId));
@@ -127,6 +201,13 @@ export const proposalsController = {
   async accept(req: Request, res: Response) {
     requirePermissions(req, ["documents.manage"]);
     res.json(await service.accept(req.params.id, requireOrgId(req), requireAuthContext(req).userId));
+  },
+  async acceptOffline(req: Request, res: Response) {
+    requirePermissions(req, ["documents.manage"]);
+    const { channel, note } = offlineAcceptanceSchema.parse(req.body);
+    res.json(await service.acceptOffline(
+      req.params.id, { channel, note }, requireOrgId(req), requireAuthContext(req).userId
+    ));
   },
   async reject(req: Request, res: Response) {
     requirePermissions(req, ["documents.manage"]);

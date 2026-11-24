@@ -130,16 +130,68 @@ SF vs ROLL) are not treated as 1:1 conversions. All installed assemblies still
 resolve pricing only through the canonical Costbook service and are added to
 estimates only by the existing explicit Estimate line-item action.
 
-11 researched recipes currently reference at least one missing source record
-(SRC-0041 through SRC-0050); their `blockingReasons` are visible in the
+2 researched recipes currently reference at least one missing source record
+(SRC-0049 through SRC-0050); their `blockingReasons` are visible in the
 catalog/Estimate setup UI, and the install API rejects them before any database
-write. Those recipes remain available for read-only inspection and source
-repair. Remaining research recipes still require local scope, labor, material,
+write. (SRC-0041–SRC-0048 were registered 2026-11-21, DEV-23 / issue #518 S1;
+9 of the 11 formerly blocked recipes are installable.) Those recipes remain
+available for read-only inspection and source repair. Remaining research recipes still require local scope, labor, material,
 and production review before real quoting. The new browser includes NAHB
 1000–5000 phase facets alongside legacy residential work groups and CSI.
 
 This change does **not** verify hosted staging, apply any database migrations,
 populate missing source records, or constitute production pricing evidence.
+
+### Bulk mapping reuse (DEV-17 S9, issue #518)
+
+An estimator who has already installed a related recipe can reuse that
+install's mapping for another template instead of mapping every slot by
+hand. `GET /api/v1/costbook/assemblies/starter-catalog/:templateId/mapping-suggestions?sourceAssemblyId=<id>`
+(requires `costbook.read`; mirrored under `/api/v1/assemblies/...`) returns
+one suggestion per target slot: the first source item, in source-item order,
+that passes the same per-slot unit/kind compatibility check the install
+path enforces. A Cost Item is suggested for at most one slot — the install
+distinctness rule — and slots with no compatible source item come back
+unmapped with a reason. The source assembly is resolved org-scoped (404
+outside the caller's org); inactive items, child-assembly items, and
+foreign-tenant Cost Items are never suggested. Suggestions are read-only:
+the estimator reviews them in the starter-catalog UI (which fills only
+slots not already mapped by hand) and installs through the unchanged
+install contract, which re-validates every mapping. No migration, no
+install-path change, no new pricing.
+## Measurement contracts (issue #518 S8, 2026-11-23)
+
+Measurement used to live only as free-text `measurementBasis` strings, the five
+template output units (CY/EA/LF/SF/SQ), and the `allowance` Cost Item kind.
+`app/modules/assemblies-database/measurement.ts` now formalizes it:
+
+- **Families.** Five takeoff families — area, linear, count, volume, allowance —
+  plus two component-rate families the data proves exist: mass (TON, LB — bulk
+  quantities priced by weight) and time (HR, DAY — labor/equipment production
+  rates; 95 research components are HR-denominated). Every catalog unit
+  classifies into exactly one family; time and mass are never takeoff inputs.
+- **Conversions.** Exactly one conversion family is defined: area (1 SQ = 100 SF,
+  1 SY = 9 SF). No other cross-unit conversion exists in the contract — CY to
+  GAL, EA to BOX, or LF to BF requires an explicit estimator-supplied factor,
+  never a silent 1:1 substitute.
+- **Template assessment.** `assessTemplateMeasurement` validates each template:
+  non-empty measurement basis; output unit one of the five; SQ outputs state the
+  100-SF definition; every component has a finite positive quantity, a
+  normalizing first compatible unit, and a non-empty kind list; allowance
+  components are LS-denominated and exactly 1 per assembly unit. The assessment
+  runs on all 107 catalog templates and holds on every one; failures are added
+  to `blockingReasons`, so a contract-breaking recipe fails closed at install
+  (HTTP 422) the same way a missing source does.
+- **Takeoff derivation.** `deriveAssemblyQuantity` is the pure half of the
+  takeoff connection: given an installed assembly and a takeoff quantity, it
+  derives the assembly quantity (same-family only, area conversion recorded,
+  rounded to 4 decimals) or rejects with reasons. Unverified takeoffs are
+  rejected — verification is what makes a takeoff "verified." It persists
+  nothing and writes no estimate lines: there is no takeoff record to read from
+  yet (S065, the quantity-takeoff MVP, is still PLANNED) and `EstimateLineItem`
+  has no takeoff fields (S4). The follow-up slice (S8b, gated on S065 + S4)
+  wires this derivation to persisted, versioned takeoff records and estimate
+  lines. No second pricing engine is created and no price is embedded here.
 
 ## Estimate Items assembly picker
 
@@ -213,6 +265,10 @@ Unified Costbook routes include:
 - `/api/v1/costbook/equipment/:id`
 - `/api/v1/costbook/divisions`
 - `/api/v1/costbook/divisions/:id`
+- `/api/v1/costbook/codes/jurisdiction`
+- `/api/v1/costbook/codes/estimates/:estimateId/hints`
+- `/api/v1/costbook/codes/assessments`
+- `/api/v1/costbook/codes/assessments/:id/sign-off`
 - `/api/v1/costbook/categories`
 - `/api/v1/costbook/categories/:id`
 - `/api/v1/costbook/subcategories`
@@ -225,6 +281,7 @@ Unified Costbook routes include:
 - `/api/v1/costbook/assemblies/search`
 - `/api/v1/costbook/assemblies/templates`
 - `/api/v1/costbook/assemblies/starter-catalog`
+- `/api/v1/costbook/assemblies/starter-catalog/:templateId/mapping-suggestions`
 - `/api/v1/costbook/assemblies/starter-catalog/install`
 - `/api/v1/costbook/assemblies/:id`
 - `/api/v1/costbook/assemblies/:id/unit-cost`
@@ -237,6 +294,8 @@ Unified Costbook routes include:
 - `/api/v1/costbook/candidates/:id`
 - `/api/v1/costbook/candidates/:id/review`
 - `/api/v1/costbook/candidates/:id/promote`
+
+Codes & Permits jurisdiction matching and job assessments (issue #946, TODO 4, proposed): the pure matcher resolves governing jurisdictions from reviewed records and fails closed to `needs_verification` — it never infers a setback, footing size, wiring method, or permit fee. `codes_job_assessment` is tenant-scoped under forced RLS with owner sign-off. Estimate Scope/Review hints are read-only and financially inert (`financialEffect: "none"`). See `docs/architecture/COSTBOOK_CODES_JURISDICTION_MATCHING.md`.
 
 `GET /api/v1/costbook/workspace` is a read-only workspace summary. It requires `costbook.read`, returns Costbook permission flags for the authenticated role, and returns organization-scoped counts for existing catalog records.
 
@@ -306,7 +365,9 @@ The unified Assembly surface reuses `AssembliesDatabaseService` and the existing
 
 The residential starter catalog adds a versioned, read-only TradeOS recipe library organized by NAHB work groups and CSI section codes. It stores no tenant prices. Each component publishes compatible units and Cost Item kinds. Installation requires `costbook.write`, a complete one-to-one mapping from every recipe slot to a distinct active same-organization compatible Cost Item, and an unused organization assembly code. A successful install atomically writes the recipe into the existing tenant-scoped `Assembly`/`AssemblyItem` tables as a reusable template; the existing unit-cost resolver and Estimate snapshot behavior remain authoritative. The catalog endpoint also returns a derived NAHB/CSI coverage matrix, and the web mapper searches the full organization Costbook instead of relying on a preloaded dropdown. See `docs/architecture/ASSEMBLY_CATALOG_IMPLEMENTATION.md`.
 
-`POST /api/v1/costbook/pricing/preview` requires `costbook.read` and is calculation-only. It reuses shared Estimate overhead/markup/target-margin formulas and persists no pricing policy. `GET /api/v1/costbook/pricing/resolve` also requires `costbook.read`; it resolves tenant-scoped `SupplierPriceObservation` evidence for a requested `canonicalMaterialKey` and returns price, unit, supplier/location, observed time, confidence, freshness, observed-vs-inferred state, alternatives, one-line provenance, and `reasonSelected`. The current regional-supplier adapter is deliberately mapped to the conservative `RECENT_RETAIL_VALIDATION` evidence tier; the presence of a supplier row does not upgrade it to negotiated/account/authorized pricing. `GET /api/v1/costbook/price-history` requires `costbook.manage` and returns independent paginated `materialChanges` and `estimateSnapshots` streams, each with its own total and cursor. Supplier feed transport accepts only trusted server-side HTTPS endpoint configuration, validates feed payloads, and enqueues pending proposals into the existing review flow; Material prices are changed only through approval, which remains transactional with `MaterialPriceAudit`. The supplier review queue uses the same page contract with status/supplier/material filters.
+Install-time waste/production overrides (DEV-17 S10, issue #518): the install body accepts two optional fields — `wasteOverridePct` (absolute percentage, 0–100) and `productionRateFactor` (dimensionless multiplier, greater than 0 and at most 10). They are stored on the installed `Assembly` (migration `20261123050000_add_assembly_install_overrides`, nullable columns, no backfill) and applied at pricing time through the existing `CostDatabaseService.getUnitCost` path: the waste override replaces each mapped Material's own `wasteFactorPct` on material legs, and the production factor multiplies each mapped CostItem's `productionRate` on labor/equipment legs. An absolute production rate is not expressible across mixed component units (SF vs CY vs EA), so the override is a factor, not a rate. The stored `AssemblyItem` quantities stay the recipe quantities — the overrides never rewrite them — and a child assembly always resolves with its own stored overrides, never its parent's. The same two fields are editable after install through the existing Assembly PATCH endpoint (number sets, `null` clears). No price is embedded: the overrides are assumptions, and the estimator's judgment — informed by the recorded assumption — remains the control.
+
+`POST /api/v1/costbook/pricing/preview` requires `costbook.read` and is calculation-only. It reuses shared Estimate overhead/markup/target-margin formulas and persists no pricing policy. `GET /api/v1/costbook/pricing/resolve` also requires `costbook.read`; it resolves tenant-scoped `SupplierPriceObservation` evidence for a requested `canonicalMaterialKey` and returns price, unit, supplier/location, recorded market code/city/state/postal code, observed time, confidence, freshness, observed-vs-inferred state, alternatives, one-line provenance, and `reasonSelected`. Missing location values remain null; no region is inferred from another field. The current regional-supplier adapter is deliberately mapped to the conservative `RECENT_RETAIL_VALIDATION` evidence tier; the presence of a supplier row does not upgrade it to negotiated/account/authorized pricing. `GET /api/v1/costbook/price-history` requires `costbook.manage` and returns independent paginated `materialChanges` and `estimateSnapshots` streams, each with its own total and cursor. Supplier feed transport accepts only trusted server-side HTTPS endpoint configuration, validates feed payloads, and enqueues pending proposals into the existing review flow; Material prices are changed only through approval, which remains transactional with `MaterialPriceAudit`. The supplier review queue uses the same page contract with status/supplier/material filters.
 
 
 ### Costbook Data Foundation — 2026-10-02
@@ -476,3 +537,12 @@ No organization-wide “price health” score or stale-age threshold is derived 
 
 The seed intentionally omits the corpus's `canonicalKey` from import input. Only the existing governed matcher may auto-link a newly seen product when current product evidence is unambiguous; otherwise canonical identity remains null/reviewable. Imported observations remain evidence only: they do not change `Material.unitCost`, approve queued supplier price changes, or alter historical Estimate snapshots. Exact replay is idempotent, while changed evidence under an existing observation key fails closed.
 
+## Codes & Permits advisory pilot (proposed, 2026-11-08)
+
+A read-only, curated index of **official code/permit source references** is proposed under `/api/v1/costbook/codes` with a contractor-facing `/costbook/codes` page. It requires `costbook.read` and validates explicit state/county/topic/search inputs. The initial index covers Vigo County zoning §§5/16 and statewide Indiana building/electrical and INDOT permits. Every item includes issuer, citation, URL, source and review dates, a verification action, and `applicability: unverified`. Local zoning is never returned for another county.
+
+This index does **not** mirror copyrighted building codes, assert compliance, choose footing/wiring, determine parcel setbacks, authorize signage, invent permit fees, add estimate lines, change Costbook prices, or write tenant data. It is not a source of automatic legal or engineering approval. See [Codes & Permits pilot](../architecture/COSTBOOK_CODES_PERMITS_PILOT.md) for ownership, provenance and release gates. **Status: proposed branch; no deployed acceptance claimed.**
+
+### Read-only Athena official-reference capability (proposed 2026-11-08)
+
+The same proposed pilot registers `tradeos.athena.tools.costbook.code.references` through the canonical Athena tool registry. Athena reads the in-code reference registry, while the authenticated browser/API reads reviewed rows from the database-backed Codes & Permits registry. The initial seeded records match, but these are separate runtime read paths: database review changes do not automatically update Athena. The tool responds only with citations, applicability warnings and authority-verification actions. It uses `costbook.read` and creates no Estimate cost or legal approval. Review and release evidence are pending.

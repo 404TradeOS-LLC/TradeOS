@@ -6,6 +6,8 @@ import { ApiError } from "../../backend/middleware/errorHandler";
 import { ContractsService } from "../contracts/service";
 import { InvoicesService } from "../invoices/service";
 import { ProposalsService } from "../proposals/service";
+import { CloseoutService } from "../closeout/service";
+import type { CloseoutChecklist, GetCloseoutResult, ProjectCloseoutDTO, WarrantyRecordDTO } from "../closeout/types";
 import { logError } from "../../backend/logging";
 import { emailService, scheduleEmailInBackground } from "../email/service";
 import { hashRecipientAddress, recordOutboundDeliveryMessage } from "../email/deliveryJournal";
@@ -37,10 +39,85 @@ export interface RedeemedCustomerPortalToken {
   expiresAt: Date;
 }
 
+/**
+ * Read-only closeout handoff for the customer portal. Matches the shape
+ * the web portal section renders: the closeout status, the backend's
+ * computed checklist, the resolved/open punch summary, warranty records
+ * exactly as stored, and the portal-scoped link to the rendered closeout
+ * document. `documentHref` is a web-portal proxy path (the browser's
+ * portal session cookie authenticates it); the backend route it forwards
+ * to is /api/v1/customer-portal/projects/:id/closeout/document.
+ */
+export interface PortalCloseoutHandoff {
+  status: ProjectCloseoutDTO["status"];
+  checklist: CloseoutChecklist;
+  resolvedPunchCount: number;
+  openPunchCount: number;
+  warranties: PortalWarrantyRecord[];
+  documentHref: string;
+}
+
+export interface PortalWarrantyRecord {
+  id: string;
+  projectId: string;
+  jobId: string | null;
+  contractId: string | null;
+  invoiceId: string | null;
+  title: string;
+  coverageText: string;
+  sourceType: WarrantyRecordDTO["sourceType"];
+  sourceId: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// The portal shows warranty records exactly as stored — and nothing else.
+// The staff DTO also carries the owning org and the staff author; neither
+// belongs in a customer-facing payload.
+function toPortalWarrantyRecord(record: WarrantyRecordDTO): PortalWarrantyRecord {
+  return {
+    id: record.id,
+    projectId: record.projectId,
+    jobId: record.jobId,
+    contractId: record.contractId,
+    invoiceId: record.invoiceId,
+    title: record.title,
+    coverageText: record.coverageText,
+    sourceType: record.sourceType,
+    sourceId: record.sourceId,
+    startsAt: record.startsAt,
+    endsAt: record.endsAt,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+}
+
+/**
+ * Delivery metadata returned by internal proposal APIs may contain staff-only
+ * approval evidence. The customer portal may show an approval milestone but
+ * must not leak the staff's note, contact details, or other internal fields.
+ * Keep the source marker only so the portal timeline labels the event honestly.
+ */
+function redactInternalProposalEvidence<T extends {
+  deliveries: Array<{ metadata: Record<string, unknown> | null }>
+}>(proposal: T): T {
+  return {
+    ...proposal,
+    deliveries: proposal.deliveries.map((delivery) =>
+      delivery.metadata?.source === "staff_recorded_offline"
+        ? { ...delivery, actorUserId: null, recipientEmail: null, metadata: { source: "staff_recorded_offline" } }
+        : delivery
+    ),
+  };
+}
+
 export class CustomerPortalService {
   private readonly proposals = new ProposalsService();
   private readonly invoices = new InvoicesService();
   private readonly contracts = new ContractsService();
+  private readonly closeout = new CloseoutService();
 
   async issueAccessToken(input: { orgId: string; customerId: string; createdByUserId?: string }): Promise<IssuedCustomerPortalToken> {
     const customer = await prisma.customer.findFirst({
@@ -211,18 +288,20 @@ export class CustomerPortalService {
 
   async getProject(context: CustomerPortalContext, projectId: string) {
     const project = await this.assertProject(context, projectId);
-    const [proposals, invoices, contracts] = await Promise.all([
+    const [proposals, invoices, contracts, closeout] = await Promise.all([
       this.proposals.listByProject(project.id, context.orgId),
       this.invoices.listByProject(project.id, context.orgId),
       this.contracts.listByProject(project.id, context.orgId),
+      this.getCloseoutHandoff(context, project.id),
     ]);
     return {
       ...project,
       title: project.name,
       projectAddress: project.siteAddress,
-      proposals: proposals.filter((proposal) => proposal.status !== "draft"),
+      proposals: proposals.filter((proposal) => proposal.status !== "draft").map(redactInternalProposalEvidence),
       invoices: invoices.filter((invoice) => invoice.status !== "draft"),
       contracts,
+      closeout,
       estimates: [],
       siteVisits: [],
       projectFiles: [],
@@ -236,14 +315,17 @@ export class CustomerPortalService {
     await this.assertProposal(context, proposalId);
     const proposal = await this.proposals.getById(proposalId, context.orgId);
     if (proposal.status === "draft") throw new ApiError(404, `Proposal ${proposalId} not found`);
-    return proposal;
+    return redactInternalProposalEvidence(proposal);
   }
 
   async getInvoice(context: CustomerPortalContext, invoiceId: string) {
     await this.assertInvoice(context, invoiceId);
     const invoice = await this.invoices.getById(invoiceId, context.orgId);
     if (invoice.status === "draft") throw new ApiError(404, `Invoice ${invoiceId} not found`);
-    return invoice;
+    // DES-7 (c): a portal view is the mark-viewed writer. The read path
+    // already verified the portal session's organization + customer scope,
+    // and markViewed is idempotent, so repeat views record nothing new.
+    return this.invoices.markViewed(invoiceId, context.orgId);
   }
 
   async getContract(context: CustomerPortalContext, contractId: string) {
@@ -268,6 +350,50 @@ export class CustomerPortalService {
     return this.contracts.getPdf(contractId, context.orgId);
   }
 
+  /**
+   * Read-only closeout document for the portal customer. The project is
+   * verified as theirs first (assertProject 404s otherwise); the closeout
+   * service then enforces the same organization scope on the document
+   * itself. No portal write happens here.
+   */
+  async getCloseoutDocument(context: CustomerPortalContext, projectId: string) {
+    await this.assertProject(context, projectId);
+    // Portal path: the completed-job evidence comes from the
+    // org/customer-scoped probe, not the staff-only jobs read (see
+    // CloseoutService.computeChecklist).
+    return this.closeout.getCloseoutDocumentHtml(projectId, context.orgId, { portalCustomerId: context.customerId });
+  }
+
+  /**
+   * The project's closeout handoff, or null when no closeout exists yet.
+   * A missing closeout is a normal state (closeout starts at field
+   * completion), not an error — only a real failure propagates.
+   */
+  private async getCloseoutHandoff(context: CustomerPortalContext, projectId: string): Promise<PortalCloseoutHandoff | null> {
+    let result: GetCloseoutResult;
+    try {
+      // Portal path: the completed-job evidence comes from the
+      // org/customer-scoped probe, not the staff-only jobs read (see
+      // CloseoutService.computeChecklist).
+      result = await this.closeout.getCloseoutByProject(projectId, context.orgId, { portalCustomerId: context.customerId });
+    } catch (error) {
+      if (error instanceof ApiError && error.statusCode === 404) return null;
+      throw error;
+    }
+    const [punchItems, warranties] = await Promise.all([
+      this.closeout.listPunchItemsByProject(projectId, context.orgId),
+      this.closeout.listWarrantyRecordsByProject(projectId, context.orgId),
+    ]);
+    return {
+      status: result.closeout.status,
+      checklist: result.checklist,
+      resolvedPunchCount: punchItems.filter((item) => item.status === "resolved" || item.status === "verified").length,
+      openPunchCount: result.checklist.openPunchCount,
+      warranties: warranties.map(toPortalWarrantyRecord),
+      documentHref: `/api/customer-portal/projects/${projectId}/closeout/document`,
+    };
+  }
+
   async signContract(context: CustomerPortalContext, contractId: string, input: {
     signerName: string;
     signatureDataUrl?: string;
@@ -289,6 +415,60 @@ export class CustomerPortalService {
       signatureDataUrl: input.signatureDataUrl,
       signatureIpReported: input.signatureIpReported,
       signatureUserAgentReported: input.signatureUserAgentReported,
+    });
+  }
+
+  /**
+   * DES-10-F7: governed public-portal proposal acceptance. The proposal is
+   * asserted to belong to this session's customer first (assertProposal
+   * 404s otherwise), and the signer email is the customer record's email on
+   * file — never a caller-supplied value — so the signature is attributable
+   * to the token holder. The signature itself must be a drawn image; a
+   * typed name alone is not enough (ProposalsService enforces it).
+   */
+  async acceptProposal(context: CustomerPortalContext, proposalId: string, input: {
+    signerName: string;
+    signatureDataUrl: string;
+    signatureIpReported?: string;
+    signatureUserAgentReported?: string;
+    expectedUpdatedAt?: string;
+  }) {
+    const proposal = await this.assertProposal(context, proposalId);
+    if (proposal.status === "draft") throw new ApiError(404, `Proposal ${proposalId} not found`);
+    const customer = await prisma.customer.findFirst({
+      where: { id: context.customerId, orgId: context.orgId, deletedAt: null },
+      select: { email: true },
+    });
+    if (!customer?.email) throw new ApiError(409, "Customer email is required to attribute a signature");
+    return this.proposals.acceptAsPortalCustomer(proposal.id, {
+      orgId: context.orgId,
+      customerId: context.customerId,
+      portalSessionId: context.sessionId,
+      signerName: input.signerName,
+      signerEmail: customer.email,
+      signatureDataUrl: input.signatureDataUrl,
+      signatureIpReported: input.signatureIpReported,
+      signatureUserAgentReported: input.signatureUserAgentReported,
+      expectedUpdatedAt: input.expectedUpdatedAt,
+    });
+  }
+
+  /**
+   * DES-10-F7: governed public-portal proposal decline. Same
+   * organization/customer-scoped token as the accept path, with the
+   * transaction-local proposal write scope; the optional reason is recorded
+   * in the audit event, and the project is deliberately left untouched (see
+   * ProposalsService.declineAsPortalCustomer).
+   */
+  async declineProposal(context: CustomerPortalContext, proposalId: string, input: { reason?: string; expectedUpdatedAt?: string }) {
+    const proposal = await this.assertProposal(context, proposalId);
+    if (proposal.status === "draft") throw new ApiError(404, `Proposal ${proposalId} not found`);
+    return this.proposals.declineAsPortalCustomer(proposal.id, {
+      orgId: context.orgId,
+      customerId: context.customerId,
+      portalSessionId: context.sessionId,
+      reason: input.reason,
+      expectedUpdatedAt: input.expectedUpdatedAt,
     });
   }
 

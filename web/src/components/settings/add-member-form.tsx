@@ -23,7 +23,8 @@ interface AddMemberFormProps {
  * Owner/admin form that attaches an existing TradeOS auth user to the
  * workspace via POST /organizations/:id/members. It does not create a
  * sign-in and does not send an email invite: the person signs up first,
- * then the owner pastes their TradeOS sign-in ID here.
+ * then the owner pastes their TradeOS sign-in ID here. Team-invite email is
+ * not offered by this form.
  */
 export function AddMemberForm({ orgId, currentRole, onMemberAdded }: AddMemberFormProps) {
   const router = useRouter();
@@ -115,8 +116,8 @@ export function AddMemberForm({ orgId, currentRole, onMemberAdded }: AddMemberFo
               required
             />
             <p className="text-sm text-muted-foreground">
-              The person&rsquo;s TradeOS sign-in ID — their Supabase Auth user UUID. Do not use the
-              application user UUID under Supplier workflow IDs — the member
+              The sign-in ID shown on the person&rsquo;s Settings page under Team &amp; Access → Your TradeOS
+              sign-in ID. Do not use the application user UUID under Supplier workflow IDs — the member
               lookup matches on the sign-in ID, not the application user ID.
             </p>
           </div>

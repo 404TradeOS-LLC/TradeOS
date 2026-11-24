@@ -46,7 +46,7 @@ for(const width of [390,768,1024,1440]){
     const quantity=page.getByLabel('Quantity',{exact:true});
     const price=page.getByLabel('Unit price ($)',{exact:true});
     const due=page.getByLabel('Due date',{exact:true});
-    for(const control of [description,quantity,price,due,page.getByLabel('Estimate',{exact:true}),page.getByRole('button',{name:'Create invoice',exact:true}),page.getByRole('button',{name:'Add line item',exact:true})]){
+    for(const control of [description,quantity,price,due,page.getByLabel('Estimate',{exact:true}),page.getByRole('button',{name:'Save invoice draft',exact:true}),page.getByRole('button',{name:'Add line item',exact:true})]){
       expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     }
     if(width===390){expect((await price.boundingBox())!.y).toBeGreaterThan((await quantity.boundingBox())!.y);}
@@ -56,12 +56,12 @@ for(const width of [390,768,1024,1440]){
     await page.getByLabel('Line 2 · Quantity',{exact:true}).fill('2');
     await page.getByLabel('Line 2 · Unit price ($)',{exact:true}).fill('45');
     await expect(page.getByRole('button',{name:'Remove line 2',exact:true})).toBeVisible();
-    await page.getByRole('button',{name:'Create invoice',exact:true}).click();
+    await page.getByRole('button',{name:'Save invoice draft',exact:true}).click();
     await expect(description).toBeDisabled();
     await page.evaluate(()=>window.rejectInvoice());
     await expect(page.getByRole('alert')).toBeFocused();
     await expect(description).toBeEnabled();
-    await page.getByRole('button',{name:'Create invoice',exact:true}).click();
+    await page.getByRole('button',{name:'Save invoice draft',exact:true}).click();
     await page.evaluate(()=>window.loseInvoiceResponse());
     await expect(page.getByRole('alert')).toBeFocused();
     await expect(page.getByRole('region',{name:'Last submitted details'})).toContainText('Synthetic cleanup');
@@ -81,3 +81,21 @@ for(const width of [390,768,1024,1440]){
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   });
 }
+
+// DES-7 (b): the "NOT SAVED" badge appears once the form holds unsaved
+// changes and clears when the draft saves.
+test('invoice NOT SAVED badge shows on dirty state and clears on save', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.setContent('<main id="root" style="padding:16px"></main>');
+  await page.addStyleTag({ content: css });
+  await page.addScriptTag({ content: bundle });
+  const badge = page.getByTestId('not-saved-badge');
+  await expect(badge).toHaveCount(0);
+  await page.getByLabel('Description', { exact: true }).fill('Synthetic cleanup');
+  await expect(badge).toBeVisible();
+  await expect(badge).toHaveText('NOT SAVED');
+  await page.getByRole('button', { name: 'Save invoice draft', exact: true }).click();
+  await page.evaluate(() => window.confirmInvoice());
+  await expect.poll(() => page.evaluate(() => window.invoiceDestination)).toBe('/projects/synthetic-project/invoices/confirmed-invoice');
+  await expect(badge).toHaveCount(0);
+});

@@ -8,6 +8,7 @@ import {
   type DispatchJob, type DispatchSummary,
 } from "@/lib/api";
 import { getSession, getSessionToken } from "@/lib/session";
+import { buildAthenaEstimateIdentity } from "@/lib/athena-estimate-handoff";
 import { getStaleProposalCutoffIso, buildAttentionInvoiceRows, buildAttentionProposalRows } from "@/components/dashboard/needs-attention-model";
 import { prioritizeTodayAttention, safeTodayTimeZone, taskNeedsAttention, isTodayTask, type TodayAttentionItem, type TodayData, type TodaySource, type TodayWorkItem } from "./today-model";
 
@@ -15,7 +16,7 @@ const LIMIT = 50;
 const JOB_PAGE_LIMIT = 5;
 
 /** Bounded operational view. Every backend read retains JWT, membership and forced RLS. */
-export const loadTodayData = cache(async (): Promise<TodayData | null> => {
+export const loadTodayData = cache(async (includeRecentUnsigned = false): Promise<TodayData | null> => {
   const [token, session] = await Promise.all([getSessionToken(), getSession()]);
   if (!token || !session) return null;
   const [settings, initialSummary, capabilities] = await Promise.all([
@@ -161,8 +162,20 @@ export const loadTodayData = cache(async (): Promise<TodayData | null> => {
     requests.push(read("proposals", "Proposal follow-ups", () => listProposalQueue(token, { unsigned: true, staleBefore: getStaleProposalCutoffIso(new Date(generatedAt)), limit: LIMIT }), (queue) => {
       if (queue.nextCursor) partial("proposals", "Proposal coverage", `${queue.total} stale proposals; the first ${queue.items.length} are loaded.`);
       for (const proposal of buildAttentionProposalRows(queue.items.filter((item) => item.contractId === null && item.sentAt !== null && Date.parse(item.sentAt) <= Date.parse(getStaleProposalCutoffIso(new Date(generatedAt))) && ["sent", "viewed"].includes(item.status)), [])) attention.push({ id: `proposal-${proposal.proposalId}`, title: `${proposal.projectName} · follow-up needed`,
-        context: proposal.customerName, source: "Proposals", priority: "high", assignee: null, dueAt: proposal.sentAt,
+        context: proposal.customerName, status: "Stale", source: "Proposals", priority: "high", assignee: null, dueAt: proposal.sentAt,
         href: `/projects/${proposal.projectId}/proposals/${proposal.proposalId}`, action: "Review proposal" });
+    }));
+    if (includeRecentUnsigned) requests.push(read("proposals-unsigned", "Other unsigned proposals", () => listProposalQueue(token, { unsigned: true, limit: LIMIT }), (queue) => {
+      if (queue.nextCursor) partial("proposals-unsigned", "Unsigned proposal coverage", "Only the first page of unsigned proposals is loaded.");
+      const cutoff = Date.parse(getStaleProposalCutoffIso(new Date(generatedAt)));
+      const recent = queue.items.filter((item) => item.contractId === null && item.sentAt !== null &&
+        Date.parse(item.sentAt) > cutoff && ["sent", "viewed"].includes(item.status));
+      for (const proposal of buildAttentionProposalRows([], recent)) attention.push({
+        id: `proposal-${proposal.proposalId}`, title: `${proposal.projectName} · awaiting signature`,
+        context: proposal.customerName, status: "Unsigned", source: "Proposals", priority: "medium",
+        assignee: null, dueAt: proposal.sentAt,
+        href: `/projects/${proposal.projectId}/proposals/${proposal.proposalId}`, action: "Review proposal",
+      });
     }));
     requests.push(read("estimates", "Estimates in progress", () => listEstimateQueue(token, { status: "draft,ready", limit: LIMIT }), (queue) => {
       if (queue.nextCursor) partial("estimates", "Estimate coverage", `The first ${queue.items.length} of ${queue.total} estimates are loaded.`);
@@ -173,8 +186,10 @@ export const loadTodayData = cache(async (): Promise<TodayData | null> => {
     if (hasPermission(role, "billing.write")) requests.push(read("invoices", "Overdue invoices", () => listInvoiceQueue(token, { overdue: true, limit: LIMIT }), (queue) => {
       if (queue.nextCursor) partial("invoices", "Invoice coverage", `${queue.total} overdue invoices; the first ${queue.items.length} are loaded.`);
       for (const invoice of buildAttentionInvoiceRows(queue.items.filter((item) => item.balanceDue > 0 && item.dueDate !== null && Date.parse(item.dueDate) < Date.parse(generatedAt) && !["draft", "paid", "voided"].includes(item.status)), [])) attention.push({ id: `invoice-${invoice.invoiceId}`, title: `Invoice #${invoice.documentNumber} overdue`,
-        context: [invoice.projectName, invoice.customerName].join(" · "), source: "Invoices", priority: "high", assignee: null, dueAt: invoice.dueDate,
-        href: `/projects/${invoice.projectId}/invoices/${invoice.invoiceId}`, action: "Review invoice" });
+        context: [invoice.projectName, invoice.customerName].join(" · "), status: "Overdue", balanceDue: invoice.balanceDue, source: "Invoices", priority: "high", assignee: null, dueAt: invoice.dueDate,
+        ...(["sent", "overdue"].includes(invoice.status)
+          ? { href: `/projects/${invoice.projectId}/invoices/${invoice.invoiceId}#record-payment`, action: "Record payment", directAction: true }
+          : { href: `/projects/${invoice.projectId}/invoices/${invoice.invoiceId}`, action: "Review invoice" }) });
     }));
   } else {
     if (field) restricted("task-writes", "Task updates", "Only tasks assigned to your authenticated user ID on an active assigned Job can be updated. Other shared tasks remain read-only.");
@@ -203,13 +218,13 @@ export const loadTodayData = cache(async (): Promise<TodayData | null> => {
   else restricted("conflicts", "Scheduling conflicts", "Organization conflict review requires dispatch access.");
   await Promise.all(requests);
   const rows = prioritizeTodayAttention(attention);
-  const attentionSources = new Set(["schedule", "jobs-overdue", "tasks", "proposals", "invoices", "approvals", "conflicts"]);
+  const attentionSources = new Set(["schedule", "jobs-overdue", "tasks", "proposals", "proposals-unsigned", "invoices", "approvals", "conflicts"]);
   const attentionUnavailable = sources.some((source) => (attentionSources.has(source.id) || [...attentionSources].some((id) => source.id === `${id}-coverage`)) && ["unavailable", "partial"].includes(source.state));
   const summaryValue = summary as DispatchSummary | null;
   const people = new Set(todayJobs.flatMap((job) => job.assignedTechnicians.map((tech) => tech.userId))).size;
   return {
     companyName: settings.settings.companyName?.trim() || "TradeOS",
-    viewer: { name, role, presentation: field ? "field" : owner ? "owner" : "office", timeZone }, generatedAt,
+    viewer: { name, role, presentation: field ? "field" : owner ? "owner" : "office", timeZone, estimateHandoffIdentity: buildAthenaEstimateIdentity(session.sub, settings.orgId) }, generatedAt,
     stats: [
       { id: "active-jobs", label: field ? "My active jobs" : "Active jobs", value: summaryValue?.activeJobs ?? null, href: field ? "/field" : "/dispatch", helper: summaryValue?.scope.source === "assigned_only" ? "Assigned jobs only" : "Organization operational summary" },
       { id: "people", label: "People scheduled", value: todayJobsComplete ? people : null, href: field ? "/field" : "/dispatch?scheduled=today", helper: "Distinct assigned people on today's active jobs; crew groups are unavailable" },

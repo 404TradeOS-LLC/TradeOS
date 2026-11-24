@@ -113,12 +113,45 @@ saving again.") before any other guard runs, with no write and no activity
 event. The write predicate always carries a revision (the token, or the
 just-read `updatedAt` when omitted), the write bumps `updatedAt` strictly
 forward, and a lost-update (P2025) on the guarded write maps to the same 409.
-The controller accepts the token as an ISO string; the frontend does not send
-it yet.
+The controller accepts the token as an ISO string; the Dispatcher Workspace
+and field actions send it (`withJobRevision(job.updatedAt, ...)`), including
+the ready-for-invoice acknowledgement (DEV-22 — `ready-for-invoice` previously
+accepted no token, the one gap).
+
+## Proposal-acceptance follow-ups (DEV-22) — 2026-11-24
+
+(a) `Job.sourceProposalId` is a real foreign key, not just a unique column:
+`FOREIGN KEY (source_proposal_id) REFERENCES proposals(id) ON DELETE RESTRICT
+ON UPDATE CASCADE` (migration `20261124141015_add_job_source_proposal_fk`,
+which also casts the column TEXT → UUID and audits that no job references
+another org's proposal before applying). `JobsService.create()` rejects a
+cross-org source proposal with the same 404 as a missing one; the FK is the
+backstop for dangling references.
+
+(b) The version-1 approval baseline freezes the accepted identity:
+`customerId`, `serviceAddressId`, and the structured `serviceAddress` (id,
+label, line 1/2, city, state, postal code, country) are recorded in
+`acceptedBaselineJson` at conversion. Older baselines keep their recorded
+fields and are never rewritten; the web parser (`web/src/lib/job-approved-baseline.ts`)
+exposes the frozen fields as `acceptedCustomerId` / `acceptedServiceAddressId` /
+`acceptedServiceAddress` (null on pre-freeze baselines). A proposal-derived
+job still cannot move to another project or customer (409), but its live
+`serviceAddressId` stays editable for field ops — the frozen address is the
+baseline's, not the live row's.
+
+(c) Rescheduling a dispatched job reverses its dispatch: the schedule and
+reschedule routes accept `confirmDispatchReversal`; without it a dispatched
+reschedule fails with 409 `dispatch_reversal_confirmation_required` and no
+write. With it, the job returns to `scheduled`, `job.rescheduled` records
+`dispatchReversed: true`, and a dedicated `job.dispatch_reversed` activity
+event is written in the same transaction. The job must then be explicitly
+redispatched — dispatch still requires `scheduled` status and at least one
+active assignment. The Dispatcher Workspace shows the reversal warning with a
+confirmation checkbox and disables Reschedule until it is checked.
 
 ## Emitted activity events
 
-- job scheduling, rescheduling, dispatch, movement through field states, assignment changes, conflict overrides, reopening, and archiving write activity records
+- job scheduling, rescheduling, dispatch, movement through field states, assignment changes, conflict overrides, reopening, and archiving write activity records; a confirmed reschedule of a dispatched job additionally writes `job.dispatch_reversed` in the same transaction
 - separately, A12 publishes three canonical A8 business events from Jobs: `JobsService.schedule()` → `JobScheduled`, `addAssignment()` → `TechnicianAssigned`, and `complete()` → `WorkCompleted`. A12.1 makes these three canonical event writes part of the same database transaction as the corresponding business mutation. A required event-persistence failure now aborts and rolls back the enclosing schedule/assignment/completion mutation instead of being logged-and-ignored. The returned optional `athenaEvent?: { type, id }` reference remains additive for Athena tool wrappers. `reschedule()`, `updateAssignment()`, and the other field-state transitions (`startTravel`, `arrive`, `pause`, `resume`, `cancel`, `reopen`) do not publish a canonical event.
 
 ## Athena business tools (A12)

@@ -69,17 +69,36 @@ Every authenticated API request depends on three layers:
 2. organization-membership authorization
 3. forced PostgreSQL row-level security inside a scoped database session
 
-The organization context comes from the verified identity and the matching active membership, not from request-controlled tenant headers.
+The organization context comes from the verified identity and the matching active membership, not from request-controlled tenant headers. Bearer extraction in layer 1 is the linear parser `extractBearerToken` (`app/backend/auth/bearer.ts`); it replaced a polynomial backtracking regex (CodeQL #19, #4) with identical acceptance, so no header is accepted or rejected differently.
 
 The public customer portal is a separate identity boundary. A staff-issued
 high-entropy magic-link digest is stored in `customer_portal_access_tokens` and
 can be redeemed once. Redemption creates a short-lived hashed
 `customer_portal_sessions` record carrying the organization and customer
 scope. Public requests use a dedicated portal database session with
-`app.org_id`, `app.portal_customer_id`, and `app.portal_session_id`; resource
-lookups re-check the project/customer relationship. The portal does not reuse a
-staff role. Its only write policy is the exact pending-contract signing
-transition, with a separate contract-event insert policy.
+`app.org_id`, `app.portal_customer_id`, `app.portal_session_id`, and the
+transaction-local `app.portal_session_hash` derived from the validated bearer
+session. Forced RLS limits session-row visibility to that exact digest; absent
+session context fails closed. The raw bearer value stays out of request context
+and logs. Resource lookups re-check the project/customer relationship. The portal does not reuse a
+staff role. Its only write policies are the exact pending-contract signing
+transition, with a separate contract-event insert policy, the exact
+first-view invoice transition (`invoices_portal_viewed_policy`, migration
+`20261123120100_add_invoice_portal_viewed_policy`): a portal session may move
+its own sent invoice to `viewed` and set `viewedAt` from null — a trigger
+pins every other invoice column — and record the matching `invoice.viewed`
+delivery/activity rows, all keyed by the transaction-local
+`app.portal_invoice_id` set by `InvoicesService.markViewed`; and the exact
+governed proposal response transition (DES-10-F7, migration
+`20261124150000_add_proposal_portal_acceptance`): a portal session may move
+its own sent/viewed proposal to `accepted` (drawn signature + printed name,
+attributed to the customer record) or to `declined` (optional reason), with a
+trigger pinning every other proposal column, and record the matching
+`proposal.accepted` / `proposal.declined` delivery/activity rows — all keyed
+by the transaction-local `app.portal_proposal_id` set by
+`ProposalsService.acceptAsPortalCustomer` /
+`declineAsPortalCustomer`. Accepting also awards the owning project under a
+separate narrow policy keyed by `app.portal_proposal_project_id`.
 Issuance also schedules the raw one-time value for server-side transactional
 email delivery after the hashed token record exists. The provider API key and
 message construction remain in the backend email adapter; no browser or portal
@@ -114,7 +133,7 @@ Database search-index changes do not alter this tenancy model. The `pg_trgm` ext
 
 Auth flows that must find a user before any org context exists (login, password reset, invite acceptance, and Supabase identity bootstrap) use a separate, narrower escape hatch instead: an `app.login_lookup` session flag, then `app.user_id` once the user is known, then `app.org_id` once their membership is known — set in that order, inside one transaction. See [modules/auth-and-tenancy.md](modules/auth-and-tenancy.md)'s Database security invariants.
 
-Workspace switching reuses the same transaction pattern for a different purpose: `GET /api/v1/auth/memberships` reads the caller's active memberships under the login-lookup flag (all of them, not just the current org), and `POST /api/v1/auth/select-organization` re-verifies an active membership in the requested org before issuing a session bound to it. Membership listing is deliberately un-rate-limited (the app shell calls it per page load); selection carries the shared auth rate limit. The switch never trusts a client-supplied org on its own — without an active membership the request 403s, and the new token's org claim is issued server-side from the verified membership.
+Workspace switching reuses the same transaction pattern for a different purpose: `GET /api/v1/auth/memberships` reads the caller's active memberships under the login-lookup flag (all of them, not just the current org), and `POST /api/v1/auth/select-organization` re-verifies an active membership in the requested org before issuing a session bound to it. Membership listing carries a dedicated per-user rate limit (600 requests per 15 minutes, keyed on a SHA-256 hash of the Authorization header value and running before requireAuth so the JWT verification itself is rate-limited — the app shell calls it per page load, so the budget is generous, and an IP-scoped limit would throttle all users together through shared Vercel egress IPs); selection carries the shared auth rate limit. The switch never trusts a client-supplied org on its own — without an active membership the request 403s, and the new token's org claim is issued server-side from the verified membership. The two routes deliberately omit `databaseSession` for the same reason login, refresh, and bootstrap do: their service methods open their own transactions, and the middleware would hold the pooler's single connection for the whole request, so the nested acquisition would time out.
 
 Provider webhooks use the same flag pattern for a different reason: a verified Resend delivery event has no user identity at all, so no tenant session exists to scope the write. The delivery-journal store (`app/db/resendDeliveryJournalStore.ts`) sets the transaction-local `app.resend_webhook` flag inside its own transaction; the forced-RLS policies on `email_delivery_messages` and `email_delivery_events` only widen writes for the duration of that transaction, and tenant reads stay org-scoped. Org attribution for an event is resolved inside the database from the journal row matched by `email_id`, never from payload claims. See [modules/resend-delivery-journal.md](modules/resend-delivery-journal.md).
 
@@ -129,6 +148,8 @@ app/modules/<name>/
 ```
 
 Controllers own request validation and HTTP shaping. Services take `orgId` explicitly and do not depend on Express request objects.
+
+The closeout and warranty workspace (`app/modules/closeout/`, S069) follows the same pattern: `CloseoutService` owns punch items (`punch_items`), the per-project closeout record (`project_closeouts`, one row per project), and warranty records (`warranty_records`), all with direct `org_id` and forced RLS (migration `20261124120000_add_closeout_warranty_workspace`). Routes mount at `/api/v1/closeout` in `app/backend/server.ts`. The readiness checklist is computed from real project records (completed jobs, signed contract via `signedAt`, non-draft invoice, accepted proposal) and `markReady` 409s with the missing list; no closeout operation writes to Contract, Proposal, Invoice, or Estimate rows. Audit events (`punch_item`, `project_closeout`, `warranty_record`) are recorded through `ActivityTimelineService` with the acting staff user as actor. The customer portal handoff is a read-only projection of the same service (`CustomerPortalService.getProject` carries `closeout`; `GET /api/v1/customer-portal/projects/:id/closeout/document` serves the rendered document as HTML — the pipeline has no HTML→PDF converter). Staff routes reuse `crm.read`/`crm.write`; ready/verify/handoff are manager-only and punch resolve is manager-or-assigned-technician, enforced in the service. RLS write policies spell out the manager roles explicitly (`owner`, `admin`, `estimator`, `dispatcher`) rather than calling `current_app_can_write()`, because the deployed helper was widened to include technician — see `docs/CURRENT_STATE.md` (S069 entry). Portal reads of the closeout tables are additionally customer-scoped by restrictive `*_customer_portal_scope_policy` policies (a portal session reads only its own customer's projects), and the portal checklist's completed-job evidence comes from the narrow read-only `app_completed_job_ids_for_project()` probe (SECURITY DEFINER, same shape as `app_job_belongs_to_caller_org()`) because a portal session cannot read jobs; jobs RLS is untouched. Handoff rechecks the checklist and then writes conditionally in a single statement (still `ready` and no open punch item), so a punch reopen between the recheck and the write cannot land a handoff with an open punch item. Each rendered warranty frame shows the recorded expiry ("Expires", from `endsAt`) and "Not recorded" when none was recorded.
 
 Route groups are mounted centrally in `app/backend/server.ts`.
 
@@ -236,3 +257,32 @@ Refresh rotation records the replacement refresh-row UUID in `replaced_by_id`, w
 ## Administrative membership provisioning boundary
 
 The membership upsert reuses the request transaction and rechecks the actor against an active database membership, active application user, matching role and administrative permission before entering the existing transaction-local user-provisioning policy. User resolution, membership mutation and audit insertion commit atomically; the prior provisioning setting is restored before returning. A failed operation rolls back with its enclosing transaction. No policy or database-role privilege changes are introduced. Attaching a user who does not yet belong to the active organization preserves that user's global profile and active flag; the existing member-update contract remains in place for users already in that organization.
+## Staff-recorded offline proposal acceptance (draft implementation)
+
+The Proposals service defines a distinct `draft -> accepted` transition for
+confirmed out-of-band customer approval. The authenticated controller checks
+`documents.manage` and validates method, explicit staff confirmation and a
+bounded audit note. The service reads within the request organization and actor
+context, validates written scope and positive final price, uses an organization-
+scoped status-conditional update, and records `proposal.accepted` in the
+existing proposal delivery/activity history tagged `staff_recorded_offline`.
+No email, `ProposalSent`, `sentAt` mutation, signature, or schema migration is
+introduced. The accepted status feeds the existing Contract/Job handoff.
+
+The customer-portal boundary strips all private staff metadata from tagged
+offline acceptance journal entries on both proposal detail and project
+summary views; only the source marker is retained for accurate timeline text.
+Internal authorized staff retain the full audit record. This branch is
+unreleased pending exact-head CI, review and protected staging acceptance.
+
+## Internal offline proposal approval versus customer portal projections
+
+The proposed `POST /api/v1/proposals/:id/accept-offline` uses the existing authenticated,
+request-scoped organization tenant and permission boundary; it is not a customer-portal route.
+It records a staff-authorized acceptance in the existing ProposalDelivery/activity journal,
+without creating a send event or an e-signature. The journal is internal evidence: customer
+portal `getProject` and `getProposal` explicitly redact the staff-only acceptance note,
+approval channel, actor user ID, recipient address and any other internal metadata while
+preserving only a harmless `staff_recorded_offline` source marker for a truthful timeline.
+RLS and portal customer/tenant document checks remain mandatory. This is proposed branch
+behavior until protected staging acceptance and merge are complete.

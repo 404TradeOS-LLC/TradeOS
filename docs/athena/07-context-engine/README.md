@@ -103,6 +103,14 @@ an action, or bypass provider/service object checks. The authenticated
 feature is enabled for navigation gating; it does not hydrate business context
 or widen the Context Engine scope.
 
+The Google Gemini model adapter renders the minimal A1 snapshot into a compact
+prompt block — role, selected-scope ids, current page, and safe channel
+metadata only; no organization or user ids, no permission list, no
+request/telemetry ids — and truncates that block to
+`ATHENA_CONTEXT_BUDGET.maxEstimatedTokens` (32,768, at ~4 chars per token). If
+truncation would remove a scope id, the call fails closed instead of answering
+with silently narrowed context.
+
 ## Provider Contract
 
 Context providers implement [C010 Context Provider](../contracts/README.md#c010-context-provider-v100).
@@ -226,3 +234,7 @@ unchanged. High-risk confirmation/resume is still a separate contract; this
 change does not turn an approval state into success or resubmit restricted
 actions. Action-engine dispatch is required for receipt guarantees; calling
 the service or tool handler directly does not provide deduplication.
+
+## Code and permits research tool boundary (draft 2026-11-08)
+
+No new contextual provider or automatic jurisdiction resolution was introduced. A registered read-only Costbook tool can return curated official Code & Permits references for an explicitly supplied state/county and topic. Athena receives source citations and warnings rather than a verified permit, zoning district, structural design, code edition or inspection approval. Do not infer jurisdiction from untrusted message text as an authoritative parcel match. This is a draft feature requiring hosted contract and authenticated acceptance evidence.

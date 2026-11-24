@@ -6,6 +6,11 @@ source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
   - app/prisma/migrations/20260912044500_add_stripe_billing
+  - app/prisma/migrations/20261124120000_add_closeout_warranty_workspace
+  - app/modules/closeout/service.ts
+  - app/modules/closeout/types.ts
+  - app/backend/controllers/closeout.controller.ts
+  - app/backend/routes/closeout.routes.ts
   - app/prisma/migrations/20260905050000_allow_custom_estimate_line_items
   - app/prisma/migrations/20260831214500_add_costbook_code_trgm_indexes
   - app/domain/contracts.ts
@@ -108,6 +113,16 @@ A first-class scheduled field-execution record stored in `Job`.
 - The actual-cost summary is integer cents and uses only nonvoid contractor-paid records. The displayed quote comparison is not recognized revenue or accounting profit. `recognizedRevenueCents` and `profitCents` remain null until verified job-level revenue attribution exists.
 - New constraint validation, migrations, receipt Storage and mobile acceptance require staged verification and documented release approval; code committed to a branch is not production deployment.
 
+## CodesJobAssessment
+
+`CodesJobAssessment` records a tenant-scoped Codes & Permits job assessment (migration `20261109220000_add_codes_job_assessment`, issue #946 TODO 4).
+
+- Each assessment belongs to an organization and a project, optionally to one estimate of that project; all reads and writes verify the parent project/estimate matches the authenticated organization, and forced RLS policies scope every row to `(SELECT public.current_app_org_id())`.
+- `workType` is the proposed work in 1–120 characters; `status` is `needs_review`, `in_review`, `owner_approved`, or `needs_verification` (default `needs_review`).
+- `citations` is a JSON array of `{source_id, rationale}` (max 20, rationale 1–500 characters); `source_id` references a TODO 2 `codes_source` id (or pilot registry id) by string, not by foreign key, so the table lands independently of TODO 2. `unknowns` is a JSON array of open questions (max 20).
+- Owner approval is never set at creation; the sign-off path sets `owner_signoff`, `signed_off_by`, and `signed_off_at`, and refuses a second approval. `created_by` records the creating user id as text.
+- The matching rules, fail-closed behavior, hints surface, and Route 63 acceptance case are documented in `docs/architecture/COSTBOOK_CODES_JURISDICTION_MATCHING.md`.
+
 ## EmailDeliveryMessage and EmailDeliveryEvent
 
 `EmailDeliveryMessage` is the outbound Resend journal and `EmailDeliveryEvent` is the verified event inbox (migration `20261105220000_add_resend_delivery_journal`, issue #927). Neither is a Prisma model; both are raw-SQL tables accessed through `app/db/resendDeliveryJournalStore.ts`, mirroring `athena_action_idempotency`.
@@ -121,6 +136,16 @@ A first-class scheduled field-execution record stored in `Job`.
 - The inbox processor has no caller on `main` until the #923 signed webhook route wiring lands; the outbound journal is live from the journal PR. No webhook is registered by this change, and the staging migration is applied only under a separate approval.
 
 
+## CodesPermitTask and CodesFeeReview
+
+`CodesPermitTask` and `CodesFeeReview` are the Codes & Permits execution records (issue #946, TODO 5; migration `20261110000000_add_codes_permit_tasks_fee_reviews`). They extend the read-only advisory pilot (#945) and must not be confused with generic `ProjectTask` field tasks.
+
+- Each record belongs to one organization and one project; `assessmentId` optionally references TODO 4's `codes_job_assessment` (foreign key in migration SQL only — the table does not exist on main yet, so the migration fails until TODO 4 lands; merge order #945 → TODO 2 → TODO 4 → this PR).
+- `CodesPermitTask` is an owner-assigned permit or inspection task with an explicit permit number/status, official evidence attachment references only, and append-only change history. `permitStatus` is explicit only — one of `not_submitted`, `submitted`, `under_review`, `approved`, `denied`, `inspection_scheduled`, `inspection_passed`, `inspection_failed` — and is never inferred from an address, source link, or AI message. Submitting requires an explicit confirm step on a `not_submitted` task; there is no auto-submit. No source link or AI message counts as a permit.
+- `CodesFeeReview` is a price-neutral permit-fee review: quoted/verified fee → `pending` → human `approved`/`rejected`. `costItemId` is set only by an explicit select step on an approved fee. The fee-review code never mutates an estimate; only an approved fee with an explicitly selected CostItem may ever affect estimated cost, through the existing explicit CostItem write semantics. Pending, rejected, and unselected fees are financial no-ops.
+- Both tables have forced RLS. Task reads are org-scoped; task writes are owner/admin, or the assigned technician on their own task (status/evidence only). Fee-review writes are owner/admin only.
+- No full model-code text is stored in either table: evidence holds official references only, and the Athena enrichment stores citation + SHA-256 source hash only.
+
 ## Estimate
 
 A priced commercial draft stored in `Estimate`.
@@ -132,6 +157,7 @@ A priced commercial draft stored in `Estimate`.
 - line items may include an optional `sourceKey` used by reviewed AI-estimator applies to reconcile retries; ordinary manual line items do not need one
 - lifecycle values are `draft`, `ready`, `sent`, `viewed`, `approved`, `declined`, `expired`, and `superseded`; historical `rejected` normalizes to `declined`, while canonical `sent` remains distinct from `ready`
 - Estimate Engine currently enforces draft-only mutations and `draft -> ready` finalization; customer-facing later transitions are separate workflow scope
+- carries two nullable Review readiness attestations, `exclusionsReviewedAt` and `priceSourcesReviewedAt` (DES-10-F2): timestamps recording when the estimator confirmed the exclusions and the line price sources were reviewed. Both must be set before `draft -> ready` is allowed; there is no line-count gate — decision 22-B (Billy's word 2026-11-23) allows finalizing a $0 estimate. A duplicated draft starts with null attestations and must be re-reviewed
 
 ## Proposal
 
@@ -140,6 +166,10 @@ A customer-facing commercial document stored in `Proposal`.
 - belongs to one project
 - may reference one estimate
 - owns proposal delivery history
+- owns proposal selections (`ProposalSelection`, DES-10-F8): one row per customer decision — `label`, nullable `detail` (chosen option), `status` (`action_required` | `confirmed`), nullable `dueDate`
+- owns proposal allowances (`ProposalAllowance`, DES-10-F8): one row per allowance line — `description` and `amount` (>= 0); the allowances total is the sum of the rows, computed at read time, and is display-only — it is never added to `finalPrice`
+- records the governed public-portal response (DES-10-F7): `signerName`, `signerEmail`, `signatureDataUrl` (drawn image), reported IP/user agent, `signedAt` on portal accept; `declinedReason` (≤ 500 chars) on portal decline; staff accept/reject leave these null
+- selections and allowances are org-scoped through their own `orgId` (forced RLS, mirroring `ProposalDelivery`), cascade on proposal delete, and are immutable once the proposal is accepted or has a contract
 - stores an optional create-attempt idempotency key and request fingerprint; the pair is unique per Project, with null values reserved for historical or non-keyed rows
 - can produce contracts and support invoices
 - uses canonical lifecycle states `draft`, `generated`, `sent`, `viewed`, `accepted`, `declined`, and `expired`; historical stored `rejected` rows remain read-compatible and normalize to `declined`, while new decline mutations persist canonical `declined`
@@ -168,6 +198,7 @@ Draft PR #956 adds optional paired create-request key and payload fingerprint fi
   cost-oriented `unitCost`/`lineCost` fields
 - the canonical physical invoice-line-item columns are `unit_price` and `line_total`; production migration `20260902200000_contract_invoice_line_price_columns` applied successfully on 2026-09-08 and removed the synchronized `unit_cost`/`line_cost` aliases plus their sync trigger/function. Disposable PostgreSQL migration coverage confirms canonical values, the invoice-line index/constraints, and tenant-scoped forced RLS survive; live production schema verification confirms the canonical columns, required indexes, and forced RLS.
 - a fully covered eligible `sent` or existing raw `overdue` invoice may be reconciled to persisted `paid` by recorded payment entry; `partially_paid` and new overdue presentation remain derived, and persisted `paid` is authoritative for follow-up exclusion
+- records `viewedAt` (nullable) on the customer's first portal view of a sent invoice; repeat views do not rewrite it
 
 - draft migration-only PR #977 proposes nullable physical `create_request_key` and `create_request_hash` columns on `invoices`, paired-field check `NOT VALID`, and a unique `(project_id, create_request_key)` index. A non-null key is independent across projects but must not be reused with a different payload in the **same** project once the separate #956 service code ships. Legacy/unkeyed rows remain allowed via NULL keys. The current Prisma model and invoice API/web are **not changed** by #977; these fields/index are **not yet applied** to staging or production and are not a shipped client contract. Protected migration release and subsequent #956 feature rollout require separate verification and approval.
 
@@ -199,6 +230,124 @@ A scoped commercial amendment stored in `ChangeOrder`.
 - belongs to one project
 - may reference one estimate
 - owns change-order line items
+
+## Closeout and warranty workspace (S069)
+
+Three records that close a project out and keep its handoff together,
+stored in `PunchItem`, `ProjectCloseout`, and `WarrantyRecord`
+(migration `20261124120000_add_closeout_warranty_workspace`). No closeout
+operation ever mutates a `Contract`, `Proposal`, `Invoice`, or `Estimate`
+row — closeout records are new, attributable records; historical
+snapshots are read, never rewritten.
+
+### PunchItem
+
+The project's explicit unresolved-items list, stored in `PunchItem`.
+
+- belongs to one project and one organization (`orgId` direct)
+- may be linked to one job
+- `status` vocabulary: `open`, `in_progress`, `resolved`, `verified`
+- `priority` vocabulary: `low`, `medium`, `high`
+- may be assigned to one active member of the organization
+  (`assignedUserId` + denormalized `assignedTo` display name); assignment
+  requires an active membership, not an active job assignment — punch work
+  attaches to jobs at (and after) field completion
+- `resolvedAt` / `resolvedById` record who resolved it; a verified punch
+  item cannot be edited (`409`)
+- transitions: resolve (a manager, or the assigned technician — the one
+  field-staff write in this workspace), verify (manager only), reopen
+  from `resolved` or `verified` (manager only)
+
+### ProjectCloseout
+
+The single per-project handoff record, stored in `ProjectCloseout`
+(one row per project; `projectId` unique).
+
+- belongs to one project and one organization (`orgId` direct)
+- links the most recently completed job on the project at creation time
+- `status` vocabulary: `draft`, `ready`, `handed_off`
+- creation requires a completed job on the project (`409` otherwise);
+  a second closeout for the same project is a `409`
+- readiness is computed, not stored: `computeChecklist` requires a
+  completed job, a signed contract (a `Contract` with `signedAt` set —
+  the stored status vocabulary keeps the legacy `pending_signature`
+  value until `sign()`), a final invoice (any non-`draft` `Invoice`),
+  an accepted proposal (or `not_applicable` when the project has no
+  proposal at all), and zero open punch items (`open` or `in_progress`)
+- `ready` (manager only) requires the checklist to be ready and stamps
+  `completedAt` / `completedById`; `handed_off` (manager only) requires
+  `ready` and stamps `handedOffAt` / `handedOffById`. Handoff rechecks
+  the checklist first (for the detailed `409`), and the write itself is
+  conditional in a single statement — it matches only a still-`ready`
+  closeout whose project has no `open` or `in_progress` punch item — so
+  a punch item reopened or created between the recheck and the write
+  makes the write match zero rows and the handoff `409`s instead of
+  landing with an open punch item. (`markReady` still uses the
+  recheck-then-write shape; making it conditional the same way is a
+  follow-up, not done here.)
+- the readiness checklist and the closeout document are assembled from
+  real project records at read time
+
+### WarrantyRecord
+
+A warranty the contractor actually gave, stored in `WarrantyRecord`.
+No warranty given means no row: there is no default or invented
+coverage term.
+
+- belongs to one project and one organization (`orgId` direct)
+- may be linked to one job, one contract, and/or one invoice
+- `sourceType` vocabulary: `contract`, `invoice`, `other`; `sourceId`
+  names the source record when one is linked
+- `coverageText` is staff-supplied and must quote the source document
+  verbatim — it is the only coverage the workspace carries. The closeout
+  document renders manufacturer coverage, exclusions, and the support
+  process as not recorded in this workspace ("see the source document")
+  because the record never carries them
+- `startsAt` / `endsAt` are optional; a record with no dates states no
+  term beyond its own quoted coverage text. The closeout document's
+  warranty frame renders `startsAt` as "Effective" and `endsAt` as
+  "Expires", each exactly as stored and "Not recorded" when absent —
+  never a substituted date. The portal handoff section renders the same
+  expiry ("Coverage ends …" / "Not recorded").
+
+### Tenant isolation and audit
+
+- all three tables carry a direct `orgId` with forced RLS. Reads are
+  org-scoped for every role, and a `portal_customer` session additionally
+  reads only its own customer's projects — a restrictive
+  `*_customer_portal_scope_policy` on each table joins through the owning
+  project to the portal customer (`current_app_portal_customer_id()`),
+  the same pattern as the projects/customers portal-scope policies. The
+  portal checklist's completed-job evidence comes from the narrow
+  read-only `app_completed_job_ids_for_project()` probe (SECURITY
+  DEFINER, same shape as `app_job_belongs_to_caller_org()`): a portal
+  session cannot read jobs at all (`jobs_select_policy` is staff-only),
+  so the plain jobs read would always report the completed-job artifact
+  missing; the probe answers only for the caller's own org, and for a
+  portal session only for a project owned by the portal customer. Jobs
+  RLS itself is untouched, and staff paths keep the plain jobs read.
+  Writes are owner/admin/estimator (via
+  `current_app_can_write()`) plus `dispatcher` — the closeout manager
+  role, which holds `crm.write` — and the assigned technician's punch
+  resolve carve-out: a technician may update only a punch item assigned
+  to them, and the `WITH CHECK` pins the row to that same assignee so
+  the assignment itself cannot be moved by a technician write. No new
+  role or permission is introduced
+- every create and transition records an attributable `ActivityEvent`
+  (`entityType` `punch_item` / `project_closeout` / `warranty_record`,
+  `eventType` `*.created` / `punch_item.resolved` /
+  `punch_item.verified` / `punch_item.reopened` /
+  `project_closeout.ready` / `project_closeout.handed_off` /
+  `warranty_record.updated` / `warranty_record.deleted`) with the acting user as actor
+- write policies also require each referenced parent to belong to the
+  caller's organization — the project always, and the job / contract /
+  invoice where one is referenced — because foreign-key checks bypass
+  RLS and `org_id` alone cannot prove parent ownership; the punch-item
+  assignee update carve-out is technician-only
+- the customer portal shows the same handoff read-only
+  (`PortalCloseoutHandoff`: status, checklist, resolved/open punch
+  counts, warranty records exactly as stored, and the link to the
+  rendered closeout document); the portal exposes no closeout mutation
 
 ## Site Visit
 
@@ -369,6 +518,20 @@ PR #216 does not add replacement catalog entities. It promotes the existing `Ass
 
 Cost Item and Assembly lookup semantics remain unchanged: both services support case-insensitive substring search across `name` and `code`. PostgreSQL `pg_trgm` GIN indexes cover both searched fields, including additive `code` indexes, so code substring matching has an index path without changing organization scope, RLS, catalog ownership, or DTO behavior.
 
+`Assembly` carries two nullable install-override columns (migration `20261123050000_add_assembly_install_overrides`, DEV-17 S10, issue #518): `waste_override_pct` (absolute waste percentage, 0–100) and `production_rate_factor` (dimensionless multiplier, greater than 0 and at most 10), each guarded by a database CHECK matching the API validation. NULL on either column means "recipe defaults". The columns ride the existing tenant-scoped assembly row — no RLS change, no new role — and they store assumptions only, never prices: the waste override replaces each mapped Material's own `wasteFactorPct` on material legs and the production factor multiplies each mapped CostItem's `productionRate` on labor/equipment legs, applied at pricing time through the existing unit-cost resolver. Stored `AssemblyItem` quantities are never rewritten by an override.
+
+## Codes & Permits registry (issue #946 TODO 2, draft)
+
+The #945 Codes & Permits advisory pilot's in-code source index moves into four global reference tables (migration `20261109220000_add_codes_authority_jurisdiction_source`). These tables are **not** tenant-scoped: they carry no `org_id`, no pricing, no CostItem, no estimate, no customer and no payment data.
+
+- `codes_authority` stores the governing authority (`name`, kind `county`/`state`/`federal`/`municipality`/`utility`, `state`, `county`, source URL, contact); unique `(name, state, county)`
+- `codes_jurisdiction` stores the geographic/legal scope under one authority (kind `county`/`municipality`/`unincorporated`/`state`/`federal`/`overlay`, `state`, `county`, opaque `gis_ref` with no geometry yet, self-parent, notes); unique `(authority_id, name, jurisdiction_kind)`
+- `codes_source` stores one cited official source version (`code_family`, section, citation, title, source URL, sha256 `source_hash`, license note, published/amended/effective/expiry dates, `status` `research`/`reviewed`/`superseded`, review timestamp/by, `version_label`, self-`supersedes_id`, plus `topics`, `summary`, `next_action` presentation text carried over from the pilot so the API response is unchanged); unique `(authority_id, code_family, citation, version_label)`, with a partial unique index enforcing the unversioned singleton when `version_label IS NULL`
+- `codes_source_history` is the append-only version history for `codes_source` (version label, hash, status, change summary, recorded at/by); no `UPDATE`/`DELETE` policy exists for any role
+- all four tables use forced RLS with a single `SELECT` policy each, readable by any authenticated session (`current_app_org_id() IS NOT NULL`); there is no `INSERT`/`UPDATE`/`DELETE` policy for tenant roles — writes go only through the governed ingestion path (TODO 3). `costbook.read` is enforced at the API layer (`GET /api/v1/costbook/codes`, which serves only `reviewed` rows)
+- the six #945 pilot references are seeded as `reviewed` rows; `source_hash` is NULL until the first governed fetch and no effective date is guessed. Full model-code text is never stored: citation + URL + hash + metadata only
+- this registry does not duplicate Costbook evidence: `provenance.ts` is a trust-state vocabulary for cost data, supplier prices and assemblies store pricing/groupings, and none of them stores authority/jurisdiction/versioned-source records
+
 ## Costbook research candidates (Stage 6 ingestion)
 
 `CostbookResearchCandidate` (new model, 2026-09-08) is the persisted form of the Stage 5 `CostbookResearchCandidate` type contract (`app/modules/costbook/candidateCostItem.ts`), per `docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md`. It is not a production Costbook entity — it is a staged, org-scoped research proposal awaiting a named human review decision, mirroring the `SupplierPriceUpdate` staged-review precedent rather than a new review-queue shape.
@@ -381,6 +544,16 @@ Cost Item and Assembly lookup semantics remain unchanged: both services support 
 - select/write RLS policies mirror the `materials_write_policy` shape: any org member may read the queue (`costbook.read`), but insert/update is restricted to `current_app_can_manage_costbook()` (owner/admin), matching `costbook.write`/`costbook.manage` both being owner/admin-only today
 - Stage 7 (regenerating the Knowledge Engine's static corpus from governed Costbook/candidate data) remains unimplemented; this model does not touch `packages/knowledge-engine/**`
 
+
+## Codes & Permits source registry (issue #946, TODO 2 tables / TODO 3 pipeline)
+
+`codes_source` and `codes_source_history` (TODO 2, draft PR for issue #946 — not yet merged) are the governed version registry for official code/permit sources, per `docs/architecture/COSTBOOK_CODES_INGESTION.md`. They are deliberately **not** tenant-scoped and **not** pricing: they hold shared official reference material (citation + URL + sha256 hash + metadata only — never full code text), beside the read-only pilot index in #945.
+
+- `codes_source` carries `jurisdiction_id`, `authority_id`, `code_family`, `section`, `citation`, `title`, `source_url`, `source_hash`, `license_note`, `published/amended/effective/expiry` dates, `status` (`research` | `reviewed` | `superseded`), `reviewed_at`, `reviewed_by`, `version_label`, and `supersedes_id`. Dates are NULL unless the source itself states them; no date is ever guessed.
+- one version chain per cited source — keyed by `(authority_id, code_family, citation)`, TODO 2's unique key; `version_label` is auto-generated `v<n>` under a per-citation advisory lock (head lookups sort `version_label` `NULLS LAST` because TODO 2's seed rows carry `version_label = NULL`). A hash change inserts a new `research` version and supersedes the old head — never mutates a reviewed row in place, never auto-publishes. When the old head is `reviewed`, it transitions to `superseded` with its reviewed content fields unchanged (the supersede UPDATE sets status only).
+- `codes_source_history` is the append-only version **event log**, not a snapshot store: `(source_id, version_label, source_hash, status, change_summary, recorded_by, recorded_at)` — one entry per insert and per status transition. An org-scoped `ActivityEvent` is recorded only for ingests that create a new version and for approve/reject decisions, in the same transaction; an ingest whose hash matches the current head is an idempotent no-op that writes neither a history entry nor an event. The TODO 3 pipeline writes history against the contract verified in TODO 2's PR #960 (head `9cdea60d`); `reviewed_by` is TEXT, `source_hash`/`version_label` are NULLABLE — see the ingestion doc.
+- RLS is global-read (any authenticated tenant session may SELECT; the global SELECT policies come from TODO 2's migration) and ingestion-only-write (INSERT/UPDATE only under the transaction-local `app.codes_ingestion` flag, set solely by `app/modules/costbook/codes/store.ts`). No DELETE policy on either table; no UPDATE policy on history. Migration `20261109220000_add_codes_source_ingestion_rls` fails hard if TODO 2's tables are missing — merge TODO 2 first. It shares the timestamp `20261109220000` with TODO 2's migration; alphabetical ordering puts TODO 2's directory first.
+- the pipeline fetches only allowlisted official hosts (`vigocounty.in.gov`, `in.gov` including subdomains; 15 s timeout per fetch hop, 5 MiB cap, manual redirects re-validated, max 3 hops) and only on an explicit authenticated owner/admin trigger (`POST /api/v1/costbook/codes/sources/ingest`, `costbook.manage`). There is no background fetch, scraper, or cron in this slice.
 
 ## Costbook composite installed-price benchmarks
 
@@ -522,7 +695,7 @@ The previously out-of-repository staging Team & Time schema is represented by tw
 
 The deployed v6 Edge Function's server-only PostgREST client runs with a service-role secret, which bypasses PostgreSQL RLS even under FORCE. Therefore JWT verification, active membership, organization-bound lookups, supervisor approval checks, job assignment and shift ownership are mandatory service controls. An isolated synthetic transport test exercises denied cross-tenant, unassigned and non-supervisor calls. No direct public client grants, policy escape hatches or production activation are introduced. All code remains unshipped until protected staging review and runtime acceptance.
 
-## Proposal-derived Job source and approval baseline — PR #810 (pending)
+## Proposal-derived Job source and approval baseline — PR #810 (merged) + DEV-22 follow-ups
 
 The canonical `Job` adds nullable `sourceProposalId` (unique globally) and
 nullable `acceptedBaselineJson` as an additive migration. Standalone jobs
@@ -533,5 +706,22 @@ scope, assumptions, exclusions, timeline, Decimal amounts serialized as
 strings, payment milestones, terms and accepted timestamp). It is neither a
 replacement Estimate/Proposal entity nor a costbook repricing operation.
 Tenant and ownership checks precede creation; subsequent job mutations cannot
-reparent a proposal-derived job to a different project, customer, or address.
-The change is unmerged and migration-dependent.
+reparent a proposal-derived job to a different project or customer — the live
+service address stays editable for field ops, while the address accepted with
+the proposal is frozen in the baseline (see below).
+
+DEV-22 (2026-11-24, migration `20261124141015_add_job_source_proposal_fk`)
+backs `sourceProposalId` with a real foreign key: the column is UUID
+(`proposals.id` is UUID; the #810 migration added it as TEXT), constrained by
+`FOREIGN KEY (source_proposal_id) REFERENCES proposals(id) ON DELETE RESTRICT
+ON UPDATE CASCADE` with the Prisma `JobSourceProposal` relation
+(`Job.sourceProposal` / `Proposal.job`). The migration audits first — it
+refuses to apply while any job references a proposal from another org — and a
+direct create linking a cross-org proposal fails with the same 404 as a
+missing one, so RLS never leaks cross-tenant existence. Deleting a proposal a
+job derives from is rejected (RESTRICT); no proposal delete path exists in the
+service today, so the constraint bites on direct database deletes and any
+future delete path. The version-1 baseline now also freezes `customerId`,
+`serviceAddressId`, and the structured `serviceAddress` (id, label, line 1/2,
+city, state, postal code, country) accepted with the proposal; older baselines
+recorded without those fields keep them absent and are never rewritten.

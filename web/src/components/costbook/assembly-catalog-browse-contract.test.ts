@@ -54,3 +54,34 @@ test("browse facets preserve existing write permissions and priced preview gates
   assert.match(ui, /if \(new Set\(componentMappings\.map\(\(mapping\) => mapping\.costItemId\)\)\.size !== componentMappings\.length\)/);
   assert.match(ui, /Pre-install cost preview/);
 });
+
+test("saving pricing overrides refreshes the displayed unit cost", async () => {
+  const ui = await source("./assembly-catalog.tsx");
+  // The edit form's onUpdated path must refetch the unit cost: the
+  // selectedId effect alone does not rerun after an override save, so the
+  // displayed cost would stay stale.
+  assert.match(ui, /onUpdated=\{handleAssemblyUpdated\}/);
+  assert.match(ui, /function handleAssemblyUpdated\(updated: CostbookAssembly\)/);
+  const handler = ui.slice(ui.indexOf("function handleAssemblyUpdated"), ui.indexOf("async function deactivateSelected"));
+  assert.match(handler, /updateAssemblyInList\(updated\)/);
+  assert.match(handler, /refreshSelectedUnitCost\(updated\.id\)/);
+  assert.match(ui, /async function refreshSelectedUnitCost\(requestAssemblyId: string\)/);
+  const refresh = ui.slice(ui.indexOf("async function refreshSelectedUnitCost"), ui.indexOf("function handleAssemblyUpdated"));
+  assert.match(refresh, /clientFetch<AssemblyCost>\(`\/costbook\/assemblies\/\$\{requestAssemblyId\}\/unit-cost`\)/);
+  assert.match(refresh, /setUnitCost\(cost\.unitCost\)/);
+  // A failed refresh clears the stale value instead of leaving it displayed.
+  assert.match(refresh, /setUnitCost\(null\)/);
+});
+
+test("override edit inputs accept every value the API contract accepts", async () => {
+  const ui = await source("./assembly-catalog.tsx");
+  const form = ui.slice(ui.indexOf("function AssemblyEditForm"), ui.indexOf("function money"));
+  // Waste 7.25 and production factor 0.85 are valid per the override
+  // contract (waste 0–100, factor > 0 and ≤ 10, enforced by submit); the
+  // native inputs must not reject them first via step/min.
+  assert.match(form, /aria-label="Waste override percent" type="number" min="0" max="100" step="any"/);
+  assert.match(form, /aria-label="Production factor" type="number" min="0" max="10" step="any"/);
+  assert.doesNotMatch(form, /step="0\.5"/);
+  assert.doesNotMatch(form, /step="0\.1"/);
+  assert.doesNotMatch(form, /min="0\.1"/);
+});

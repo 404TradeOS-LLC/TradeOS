@@ -36,10 +36,11 @@ It **composes** existing pieces and rebuilds none of them: required checks are
 read from `verify-repository.yml`, readiness comes from `merge-readiness.yml`
 (extended with threads, branch currency, ADR-009, and file classification),
 rebases are dispatched to `pr-maintenance.yml` by the armed `act` job
-(founder policy exception for `actions: write`, 2026-11-10; depends on
-PR #965's numeric-input fix in that workflow), security fixes are left
-to the `codeql-autofix.yml` scheduled run (the Commander never dispatches
-it — see "Repair tiers" below), and the lint-autofix pattern comes from
+(founder policy exception for `actions: write`, 2026-11-10, widened
+2026-11-23 to also cover the CodeQL dispatch; depends on
+PR #965's numeric-input fix in that workflow), security fixes are
+handled by the `codeql-autofix.yml` scheduled run plus an on-demand
+dispatch from the armed `act` job (see "Repair tiers" below), and the lint-autofix pattern comes from
 `code-quality-autofix.yml`. See
 [PR Commander configuration](PR_COMMANDER_CONFIGURATION.md) for setup, and
 `scripts/pr-commander-implementation-note.md` for the 14-requirement map.
@@ -59,7 +60,9 @@ it — see "Repair tiers" below), and the lint-autofix pattern comes from
   worker that invokes the installed Codex app once per head for
   REPAIRABLE PRs the deterministic tier could not fix, security
   findings surfaced as founder items and handled by the scheduled
-  CodeQL Autofix run (no dispatch from this workflow), and one
+  CodeQL Autofix run plus an on-demand dispatch from the armed `act`
+  job (once per run, one repair attempt per head, REPAIRABLE only),
+  and one
   best-effort CodeRabbit re-review request after a repair push.
 - A dependency-safe merge orderer: stacked PRs merge base-first
   (`detectStacks` / `orderMerges`); a dependency cycle merges nothing from
@@ -202,6 +205,21 @@ protected-staging changes stay `BLOCKED` with a founder item even with an
 ADR-009 record, because the exception does not approve security or
 operational decisions.
 
+The record is detected from the PR body, where it is actually written: the
+exact-head snapshot carries `body` in every snapshot path — the evaluate
+job, the armed act job's re-read, and the CLI `--pr` path — and
+`normalizeSnapshot` treats the record as present when the body has a line
+starting with `ADR-009 record` plus all six record elements, each with a
+populated value on its own line: Authorization, Unavailable-reviewer
+reason, Risk boundaries, Rollback/recovery, Required-check evidence,
+Restoration trigger. A header with an empty value is a placeholder, not a
+record. A bare mention without the elements does not count, and a missing
+body stays unknown (BLOCKED), never assumed present. Before this fix
+(2026-11-23) the snapshot never set the record flag at all, so every
+migration PR mis-evaluated as BLOCKED on "ADR-009 record required but
+absent" even when the record was in the body — proven on #1045, #1046 and
+#1054.
+
 ### Protected-file classification
 
 `classifyPrFiles` flags changed paths (fail-closed — an ambiguous path is
@@ -308,14 +326,20 @@ Actions tab stops schedule runs as well.
    numeric-input fix in `pr-maintenance.yml` (a dispatched `pr_number`
    arrives as `953.0` without it).
 3. **CodeQL Autofix for security findings** — the existing
-   `codeql-autofix.yml` is **not dispatched from this workflow and never
-   re-implemented here**: the founder policy exception for `actions: write`
-   (2026-11-10) covers the pr-maintenance dispatch only. Security
-   findings are surfaced as founder items in the verdict comment and
-   handled by the `codeql-autofix.yml` scheduled run (every 2h) on its
-   own cadence. On-demand dispatch is still unwired: wiring it is a
-   separate change, either a wider exception (a founder decision) or a
-   `workflow_call` restructure of `codeql-autofix.yml`.
+   `codeql-autofix.yml` is **dispatched on demand from this workflow
+   and never re-implemented here**: the armed `act` job dispatches it
+   (`gh workflow run codeql-autofix.yml --ref main`) when a REPAIRABLE
+   PR carries a security reason, at most once per Commander run and
+   counting as one repair attempt on the head (cap 3, shared with the
+   other tiers). The founder policy exception for `actions: write`
+   (2026-11-10) was widened 2026-11-23 (decision #18-A, Billy's word)
+   to cover this dispatch as well as the pr-maintenance dispatch; the
+   `workflow_call` restructure of `codeql-autofix.yml` was the
+   rejected alternative. Security findings are still surfaced as
+   founder items in the verdict comment. When no dispatch fires
+   (BLOCKED verdict, exhausted attempts, already dispatched this run,
+   or a dispatch failure), the `codeql-autofix.yml` scheduled run
+   (every 2h) picks the alerts up on its own cadence.
 4. **AI repair worker (Codex)** — after the deterministic tier does not
    push and no rebase was dispatched, the armed `act` job may invoke the
    already-installed ChatGPT Codex GitHub app once per head on a

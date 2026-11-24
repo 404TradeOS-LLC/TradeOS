@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/shared/app-nav";
+import { TenantQueryProvider } from "@/components/shared/tenant-query-provider";
 import { getAthenaCapabilities, getOrganizationSettings, getWorkspaceMemberships, type WorkspaceMembership } from "@/lib/api";
+import { isAuthorizedBetaOperator } from "@/lib/beta-control";
+import { decodeLocalAccessToken } from "@/lib/local-auth";
 import { getSession, getSessionToken } from "@/lib/session";
 import { isTeamTimeEnabled } from "@/lib/team-time-config";
+import { resolveWorkspaceKey } from "@/lib/workspace-key";
 
 const ATHENA_CAPABILITY_TIMEOUT_MS = 1500;
 
@@ -81,6 +85,29 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     resolveWorkspaceMemberships(token),
   ]);
   const athenaCapabilityRetryKey = athenaCapability.retryOnClient ? randomUUID() : null;
+  // The Beta readiness link is gated by the same server-side operator
+  // authorization as the route: role alone is never enough, and the
+  // configured operator organization ID never leaves the server. Customer
+  // owners/admins — and everyone else when operator access is unconfigured
+  // — simply never see a link that would always 404 for them.
+  const betaReadinessVisible = isAuthorizedBetaOperator(
+    identity.role,
+    identity.orgId,
+    process.env.TRADEOS_BETA_OPERATOR_ORG_ID,
+  );
+
+  // Remount key from the session token first: every session the backend
+  // issues signs the active orgId into the token, and a workspace switch
+  // replaces the token atomically before the refresh, so the token claim
+  // changes exactly when the workspace does. Deriving the key from the
+  // settings lookup alone left it stuck on "unknown" whenever that lookup
+  // failed or exceeded 1.5s in both workspaces, so tenant-owned client
+  // state (for example a Settings draft) survived the switch. The settings
+  // org stays as the fallback for sessions whose token carries no org claim.
+  const workspaceKey = resolveWorkspaceKey({
+    tokenOrgId: token ? decodeLocalAccessToken(token)?.orgId ?? null : null,
+    settingsOrgId: identity.orgId,
+  });
 
   // Keyed by the active workspace: switching workspaces must remount
   // the whole shell subtree, not just refresh server data — otherwise
@@ -88,8 +115,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // workspace A's props) survives the switch and a later save would
   // overwrite workspace B's data with A's values. The key only changes
   // when the active org changes, so single-workspace users are unaffected.
+  // The query cache is tenant-scoped the same way: TenantQueryProvider
+  // lives inside the keyed boundary so its QueryClient is discarded with
+  // the shell on every switch, instead of serving the previous workspace's
+  // cached catalog searches under the new workspace.
   return (
-    <div key={identity.orgId ?? "unknown"} className="flex flex-1 flex-col">
+    <div key={workspaceKey} className="flex flex-1 flex-col">
       <a
         href="#main-content"
         className="sr-only rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -101,6 +132,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         currentRole={identity.role}
         currentOrgId={identity.orgId}
         workspaceMemberships={workspaceMemberships}
+        betaReadinessVisible={betaReadinessVisible}
         athenaEnabled={athenaCapability.enabled}
         athenaCapabilityRetryKey={athenaCapabilityRetryKey}
         teamTimeEnabled={isTeamTimeEnabled()}
@@ -110,7 +142,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         tabIndex={-1}
         className="mx-auto w-full max-w-[96rem] flex-1 px-4 py-5 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] outline-none sm:px-6 sm:pt-6 sm:pb-[calc(env(safe-area-inset-bottom)+5.5rem)] lg:px-8"
       >
-        {children}
+        <TenantQueryProvider>{children}</TenantQueryProvider>
       </main>
     </div>
   );

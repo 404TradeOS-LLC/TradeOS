@@ -92,6 +92,7 @@ async function renderAllowedPage(token: string, role: string) {
       if (specifier === "@/lib/session") return { getSessionToken: async () => token };
       if (specifier === "@/lib/api") return {
         ApiClientError: class extends Error {},
+        getAthenaCapabilities: async () => ({ kernelEnabled: true }),
         getOrganizationSettings: async () => { calls.push("settings"); return { currentRole: role, settings: { timezone: "UTC" } }; },
         getDispatchSummary: async () => { calls.push("summary"); return { todayRangeUtc: { start: "2026-11-02T00:00:00.000Z", end: "2026-11-03T00:00:00.000Z" } }; },
         listFieldJobs: async () => { calls.push("list"); return []; },
