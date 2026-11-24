@@ -480,14 +480,22 @@ test("estimate finalize completes the Review readiness checklist first (DES-10-F
   // the state immediately after clicking instead of polling, throwing
   // "Clicking the checkbox did not change its state" (Codex P2 on PR
   // #1083, verified empirically against a 2s delayed state flip).
+  // The locator must be getByRole("checkbox", { name }), not getByLabel:
+  // Base UI's Checkbox renders a visible <span role="checkbox"
+  // aria-labelledby> AND a hidden <input type="checkbox" aria-hidden>
+  // with the same id, so getByLabel resolves to 2 elements and trips
+  // strict mode (staging orchestrator 45479023041). getByRole excludes
+  // the aria-hidden input.
   const finalizeClick = 'getByRole("button", { name: "Finalize estimate" }).click()';
-  assert.match(capture, /getByLabel\("Exclusions reviewed", \{ exact: true \}\)\.click\(\)/);
-  assert.match(capture, /getByLabel\("Price sources reviewed", \{ exact: true \}\)\.click\(\)/);
+  assert.match(capture, /getByRole\("checkbox", \{ name: "Exclusions reviewed", exact: true \}\)\.click\(\)/);
+  assert.match(capture, /getByRole\("checkbox", \{ name: "Price sources reviewed", exact: true \}\)\.click\(\)/);
+  assert.doesNotMatch(capture, /getByLabel\("Exclusions reviewed"/);
+  assert.doesNotMatch(capture, /getByLabel\("Price sources reviewed"/);
   assert.doesNotMatch(capture, /getByLabel\("Exclusions reviewed", \{ exact: true \}\)\.check\(\)/);
   assert.doesNotMatch(capture, /getByLabel\("Price sources reviewed", \{ exact: true \}\)\.check\(\)/);
   assert.match(capture, /Checklist complete/);
-  assert.ok(capture.indexOf('getByLabel("Exclusions reviewed"') < capture.indexOf(finalizeClick));
-  assert.ok(capture.indexOf('getByLabel("Price sources reviewed"') < capture.indexOf(finalizeClick));
+  assert.ok(capture.indexOf('getByRole("checkbox", { name: "Exclusions reviewed"') < capture.indexOf(finalizeClick));
+  assert.ok(capture.indexOf('getByRole("checkbox", { name: "Price sources reviewed"') < capture.indexOf(finalizeClick));
 });
 
 test("canonical evidence navigates focused estimate stages at 390/768 and checks active step", () => {
