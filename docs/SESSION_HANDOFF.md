@@ -12,6 +12,15 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Readiness promotion — 2026-11-24: S069 promoted to READY
+
+- Base: `main` at `1388baae`. Branch `docs/promote-s069-ready`, governance-only readiness PR on the founder's word ("promote every sprint that is ready").
+- S069 is `READY`: no dependencies; live overlap rechecked 2026-11-24 (sole open PR #1066, CodeQL memberships rate limit — owns no closeout/warranty scope; #1065 Copilot repair lane owns disjoint switcher files); no S069 implementation branch exists.
+- Plan doc: `docs/architecture/S069_CLOSEOUT_WARRANTY_WORKSPACE_PLAN.md`. S069 is build work (no punch/closeout/warranty models exist on main) — field completion → punch/closeout documents → customer handoff → warranty record organization, tenant-scoped and auditable, without inventing unsupported warranty promises.
+- S071 also has satisfied `Dependencies:` but stays `PLANNED`: the sprint-state validator allows at most one `READY` sprint at a time, so it gets its own promotion after S069 leaves `READY`.
+- `Release certification prerequisites:` do not block `READY` (S057/S058 for S069 — both PLANNED, reference-validated only).
+- S069 is the next eligible sprint; the 03:00 sprint runner selects it next.
+
 ## Sprint implementation — 2026-11-24: S068 implemented (PR pending merge)
 
 - Base: `main` at `c7717c69`. Branch `feat/s068-change-order-certification`, 03:00 sprint runner.
@@ -23,8 +32,8 @@ related_docs:
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`. S068 is `IN_REVIEW` (browser evidence pending); S069 and S071 have satisfied `Dependencies:` but stay `PLANNED` — each needs its own governance-only readiness promotion, S069 first; S059 is `IN_REVIEW` (browser evidence pending).
-Dependencies: none (no READY sprint).
-Overlap check: Live open PRs rechecked 2026-11-24 (main `c7717c69` at implementation start): zero open PRs; the main-port lane (#1065, switcher defects) owns disjoint files; no S068 implementation branch existed before this run.
-Startup prompt: Dispatch the S068 browser-evidence workflow from `main` after the implementation PR merges (see `docs/testing/S068_CHANGE_ORDER_EVIDENCE.md`); then promote S069 with a governance-only readiness PR per the Next Sprint Protocol.
+Sprint ID: S069
+Eligibility: S069 is `READY` (governance-only readiness promotion from current main `1388baae` on Billy's word 2026-11-23 "promote every sprint that is ready"). S071 also has satisfied dependencies but stays `PLANNED` — at most one sprint may be `READY` at a time, so it gets its own promotion after S069 leaves `READY`. S068 is `IN_REVIEW` (implementation merged as PR #1067, `1388baae`, 2026-11-24; browser evidence pending). S059 is `IN_REVIEW` (browser evidence pending).
+Dependencies: S069 none.
+Overlap check: Live open PRs rechecked 2026-11-24 (main `1388baae`): #1066 (CodeQL memberships rate limit). Owns no S069 scope. No S069 implementation branch exists.
+Startup prompt: Implement S069 per `docs/architecture/S069_CLOSEOUT_WARRANTY_WORKSPACE_PLAN.md`.
