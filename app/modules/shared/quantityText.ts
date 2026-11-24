@@ -137,6 +137,9 @@ function matchUnitAt(
   if (alternative.optionalSuffix) {
     let suffixPos = pos;
     while (isWhitespace(text[suffixPos])) suffixPos += 1;
+    // The original regex's `\s*` before the optional suffix is consumed
+    // whether or not a suffix follows: "4 in depth" matched "4 in ".
+    pos = suffixPos;
     for (const suffix of alternative.optionalSuffix) {
       if (wordMatchesAt(text, suffixPos, suffix, caseInsensitive)) {
         pos = suffixPos + suffix.length;

@@ -143,6 +143,7 @@ const CORPUS = [
   "4 in",
   "4 in slab",
   "4 inch thick",
+  "250 sq ft at 4 in depth",
   "8 hours labor",
   "8 hrs",
   "8 hr",
