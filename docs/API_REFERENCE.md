@@ -381,6 +381,8 @@ organization or customer id:
 - `GET /api/v1/customer-portal/contracts/:id`
 - `GET /api/v1/customer-portal/contracts/:id/pdf`
 - `POST /api/v1/customer-portal/contracts/:id/sign`
+- `POST /api/v1/customer-portal/proposals/:id/accept` — governed portal acceptance (DES-10-F7; see below)
+- `POST /api/v1/customer-portal/proposals/:id/decline` — governed portal decline (DES-10-F7; see below)
 
 Every resource lookup requires the project to belong to both the session's
 organization and customer. A successful `GET /api/v1/customer-portal/invoices/:id`
@@ -394,6 +396,39 @@ and user agent are explicitly reported metadata because the web tier may proxy
 the request; the contract event records `actorType: customer_portal`, the
 customer id, and portal session id. The portal principal cannot call staff
 `/api/v1/*` routes.
+
+DES-10-F7 (2026-11-24, founder decision): the portal also answers proposals.
+`POST /api/v1/customer-portal/proposals/:id/accept` accepts `{ signerName,
+signatureDataUrl, signatureIpReported?, signatureUserAgentReported?,
+expectedUpdatedAt? }` and moves a `sent`/`viewed` proposal to `accepted`;
+`POST /api/v1/customer-portal/proposals/:id/decline` accepts `{ reason?,
+expectedUpdatedAt? }` (≤ 500 chars) and moves it to `declined`. The signature
+must be a drawn image that decodes to bytes
+(`data:image/png|jpeg|gif|webp;base64,…`, ≤ 2,000,000 chars) — a bare
+`data:image/` prefix with no payload is rejected with `400`. `expectedUpdatedAt`
+is the proposal's `updatedAt` as rendered; when sent, a staff edit after the
+page rendered is a 409. The signer email is re-derived from the customer
+record, never taken from the request.
+Acceptance records the signer name/email, signature image, reported IP/user
+agent, and `signedAt` on the proposal, awards the owning project
+(`estimating` → `awarded`, staff accept parity), and writes a
+`proposal.accepted` delivery event (`delivery_channel: "portal"`,
+`actorType: "customer_portal"`, customer id, portal session id) plus the
+matching activity row. Decline records an optional `declinedReason` and a
+`proposal.declined` event the same way, and deliberately leaves the project
+untouched (a project may carry several proposals; declining one must not
+un-award a project won through another — unlike staff reject, which sets
+`estimating` unconditionally). Drafts 404; foreign-customer and cross-org
+proposals 404; a second response, or a response after the proposal moved,
+409s. The writes run under the same narrow-policy shape as contract signing
+(`proposals_portal_response_policy` + trigger, migration
+`20261124150000_add_proposal_portal_acceptance`, keyed by the
+transaction-local `app.portal_proposal_id`; the project award uses a second
+transaction-local id, `app.portal_proposal_project_id`, because a subquery
+over proposals inside the projects policy recurses through the proposals
+SELECT policy — PostgreSQL rejects that cycle as infinite recursion). No
+Athena event is published and no email is sent. See the DES-10-F7 amendment
+in [ADR-010](decisions/ADR-010-customer-magic-link-portal.md).
 
 After middleware validates a portal bearer session, the request transaction
 sets transaction-local `app.portal_session_hash` to the SHA-256 digest of that
@@ -513,7 +548,7 @@ Mounted route groups from `app/backend/server.ts`:
 
 ABC Supply refresh-token rotation is durable-first: `ABC_SUPPLY_SANDBOX_REFRESH_TOKEN` is bootstrap/recovery configuration, while the default supplier feed reads/writes the current rotated token through private `tradeos_private` functions backed by Supabase Vault. Those functions require the active owner/admin tenant session and the configured `ABC_SUPPLY` supplier row; `tradeos_app` is not granted direct Vault table/view access.
 
-Change-order reads require `billing.read`; all change-order mutations, including line-item changes and approval/rejection, require `billing.write`. Approval and rejection additionally emit an attributable `ActivityEvent` (`entityType: "change_order"`, `eventType: "change_order.approved" | "change_order.rejected"`) recording the authenticated staff user as actor, with the previous/new status, change-order number, project, and recalculated amount in metadata; `billing.write` is unchanged and no customer-portal approve/reject path exists (ADR-010 limits customer-originated writes to signing pending contracts). Supplier reads at `/api/v1/suppliers` require `costbook.read`; supplier create, update, and delete require `costbook.manage`. Both surfaces remain organization-scoped through the authenticated request session and forced RLS.
+Change-order reads require `billing.read`; all change-order mutations, including line-item changes and approval/rejection, require `billing.write`. Approval and rejection additionally emit an attributable `ActivityEvent` (`entityType: "change_order"`, `eventType: "change_order.approved" | "change_order.rejected"`) recording the authenticated staff user as actor, with the previous/new status, change-order number, project, and recalculated amount in metadata; `billing.write` is unchanged and no customer-portal approve/reject path exists for change orders — the only portal approve/reject path is the governed proposal response (DES-10-F7 amendment to ADR-010; proposals only, never change orders, contracts, or invoices). Supplier reads at `/api/v1/suppliers` require `costbook.read`; supplier create, update, and delete require `costbook.manage`. Both surfaces remain organization-scoped through the authenticated request session and forced RLS.
 
 ### Closeout and warranty workspace (S069)
 

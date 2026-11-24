@@ -25,6 +25,8 @@ customerPortalRouter.get("/projects/:id", asyncHandler(ctrl.getProject));
 customerPortalRouter.get("/projects/:id/closeout/document", asyncHandler(ctrl.getCloseoutDocument));
 customerPortalRouter.get("/proposals/:id", asyncHandler(ctrl.getProposal));
 customerPortalRouter.get("/proposals/:id/pdf", asyncHandler(ctrl.getProposalPdf));
+customerPortalRouter.post("/proposals/:id/accept", asyncHandler(ctrl.acceptProposal));
+customerPortalRouter.post("/proposals/:id/decline", asyncHandler(ctrl.declineProposal));
 customerPortalRouter.get("/invoices/:id", asyncHandler(ctrl.getInvoice));
 customerPortalRouter.get("/invoices/:id/pdf", asyncHandler(ctrl.getInvoicePdf));
 customerPortalRouter.get("/contracts/:id", asyncHandler(ctrl.getContract));

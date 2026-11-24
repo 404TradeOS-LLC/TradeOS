@@ -49,4 +49,54 @@ describe("customer portal request middleware", () => {
     expect(request).not.toHaveProperty("customerPortalSessionHash");
     expect(next).toHaveBeenCalledWith(failure);
   });
+
+  // DES-10-F7 (review repair): an error response must roll the portal
+  // transaction back, not commit it — otherwise a proposal response written
+  // before a later failure (audit row) would stand while the client sees an
+  // error, and a retry would 409 on the already-recorded response.
+  it("rejects the portal session operation when the response is an error, so the transaction rolls back", async () => {
+    jest.spyOn(CustomerPortalService.prototype, "resolveSession").mockResolvedValue(context);
+    const request = { header: jest.fn().mockReturnValue(bearerToken) } as unknown as CustomerPortalRequest;
+    requireCustomerPortalSession(request, {} as Response, jest.fn());
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const runWithPortalDatabaseSession = jest.spyOn(requestSession, "runWithPortalDatabaseSession");
+    runWithPortalDatabaseSession.mockImplementation(async (_client, _portal, operation) => operation());
+    const response = new EventEmitter() as EventEmitter & Response;
+    Object.defineProperty(response, "headersSent", { value: false });
+    Object.defineProperty(response, "statusCode", { value: 200, writable: true });
+    const next = jest.fn(() => {
+      (response as unknown as { statusCode: number }).statusCode = 500;
+      response.emit("finish");
+    });
+
+    customerPortalDatabaseSession(request, response, next);
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining("rolling back") }));
+  });
+
+  it("commits the portal session operation when the response succeeds", async () => {
+    jest.spyOn(CustomerPortalService.prototype, "resolveSession").mockResolvedValue(context);
+    const request = { header: jest.fn().mockReturnValue(bearerToken) } as unknown as CustomerPortalRequest;
+    requireCustomerPortalSession(request, {} as Response, jest.fn());
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const runWithPortalDatabaseSession = jest.spyOn(requestSession, "runWithPortalDatabaseSession");
+    runWithPortalDatabaseSession.mockImplementation(async (_client, _portal, operation) => operation());
+    const response = new EventEmitter() as EventEmitter & Response;
+    Object.defineProperty(response, "headersSent", { value: false });
+    Object.defineProperty(response, "statusCode", { value: 200, writable: true });
+    const next = jest.fn(() => {
+      response.emit("finish");
+    });
+
+    customerPortalDatabaseSession(request, response, next);
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(next).toHaveBeenCalledWith();
+  });
 });

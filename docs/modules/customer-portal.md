@@ -69,6 +69,37 @@ email scanners and link previews from consuming the invitation. See
 
 Portal timelines render proposal delivery history, contract events, and invoice delivery history. See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 
+## Governed proposal approval + signature (DES-10-F7)
+
+The public portal proposal page (`/customer-portal/proposals/[proposalId]`)
+is no longer read-only. While the proposal is `sent`/`viewed` it renders an
+approval form (`PortalProposalApprovalForm`): a review confirmation ("I have
+reviewed the scope, allowances, and terms."), the customer's full name, and a
+drawn signature (`SignaturePad`, shared with contract signing). Acceptance
+requires all three — the submit stays disabled until the pad holds ink, and
+the server re-checks every requirement: the signature data URL must decode
+to an actual image, not a bare `data:image/` prefix. The form carries the
+rendered revision as a hidden `expectedUpdatedAt` (the proposal's
+`updatedAt`), so a staff edit after the page rendered is a 409 and the
+customer re-reviews before answering; the decline form carries it too. A
+separate decline form takes an optional reason (≤ 500 chars). Once answered,
+the page renders the recorded response instead of the form (signed by +
+date, or declined + reason), so a refresh cannot re-submit it. The accepted
+state states that the signature was recorded only when a signature is
+actually recorded — an older API can return an accepted proposal without the
+signature fields, and that renders a neutral acceptance line instead.
+
+The server path is `acceptPortalProposalAction` /
+`declinePortalProposalAction` (`web/src/app/actions/proposals.ts`) →
+`POST /api/v1/customer-portal/proposals/:id/accept|decline` →
+`CustomerPortalService.acceptProposal` / `declineProposal` →
+`ProposalsService.acceptAsPortalCustomer` /
+`declineAsPortalCustomer`. The signer email is the customer record's email on
+file, never a form value. The authenticated `(app)/portal` accept/decline
+surface is unchanged and separate. See
+[proposals.md](proposals.md) and the DES-10-F7 amendment in
+[ADR-010](../decisions/ADR-010-customer-magic-link-portal.md).
+
 ## Closeout handoff
 
 The customer-portal project page has a read-only closeout handoff section (S069): the closeout status, readiness checklist, resolved punch summary, warranty records as stored, and a link to the rendered closeout document. The handoff comes from `CustomerPortalService.getProject` (`closeout` field) and is scoped to the owning customer through the existing portal session; a foreign project 404s before any closeout read. The portal has no closeout write. When no closeout exists yet, the section says the contractor has not shared a handoff for the project. The scoping is also enforced at the database boundary (restrictive `*_customer_portal_scope_policy` on each closeout table), and the checklist's completed-job evidence comes from the narrow read-only `app_completed_job_ids_for_project()` probe because a portal session cannot read jobs — so a handed-off project correctly shows its completed-job artifact present. Each warranty row shows the recorded expiry ("Coverage ends …", from `endsAt`) and "Not recorded" when none was recorded.

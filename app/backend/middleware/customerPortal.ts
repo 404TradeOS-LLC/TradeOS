@@ -56,7 +56,18 @@ export function customerPortalDatabaseSession(req: CustomerPortalRequest, res: R
 function waitForResponse(res: Response, next: NextFunction): Promise<void> {
   return new Promise((resolve, reject) => {
     let settled = false;
-    const finish = () => settle(resolve);
+    // DES-10-F7 (review repair): an error response must roll the portal
+    // transaction back, not commit it. The whole portal request runs in
+    // one transaction; if a handler writes (proposal response, delivery
+    // event) and a later step fails, committing would leave the proposal
+    // answered without its audit row while the client sees an error — and
+    // a retry would then 409 on the already-recorded response.
+    const finish = () =>
+      settle(
+        res.statusCode >= 400
+          ? () => reject(new Error(`Customer portal response failed with status ${res.statusCode}; rolling back portal transaction`))
+          : resolve,
+      );
     const fail = (error: Error) => settle(() => reject(error));
     const settle = (complete: () => void) => {
       if (settled) return;

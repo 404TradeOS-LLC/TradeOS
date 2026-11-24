@@ -112,6 +112,67 @@ duplicate delivery/activity history or overwrite the winning project side
 effect. The current `billing.read` read boundary and `documents.manage`
 mutation boundary remain unchanged.
 
+## Public-portal approval + signature (DES-10-F7)
+
+The governed customer answer to a proposal, on the public portal — the
+Copperline TARGET frames (425:45123 / 425:46807) plus the signature flow
+(361:119), decided by the founder 2026-11-24. `POST
+/api/v1/customer-portal/proposals/:id/accept` (`ProposalsService.
+acceptAsPortalCustomer`, via `CustomerPortalService.acceptProposal`) moves a
+`sent`/`viewed` proposal to `accepted` only with a drawn signature image
+(a base64 raster image — `data:image/png|jpeg|gif|webp;base64,…` — that
+decodes to bytes, ≤ 2,000,000 chars; a bare `data:image/` prefix with no
+payload is rejected with `400` at the HTTP boundary, in the service, and
+by the migration trigger) plus the printed name; a typed name
+alone is rejected with `400`. The signer email is the customer record's email
+on file, never a request value. The proposal records `signerName`,
+`signerEmail`, `signatureDataUrl`, reported IP/user agent, `signedAt`, and
+`respondedAt`, and the owning project moves to `awarded` (staff accept
+parity). `POST /api/v1/customer-portal/proposals/:id/decline`
+(`declineAsPortalCustomer`) moves it to `declined` with an optional
+`declinedReason` (≤ 500 chars) and deliberately leaves the project untouched:
+a project may carry several proposals, and declining one must not un-award a
+project won through another (unlike staff `reject()`, which sets `estimating`
+unconditionally). Both write a `proposal.accepted` / `proposal.declined`
+delivery event with `deliveryChannel: "portal"` and `actorType:
+"customer_portal"` (customer id, portal session id) plus the matching
+activity row; neither publishes an Athena event nor sends email. Drafts 404,
+foreign-customer and cross-org proposals 404, a second response 409s, and
+concurrent double-responses allow exactly one (conditional update on the
+status predicate — and, when the caller sends `expectedUpdatedAt`, on the
+revision predicate too). Both accept and decline take an optional
+`expectedUpdatedAt` (the proposal's `updatedAt` as rendered on the portal
+page): a staff edit after the page rendered bumps `updatedAt`, so the
+response is rejected with 409 and the customer must review the updated
+document before answering.
+
+Governance is three layers: the portal service asserts the proposal belongs
+to the session's customer (404 first); the conditional update requires
+`sent`/`viewed` and the org/customer project scope; migration
+`20261124150000_add_proposal_portal_acceptance` grants one narrow portal
+UPDATE policy keyed by the transaction-local `app.portal_proposal_id` plus a
+trigger pinning every column except the response itself — the portal displays
+what the proposal already says and cannot rewrite scope, prices, or terms.
+An error response rolls the portal transaction back (the middleware rejects
+the session operation when the response status is 400+, so a response written
+before a later failure is not left standing while the client sees an error).
+The project award uses a second transaction-local id,
+`app.portal_proposal_project_id`, because a subquery over proposals inside
+the projects policy recurses through the proposals SELECT policy (PostgreSQL
+42P17, proven by the live integration test before the fix). The web form
+(`PortalProposalApprovalForm`) requires the review confirmation, the printed
+name, and ink on the signature pad before it submits; the accepted/declined
+page state replaces the form so a refresh cannot re-submit. The
+authenticated `(app)/portal` accept/decline surface is unchanged. The
+identity model is ADR-010's magic-link principal — see its DES-10-F7
+amendment; no new customer identity or authorization model was introduced.
+Live coverage: `app/tests/proposal-portal-acceptance.integration.ts` (accept
++ award + audit trail, double-accept 409, concurrent double-accept, decline
++ no project touch, no-signature 400, draft/foreign/cross-org 404, no-email
+409, expired session 401, replayed link 410, raw-UPDATE RLS probe) and
+`app/tests/proposals.portal-acceptance.test.ts` (unit) plus
+`web/src/components/proposals/portal-proposal-approval.test.ts`.
+
 ## Accepted proposal → field job (step 9)
 
 The organization-scoped `POST /api/v1/jobs/from-proposal/:proposalId` converts

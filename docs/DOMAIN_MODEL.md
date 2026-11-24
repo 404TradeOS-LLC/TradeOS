@@ -168,6 +168,7 @@ A customer-facing commercial document stored in `Proposal`.
 - owns proposal delivery history
 - owns proposal selections (`ProposalSelection`, DES-10-F8): one row per customer decision — `label`, nullable `detail` (chosen option), `status` (`action_required` | `confirmed`), nullable `dueDate`
 - owns proposal allowances (`ProposalAllowance`, DES-10-F8): one row per allowance line — `description` and `amount` (>= 0); the allowances total is the sum of the rows, computed at read time, and is display-only — it is never added to `finalPrice`
+- records the governed public-portal response (DES-10-F7): `signerName`, `signerEmail`, `signatureDataUrl` (drawn image), reported IP/user agent, `signedAt` on portal accept; `declinedReason` (≤ 500 chars) on portal decline; staff accept/reject leave these null
 - selections and allowances are org-scoped through their own `orgId` (forced RLS, mirroring `ProposalDelivery`), cascade on proposal delete, and are immutable once the proposal is accepted or has a contract
 - stores an optional create-attempt idempotency key and request fingerprint; the pair is unique per Project, with null values reserved for historical or non-keyed rows
 - can produce contracts and support invoices

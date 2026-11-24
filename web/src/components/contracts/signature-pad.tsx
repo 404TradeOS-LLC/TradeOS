@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 
 interface SignaturePadProps {
   inputName: string;
+  onSignatureChange?: (hasSignature: boolean) => void;
 }
 
-export function SignaturePad({ inputName }: SignaturePadProps) {
+export function SignaturePad({ inputName, onSignatureChange }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [hasSignature, setHasSignature] = useState(false);
   const [signatureValue, setSignatureValue] = useState("");
@@ -49,6 +50,7 @@ export function SignaturePad({ inputName }: SignaturePadProps) {
       currentContext.stroke();
       setHasSignature(true);
       setSignatureValue(currentCanvas.toDataURL("image/png"));
+      onSignatureChange?.(true);
     }
 
     function end() {
@@ -66,7 +68,7 @@ export function SignaturePad({ inputName }: SignaturePadProps) {
       currentCanvas.removeEventListener("pointerup", end);
       currentCanvas.removeEventListener("pointerleave", end);
     };
-  }, []);
+  }, [onSignatureChange]);
 
   return (
     <div className="space-y-3">
@@ -83,6 +85,7 @@ export function SignaturePad({ inputName }: SignaturePadProps) {
             context.clearRect(0, 0, canvas.width, canvas.height);
             setHasSignature(false);
             setSignatureValue("");
+            onSignatureChange?.(false);
           }}
         >
           Clear signature
