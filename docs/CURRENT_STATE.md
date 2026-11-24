@@ -83,6 +83,10 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## ABC selected-price-probe allowlist widened to ABC-provided test SKUs (#711) — 2026-11-24
+
+The read-only selected-account ABC sandbox quote (`POST /api/v1/supplier-integrations/abc/selected-price-probe`, Settings → Test selected ABC price) accepted only two SKUs (`654210`, `02GASTZ3WW`), which blocked probing the test data ABC API Support sent 2026-11-24 (Penny Simpson). The allowlist is now 20 SKUs: the two pilot SKUs plus the 18 ABC-provided test SKUs — branch 254 items `17CTRV12FN`, `0150013884`; branch 340 priced items `02IKDYARAB`, `02IKDYARCA`, `0150013846`, `0170030023`, `0150013902`, `02CTL303GG`, `05CTSRR10`, `02GATZ3WW`, `04CTPRSTWW`, `01CT25BK`, `14MIDEGBK`; branch 340 $0-price items `07CS300054`, `07GAEGUCGY`, `08GAEPADH`, `23CTCI9GG`, `GGC615VGWH`. It stays a closed allowlist: the server enum (`selectedQuoteSchema`) and the Settings dropdown (`ABC_SELECTED_QUOTE_SKUS`) enforce the same list, no free-form SKU input exists, and an unallowlisted SKU is still rejected with 400 before any provider call (existing route test). The `price-probe` route stays locked to `ABC-654210`. No priced line has been verified yet — this only unblocks the probes; they run in production Settings after deploy. Regression coverage: new route test quotes `17CTRV12FN` at branch 254.
+
 ## Estimate Review readiness checklist — DES-10-F2 (branch `feat/des10-f2-review-readiness-gate`)
 
 <!-- DES-10-F2-START: keep this entry delimited; parallel DES-10 lanes edit other sections of this file. -->

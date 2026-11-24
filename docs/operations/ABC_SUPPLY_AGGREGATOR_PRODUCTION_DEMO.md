@@ -49,7 +49,8 @@ authorized sandbox account/price pair is on record. Do not claim otherwise.
 - [ ] Select an eligible active Ship-To and an active linked branch.
       Do not substitute IDs from the documentation's illustrative requests.
 - [ ] Click **Test selected ABC price** for an allowlisted sandbox item
-      (`02GASTZ3WW` or `654210`); this is a single real-time
+      (the pilot SKUs `02GASTZ3WW` or `654210`, or one of the ABC-provided
+      test SKUs from the 2026-11-24 #711 reply); this is a single real-time
       user-initiated read-only quote. Record redacted result, exact provider
       status and whether positive USD price + stocking UOM were returned.
       ABC sample SKUs are **not guaranteed priceable** for every account.

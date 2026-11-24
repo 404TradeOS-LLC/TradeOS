@@ -51,10 +51,36 @@ const abcProbeSchema = z.object({
 // All values come from the authenticated session and server configuration.
 const abcAccountsQuerySchema = z.object({}).strict();
 const ABC_ACCOUNTS_TIMEOUT_MS = 15_000;
+// Closed allowlist for the read-only selected-account sandbox quote: the
+// pilot SKUs plus the test SKUs ABC API Support provided 2026-11-24 (#711).
+// Never free-form input: an unallowlisted SKU is rejected before any
+// provider call (see the "rejects unallowlisted" route test). The Settings
+// UI enforces the same closed list (ABC_SELECTED_QUOTE_SKUS).
 const selectedQuoteSchema = z.object({
   shipToNumber: z.string().trim().min(1).max(40).regex(/^[A-Za-z0-9-]+$/),
   branchNumber: z.string().trim().min(1).max(24).regex(/^[A-Za-z0-9-]+$/),
-  sku: z.enum(["654210", "02GASTZ3WW"]),
+  sku: z.enum([
+    "654210",
+    "02GASTZ3WW",
+    "17CTRV12FN",
+    "0150013884",
+    "02IKDYARAB",
+    "02IKDYARCA",
+    "0150013846",
+    "0170030023",
+    "0150013902",
+    "02CTL303GG",
+    "05CTSRR10",
+    "02GATZ3WW",
+    "04CTPRSTWW",
+    "01CT25BK",
+    "14MIDEGBK",
+    "07CS300054",
+    "07GAEGUCGY",
+    "08GAEPADH",
+    "23CTCI9GG",
+    "GGC615VGWH",
+  ]),
 }).strict();
 
 const abcOAuthCallbackQuerySchema = z.object({
