@@ -69,6 +69,10 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Staging migration ledger — issue #946 folders added (2026-11-24)
+
+The staging branch inventory now includes the four #946 migration folders that the staging database already had applied since 2026-11-22 (deploy-staging-migrations run 44986340125, ledger 76/76): `20261109220000_add_codes_authority_jurisdiction_source`, `20261109220000_add_codes_job_assessment`, `20261109220000_add_codes_source_ingestion_rls`, and `20261110000000_add_codes_permit_tasks_fee_reviews`. Before this change the staging branch tracked 72 migration files while the DB ledger held 76, so the staging orchestrator's preflight-db check failed (`Prisma ledger mismatch: expected=72 applied=76`) on run 45327738142. The folders are copied byte-identical from main (`c7717c69`); no migration SQL was modified and no database change occurs — a later `migrate deploy` skips all four as already applied. The seven Nov 23 main-only folders are deliberately NOT included (they are not applied to staging). The four folders add the Codes & Permits tables documented in `docs/DOMAIN_MODEL.md` (`codes_authority`, `codes_jurisdiction`, `codes_source`, `codes_source_history`, `codes_job_assessment`, `codes_permit_task`, `codes_fee_review`) plus the governed-ingestion RLS policies; the staging branch's app code and Prisma schema do not yet reference them.
+
 ## Beta Proposal PDF layout repair — source candidate
 
 A four-width staging PDF run exposed overlapping wrapped Customer/Project metadata and CRLF control glyphs; independent MuPDF rendering confirmed both defects. The bounded source repair measures shared metadata cards and normalizes saved line endings, with actual-fixture PDF operator regressions. Local/hosted verification and final staged visual acceptance are recorded in the PR; beta GO is not implied.

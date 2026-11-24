@@ -404,6 +404,27 @@ Draft PR #531 adds a separate, tenant-scoped evidence boundary for regional supp
 - Both tables use forced RLS with tenant-scoped reads and manager-only writes. No production import or migration deployment is included in the draft PR.
 - The supplied eight-workbook bundle validated to 5,189 products/observations, including 701 unavailable observations. Carter Lumber is preserved as catalog-only evidence because its 670 observations are unavailable.
 
+## Codes & Permits reference tables (issue #946)
+
+The Codes & Permits advisory pilot's in-code source index lives in four global reference tables (migration `20261109220000_add_codes_authority_jurisdiction_source`, issue #946 TODO 2). These tables are **not** tenant-scoped: they carry no `org_id`, no pricing, no CostItem, no estimate, no customer and no payment data.
+
+- `codes_authority` stores the governing authority (name, kind `county`/`state`/`federal`/`municipality`/`utility`, state, county, source URL, contact); unique `(name, state, county)`
+- `codes_jurisdiction` stores the jurisdiction matched to a parcel (authority reference, name, kind `county`/`municipality`/`unincorporated`/`state`/`federal`/`overlay`, state, county, GIS reference, optional parent jurisdiction); unique `(authority_id, name, jurisdiction_kind)`
+- `codes_source` stores one cited official source version (authority reference, code family, citation, version label, URL, hash, metadata only — never full code text); version chain keyed by `(authority_id, code_family, citation)`
+- `codes_source_history` is the append-only version history for `codes_source` (no UPDATE policy; no DELETE policy)
+
+## Codes & Permits job assessments (issue #946 TODO 4)
+
+`codes_job_assessment` (migration `20261109220000_add_codes_job_assessment`) records a tenant-scoped Codes & Permits job assessment: explicit Project/Estimate context, work type, citations with rationale, unknowns, needs-review statuses, and owner signoff under forced RLS.
+
+## Codes & Permits source ingestion RLS (issue #946 TODO 3)
+
+Migration `20261109220000_add_codes_source_ingestion_rls` adds the governed-ingestion RLS policies for the TODO 2 tables: global-read (any authenticated tenant session may SELECT) and ingestion-only-write (INSERT/UPDATE only under the transaction-local `app.codes_ingestion` flag, set solely by the governed ingestion path). No DELETE policy on either table; no UPDATE policy on history.
+
+## Codes & Permits tasks and fee reviews (issue #946 TODO 5)
+
+`codes_permit_task` and `codes_fee_review` (migration `20261110000000_add_codes_permit_tasks_fee_reviews`) are the Codes & Permits execution records. Each record belongs to one organization and one project; `assessmentId` optionally references a `codes_job_assessment`. Permit statuses are explicit only (`not_submitted`, `submitted`, `under_review`, `approved`, `denied`, `inspection_scheduled`, `inspection_passed`, `inspection_failed`) and never inferred; submitting requires an explicit confirm step and there is no auto-submit. Fee reviews are price-neutral by construction: no estimate write, `cost_item_id` is set only by an explicit select step on an approved fee, and pending/rejected/unselected fees are financial no-ops. Forced RLS on both tables; cross-org reads return nothing and cross-org writes are refused.
+
 ## Core relationships
 
 Canonical relationship flow:
