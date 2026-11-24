@@ -12,6 +12,14 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Staging migration ledger fix — 2026-11-24
+
+- Classification: NEW_WORK_REQUIRED. The staging orchestrator run 45327738142 (push of `d663c210`) failed preflight-db with `Prisma ledger mismatch: expected=72 applied=76 unfinished=0`: the staging branch tracked 72 migration files while the staging DB ledger held 76 (applied 2026-11-22 by deploy-staging-migrations run 44986340125). No open PR or remote branch covers the ledger gap.
+- Scope: inventory-only port to the staging branch — the four #946 migration folders already applied to the staging DB, copied byte-identical from main (`c7717c69`): `20261109220000_add_codes_authority_jurisdiction_source`, `20261109220000_add_codes_job_assessment`, `20261109220000_add_codes_source_ingestion_rls`, `20261110000000_add_codes_permit_tasks_fee_reviews`. No migration SQL modified; no database change (a later `migrate deploy` skips all four as applied). The seven Nov 23 main-only folders are deliberately NOT included. Plus `docs/CURRENT_STATE.md` + `docs/DOMAIN_MODEL.md` entries for the four folders (docs:check ownership rule for `app/prisma/migrations/**`). No app/web code, schema, auth-policy, or workflow change.
+- Evidence: the four names are log-confirmed, not inferred — run 44986340125's logs show `Applying migration` for exactly these four folders at 2026-11-22T04:44Z.
+- Founder authorized 2026-11-24 ~00:13 EST ("Build both fixes") plus the 2026-11-21 blanket authorization for merges. ADR-009 record is in the PR body.
+- Validation: migration.sql count 76 after the change; `docs:check` PASS (base origin/staging); `git diff --check` clean. No app/web test suites required (no code changed). PR targets staging; see the PR for exact-head CI, merge, and landed-SHA proof. After merge: verify the staging redeploy + binding at the new SHA and the orchestrator verdict, then the parallel attach-fix PR lands, the technician is added via the button, and the field-closeout scenarios run.
+
 ## Staging Add member button — 2026-11-23
 
 - Classification: NEW_WORK_REQUIRED. Staging Settings had no usable add-member control (verified live in the staging UI), blocking the field-closeout technician attach. The add-member form exists on main (#1052) but not on the staging branch (7c428acd); no open staging PR or branch covers it.
