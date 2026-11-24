@@ -155,3 +155,42 @@ test("Add member uses the session subject as the sign-in ID, not the application
   assert.match(form, /Do not use the application user UUID under Supplier workflow IDs/);
   assert.doesNotMatch(form, /shown on the person.*under Supplier workflow IDs/);
 });
+
+test("Send invite is owner-only, invites only technician/dispatcher, and never handles the raw token", async () => {
+  const consoleSource = await readSource("./settings-console.tsx");
+  const form = await readSource("./send-invite-form.tsx");
+  const lib = await readSource("../../lib/send-invite.ts");
+
+  // The console shows the form only to owners: the invite endpoint is
+  // owner-only (requireRoles ["owner"]), while Add member is offered to
+  // owner/admin via canManageWorkspace. An admin must never see a form
+  // that would 403 on submit.
+  assert.match(consoleSource, /import { SendInviteForm } from "\.\/send-invite-form";/);
+  assert.match(
+    consoleSource,
+    /selectedSection\.id === "team" && initialWorkspaceData\.currentRole === "owner"/
+  );
+  assert.match(consoleSource, /<SendInviteForm \/>/);
+  // The form is the invite counterpart to Add member: it emails a person
+  // with no account yet, it does not attach an existing sign-in.
+  assert.match(form, /does not have a TradeOS account yet/);
+  assert.match(form, /submitSendInvite/);
+  assert.match(form, /useState<SendInviteRole>\("technician"\)/);
+  assert.match(form, /expire in 7 days/);
+  assert.match(form, /not listed in the team directory/);
+  assert.match(form, /Invite created for/);
+  assert.match(form, /scheduled for delivery/);
+  assert.match(form, /Could not send invite:/);
+  // A 201 means the invite was created and the email scheduled — not that
+  // it was delivered (production delivery silently fails until #872 is
+  // fixed). The copy must never promise the recipient will get the email.
+  assert.doesNotMatch(form, /Invite sent to/);
+  assert.doesNotMatch(form, /get an email|will receive email/);
+  // The raw invitation token is a non-production server extra: neither the
+  // form nor the helper may name it, render it, or return it.
+  assert.doesNotMatch(form, /inviteToken/);
+  assert.doesNotMatch(lib, /inviteToken/);
+  assert.match(lib, /method: "POST"/);
+  assert.match(lib, /"\/api\/v1\/account\/invites"/);
+  assert.match(lib, /sendInviteRoles = \["technician", "dispatcher"\]/);
+});
