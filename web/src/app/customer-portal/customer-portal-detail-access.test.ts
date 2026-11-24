@@ -39,6 +39,9 @@ function stubRequire(specifier: string) {
   if (specifier === "@/components/proposals/proposal-selections-allowances-readonly") {
     return { ProposalSelectionsAllowancesReadonly: nullComponent };
   }
+  if (specifier === "@/components/proposals/portal-proposal-approval-form") {
+    return { PortalProposalApprovalForm: nullComponent };
+  }
   if (specifier === "@/lib/api") {
     const expiredSession = async () => {
       throw new Error("Customer portal session is required");

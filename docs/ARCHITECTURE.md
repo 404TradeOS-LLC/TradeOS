@@ -82,13 +82,23 @@ session. Forced RLS limits session-row visibility to that exact digest; absent
 session context fails closed. The raw bearer value stays out of request context
 and logs. Resource lookups re-check the project/customer relationship. The portal does not reuse a
 staff role. Its only write policies are the exact pending-contract signing
-transition, with a separate contract-event insert policy, and the exact
+transition, with a separate contract-event insert policy, the exact
 first-view invoice transition (`invoices_portal_viewed_policy`, migration
 `20261123120100_add_invoice_portal_viewed_policy`): a portal session may move
 its own sent invoice to `viewed` and set `viewedAt` from null — a trigger
 pins every other invoice column — and record the matching `invoice.viewed`
 delivery/activity rows, all keyed by the transaction-local
-`app.portal_invoice_id` set by `InvoicesService.markViewed`.
+`app.portal_invoice_id` set by `InvoicesService.markViewed`; and the exact
+governed proposal response transition (DES-10-F7, migration
+`20261124150000_add_proposal_portal_acceptance`): a portal session may move
+its own sent/viewed proposal to `accepted` (drawn signature + printed name,
+attributed to the customer record) or to `declined` (optional reason), with a
+trigger pinning every other proposal column, and record the matching
+`proposal.accepted` / `proposal.declined` delivery/activity rows — all keyed
+by the transaction-local `app.portal_proposal_id` set by
+`ProposalsService.acceptAsPortalCustomer` /
+`declineAsPortalCustomer`. Accepting also awards the owning project under a
+separate narrow policy keyed by `app.portal_proposal_project_id`.
 Issuance also schedules the raw one-time value for server-side transactional
 email delivery after the hashed token record exists. The provider API key and
 message construction remain in the backend email adapter; no browser or portal

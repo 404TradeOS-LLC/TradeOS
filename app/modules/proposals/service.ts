@@ -681,6 +681,175 @@ export class ProposalsService {
     return this.getById(row.id, orgId);
   }
 
+  /**
+   * DES-10-F7: governed public-portal acceptance. The customer answers from
+   * a redeemed magic-link session (ADR-010) — no staff JWT, no customer
+   * account. The caller is the token holder: signerEmail comes from the
+   * customer record on file (passed in by CustomerPortalService, never from
+   * the HTTP body), and the signature must be a drawn image, not a
+   * free-text field alone.
+   *
+   * Governance, in order: the portal service asserts the proposal belongs
+   * to this session's customer (404 otherwise, before any write); the
+   * conditional update requires sent/viewed and the org/customer project
+   * scope; the 20261124150000 migration grants one narrow portal UPDATE
+   * policy keyed by the transaction-local portal proposal id and a trigger
+   * that pins every column except the response itself. A second accept, an
+   * accept of a draft/declined proposal, or a replayed token all fail here
+   * with 409/404 before anything is recorded.
+   *
+   * No Athena event is published and no email is sent — this records the
+   * customer's own answer, it does not originate a staff action.
+   */
+  async acceptAsPortalCustomer(
+    id: string,
+    input: {
+      orgId: string;
+      customerId: string;
+      portalSessionId: string;
+      signerName: string;
+      signerEmail: string;
+      signatureDataUrl: string;
+      signatureIpReported?: string;
+      signatureUserAgentReported?: string;
+    },
+  ): Promise<ProposalDTO> {
+    const signerName = input.signerName?.trim() ?? "";
+    if (signerName.length < 1 || signerName.length > 200) {
+      throw new ApiError(400, "Signer name is required");
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.signerEmail ?? "")) {
+      throw new ApiError(409, "Customer email is required to attribute a signature");
+    }
+    if (
+      !input.signatureDataUrl?.startsWith("data:image/") ||
+      input.signatureDataUrl.length > 2_000_000
+    ) {
+      throw new ApiError(400, "A drawn signature is required to accept this proposal");
+    }
+
+    const row = await this.findOrThrow(id, input.orgId);
+    const currentStatus = normalizeProposalStatus(row.status);
+    if (!["sent", "viewed"].includes(currentStatus)) {
+      throw new ApiError(409, `Proposal ${id} cannot be accepted from status ${currentStatus}`);
+    }
+    if (row.project.customer?.id !== input.customerId) {
+      throw new ApiError(404, `Proposal ${id} not found`);
+    }
+
+    // Portal sessions carry app.role = 'portal_customer', so the staff
+    // proposals write policy denies them. The 20261124150000 migration
+    // grants one narrowly scoped portal UPDATE policy keyed by this
+    // transaction-local proposal id (same shape as app.portal_contract_id
+    // for contract signing); the whole portal request runs in one
+    // transaction, so the setting covers the update, the award, and the
+    // response-event inserts below. Staff sessions ignore it — their own
+    // write policy already permits the update. Skipped when the client
+    // cannot run raw SQL (mocked Prisma in unit tests), where the
+    // conditional predicates remain the only guard.
+    if (typeof prisma.$queryRaw === "function") {
+      await prisma.$queryRaw(Prisma.sql`
+        select
+          set_config('app.portal_proposal_id', ${id}, true),
+          set_config('app.portal_proposal_project_id', ${row.projectId}, true)
+      `);
+    }
+    const now = new Date();
+    const updated = await prisma.proposal.updateMany({
+      where: { id, status: currentStatus, project: { orgId: input.orgId, customerId: input.customerId } },
+      data: {
+        status: "accepted",
+        respondedAt: now,
+        signerName,
+        signerEmail: input.signerEmail,
+        signatureDataUrl: input.signatureDataUrl,
+        signatureIpReported: input.signatureIpReported,
+        signatureUserAgentReported: input.signatureUserAgentReported,
+        signedAt: now,
+      },
+    });
+    if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before it could be accepted`);
+    await this.recordDeliveryEvent({
+      orgId: input.orgId,
+      proposalId: row.id,
+      projectId: row.projectId,
+      eventType: "proposal.accepted",
+      deliveryChannel: "portal",
+      recipientEmail: input.signerEmail,
+      metadata: {
+        previousStatus: currentStatus,
+        newStatus: "accepted",
+        actorType: "customer_portal",
+        customerId: input.customerId,
+        portalSessionId: input.portalSessionId,
+        signerName,
+        signatureIpReported: input.signatureIpReported ?? null,
+        signatureUserAgentReported: input.signatureUserAgentReported ?? null,
+      },
+    });
+    // Staff accept parity: award the project. Best-effort under the portal
+    // session — the narrow award policy only permits estimating -> awarded
+    // for this proposal's project, so a project already awarded through
+    // another proposal simply stays awarded and the acceptance still stands.
+    await prisma.project.updateMany({
+      where: { id: row.projectId, status: "estimating", orgId: input.orgId, customerId: input.customerId },
+      data: { status: "awarded" },
+    });
+    return this.getById(row.id, input.orgId);
+  }
+
+  /**
+   * DES-10-F7: governed public-portal decline. Same token scoping and
+   * audit trail as the portal accept, minus the signature: declining
+   * records who declined (the token holder's customer + session), when,
+   * and the optional reason. It deliberately does NOT touch the project:
+   * a project may carry several proposals, and declining one must not
+   * un-award a project won through another (unlike staff reject(), which
+   * sets 'estimating' unconditionally).
+   */
+  async declineAsPortalCustomer(
+    id: string,
+    input: { orgId: string; customerId: string; portalSessionId: string; reason?: string },
+  ): Promise<ProposalDTO> {
+    const reason = input.reason?.trim() ?? "";
+    if (reason.length > 500) throw new ApiError(400, "Decline reason must be 500 characters or fewer");
+
+    const row = await this.findOrThrow(id, input.orgId);
+    const currentStatus = normalizeProposalStatus(row.status);
+    if (!["sent", "viewed"].includes(currentStatus)) {
+      throw new ApiError(409, `Proposal ${id} cannot be declined from status ${currentStatus}`);
+    }
+    if (row.project.customer?.id !== input.customerId) {
+      throw new ApiError(404, `Proposal ${id} not found`);
+    }
+
+    if (typeof prisma.$queryRaw === "function") {
+      await prisma.$queryRaw(Prisma.sql`select set_config('app.portal_proposal_id', ${id}, true)`);
+    }
+    const updated = await prisma.proposal.updateMany({
+      where: { id, status: currentStatus, project: { orgId: input.orgId, customerId: input.customerId } },
+      data: { status: "declined", respondedAt: new Date(), declinedReason: reason || null },
+    });
+    if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before it could be declined`);
+    await this.recordDeliveryEvent({
+      orgId: input.orgId,
+      proposalId: row.id,
+      projectId: row.projectId,
+      eventType: "proposal.declined",
+      deliveryChannel: "portal",
+      recipientEmail: row.project.customer?.email ?? null,
+      metadata: {
+        previousStatus: currentStatus,
+        newStatus: "declined",
+        actorType: "customer_portal",
+        customerId: input.customerId,
+        portalSessionId: input.portalSessionId,
+        declinedReason: reason || null,
+      },
+    });
+    return this.getById(row.id, input.orgId);
+  }
+
   async resend(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
     const row = await this.findOrThrow(id, orgId);
     const currentStatus = normalizeProposalStatus(row.status);
@@ -825,6 +994,7 @@ export class ProposalsService {
     projectId: string;
     actorUserId?: string;
     eventType: string;
+    deliveryChannel?: string;
     recipientEmail?: string | null;
     metadata?: Record<string, unknown>;
   }): Promise<void> {
@@ -836,6 +1006,7 @@ export class ProposalsService {
         orgId: input.orgId,
         proposalId: input.proposalId,
         eventType: input.eventType,
+        deliveryChannel: input.deliveryChannel ?? "app",
         recipientEmail: input.recipientEmail,
         actorUserId: input.actorUserId,
         metadataJson: input.metadata as Prisma.InputJsonValue | undefined,
@@ -1027,6 +1198,11 @@ function toDTO(row: {
   sentAt: Date | null;
   viewedAt: Date | null;
   respondedAt: Date | null;
+  signerName: string | null;
+  signerEmail: string | null;
+  signatureDataUrl: string | null;
+  signedAt: Date | null;
+  declinedReason: string | null;
   createdAt: Date;
   deliveries?: Array<{
     id: string;
@@ -1082,6 +1258,11 @@ function toDTO(row: {
     sentAt: row.sentAt,
     viewedAt: row.viewedAt,
     respondedAt: row.respondedAt,
+    signerName: row.signerName ?? null,
+    signerEmail: row.signerEmail ?? null,
+    signatureDataUrl: row.signatureDataUrl ?? null,
+    signedAt: row.signedAt ?? null,
+    declinedReason: row.declinedReason ?? null,
     createdAt: row.createdAt,
     deliveries: (row.deliveries ?? []).map(toDeliveryDTO),
     selections,

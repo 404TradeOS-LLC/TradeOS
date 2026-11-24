@@ -1233,6 +1233,14 @@ export interface Proposal {
   sentAt: string | null;
   viewedAt: string | null;
   respondedAt: string | null;
+  // DES-10-F7: governed public-portal approval record. Optional here
+  // because web and API deploy independently — an older API omits them and
+  // the UI renders the pre-approval state.
+  signerName?: string | null;
+  signerEmail?: string | null;
+  signatureDataUrl?: string | null;
+  signedAt?: string | null;
+  declinedReason?: string | null;
   createdAt: string;
   deliveries: ProposalDelivery[];
   // DES-10-F8: Copperline proposal sections 03 (selections) and 04

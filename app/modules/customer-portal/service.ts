@@ -418,6 +418,56 @@ export class CustomerPortalService {
     });
   }
 
+  /**
+   * DES-10-F7: governed public-portal proposal acceptance. The proposal is
+   * asserted to belong to this session's customer first (assertProposal
+   * 404s otherwise), and the signer email is the customer record's email on
+   * file — never a caller-supplied value — so the signature is attributable
+   * to the token holder. The signature itself must be a drawn image; a
+   * typed name alone is not enough (ProposalsService enforces it).
+   */
+  async acceptProposal(context: CustomerPortalContext, proposalId: string, input: {
+    signerName: string;
+    signatureDataUrl: string;
+    signatureIpReported?: string;
+    signatureUserAgentReported?: string;
+  }) {
+    const proposal = await this.assertProposal(context, proposalId);
+    if (proposal.status === "draft") throw new ApiError(404, `Proposal ${proposalId} not found`);
+    const customer = await prisma.customer.findFirst({
+      where: { id: context.customerId, orgId: context.orgId, deletedAt: null },
+      select: { email: true },
+    });
+    if (!customer?.email) throw new ApiError(409, "Customer email is required to attribute a signature");
+    return this.proposals.acceptAsPortalCustomer(proposal.id, {
+      orgId: context.orgId,
+      customerId: context.customerId,
+      portalSessionId: context.sessionId,
+      signerName: input.signerName,
+      signerEmail: customer.email,
+      signatureDataUrl: input.signatureDataUrl,
+      signatureIpReported: input.signatureIpReported,
+      signatureUserAgentReported: input.signatureUserAgentReported,
+    });
+  }
+
+  /**
+   * DES-10-F7: governed public-portal proposal decline. Same single-proposal
+   * token scoping as the accept path; the optional reason is recorded in
+   * the audit event, and the project is deliberately left untouched (see
+   * ProposalsService.declineAsPortalCustomer).
+   */
+  async declineProposal(context: CustomerPortalContext, proposalId: string, input: { reason?: string }) {
+    const proposal = await this.assertProposal(context, proposalId);
+    if (proposal.status === "draft") throw new ApiError(404, `Proposal ${proposalId} not found`);
+    return this.proposals.declineAsPortalCustomer(proposal.id, {
+      orgId: context.orgId,
+      customerId: context.customerId,
+      portalSessionId: context.sessionId,
+      reason: input.reason,
+    });
+  }
+
   private async assertProject(context: CustomerPortalContext, projectId: string) {
     const project = await prisma.project.findFirst({
       where: { id: projectId, orgId: context.orgId, customerId: context.customerId },

@@ -52,6 +52,39 @@ preview remains available and continues to use the staff session boundary.
   authenticated issuance endpoint provides the link for the delivery layer and
   controlled verification workflows.
 
+## Amendment — DES-10-F7 governed proposal response (2026-11-24)
+
+Founder decision 2026-11-24 ~09:00 EST (DES-10 verdict gap 7: the public
+proposal portal was read-only; the Copperline TARGET frames specify a
+governed approval + signature experience). The permitted
+customer-originated writes extend from contract signing alone to the
+governed proposal response:
+
+- `POST /api/v1/customer-portal/proposals/:id/accept` — sent/viewed →
+  `accepted`, only with a drawn signature image plus the printed name,
+  attributed to the customer record's email on file (never a
+  caller-supplied email) and the portal session.
+- `POST /api/v1/customer-portal/proposals/:id/decline` — sent/viewed →
+  `declined`, with an optional reason (≤ 500 chars) recorded in the audit
+  event.
+
+The identity model is unchanged: the same magic-link principal, the same
+single-proposal token scoping (the service asserts the proposal belongs to
+the session's customer before any write; a dedicated RLS policy keyed by
+the transaction-local `app.portal_proposal_id` plus a trigger pinning every
+column except the response itself is the second layer), and no staff role
+or staff-wide write helper for the portal. The portal displays what the
+proposal already says — scope, prices, and terms cannot be rewritten from
+the portal. Acceptance also awards the owning project (`estimating` →
+`awarded`, staff accept parity, under its own narrow policy); declining
+deliberately leaves the project untouched. Both responses record a
+`proposal.accepted` / `proposal.declined` delivery event with
+`delivery_channel: "portal"` and `actorType: "customer_portal"`, plus the
+matching activity row; no Athena event is published and no email is sent.
+The ADR-007 limits on legal-signature claims and provider/certificate
+semantics remain in force: magic-link possession is not certificate-backed
+identity verification, notarization, or a legal-signature guarantee.
+
 ## Supersession
 
 This ADR supersedes the “no public link, token, or customer identity model”

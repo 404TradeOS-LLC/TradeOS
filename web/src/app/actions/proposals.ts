@@ -2,7 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { apiFetch, ApiClientError, Proposal } from "@/lib/api";
+import { customerPortalApiFetch } from "@/lib/customer-portal-session";
 import { getSessionToken } from "@/lib/session";
 import { FormActionState } from "./customers";
 
@@ -401,6 +403,72 @@ export async function acceptOfflineProposalAction(_prev: FormActionState, formDa
 
   revalidatePath(`/projects/${projectId}/proposals/${proposalId}`);
   redirect(`/projects/${projectId}/proposals/${proposalId}`);
+}
+
+/**
+ * DES-10-F7: governed public-portal acceptance. The customer answers from
+ * a redeemed magic-link session — no staff JWT. The drawn signature is
+ * required: a typed name alone is not attributable. The signer email is
+ * the customer record's email on file (resolved server-side), never a
+ * caller-supplied value. On success the page re-renders with the recorded
+ * approval instead of the form, so a refresh cannot re-submit it.
+ */
+export async function acceptPortalProposalAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+  const id = String(formData.get("proposalId") ?? "");
+  const projectId = String(formData.get("projectId") ?? "");
+  const signerName = String(formData.get("signerName") ?? "").trim();
+  const signatureDataUrl = String(formData.get("signatureDataUrl") ?? "").trim();
+  const reviewed = formData.get("reviewed") === "true";
+  if (!reviewed || !signerName || !signatureDataUrl.startsWith("data:image/")) {
+    return { error: "Review the scope, allowances, and terms, enter your full name, and draw your signature." };
+  }
+
+  const requestHeaders = await headers();
+  const forwardedFor = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim();
+  try {
+    await customerPortalApiFetch(`/api/v1/customer-portal/proposals/${id}/accept`, {
+      method: "POST",
+      body: JSON.stringify({
+        signerName,
+        signatureDataUrl,
+        signatureIpReported: forwardedFor || requestHeaders.get("x-real-ip") || undefined,
+        signatureUserAgentReported: requestHeaders.get("user-agent") || undefined,
+      }),
+    });
+  } catch (err) {
+    return { error: err instanceof ApiClientError || err instanceof Error ? err.message : "Something went wrong." };
+  }
+
+  revalidatePath(`/customer-portal/proposals/${id}`);
+  revalidatePath(`/customer-portal/projects/${projectId}`);
+  redirect(`/customer-portal/proposals/${id}`);
+}
+
+/**
+ * DES-10-F7: governed public-portal decline. Same token scoping and audit
+ * trail as the portal accept, minus the signature; the optional reason is
+ * recorded with the decline. The project is deliberately left untouched.
+ */
+export async function declinePortalProposalAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+  const id = String(formData.get("proposalId") ?? "");
+  const projectId = String(formData.get("projectId") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (reason.length > 500) {
+    return { error: "Decline reason must be 500 characters or fewer." };
+  }
+
+  try {
+    await customerPortalApiFetch(`/api/v1/customer-portal/proposals/${id}/decline`, {
+      method: "POST",
+      body: JSON.stringify({ reason: reason || undefined }),
+    });
+  } catch (err) {
+    return { error: err instanceof ApiClientError || err instanceof Error ? err.message : "Something went wrong." };
+  }
+
+  revalidatePath(`/customer-portal/proposals/${id}`);
+  revalidatePath(`/customer-portal/projects/${projectId}`);
+  redirect(`/customer-portal/proposals/${id}`);
 }
 
 export async function rejectProposalAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {

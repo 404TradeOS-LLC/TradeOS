@@ -70,7 +70,7 @@ Current transition posture:
 - project status is partly direct and partly side-effect-driven from proposal and job workflows
 - proposal send/resend currently pushes persisted project status toward canonical `estimating`
 - proposal accept currently pushes persisted project status toward canonical `awarded`
-- proposal draft creation/duplication and decline currently push persisted project status toward canonical `estimating`
+- proposal draft creation/duplication and decline currently push persisted project status toward canonical `estimating` — except a decline from the public portal (DES-10-F7), which deliberately leaves the project untouched: a project may carry several proposals, and declining one must not un-award a project won through another
 - full canonical project transition enforcement remains a compatibility layer, not a single dedicated state machine
 
 ## Estimates

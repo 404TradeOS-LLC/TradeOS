@@ -123,6 +123,16 @@ export interface ProposalDTO {
   sentAt: Date | null;
   viewedAt: Date | null;
   respondedAt: Date | null;
+  // DES-10-F7: portal approval record. signerName/signerEmail/signedAt are
+  // set by a governed portal accept; declinedReason by a portal decline.
+  // signatureDataUrl is the drawn signature (never a free-text field alone);
+  // it is the customer's own signature on their own proposal, so the portal
+  // may show it back, mirroring ContractDTO.
+  signerName: string | null;
+  signerEmail: string | null;
+  signatureDataUrl: string | null;
+  signedAt: Date | null;
+  declinedReason: string | null;
   createdAt: Date;
   deliveries: ProposalDeliveryDTO[];
   selections: ProposalSelectionDTO[];
