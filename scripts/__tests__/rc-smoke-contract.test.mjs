@@ -117,6 +117,23 @@ test("golden workflow is explicitly limited to a dedicated non-production tenant
   assert.match(golden, /invoiceId/);
 });
 
+test("golden estimate line waits are scoped to the saved-items list (strict-mode safe)", () => {
+  // Same defect class as the capture-evidence fix: the builder renders all
+  // four stages in the DOM at once, so Review duplicates every line
+  // description and the materials checklist duplicates material descriptions.
+  // A bare page.getByText(...) wait trips Playwright strict mode once the
+  // duplicates land.
+  assert.match(golden, /const savedItems = page\.locator\('ul\[aria-label="Saved estimate items"\]'\)/);
+  assert.match(golden, /savedItems\.getByText\("Remove glued-down linoleum", \{ exact: true \}\)\.waitFor\(\)/);
+  assert.match(golden, /savedItems\.getByText\("Flooring material allowance", \{ exact: true \}\)\.waitFor\(\)/);
+  assert.match(golden, /savedItems\.getByText\("Remove glued-down linoleum \(revised\)", \{ exact: true \}\)\.waitFor\(\)/);
+  assert.doesNotMatch(golden, /page\.getByText\("Remove glued-down linoleum/);
+  assert.doesNotMatch(golden, /page\.getByText\("Flooring material allowance"/);
+  // The status badge renders twice (header actions row + Review panel).
+  assert.match(golden, /getByRole\("region", \{ name: "Estimate workflow" \}\)\.getByText\("ready", \{ exact: true \}\)\.waitFor\(\)/);
+  assert.doesNotMatch(golden, /page\.getByText\("ready", \{ exact: true \}\)\.waitFor\(\)/);
+});
+
 test("business-flow smoke selects the matching smoke technician and executes payment through field completion", () => {
   for (const route of [
     "`/projects/${run.projectId}/contracts/${run.contractId}`",

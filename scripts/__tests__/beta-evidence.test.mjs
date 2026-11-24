@@ -454,6 +454,20 @@ test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit r
   assert.match(validator, /s052-admin/);
 });
 
+test("estimate line waits are scoped to the saved-items list (strict-mode safe)", () => {
+  // The builder renders all four stages in the DOM at once, so Review
+  // duplicates every line description and the materials checklist duplicates
+  // material descriptions. A bare page.getByText(...) wait is a strict-mode
+  // race: it resolves only when the poll lands between the refetch commits
+  // and throws once the duplicates land (two consecutive orchestrator
+  // failures on the "Flooring material allowance" wait, 2026-11-24).
+  assert.match(capture, /const savedItems = page\.locator\('ul\[aria-label="Saved estimate items"\]'\)/);
+  assert.match(capture, /savedItems\.getByText\("Remove glued-down linoleum", \{ exact: true \}\)\.waitFor/);
+  assert.match(capture, /savedItems\.getByText\("Flooring material allowance", \{ exact: true \}\)\.waitFor/);
+  assert.doesNotMatch(capture, /page\.getByText\("Remove glued-down linoleum"/);
+  assert.doesNotMatch(capture, /page\.getByText\("Flooring material allowance"/);
+});
+
 test("canonical evidence navigates focused estimate stages at 390/768 and checks active step", () => {
   assert.match(capture, /async function navigateEstimateStage\(stage\)/);
   assert.match(capture, /getByRole\("navigation", \{ name: "Estimate stages" \}\)/);

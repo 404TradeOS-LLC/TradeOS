@@ -804,7 +804,19 @@ try {
   await page.locator("#custom-section").fill("Demolition");
   await page.locator("#custom-cost-type").selectOption("labor");
   await page.getByRole("button", { name: "Add custom" }).click();
-  await page.getByText("Remove glued-down linoleum", { exact: true }).waitFor({ timeout: 60_000 });
+  // Scope the line waits to the Items stage list. The builder renders all
+  // four stages in the DOM at once (inactive stages hidden), so the Review
+  // stage renders every line description a second time, and the materials
+  // checklist panel renders material descriptions a third time. A bare
+  // getByText(...) wait is therefore a strict-mode race: it resolves only
+  // when the poll happens to land between the refetch commits, and throws
+  // once the duplicates land (proven by two consecutive orchestrator
+  // failures on the "Flooring material allowance" wait). The saved-items
+  // list carries exactly one copy of each description. Same hazard class
+  // as the Price-step total wait and the "ready" wait below; do not use
+  // .first() here — DOM order is fragile.
+  const savedItems = page.locator('ul[aria-label="Saved estimate items"]');
+  await savedItems.getByText("Remove glued-down linoleum", { exact: true }).waitFor({ timeout: 60_000 });
 
   await custom.fill("Flooring material allowance");
   await page.locator("#custom-quantity").fill("850");
@@ -814,7 +826,7 @@ try {
   await page.locator("#custom-cost-type").selectOption("material");
   await page.getByLabel("Taxable", { exact: true }).check();
   await page.getByRole("button", { name: "Add custom" }).click();
-  await page.getByText("Flooring material allowance", { exact: true }).waitFor({ timeout: 60_000 });
+  await savedItems.getByText("Flooring material allowance", { exact: true }).waitFor({ timeout: 60_000 });
   const savedAfterAdd = await readEstimateDetail(estimateId);
   const laborLine = savedAfterAdd.lineItems.find((line) => line.description === "Remove glued-down linoleum");
   const materialLine = savedAfterAdd.lineItems.find((line) => line.description === "Flooring material allowance");
@@ -850,8 +862,10 @@ try {
   // ---- 05 save / reload persistence -------------------------------------
   await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
   await navigateEstimateStage("Items");
-  await page.getByText("Remove glued-down linoleum", { exact: true }).waitFor({ timeout: 60_000 });
-  await page.getByText("Flooring material allowance", { exact: true }).waitFor({ timeout: 60_000 });
+  // Scoped to the saved-items list — see the comment at the add waits above.
+  const savedItemsAfterReload = page.locator('ul[aria-label="Saved estimate items"]');
+  await savedItemsAfterReload.getByText("Remove glued-down linoleum", { exact: true }).waitFor({ timeout: 60_000 });
+  await savedItemsAfterReload.getByText("Flooring material allowance", { exact: true }).waitFor({ timeout: 60_000 });
   await navigateEstimateStage("Price");
 
   const overheadAfterReload = await page.getByLabel("Overhead %").inputValue();
