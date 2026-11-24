@@ -83,6 +83,8 @@ Customer-context Project creation reuses the existing Customer and ServiceAddres
 
 Project workspace surfaces also expose the current job and field-coordination workflow for the linked project.
 
+The project workspace has a Closeout tab (S069): the closeout record for the project with its readiness checklist (completed jobs, signed contract, final invoice, accepted proposal, open punch count), the punch list with create/resolve/verify/reopen actions, warranty records, mark-ready and record-handoff actions, and a link to the rendered closeout document. The tab loads closeout data only and degrades independently when no closeout exists yet.
+
 ## Tests
 
 - `app/tests/projects.controller.test.ts`
@@ -96,7 +98,7 @@ Project workspace surfaces also expose the current job and field-coordination wo
 
 ## Deferred work
 
-- deeper closeout and warranty workflows
+- deeper closeout and warranty workflows — implemented by S069 (Closeout tab, punch/closeout/warranty models, portal handoff); the remaining closeout work is certification evidence (browser-evidence workflow dispatch from `main`) and the founder decisions recorded in the S069 evidence doc
 
 ## Last verified date
 

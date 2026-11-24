@@ -69,6 +69,10 @@ email scanners and link previews from consuming the invitation. See
 
 Portal timelines render proposal delivery history, contract events, and invoice delivery history. See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 
+## Closeout handoff
+
+The customer-portal project page has a read-only closeout handoff section (S069): the closeout status, readiness checklist, resolved punch summary, warranty records as stored, and a link to the rendered closeout document. The handoff comes from `CustomerPortalService.getProject` (`closeout` field) and is scoped to the owning customer through the existing portal session; a foreign project 404s before any closeout read. The portal has no closeout write. When no closeout exists yet, the section says the contractor has not shared a handoff for the project.
+
 ## Invoice presentation
 
 The portal project view lists all organization-scoped invoices for the project,
