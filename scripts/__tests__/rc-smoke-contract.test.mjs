@@ -130,8 +130,8 @@ test("golden estimate line waits are scoped to the saved-items list (strict-mode
   assert.doesNotMatch(golden, /page\.getByText\("Remove glued-down linoleum/);
   assert.doesNotMatch(golden, /page\.getByText\("Flooring material allowance"/);
   // The status badge renders twice (header actions row + Review panel).
-  assert.match(golden, /getByRole\("region", \{ name: "Estimate workflow" \}\)\.getByText\("ready", \{ exact: true \}\)\.waitFor\(\)/);
-  assert.doesNotMatch(golden, /page\.getByText\("ready", \{ exact: true \}\)\.waitFor\(\)/);
+  assert.match(golden, /getByRole\("region", \{ name: "Estimate workflow" \}\)\.getByText\("Ready", \{ exact: true \}\)\.waitFor\(\)/);
+  assert.doesNotMatch(golden, /getByText\("ready", \{ exact: true \}\)\.waitFor\(\)/);
 });
 
 test("business-flow smoke selects the matching smoke technician and executes payment through field completion", () => {

@@ -123,7 +123,10 @@ async function runWorkflow(page, runNumber) {
   // The estimate status badge renders twice (page-header actions row +
   // Review-stage panel); scope the wait to the Estimate workflow region
   // (same fix as capture-evidence.mjs) instead of a bare getByText.
-  await page.getByRole("region", { name: "Estimate workflow" }).getByText("ready", { exact: true }).waitFor();
+  // Match the rendered label "Ready": StatusBadge title-cases the API
+  // status via formatStatusLabel, and exact text matching is
+  // case-sensitive — the lowercase wait can never match the badge.
+  await page.getByRole("region", { name: "Estimate workflow" }).getByText("Ready", { exact: true }).waitFor();
 
   await page.getByRole("link", { name: "Create proposal" }).click();
   await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/new`));
