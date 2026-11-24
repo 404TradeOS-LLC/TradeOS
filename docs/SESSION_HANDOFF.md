@@ -12,8 +12,9 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
-## Sprint implementation — 2026-11-24: S069 implemented (PR pending merge)
+## Sprint implementation — 2026-11-24: S069 implemented (merged)
 
+- Implementation merged as PR #1073 (squash `eb3c2f9e`); S069 is `IN_REVIEW` with full acceptance still owed (browser-evidence workflow dispatch + run record in a follow-up PR).
 - Base: `main` at `efcaa8f2` (rebased from `a4144ff0` after CodeQL warning fixes #1070–#1072 merged). Branch `feat/s069-closeout-warranty-workspace`.
 - Built: three new models with forced RLS (`PunchItem`, `ProjectCloseout`, `WarrantyRecord`, migration `20261124120000_add_closeout_warranty_workspace`); closeout service/controller/routes at `/api/v1/closeout` (`crm.read`/`crm.write`; manager-only ready/verify/handoff; manager-or-assigned-technician punch resolve); project-workspace Closeout tab; read-only portal handoff (closeout in `CustomerPortalService.getProject` + portal document route); closeout document served as HTML (no HTML→PDF converter in the pipeline).
 - Tests: focused service/controller tests; live-PostgreSQL RLS integration coverage (`app/tests/rls.integration.ts`, same-org allowed / cross-org denied / assigned-technician carve-out); snapshot-stability integration test (`app/tests/s069.closeout.integration.ts` — contract/proposal/invoice byte-stable after closeout); S073 matrix extended for the three tables (validator green); S069 browser-evidence workflow + capture script + contract test (19/19).
@@ -22,6 +23,10 @@ related_docs:
 - Browser evidence: S069 workflow + capture script + contract test written; PENDING DISPATCH from `main` after merge.
 - S069 is `IN_REVIEW` on merge; full acceptance still owed (browser-evidence workflow dispatch + run record in a follow-up PR).
 
+## Sprint implementation — 2026-11-24: S071 promoted to READY
+
+- S071 — Deployment identity and data-plane proof — promoted to `READY` by a governance-only readiness PR from current `main` `0d2ec04b` on the founder's word ("promote every sprint that is ready"). Dependencies satisfied (S051 `DONE`); `/health` commitSha + `/ready` projectRef already exist on main; the sprint replaces operator-attested RC identity (`BETA_RC_DEPLOYMENT_SHA` / `S059_EXPECTED_SHA`) with a runtime build/environment identity contract (commit, environment, backend host, non-secret data-plane identifier, fail-closed on mismatch). See `docs/architecture/S071_DEPLOYMENT_IDENTITY_PLAN.md`. S071 is the next eligible sprint for the 03:00 sprint runner.
+
 ## Sprint implementation — 2026-11-24: S068 implemented (merged)
 
 - Implementation merged as PR #1067 (squash `1388baae`); S068 is `IN_REVIEW` with full acceptance still owed (browser-evidence workflow dispatch + run record in a follow-up PR).
@@ -29,8 +34,8 @@ related_docs:
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: S069 is `IN_REVIEW` (implementation in branch `feat/s069-closeout-warranty-workspace`, PR pending merge; browser evidence pending). S071 has satisfied `Dependencies:` but stays `PLANNED` — the sprint-state validator allows at most one `READY` sprint at a time, so it gets its own promotion after S069 leaves `READY`; do not start implementation on a `PLANNED` sprint without its own promotion. S068 is `IN_REVIEW` (implementation merged as PR #1067, `1388baae`, 2026-11-24; browser evidence pending). S059 is `IN_REVIEW` (browser evidence pending).
+Sprint ID: S071
+Eligibility: S071 is `READY` (promoted 2026-11-24; dependencies satisfied — S051 is `DONE`). S069 is `IN_REVIEW` (implementation merged as PR #1073, `eb3c2f9e`, 2026-11-24; browser evidence pending). S068 is `IN_REVIEW` (implementation merged as PR #1067, `1388baae`, 2026-11-24; browser evidence pending). S059 is `IN_REVIEW` (browser evidence pending). Do not start implementation on a `PLANNED` sprint without its own promotion.
 Dependencies: S071 depends on S051 (DONE).
-Overlap check: Live open PRs rechecked 2026-11-24 (main `efcaa8f2`): none open. No competing S069 lane exists.
-Startup prompt: None — no sprint qualifies until S071 is promoted.
+Overlap check: Live open PRs rechecked 2026-11-24 (main `0d2ec04b`): none open. No competing S071 lane exists. The F7 public-portal approval/signature lane owns disjoint customer-portal/proposal files.
+Startup prompt: S071 is the next eligible sprint — the 03:00 sprint runner selects it next.

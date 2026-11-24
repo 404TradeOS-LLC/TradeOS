@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-11-23
+last_verified: 2026-11-24
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -797,10 +797,14 @@ Acceptance: canonical statuses, breadcrumbs/back behavior, notifications/refresh
 
 ### S071 — Deployment identity and data-plane proof
 
-Status: PLANNED
+Status: READY
 Dependencies: S051
 Objective: Replace operator-attested RC data-plane identity with a safe runtime build/environment identity contract.
 Acceptance: evidence automation verifies commit, environment, backend host, and non-secret data-plane identifier from the deployment and fails closed on mismatch.
+Readiness reconciliation (2026-11-24): Dependencies: S051 (`DONE` through merged PR #538). Current `main` at readiness start is `0d2ec04be885d885142c9ad039466fb6e347fd57` (ABC selected-price-probe SKU allowlist widened to ABC-provided test SKUs, #1076, merged 2026-11-24). Live GitHub overlap rechecked 2026-11-24: zero open PRs; no remote branch implements S071; no live S071 lane exists. The F7 public-portal approval/signature lane owns disjoint customer-portal/proposal files. `/health` already reports `commitSha` and `/ready` already reports the non-secret `checks.database.projectRef` on current `main` (verified in `app/backend/health.ts` / `app/backend/server.ts`); per-workflow identity proof already exists (`app/scripts/s059-deployment-identity.mjs`, reused by the S068/S069 browser-evidence workflows). What is missing: the expected SHA is operator-attested (`BETA_RC_DEPLOYMENT_SHA` / `S059_EXPECTED_SHA`), the runtime publishes no environment or backend host as part of its identity (nothing in `app/backend/` reads `VERCEL_ENV`), and each workflow re-proves identity ad hoc instead of sharing one canonical contract. See `docs/architecture/S071_DEPLOYMENT_IDENTITY_PLAN.md`.
+Readiness contract: S071 builds the runtime build/environment identity contract and the shared evidence-automation gate only. It may add public-identifier fields (environment, backend host) to the runtime identity surfaces, a single canonical identity contract shared by the browser-evidence workflows and the staging orchestrator, and live non-production evidence plus negative fail-closed runs. No secret fetched, decrypted, asserted, or retained; no production deployment or production data plane accepted; no new deployment pipeline, hosting change, or trust boundary.
+Founder-decision boundary: NO for the bounded contract above. YES before any production deployment or production data-plane acceptance, any new secret or credential handling, any change to which environments count as approved non-production targets, or any production database change. S057's and S058's separate certification decisions are not dependencies and are not decided by this promotion.
+Required validation: focused unit tests for the identity contract (each field verified; each mismatch/missing/unparseable case failing closed; production refusal); contract test shared by the consuming workflows (pre- and post-capture verification); live non-production evidence against a real staging/preview deployment plus a negative mismatched-SHA run; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; `(cd app && npm test && npm run lint && npm run build && npm run test:integration)`; applicable web test/lint/build lanes where touched; exact-head CI.
 
 ### S072 — Schema drift and readiness gate
 
@@ -1048,4 +1052,4 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-No numbered sprint is currently `READY`. S069 is `IN_REVIEW` (implementation in branch `feat/s069-closeout-warranty-workspace`, base main `efcaa8f2`; browser evidence pending). S071 has satisfied `Dependencies:` but stays `PLANNED`: the sprint-state validator allows at most one `READY` sprint at a time, so it gets its own promotion after S069 leaves `READY`. S068 is `IN_REVIEW` (implementation merged as PR #1067, `1388baae`, 2026-11-24; browser evidence pending). S059 is `IN_REVIEW` (implementation merged as PR #1032, `0a3aeefe`, 2026-11-23; browser evidence pending). S046/S048/S050 remain blocked on unmet dependencies or unresolved founder decisions; all other `PLANNED` sprints have unmet `Dependencies:`. Do not start implementation on a `PLANNED` sprint without its own promotion.
+S071 is `READY` (promoted 2026-11-24 from current `main` `0d2ec04b`, governance-only readiness PR; dependencies satisfied — S051 is `DONE`). S069 is `IN_REVIEW` (implementation merged as PR #1073, `eb3c2f9e`, 2026-11-24; browser evidence pending). S068 is `IN_REVIEW` (implementation merged as PR #1067, `1388baae`, 2026-11-24; browser evidence pending). S059 is `IN_REVIEW` (implementation merged as PR #1032, `0a3aeefe`, 2026-11-23; browser evidence pending). S046/S048/S050 remain blocked on unmet dependencies or unresolved founder decisions; all other `PLANNED` sprints have unmet `Dependencies:`. Do not start implementation on a `PLANNED` sprint without its own promotion.
