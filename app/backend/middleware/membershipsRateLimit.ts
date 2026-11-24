@@ -27,15 +27,16 @@ import { Request, Response } from "express";
  *
  * KEYING — the limiter cannot key on the verified user id, because that
  * only exists after requireAuth runs. It keys on a SHA-256 hash of the
- * bearer credential from the Authorization header (the same header
- * requireAuth reads), so each credential gets its own 600-request budget
- * and no verified identity is needed. The raw credential never enters the
- * store — only its hash. Requests with no credential share one "unknown"
- * bucket; they would 401 at requireAuth anyway, so throttling them
- * together is harmless. A caller rotating fresh (invalid) credentials
- * gets a fresh bucket per credential, so this blunts a tight loop, not a
- * distributed credential-rotation attack — the same limit as any
- * pre-authentication keying.
+ * whole Authorization header value (the same header requireAuth reads),
+ * so each credential presentation gets its own 600-request budget and no
+ * verified identity is needed. The raw header never enters the store —
+ * only its hash — and no regex is used to parse it (a Bearer-extraction
+ * regex tripped CodeQL js/polynomial-redos on this file). Requests with
+ * no header share one "unknown" bucket; they would 401 at requireAuth
+ * anyway, so throttling them together is harmless. A caller rotating
+ * fresh (invalid) credentials gets a fresh bucket per credential, so this
+ * blunts a tight loop, not a distributed credential-rotation attack —
+ * the same limit as any pre-authentication keying.
  *
  * IP-scoped keying is deliberately NOT used: the layout fetches server-side
  * from shared Vercel egress IPs, so an IP bucket would throttle all users
@@ -61,12 +62,17 @@ import { Request, Response } from "express";
 const windowMs = Number(process.env.MEMBERSHIPS_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000;
 const limit = Number(process.env.MEMBERSHIPS_RATE_LIMIT_MAX) || 600;
 
-/** Bucket key: SHA-256 of the bearer credential, or "unknown" when absent. */
+/** Bucket key: SHA-256 of the Authorization header value, or "unknown". */
 function membershipsKey(req: Request): string {
+  // No regex here: the whole header is hashed as-is, so no pattern can
+  // backtrack on a hostile value (a /^Bearer\s+(.+)$/i extraction tripped
+  // CodeQL js/polynomial-redos on this file). The key is only a bucket
+  // label, not an authentication decision — requireAuth still parses and
+  // verifies the credential. Same header value => same bucket; a missing
+  // header => the shared "unknown" bucket.
   const bearer = req.header("authorization");
-  const token = bearer?.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (!token) return "unknown";
-  return createHash("sha256").update(token).digest("hex");
+  if (!bearer) return "unknown";
+  return createHash("sha256").update(bearer).digest("hex");
 }
 
 export const membershipsRateLimit = rateLimit({
