@@ -34,7 +34,12 @@ export function WorkspaceSwitcher({
       setPending(false);
       return;
     }
+    // router.refresh() reconciles the server payload while preserving
+    // this client component's state (and there is no workspace-dependent
+    // key to remount it), so re-enable the select explicitly — otherwise
+    // it stays disabled until a full page reload.
     router.refresh();
+    setPending(false);
   }
 
   return (

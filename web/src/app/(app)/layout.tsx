@@ -72,8 +72,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
   const athenaCapabilityRetryKey = athenaCapability.retryOnClient ? randomUUID() : null;
 
+  // Keyed by the active workspace: switching workspaces must remount
+  // the whole shell subtree, not just refresh server data — otherwise
+  // tenant-owned client state (e.g. a Settings draft initialized from
+  // workspace A's props) survives the switch and a later save would
+  // overwrite workspace B's data with A's values. The key only changes
+  // when the active org changes, so single-workspace users are unaffected.
   return (
-    <div className="flex flex-1 flex-col">
+    <div key={identity.orgId ?? "unknown"} className="flex flex-1 flex-col">
       <a
         href="#main-content"
         className="sr-only rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus-visible:ring-3 focus-visible:ring-ring/50"
