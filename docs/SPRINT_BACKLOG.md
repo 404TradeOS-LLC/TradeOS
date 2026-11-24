@@ -762,7 +762,7 @@ Implementation status (2026-10-04): draft PR #644 is the sole S067 implementatio
 
 ### S068 — Change-order customer workflow
 
-Status: READY
+Status: IN_REVIEW
 Dependencies: none
 Release certification prerequisites: S054, S059
 Objective: Complete change-order draft, pricing, customer review/approval/rejection, audit, and downstream financial visibility.
@@ -771,6 +771,7 @@ Readiness reconciliation (2026-11-23): Dependencies: none. Current `main` at rea
 Readiness contract: S068 certifies the existing change-order contract only. It may add focused service/controller/portal tests, retained browser evidence, audit-event coverage where a transition lacks an attributable record, reproduced-defect repair inside the existing contract, and required owner documentation. No new change-order model, migration, status value, role/permission, auth/RBAC/RLS policy, or production data change. Approved changes are new attributable records, never edits to signed contracts or proposals.
 Founder-decision boundary: NO for the bounded certification above. YES before any new financial model, migration, role/permission, auth/RBAC/RLS policy, or production database change. S054's and S059's separate certification decisions are not dependencies and are not decided by this promotion.
 Required validation: focused change-order service/controller tests; portal review/decision browser evidence at 1440/1024/768/390 with tenant-negative and wrong-role cases; current-head evidence that approved changes do not mutate historical snapshots; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; `(cd app && npm test && npm run lint && npm run build && npm run test:integration)`; applicable web test/lint/build lanes where touched; exact-head CI.
+Implementation status (2026-11-24): implementation branch `feat/s068-change-order-certification` (03:00 sprint runner, base main `c7717c69`). GAP-1 fixed: attributable `change_order.approved` / `change_order.rejected` activity events with the acting staff user as actor, explicit draft-only guard, and `change_order` registered as an `IntelligenceEntityType`. Focused service/controller tests, live-PostgreSQL snapshot-stability integration test (CI-verified-only), S068 browser-evidence workflow + capture script + contract test. Browser evidence pending dispatch from `main` after merge; S068 stays `IN_REVIEW` until a full exact-SHA non-production run passes. Customer portal approve/reject BLOCKED by design (ADR-010); no downstream roll-up (GAP-3, founder decision).
 
 ### S069 — Closeout and warranty workspace
 
@@ -1042,8 +1043,4 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-Sprint ID: S068
-Eligibility: S068 is `READY` (governance-only readiness promotion from current main `bf23a3f5c6d693f5877d72e54b79f7565f3ce0a4` on Billy's word 2026-11-23 "promote every sprint that is ready"; S068 has no dependencies, live overlap found no competing lane, and no founder decision blocks the bounded contract). S069 and S071 also have satisfied `Dependencies:` but stay `PLANNED`: the sprint-state validator allows at most one `READY` sprint at a time, so each gets its own promotion after S068 leaves `READY`. S059 is `IN_REVIEW` (implementation merged as PR #1032, `0a3aeefe`, 2026-11-23; browser evidence pending). S046/S048/S050 remain blocked on unmet dependencies or unresolved founder decisions; all other `PLANNED` sprints have unmet `Dependencies:`. Do not start implementation on a `PLANNED` sprint without its own promotion.
-Dependencies: S068 none.
-Overlap check: Live open PRs rechecked 2026-11-23 (main `bf23a3f5c6d693f5877d72e54b79f7565f3ce0a4`): #1044 (DES-10-F3), #1045 (DES-7), #1048 (DES-10-F5), #1049 (dependabot api-runtime), #1052 (add-member), #1053 (dependabot web-runtime). None owns S068 scope. No S068 implementation branch exists.
-Startup prompt: Implement S068 per `docs/architecture/S068_CHANGE_ORDER_CUSTOMER_WORKFLOW_PLAN.md` — certify the existing change-order contract with retained authenticated browser evidence at 1440/1024/768/390 plus negative evidence, without mutating historical snapshots.
+No numbered sprint is currently `READY`. S068 is `IN_REVIEW` (implementation branch `feat/s068-change-order-certification`; browser evidence pending dispatch from `main` after merge). S069 and S071 have satisfied `Dependencies:` but stay `PLANNED`: each needs its own governance-only readiness promotion after S068 leaves `READY` — S069 is next in line (lowest-numbered). S059 is `IN_REVIEW` (implementation merged as PR #1032, `0a3aeefe`, 2026-11-23; browser evidence pending). S046/S048/S050 remain blocked on unmet dependencies or unresolved founder decisions; all other `PLANNED` sprints have unmet `Dependencies:`. Do not start implementation on a `PLANNED` sprint without its own promotion.

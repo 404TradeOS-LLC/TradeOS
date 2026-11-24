@@ -3,6 +3,7 @@ import { basePrisma, prisma } from "../../db/client";
 import { runInDatabaseTransaction } from "../../db/requestSession";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { CostDatabaseService } from "../cost-database/service";
+import { ActivityTimelineService } from "../intelligence/service";
 import { canTransitionChangeOrderStatus } from "../../domain";
 import { round2 } from "../estimate-engine/formulas";
 import {
@@ -15,6 +16,7 @@ import {
 
 export class ChangeOrdersService {
   private readonly costDatabase = new CostDatabaseService();
+  private readonly activityService = new ActivityTimelineService();
 
   async listByProject(projectId: string, orgId?: string): Promise<ChangeOrderDTO[]> {
     const rows = await prisma.changeOrder.findMany({ where: { projectId, project: orgId ? { orgId } : undefined }, orderBy: { coNumber: "asc" } });
@@ -139,8 +141,11 @@ export class ChangeOrdersService {
     await prisma.changeOrder.delete({ where: { id: changeOrder.id } });
   }
 
-  async approve(changeOrderId: string, orgId?: string): Promise<ChangeOrderDTO> {
+  async approve(changeOrderId: string, orgId?: string, actorUserId?: string): Promise<ChangeOrderDTO> {
     const changeOrder = await this.assertExists(changeOrderId, orgId);
+    if (changeOrder.status !== "draft") {
+      throw new ApiError(409, `ChangeOrder ${changeOrderId} cannot be approved from status ${changeOrder.status}`);
+    }
     if (!canTransitionChangeOrderStatus(changeOrder.status, "approved")) {
       throw new ApiError(409, `ChangeOrder ${changeOrderId} cannot be approved from status ${changeOrder.status}`);
     }
@@ -149,11 +154,25 @@ export class ChangeOrdersService {
       where: { id: changeOrderId },
       data: { status: "approved", approvedAt: new Date(), rejectedAt: null },
     });
-    return toDTO(row);
+    const updated = toDTO(row);
+    await this.recordDecision({
+      orgId,
+      changeOrderId,
+      coNumber: updated.coNumber,
+      projectId: updated.projectId,
+      amount: updated.amount,
+      previousStatus: changeOrder.status,
+      newStatus: "approved",
+      actorUserId,
+    });
+    return updated;
   }
 
-  async reject(changeOrderId: string, orgId?: string): Promise<ChangeOrderDTO> {
+  async reject(changeOrderId: string, orgId?: string, actorUserId?: string): Promise<ChangeOrderDTO> {
     const changeOrder = await this.assertExists(changeOrderId, orgId);
+    if (changeOrder.status !== "draft") {
+      throw new ApiError(409, `ChangeOrder ${changeOrderId} cannot be rejected from status ${changeOrder.status}`);
+    }
     if (!canTransitionChangeOrderStatus(changeOrder.status, "rejected")) {
       throw new ApiError(409, `ChangeOrder ${changeOrderId} cannot be rejected from status ${changeOrder.status}`);
     }
@@ -161,7 +180,54 @@ export class ChangeOrdersService {
       where: { id: changeOrderId },
       data: { status: "rejected", rejectedAt: new Date(), approvedAt: null },
     });
-    return toDTO(row);
+    const updated = toDTO(row);
+    await this.recordDecision({
+      orgId,
+      changeOrderId,
+      coNumber: updated.coNumber,
+      projectId: updated.projectId,
+      amount: updated.amount,
+      previousStatus: changeOrder.status,
+      newStatus: "rejected",
+      actorUserId,
+    });
+    return updated;
+  }
+
+  /**
+   * Records the attributable audit event for an approve/reject decision.
+   * The event is written after the status update (same pattern as the
+   * proposals service): a failed event write surfaces as an error and the
+   * caller must not treat the decision as fully recorded. No event is
+   * recorded when the caller supplies no organization scope, because the
+   * activity_events row requires an orgId.
+   */
+  private async recordDecision(input: {
+    orgId?: string;
+    changeOrderId: string;
+    coNumber: number;
+    projectId: string;
+    amount: number;
+    previousStatus: string;
+    newStatus: "approved" | "rejected";
+    actorUserId?: string;
+  }): Promise<void> {
+    if (!input.orgId) return;
+    await this.activityService.record({
+      orgId: input.orgId,
+      entityType: "change_order",
+      entityId: input.changeOrderId,
+      eventType: `change_order.${input.newStatus}`,
+      title: `Change order #${input.coNumber} ${input.newStatus}`,
+      actorUserId: input.actorUserId,
+      metadata: {
+        previousStatus: input.previousStatus,
+        newStatus: input.newStatus,
+        coNumber: input.coNumber,
+        projectId: input.projectId,
+        amount: input.amount,
+      },
+    });
   }
 
   async recalculate(changeOrderId: string, orgId?: string): Promise<ChangeOrderDTO> {

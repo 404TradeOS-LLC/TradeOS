@@ -38,9 +38,16 @@ const mockCostDatabase = {
   getUnitCost: jest.fn(),
 };
 
+const mockActivityTimeline = {
+  record: jest.fn(),
+};
+
 jest.mock("../db/client", () => ({ prisma: mockPrisma, basePrisma }));
 jest.mock("../modules/cost-database/service", () => ({
   CostDatabaseService: jest.fn().mockImplementation(() => mockCostDatabase),
+}));
+jest.mock("../modules/intelligence/service", () => ({
+  ActivityTimelineService: jest.fn().mockImplementation(() => mockActivityTimeline),
 }));
 
 import { ChangeOrdersService } from "../modules/change-orders/service";
@@ -239,6 +246,252 @@ describe("ChangeOrdersService", () => {
         where: { id: "co-1" },
         data: { amount: 0 },
       })
+    );
+  });
+
+  it("approve records a change_order.approved activity event with the actor and decision metadata", async () => {
+    mockPrisma.changeOrder.findFirst.mockResolvedValue({
+      id: "co-1",
+      projectId: "project-1",
+      estimateId: null,
+      coNumber: 1,
+      description: "Change order",
+      status: "draft",
+      amount: 50,
+      lineItems: [{ lineCost: 50 }],
+      project: { orgId: "org-1" },
+    });
+    mockPrisma.changeOrder.update.mockResolvedValue({
+      id: "co-1",
+      projectId: "project-1",
+      estimateId: null,
+      coNumber: 1,
+      description: "Change order",
+      status: "approved",
+      amount: 50,
+    });
+
+    const service = new ChangeOrdersService();
+    const changeOrder = await service.approve("co-1", "org-1", "user-1");
+
+    expect(changeOrder.status).toBe("approved");
+    expect(mockActivityTimeline.record).toHaveBeenCalledTimes(1);
+    expect(mockActivityTimeline.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: "org-1",
+        entityType: "change_order",
+        entityId: "co-1",
+        eventType: "change_order.approved",
+        title: "Change order #1 approved",
+        actorUserId: "user-1",
+        metadata: {
+          previousStatus: "draft",
+          newStatus: "approved",
+          coNumber: 1,
+          projectId: "project-1",
+          amount: 50,
+        },
+      })
+    );
+  });
+
+  it("reject records a change_order.rejected activity event with the actor and decision metadata", async () => {
+    mockPrisma.changeOrder.findFirst.mockResolvedValue({
+      id: "co-1",
+      projectId: "project-1",
+      estimateId: null,
+      coNumber: 1,
+      description: "Change order",
+      status: "draft",
+      amount: 50,
+      lineItems: [{ lineCost: 50 }],
+      project: { orgId: "org-1" },
+    });
+    mockPrisma.changeOrder.update.mockResolvedValue({
+      id: "co-1",
+      projectId: "project-1",
+      estimateId: null,
+      coNumber: 1,
+      description: "Change order",
+      status: "rejected",
+      amount: 50,
+    });
+
+    const service = new ChangeOrdersService();
+    const changeOrder = await service.reject("co-1", "org-1", "user-1");
+
+    expect(changeOrder.status).toBe("rejected");
+    expect(mockActivityTimeline.record).toHaveBeenCalledTimes(1);
+    expect(mockActivityTimeline.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: "org-1",
+        entityType: "change_order",
+        entityId: "co-1",
+        eventType: "change_order.rejected",
+        title: "Change order #1 rejected",
+        actorUserId: "user-1",
+        metadata: {
+          previousStatus: "draft",
+          newStatus: "rejected",
+          coNumber: 1,
+          projectId: "project-1",
+          amount: 50,
+        },
+      })
+    );
+  });
+
+  it.each<[action: "approve" | "reject", status: string]>([
+    ["approve", "approved"],
+    ["approve", "rejected"],
+    ["reject", "approved"],
+    ["reject", "rejected"],
+  ])("%s from %s returns 409 and records no event", async (action, status) => {
+    mockPrisma.changeOrder.findFirst.mockResolvedValue({
+      id: "co-1",
+      projectId: "project-1",
+      estimateId: null,
+      coNumber: 1,
+      description: "Change order",
+      status,
+      amount: 50,
+      lineItems: [{ lineCost: 50 }],
+      project: { orgId: "org-1" },
+    });
+
+    const service = new ChangeOrdersService();
+    await expect(service[action]("co-1", "org-1", "user-1")).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockActivityTimeline.record).not.toHaveBeenCalled();
+    expect(mockPrisma.changeOrder.update).not.toHaveBeenCalled();
+  });
+
+  it("approve for another organization returns 404 and records no event", async () => {
+    mockPrisma.changeOrder.findFirst.mockResolvedValue(null);
+
+    const service = new ChangeOrdersService();
+    await expect(service.approve("co-1", "org-2", "user-1")).rejects.toMatchObject({ statusCode: 404 });
+    expect(mockActivityTimeline.record).not.toHaveBeenCalled();
+    expect(mockPrisma.changeOrder.update).not.toHaveBeenCalled();
+  });
+
+  it.each<[action: "update" | "addLineItem" | "removeLineItem" | "delete"]>([
+    ["update"],
+    ["addLineItem"],
+    ["removeLineItem"],
+    ["delete"],
+  ])(
+    "%s on a non-draft order returns 409",
+    async (action) => {
+      mockPrisma.changeOrder.findFirst.mockResolvedValue({
+        id: "co-1",
+        projectId: "project-1",
+        estimateId: null,
+        coNumber: 1,
+        description: "Change order",
+        status: "approved",
+        amount: 50,
+        lineItems: [{ sortOrder: 1, lineCost: 50 }],
+        project: { orgId: "org-1" },
+      });
+
+      const service = new ChangeOrdersService();
+      if (action === "update") {
+        await expect(
+          service.update("co-1", { orgId: "org-1", description: "Edited" })
+        ).rejects.toMatchObject({ statusCode: 409 });
+      } else if (action === "addLineItem") {
+        await expect(
+          service.addLineItem({ orgId: "org-1", changeOrderId: "co-1", description: "Extra", quantity: 1, unitCost: 10 })
+        ).rejects.toMatchObject({ statusCode: 409 });
+      } else if (action === "removeLineItem") {
+        await expect(service.removeLineItem("co-1", "co-li-1", "org-1")).rejects.toMatchObject({ statusCode: 409 });
+      } else {
+        await expect(service.delete("co-1", "org-1")).rejects.toMatchObject({ statusCode: 409 });
+      }
+      expect(mockPrisma.changeOrder.update).not.toHaveBeenCalled();
+      expect(mockPrisma.changeOrderLineItem.create).not.toHaveBeenCalled();
+      expect(mockPrisma.changeOrderLineItem.delete).not.toHaveBeenCalled();
+      expect(mockActivityTimeline.record).not.toHaveBeenCalled();
+    }
+  );
+
+  it("rounds line costs to two decimals when adding priced line items", async () => {
+    mockPrisma.changeOrder.findFirst.mockResolvedValue({
+      id: "co-1",
+      projectId: "project-1",
+      estimateId: null,
+      coNumber: 1,
+      description: "Change order",
+      status: "draft",
+      amount: 50,
+      lineItems: [{ sortOrder: 1, lineCost: 50 }],
+      project: { orgId: "org-1" },
+    });
+    mockPrisma.changeOrderLineItem.create.mockResolvedValue({
+      id: "co-li-1",
+      changeOrderId: "co-1",
+      costItemId: null,
+      description: "Rounding case",
+      quantity: 1,
+      unitCost: 0.125,
+      lineCost: 0.13,
+      sortOrder: 2,
+    });
+    mockPrisma.changeOrder.update.mockResolvedValue({
+      id: "co-1",
+      projectId: "project-1",
+      estimateId: null,
+      coNumber: 1,
+      description: "Change order",
+      status: "draft",
+      amount: 50,
+    });
+
+    const service = new ChangeOrdersService();
+    await service.addLineItem({ orgId: "org-1", changeOrderId: "co-1", description: "Rounding case", quantity: 1, unitCost: 0.125 });
+    await service.addLineItem({ orgId: "org-1", changeOrderId: "co-1", description: "Second case", quantity: 2, unitCost: 12.345 });
+
+    expect(mockPrisma.changeOrderLineItem.create).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ data: expect.objectContaining({ lineCost: 0.13 }) })
+    );
+    expect(mockPrisma.changeOrderLineItem.create).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ data: expect.objectContaining({ lineCost: 24.69 }) })
+    );
+  });
+
+  it("recalculates the amount as the sum of line costs on approve", async () => {
+    mockPrisma.changeOrder.findFirst.mockResolvedValue({
+      id: "co-1",
+      projectId: "project-1",
+      estimateId: null,
+      coNumber: 1,
+      description: "Change order",
+      status: "draft",
+      amount: 0,
+      lineItems: [{ lineCost: 33.33 }, { lineCost: 33.33 }],
+      project: { orgId: "org-1" },
+    });
+    mockPrisma.changeOrder.update.mockResolvedValue({
+      id: "co-1",
+      projectId: "project-1",
+      estimateId: null,
+      coNumber: 1,
+      description: "Change order",
+      status: "approved",
+      amount: 66.66,
+    });
+
+    const service = new ChangeOrdersService();
+    const changeOrder = await service.approve("co-1", "org-1", "user-1");
+
+    expect(changeOrder.status).toBe("approved");
+    expect(mockPrisma.changeOrder.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "co-1" }, data: { amount: 66.66 } })
+    );
+    expect(mockActivityTimeline.record).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: expect.objectContaining({ amount: 66.66 }) })
     );
   });
 });
