@@ -986,13 +986,23 @@ try {
   await page.getByRole("button", { name: "Finalize estimate" }).click();
   // The builder renders the estimate status badge twice (page-header
   // actions row + Review-stage "Internal estimate review" panel), so a
-  // bare getByText("ready") wait trips Playwright strict mode. Scope the
-  // wait to the Estimate workflow region: it selects the Review-stage
-  // badge adjacent to the finalize flow, visible exactly when Review is
-  // active. Do not use .first() here — DOM order is fragile, and this
-  // script already moved away from .first() waits for the hidden-match
-  // hazard.
-  await page.getByRole("region", { name: "Estimate workflow" }).getByText("ready", { exact: true }).waitFor({ timeout: 60_000 });
+  // bare text wait trips Playwright strict mode. Scope the wait to the
+  // Estimate workflow region: it selects the Review-stage badge adjacent
+  // to the finalize flow, visible exactly when Review is active. Do not
+  // use .first() here — DOM order is fragile, and this script already
+  // moved away from .first() waits for the hidden-match hazard.
+  //
+  // Match the RENDERED label "Ready", not the API status "ready":
+  // StatusBadge title-cases the status via formatStatusLabel, and
+  // getByText exact matching is case-sensitive (verified empirically:
+  // exact "ready" counts 0 against a "Ready" badge). The lowercase
+  // wait passed on staging 307b820d only because that build's badge
+  // rendered the raw status; PR #1054 (DES-10-F8) added the title-case
+  // transform, so the lowercase wait timed out on every run after the
+  // 12-A promotion (staging orchestrator 45482601002). The API status
+  // is asserted separately below — this wait settles on the rendered
+  // finalized state for the checkpoint 06 screenshot.
+  await page.getByRole("region", { name: "Estimate workflow" }).getByText("Ready", { exact: true }).waitFor({ timeout: 60_000 });
   const finalizedEstimate = await readEstimateDetail(estimateId);
   assertBusiness("Estimate Engine persists finalized status and customer total",
     finalizedEstimate.status === "ready" &&

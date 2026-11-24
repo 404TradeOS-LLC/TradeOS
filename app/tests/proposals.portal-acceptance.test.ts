@@ -101,6 +101,47 @@ jest.mock("../modules/athena-events/service", () => ({
 }));
 
 import { ProposalsService } from "../modules/proposals/service";
+import { isValidSignatureDataUrl } from "../modules/proposals/signatureValidation";
+
+describe("isValidSignatureDataUrl", () => {
+  it("rejects a payload that decodes to bytes but is not an image", () => {
+    // One zero byte: decodes, but carries no image magic.
+    expect(isValidSignatureDataUrl("data:image/png;base64,AA==")).toBe(false);
+    // Base64-encoded prose is not an image either.
+    expect(
+      isValidSignatureDataUrl(`data:image/png;base64,${Buffer.from("not an image").toString("base64")}`)
+    ).toBe(false);
+  });
+
+  it("accepts a real 1x1 PNG and the other accepted types by magic bytes", () => {
+    expect(
+      isValidSignatureDataUrl(
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+      )
+    ).toBe(true);
+    expect(
+      isValidSignatureDataUrl(`data:image/jpeg;base64,${Buffer.from([0xff, 0xd8, 0xff, 0xe0]).toString("base64")}`)
+    ).toBe(true);
+    expect(
+      isValidSignatureDataUrl(`data:image/gif;base64,${Buffer.from("GIF89a").toString("base64")}`)
+    ).toBe(true);
+    expect(
+      isValidSignatureDataUrl(
+        `data:image/webp;base64,${Buffer.from([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50]).toString("base64")}`
+      )
+    ).toBe(true);
+  });
+
+  it("rejects magic bytes declared as the wrong type", () => {
+    // PNG bytes declared as JPEG, and a RIFF header with no WEBP chunk.
+    expect(isValidSignatureDataUrl("data:image/jpeg;base64,iVBORw0KGgo=")).toBe(false);
+    expect(
+      isValidSignatureDataUrl(
+        `data:image/webp;base64,${Buffer.from([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x41, 0x56, 0x49, 0x46]).toString("base64")}`
+      )
+    ).toBe(false);
+  });
+});
 
 describe("ProposalsService portal acceptance (DES-10-F7)", () => {
   afterEach(() => jest.restoreAllMocks());
@@ -189,6 +230,10 @@ describe("ProposalsService portal acceptance (DES-10-F7)", () => {
         "data:image/png;base64,!!!",
         "data:image/svg+xml;base64,PHN2Zz4=",
         "data:image/png;base64,A",
+        // Decodes to bytes, but a single zero byte is not an image.
+        "data:image/png;base64,AA==",
+        // Base64-encoded prose is not an image either.
+        `data:image/png;base64,${Buffer.from("not an image").toString("base64")}`,
       ]) {
         await expect(
           service.acceptAsPortalCustomer("proposal-1", { ...acceptInput, signatureDataUrl })

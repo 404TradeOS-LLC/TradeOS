@@ -247,6 +247,18 @@ export class ProposalsService {
   }
 
   /**
+   * Advance the parent proposal's revision after a child mutation, so a
+   * customer holding the approval page rendered before the change cannot
+   * accept the stale revision: acceptAsPortalCustomer compares the
+   * proposal's updatedAt against the expectedUpdatedAt the page rendered
+   * with, and a child-only change left updatedAt untouched. Runs inside
+   * the same transaction as the child write, under the parent row lock.
+   */
+  private async bumpProposalRevision(proposalId: string): Promise<void> {
+    await prisma.proposal.update({ where: { id: proposalId }, data: { updatedAt: new Date() } });
+  }
+
+  /**
    * Run a child mutation inside one transaction (reusing the active request
    * transaction when one exists) so the parent lock above and the child
    * write commit or roll back together. Falls through to the direct call
@@ -296,6 +308,7 @@ export class ProposalsService {
         dueDate: validated.dueDate ?? null,
       },
     });
+    await this.bumpProposalRevision(proposalId);
     return toSelectionDTO(row);
   }
 
@@ -324,6 +337,7 @@ export class ProposalsService {
       },
     });
     if (updated.count !== 1) throw await this.selectionWriteError(selectionId, proposalId, orgId);
+    await this.bumpProposalRevision(proposalId);
     const row = await prisma.proposalSelection.findFirstOrThrow({ where: { id: selectionId } });
     return toSelectionDTO(row);
   }
@@ -346,6 +360,7 @@ export class ProposalsService {
       },
     });
     if (deleted.count !== 1) throw await this.selectionWriteError(selectionId, proposalId, orgId);
+    await this.bumpProposalRevision(proposalId);
   }
 
   // --- DES-10-F8: proposal allowances (Copperline section 04) ---
@@ -387,6 +402,7 @@ export class ProposalsService {
         amount: validated.amount,
       },
     });
+    await this.bumpProposalRevision(proposalId);
     return toAllowanceDTO(row);
   }
 
@@ -413,6 +429,7 @@ export class ProposalsService {
       },
     });
     if (updated.count !== 1) throw await this.allowanceWriteError(allowanceId, proposalId, orgId);
+    await this.bumpProposalRevision(proposalId);
     const row = await prisma.proposalAllowance.findFirstOrThrow({ where: { id: allowanceId } });
     return toAllowanceDTO(row);
   }
@@ -435,6 +452,7 @@ export class ProposalsService {
       },
     });
     if (deleted.count !== 1) throw await this.allowanceWriteError(allowanceId, proposalId, orgId);
+    await this.bumpProposalRevision(proposalId);
   }
 
   async previewProjectDraft(projectId: string, orgId?: string, companyName?: string): Promise<ProposalDraftPreviewDTO> {

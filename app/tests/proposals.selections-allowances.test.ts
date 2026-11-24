@@ -237,6 +237,39 @@ describe("ProposalsService selections and allowances (DES-10-F8)", () => {
     expect(lockOrder[2]).toBeLessThan(mockPrisma.proposalSelection.updateMany.mock.invocationCallOrder[0]);
   });
 
+  it("every child mutation advances the parent proposal revision", async () => {
+    mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("draft"));
+    mockPrisma.proposalSelection.aggregate.mockResolvedValue({ _max: { sortOrder: null } });
+    mockPrisma.proposalSelection.create.mockResolvedValue(selectionRow());
+    mockPrisma.proposalSelection.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.proposalSelection.findFirstOrThrow.mockResolvedValue(selectionRow({ detail: "Brass dome" }));
+    mockPrisma.proposalSelection.deleteMany.mockResolvedValue({ count: 1 });
+    mockPrisma.proposalAllowance.aggregate.mockResolvedValue({ _max: { sortOrder: null } });
+    mockPrisma.proposalAllowance.create.mockResolvedValue(allowanceRow());
+    mockPrisma.proposalAllowance.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.proposalAllowance.findFirstOrThrow.mockResolvedValue(allowanceRow({ amount: 1350 }));
+    mockPrisma.proposalAllowance.deleteMany.mockResolvedValue({ count: 1 });
+
+    const service = new ProposalsService();
+    await service.createSelection("proposal-1", { label: "PENDANTS" }, "org-1");
+    await service.updateSelection("selection-1", "proposal-1", { detail: "Brass dome" }, "org-1");
+    await service.deleteSelection("selection-1", "proposal-1", "org-1");
+    await service.createAllowance("proposal-1", { description: "PENDANT LIGHTING", amount: 1200 }, "org-1");
+    await service.updateAllowance("allowance-1", "proposal-1", { amount: 1350 }, "org-1");
+    await service.deleteAllowance("allowance-1", "proposal-1", "org-1");
+
+    // A customer holding the approval page rendered before any of these
+    // changes must see a 409 on accept: the parent's updatedAt is the
+    // revision the portal binds the answer to.
+    expect(mockPrisma.proposal.update).toHaveBeenCalledTimes(6);
+    for (const call of mockPrisma.proposal.update.mock.calls) {
+      expect(call[0]).toEqual({
+        where: { id: "proposal-1" },
+        data: { updatedAt: expect.any(Date) },
+      });
+    }
+  });
+
   it("rejects a selection with an empty label or an unknown status", async () => {
     mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("draft"));
 
