@@ -54,6 +54,8 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 The shared document frame defines safe fallback CSS custom properties for its palette and typography so the stylesheet renders deterministically even before organization branding is injected. `renderDocumentFrameHtml()` still injects the organization's configured colors and font families at runtime and those values override the fallbacks. The fallback font stacks include a generic `sans-serif` family and do not change persisted Brand Studio settings or document data.
 
+The warranty frame (`renderWarrantyFrameHtml`, S069) renders its effective date only from an explicitly supplied warranty `startsAt`: when no start was recorded the frame shows "Not recorded" for both the "Effective" field and the "Coverage in force" metric. It never substitutes the warranty record's creation date — that would publish a coverage date staff did not supply.
+
 ## Document rendering integration
 
 S016 consumes the canonical `BrandProfile` and `BrandDocumentSettings` through

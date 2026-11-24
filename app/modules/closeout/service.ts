@@ -126,8 +126,12 @@ export class CloseoutService {
       assignee = await this.validateAssignee(input.orgId, input.assignedUserId);
     }
     const nextAssignedUserId = input.assignedUserId !== undefined ? input.assignedUserId : existing.assignedUserId;
-    const row = await prisma.punchItem.update({
-      where: { id },
+    // The verified-status check above and this write must be atomic: a
+    // concurrent verify between the read and the write must not leave a
+    // verified item edited. The write matches only a still-unverified row
+    // and reports 409 when nothing matches.
+    const result = await prisma.punchItem.updateMany({
+      where: { id, status: { not: "verified" } },
       data: {
         title: input.title !== undefined ? input.title.trim() : existing.title,
         description: input.description ?? existing.description,
@@ -144,6 +148,9 @@ export class CloseoutService {
         dueDate: input.dueDate !== undefined ? input.dueDate : existing.dueDate,
       },
     });
+    if (result.count === 0) throw new ApiError(409, `PunchItem ${id} is verified and cannot be edited`);
+    const row = await prisma.punchItem.findFirst({ where: { id } });
+    if (!row) throw new ApiError(404, `PunchItem ${id} not found`);
     const updated = toPunchDTO(row);
     await this.recordEvent({
       orgId: input.orgId,
@@ -151,6 +158,7 @@ export class CloseoutService {
       entityId: updated.id,
       eventType: "punch_item.updated",
       title: `Punch item updated: ${updated.title}`,
+      actorUserId: input.actorUserId,
       metadata: { projectId: updated.projectId, jobId: updated.jobId, status: updated.status, priority: updated.priority, assignedUserId: updated.assignedUserId },
     });
     return updated;
@@ -306,6 +314,13 @@ export class CloseoutService {
     if (existing.status !== "ready") {
       throw new ApiError(409, `ProjectCloseout ${existing.id} cannot be handed off from status ${existing.status}`);
     }
+    // Reopen/create of a punch item does not move the closeout out of
+    // ready, so recheck readiness here: a handoff must never land while
+    // punch items are open, whatever path reached it.
+    const checklist = await this.computeChecklist(projectId, orgId);
+    if (!checklist.ready) {
+      throw new ApiError(409, `Closeout is not ready: missing ${checklist.missing.join(", ")}`);
+    }
     const row = await prisma.projectCloseout.update({
       where: { id: existing.id },
       data: { status: "handed_off", handedOffAt: new Date(), handedOffById: actorUserId ?? existing.handedOffById },
@@ -439,7 +454,22 @@ export class CloseoutService {
         endsAt: input.endsAt !== undefined ? input.endsAt : existing.endsAt,
       },
     });
-    return toWarrantyDTO(row);
+    const updated = toWarrantyDTO(row);
+    const changedFields: string[] = [];
+    if (input.title !== undefined && input.title.trim() !== existing.title) changedFields.push("title");
+    if (input.coverageText !== undefined && input.coverageText.trim() !== existing.coverageText) changedFields.push("coverageText");
+    if (input.startsAt !== undefined && (input.startsAt?.toISOString() ?? null) !== (existing.startsAt?.toISOString() ?? null)) changedFields.push("startsAt");
+    if (input.endsAt !== undefined && (input.endsAt?.toISOString() ?? null) !== (existing.endsAt?.toISOString() ?? null)) changedFields.push("endsAt");
+    await this.recordEvent({
+      orgId: input.orgId,
+      entityType: "warranty_record",
+      entityId: updated.id,
+      eventType: "warranty_record.updated",
+      title: `Warranty record updated: ${updated.title}`,
+      actorUserId: input.actorUserId,
+      metadata: { projectId: updated.projectId, jobId: updated.jobId, sourceType: updated.sourceType, changedFields },
+    });
+    return updated;
   }
 
   async deleteWarrantyRecord(id: string, orgId?: string, actorUserId?: string): Promise<void> {
@@ -531,7 +561,7 @@ export class CloseoutService {
           projectAddress: projectAddress ?? "",
           customerName,
           customerEmail,
-          effectiveDate: warranty.startsAt ?? warranty.createdAt,
+          effectiveDate: warranty.startsAt ?? null,
           workmanshipCoverage: warranty.coverageText,
           manufacturerCoverage: "Not recorded in this workspace — see the source document.",
           exclusions: ["No exclusions recorded in this workspace — see the source document."],

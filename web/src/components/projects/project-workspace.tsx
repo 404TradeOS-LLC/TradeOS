@@ -3,9 +3,8 @@ import { ProjectTaskAssignmentForm } from "@/components/projects/project-task-as
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { createEstimateAction, deleteProjectTaskAction, duplicateEstimateAction, rejectChangeOrderAction, updateProjectStatusAction, updateProjectTaskStatusAction, approveChangeOrderAction } from "@/app/actions/projects";
-import { deleteWarrantyAction, markCloseoutReadyAction, recordCloseoutHandoffAction, reopenPunchItemAction, resolvePunchItemAction, verifyPunchItemAction } from "@/app/actions/closeout";
 import { ChangeOrderLineItemForm, ChangeOrderCreateForm } from "@/components/projects/change-order-forms";
-import { CloseoutStartForm, PunchItemCreateForm, WarrantyCreateForm } from "@/components/projects/closeout-forms";
+import { CloseoutStartForm, DeleteWarrantyForm, MarkCloseoutReadyForm, PunchItemCreateForm, PunchItemTransitionForm, RecordCloseoutHandoffForm, WarrantyCreateForm } from "@/components/projects/closeout-forms";
 import type { ProjectCloseoutData } from "@/components/projects/workspace-types";
 import { ProjectDocumentUpload } from "@/components/projects/project-document-upload";
 import { ProjectPhotoPanel } from "@/components/projects/project-photo-panel";
@@ -762,22 +761,12 @@ function CloseoutTab({
                   </div>
                 ) : null}
                 <div>
-                  <form action={markCloseoutReadyAction}>
-                    <input type="hidden" name="projectId" value={project.id} />
-                    <button type="submit" disabled={!checklist.ready} className={buttonVariants()}>
-                      Mark ready
-                    </button>
-                  </form>
+                  <MarkCloseoutReadyForm projectId={project.id} disabled={!checklist.ready} />
                 </div>
               </div>
             ) : null}
             {closeout.status === "ready" ? (
-              <form action={recordCloseoutHandoffAction}>
-                <input type="hidden" name="projectId" value={project.id} />
-                <button type="submit" className={buttonVariants()}>
-                  Record handoff
-                </button>
-              </form>
+              <RecordCloseoutHandoffForm projectId={project.id} />
             ) : null}
             <div>
               <a href={closeoutDocumentHref} target="_blank" rel="noreferrer" className={buttonVariants({ variant: "outline" })}>
@@ -809,7 +798,9 @@ function CloseoutTab({
             jobOptions={jobs.map((job) => ({ id: job.id, label: `${job.title} #${job.jobNumber}` }))}
             memberOptions={taskMembers.map((member) => ({ userId: member.userId, label: member.fullName ?? member.email }))}
           />
-          {punchItems.length === 0 ? (
+          {closeoutData.punchItemsUnavailable ? (
+            <p className="text-sm text-muted-foreground">Punch items could not be loaded right now — refresh the page to try again.</p>
+          ) : punchItems.length === 0 ? (
             <p className="text-sm text-muted-foreground">No punch items yet.</p>
           ) : (
             punchItems.map((item) => <PunchItemRow key={item.id} projectId={project.id} item={item} jobs={jobs} />)
@@ -838,7 +829,9 @@ function CloseoutTab({
               })),
             ]}
           />
-          {warranties.length === 0 ? (
+          {closeoutData.warrantiesUnavailable ? (
+            <p className="text-sm text-muted-foreground">Warranties could not be loaded right now — refresh the page to try again.</p>
+          ) : warranties.length === 0 ? (
             <p className="text-sm text-muted-foreground">No warranty recorded for this project</p>
           ) : (
             warranties.map((warranty) => <WarrantyRow key={warranty.id} projectId={project.id} warranty={warranty} />)
@@ -870,40 +863,16 @@ function PunchItemRow({ projectId, item, jobs }: { projectId: string; item: Punc
         </div>
         <div className="flex flex-wrap gap-2">
           {(item.status === "open" || item.status === "in_progress") && (
-            <form action={resolvePunchItemAction}>
-              <input type="hidden" name="projectId" value={projectId} />
-              <input type="hidden" name="punchItemId" value={item.id} />
-              <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
-                Resolve
-              </button>
-            </form>
+            <PunchItemTransitionForm projectId={projectId} punchItemId={item.id} transition="resolve" />
           )}
           {item.status === "resolved" && (
             <>
-              <form action={verifyPunchItemAction}>
-                <input type="hidden" name="projectId" value={projectId} />
-                <input type="hidden" name="punchItemId" value={item.id} />
-                <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
-                  Verify
-                </button>
-              </form>
-              <form action={reopenPunchItemAction}>
-                <input type="hidden" name="projectId" value={projectId} />
-                <input type="hidden" name="punchItemId" value={item.id} />
-                <button type="submit" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-                  Reopen
-                </button>
-              </form>
+              <PunchItemTransitionForm projectId={projectId} punchItemId={item.id} transition="verify" />
+              <PunchItemTransitionForm projectId={projectId} punchItemId={item.id} transition="reopen" />
             </>
           )}
           {item.status === "verified" && (
-            <form action={reopenPunchItemAction}>
-              <input type="hidden" name="projectId" value={projectId} />
-              <input type="hidden" name="punchItemId" value={item.id} />
-              <button type="submit" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-                Reopen
-              </button>
-            </form>
+            <PunchItemTransitionForm projectId={projectId} punchItemId={item.id} transition="reopen" />
           )}
         </div>
       </div>
@@ -927,13 +896,7 @@ function WarrantyRow({ projectId, warranty }: { projectId: string; warranty: War
             Ends {warranty.endsAt ? formatDate(warranty.endsAt) : "No end date recorded"}
           </div>
         </div>
-        <form action={deleteWarrantyAction}>
-          <input type="hidden" name="projectId" value={projectId} />
-          <input type="hidden" name="warrantyId" value={warranty.id} />
-          <button type="submit" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-            Remove
-          </button>
-        </form>
+        <DeleteWarrantyForm projectId={projectId} warrantyId={warranty.id} />
       </div>
     </div>
   );

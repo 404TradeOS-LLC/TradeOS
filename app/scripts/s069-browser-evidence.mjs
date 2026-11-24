@@ -26,6 +26,7 @@ import {
   deploymentIdentityPath,
   expectedStatusForCase,
   redactBearerMaterial,
+  unblockCase,
   validateEvidenceEnv,
 } from "./s069-evidence-contract.mjs";
 
@@ -45,7 +46,7 @@ import {
 //     409; resolve as the assigned technician when a technician sign-in
 //     is provisioned (P1 BLOCKED otherwise, owner resolve is the
 //     certified path); verify as staff; N4 (resolve a verified punch)
-//     409; record a warranty quoting the signed contract.
+//     409; record a warranty with the staff-supplied coverage text.
 //   Phase D — ready (UI preferred, API fallback): mark ready, verify the
 //     checklist verdict, the API status + completedAt, and the
 //     attributable `project_closeout.ready` activity record; capture the
@@ -369,13 +370,13 @@ try {
     await gotoCloseoutTab();
     await staffPage.getByRole("button", { name: "Start closeout", exact: true }).click();
     await staffPage.getByText("Closeout status").waitFor({ timeout: 30_000 });
-    closeout = await getCloseout();
+    closeout = (await getCloseout()).closeout;
     assert.equal(closeout.status, "draft", "A new closeout must start as a draft");
     report.stepPaths.createCloseout = "ui";
   } catch (error) {
     console.error(`UI closeout create unavailable, falling back to the authenticated API: ${redactBearerMaterial(error.message)}`);
     try {
-      closeout = await getCloseout();
+      closeout = (await getCloseout()).closeout;
       assert.equal(closeout.status, "draft", "A new closeout must start as a draft");
       report.stepPaths.createCloseout = "ui";
     } catch {
@@ -509,6 +510,14 @@ try {
     assert.ok(resolved.resolvedAt, "Resolved punch item must carry resolvedAt");
     const resolvedActivity = await verifyActivity(punch.id, PUNCH_RESOLVED_EVENT_TYPE);
     report.activity = { ...(report.activity ?? {}), punchResolved: resolvedActivity };
+    // The resolver, timestamp, and activity checks above all passed: when
+    // the resolve ran through the technician session, P1 is no longer
+    // blocked — remove it and record it passed. The manager path leaves
+    // P1 BLOCKED (no technician sign-in was provisioned).
+    if (report.stepPaths.resolvePunch === "technician") {
+      report.blocked = unblockCase(report.blocked, "P1");
+      passCase("P1", "assigned-technician punch resolve through a technician browser session, with attributable punch_item.resolved record");
+    }
   } catch (error) {
     failCase("C2", error);
   }
@@ -549,8 +558,10 @@ try {
     failCase("N4", error);
   }
 
-  // Warranty: quote the signed contract's own wording — the script invents
-  // no coverage term. UI preferred, API fallback.
+  // Warranty: record the staff-supplied coverage text as submitted — the
+  // script verifies only that the submitted string was kept, not that it
+  // appears in the signed contract, so it is never described as
+  // contract-quoted. UI preferred, API fallback.
   const warrantyTitle = `Workmanship warranty ${suffix}`;
   const warrantyCoverage = "One-year workmanship coverage per the signed contract.";
   let warranty;
@@ -591,7 +602,7 @@ try {
     const createdActivity = await verifyActivity(closeout.id, CLOSEOUT_CREATED_EVENT_TYPE);
     const punchCreatedActivity = await verifyActivity(punch.id, PUNCH_CREATED_EVENT_TYPE);
     report.activity = { ...(report.activity ?? {}), closeoutCreated: createdActivity, punchCreated: punchCreatedActivity };
-    passCase("C4", "warranty recorded quoting the signed contract, with warranty_record.created activity record");
+    passCase("C4", "warranty recorded with the staff-supplied coverage text, with warranty_record.created activity record");
   } catch (error) {
     failCase("C4", error);
   }
@@ -813,6 +824,10 @@ try {
   async function staffApiProbe(method, suffixPath, body, expectedStatus, label) {
     const response = await staffPage.request.fetch(new URL(`/api/proxy/${suffixPath}`, baseUrl).toString(), {
       method,
+      // The proxy rejects origin-less mutations with 403
+      // (shouldRejectProxyMutation), so probe mutations carry the same
+      // same-origin Origin header staffProxy sends.
+      headers: { Origin: baseUrl },
       ...(body === undefined ? {} : { data: body }),
     });
     assert.equal(response.status(), expectedStatus, `${label} returned ${response.status()} (expected ${expectedStatus})`);

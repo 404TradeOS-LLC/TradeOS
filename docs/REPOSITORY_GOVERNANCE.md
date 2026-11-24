@@ -655,9 +655,11 @@ non-production run passes with retained artifacts.
 release-evidence workflow, not a merge-time authority — it is not part of the
 required-check set. It certifies the closeout and warranty workspace against
 an approved non-production deployment at 1440, 1024, 768, and 390 pixels:
-fixtures in the sanitized TEST Org, job completion through the shipped staff
-UI, closeout creation, punch create/assign/resolve/verify, warranty
-recording quoted from the signed contract, mark-ready and handoff with
+fixtures in the sanitized TEST Org, job completion as API setup through
+staffProxy (not a staff-UI journey — the capture script drives fixture
+creation and job completion through authenticated staffProxy calls, and
+certifies the closeout UI from the closeout tab onward), closeout creation, punch create/assign/resolve/verify, warranty
+recording of the staff-supplied warranty coverage text, mark-ready and handoff with
 attributable `punch_item.created` / `punch_item.resolved` /
 `punch_item.verified` / `project_closeout.created` /
 `project_closeout.ready` / `project_closeout.handed_off` /
@@ -667,8 +669,7 @@ before ready, verify of an open punch, resolve of a verified punch, second
 closeout, wrong-role, cross-tenant, unauthenticated, unknown ids, portal
 document POST). Fixtures (synthetic customer, project, proposal, contract,
 invoice, and job) are created at run time in the sanitized TEST Org through
-the shipped staff UI with an authenticated API fallback that re-reads live
-state first; nothing is deleted. Deployment identity is proven before
+authenticated staffProxy API calls; nothing is deleted. Deployment identity is proven before
 capture through the Vercel API (READY + deployed SHA) plus the API
 deployment's `/health` SHA and `/ready` data-plane project ref. Bearer and
 session material is never written to disk, logs, or `report.json`; the

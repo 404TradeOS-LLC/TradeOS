@@ -6,6 +6,8 @@ const tabsUrl = new URL("./project-workspace-tabs.tsx", import.meta.url);
 const workspaceUrl = new URL("./project-workspace.tsx", import.meta.url);
 const formsUrl = new URL("./closeout-forms.tsx", import.meta.url);
 const actionsUrl = new URL("../../app/actions/closeout.ts", import.meta.url);
+const pageUrl = new URL("../../app/(app)/projects/[id]/page.tsx", import.meta.url);
+const typesUrl = new URL("./workspace-types.ts", import.meta.url);
 const apiUrl = new URL("../../lib/api.ts", import.meta.url);
 
 async function read(url: URL) {
@@ -39,13 +41,21 @@ test("closeout tab shows the missing list and gates mark-ready on it", async () 
   // The missing list is the backend's own verdict (checklist.missing),
   // rendered verbatim — the tab never recomputes readiness itself.
   assert.match(source, /checklist\?\.missing/);
+  assert.match(source, /MarkCloseoutReadyForm/);
   assert.match(source, /disabled=\{!checklist\.ready\}/);
-  assert.match(source, /Mark ready/);
+  assert.match(source, /RecordCloseoutHandoffForm/);
   // Record handoff renders only once the closeout is ready.
   assert.match(source, /closeout\.status === "ready" \? \(/);
-  assert.match(source, /Record handoff/);
   // The four artifact rows are derived from the backend's named checks.
   assert.match(source, /buildCloseoutChecklistArtifacts\(checklist\)/);
+  // The ready gate lives in the pending-aware form: it stays disabled
+  // while the checklist is not ready or the request is in flight.
+  const forms = await read(formsUrl);
+  assert.match(forms, /MarkCloseoutReadyForm/);
+  assert.match(forms, /disabled=\{disabled \|\| isPending\}/);
+  assert.match(forms, /Marking ready…/);
+  assert.match(forms, /Record handoff/);
+  assert.match(forms, /Recording handoff…/);
 });
 
 test("closeout tab shows start-closeout when no record exists and surfaces the backend reason", async () => {
@@ -63,9 +73,11 @@ test("punch list renders create form and resolve/verify/reopen actions", async (
   const source = await read(workspaceUrl);
   assert.match(source, /Punch list/);
   assert.match(source, /PunchItemCreateForm/);
-  assert.match(source, /resolvePunchItemAction/);
-  assert.match(source, /verifyPunchItemAction/);
-  assert.match(source, /reopenPunchItemAction/);
+  assert.match(source, /PunchItemTransitionForm/);
+  assert.match(source, /transition="resolve"/);
+  assert.match(source, /transition="verify"/);
+  assert.match(source, /transition="reopen"/);
+  assert.match(source, /DeleteWarrantyForm/);
   const forms = await read(formsUrl);
   const actions = await read(actionsUrl);
   assert.match(forms, /Add punch item/);
@@ -73,6 +85,17 @@ test("punch list renders create form and resolve/verify/reopen actions", async (
   assert.match(forms, /name="priority"/);
   assert.match(forms, /name="assignedUserId"/);
   assert.match(forms, /name="dueDate"/);
+  // The transition forms carry the punch actions with pending state: the
+  // button disables and shows progress until the action finishes.
+  assert.match(forms, /resolvePunchItemAction/);
+  assert.match(forms, /verifyPunchItemAction/);
+  assert.match(forms, /reopenPunchItemAction/);
+  assert.match(forms, /deleteWarrantyAction/);
+  assert.match(forms, /Resolving…/);
+  assert.match(forms, /Verifying…/);
+  assert.match(forms, /Reopening…/);
+  assert.match(forms, /Removing…/);
+  assert.match(forms, /disabled=\{isPending\}/);
   assert.match(forms, /name="jobId"/);
   // The backend's punch priority vocabulary is low/medium/high only —
   // "urgent" is rejected with a 400, so the form never offers it.
@@ -99,9 +122,17 @@ test("closeout actions call the API contract through the existing server path", 
   assert.match(actions, /\/closeout\/handoff/);
   assert.match(actions, /\/punch-items/);
   assert.match(actions, /\/punch-items\/\$\{encodeURIComponent\(punchItemId\)\}\/\$\{transition\}/);
-  assert.match(actions, /transitionPunchItem\(formData, "resolve"\)/);
-  assert.match(actions, /transitionPunchItem\(formData, "verify"\)/);
-  assert.match(actions, /transitionPunchItem\(formData, "reopen"\)/);
+  assert.match(actions, /transitionPunchItem\(prev, formData, "resolve"\)/);
+  assert.match(actions, /transitionPunchItem\(prev, formData, "verify"\)/);
+  assert.match(actions, /transitionPunchItem\(prev, formData, "reopen"\)/);
+  // The ready, handoff, punch-transition, and warranty-deletion mutations
+  // return the backend's reason to the form instead of letting the
+  // rejection escape, following the creation actions' error-state pattern;
+  // the success redirect stays outside the catch.
+  assert.match(actions, /markCloseoutReadyAction\(_prev: FormActionState, formData: FormData\)/);
+  assert.match(actions, /recordCloseoutHandoffAction\(_prev: FormActionState, formData: FormData\)/);
+  assert.match(actions, /deleteWarrantyAction\(_prev: FormActionState, formData: FormData\)/);
+  assert.match(actions, /return actionError\(err\)/);
   assert.match(actions, /\/warranties/);
   assert.match(actions, /redirect\(`\/projects\/\$\{projectId\}\?tab=closeout`\)/);
   assert.doesNotMatch(actions, /fetch\(|clientFetch/);
@@ -157,4 +188,27 @@ test("closeout API client types match the backend contract and carry no invented
   // the row in GetProjectCloseoutResult. (The portal handoff type still
   // carries its own `checklist` field; that is the handoff shape, not the row.)
   assert.doesNotMatch(api, /interface ProjectCloseout \{[^}]*checklist/s);
+});
+
+test("closeout data tracks each request's availability instead of collapsing failures to empty", async () => {
+  const page = await read(pageUrl);
+  const types = await read(typesUrl);
+  const source = await read(workspaceUrl);
+  // Only a closeout 404 means "no record yet"; any other closeout failure
+  // is flagged unavailable, and the punch/warranty lists carry their own
+  // flags — a failed fetch never renders as an empty list or a missing
+  // record ("Start closeout" for an existing record, "No warranty
+  // recorded" for a failed warranty fetch).
+  assert.match(page, /err instanceof ApiClientError && err\.status === 404/);
+  assert.match(page, /closeoutUnavailable/);
+  assert.match(page, /punchItemsUnavailable: punchItems === null/);
+  assert.match(page, /warrantiesUnavailable: warranties === null/);
+  assert.match(types, /punchItemsUnavailable: boolean/);
+  assert.match(types, /warrantiesUnavailable: boolean/);
+  assert.match(source, /Punch items could not be loaded right now/);
+  assert.match(source, /Warranties could not be loaded right now/);
+  // The successful-empty states are preserved alongside the unavailable
+  // ones: an empty list from a successful fetch still says so.
+  assert.match(source, /No punch items yet\./);
+  assert.match(source, /No warranty recorded for this project/);
 });

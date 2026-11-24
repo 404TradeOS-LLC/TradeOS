@@ -67,7 +67,7 @@ export interface WarrantyFrameInput {
     projectAddress: string;
     customerName: string;
     customerEmail: string;
-    effectiveDate: Date;
+    effectiveDate: Date | null;
     workmanshipCoverage: string;
     manufacturerCoverage: string;
     exclusions: string[];
@@ -233,11 +233,14 @@ export function renderWarrantyFrameHtml(input: WarrantyFrameInput) {
     projectMeta: [
       { label: "Project", value: input.warranty.projectName },
       { label: "Address", value: input.warranty.projectAddress || "Address to be confirmed" },
-      { label: "Effective", value: formatDocumentDate(input.warranty.effectiveDate) },
+      // No supplied startsAt means no effective date was recorded: never
+      // substitute the record's creation date — that would publish a
+      // coverage date staff did not supply.
+      { label: "Effective", value: input.warranty.effectiveDate ? formatDocumentDate(input.warranty.effectiveDate) : "Not recorded" },
     ],
     heroMetric: {
       label: "Coverage in force",
-      value: formatDocumentDate(input.warranty.effectiveDate),
+      value: input.warranty.effectiveDate ? formatDocumentDate(input.warranty.effectiveDate) : "Not recorded",
       meta: "Keep this guide with your closeout packet and final project records.",
     },
     sections: [

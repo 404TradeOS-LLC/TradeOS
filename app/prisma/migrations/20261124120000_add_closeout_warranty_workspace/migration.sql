@@ -28,7 +28,16 @@
 -- to current_app_can_write(). The policies widen writes only to exactly
 -- those service-authorized actors; no new role or permission is introduced,
 -- and technicians may update only a punch item assigned to them. Reads stay
--- org-scoped for every role.
+-- org-scoped for every role. Every write policy also requires each
+-- referenced parent to belong to the caller's organization — the project
+-- always, and the job / contract / invoice where one is referenced — via
+-- an EXISTS check on the parent's org. org_id alone cannot prove that:
+-- PostgreSQL foreign-key checks bypass RLS, so a row carrying the caller's
+-- org_id with a foreign project_id would otherwise pass the policy. The
+-- job check goes through app_job_belongs_to_caller_org() (defined below):
+-- jobs are assignment-scoped for non-admins, so a plain EXISTS on jobs
+-- would deny service-authorized writes by dispatchers and punch-assigned
+-- technicians who were not dispatched to the job.
 -- No grants to anon/authenticated: the backend's request-scoped session
 -- (app.org_id / app.user_id / app.role) is the only access path.
 
@@ -114,6 +123,37 @@ ALTER TABLE public.project_closeouts FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.warranty_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.warranty_records FORCE ROW LEVEL SECURITY;
 
+-- Parent-ownership probe for jobs. The project / contract / invoice
+-- checks below are plain EXISTS subqueries because those parents are
+-- org-visible to every role (projects is org-scoped; contracts and
+-- invoices compose through projects). Jobs is different: its SELECT
+-- policy hides a job from anyone who is neither an administrator nor
+-- assigned to it, so a plain EXISTS on jobs would deny
+-- service-authorized writes — the assigned technician resolving their
+-- punch item, a dispatcher creating or updating a closeout linked to a
+-- job they were not dispatched to. This probe answers only whether the
+-- job belongs to the caller's session organization, bypassing the
+-- caller's row visibility (SECURITY DEFINER, owner postgres). It is
+-- read-only, STABLE, pins search_path, and reveals nothing cross-org:
+-- it returns false for any job outside the caller's own org, exactly as
+-- a not-found would. It is deliberately left with the default PUBLIC
+-- execute grant: migrations run before role provisioning in
+-- scripts/deploy-migrations.sh, so a GRANT TO tradeos_app here would
+-- fail on a fresh database.
+CREATE OR REPLACE FUNCTION public.app_job_belongs_to_caller_org(p_job_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.jobs
+    WHERE jobs.id = p_job_id
+      AND jobs.org_id = (SELECT current_app_org_id())
+  );
+$$;
+
 -- Punch items: org-scoped reads for every role. Writes are staff-manager
 -- roles (owner/admin/dispatcher, plus legacy estimator — spelled out
 -- explicitly, NOT via current_app_can_write(), which the deployed
@@ -133,6 +173,8 @@ CREATE POLICY punch_items_insert_policy ON public.punch_items
 FOR INSERT WITH CHECK (
   org_id = (SELECT current_app_org_id())
   AND (current_app_role() IN ('owner', 'admin', 'estimator', 'dispatcher'))
+  AND EXISTS (SELECT 1 FROM public.projects WHERE projects.id = punch_items.project_id AND projects.org_id = (SELECT current_app_org_id()))
+  AND (punch_items.job_id IS NULL OR public.app_job_belongs_to_caller_org(punch_items.job_id))
 );
 
 CREATE POLICY punch_items_update_policy ON public.punch_items
@@ -140,14 +182,18 @@ FOR UPDATE USING (
   org_id = (SELECT current_app_org_id())
   AND (
     current_app_role() IN ('owner', 'admin', 'estimator', 'dispatcher')
-    OR assigned_user_id = current_app_user_id()
+    OR (current_app_role() = 'technician' AND assigned_user_id = current_app_user_id())
   )
+  AND EXISTS (SELECT 1 FROM public.projects WHERE projects.id = punch_items.project_id AND projects.org_id = (SELECT current_app_org_id()))
+  AND (punch_items.job_id IS NULL OR public.app_job_belongs_to_caller_org(punch_items.job_id))
 ) WITH CHECK (
   org_id = (SELECT current_app_org_id())
   AND (
     current_app_role() IN ('owner', 'admin', 'estimator', 'dispatcher')
-    OR assigned_user_id = current_app_user_id()
+    OR (current_app_role() = 'technician' AND assigned_user_id = current_app_user_id())
   )
+  AND EXISTS (SELECT 1 FROM public.projects WHERE projects.id = punch_items.project_id AND projects.org_id = (SELECT current_app_org_id()))
+  AND (punch_items.job_id IS NULL OR public.app_job_belongs_to_caller_org(punch_items.job_id))
 );
 
 CREATE POLICY punch_items_delete_policy ON public.punch_items
@@ -168,15 +214,21 @@ CREATE POLICY project_closeouts_insert_policy ON public.project_closeouts
 FOR INSERT WITH CHECK (
   org_id = (SELECT current_app_org_id())
   AND (current_app_role() IN ('owner', 'admin', 'estimator', 'dispatcher'))
+  AND EXISTS (SELECT 1 FROM public.projects WHERE projects.id = project_closeouts.project_id AND projects.org_id = (SELECT current_app_org_id()))
+  AND (project_closeouts.job_id IS NULL OR public.app_job_belongs_to_caller_org(project_closeouts.job_id))
 );
 
 CREATE POLICY project_closeouts_update_policy ON public.project_closeouts
 FOR UPDATE USING (
   org_id = (SELECT current_app_org_id())
   AND (current_app_role() IN ('owner', 'admin', 'estimator', 'dispatcher'))
+  AND EXISTS (SELECT 1 FROM public.projects WHERE projects.id = project_closeouts.project_id AND projects.org_id = (SELECT current_app_org_id()))
+  AND (project_closeouts.job_id IS NULL OR public.app_job_belongs_to_caller_org(project_closeouts.job_id))
 ) WITH CHECK (
   org_id = (SELECT current_app_org_id())
   AND (current_app_role() IN ('owner', 'admin', 'estimator', 'dispatcher'))
+  AND EXISTS (SELECT 1 FROM public.projects WHERE projects.id = project_closeouts.project_id AND projects.org_id = (SELECT current_app_org_id()))
+  AND (project_closeouts.job_id IS NULL OR public.app_job_belongs_to_caller_org(project_closeouts.job_id))
 );
 
 CREATE POLICY project_closeouts_delete_policy ON public.project_closeouts
@@ -197,15 +249,27 @@ CREATE POLICY warranty_records_insert_policy ON public.warranty_records
 FOR INSERT WITH CHECK (
   org_id = (SELECT current_app_org_id())
   AND (current_app_role() IN ('owner', 'admin', 'estimator', 'dispatcher'))
+  AND EXISTS (SELECT 1 FROM public.projects WHERE projects.id = warranty_records.project_id AND projects.org_id = (SELECT current_app_org_id()))
+  AND (warranty_records.job_id IS NULL OR public.app_job_belongs_to_caller_org(warranty_records.job_id))
+  AND (warranty_records.contract_id IS NULL OR EXISTS (SELECT 1 FROM public.contracts JOIN public.projects ON projects.id = contracts.project_id WHERE contracts.id = warranty_records.contract_id AND projects.org_id = (SELECT current_app_org_id())))
+  AND (warranty_records.invoice_id IS NULL OR EXISTS (SELECT 1 FROM public.invoices JOIN public.projects ON projects.id = invoices.project_id WHERE invoices.id = warranty_records.invoice_id AND projects.org_id = (SELECT current_app_org_id())))
 );
 
 CREATE POLICY warranty_records_update_policy ON public.warranty_records
 FOR UPDATE USING (
   org_id = (SELECT current_app_org_id())
   AND (current_app_role() IN ('owner', 'admin', 'estimator', 'dispatcher'))
+  AND EXISTS (SELECT 1 FROM public.projects WHERE projects.id = warranty_records.project_id AND projects.org_id = (SELECT current_app_org_id()))
+  AND (warranty_records.job_id IS NULL OR public.app_job_belongs_to_caller_org(warranty_records.job_id))
+  AND (warranty_records.contract_id IS NULL OR EXISTS (SELECT 1 FROM public.contracts JOIN public.projects ON projects.id = contracts.project_id WHERE contracts.id = warranty_records.contract_id AND projects.org_id = (SELECT current_app_org_id())))
+  AND (warranty_records.invoice_id IS NULL OR EXISTS (SELECT 1 FROM public.invoices JOIN public.projects ON projects.id = invoices.project_id WHERE invoices.id = warranty_records.invoice_id AND projects.org_id = (SELECT current_app_org_id())))
 ) WITH CHECK (
   org_id = (SELECT current_app_org_id())
   AND (current_app_role() IN ('owner', 'admin', 'estimator', 'dispatcher'))
+  AND EXISTS (SELECT 1 FROM public.projects WHERE projects.id = warranty_records.project_id AND projects.org_id = (SELECT current_app_org_id()))
+  AND (warranty_records.job_id IS NULL OR public.app_job_belongs_to_caller_org(warranty_records.job_id))
+  AND (warranty_records.contract_id IS NULL OR EXISTS (SELECT 1 FROM public.contracts JOIN public.projects ON projects.id = contracts.project_id WHERE contracts.id = warranty_records.contract_id AND projects.org_id = (SELECT current_app_org_id())))
+  AND (warranty_records.invoice_id IS NULL OR EXISTS (SELECT 1 FROM public.invoices JOIN public.projects ON projects.id = invoices.project_id WHERE invoices.id = warranty_records.invoice_id AND projects.org_id = (SELECT current_app_org_id())))
 );
 
 CREATE POLICY warranty_records_delete_policy ON public.warranty_records

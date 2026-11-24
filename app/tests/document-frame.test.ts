@@ -115,6 +115,27 @@ describe("document frame templates", () => {
     expect(maintenanceHtml).toContain("Clear debris from valleys");
   });
 
+  it("renders a null warranty effective date as Not recorded, never a fallback date", () => {
+    const warrantyHtml = renderWarrantyFrameHtml({
+      brand,
+      warranty: {
+        projectName: "Oak Street Roof Replacement",
+        projectAddress: "44 Oak St, Carmel, IN",
+        customerName: "Jordan Rivers",
+        customerEmail: "jordan@example.com",
+        effectiveDate: null,
+        workmanshipCoverage: "Five-year workmanship support on installation labor.",
+        manufacturerCoverage: "Manufacturer-backed shingle system warranty per registered package.",
+        exclusions: ["Storm damage"],
+        supportProcess: "Email photos and a description of the issue to schedule an inspection.",
+        requiredDocuments: ["Final invoice", "Closeout photos"],
+      },
+    });
+
+    expect(warrantyHtml).toContain("Not recorded");
+    expect(warrantyHtml).not.toContain("Date unavailable");
+  });
+
   it("fails closed for unsafe frame colors, fonts, and logo URLs", () => {
     const html = renderEstimateFrameHtml({
       brand: {

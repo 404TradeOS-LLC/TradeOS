@@ -3819,10 +3819,16 @@ describe("live organization row-level security", () => {
       const punchA = randomUUID();
       const punchB = randomUUID();
       const punchUnassigned = randomUUID();
+      const punchViewerAssigned = randomUUID();
       const closeoutA = randomUUID();
       const closeoutB = randomUUID();
       const warrantyA = randomUUID();
       const warrantyB = randomUUID();
+      const warrantyForeignProject = randomUUID();
+      const punchForeignProject = randomUUID();
+      const proposalB = randomUUID();
+      const contractB = randomUUID();
+      const invoiceB = randomUUID();
       const dispatcherUser = randomUUID();
       const dispatcherMembership = randomUUID();
       await adminClient.punchItem.createMany({
@@ -3830,7 +3836,22 @@ describe("live organization row-level security", () => {
           { id: punchA, orgId: orgA, projectId: projectA, jobId: jobA, title: "Touch up paint at entry trim", status: "open", priority: "high", assignedUserId: technicianUser, createdById: adminUser },
           { id: punchB, orgId: orgB, projectId: projectB, title: "Foreign punch item", status: "open", createdById: otherUser },
           { id: punchUnassigned, orgId: orgA, projectId: projectA, jobId: jobA, title: "Unassigned punch item", status: "open", createdById: adminUser },
+          { id: punchViewerAssigned, orgId: orgA, projectId: projectA, jobId: jobA, title: "Viewer-assigned punch item", status: "open", assignedUserId: viewerUser, createdById: adminUser },
         ],
+      });
+      // Foreign-parent fixtures for the parent-ownership checks: a project,
+      // job, contract, and invoice that all belong to orgB.
+      await adminClient.proposal.create({
+        data: { id: proposalB, projectId: projectB, status: "sent", finalPrice: 100, priceLow: 90, priceHigh: 110 },
+      });
+      await adminClient.contract.create({
+        data: { id: contractB, projectId: projectB, proposalId: proposalB, status: "pending_signature", termsText: "Foreign contract" },
+      });
+      await adminClient.invoice.create({
+        data: { id: invoiceB, projectId: projectB, proposalId: proposalB, invoiceNumber: 991, status: "sent", amount: 100 },
+      });
+      await adminClient.punchItem.create({
+        data: { id: punchForeignProject, orgId: orgA, projectId: projectB, title: "Own-org punch on a foreign project", status: "open", createdById: adminUser },
       });
       await adminClient.projectCloseout.createMany({
         data: [
@@ -3842,6 +3863,7 @@ describe("live organization row-level security", () => {
         data: [
           { id: warrantyA, orgId: orgA, projectId: projectA, jobId: jobA, title: "Workmanship warranty", coverageText: "One-year workmanship coverage per the signed contract.", sourceType: "other", createdById: adminUser },
           { id: warrantyB, orgId: orgB, projectId: projectB, title: "Foreign warranty", coverageText: "Foreign coverage.", sourceType: "other", createdById: otherUser },
+          { id: warrantyForeignProject, orgId: orgA, projectId: projectB, title: "Own-org warranty on a foreign project", coverageText: "Foreign-project coverage.", sourceType: "other", createdById: adminUser },
         ],
       });
       await adminClient.appUser.create({
@@ -3856,7 +3878,7 @@ describe("live organization row-level security", () => {
         const visiblePunch = await inSession(adminUser, orgA, "admin", async () =>
           currentTransaction().punchItem.findMany({ where: { projectId: projectA } }),
         );
-        expect(visiblePunch.map((row) => row.id).sort()).toEqual([punchA, punchUnassigned].sort());
+        expect(visiblePunch.map((row) => row.id).sort()).toEqual([punchA, punchUnassigned, punchViewerAssigned].sort());
         const visibleCloseout = await inSession(adminUser, orgA, "admin", async () =>
           currentTransaction().projectCloseout.findUnique({ where: { id: closeoutA } }),
         );
@@ -3968,6 +3990,97 @@ describe("live organization row-level security", () => {
         const untouched = await adminClient.punchItem.findUniqueOrThrow({ where: { id: punchUnassigned } });
         expect(untouched.status).toBe("open");
 
+        // The assignee carve-out is technician-only: a viewer assigned to a
+        // punch item still cannot update it.
+        await expect(
+          inSession(viewerUser, orgA, "viewer", async () =>
+            currentTransaction().punchItem.update({ where: { id: punchViewerAssigned }, data: { status: "in_progress" } }),
+          ),
+        ).rejects.toThrow();
+        const viewerAssignedUntouched = await adminClient.punchItem.findUniqueOrThrow({ where: { id: punchViewerAssigned } });
+        expect(viewerAssignedUntouched.status).toBe("open");
+
+        // Parent ownership: a row carrying the caller's org_id but a foreign
+        // project_id is denied — the foreign-key check bypasses RLS, so
+        // org_id alone cannot prove the parent belongs to the caller.
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().projectCloseout.create({
+              data: { orgId: orgA, projectId: projectB, status: "draft" },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().warrantyRecord.create({
+              data: { orgId: orgA, projectId: projectB, title: "Foreign-project warranty", coverageText: "Coverage.", sourceType: "other", createdById: adminUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().punchItem.create({
+              data: { orgId: orgA, projectId: projectB, title: "Foreign-project punch item", createdById: adminUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        // The same parent check applies to each optional reference: a
+        // foreign job, contract, or invoice denies the write even when the
+        // project itself belongs to the caller.
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().punchItem.create({
+              data: { orgId: orgA, projectId: projectA, jobId: jobB, title: "Foreign-job punch item", createdById: adminUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().warrantyRecord.create({
+              data: { orgId: orgA, projectId: projectA, jobId: jobB, title: "Foreign-job warranty", coverageText: "Coverage.", sourceType: "other", createdById: adminUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().warrantyRecord.create({
+              data: { orgId: orgA, projectId: projectA, contractId: contractB, title: "Foreign-contract warranty", coverageText: "Coverage.", sourceType: "contract", createdById: adminUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().warrantyRecord.create({
+              data: { orgId: orgA, projectId: projectA, invoiceId: invoiceB, title: "Foreign-invoice warranty", coverageText: "Coverage.", sourceType: "invoice", createdById: adminUser },
+            }),
+          ),
+        ).rejects.toThrow();
+        // UPDATE is gated the same way: a row seeded with a foreign parent
+        // cannot be updated even by the owning org's admin, and moving a
+        // closeout onto a foreign job is denied by WITH CHECK.
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().punchItem.update({ where: { id: punchForeignProject }, data: { title: "Edited" } }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().warrantyRecord.update({ where: { id: warrantyForeignProject }, data: { title: "Edited" } }),
+          ),
+        ).rejects.toThrow();
+        await expect(
+          inSession(adminUser, orgA, "admin", async () =>
+            currentTransaction().projectCloseout.update({ where: { id: closeoutA }, data: { jobId: jobB } }),
+          ),
+        ).rejects.toThrow();
+        expect((await adminClient.punchItem.findUniqueOrThrow({ where: { id: punchForeignProject } })).title).toBe(
+          "Own-org punch on a foreign project",
+        );
+        expect((await adminClient.warrantyRecord.findUniqueOrThrow({ where: { id: warrantyForeignProject } })).title).toBe(
+          "Own-org warranty on a foreign project",
+        );
+        expect((await adminClient.projectCloseout.findUniqueOrThrow({ where: { id: closeoutA } })).jobId).toBe(jobA);
+
         // Dispatcher writes are allowed on all three tables: the closeout
         // manager role holds crm.write in app/domain/contracts.ts, and
         // the S069 policies name dispatcher explicitly because
@@ -4000,13 +4113,16 @@ describe("live organization row-level security", () => {
           closeouts: await currentTransaction().projectCloseout.count({ where: { projectId: projectA } }),
           warranties: await currentTransaction().warrantyRecord.count({ where: { projectId: projectA } }),
         }));
-        expect(counts).toEqual({ punchItems: 2, closeouts: 1, warranties: 1 });
+        expect(counts).toEqual({ punchItems: 3, closeouts: 1, warranties: 1 });
         const closeoutAfter = await adminClient.projectCloseout.findUniqueOrThrow({ where: { id: closeoutA } });
         expect(closeoutAfter.status).toBe("draft");
       } finally {
-        await adminClient.warrantyRecord.deleteMany({ where: { id: { in: [warrantyA, warrantyB] } } });
+        await adminClient.warrantyRecord.deleteMany({ where: { id: { in: [warrantyA, warrantyB, warrantyForeignProject] } } });
         await adminClient.projectCloseout.deleteMany({ where: { id: { in: [closeoutA, closeoutB] } } });
-        await adminClient.punchItem.deleteMany({ where: { id: { in: [punchA, punchB, punchUnassigned] } } });
+        await adminClient.punchItem.deleteMany({ where: { id: { in: [punchA, punchB, punchUnassigned, punchViewerAssigned, punchForeignProject] } } });
+        await adminClient.invoice.deleteMany({ where: { id: invoiceB } });
+        await adminClient.contract.deleteMany({ where: { id: contractB } });
+        await adminClient.proposal.deleteMany({ where: { id: proposalB } });
         await adminClient.organizationMembership.deleteMany({ where: { id: dispatcherMembership } });
         await adminClient.appUser.deleteMany({ where: { id: dispatcherUser } });
       }

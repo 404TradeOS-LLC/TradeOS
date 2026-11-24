@@ -2,7 +2,7 @@ const mockPrisma = {
   project: { findFirst: jest.fn() },
   job: { findFirst: jest.fn(), findMany: jest.fn() },
   organizationMembership: { findFirst: jest.fn() },
-  punchItem: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn(), update: jest.fn(), count: jest.fn() },
+  punchItem: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn(), count: jest.fn() },
   projectCloseout: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
   contract: { findFirst: jest.fn(), findMany: jest.fn() },
   invoice: { findFirst: jest.fn(), findMany: jest.fn() },
@@ -193,6 +193,35 @@ describe("CloseoutService punch items", () => {
     const service = new CloseoutService();
     await expect(service.updatePunchItem("punch-1", { orgId: "org-1", title: "Edited" })).rejects.toMatchObject({ statusCode: 409 });
     expect(mockPrisma.punchItem.update).not.toHaveBeenCalled();
+    expect(mockPrisma.punchItem.updateMany).not.toHaveBeenCalled();
+    expect(mockActivityTimeline.record).not.toHaveBeenCalled();
+  });
+
+  it("update writes conditionally on the row still being unverified and attributes the actor", async () => {
+    mockPrisma.punchItem.findFirst.mockResolvedValue(punchRow({ status: "open" }));
+    mockPrisma.punchItem.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.punchItem.findFirst.mockResolvedValueOnce(punchRow({ status: "open" }));
+    mockPrisma.punchItem.findFirst.mockResolvedValueOnce(punchRow({ title: "Edited" }));
+
+    const service = new CloseoutService();
+    const updated = await service.updatePunchItem("punch-1", { orgId: "org-1", title: "Edited", actorUserId: "user-1" });
+
+    expect(updated.title).toBe("Edited");
+    expect(mockPrisma.punchItem.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "punch-1", status: { not: "verified" } } }),
+    );
+    expect(mockPrisma.punchItem.update).not.toHaveBeenCalled();
+    expect(mockActivityTimeline.record).toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: "punch_item.updated", actorUserId: "user-1" }),
+    );
+  });
+
+  it("update returns 409 when a concurrent verify wins the race (conditional write matches nothing)", async () => {
+    mockPrisma.punchItem.findFirst.mockResolvedValue(punchRow({ status: "open" }));
+    mockPrisma.punchItem.updateMany.mockResolvedValue({ count: 0 });
+
+    const service = new CloseoutService();
+    await expect(service.updatePunchItem("punch-1", { orgId: "org-1", title: "Edited" })).rejects.toMatchObject({ statusCode: 409 });
     expect(mockActivityTimeline.record).not.toHaveBeenCalled();
   });
 
@@ -393,6 +422,7 @@ describe("CloseoutService project closeout", () => {
 
   it("markHandedOff moves ready to handed_off and audits the handoff", async () => {
     mockPrisma.projectCloseout.findFirst.mockResolvedValue(closeoutRow({ status: "ready" }));
+    checklistMocks();
     mockPrisma.projectCloseout.update.mockResolvedValue(closeoutRow({ status: "handed_off", handedOffAt: now, handedOffById: "user-1" }));
 
     const service = new CloseoutService();
@@ -403,6 +433,19 @@ describe("CloseoutService project closeout", () => {
     expect(mockActivityTimeline.record).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: "project_closeout.handed_off", actorUserId: "user-1" }),
     );
+  });
+
+  it("markHandedOff rechecks the checklist and refuses a handoff with open punch items", async () => {
+    mockPrisma.projectCloseout.findFirst.mockResolvedValue(closeoutRow({ status: "ready" }));
+    checklistMocks({ openPunch: 1 });
+
+    const service = new CloseoutService();
+    await expect(service.markCloseoutHandedOff("project-1", "org-1", "user-1", "owner")).rejects.toMatchObject({
+      statusCode: 409,
+      message: expect.stringContaining("open punch items (1)"),
+    });
+    expect(mockPrisma.projectCloseout.update).not.toHaveBeenCalled();
+    expect(mockActivityTimeline.record).not.toHaveBeenCalled();
   });
 
   it("markHandedOff from draft returns 409", async () => {
@@ -474,6 +517,29 @@ describe("CloseoutService warranty records", () => {
     expect(data).not.toHaveProperty("sourceId");
   });
 
+  it("update records warranty_record.updated with the actor and the changed fields", async () => {
+    mockPrisma.warrantyRecord.findFirst.mockResolvedValue(warrantyRow());
+    mockPrisma.warrantyRecord.update.mockResolvedValue(
+      warrantyRow({ title: "Updated title", coverageText: "Three-year workmanship warranty per contract section 4." }),
+    );
+
+    const service = new CloseoutService();
+    await service.updateWarrantyRecord("warranty-1", {
+      orgId: "org-1",
+      title: "Updated title",
+      coverageText: "Three-year workmanship warranty per contract section 4.",
+      actorUserId: "user-1",
+    });
+
+    expect(mockActivityTimeline.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "warranty_record.updated",
+        actorUserId: "user-1",
+        metadata: expect.objectContaining({ changedFields: ["title", "coverageText"] }),
+      }),
+    );
+  });
+
   it("delete audits warranty_record.deleted and cross-org delete returns 404", async () => {
     mockPrisma.warrantyRecord.findFirst.mockResolvedValue(warrantyRow());
     mockPrisma.warrantyRecord.delete.mockResolvedValue(warrantyRow());
@@ -531,6 +597,30 @@ describe("CloseoutService document data", () => {
     expect(data.warrantyHtml).toHaveLength(1);
     expect(data.warrantyHtml[0]).toContain("Two-year workmanship warranty per contract section 4.");
     expect(data.warrantyHtml[0]).not.toContain("1-year");
+  });
+
+  it("renders a null warranty start as Not recorded, never the record's creation date", async () => {
+    documentMocks({ warranties: [warrantyRow()] });
+
+    const service = new CloseoutService();
+    const data = await service.getCloseoutDocumentData("project-1", "org-1");
+
+    expect(data.warrantyHtml).toHaveLength(1);
+    expect(data.warrantyHtml[0]).toContain("Not recorded");
+    expect(data.warrantyHtml[0]).not.toContain("2026-11-24");
+  });
+
+  it("renders an explicitly supplied warranty start as the effective date", async () => {
+    documentMocks({ warranties: [warrantyRow({ startsAt: new Date("2026-11-01T00:00:00.000Z") })] });
+
+    const service = new CloseoutService();
+    const data = await service.getCloseoutDocumentData("project-1", "org-1");
+
+    expect(data.warrantyHtml).toHaveLength(1);
+    expect(data.warrantyHtml[0]).toContain("2026-11-01");
+    // The only "Not recorded" left is the manufacturer-coverage line —
+    // the effective date itself renders the supplied start.
+    expect(data.warrantyHtml[0].match(/Not recorded/g)).toHaveLength(1);
   });
 
   it("says explicitly when no warranty was given, with no warranty frame", async () => {

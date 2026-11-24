@@ -33,26 +33,36 @@ export async function createCloseoutAction(_prev: FormActionState, formData: For
   closeoutRedirect(projectId);
 }
 
-export async function markCloseoutReadyAction(formData: FormData): Promise<void> {
+export async function markCloseoutReadyAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
   const token = await getSessionToken();
   const projectId = String(formData.get("projectId") ?? "");
 
-  await apiFetch(`/api/v1/closeout/projects/${encodeURIComponent(projectId)}/closeout/ready`, {
-    method: "POST",
-    token: token ?? undefined,
-  });
+  try {
+    await apiFetch(`/api/v1/closeout/projects/${encodeURIComponent(projectId)}/closeout/ready`, {
+      method: "POST",
+      token: token ?? undefined,
+    });
+  } catch (err) {
+    // A 409 surfaces the backend's own reason (checklist not ready, or the
+    // closeout is not a draft) — shown to the contractor verbatim.
+    return actionError(err);
+  }
 
   closeoutRedirect(projectId);
 }
 
-export async function recordCloseoutHandoffAction(formData: FormData): Promise<void> {
+export async function recordCloseoutHandoffAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
   const token = await getSessionToken();
   const projectId = String(formData.get("projectId") ?? "");
 
-  await apiFetch(`/api/v1/closeout/projects/${encodeURIComponent(projectId)}/closeout/handoff`, {
-    method: "POST",
-    token: token ?? undefined,
-  });
+  try {
+    await apiFetch(`/api/v1/closeout/projects/${encodeURIComponent(projectId)}/closeout/handoff`, {
+      method: "POST",
+      token: token ?? undefined,
+    });
+  } catch (err) {
+    return actionError(err);
+  }
 
   closeoutRedirect(projectId);
 }
@@ -95,29 +105,33 @@ export async function createPunchItemAction(_prev: FormActionState, formData: Fo
   closeoutRedirect(projectId);
 }
 
-async function transitionPunchItem(formData: FormData, transition: "resolve" | "verify" | "reopen"): Promise<void> {
+async function transitionPunchItem(_prev: FormActionState, formData: FormData, transition: "resolve" | "verify" | "reopen"): Promise<FormActionState> {
   const token = await getSessionToken();
   const projectId = String(formData.get("projectId") ?? "");
   const punchItemId = String(formData.get("punchItemId") ?? "");
 
-  await apiFetch(`/api/v1/closeout/punch-items/${encodeURIComponent(punchItemId)}/${transition}`, {
-    method: "POST",
-    token: token ?? undefined,
-  });
+  try {
+    await apiFetch(`/api/v1/closeout/punch-items/${encodeURIComponent(punchItemId)}/${transition}`, {
+      method: "POST",
+      token: token ?? undefined,
+    });
+  } catch (err) {
+    return actionError(err);
+  }
 
   closeoutRedirect(projectId);
 }
 
-export async function resolvePunchItemAction(formData: FormData): Promise<void> {
-  await transitionPunchItem(formData, "resolve");
+export async function resolvePunchItemAction(prev: FormActionState, formData: FormData): Promise<FormActionState> {
+  return transitionPunchItem(prev, formData, "resolve");
 }
 
-export async function verifyPunchItemAction(formData: FormData): Promise<void> {
-  await transitionPunchItem(formData, "verify");
+export async function verifyPunchItemAction(prev: FormActionState, formData: FormData): Promise<FormActionState> {
+  return transitionPunchItem(prev, formData, "verify");
 }
 
-export async function reopenPunchItemAction(formData: FormData): Promise<void> {
-  await transitionPunchItem(formData, "reopen");
+export async function reopenPunchItemAction(prev: FormActionState, formData: FormData): Promise<FormActionState> {
+  return transitionPunchItem(prev, formData, "reopen");
 }
 
 export async function createWarrantyAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
@@ -162,15 +176,19 @@ export async function createWarrantyAction(_prev: FormActionState, formData: For
   closeoutRedirect(projectId);
 }
 
-export async function deleteWarrantyAction(formData: FormData): Promise<void> {
+export async function deleteWarrantyAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
   const token = await getSessionToken();
   const projectId = String(formData.get("projectId") ?? "");
   const warrantyId = String(formData.get("warrantyId") ?? "");
 
-  await apiFetch(`/api/v1/closeout/warranties/${encodeURIComponent(warrantyId)}`, {
-    method: "DELETE",
-    token: token ?? undefined,
-  });
+  try {
+    await apiFetch(`/api/v1/closeout/warranties/${encodeURIComponent(warrantyId)}`, {
+      method: "DELETE",
+      token: token ?? undefined,
+    });
+  } catch (err) {
+    return actionError(err);
+  }
 
   closeoutRedirect(projectId);
 }

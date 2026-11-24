@@ -312,7 +312,12 @@ coverage term.
   `eventType` `*.created` / `punch_item.resolved` /
   `punch_item.verified` / `punch_item.reopened` /
   `project_closeout.ready` / `project_closeout.handed_off` /
-  `warranty_record.deleted`) with the acting user as actor
+  `warranty_record.updated` / `warranty_record.deleted`) with the acting user as actor
+- write policies also require each referenced parent to belong to the
+  caller's organization — the project always, and the job / contract /
+  invoice where one is referenced — because foreign-key checks bypass
+  RLS and `org_id` alone cannot prove parent ownership; the punch-item
+  assignee update carve-out is technician-only
 - the customer portal shows the same handoff read-only
   (`PortalCloseoutHandoff`: status, checklist, resolved/open punch
   counts, warranty records exactly as stored, and the link to the

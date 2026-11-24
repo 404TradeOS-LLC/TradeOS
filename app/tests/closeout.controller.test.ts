@@ -149,6 +149,23 @@ describe("S069 closeout controller authorization", () => {
     expect(warrantyRes.status).toHaveBeenCalledWith(201);
   });
 
+  it("passes the authenticated actor through on punch-item and warranty updates", async () => {
+    serviceInstance.updatePunchItem.mockResolvedValue({ id: "punch-1", status: "open" });
+    serviceInstance.updateWarrantyRecord.mockResolvedValue({ id: "warranty-1", title: "Updated" });
+
+    await closeoutController.updatePunchItem(requestFor("owner", { body: { title: "Edited" } }), response() as never);
+    await closeoutController.updateWarranty(requestFor("admin", { body: { title: "Updated" } }), response() as never);
+
+    expect(serviceInstance.updatePunchItem).toHaveBeenCalledWith(
+      "punch-1",
+      expect.objectContaining({ orgId: "org-1", title: "Edited", actorUserId: "user-1" }),
+    );
+    expect(serviceInstance.updateWarrantyRecord).toHaveBeenCalledWith(
+      "punch-1",
+      expect.objectContaining({ orgId: "org-1", title: "Updated", actorUserId: "user-1" }),
+    );
+  });
+
   it("reads (closeout, punch list, warranties, document) require only crm.read", async () => {
     serviceInstance.getCloseoutByProject.mockResolvedValue({ closeout: { id: "closeout-1" }, checklist: {} });
     serviceInstance.listPunchItemsByProject.mockResolvedValue([]);

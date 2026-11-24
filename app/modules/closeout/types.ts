@@ -24,6 +24,7 @@ export interface UpdatePunchItemInput {
   assignedUserId?: string | null;
   assignedTo?: string | null;
   dueDate?: Date | null;
+  actorUserId?: string;
 }
 
 export interface PunchItemDTO {
@@ -103,6 +104,7 @@ export interface UpdateWarrantyRecordInput {
   coverageText?: string;
   startsAt?: Date | null;
   endsAt?: Date | null;
+  actorUserId?: string;
 }
 
 export interface WarrantyRecordDTO {

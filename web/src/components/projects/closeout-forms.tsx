@@ -1,7 +1,17 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { createCloseoutAction, createPunchItemAction, createWarrantyAction } from "@/app/actions/closeout";
+import {
+  createCloseoutAction,
+  createPunchItemAction,
+  createWarrantyAction,
+  deleteWarrantyAction,
+  markCloseoutReadyAction,
+  recordCloseoutHandoffAction,
+  reopenPunchItemAction,
+  resolvePunchItemAction,
+  verifyPunchItemAction,
+} from "@/app/actions/closeout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -190,6 +200,86 @@ export function WarrantyCreateForm({
           {isPending ? "Saving…" : "Record warranty"}
         </Button>
       </div>
+    </form>
+  );
+}
+
+// ---- Mutation forms (finding 13 + 14) ----
+// The create forms above already use useActionState; these one-button
+// mutations follow the same pattern so a failed request returns the
+// backend's reason to the form (instead of escaping) and the button is
+// disabled with progress text until the action finishes. The success
+// redirect still happens outside the action's catch, in the action.
+
+export function MarkCloseoutReadyForm({ projectId, disabled }: { projectId: string; disabled: boolean }) {
+  const [state, formAction, isPending] = useActionState(markCloseoutReadyAction, undefined);
+
+  return (
+    <form action={formAction}>
+      <input type="hidden" name="projectId" value={projectId} />
+      {state?.error && <p className="mb-2 text-sm text-destructive">{state.error}</p>}
+      <Button type="submit" disabled={disabled || isPending}>
+        {isPending ? "Marking ready…" : "Mark ready"}
+      </Button>
+    </form>
+  );
+}
+
+export function RecordCloseoutHandoffForm({ projectId }: { projectId: string }) {
+  const [state, formAction, isPending] = useActionState(recordCloseoutHandoffAction, undefined);
+
+  return (
+    <form action={formAction}>
+      <input type="hidden" name="projectId" value={projectId} />
+      {state?.error && <p className="mb-2 text-sm text-destructive">{state.error}</p>}
+      <Button type="submit" disabled={isPending}>
+        {isPending ? "Recording handoff…" : "Record handoff"}
+      </Button>
+    </form>
+  );
+}
+
+const PUNCH_TRANSITIONS = {
+  resolve: { action: resolvePunchItemAction, label: "Resolve", pendingLabel: "Resolving…", variant: "outline" as const },
+  verify: { action: verifyPunchItemAction, label: "Verify", pendingLabel: "Verifying…", variant: "outline" as const },
+  reopen: { action: reopenPunchItemAction, label: "Reopen", pendingLabel: "Reopening…", variant: "ghost" as const },
+} as const;
+
+export function PunchItemTransitionForm({
+  projectId,
+  punchItemId,
+  transition,
+}: {
+  projectId: string;
+  punchItemId: string;
+  transition: keyof typeof PUNCH_TRANSITIONS;
+}) {
+  const { action, label, pendingLabel, variant } = PUNCH_TRANSITIONS[transition];
+  const [state, formAction, isPending] = useActionState(action, undefined);
+
+  return (
+    <form action={formAction}>
+      <input type="hidden" name="projectId" value={projectId} />
+      <input type="hidden" name="punchItemId" value={punchItemId} />
+      {state?.error && <p className="mb-2 text-sm text-destructive">{state.error}</p>}
+      <Button type="submit" variant={variant} size="sm" disabled={isPending}>
+        {isPending ? pendingLabel : label}
+      </Button>
+    </form>
+  );
+}
+
+export function DeleteWarrantyForm({ projectId, warrantyId }: { projectId: string; warrantyId: string }) {
+  const [state, formAction, isPending] = useActionState(deleteWarrantyAction, undefined);
+
+  return (
+    <form action={formAction}>
+      <input type="hidden" name="projectId" value={projectId} />
+      <input type="hidden" name="warrantyId" value={warrantyId} />
+      {state?.error && <p className="mb-2 text-sm text-destructive">{state.error}</p>}
+      <Button type="submit" variant="ghost" size="sm" disabled={isPending}>
+        {isPending ? "Removing…" : "Remove"}
+      </Button>
     </form>
   );
 }

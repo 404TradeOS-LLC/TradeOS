@@ -3,15 +3,25 @@ import { ProjectHeader } from "@/components/projects/project-header";
 import { ProjectSidebar } from "@/components/projects/project-sidebar";
 import { ProjectWorkspace } from "@/components/projects/project-workspace";
 import { ProjectWorkspaceTabs, resolveProjectWorkspaceTab } from "@/components/projects/project-workspace-tabs";
-import { getProjectTaskAssignees, getOrganizationSettings, getProject, getProjectCloseout, listPunchItems, listWarranties } from "@/lib/api";
+import { getProjectTaskAssignees, getOrganizationSettings, getProject, getProjectCloseout, listPunchItems, listWarranties, ApiClientError } from "@/lib/api";
 import type { ProjectCloseoutData } from "@/components/projects/workspace-types";
 import { getSessionToken } from "@/lib/session";
 
 const JOB_MANAGER_ROLES = new Set(["owner", "admin", "dispatcher"]);
 
 async function loadProjectCloseoutData(token: string, projectId: string): Promise<ProjectCloseoutData> {
-  const [closeoutResult, punchItems, warranties] = await Promise.all([
-    getProjectCloseout(token, projectId).catch(() => null),
+  // Each request's availability is tracked separately: only a closeout 404
+  // means "no record yet". Any other failure leaves its section flagged
+  // unavailable so the tab reports it instead of rendering an empty state
+  // ("Start closeout" / "No warranty recorded") for a record that exists.
+  let closeoutPayload: Awaited<ReturnType<typeof getProjectCloseout>> | null = null;
+  let closeoutUnavailable = false;
+  try {
+    closeoutPayload = await getProjectCloseout(token, projectId);
+  } catch (err) {
+    if (!(err instanceof ApiClientError && err.status === 404)) closeoutUnavailable = true;
+  }
+  const [punchItems, warranties] = await Promise.all([
     listPunchItems(token, projectId).catch(() => null),
     listWarranties(token, projectId).catch(() => null),
   ]);
@@ -19,14 +29,13 @@ async function loadProjectCloseoutData(token: string, projectId: string): Promis
     // The backend returns { closeout, checklist } as one payload; the
     // checklist is the backend's computed readiness verdict, not a field
     // on the closeout row.
-    closeout: closeoutResult?.closeout ?? null,
-    checklist: closeoutResult?.checklist ?? null,
+    closeout: closeoutPayload?.closeout ?? null,
+    checklist: closeoutPayload?.checklist ?? null,
     punchItems: punchItems ?? [],
     warranties: warranties ?? [],
-    // All three calls failed: the closeout service is unreachable, which the
-    // tab reports explicitly. A 404 on the closeout record alone (no record
-    // yet) returns null for just that call and is not an outage.
-    closeoutUnavailable: closeoutResult === null && punchItems === null && warranties === null,
+    closeoutUnavailable,
+    punchItemsUnavailable: punchItems === null,
+    warrantiesUnavailable: warranties === null,
   };
 }
 

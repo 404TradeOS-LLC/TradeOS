@@ -32,6 +32,7 @@ import {
   matchesCredentialScan,
   redactBearerMaterial,
   sha256Hex,
+  unblockCase,
   validateEvidenceEnv,
 } from "./s069-evidence-contract.mjs";
 import { VIEWPORTS } from "./beta-evidence/lib/evidence-artifacts.mjs";
@@ -226,6 +227,25 @@ test("technician-session resolve is BLOCKED without provisioning, never a pass o
   assert.match(WRONG_ROLE_BLOCKED.reason, /Billy/);
   assert.match(TECHNICIAN_MEMBER_REQUIRED.reason, /Billy/);
   assert.match(TECHNICIAN_MEMBER_REQUIRED.reason, /dispatch requires an active technician assignment/);
+});
+
+test("unblockCase removes only the passed case from the blocked entries", () => {
+  const blocked = [
+    { caseId: "P1", step: "technician resolve", status: "BLOCKED" },
+    { caseId: "N6", step: "wrong-role probe", status: "BLOCKED" },
+  ];
+  const remaining = unblockCase(blocked, "P1");
+  assert.deepEqual(
+    remaining.map((entry) => entry.caseId),
+    ["N6"],
+  );
+  // The caller's list is untouched, and an unknown case removes nothing.
+  assert.equal(blocked.length, 2);
+  assert.deepEqual(
+    unblockCase(blocked, "N9").map((entry) => entry.caseId),
+    ["P1", "N6"],
+  );
+  assert.deepEqual(unblockCase(undefined, "P1"), []);
 });
 
 test("credential scan covers staff and portal bearer material and matches nothing benign", () => {

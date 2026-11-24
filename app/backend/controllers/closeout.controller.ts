@@ -109,13 +109,14 @@ export const closeoutController = {
     res.json(await service.getPunchItemById(req.params.id, requireOrgId(req)));
   },
   async updatePunchItem(req: Request, res: Response) {
-    requirePermissions(req, ["crm.write"]);
+    const auth = requirePermissions(req, ["crm.write"]);
     const body = updatePunchSchema.parse(req.body);
     res.json(
       await service.updatePunchItem(req.params.id, {
         ...body,
         orgId: requireOrgId(req),
         dueDate: body.dueDate === undefined ? undefined : body.dueDate === null ? null : new Date(body.dueDate),
+        actorUserId: auth.userId,
       }),
     );
   },
@@ -162,7 +163,7 @@ export const closeoutController = {
     res.json(await service.getWarrantyRecordById(req.params.id, requireOrgId(req)));
   },
   async updateWarranty(req: Request, res: Response) {
-    requirePermissions(req, ["crm.write"]);
+    const auth = requirePermissions(req, ["crm.write"]);
     const body = updateWarrantySchema.parse(req.body);
     res.json(
       await service.updateWarrantyRecord(req.params.id, {
@@ -170,6 +171,7 @@ export const closeoutController = {
         orgId: requireOrgId(req),
         startsAt: body.startsAt === undefined ? undefined : body.startsAt === null ? null : new Date(body.startsAt),
         endsAt: body.endsAt === undefined ? undefined : body.endsAt === null ? null : new Date(body.endsAt),
+        actorUserId: auth.userId,
       }),
     );
   },

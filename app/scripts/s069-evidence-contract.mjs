@@ -373,3 +373,13 @@ export function createReportSkeleton({ baseUrl, runId, workflowSha, deployedSha,
     result: "PENDING",
   };
 }
+
+/**
+ * Remove a case from the report's blocked entries once its checks have
+ * passed — the P1 technician-session resolve stays BLOCKED only while no
+ * technician sign-in is provisioned. Returns a new array; the caller's
+ * other blocked entries are untouched.
+ */
+export function unblockCase(blocked, caseId) {
+  return (blocked ?? []).filter((entry) => entry.caseId !== caseId);
+}
