@@ -1124,7 +1124,9 @@ already acknowledged. Job summaries expose additive `completedAt` and
 `readyForInvoiceAt` timestamps. `POST /api/v1/jobs/:jobId/ready-for-invoice` is
 limited to owner/admin/dispatcher actors, accepts only completed jobs, records
 `job.ready_for_invoice`, and is idempotent on repeat. It does not create or send
-invoices.
+invoices. It accepts the same optional `expectedUpdatedAt` revision token as
+the other job transitions (DEV-22); the Dispatcher Workspace sends the token
+with the acknowledgement.
 
 ## Scheduling conflict rules (S031)
 
@@ -1147,6 +1149,17 @@ ordinary scheduling and assignments but cannot override conflicts. Conflict
 checks and the subsequent mutation run under transaction-scoped,
 organization/technician-keyed PostgreSQL advisory locks so concurrent scheduling
 attempts cannot both pass the check for the same technician.
+
+Rescheduling a dispatched job reverses its dispatch (DEV-22): the schedule and
+reschedule routes accept an optional `confirmDispatchReversal` boolean. Without
+it, rescheduling a dispatched job fails with HTTP 409 and
+`code: "dispatch_reversal_confirmation_required"` and no write occurs. With it,
+the job returns to `scheduled`, the `job.rescheduled` event records
+`dispatchReversed: true`, and a dedicated `job.dispatch_reversed` activity
+event is written in the same transaction; the job must then be explicitly
+redispatched (`scheduled -> dispatched` still requires at least one active
+assignment). The Dispatcher Workspace shows the reversal warning with a
+confirmation checkbox before the reschedule proceeds.
 
 
 ## ABC Supply reviewed Material activation (operator-only, PR #701)

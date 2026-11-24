@@ -36,6 +36,7 @@ export function DispatchJobActions({ job, canManageInvoiceReadiness }: { job: Di
   const [scheduledEnd, setScheduledEnd] = useState(toLocalInputValue(job.scheduledEnd));
   const [overrideConflict, setOverrideConflict] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
+  const [confirmDispatchReversal, setConfirmDispatchReversal] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [conflicts, setConflicts] = useState<string | null>(null);
@@ -65,7 +66,7 @@ export function DispatchJobActions({ job, canManageInvoiceReadiness }: { job: Di
     if (!start || !end || new Date(end) <= new Date(start)) {
       throw new Error("Enter a valid start and end time.");
     }
-    return withJobRevision(job.updatedAt, { scheduledStart: start, scheduledEnd: end, overrideConflict, overrideReason: overrideReason.trim() || undefined });
+    return withJobRevision(job.updatedAt, { scheduledStart: start, scheduledEnd: end, overrideConflict, overrideReason: overrideReason.trim() || undefined, ...(job.status === "dispatched" ? { confirmDispatchReversal } : {}) });
   }
 
   async function checkConflicts() {
@@ -156,6 +157,15 @@ export function DispatchJobActions({ job, canManageInvoiceReadiness }: { job: Di
               <input className={fieldClass} value={overrideReason} onChange={(event) => setOverrideReason(event.target.value)} placeholder="Required by owner/admin policy" />
             </label>
           ) : null}
+          {job.status === "dispatched" ? (
+            <div className="grid gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs text-foreground">
+              <p className="font-medium">This job is dispatched. Rescheduling reverses the dispatch — the job returns to scheduled and must be dispatched again.</p>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={confirmDispatchReversal} onChange={(event) => setConfirmDispatchReversal(event.target.checked)} />
+                Reverse dispatch and reschedule
+              </label>
+            </div>
+          ) : null}
 
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={busy !== null} className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50" onClick={checkConflicts}>
@@ -163,7 +173,7 @@ export function DispatchJobActions({ job, canManageInvoiceReadiness }: { job: Di
             </button>
             <button
               type="button"
-              disabled={busy !== null}
+              disabled={busy !== null || (job.status === "dispatched" && !confirmDispatchReversal)}
               className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/80 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
               onClick={() => run(job.scheduledStart ? "Rescheduling" : "Scheduling", () => clientFetch("/jobs/" + job.id + "/" + (job.scheduledStart ? "reschedule" : "schedule"), { method: job.scheduledStart ? "POST" : "PUT", body: JSON.stringify(schedulePayload()) }))}
             >
@@ -184,7 +194,7 @@ export function DispatchJobActions({ job, canManageInvoiceReadiness }: { job: Di
                 type="button"
                 disabled={busy !== null}
                 className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/80 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
-                onClick={() => run("Marking ready", () => clientFetch("/jobs/" + job.id + "/ready-for-invoice", { method: "POST", body: JSON.stringify({}) }))}
+                onClick={() => run("Marking ready", () => clientFetch("/jobs/" + job.id + "/ready-for-invoice", { method: "POST", body: JSON.stringify(withJobRevision(job.updatedAt, {})) }))}
               >
                 {busy === "Marking ready" ? "Marking ready…" : "Mark ready for invoice"}
               </button>

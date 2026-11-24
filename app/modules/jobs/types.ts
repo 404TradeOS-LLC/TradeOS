@@ -80,6 +80,8 @@ export interface ScheduleJobInput {
   estimatedDurationMinutes?: number | null;
   overrideConflict?: boolean;
   overrideReason?: string;
+  /** DEV-22(c): required to reschedule a dispatched job — acknowledges the dispatch reversal. */
+  confirmDispatchReversal?: boolean;
   /** Optimistic-concurrency token: the job's updatedAt as last read by the caller. */
   expectedUpdatedAt?: Date;
 }

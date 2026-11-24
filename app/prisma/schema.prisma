@@ -1203,6 +1203,7 @@ model Proposal {
 
   project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   estimate  Estimate?  @relation(fields: [estimateId], references: [id], onDelete: SetNull)
+  job       Job?       @relation("JobSourceProposal")
   invoices  Invoice[]
   contracts Contract[]
   deliveries ProposalDelivery[]
@@ -1514,6 +1515,7 @@ model Job {
   project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   customer       Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
   serviceAddress ServiceAddress @relation(fields: [serviceAddressId], references: [id], onDelete: Cascade)
+  sourceProposal Proposal?      @relation("JobSourceProposal", fields: [sourceProposalId], references: [id], onDelete: Restrict)
   createdBy      AppUser        @relation("JobCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   completedBy    AppUser?       @relation("JobCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
   assignments    JobAssignment[]

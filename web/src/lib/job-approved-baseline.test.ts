@@ -52,3 +52,47 @@ test("only valid milestone percentages are presented", () => {
     { label: "Finish", amountPercent: 50 },
   ]);
 });
+test("exposes the frozen accepted customer and service address", () => {
+  // DEV-22(b): the baseline records who and where the proposal was
+  // accepted for; the live job row stays editable for field ops.
+  const output = readApprovedJobBaseline({
+    version: 1,
+    proposalId: "proposal-1",
+    customerId: "customer-1",
+    serviceAddressId: "address-1",
+    serviceAddress: {
+      id: "address-1",
+      label: "Primary",
+      addressLine1: "123 Main St",
+      addressLine2: null,
+      city: "Indianapolis",
+      state: "IN",
+      postalCode: "46201",
+      country: "US",
+    },
+  });
+  assert.equal(output?.acceptedCustomerId, "customer-1");
+  assert.equal(output?.acceptedServiceAddressId, "address-1");
+  assert.deepEqual(output?.acceptedServiceAddress, {
+    id: "address-1",
+    label: "Primary",
+    addressLine1: "123 Main St",
+    addressLine2: null,
+    city: "Indianapolis",
+    state: "IN",
+    postalCode: "46201",
+    country: "US",
+  });
+});
+test("older baselines without frozen identity read as null, never invented", () => {
+  const withoutFreeze = readApprovedJobBaseline({ version: 1, proposalId: "proposal-1" });
+  assert.equal(withoutFreeze?.acceptedCustomerId, null);
+  assert.equal(withoutFreeze?.acceptedServiceAddressId, null);
+  assert.equal(withoutFreeze?.acceptedServiceAddress, null);
+  const malformedAddress = readApprovedJobBaseline({
+    version: 1,
+    proposalId: "proposal-1",
+    serviceAddress: { id: "address-1", addressLine1: "123 Main St" },
+  });
+  assert.equal(malformedAddress?.acceptedServiceAddress, null);
+});
