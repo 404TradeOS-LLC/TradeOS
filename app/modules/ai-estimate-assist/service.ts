@@ -4,6 +4,7 @@ import { EstimateEngineService } from "../estimate-engine/service";
 import { KnowledgeRuntimeService } from "../knowledge-runtime/service";
 import { AssembliesDatabaseService } from "../assemblies-database/service";
 import { CostDatabaseService } from "../cost-database/service";
+import { findNumberUnitMatches, QuantityUnitAlternative } from "../shared/quantityText";
 import {
   AIEstimateSuggestion,
   AIEstimateSuggestionKind,
@@ -263,18 +264,44 @@ export class AIEstimateAssistService {
   }
 
   private deriveQuantity(scope: string): number {
-    const sqftMatch = scope.match(/(\d+(?:\.\d+)?)\s*(?:sq\s*ft|square\s*feet|sf)\b/);
-    if (sqftMatch) return Number(sqftMatch[1]);
+    const sqftMatch = findNumberUnitMatches(scope, DERIVE_SQFT_UNITS)[0];
+    if (sqftMatch) return Number(sqftMatch.valueText);
 
-    const linearMatch = scope.match(/(\d+(?:\.\d+)?)\s*(?:lf|linear\s*ft|linear\s*feet)\b/);
-    if (linearMatch) return Number(linearMatch[1]);
+    const linearMatch = findNumberUnitMatches(scope, DERIVE_LINEAR_UNITS)[0];
+    if (linearMatch) return Number(linearMatch.valueText);
 
-    const countMatch = scope.match(/(\d+(?:\.\d+)?)\s*(?:each|ea|units?|items?)\b/);
-    if (countMatch) return Number(countMatch[1]);
+    const countMatch = findNumberUnitMatches(scope, DERIVE_COUNT_UNITS)[0];
+    if (countMatch) return Number(countMatch.valueText);
 
     return 1;
   }
 }
+
+// Unit alternatives for deriveQuantity, in each original regex's
+// alternation order. Case-sensitive, like the originals (the scope is not
+// lowercased here). The scanner (quantityText.ts) is linear-time; the
+// regexes it replaces backtracked polynomially on digit runs
+// (CodeQL #33, #34, #35).
+const DERIVE_SQFT_UNITS: QuantityUnitAlternative[] = [
+  { words: ["sq", "ft"] },
+  { words: ["square", "feet"] },
+  { words: ["sf"] },
+];
+
+const DERIVE_LINEAR_UNITS: QuantityUnitAlternative[] = [
+  { words: ["lf"] },
+  { words: ["linear", "ft"] },
+  { words: ["linear", "feet"] },
+];
+
+const DERIVE_COUNT_UNITS: QuantityUnitAlternative[] = [
+  { words: ["each"] },
+  { words: ["ea"] },
+  { words: ["units"] },
+  { words: ["unit"] },
+  { words: ["items"] },
+  { words: ["item"] },
+];
 
 function buildSearchQueries(title: string) {
   const normalized = title.trim();

@@ -1,6 +1,28 @@
 import { buildProjectIntake } from "../project-intake/service";
 import { getKnowledgeRepositorySnapshot, searchKnowledgeRecords } from "./repository";
 import { DeterministicMatchInput, ScopeMatchResult } from "./types";
+import { findNumberUnitMatches, QuantityUnitAlternative } from "../shared/quantityText";
+
+// Unit alternatives for a quantity cue, in the original regex's alternation
+// order. See quantityText.ts: the scanner is linear-time, the regex it
+// replaces backtracked polynomially on digit runs (CodeQL #39).
+const QUANTITY_CUE_UNITS: QuantityUnitAlternative[] = [
+  { words: ["sq", "ft"] },
+  { words: ["square", "feet"] },
+  { words: ["sf"] },
+  { words: ["lf"] },
+  { words: ["linear", "ft"] },
+  { words: ["linear", "feet"] },
+  { words: ["ft"] },
+  { words: ["inch"] },
+  { words: ["inches"] },
+  { words: ["ea"] },
+  { words: ["each"] },
+  { words: ["yard"] },
+  { words: ["yards"] },
+  { words: ["cy"] },
+  { words: ["job"] },
+];
 
 export function matchScopeDeterministically(input: DeterministicMatchInput): ScopeMatchResult {
   const scopeText = input.scopeText.trim();
@@ -172,7 +194,7 @@ function buildRationale(
 }
 
 function hasQuantityCue(scopeText: string) {
-  return /(\d+(?:\.\d+)?)\s*(sq\s*ft|square\s*feet|sf|lf|linear\s*ft|linear\s*feet|ft|inch|inches|ea|each|yard|yards|cy|job)\b/i.test(scopeText);
+  return findNumberUnitMatches(scopeText, QUANTITY_CUE_UNITS, { caseInsensitive: true }).length > 0;
 }
 
 function hasDisposalCue(scopeText: string) {
