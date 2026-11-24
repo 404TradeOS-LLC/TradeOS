@@ -3,10 +3,41 @@ import { ProjectHeader } from "@/components/projects/project-header";
 import { ProjectSidebar } from "@/components/projects/project-sidebar";
 import { ProjectWorkspace } from "@/components/projects/project-workspace";
 import { ProjectWorkspaceTabs, resolveProjectWorkspaceTab } from "@/components/projects/project-workspace-tabs";
-import { getProjectTaskAssignees, getOrganizationSettings, getProject } from "@/lib/api";
+import { getProjectTaskAssignees, getOrganizationSettings, getProject, getProjectCloseout, listPunchItems, listWarranties, ApiClientError } from "@/lib/api";
+import type { ProjectCloseoutData } from "@/components/projects/workspace-types";
 import { getSessionToken } from "@/lib/session";
 
 const JOB_MANAGER_ROLES = new Set(["owner", "admin", "dispatcher"]);
+
+async function loadProjectCloseoutData(token: string, projectId: string): Promise<ProjectCloseoutData> {
+  // Each request's availability is tracked separately: only a closeout 404
+  // means "no record yet". Any other failure leaves its section flagged
+  // unavailable so the tab reports it instead of rendering an empty state
+  // ("Start closeout" / "No warranty recorded") for a record that exists.
+  let closeoutPayload: Awaited<ReturnType<typeof getProjectCloseout>> | null = null;
+  let closeoutUnavailable = false;
+  try {
+    closeoutPayload = await getProjectCloseout(token, projectId);
+  } catch (err) {
+    if (!(err instanceof ApiClientError && err.status === 404)) closeoutUnavailable = true;
+  }
+  const [punchItems, warranties] = await Promise.all([
+    listPunchItems(token, projectId).catch(() => null),
+    listWarranties(token, projectId).catch(() => null),
+  ]);
+  return {
+    // The backend returns { closeout, checklist } as one payload; the
+    // checklist is the backend's computed readiness verdict, not a field
+    // on the closeout row.
+    closeout: closeoutPayload?.closeout ?? null,
+    checklist: closeoutPayload?.checklist ?? null,
+    punchItems: punchItems ?? [],
+    warranties: warranties ?? [],
+    closeoutUnavailable,
+    punchItemsUnavailable: punchItems === null,
+    warrantiesUnavailable: warranties === null,
+  };
+}
 
 export default async function ProjectDetailPage({
   params,
@@ -23,6 +54,13 @@ export default async function ProjectDetailPage({
     getProjectTaskAssignees(token ?? "", id).catch(() => ({ canAssign: false, members: [] })),
   ]);
   const activeTab = resolveProjectWorkspaceTab(resolvedSearchParams.tab);
+  // Closeout data is loaded only for the Closeout tab, and each call degrades
+  // independently: a missing closeout record (or an unreachable closeout
+  // service) stays local to the tab instead of failing the whole workspace.
+  const closeoutData: ProjectCloseoutData | null =
+    activeTab === "closeout"
+      ? await loadProjectCloseoutData(token ?? "", id)
+      : null;
   // Presentation gate only; the PATCH /api/v1/projects/:id endpoint and the
   // updateProjectAction independently require crm.write and tenant scope.
   const canEditProject = ["owner", "admin", "dispatcher", "estimator"].includes(settings.currentRole);
@@ -94,6 +132,7 @@ export default async function ProjectDetailPage({
           currentRole={settings.currentRole}
           taskMembers={assignees.members}
           canAssignTaskIdentity={assignees.canAssign}
+          closeoutData={closeoutData}
         />
 
         <ProjectSidebar

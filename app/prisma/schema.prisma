@@ -53,6 +53,9 @@ model Organization {
   jobExpenseEvents JobExpenseEvent[]
   codesJobAssessments CodesJobAssessment[]
   permitTasks    CodesPermitTask[]
+  punchItems     PunchItem[]
+  projectCloseouts ProjectCloseout[]
+  warrantyRecords WarrantyRecord[]
   feeReviews     CodesFeeReview[]
   estimates      Estimate[]
   serviceAgreements ServiceAgreement[]
@@ -283,6 +286,12 @@ model AppUser {
   sentInvites   OrganizationInvite[] @relation("InviteSender")
   createdJobs   Job[]                @relation("JobCreatedBy")
   assignedPermitTasks CodesPermitTask[] @relation("CodesPermitTaskAssignee")
+  assignedPunchItems PunchItem[] @relation("PunchItemAssignee")
+  resolvedPunchItems PunchItem[] @relation("PunchItemResolver")
+  createdPunchItems PunchItem[] @relation("PunchItemCreator")
+  completedCloseouts ProjectCloseout[] @relation("ProjectCloseoutCompletedBy")
+  handedOffCloseouts ProjectCloseout[] @relation("ProjectCloseoutHandedOffBy")
+  createdWarrantyRecords WarrantyRecord[] @relation("WarrantyRecordCreator")
   createdJobExpenses JobExpense[]   @relation("JobExpenseCreatedBy")
   voidedJobExpenses JobExpense[] @relation("JobExpenseVoidedBy")
   createdJobExpenseEvents JobExpenseEvent[] @relation("JobExpenseEventActor")
@@ -1057,6 +1066,9 @@ model Project {
   siteVisits   SiteVisit[]
   projectFiles ProjectFile[]
   tasks        ProjectTask[]
+  punchItems   PunchItem[]
+  closeouts    ProjectCloseout[]
+  warrantyRecords WarrantyRecord[]
   permitTasks  CodesPermitTask[]
   feeReviews   CodesFeeReview[]
   jobs         Job[]
@@ -1304,6 +1316,103 @@ model ProjectTask {
   @@map("project_tasks")
 }
 
+// S069 closeout and warranty workspace. Punch items are the project's
+// explicit unresolved-items list; the closeout record is the single
+// per-project handoff record; warranty records organize only warranties
+// the contractor actually gave (coverageText is staff-supplied and must
+// quote the source document — there is no default or invented term, and
+// no warranty given means no WarrantyRecord row). All three tables carry
+// a direct orgId (like JobExpense) with forced RLS; see migration
+// 20261124120000_add_closeout_warranty_workspace. No closeout operation
+// ever mutates a Contract, Proposal, Invoice, or Estimate row.
+model PunchItem {
+  id             String    @id @default(uuid())
+  orgId          String    @map("org_id")
+  projectId      String    @map("project_id")
+  jobId          String?   @map("job_id")
+  title          String
+  description    String    @default("")
+  status         String    @default("open")
+  priority       String    @default("medium")
+  assignedUserId String?   @map("assigned_user_id")
+  assignedTo     String?   @map("assigned_to")
+  dueDate        DateTime? @map("due_date")
+  resolvedAt     DateTime? @map("resolved_at")
+  resolvedById   String?   @map("resolved_by_id")
+  createdById    String    @map("created_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  job          Job?         @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  assignee     AppUser?     @relation("PunchItemAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  resolver     AppUser?     @relation("PunchItemResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  creator      AppUser      @relation("PunchItemCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([orgId, projectId])
+  @@index([projectId, status])
+  @@index([jobId, status])
+  @@index([assignedUserId, status])
+  @@map("punch_items")
+}
+
+model ProjectCloseout {
+  id            String    @id @default(uuid())
+  orgId         String    @map("org_id")
+  projectId     String    @map("project_id")
+  jobId         String?   @map("job_id")
+  status        String    @default("draft")
+  notes         String?
+  completedAt   DateTime? @map("completed_at")
+  completedById String?   @map("completed_by_id")
+  handedOffAt   DateTime? @map("handed_off_at")
+  handedOffById String?   @map("handed_off_by_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  job          Job?         @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  completedBy  AppUser?     @relation("ProjectCloseoutCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  handedOffBy  AppUser?     @relation("ProjectCloseoutHandedOffBy", fields: [handedOffById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId])
+  @@index([orgId, projectId])
+  @@map("project_closeouts")
+}
+
+model WarrantyRecord {
+  id           String    @id @default(uuid())
+  orgId        String    @map("org_id")
+  projectId    String    @map("project_id")
+  jobId        String?   @map("job_id")
+  contractId   String?   @map("contract_id")
+  invoiceId    String?   @map("invoice_id")
+  title        String
+  coverageText String    @map("coverage_text")
+  sourceType   String    @map("source_type")
+  sourceId     String?   @map("source_id")
+  startsAt     DateTime? @map("starts_at")
+  endsAt       DateTime? @map("ends_at")
+  createdById  String    @map("created_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  job          Job?         @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  contract     Contract?    @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  invoice      Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  creator      AppUser      @relation("WarrantyRecordCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([orgId, projectId])
+  @@index([projectId])
+  @@index([contractId])
+  @@index([invoiceId])
+  @@map("warranty_records")
+}
+
 // Codes & Permits execution (issue #946, TODO 5). Companion to the
 // read-only advisory pilot (#945): these are the only permit-task and
 // fee-review records. permit_status is explicit-only — never inferred —
@@ -1410,6 +1519,9 @@ model Job {
   assignments    JobAssignment[]
   equipmentLinks JobEquipment[]
   tasks          ProjectTask[]
+  punchItems     PunchItem[]
+  closeouts      ProjectCloseout[]
+  warrantyRecords WarrantyRecord[]
   siteVisits     SiteVisit[]
   expenses       JobExpense[]
   expenseEvents JobExpenseEvent[]
@@ -1595,6 +1707,7 @@ model Invoice {
   lineItems InvoiceLineItem[]
   payments  Payment[]
   deliveries InvoiceDelivery[]
+  warrantyRecords WarrantyRecord[]
 
   @@unique([projectId, invoiceNumber])
   @@unique([projectId, createRequestKey], map: "invoices_project_create_request_key")
@@ -1792,6 +1905,7 @@ model Contract {
   project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   events   ContractEvent[]
+  warrantyRecords WarrantyRecord[]
 
   @@index([projectId])
   @@index([proposalId])

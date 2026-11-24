@@ -931,6 +931,164 @@ export function getChangeOrder(token: string, id: string) {
   return apiFetch<ChangeOrder & { lineItems: ChangeOrderLineItem[] }>(`/api/v1/change-orders/${id}`, { token });
 }
 
+// --- Closeout and Warranty Workspace (S069) ---
+//
+// Consumes the closeout API contract as the backend actually exposes it
+// (app/modules/closeout/types.ts): GET .../closeout returns
+// { closeout, checklist } — the checklist is a separate computed object,
+// NOT a field on the closeout row, and it carries no generic `artifacts`
+// array. Its four checks are: completed jobs, signed contract, final
+// invoice, and accepted proposal (not_applicable when the project has no
+// proposal at all). The `missing` list is the backend's own readiness
+// verdict and is rendered verbatim. Warranty terms come only from what
+// the contractor recorded — the web layer never fills in default terms
+// or dates.
+
+export type CloseoutStatus = "draft" | "ready" | "handed_off";
+
+export type CloseoutArtifactState = "present" | "missing" | "not_applicable";
+
+export interface CloseoutChecklistArtifact {
+  key: string;
+  label: string;
+  state: CloseoutArtifactState;
+  sourceId?: string | null;
+}
+
+// One row of the artifact checklist as the web renders it: derived from
+// the backend's computed checklist (see buildCloseoutChecklistArtifacts
+// in the project workspace), never invented by the web layer.
+export interface CloseoutChecklist {
+  completedJobs: { count: number; ids: string[] };
+  signedContract: { present: boolean; contractId: string | null };
+  finalInvoice: { present: boolean; invoiceId: string | null };
+  acceptedProposal: { status: "present" | "missing" | "not_applicable"; proposalId: string | null };
+  openPunchCount: number;
+  missing: string[];
+  ready: boolean;
+}
+
+export interface ProjectCloseout {
+  id: string;
+  projectId: string;
+  jobId: string | null;
+  status: CloseoutStatus;
+  notes: string | null;
+  // The backend names the ready timestamp `completedAt` (markReady sets
+  // status "ready" + completedAt); no separate ready-at field exists.
+  completedAt: string | null;
+  completedById: string | null;
+  handedOffAt: string | null;
+  handedOffById: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GetProjectCloseoutResult {
+  closeout: ProjectCloseout;
+  checklist: CloseoutChecklist;
+}
+
+// The backend's computed checklist has four named checks, not a generic
+// artifacts array. Both the staff Closeout tab and the read-only portal
+// handoff render those four checks as the artifact checklist rows, in the
+// backend's own terms: a completed job, a signed contract (signedAt set),
+// a non-draft final invoice, and an accepted proposal — which is
+// "not applicable" when the project has no proposal at all. Nothing here
+// invents an artifact the backend did not compute.
+export function buildCloseoutChecklistArtifacts(checklist: CloseoutChecklist): CloseoutChecklistArtifact[] {
+  return [
+    {
+      key: "completed-job",
+      label: "Completed job",
+      state: checklist.completedJobs.count > 0 ? "present" : "missing",
+    },
+    {
+      key: "signed-contract",
+      label: "Signed contract",
+      state: checklist.signedContract.present ? "present" : "missing",
+      sourceId: checklist.signedContract.contractId,
+    },
+    {
+      key: "final-invoice",
+      label: "Final invoice",
+      state: checklist.finalInvoice.present ? "present" : "missing",
+      sourceId: checklist.finalInvoice.invoiceId,
+    },
+    {
+      key: "accepted-proposal",
+      label: "Accepted proposal",
+      state: checklist.acceptedProposal.status,
+      sourceId: checklist.acceptedProposal.proposalId,
+    },
+  ];
+}
+
+export type PunchItemStatus = "open" | "in_progress" | "resolved" | "verified";
+
+// The backend's punch priority vocabulary is three values only
+// (controller Zod enum + service types) — anything else is rejected with a 400.
+export type PunchItemPriority = "low" | "medium" | "high";
+
+export interface PunchItem {
+  id: string;
+  projectId: string;
+  jobId?: string | null;
+  title: string;
+  description?: string | null;
+  status: PunchItemStatus;
+  priority: PunchItemPriority;
+  assignedUserId?: string | null;
+  assignedTo?: string | null;
+  dueDate?: string | null;
+  resolvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type WarrantySourceType = "contract" | "invoice" | "other";
+
+export interface WarrantyRecord {
+  id: string;
+  projectId: string;
+  jobId?: string | null;
+  contractId?: string | null;
+  invoiceId?: string | null;
+  title: string;
+  coverageText: string;
+  sourceType: WarrantySourceType;
+  sourceId?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function getProjectCloseout(token: string, projectId: string) {
+  return apiFetch<GetProjectCloseoutResult>(`/api/v1/closeout/projects/${encodeURIComponent(projectId)}/closeout`, { token });
+}
+
+export function listPunchItems(token: string, projectId: string) {
+  return apiFetch<PunchItem[]>(`/api/v1/closeout/projects/${encodeURIComponent(projectId)}/punch-items`, { token });
+}
+
+export function listWarranties(token: string, projectId: string) {
+  return apiFetch<WarrantyRecord[]>(`/api/v1/closeout/projects/${encodeURIComponent(projectId)}/warranties`, { token });
+}
+
+// Read-only closeout handoff carried on the public customer-portal project
+// DTO. The portal never writes closeout data; it renders exactly the
+// handoff truth the contractor shared. `documentHref` is the portal-scoped
+// link to the rendered closeout document when the backend provides one.
+export interface PortalCloseoutHandoff {
+  status: CloseoutStatus;
+  checklist: CloseoutChecklist;
+  resolvedPunchCount: number;
+  openPunchCount: number;
+  warranties: WarrantyRecord[];
+  documentHref?: string | null;
+}
+
 export interface ProjectTask {
   canUpdateStatus?: boolean;
   assignedUserId?: string | null;
@@ -1325,6 +1483,7 @@ export function getPortalProject(id: string) {
     proposals: Proposal[];
     invoices: Array<Invoice & { lineItems: InvoiceLineItem[] }>;
     contracts: Contract[];
+    closeout?: PortalCloseoutHandoff | null;
   }>(`/api/v1/customer-portal/projects/${id}`).then((project) => ({
     ...project,
     status: normalizeStatus(project.status, legacyProjectStatusMap, projectStatuses, "lead"),

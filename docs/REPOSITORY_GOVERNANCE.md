@@ -649,6 +649,47 @@ for the certification step list and the run record. This tooling does not
 change product behavior or complete S068 until a full exact-SHA
 non-production run passes with retained artifacts.
 
+## S069 browser evidence workflow
+
+`.github/workflows/s069-browser-evidence.yml` is an operator-triggered
+release-evidence workflow, not a merge-time authority — it is not part of the
+required-check set. It certifies the closeout and warranty workspace against
+an approved non-production deployment at 1440, 1024, 768, and 390 pixels:
+fixtures in the sanitized TEST Org, job completion as API setup through
+staffProxy (not a staff-UI journey — the capture script drives fixture
+creation and job completion through authenticated staffProxy calls, and
+certifies the closeout UI from the closeout tab onward), closeout creation, punch create/assign/resolve/verify, warranty
+recording of the staff-supplied warranty coverage text, mark-ready and handoff with
+attributable `punch_item.created` / `punch_item.resolved` /
+`punch_item.verified` / `project_closeout.created` /
+`project_closeout.ready` / `project_closeout.handed_off` /
+`warranty_record.created` activity records, the read-only customer portal
+handoff view, and the negative matrix (mark-ready after handoff, handoff
+before ready, verify of an open punch, resolve of a verified punch, second
+closeout, wrong-role, cross-tenant, unauthenticated, unknown ids, portal
+document POST). Fixtures (synthetic customer, project, proposal, contract,
+invoice, and job) are created at run time in the sanitized TEST Org through
+authenticated staffProxy API calls; nothing is deleted. Deployment identity is proven before
+capture through the Vercel API (READY + deployed SHA) plus the API
+deployment's `/health` SHA and `/ready` data-plane project ref. Bearer and
+session material is never written to disk, logs, or `report.json`; the
+credential scan gates artifact upload, and the artifact is retained 30 days.
+The technician-session punch resolve runs only when a technician sign-in is
+provisioned (owner: Billy) — owner resolve is the certified path — and the
+wrong-role probe runs only when a low-permission staff identity is
+provisioned and the cross-tenant probe only when a foreign project id is
+supplied; each records BLOCKED otherwise and never passes or fails the run.
+Job dispatch needs an active technician member in the TEST Org. The
+substitute for the blocked probes is live-PostgreSQL carve-out and audit
+evidence in `app/tests/rls.integration.ts` and
+`app/tests/s069.closeout.integration.ts`. See
+[testing/S069_CLOSEOUT_WARRANTY_EVIDENCE.md](testing/S069_CLOSEOUT_WARRANTY_EVIDENCE.md)
+for the capture contract and
+[architecture/S069_CLOSEOUT_WARRANTY_EVIDENCE.md](architecture/S069_CLOSEOUT_WARRANTY_EVIDENCE.md)
+for the certification step list and the run record. This tooling does not
+change product behavior or complete S069 until a full exact-SHA
+non-production run passes with retained artifacts.
+
 ## Staging orchestrator workflow
 
 `.github/workflows/staging-orchestrator.yml` is the single authoritative staging run. It triggers on a push to `staging` or a manual dispatch of the current staging head, and it runs, in order: record the approved SHA (which must equal the staging head); inventory repository Prisma migrations; run a read-only staging database preflight (invoice-expand guard, legacy-cost preflight, ledger-vs-inventory comparison, app-role existence, Team & Time RLS state); wait for both Vercel Git deployments of that SHA to reach READY and capture their immutable deployment IDs and URLs; verify runtime identity (backend `/health` commitSha and `/ready` on both the deployment URL and the staging branch alias, frontend reachability on both); re-verify the staging head immediately before evidence; capture canonical beta evidence through a reusable-workflow call to `beta-evidence.yml`; and publish one PASS/FAIL verdict naming the first failing dependency and its exact repair, plus a run manifest artifact (90-day retention).
