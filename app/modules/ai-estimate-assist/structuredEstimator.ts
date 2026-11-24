@@ -11,6 +11,7 @@ import { KnowledgeRuntimeService } from "../knowledge-runtime/service";
 import { CostDatabaseService } from "../cost-database/service";
 import { AssembliesDatabaseService } from "../assemblies-database/service";
 import { createAthenaGenerationRecord, createAthenaGenerationReview, findAthenaGenerationRecord } from "../athena-generation/store";
+import { findNumberUnitMatches, QuantityUnitAlternative } from "../shared/quantityText";
 import {
   AIEstimateSuggestionKind,
   AIEstimateSuggestionTarget,
@@ -656,12 +657,12 @@ function extractQuantities(scope: string): ParsedScopeQuantity[] {
   const quantities: ParsedScopeQuantity[] = [];
   const lower = scope.toLowerCase();
 
-  collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s*(?:sq\s*ft|square\s*feet|sf)\b/g, "area", "SF");
-  collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s*(?:linear\s*ft|linear\s*feet|lf)\b/g, "length", "LF");
-  collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s*(?:cubic\s*yards?|cy)\b/g, "volume", "CY");
-  collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s*(?:squares?|\bsq\b(?!\s*ft))/g, "squares", "SQ");
-  collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|hr)\b/g, "hours", "HR");
-  collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s*(?:each|ea|units?|items?)\b/g, "count", "EA");
+  collectMatches(quantities, lower, AREA_UNITS, "area", "SF");
+  collectMatches(quantities, lower, LENGTH_UNITS, "length", "LF");
+  collectMatches(quantities, lower, VOLUME_UNITS, "volume", "CY");
+  collectMatches(quantities, lower, SQUARES_UNITS, "squares", "SQ");
+  collectMatches(quantities, lower, HOURS_UNITS, "hours", "HR");
+  collectMatches(quantities, lower, COUNT_UNITS, "count", "EA");
 
   for (const match of lower.matchAll(/\b(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\b/g)) {
     const width = parseBoundedQuantity(match[1]);
@@ -669,30 +670,84 @@ function extractQuantities(scope: string): ParsedScopeQuantity[] {
     quantities.push({ type: "dimension", value: parseBoundedQuantity(round2(width * length)), unit: "SF", sourceText: match[0] });
   }
 
-  const thickness = lower.match(/(\d+(?:\.\d+)?)\s*(?:inch|in|")\s*(?:thick|slab)?/);
+  const thickness = findNumberUnitMatches(lower, THICKNESS_UNITS)[0];
   const area = quantities.find((quantity) => quantity.unit === "SF");
   if (area && thickness) {
-    const thicknessInches = parseBoundedQuantity(thickness[1]);
+    const thicknessInches = parseBoundedQuantity(thickness.valueText);
     quantities.push({
       type: "volume",
       value: parseBoundedQuantity(round2((area.value * (thicknessInches / 12)) / 27)),
       unit: "CY",
-      sourceText: `${area.sourceText} at ${thickness[0]}`,
+      sourceText: `${area.sourceText} at ${thickness.sourceText}`,
     });
   }
 
   return dedupeQuantities(quantities);
 }
 
+// Unit alternatives for extractQuantities, in each original regex's
+// alternation order. The scanner (quantityText.ts) is linear-time; the
+// regexes it replaces backtracked polynomially on digit runs
+// (CodeQL #36, #37).
+const AREA_UNITS: QuantityUnitAlternative[] = [
+  { words: ["sq", "ft"] },
+  { words: ["square", "feet"] },
+  { words: ["sf"] },
+];
+
+const LENGTH_UNITS: QuantityUnitAlternative[] = [
+  { words: ["linear", "ft"] },
+  { words: ["linear", "feet"] },
+  { words: ["lf"] },
+];
+
+const VOLUME_UNITS: QuantityUnitAlternative[] = [
+  { words: ["cubic", "yards"] },
+  { words: ["cubic", "yard"] },
+  { words: ["cy"] },
+];
+
+const SQUARES_UNITS: QuantityUnitAlternative[] = [
+  // Original: (?:squares?|\bsq\b(?!\s*ft)) — no trailing boundary on the
+  // first branch; "sq" only as a whole word not followed by "ft".
+  { words: ["squares"], trailingBoundary: false },
+  { words: ["square"], trailingBoundary: false },
+  { words: ["sq"], leadingBoundary: true, notFollowedBy: ["ft"] },
+];
+
+const HOURS_UNITS: QuantityUnitAlternative[] = [
+  { words: ["hours"] },
+  { words: ["hour"] },
+  { words: ["hrs"] },
+  { words: ["hr"] },
+];
+
+const COUNT_UNITS: QuantityUnitAlternative[] = [
+  { words: ["each"] },
+  { words: ["ea"] },
+  { words: ["units"] },
+  { words: ["unit"] },
+  { words: ["items"] },
+  { words: ["item"] },
+];
+
+// Original: (?:inch|in|")\s*(?:thick|slab)? — no boundary after the unit or
+// the optional suffix.
+const THICKNESS_UNITS: QuantityUnitAlternative[] = [
+  { words: ["inch"], trailingBoundary: false, optionalSuffix: ["thick", "slab"] },
+  { words: ["in"], trailingBoundary: false, optionalSuffix: ["thick", "slab"] },
+  { words: ['"'], trailingBoundary: false, optionalSuffix: ["thick", "slab"] },
+];
+
 function collectMatches(
   quantities: ParsedScopeQuantity[],
   scope: string,
-  pattern: RegExp,
+  alternatives: QuantityUnitAlternative[],
   type: ParsedScopeQuantity["type"],
   unit: ParsedScopeQuantity["unit"]
 ) {
-  for (const match of scope.matchAll(pattern)) {
-    quantities.push({ type, value: parseBoundedQuantity(match[1]), unit, sourceText: match[0] });
+  for (const match of findNumberUnitMatches(scope, alternatives)) {
+    quantities.push({ type, value: parseBoundedQuantity(match.valueText), unit, sourceText: match.sourceText });
   }
 }
 

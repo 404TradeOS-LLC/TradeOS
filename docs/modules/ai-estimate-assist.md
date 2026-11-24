@@ -42,6 +42,7 @@ The backend also exposes a structured AI estimating engine path for contractor-l
 
 - `app/modules/ai-estimate-assist/*`
 - `app/modules/knowledge-runtime/*`
+- `app/modules/shared/quantityText.ts`
 - `app/backend/routes/aiEstimateAssist.routes.ts`
 - `web/src/app/(app)/projects/[id]/estimates/[estimateId]/assist/page.tsx`
 
@@ -81,6 +82,7 @@ Route-level permission checks were added in `app/backend/controllers/aiEstimateA
 - `app/tests/ai-estimate-assist.service.test.ts`
 - `app/tests/structured-ai-estimator.service.test.ts`
 - `app/tests/ai-estimate-assist.controller.test.ts`
+- `app/tests/quantityText.test.ts`
 - `app/tests/knowledge-runtime.service.test.ts`
 - `app/tests/knowledge-runtime.matcher.test.ts`
 - `app/tests/knowledge-runtime.controller.test.ts`
@@ -96,6 +98,7 @@ Route-level permission checks were added in `app/backend/controllers/aiEstimateA
 ## Implementation notes
 
 - `knowledge-runtime/repository.ts` now imports the shared `round2()` helper from `estimate-engine/formulas.ts` instead of defining a duplicate private copy (cleanup only; matcher/scoring behavior unchanged)
+- Quantity extraction from contractor scope text (`knowledge-runtime/matcher.ts`'s quantity cue, `ai-estimate-assist/structuredEstimator.ts`'s `extractQuantities`, and `ai-estimate-assist/service.ts`'s `deriveQuantity`) no longer uses `/(\d+(?:\.\d+)?)\s*(unit…)\b/` regexes. Those patterns backtracked polynomially on digit runs (CodeQL `js/polynomial-redos` #33–#37, #39): a 10,000-digit scope — the controller caps `scopeOfWork` at 10,000 chars — cost ~430ms per pattern, ~2s across the estimator's patterns. The shared linear-time scanner in `app/modules/shared/quantityText.ts` (`findNumberUnitMatches`) preserves the regexes' leftmost-match semantics (same numbers, units, word boundaries, and `sq`-vs-`sq ft` disambiguation) with no backtracking — the same 10,000-digit scope scans in ~2ms. Behavior is pinned by a differential test (`app/tests/quantityText.test.ts`) that asserts the scanner agrees with the original regexes on a curated corpus plus 300 seeded pseudo-random fragments. No API contract, quantity value, confidence score, or matched target changed.
 - `StructuredAIEstimatorService` is the backend orchestration layer for contractor-language-to-estimate drafts. It is deterministic today, tool-run-oriented, and reuses `KnowledgeRuntimeService`, `CostDatabaseService`, `AssembliesDatabaseService`, and `EstimateEngineService`.
 - Every Knowledge Runtime record, search result, matcher output, `AIEstimateSuggestion`, and `StructuredEstimateDraftLineItem` now carries a `provenanceStatus` field (`"documented" | "unverified-legacy" | "placeholder"`, defined once in `app/modules/costbook/provenance.ts` and re-exported from `knowledge-runtime/types.ts` and `ai-estimate-assist/types.ts`). It is resolved per-trade from `packages/knowledge-engine/knowledge/knowledge/trade-progress.json`'s new `provenanceStatus` field (`knowledge-runtime/repository.ts`'s `resolveTradeProvenanceStatus()`), defaulting to `"unverified-legacy"` for any trade the field is missing or unrecognized on, or whose trade could not be inferred at all — never silently to `"documented"`. Per the 2026-09-08 Costbook/Knowledge Engine audit (`docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.md`), all 24 legacy "Stable" trades are currently `"unverified-legacy"` (no per-item source/timestamp/confidence trail exists for them) and the Tree Service trade is `"placeholder"` (its own per-item files self-label `pricingStatus: "PLACEHOLDER"`); no trade is currently `"documented"`. `matchScopeDeterministically()` (`knowledge-runtime/matcher.ts`) also appends an explicit `reviewWarnings` entry naming the non-`"documented"` status whenever a match includes one, so this caution reaches `/api/v1/knowledge/match` and the structured estimator's aggregated `validation.warnings` without changing any pricing, confidence score, or matched-target behavior. This is additive to every response shape it touches; no existing field was removed or renamed.
 - `app/modules/costbook/candidateCostItem.ts` defines the governed candidate contract, while `CostbookCandidateService` persists it through the Stage 6 reviewed queue. Creation starts every candidate at `"candidate"`; only an authenticated `costbook.manage` reviewer can approve/reject it, and promotion re-validates the human-review gate before writing new org-scoped Costbook component rows. See `docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md` for the full pipeline.
