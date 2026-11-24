@@ -90,6 +90,11 @@ test("accepts the approval-history line only with the decision word and a timest
   );
   assert.throws(() => assertDecisionHistory({ bodyText: "Approval history Draft", decision: "approved" }));
   assert.throws(() => assertDecisionHistory({ bodyText: "Approved 24 Nov 2026", decision: "approved" }));
+  // A decision word with no timestamp after it must not pass (CodeRabbit on
+  // #1087: "Approved missing" previously passed the includes check).
+  assert.throws(() => assertDecisionHistory({ bodyText: "Approval history Approved missing", decision: "approved" }));
+  assert.throws(() => assertDecisionHistory({ bodyText: "APPROVAL HISTORY Approved", decision: "approved" }));
+  assert.throws(() => assertDecisionHistory({ bodyText: "Approval history Rejected", decision: "rejected" }));
   assert.throws(() =>
     assertDecisionHistory({ bodyText: "Approval history Rejected 24 Nov 2026", decision: "approved" }),
   );
