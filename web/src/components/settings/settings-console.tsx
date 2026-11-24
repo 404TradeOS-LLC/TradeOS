@@ -37,6 +37,7 @@ import {
   type SettingsStatusItem,
 } from "./settings-schema";
 import { AddMemberForm } from "./add-member-form";
+import { SendInviteForm } from "./send-invite-form";
 
 interface SettingsConsoleProps {
   supplierWorkflowIdentity: { orgId: string; userId: string } | null;
@@ -1230,6 +1231,10 @@ export function SettingsConsole({ supplierWorkflowIdentity, authSubject, initial
                 });
               }}
             />
+          ) : null}
+
+          {selectedSection.id === "team" && initialWorkspaceData.currentRole === "owner" ? (
+            <SendInviteForm />
           ) : null}
         </section>
       </div>
