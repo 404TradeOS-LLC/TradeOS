@@ -265,11 +265,19 @@ describe("CloseoutService punch items", () => {
   });
 
   it("verify requires resolved status and a manager role", async () => {
-    mockPrisma.punchItem.findFirst.mockResolvedValue(punchRow({ status: "resolved" }));
-    mockPrisma.punchItem.update.mockResolvedValue(punchRow({ status: "verified" }));
+    mockPrisma.punchItem.findFirst
+      .mockResolvedValueOnce(punchRow({ status: "resolved" }))
+      .mockResolvedValue(punchRow({ status: "verified" }));
+    mockPrisma.punchItem.updateMany.mockResolvedValue({ count: 1 });
 
     const service = new CloseoutService();
     await expect(service.verifyPunchItem("punch-1", "org-1", "user-1", "owner")).resolves.toMatchObject({ status: "verified" });
+    expect(mockPrisma.punchItem.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: "punch-1", status: "resolved" }),
+        data: { status: "verified" },
+      }),
+    );
     expect(mockActivityTimeline.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "punch_item.verified" }));
 
     mockPrisma.punchItem.findFirst.mockResolvedValue(punchRow({ status: "open" }));
@@ -277,6 +285,16 @@ describe("CloseoutService punch items", () => {
 
     mockPrisma.punchItem.findFirst.mockResolvedValue(punchRow({ status: "resolved", assignedUserId: "tech-1" }));
     await expect(service.verifyPunchItem("punch-1", "org-1", "tech-1", "technician")).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it("verify returns 409 when the item was reopened between the read and the write", async () => {
+    mockPrisma.punchItem.findFirst.mockResolvedValue(punchRow({ status: "resolved" }));
+    mockPrisma.punchItem.updateMany.mockResolvedValue({ count: 0 });
+
+    const service = new CloseoutService();
+    await expect(service.verifyPunchItem("punch-1", "org-1", "user-1", "owner")).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.punchItem.update).not.toHaveBeenCalled();
+    expect(mockActivityTimeline.record).not.toHaveBeenCalled();
   });
 
   it("reopen clears the resolution and returns the item to open", async () => {
