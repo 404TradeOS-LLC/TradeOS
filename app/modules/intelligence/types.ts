@@ -7,6 +7,7 @@ export const intelligenceEntityTypes = [
   "estimate",
   "invoice",
   "contract",
+  "change_order",
   "material",
   "vendor",
   "note",

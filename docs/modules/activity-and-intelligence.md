@@ -51,6 +51,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - intelligence-specific activity records
 - customer lifecycle changes (`customer.created`, `customer.updated`, `customer.deleted`), from `app/backend/controllers/crm.controller.ts`
 - estimate lifecycle changes (`estimate.created`, `estimate.line_item_added`, `estimate.line_item_removed`, `estimate.pricing_mode_updated`, `estimate.finalized`, `estimate.duplicated`), from `app/backend/controllers/estimateEngine.controller.ts`
+- change-order decision changes (`change_order.approved`, `change_order.rejected`), recorded from `app/modules/change-orders/service.ts` with the acting staff user as actor and `{previousStatus, newStatus, coNumber, projectId, amount}` metadata; queryable through `GET /api/v1/intelligence/activity?entityType=change_order` (`change_order` is a registered `IntelligenceEntityType`)
 - project-task lifecycle changes (`task.created`, status transitions such as `task.blocked`/`task.completed`, generic `task.updated`, and `task.deleted`), recorded from `app/backend/controllers/projectTasks.controller.ts`
 
 ## Frontend surfaces

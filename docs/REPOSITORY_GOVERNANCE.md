@@ -616,6 +616,39 @@ redaction), and the run record. This tooling does not change product behavior
 or complete S059 until a full exact-SHA non-production run passes with
 retained artifacts.
 
+## S068 browser evidence workflow
+
+`.github/workflows/s068-browser-evidence.yml` is an operator-triggered
+release-evidence workflow, not a merge-time authority — it is not part of the
+required-check set. It certifies the change-order customer workflow against
+an approved non-production deployment at 1440, 1024, 768, and 390 pixels:
+staff draft creation, priced line-item entry, approve and reject through the
+project workspace with attributable `change_order.approved` /
+`change_order.rejected` activity records, and the negative matrix
+(re-approve, re-reject, draft edit after decision, wrong-role, cross-tenant,
+unauthenticated, unknown ids, absent portal endpoint). Fixtures (synthetic
+customer, project, and change orders) are created at run time in the
+sanitized TEST Org through the shipped staff UI with an authenticated API
+fallback that re-reads live state first; nothing is deleted. Deployment
+identity is proven before capture through the Vercel API (READY + deployed
+SHA) plus the API deployment's `/health` SHA and `/ready` data-plane
+project ref. Bearer and session material is never written to disk, logs, or
+`report.json`; the credential scan gates artifact upload, and the artifact is
+retained 30 days. The wrong-role probe runs only when a low-permission staff
+identity is provisioned (owner: Billy) and the cross-tenant probe only when
+a foreign change-order id is supplied; both record BLOCKED otherwise and
+never pass or fail the run. Customer portal approve/reject is BLOCKED by
+design (ADR-010 limits customer-originated writes to signing pending
+contracts) and is not attempted; the script proves the endpoint's absence
+instead. The substitute for the blocked probes is live-PostgreSQL
+decision/audit evidence in `app/tests/s068.change-orders.integration.ts`.
+See [testing/S068_CHANGE_ORDER_EVIDENCE.md](testing/S068_CHANGE_ORDER_EVIDENCE.md)
+for the capture contract and
+[architecture/S068_CERTIFICATION_EVIDENCE.md](architecture/S068_CERTIFICATION_EVIDENCE.md)
+for the certification step list and the run record. This tooling does not
+change product behavior or complete S068 until a full exact-SHA
+non-production run passes with retained artifacts.
+
 ## Staging orchestrator workflow
 
 `.github/workflows/staging-orchestrator.yml` is the single authoritative staging run. It triggers on a push to `staging` or a manual dispatch of the current staging head, and it runs, in order: record the approved SHA (which must equal the staging head); inventory repository Prisma migrations; run a read-only staging database preflight (invoice-expand guard, legacy-cost preflight, ledger-vs-inventory comparison, app-role existence, Team & Time RLS state); wait for both Vercel Git deployments of that SHA to reach READY and capture their immutable deployment IDs and URLs; verify runtime identity (backend `/health` commitSha and `/ready` on both the deployment URL and the staging branch alias, frontend reachability on both); re-verify the staging head immediately before evidence; capture canonical beta evidence through a reusable-workflow call to `beta-evidence.yml`; and publish one PASS/FAIL verdict naming the first failing dependency and its exact repair, plus a run manifest artifact (90-day retention).

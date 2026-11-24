@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { ChangeOrdersService } from "../../modules/change-orders/service";
-import { requireOrgId, requirePermissions } from "../requestContext";
+import { requireAuthContext, requireOrgId, requirePermissions } from "../requestContext";
 
 const service = new ChangeOrdersService();
 
@@ -62,10 +62,10 @@ export const changeOrdersController = {
   },
   async approve(req: Request, res: Response) {
     requirePermissions(req, ["billing.write"]);
-    res.json(await service.approve(req.params.id, requireOrgId(req)));
+    res.json(await service.approve(req.params.id, requireOrgId(req), requireAuthContext(req).userId));
   },
   async reject(req: Request, res: Response) {
     requirePermissions(req, ["billing.write"]);
-    res.json(await service.reject(req.params.id, requireOrgId(req)));
+    res.json(await service.reject(req.params.id, requireOrgId(req), requireAuthContext(req).userId));
   },
 };
