@@ -839,10 +839,9 @@ try {
   if (wrongRoleEmail && wrongRolePassword) {
     try {
       let wrongRolePage = null;
-      let wrongRoleContext = technicianContext;
-      if (!wrongRoleContext) {
+      if (!technicianContext) {
         const login = await loginAsWrongRole();
-        wrongRoleContext = login.context;
+        technicianContext = login.context;
         wrongRolePage = login.page;
       } else {
         wrongRolePage = technicianContext.pages()[0];
