@@ -1903,6 +1903,49 @@ describe("live organization row-level security", () => {
     expect(result.role).toBe("owner");
   });
 
+  it("lists every active workspace membership for a multi-organization user under login_lookup", async () => {
+    // Regression test for the staging workspace switcher going missing: the
+    // nav switcher only renders when listMemberships returns 2+ rows, and
+    // listMemberships runs under the app.login_lookup flag so RLS exposes
+    // every membership of the user — the per-request org policy would
+    // otherwise hide all but the currently resolved org. A mocked Prisma
+    // client (the unit tests in auth.service.test.ts) cannot catch an RLS
+    // visibility gap; only this live-Postgres suite can.
+    const multiOrgUser = "10000000-0000-0000-0000-000000000015";
+    await adminClient.appUser.create({
+      data: { id: multiOrgUser, authSubject: "rls-multi-org", email: "rls-multi-org@example.com" },
+    });
+    await adminClient.organizationMembership.create({
+      data: { id: "10000000-0000-0000-0000-000000000036", orgId: orgA, userId: multiOrgUser, role: "technician", status: "active" },
+    });
+    await adminClient.organizationMembership.create({
+      data: { id: "20000000-0000-0000-0000-000000000042", orgId: orgB, userId: multiOrgUser, role: "viewer", status: "active" },
+    });
+
+    const memberships = await new AuthService().listMemberships(multiOrgUser);
+
+    expect(memberships).toHaveLength(2);
+    expect(memberships.find((membership) => membership.orgId === orgA)).toMatchObject({
+      organizationName: "Org A",
+      role: "technician",
+    });
+    expect(memberships.find((membership) => membership.orgId === orgB)).toMatchObject({
+      organizationName: "Org B",
+      role: "viewer",
+    });
+
+    // Contrast: the same user's memberships under a normal request session
+    // (no login_lookup) are scoped to the current org only — which is why
+    // listMemberships must run under the flag.
+    const visibleInOrgA = await inSession(multiOrgUser, orgA, "technician", async () =>
+      currentTransaction().organizationMembership.findMany({
+        where: { userId: multiOrgUser, status: "active" },
+        select: { orgId: true },
+      })
+    );
+    expect(visibleInOrgA.map((row) => row.orgId)).toEqual([orgA]);
+  });
+
   it("derives background job scope and role from active membership", async () => {
     const rows = await runWithBackgroundDatabaseSession(
       appClient,

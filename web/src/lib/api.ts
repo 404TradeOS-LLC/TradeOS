@@ -148,7 +148,8 @@ export interface WorkspaceMembership {
 }
 
 export function getWorkspaceMemberships(token: string, signal?: AbortSignal) {
-  return apiFetch<WorkspaceMembership[]>("/api/v1/auth/memberships", { token, signal });
+  // Per-user auth-scoped data: never serve it from any framework cache.
+  return apiFetch<WorkspaceMembership[]>("/api/v1/auth/memberships", { token, signal, cache: "no-store" });
 }
 
 export interface WorkspaceSession {
