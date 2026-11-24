@@ -39,6 +39,38 @@ import {
 import { AddMemberForm } from "./add-member-form";
 import { SendInviteForm } from "./send-invite-form";
 
+/**
+ * Closed allowlist for the read-only selected-account ABC sandbox quote.
+ * The pilot SKUs plus the test SKUs ABC API Support provided 2026-11-24
+ * for issue #711 (branch 254 items and the branch 340 priced / $0-price
+ * lists). No free-form SKU input: the server enforces the same closed list
+ * (selectedQuoteSchema in supplierIntegration.controller.ts).
+ */
+const ABC_SELECTED_QUOTE_SKUS = [
+  { value: "02GASTZ3WW", label: "02GASTZ3WW · ABC documentation sample" },
+  { value: "654210", label: "654210 · TradeOS pilot SKU" },
+  { value: "17CTRV12FN", label: "17CTRV12FN · ABC test data (branch 254)" },
+  { value: "0150013884", label: "0150013884 · ABC test data (branch 254)" },
+  { value: "02IKDYARAB", label: "02IKDYARAB · ABC test data (branch 340, priced)" },
+  { value: "02IKDYARCA", label: "02IKDYARCA · ABC test data (branch 340, priced)" },
+  { value: "0150013846", label: "0150013846 · ABC test data (branch 340, priced)" },
+  { value: "0170030023", label: "0170030023 · ABC test data (branch 340, priced)" },
+  { value: "0150013902", label: "0150013902 · ABC test data (branch 340, priced)" },
+  { value: "02CTL303GG", label: "02CTL303GG · ABC test data (branch 340, priced)" },
+  { value: "05CTSRR10", label: "05CTSRR10 · ABC test data (branch 340, priced)" },
+  { value: "02GATZ3WW", label: "02GATZ3WW · ABC test data (branch 340, priced)" },
+  { value: "04CTPRSTWW", label: "04CTPRSTWW · ABC test data (branch 340, priced)" },
+  { value: "01CT25BK", label: "01CT25BK · ABC test data (branch 340, priced)" },
+  { value: "14MIDEGBK", label: "14MIDEGBK · ABC test data (branch 340, priced)" },
+  { value: "07CS300054", label: "07CS300054 · ABC test data (branch 340, $0 price)" },
+  { value: "07GAEGUCGY", label: "07GAEGUCGY · ABC test data (branch 340, $0 price)" },
+  { value: "08GAEPADH", label: "08GAEPADH · ABC test data (branch 340, $0 price)" },
+  { value: "23CTCI9GG", label: "23CTCI9GG · ABC test data (branch 340, $0 price)" },
+  { value: "GGC615VGWH", label: "GGC615VGWH · ABC test data (branch 340, $0 price)" },
+] as const;
+
+type AbcSelectedQuoteSku = (typeof ABC_SELECTED_QUOTE_SKUS)[number]["value"];
+
 interface SettingsConsoleProps {
   supplierWorkflowIdentity: { orgId: string; userId: string } | null;
   /**
@@ -162,7 +194,7 @@ export function SettingsConsole({ supplierWorkflowIdentity, authSubject, initial
   >({ state: "idle" });
   const [selectedAbcShipTo, setSelectedAbcShipTo] = useState("");
   const [selectedAbcBranch, setSelectedAbcBranch] = useState("");
-  const [selectedAbcSku, setSelectedAbcSku] = useState<"654210" | "02GASTZ3WW">("02GASTZ3WW");
+  const [selectedAbcSku, setSelectedAbcSku] = useState<AbcSelectedQuoteSku>("02GASTZ3WW");
   const [abcSelectedQuote, setAbcSelectedQuote] = useState<
     | { state: "idle" | "loading" }
     | { state: "ready"; sku: string; priced: boolean; price: number | null; stockingUnit: string | null; providerStatus: string; providerStatusMessage: string | null }
@@ -1052,12 +1084,15 @@ export function SettingsConsole({ supplierWorkflowIdentity, authSubject, initial
                           label="Read-only sandbox test item"
                           value={selectedAbcSku}
                           onChange={(event) => {
-                            setSelectedAbcSku(event.target.value as "654210" | "02GASTZ3WW");
+                            setSelectedAbcSku(event.target.value as AbcSelectedQuoteSku);
                             resetAbcSelectedQuote();
                           }}
                         >
-                          <option value="02GASTZ3WW">02GASTZ3WW · ABC documentation sample</option>
-                          <option value="654210">654210 · TradeOS pilot SKU</option>
+                          {ABC_SELECTED_QUOTE_SKUS.map((sku) => (
+                            <option key={sku.value} value={sku.value}>
+                              {sku.label}
+                            </option>
+                          ))}
                         </SelectField>
                         <Button type="button" variant="outline"
                           disabled={abcSelectedQuote.state === "loading"}

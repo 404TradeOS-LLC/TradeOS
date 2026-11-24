@@ -230,8 +230,14 @@ or ABC Production API entitlement.
 `POST /api/v1/supplier-integrations/abc/selected-price-probe` requires an
 authenticated workspace owner/admin with `costbook.manage`, and a strict body:
 `{ "shipToNumber": "...", "branchNumber": "...", "sku": "654210" }`.
-For now `sku` is restricted to `654210` or the ABC documented sample
-`02GASTZ3WW` (not guaranteed to be priceable in the sandbox). Callers cannot
+`sku` is restricted to a closed allowlist: the pilot SKUs `654210` and the ABC
+documented sample `02GASTZ3WW`, plus the test SKUs ABC API Support provided
+2026-11-24 for issue #711 — branch 254 items `17CTRV12FN`, `0150013884`;
+branch 340 priced items `02IKDYARAB`, `02IKDYARCA`, `0150013846`,
+`0170030023`, `0150013902`, `02CTL303GG`, `05CTSRR10`, `02GATZ3WW`,
+`04CTPRSTWW`, `01CT25BK`, `14MIDEGBK`; branch 340 $0-price items
+`07CS300054`, `07GAEGUCGY`, `08GAEPADH`, `23CTCI9GG`, `GGC615VGWH` (none
+guaranteed to be priceable in the sandbox). Callers cannot
 specify tenant, supplier, URL, quantity, unit, or purpose. This is a single
 explicit user-initiated diagnostic, not scheduled price synchronization.
 

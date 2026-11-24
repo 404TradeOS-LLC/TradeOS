@@ -472,6 +472,27 @@ describe("selected ABC sandbox quote enforces account membership and no-write bo
     }));
   });
 
+  it("accepts an ABC-provided test SKU from the widened allowlist (#711)", async () => {
+    const payload = { shipToNumber: "2010466-2", branchNumber: "254", sku: "17CTRV12FN" };
+    search.mockResolvedValue([{ number: "2010466-2", status: "active", branches: [
+      { number: "254", status: "active", homeBranch: false },
+    ] }]);
+    quote.mockResolvedValue([{ id: "selected-review-0", itemNumber: "17CTRV12FN",
+      statusCode: "OK", currencyCode: "USD", unitPrice: 12.25, uom: "PC" }]);
+    const response = await request(app()).post(path).send(payload);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      priced: true, price: 12.25, currency: "USD", stockingUnit: "PC",
+      materialCreated: false, priceApplied: false, accountPreferenceSaved: false,
+      unitMappingVerified: false,
+    });
+    expect(quote).toHaveBeenCalledWith(
+      [{ id: "selected-review-0", itemNumber: "17CTRV12FN", quantity: 1 }],
+      { shipToNumber: "2010466-2", branchNumber: "254" },
+      expect.any(AbortSignal),
+    );
+  });
+
   it.each([
     ["other account", { ...body, shipToNumber: "another" }],
     ["other branch", { ...body, branchNumber: "987" }],
