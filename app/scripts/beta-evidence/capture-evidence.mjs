@@ -956,17 +956,28 @@ try {
   // on the persisted state: the "Checklist complete" text renders only
   // after both PATCH refetches land.
   //
-  // Use .click(), NOT .check(): the checkboxes are controlled by the
-  // persisted timestamp props, so their checked state only flips after
-  // the PATCH + query refetch — and Playwright's .check() verifies the
-  // state immediately after clicking instead of polling for the async
-  // update, throwing "Clicking the checkbox did not change its state"
-  // (verified empirically: .check() throws within ~1s when the state
-  // flips after a 2s round-trip; Codex P2 on PR #1083). .click() returns
-  // after the click action, and the waitForFunction below is the
-  // retrying settle signal for both mutations.
-  await page.getByLabel("Exclusions reviewed", { exact: true }).click();
-  await page.getByLabel("Price sources reviewed", { exact: true }).click();
+  // Use getByRole("checkbox", { name }) with .click() — NOT getByLabel
+  // and NOT .check(). Two independent hazards, both verified
+  // empirically against Base-UI-faithful fixtures:
+  // (1) Base UI's Checkbox renders TWO elements per box: the visible
+  // <span role="checkbox" aria-labelledby> and a hidden <input
+  // type="checkbox" aria-hidden> carrying the same id, so the <label
+  // for> association plus the aria-labelledby reference make
+  // getByLabel resolve to 2 elements and trip strict mode (staging
+  // orchestrator 45479023041). getByRole only matches elements in the
+  // accessibility tree, so the aria-hidden input is excluded and the
+  // locator resolves to exactly the visible checkbox.
+  // (2) The checkboxes are controlled by the persisted timestamp
+  // props, so their checked state only flips after the PATCH + query
+  // refetch — and Playwright's .check() verifies the state immediately
+  // after clicking instead of polling for the async update, throwing
+  // "Clicking the checkbox did not change its state" (.check() throws
+  // within ~1s when the state flips after a 2s round-trip; Codex P2
+  // on PR #1083). .click() returns after the click action, and the
+  // waitForFunction below is the retrying settle signal for both
+  // mutations.
+  await page.getByRole("checkbox", { name: "Exclusions reviewed", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Price sources reviewed", exact: true }).click();
   await page.waitForFunction(
     () => document.body.innerText.includes("Checklist complete"),
     undefined,
