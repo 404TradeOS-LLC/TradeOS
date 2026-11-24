@@ -26,6 +26,6 @@ authRouter.post("/logout", authRateLimit, requireAuth, databaseSession, asyncHan
 // login / refresh / bootstrap, which also run without databaseSession.
 // Do not add databaseSession here; use runInDatabaseTransaction if
 // these methods ever need to share a request transaction.
-authRouter.get("/memberships", requireAuth, membershipsRateLimit, asyncHandler(authController.listMemberships));
+authRouter.get("/memberships", membershipsRateLimit, requireAuth, asyncHandler(authController.listMemberships));
 authRouter.post("/select-organization", authRateLimit, requireAuth, asyncHandler(authController.selectOrganization));
 authRouter.post("/invites/accept", authRateLimit, asyncHandler(authController.acceptInvite));

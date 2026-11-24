@@ -1,7 +1,7 @@
+import { createHash } from "node:crypto";
 import { rateLimit } from "express-rate-limit";
 import type { MemoryStore } from "express-rate-limit";
 import { Request, Response } from "express";
-import type { AuthedRequest } from "./auth";
 
 /**
  * Per-user rate limit for GET /api/v1/auth/memberships (CodeQL alert 43,
@@ -12,31 +12,43 @@ import type { AuthedRequest } from "./auth";
  * (20 requests / 15 min, IP-scoped) would 429 normal navigation. The
  * budget here is deliberately generous (600 / 15 min per user) — a human
  * cannot load 600 pages in 15 minutes, but a tight loop hammering the
- * endpoint trips it. The key is the authenticated user id, not the IP:
- * the layout fetches server-side from shared Vercel egress IPs, so an
- * IP-scoped bucket would throttle all users together. There is deliberately
- * no req.ip fallback: express-rate-limit rejects key generators that
- * reference req.ip (IPv6 bypass risk), and unauthenticated requests never
- * reach this limiter anyway (requireAuth 401s first).
+ * endpoint trips it.
  *
- * Must run AFTER requireAuth in the route chain: the key comes from
- * req.auth.userId, which only exists once the bearer credential is verified.
- * Unauthenticated requests never reach it (requireAuth 401s first) and
- * never consume budget.
+ * ORDERING IS LOAD-BEARING — the limiter MUST run BEFORE requireAuth in the
+ * route chain. CodeQL's missing-rate-limiting query flags the authorization
+ * performed inside requireAuth itself (all three alert references point
+ * into app/backend/middleware/auth.ts), and a middleware only "guards" the
+ * route when it precedes the expensive handler. A limiter placed after
+ * requireAuth leaves the JWT verification itself unguarded, and the query
+ * keeps flagging the route — proven twice by the PR #1066 CodeQL check
+ * (once with a factory-built limiter, once with a direct call after
+ * requireAuth). The other auth routes are not flagged precisely because
+ * their limiter runs before requireAuth.
+ *
+ * KEYING — the limiter cannot key on the verified user id, because that
+ * only exists after requireAuth runs. It keys on a SHA-256 hash of the
+ * bearer credential from the Authorization header (the same header
+ * requireAuth reads), so each credential gets its own 600-request budget
+ * and no verified identity is needed. The raw credential never enters the
+ * store — only its hash. Requests with no credential share one "unknown"
+ * bucket; they would 401 at requireAuth anyway, so throttling them
+ * together is harmless. A caller rotating fresh (invalid) credentials
+ * gets a fresh bucket per credential, so this blunts a tight loop, not a
+ * distributed credential-rotation attack — the same limit as any
+ * pre-authentication keying.
+ *
+ * IP-scoped keying is deliberately NOT used: the layout fetches server-side
+ * from shared Vercel egress IPs, so an IP bucket would throttle all users
+ * together. There is deliberately no req.ip fallback: express-rate-limit
+ * rejects key generators that reference req.ip (IPv6 bypass risk).
  *
  * Shape is deliberate: the production middleware is a direct top-level
  * rateLimit() call, exactly like authRateLimit and
- * platformProvisioningRateLimit. CodeQL's missing-rate-limiting query does
- * not see through a factory function, so building the production middleware
- * through createMembershipsRateLimit left the route flagged (proven by the
- * PR #1066 CodeQL check). The factory below exists only so tests can pass
- * a fresh store and a tight budget; production always uses the direct
- * export. The import shape is deliberate too: `rateLimit` is imported as a
- * NAMED export (the query models `moduleImport("express-rate-limit")` and
- * its `rateLimit` member). A default import combined with a named
- * `MemoryStore` import left the route flagged even as a direct call —
- * the second PR #1066 CodeQL run proved it — so do not switch this back
- * to a default import; `MemoryStore` is imported type-only for that reason.
+ * platformProvisioningRateLimit, and `rateLimit` is imported as a NAMED
+ * export (the query models `moduleImport("express-rate-limit")` and its
+ * `rateLimit` member). The factory below exists only so tests can pass a
+ * fresh store and a tight budget; production always uses the direct
+ * export. `MemoryStore` is imported type-only.
  *
  * Per-instance budget (accepted limitation, same as authRateLimit and
  * platformProvisioningRateLimit): the default memory store keeps counts
@@ -49,10 +61,18 @@ import type { AuthedRequest } from "./auth";
 const windowMs = Number(process.env.MEMBERSHIPS_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000;
 const limit = Number(process.env.MEMBERSHIPS_RATE_LIMIT_MAX) || 600;
 
+/** Bucket key: SHA-256 of the bearer credential, or "unknown" when absent. */
+function membershipsKey(req: Request): string {
+  const bearer = req.header("authorization");
+  const token = bearer?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!token) return "unknown";
+  return createHash("sha256").update(token).digest("hex");
+}
+
 export const membershipsRateLimit = rateLimit({
   windowMs,
   limit,
-  keyGenerator: (req: Request) => (req as AuthedRequest).auth?.userId ?? "unknown",
+  keyGenerator: membershipsKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many membership requests, try again later" },
@@ -71,7 +91,7 @@ export function createMembershipsRateLimit(options: {
     windowMs: options.windowMs ?? windowMs,
     limit: options.limit ?? limit,
     ...(options.store ? { store: options.store } : {}),
-    keyGenerator: (req: Request) => (req as AuthedRequest).auth?.userId ?? "unknown",
+    keyGenerator: membershipsKey,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: "Too many membership requests, try again later" },
