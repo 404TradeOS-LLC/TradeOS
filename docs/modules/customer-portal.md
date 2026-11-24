@@ -71,7 +71,7 @@ Portal timelines render proposal delivery history, contract events, and invoice 
 
 ## Closeout handoff
 
-The customer-portal project page has a read-only closeout handoff section (S069): the closeout status, readiness checklist, resolved punch summary, warranty records as stored, and a link to the rendered closeout document. The handoff comes from `CustomerPortalService.getProject` (`closeout` field) and is scoped to the owning customer through the existing portal session; a foreign project 404s before any closeout read. The portal has no closeout write. When no closeout exists yet, the section says the contractor has not shared a handoff for the project.
+The customer-portal project page has a read-only closeout handoff section (S069): the closeout status, readiness checklist, resolved punch summary, warranty records as stored, and a link to the rendered closeout document. The handoff comes from `CustomerPortalService.getProject` (`closeout` field) and is scoped to the owning customer through the existing portal session; a foreign project 404s before any closeout read. The portal has no closeout write. When no closeout exists yet, the section says the contractor has not shared a handoff for the project. The scoping is also enforced at the database boundary (restrictive `*_customer_portal_scope_policy` on each closeout table), and the checklist's completed-job evidence comes from the narrow read-only `app_completed_job_ids_for_project()` probe because a portal session cannot read jobs — so a handed-off project correctly shows its completed-job artifact present. Each warranty row shows the recorded expiry ("Coverage ends …", from `endsAt`) and "Not recorded" when none was recorded.
 
 ## Invoice presentation
 

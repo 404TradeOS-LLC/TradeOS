@@ -358,7 +358,10 @@ export class CustomerPortalService {
    */
   async getCloseoutDocument(context: CustomerPortalContext, projectId: string) {
     await this.assertProject(context, projectId);
-    return this.closeout.getCloseoutDocumentHtml(projectId, context.orgId);
+    // Portal path: the completed-job evidence comes from the
+    // org/customer-scoped probe, not the staff-only jobs read (see
+    // CloseoutService.computeChecklist).
+    return this.closeout.getCloseoutDocumentHtml(projectId, context.orgId, { portalCustomerId: context.customerId });
   }
 
   /**
@@ -369,7 +372,10 @@ export class CustomerPortalService {
   private async getCloseoutHandoff(context: CustomerPortalContext, projectId: string): Promise<PortalCloseoutHandoff | null> {
     let result: GetCloseoutResult;
     try {
-      result = await this.closeout.getCloseoutByProject(projectId, context.orgId);
+      // Portal path: the completed-job evidence comes from the
+      // org/customer-scoped probe, not the staff-only jobs read (see
+      // CloseoutService.computeChecklist).
+      result = await this.closeout.getCloseoutByProject(projectId, context.orgId, { portalCustomerId: context.customerId });
     } catch (error) {
       if (error instanceof ApiError && error.statusCode === 404) return null;
       throw error;

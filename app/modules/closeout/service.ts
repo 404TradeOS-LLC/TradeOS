@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { ActivityTimelineService } from "../intelligence/service";
@@ -36,6 +37,19 @@ import {
  * ready/handoff are manager-only (owner/admin/dispatcher).
  */
 const MANAGER_ROLES = new Set(["owner", "admin", "dispatcher"]);
+
+/**
+ * Portal callers pass their verified customer id so the completed-job
+ * evidence comes from the org/customer-scoped probe
+ * (app_completed_job_ids_for_project) instead of the staff-only jobs
+ * read — a portal_customer session cannot read jobs at all, so the plain
+ * read would always report the completed-job artifact missing. Staff
+ * callers omit this and keep the plain jobs read; the probe is never
+ * used on a staff path.
+ */
+export interface CloseoutPortalOptions {
+  portalCustomerId?: string;
+}
 
 function isManagerRole(role?: string | null): boolean {
   return !!role && MANAGER_ROLES.has(role);
@@ -273,10 +287,10 @@ export class CloseoutService {
     return created;
   }
 
-  async getCloseoutByProject(projectId: string, orgId?: string): Promise<GetCloseoutResult> {
+  async getCloseoutByProject(projectId: string, orgId?: string, options?: CloseoutPortalOptions): Promise<GetCloseoutResult> {
     const row = await prisma.projectCloseout.findFirst({ where: { projectId, ...(orgId ? { orgId } : {}) } });
     if (!row) throw new ApiError(404, `Project ${projectId} has no closeout`);
-    return { closeout: toCloseoutDTO(row), checklist: await this.computeChecklist(projectId, orgId) };
+    return { closeout: toCloseoutDTO(row), checklist: await this.computeChecklist(projectId, orgId, options) };
   }
 
   async markCloseoutReady(projectId: string, orgId?: string, actorUserId?: string, actorRole?: string): Promise<GetCloseoutResult> {
@@ -316,15 +330,44 @@ export class CloseoutService {
     }
     // Reopen/create of a punch item does not move the closeout out of
     // ready, so recheck readiness here: a handoff must never land while
-    // punch items are open, whatever path reached it.
+    // punch items are open, whatever path reached it. The recheck gives
+    // the detailed 409 message, but it is NOT the atomic guard — a
+    // punch reopen between the recheck and the write must not hand off
+    // with an open punch item. The write below is therefore conditional
+    // in a single statement (same pattern as updatePunchItem's
+    // still-unverified write): it matches only a still-ready closeout
+    // whose project has no open or in_progress punch item, so the
+    // readiness check and the handed_off write commit atomically.
     const checklist = await this.computeChecklist(projectId, orgId);
     if (!checklist.ready) {
       throw new ApiError(409, `Closeout is not ready: missing ${checklist.missing.join(", ")}`);
     }
-    const row = await prisma.projectCloseout.update({
-      where: { id: existing.id },
+    const write = await prisma.projectCloseout.updateMany({
+      where: {
+        id: existing.id,
+        ...(orgId ? { orgId } : {}),
+        status: "ready",
+        project: { punchItems: { none: { status: { in: ["open", "in_progress"] } } } },
+      },
       data: { status: "handed_off", handedOffAt: new Date(), handedOffById: actorUserId ?? existing.handedOffById },
     });
+    if (write.count === 0) {
+      // Something moved between the recheck and the write: either the
+      // closeout left ready (a concurrent handoff) or a punch item was
+      // reopened/created. Re-read to explain which, rather than
+      // reporting success for a write that did not land.
+      const fresh = await prisma.projectCloseout.findFirst({ where: { id: existing.id } });
+      if (!fresh || fresh.status !== "ready") {
+        throw new ApiError(409, `ProjectCloseout ${existing.id} cannot be handed off from status ${fresh?.status ?? "unknown"}`);
+      }
+      const freshChecklist = await this.computeChecklist(projectId, orgId);
+      if (!freshChecklist.ready) {
+        throw new ApiError(409, `Closeout is not ready: missing ${freshChecklist.missing.join(", ")}`);
+      }
+      throw new ApiError(409, "Closeout is no longer ready");
+    }
+    const row = await prisma.projectCloseout.findFirst({ where: { id: existing.id } });
+    if (!row) throw new ApiError(404, `Project ${projectId} has no closeout`);
     const handedOff = toCloseoutDTO(row);
     await this.recordEvent({
       orgId,
@@ -339,6 +382,33 @@ export class CloseoutService {
   }
 
   /**
+   * Completed-job ids for the readiness checklist. Staff callers read
+   * jobs directly (unchanged). Portal callers cannot: jobs_select_policy
+   * permits only administrators and actively assigned users, so a plain
+   * read under a portal_customer session returns zero jobs and the
+   * checklist would always report the completed-job artifact missing.
+   * The portal path therefore reads through
+   * app_completed_job_ids_for_project — a narrow, read-only, STABLE,
+   * SECURITY DEFINER probe that answers only for the caller's own org,
+   * and for a portal session only for a project owned by the portal
+   * customer. jobs RLS itself is untouched.
+   */
+  private async completedJobIds(projectId: string, orgId: string | undefined, portalCustomerId?: string): Promise<string[]> {
+    if (!portalCustomerId) {
+      const jobs = await prisma.job.findMany({
+        where: { projectId, ...(orgId ? { orgId } : {}), status: "completed" },
+        orderBy: { completedAt: "desc" },
+        select: { id: true },
+      });
+      return jobs.map((job) => job.id);
+    }
+    const rows = await prisma.$queryRaw<Array<{ job_ids: string[] }>>(
+      Prisma.sql`SELECT public.app_completed_job_ids_for_project(${projectId}::uuid) AS job_ids`,
+    );
+    return rows[0]?.job_ids ?? [];
+  }
+
+  /**
    * The readiness checklist. A signed contract is present when a Contract
    * has signedAt set (the stored status vocabulary keeps the legacy
    * `pending_signature` value until sign(), so signedAt is the reliable
@@ -348,15 +418,16 @@ export class CloseoutService {
    * proposal at all. Ready requires a completed job, every applicable
    * artifact present, and zero open punch items.
    */
-  async computeChecklist(projectId: string, orgId?: string): Promise<CloseoutChecklist> {
+  async computeChecklist(projectId: string, orgId?: string, options?: CloseoutPortalOptions): Promise<CloseoutChecklist> {
     const orgScope = orgId ? { orgId } : {};
-    const [completedJobs, signedContracts, finalInvoices, proposals, openPunchCount] = await Promise.all([
-      prisma.job.findMany({ where: { projectId, ...orgScope, status: "completed" }, orderBy: { completedAt: "desc" }, select: { id: true } }),
+    const [completedJobIds, signedContracts, finalInvoices, proposals, openPunchCount] = await Promise.all([
+      this.completedJobIds(projectId, orgId, options?.portalCustomerId),
       prisma.contract.findMany({ where: { projectId, signedAt: { not: null }, project: orgId ? { orgId } : undefined }, select: { id: true } }),
       prisma.invoice.findMany({ where: { projectId, status: { not: "draft" }, project: orgId ? { orgId } : undefined }, select: { id: true } }),
       prisma.proposal.findMany({ where: { projectId, project: orgId ? { orgId } : undefined }, select: { id: true, status: true } }),
       prisma.punchItem.count({ where: { projectId, ...orgScope, status: { in: ["open", "in_progress"] } } }),
     ]);
+    const completedJobs = completedJobIds.map((id) => ({ id }));
     const acceptedProposal = proposals.find((proposal) => proposal.status === "accepted");
     const acceptedStatus = acceptedProposal ? "present" : proposals.length === 0 ? "not_applicable" : "missing";
     const missing: string[] = [];
@@ -499,7 +570,7 @@ export class CloseoutService {
    * project has no warranty record, warrantyHtml is empty and
    * warrantyMessage says so explicitly.
    */
-  async getCloseoutDocumentData(projectId: string, orgId?: string): Promise<CloseoutDocumentData> {
+  async getCloseoutDocumentData(projectId: string, orgId?: string, options?: CloseoutPortalOptions): Promise<CloseoutDocumentData> {
     const project = await prisma.project.findFirst({
       where: { id: projectId, ...(orgId ? { orgId } : {}) },
       include: { customer: { select: { id: true, name: true, email: true } } },
@@ -508,7 +579,7 @@ export class CloseoutService {
     const closeoutRow = await prisma.projectCloseout.findFirst({ where: { projectId, ...(orgId ? { orgId } : {}) } });
     if (!closeoutRow) throw new ApiError(404, `Project ${projectId} has no closeout`);
     const closeout = toCloseoutDTO(closeoutRow);
-    const checklist = await this.computeChecklist(projectId, orgId);
+    const checklist = await this.computeChecklist(projectId, orgId, options);
     const [jobs, invoices, contracts, punchItems, warranties] = await Promise.all([
       prisma.job.findMany({ where: { projectId, ...(orgId ? { orgId } : {}), status: "completed" }, orderBy: { completedAt: "desc" } }),
       prisma.invoice.findMany({ where: { projectId, project: orgId ? { orgId } : undefined }, orderBy: { invoiceNumber: "asc" } }),
@@ -524,13 +595,19 @@ export class CloseoutService {
     const signedContracts = contracts.filter((contract) => contract.signedAt);
     const paidInvoices = invoices.filter((invoice) => invoice.status === "paid");
     const openPunchItems = punchItems.filter((item) => item.status === "open" || item.status === "in_progress");
+    // Under a portal session the jobs read above returns zero rows
+    // (jobs_select_policy is staff-only), so the summary count comes from
+    // the checklist's probe-backed completed-job count on the portal path
+    // — the same evidence the checklist itself uses. Staff paths keep the
+    // direct jobs read.
+    const completedJobCount = options?.portalCustomerId ? checklist.completedJobs.count : jobs.length;
     const handoffDocuments: string[] = [];
     if (signedContracts.length) handoffDocuments.push("Signed contract");
     if (checklist.finalInvoice.present) handoffDocuments.push("Final invoice");
     if (checklist.acceptedProposal.status === "present") handoffDocuments.push("Accepted proposal");
     for (const warranty of warranties) handoffDocuments.push(`Warranty: ${warranty.title}`);
     const closeoutSummary = [
-      `Closeout for ${project.name}: ${jobs.length} completed job${jobs.length === 1 ? "" : "s"},`,
+      `Closeout for ${project.name}: ${completedJobCount} completed job${completedJobCount === 1 ? "" : "s"},`,
       `${signedContracts.length} signed contract${signedContracts.length === 1 ? "" : "s"},`,
       `${paidInvoices.length} paid invoice${paidInvoices.length === 1 ? "" : "s"},`,
       `${openPunchItems.length} open punch item${openPunchItems.length === 1 ? "" : "s"},`,
@@ -562,6 +639,9 @@ export class CloseoutService {
           customerName,
           customerEmail,
           effectiveDate: warranty.startsAt ?? null,
+          // The recorded expiry, passed through exactly as stored: null
+          // renders "Not recorded" — never a substituted date.
+          expiryDate: warranty.endsAt ?? null,
           workmanshipCoverage: warranty.coverageText,
           manufacturerCoverage: "Not recorded in this workspace — see the source document.",
           exclusions: ["No exclusions recorded in this workspace — see the source document."],
@@ -618,8 +698,8 @@ export class CloseoutService {
    * HTML frames). A warranty frame without an article is skipped rather
    * than breaking the packet.
    */
-  async getCloseoutDocumentHtml(projectId: string, orgId?: string): Promise<{ html: string; filename: string }> {
-    const data = await this.getCloseoutDocumentData(projectId, orgId);
+  async getCloseoutDocumentHtml(projectId: string, orgId?: string, options?: CloseoutPortalOptions): Promise<{ html: string; filename: string }> {
+    const data = await this.getCloseoutDocumentData(projectId, orgId, options);
     const warrantyArticles = data.warrantyHtml
       .map((frameHtml) => frameHtml.match(/<article class="frame-page">[\s\S]*?<\/article>/)?.[0] ?? null)
       .filter((article): article is string => article !== null);

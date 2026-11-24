@@ -15,6 +15,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { getPortalProject, buildCloseoutChecklistArtifacts } from "@/lib/api";
 import {
   formatCurrency,
+  formatDate,
   formatInvoiceCurrency,
   getInvoiceDisplayStatus,
   getProposalDisplayStatus,
@@ -313,6 +314,12 @@ export default async function CustomerPortalProjectPage({ params }: { params: Pr
                       <div key={warranty.id} className="rounded-xl border border-border/60 bg-muted/20 p-3">
                         <p className="text-sm font-medium text-foreground">{warranty.title}</p>
                         <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{warranty.coverageText}</p>
+                        {/* The recorded expiry, exactly as stored: no
+                            endsAt means no expiry was recorded — never an
+                            invented date. */}
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Coverage ends {warranty.endsAt ? formatDate(warranty.endsAt) : "Not recorded"}
+                        </p>
                       </div>
                     ))}
                   </div>

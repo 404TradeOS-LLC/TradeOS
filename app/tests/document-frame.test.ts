@@ -86,6 +86,7 @@ describe("document frame templates", () => {
         customerName: "Jordan Rivers",
         customerEmail: "jordan@example.com",
         effectiveDate: new Date("2026-07-03T18:00:00.000Z"),
+        expiryDate: new Date("2031-07-03T18:00:00.000Z"),
         workmanshipCoverage: "Five-year workmanship support on installation labor.",
         manufacturerCoverage: "Manufacturer-backed shingle system warranty per registered package.",
         exclusions: ["Storm damage", "Unapproved third-party penetrations"],
@@ -111,6 +112,8 @@ describe("document frame templates", () => {
 
     expect(warrantyHtml).toContain("Warranty Coverage Guide");
     expect(warrantyHtml).toContain("Five-year workmanship support");
+    expect(warrantyHtml).toContain("Expires");
+    expect(warrantyHtml).toContain("2031-07-03");
     expect(maintenanceHtml).toContain("Roof Maintenance Guide");
     expect(maintenanceHtml).toContain("Clear debris from valleys");
   });
@@ -124,6 +127,7 @@ describe("document frame templates", () => {
         customerName: "Jordan Rivers",
         customerEmail: "jordan@example.com",
         effectiveDate: null,
+        expiryDate: null,
         workmanshipCoverage: "Five-year workmanship support on installation labor.",
         manufacturerCoverage: "Manufacturer-backed shingle system warranty per registered package.",
         exclusions: ["Storm damage"],
@@ -134,6 +138,47 @@ describe("document frame templates", () => {
 
     expect(warrantyHtml).toContain("Not recorded");
     expect(warrantyHtml).not.toContain("Date unavailable");
+  });
+
+  it("renders a recorded warranty expiry and a null expiry as Not recorded, never an invented date", () => {
+    const withExpiry = renderWarrantyFrameHtml({
+      brand,
+      warranty: {
+        projectName: "Oak Street Roof Replacement",
+        projectAddress: "44 Oak St, Carmel, IN",
+        customerName: "Jordan Rivers",
+        customerEmail: "jordan@example.com",
+        effectiveDate: new Date("2026-07-03T18:00:00.000Z"),
+        expiryDate: new Date("2027-07-03T18:00:00.000Z"),
+        workmanshipCoverage: "One-year workmanship support on installation labor.",
+        manufacturerCoverage: "Manufacturer-backed shingle system warranty per registered package.",
+        exclusions: ["Storm damage"],
+        supportProcess: "Email photos and a description of the issue to schedule an inspection.",
+        requiredDocuments: ["Final invoice"],
+      },
+    });
+    expect(withExpiry).toContain("Expires");
+    expect(withExpiry).toContain("2027-07-03");
+
+    const withoutExpiry = renderWarrantyFrameHtml({
+      brand,
+      warranty: {
+        projectName: "Oak Street Roof Replacement",
+        projectAddress: "44 Oak St, Carmel, IN",
+        customerName: "Jordan Rivers",
+        customerEmail: "jordan@example.com",
+        effectiveDate: new Date("2026-07-03T18:00:00.000Z"),
+        expiryDate: null,
+        workmanshipCoverage: "One-year workmanship support on installation labor.",
+        manufacturerCoverage: "Manufacturer-backed shingle system warranty per registered package.",
+        exclusions: ["Storm damage"],
+        supportProcess: "Email photos and a description of the issue to schedule an inspection.",
+        requiredDocuments: ["Final invoice"],
+      },
+    });
+    expect(withoutExpiry).toContain("Expires");
+    expect(withoutExpiry).toContain("Not recorded");
+    expect(withoutExpiry).not.toContain("2027-07-03");
   });
 
   it("fails closed for unsafe frame colors, fonts, and logo URLs", () => {

@@ -531,7 +531,12 @@ operation writes a Contract, Proposal, Invoice, or Estimate row.
     `completedById`.
   - `POST /projects/:projectId/closeout/handoff` — `crm.write` + manager
     role. `409` unless the closeout is `ready`. Stamps `handedOffAt` /
-    `handedOffById`.
+    `handedOffById`. Handoff rechecks the readiness checklist first (for
+    the detailed `409`), and the write itself is conditional in a single
+    statement — still `ready` and no `open` / `in_progress` punch item —
+    so a punch item reopened or created between the recheck and the
+    write makes the write match zero rows and the handoff `409`s instead
+    of landing with an open punch item.
   - `GET /projects/:projectId/closeout/document` — `crm.read`. Serves the
     closeout packet as `text/html` (`Content-Disposition: inline`), the
     rendered closeout frame with each rendered warranty frame's page
@@ -582,7 +587,16 @@ documentHref }` (or `null` when no closeout exists yet), and `GET
 /api/v1/customer-portal/projects/:id/closeout/document` serves the
 rendered closeout packet as `text/html` to the verified portal session.
 The portal exposes no closeout mutation; the web portal proxy route
-exports only `GET`.
+exports only `GET`. Portal reads of the closeout tables are
+additionally customer-scoped at the database boundary (restrictive
+`*_customer_portal_scope_policy` on each table), and the portal
+checklist's completed-job evidence comes from the narrow read-only
+`app_completed_job_ids_for_project()` probe — a portal session cannot
+read jobs (`jobs_select_policy` is staff-only), so the plain jobs read
+would always report the completed-job artifact missing; jobs RLS itself
+is untouched. Each rendered warranty frame shows the recorded expiry
+("Expires", from `endsAt`) and "Not recorded" when none was recorded;
+the portal handoff section shows the same ("Coverage ends …").
 
 ### CRM Customer search and service addresses
 

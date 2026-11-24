@@ -359,7 +359,7 @@ describe("CustomerPortalService", () => {
     ]);
     expect(response.closeout.documentHref).toBe("/api/customer-portal/projects/project-a/closeout/document");
     expect(JSON.stringify(response.closeout)).not.toContain("staff-1");
-    expect(service.closeout.getCloseoutByProject).toHaveBeenCalledWith("project-a", "org-a");
+    expect(service.closeout.getCloseoutByProject).toHaveBeenCalledWith("project-a", "org-a", { portalCustomerId: "customer-a" });
     expect(service.closeout.listPunchItemsByProject).toHaveBeenCalledWith("project-a", "org-a");
     expect(service.closeout.listWarrantyRecordsByProject).toHaveBeenCalledWith("project-a", "org-a");
   });
@@ -390,7 +390,7 @@ describe("CustomerPortalService", () => {
     const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
 
     await expect(service.getCloseoutDocument(context, "project-a")).resolves.toEqual(document);
-    expect(service.closeout.getCloseoutDocumentHtml).toHaveBeenCalledWith("project-a", "org-a");
+    expect(service.closeout.getCloseoutDocumentHtml).toHaveBeenCalledWith("project-a", "org-a", { portalCustomerId: "customer-a" });
   });
 
   it("denies another tenant's closeout document before any closeout read", async () => {

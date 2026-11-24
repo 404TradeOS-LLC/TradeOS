@@ -3,11 +3,12 @@ const mockPrisma = {
   job: { findFirst: jest.fn(), findMany: jest.fn() },
   organizationMembership: { findFirst: jest.fn() },
   punchItem: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn(), count: jest.fn() },
-  projectCloseout: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
+  projectCloseout: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
   contract: { findFirst: jest.fn(), findMany: jest.fn() },
   invoice: { findFirst: jest.fn(), findMany: jest.fn() },
   proposal: { findMany: jest.fn() },
   warrantyRecord: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn(), update: jest.fn(), delete: jest.fn() },
+  $queryRaw: jest.fn(),
 };
 
 const mockActivityTimeline = {
@@ -380,6 +381,34 @@ describe("CloseoutService project closeout", () => {
 
     expect(checklist.acceptedProposal.status).toBe("not_applicable");
     expect(checklist.ready).toBe(true);
+    expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("checklist uses the completed-job probe for a portal caller and never the staff jobs read", async () => {
+    checklistMocks();
+    mockPrisma.$queryRaw.mockResolvedValue([{ job_ids: ["job-1"] }]);
+
+    const service = new CloseoutService();
+    const checklist = await service.computeChecklist("project-1", "org-1", { portalCustomerId: "customer-1" });
+
+    expect(checklist.ready).toBe(true);
+    expect(checklist.completedJobs).toEqual({ count: 1, ids: ["job-1"] });
+    expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
+    // A portal_customer session cannot read jobs at all, so the plain
+    // read must not run on the portal path.
+    expect(mockPrisma.job.findMany).not.toHaveBeenCalled();
+  });
+
+  it("checklist reports no completed job to a portal caller when the probe returns none", async () => {
+    checklistMocks();
+    mockPrisma.$queryRaw.mockResolvedValue([{ job_ids: [] }]);
+
+    const service = new CloseoutService();
+    const checklist = await service.computeChecklist("project-1", "org-1", { portalCustomerId: "customer-1" });
+
+    expect(checklist.ready).toBe(false);
+    expect(checklist.missing).toContain("completed job");
+    expect(checklist.completedJobs).toEqual({ count: 0, ids: [] });
   });
 
   it("markReady moves draft to ready and audits project_closeout.ready", async () => {
@@ -421,15 +450,29 @@ describe("CloseoutService project closeout", () => {
   });
 
   it("markHandedOff moves ready to handed_off and audits the handoff", async () => {
-    mockPrisma.projectCloseout.findFirst.mockResolvedValue(closeoutRow({ status: "ready" }));
+    mockPrisma.projectCloseout.findFirst
+      .mockResolvedValueOnce(closeoutRow({ status: "ready" }))
+      .mockResolvedValue(closeoutRow({ status: "handed_off", handedOffAt: now, handedOffById: "user-1" }));
     checklistMocks();
-    mockPrisma.projectCloseout.update.mockResolvedValue(closeoutRow({ status: "handed_off", handedOffAt: now, handedOffById: "user-1" }));
+    mockPrisma.projectCloseout.updateMany.mockResolvedValue({ count: 1 });
 
     const service = new CloseoutService();
     const handedOff = await service.markCloseoutHandedOff("project-1", "org-1", "user-1", "dispatcher");
 
     expect(handedOff.status).toBe("handed_off");
     expect(handedOff.handedOffAt).toBeTruthy();
+    // The write is conditional in a single statement: still ready, and no
+    // open or in_progress punch item on the project.
+    expect(mockPrisma.projectCloseout.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "closeout-1",
+          status: "ready",
+          project: { punchItems: { none: { status: { in: ["open", "in_progress"] } } } },
+        }),
+        data: expect.objectContaining({ status: "handed_off" }),
+      }),
+    );
     expect(mockActivityTimeline.record).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: "project_closeout.handed_off", actorUserId: "user-1" }),
     );
@@ -444,7 +487,39 @@ describe("CloseoutService project closeout", () => {
       statusCode: 409,
       message: expect.stringContaining("open punch items (1)"),
     });
-    expect(mockPrisma.projectCloseout.update).not.toHaveBeenCalled();
+    expect(mockPrisma.projectCloseout.updateMany).not.toHaveBeenCalled();
+    expect(mockActivityTimeline.record).not.toHaveBeenCalled();
+  });
+
+  it("markHandedOff refuses when a punch item opens between the recheck and the write", async () => {
+    mockPrisma.projectCloseout.findFirst.mockResolvedValue(closeoutRow({ status: "ready" }));
+    checklistMocks();
+    // The recheck sees zero open punch items, but the conditional write
+    // matches nothing — a punch item opened in between.
+    mockPrisma.punchItem.count.mockResolvedValueOnce(0).mockResolvedValue(1);
+    mockPrisma.projectCloseout.updateMany.mockResolvedValue({ count: 0 });
+
+    const service = new CloseoutService();
+    await expect(service.markCloseoutHandedOff("project-1", "org-1", "user-1", "owner")).rejects.toMatchObject({
+      statusCode: 409,
+      message: expect.stringContaining("open punch items (1)"),
+    });
+    expect(mockPrisma.projectCloseout.updateMany).toHaveBeenCalledTimes(1);
+    expect(mockActivityTimeline.record).not.toHaveBeenCalled();
+  });
+
+  it("markHandedOff refuses when a concurrent handoff already landed", async () => {
+    mockPrisma.projectCloseout.findFirst
+      .mockResolvedValueOnce(closeoutRow({ status: "ready" }))
+      .mockResolvedValue(closeoutRow({ status: "handed_off", handedOffAt: now, handedOffById: "user-1" }));
+    checklistMocks();
+    mockPrisma.projectCloseout.updateMany.mockResolvedValue({ count: 0 });
+
+    const service = new CloseoutService();
+    await expect(service.markCloseoutHandedOff("project-1", "org-1", "user-1", "owner")).rejects.toMatchObject({
+      statusCode: 409,
+      message: expect.stringContaining("cannot be handed off from status handed_off"),
+    });
     expect(mockActivityTimeline.record).not.toHaveBeenCalled();
   });
 
@@ -453,7 +528,7 @@ describe("CloseoutService project closeout", () => {
 
     const service = new CloseoutService();
     await expect(service.markCloseoutHandedOff("project-1", "org-1", "user-1", "owner")).rejects.toMatchObject({ statusCode: 409 });
-    expect(mockPrisma.projectCloseout.update).not.toHaveBeenCalled();
+    expect(mockPrisma.projectCloseout.updateMany).not.toHaveBeenCalled();
   });
 });
 
@@ -611,15 +686,24 @@ describe("CloseoutService document data", () => {
   });
 
   it("renders an explicitly supplied warranty start as the effective date", async () => {
-    documentMocks({ warranties: [warrantyRow({ startsAt: new Date("2026-11-01T00:00:00.000Z") })] });
+    documentMocks({
+      warranties: [
+        warrantyRow({
+          startsAt: new Date("2026-11-01T00:00:00.000Z"),
+          endsAt: new Date("2028-11-01T00:00:00.000Z"),
+        }),
+      ],
+    });
 
     const service = new CloseoutService();
     const data = await service.getCloseoutDocumentData("project-1", "org-1");
 
     expect(data.warrantyHtml).toHaveLength(1);
     expect(data.warrantyHtml[0]).toContain("2026-11-01");
+    expect(data.warrantyHtml[0]).toContain("Expires");
+    expect(data.warrantyHtml[0]).toContain("2028-11-01");
     // The only "Not recorded" left is the manufacturer-coverage line —
-    // the effective date itself renders the supplied start.
+    // the effective date and the expiry both render their supplied dates.
     expect(data.warrantyHtml[0].match(/Not recorded/g)).toHaveLength(1);
   });
 

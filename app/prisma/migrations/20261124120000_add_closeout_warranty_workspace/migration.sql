@@ -154,6 +154,51 @@ AS $$
   );
 $$;
 
+-- Portal completion probe for the closeout checklist. A portal_customer
+-- session cannot read jobs at all (jobs_select_policy permits only
+-- administrators and actively assigned users), so a portal checklist
+-- computed from a plain jobs read would always report the completed-job
+-- artifact missing — a handed-off project would show ready: false to its
+-- own customer. This probe answers only which completed jobs belong to
+-- the caller's project, bypassing the caller's row visibility (SECURITY
+-- DEFINER, owner postgres) exactly like app_job_belongs_to_caller_org
+-- above — verified live: under a portal_customer session a direct jobs
+-- read returns zero rows while this probe returns the project's
+-- completed jobs. It is read-only, STABLE, pins search_path, and reveals
+-- nothing cross-org or cross-customer: for a portal session it answers
+-- only for a project owned by the portal customer (the EXISTS on
+-- projects enforces that in the function body, not via RLS); for staff
+-- it answers for the caller's own org. It returns the completed job ids
+-- (an empty array when none) so the checklist keeps its { count, ids }
+-- shape. It is deliberately left with the default PUBLIC execute grant,
+-- like app_job_belongs_to_caller_org: migrations run before role
+-- provisioning in scripts/deploy-migrations.sh, so a GRANT TO
+-- tradeos_app here would fail on a fresh database. Only the portal
+-- checklist path and the portal closeout document's job query call it —
+-- staff paths keep the plain jobs read.
+CREATE OR REPLACE FUNCTION public.app_completed_job_ids_for_project(p_project_id uuid)
+RETURNS uuid[]
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COALESCE(array_agg(jobs.id), '{}'::uuid[])
+  FROM public.jobs
+  WHERE jobs.project_id = p_project_id
+    AND jobs.org_id = (SELECT current_app_org_id())
+    AND jobs.status = 'completed'
+    AND (
+      (SELECT current_app_role()) <> 'portal_customer'
+      OR EXISTS (
+        SELECT 1 FROM public.projects
+        WHERE projects.id = p_project_id
+          AND projects.org_id = (SELECT current_app_org_id())
+          AND projects.customer_id = (SELECT public.current_app_portal_customer_id())::uuid
+      )
+    );
+$$;
+
 -- Punch items: org-scoped reads for every role. Writes are staff-manager
 -- roles (owner/admin/dispatcher, plus legacy estimator — spelled out
 -- explicitly, NOT via current_app_can_write(), which the deployed
@@ -167,6 +212,25 @@ $$;
 CREATE POLICY punch_items_select_policy ON public.punch_items
 FOR SELECT USING (
   org_id = (SELECT current_app_org_id())
+);
+
+-- A portal session may read only the rows of its own customer's
+-- projects. The org-scoped SELECT policy above stays the permissive
+-- staff policy; this restrictive policy adds the customer predicate only
+-- for the portal role, replicating the projects/customers portal-scope
+-- pattern from 20260828150000_add_customer_portal_identity (the project
+-- join is the same shape the contract/invoice portal policies use).
+-- Without it a portal_customer session could read every customer's punch
+-- items in the organization.
+CREATE POLICY punch_items_customer_portal_scope_policy ON public.punch_items
+AS RESTRICTIVE FOR SELECT USING (
+  (SELECT public.current_app_role()) <> 'portal_customer'
+  OR EXISTS (
+    SELECT 1 FROM public.projects
+    WHERE projects.id = punch_items.project_id
+      AND projects.org_id = (SELECT current_app_org_id())
+      AND projects.customer_id = (SELECT public.current_app_portal_customer_id())::uuid
+  )
 );
 
 CREATE POLICY punch_items_insert_policy ON public.punch_items
@@ -210,6 +274,19 @@ FOR SELECT USING (
   org_id = (SELECT current_app_org_id())
 );
 
+-- Portal customer scope: see punch_items_customer_portal_scope_policy
+-- above — a portal session reads only its own customer's projects.
+CREATE POLICY project_closeouts_customer_portal_scope_policy ON public.project_closeouts
+AS RESTRICTIVE FOR SELECT USING (
+  (SELECT public.current_app_role()) <> 'portal_customer'
+  OR EXISTS (
+    SELECT 1 FROM public.projects
+    WHERE projects.id = project_closeouts.project_id
+      AND projects.org_id = (SELECT current_app_org_id())
+      AND projects.customer_id = (SELECT public.current_app_portal_customer_id())::uuid
+  )
+);
+
 CREATE POLICY project_closeouts_insert_policy ON public.project_closeouts
 FOR INSERT WITH CHECK (
   org_id = (SELECT current_app_org_id())
@@ -243,6 +320,19 @@ FOR DELETE USING (
 CREATE POLICY warranty_records_select_policy ON public.warranty_records
 FOR SELECT USING (
   org_id = (SELECT current_app_org_id())
+);
+
+-- Portal customer scope: see punch_items_customer_portal_scope_policy
+-- above — a portal session reads only its own customer's projects.
+CREATE POLICY warranty_records_customer_portal_scope_policy ON public.warranty_records
+AS RESTRICTIVE FOR SELECT USING (
+  (SELECT public.current_app_role()) <> 'portal_customer'
+  OR EXISTS (
+    SELECT 1 FROM public.projects
+    WHERE projects.id = warranty_records.project_id
+      AND projects.org_id = (SELECT current_app_org_id())
+      AND projects.customer_id = (SELECT public.current_app_portal_customer_id())::uuid
+  )
 );
 
 CREATE POLICY warranty_records_insert_policy ON public.warranty_records

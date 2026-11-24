@@ -68,6 +68,9 @@ export interface WarrantyFrameInput {
     customerName: string;
     customerEmail: string;
     effectiveDate: Date | null;
+    // Recorded coverage end, passed through exactly as stored (S069).
+    // Null renders "Not recorded" — never a substituted date.
+    expiryDate: Date | null;
     workmanshipCoverage: string;
     manufacturerCoverage: string;
     exclusions: string[];
@@ -237,6 +240,9 @@ export function renderWarrantyFrameHtml(input: WarrantyFrameInput) {
       // substitute the record's creation date — that would publish a
       // coverage date staff did not supply.
       { label: "Effective", value: input.warranty.effectiveDate ? formatDocumentDate(input.warranty.effectiveDate) : "Not recorded" },
+      // Same rule for the recorded end: no supplied endsAt means no
+      // expiry was recorded, never an invented one.
+      { label: "Expires", value: input.warranty.expiryDate ? formatDocumentDate(input.warranty.expiryDate) : "Not recorded" },
     ],
     heroMetric: {
       label: "Coverage in force",

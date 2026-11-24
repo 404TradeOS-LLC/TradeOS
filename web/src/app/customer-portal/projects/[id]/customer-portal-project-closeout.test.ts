@@ -50,6 +50,15 @@ test("portal warranty section shows records as stored and says so when none exis
   assert.doesNotMatch(source, /1 year|12 months?|2 years?|5 years?|default warranty/i);
 });
 
+test("portal warranty section shows the recorded expiry and never invents one", async () => {
+  const source = await readSource();
+
+  // The recorded endsAt, exactly as stored; no endsAt renders
+  // "Not recorded", never a substituted date.
+  assert.match(source, /warranty\.endsAt/);
+  assert.match(source, /Coverage ends \{warranty\.endsAt \? formatDate\(warranty\.endsAt\) : "Not recorded"\}/);
+});
+
 test("portal closeout document link appears only when the handoff provides one", async () => {
   const source = await readSource();
 

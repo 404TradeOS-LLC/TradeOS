@@ -275,7 +275,15 @@ The single per-project handoff record, stored in `ProjectCloseout`
   proposal at all), and zero open punch items (`open` or `in_progress`)
 - `ready` (manager only) requires the checklist to be ready and stamps
   `completedAt` / `completedById`; `handed_off` (manager only) requires
-  `ready` and stamps `handedOffAt` / `handedOffById`
+  `ready` and stamps `handedOffAt` / `handedOffById`. Handoff rechecks
+  the checklist first (for the detailed `409`), and the write itself is
+  conditional in a single statement — it matches only a still-`ready`
+  closeout whose project has no `open` or `in_progress` punch item — so
+  a punch item reopened or created between the recheck and the write
+  makes the write match zero rows and the handoff `409`s instead of
+  landing with an open punch item. (`markReady` still uses the
+  recheck-then-write shape; making it conditional the same way is a
+  follow-up, not done here.)
 - the readiness checklist and the closeout document are assembled from
   real project records at read time
 
@@ -295,12 +303,29 @@ coverage term.
   process as not recorded in this workspace ("see the source document")
   because the record never carries them
 - `startsAt` / `endsAt` are optional; a record with no dates states no
-  term beyond its own quoted coverage text
+  term beyond its own quoted coverage text. The closeout document's
+  warranty frame renders `startsAt` as "Effective" and `endsAt` as
+  "Expires", each exactly as stored and "Not recorded" when absent —
+  never a substituted date. The portal handoff section renders the same
+  expiry ("Coverage ends …" / "Not recorded").
 
 ### Tenant isolation and audit
 
 - all three tables carry a direct `orgId` with forced RLS. Reads are
-  org-scoped for every role. Writes are owner/admin/estimator (via
+  org-scoped for every role, and a `portal_customer` session additionally
+  reads only its own customer's projects — a restrictive
+  `*_customer_portal_scope_policy` on each table joins through the owning
+  project to the portal customer (`current_app_portal_customer_id()`),
+  the same pattern as the projects/customers portal-scope policies. The
+  portal checklist's completed-job evidence comes from the narrow
+  read-only `app_completed_job_ids_for_project()` probe (SECURITY
+  DEFINER, same shape as `app_job_belongs_to_caller_org()`): a portal
+  session cannot read jobs at all (`jobs_select_policy` is staff-only),
+  so the plain jobs read would always report the completed-job artifact
+  missing; the probe answers only for the caller's own org, and for a
+  portal session only for a project owned by the portal customer. Jobs
+  RLS itself is untouched, and staff paths keep the plain jobs read.
+  Writes are owner/admin/estimator (via
   `current_app_can_write()`) plus `dispatcher` — the closeout manager
   role, which holds `crm.write` — and the assigned technician's punch
   resolve carve-out: a technician may update only a punch item assigned

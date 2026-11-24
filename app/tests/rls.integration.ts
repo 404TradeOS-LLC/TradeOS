@@ -4127,6 +4127,160 @@ describe("live organization row-level security", () => {
         await adminClient.appUser.deleteMany({ where: { id: dispatcherUser } });
       }
     });
+
+    it("scopes portal customer reads to the verified customer's own closeout rows and completed jobs", async () => {
+      // Same organization, two customers: the portal session of one must
+      // never see the other's punch items, closeouts, warranties, or
+      // completed jobs (S069 restrictive portal-scope policies +
+      // app_completed_job_ids_for_project). Fixtures live only for this
+      // test — the first test in this describe already cleaned its own.
+      const siblingCustomer = randomUUID();
+      const siblingProject = randomUUID();
+      const siblingAddress = randomUUID();
+      const ownPunch = randomUUID();
+      const siblingPunch = randomUUID();
+      const ownCloseout = randomUUID();
+      const siblingCloseout = randomUUID();
+      const ownWarranty = randomUUID();
+      const siblingWarranty = randomUUID();
+      const ownCompletedJob = randomUUID();
+      const siblingCompletedJob = randomUUID();
+      const portal = (customerId: string) => ({
+        sessionId: randomUUID(),
+        accessTokenId: randomUUID(),
+        orgId: orgA,
+        customerId,
+      });
+      const probe = (projectId: string) =>
+        currentTransaction().$queryRaw<Array<{ job_ids: string[] }>>(
+          Prisma.sql`SELECT public.app_completed_job_ids_for_project(${projectId}::uuid) AS job_ids`,
+        );
+      try {
+        await adminClient.customer.create({
+          data: { id: siblingCustomer, orgId: orgA, name: "Org A Sibling Customer", email: "orga-sibling@example.com" },
+        });
+        await adminClient.serviceAddress.create({
+          data: {
+            id: siblingAddress,
+            orgId: orgA,
+            customerId: siblingCustomer,
+            addressLine1: "2 S069 Way",
+            city: "Terre Haute",
+            state: "IN",
+            postalCode: "47802",
+          },
+        });
+        await adminClient.project.create({
+          data: { id: siblingProject, orgId: orgA, customerId: siblingCustomer, name: "Org A Sibling Project" },
+        });
+        await adminClient.job.createMany({
+          data: [
+            {
+              id: ownCompletedJob,
+              orgId: orgA,
+              projectId: projectA,
+              customerId: customerA,
+              serviceAddressId: serviceAddressA,
+              jobNumber: "JOB-2026-000069-PORTAL",
+              title: "Org A Completed Job",
+              jobType: "General Contracting",
+              status: "completed",
+              completedAt: new Date("2026-11-21T15:00:00.000Z"),
+              createdById: adminUser,
+            },
+            {
+              id: siblingCompletedJob,
+              orgId: orgA,
+              projectId: siblingProject,
+              customerId: siblingCustomer,
+              serviceAddressId: siblingAddress,
+              jobNumber: "JOB-2026-000069-SIBLING",
+              title: "Sibling Completed Job",
+              jobType: "General Contracting",
+              status: "completed",
+              completedAt: new Date("2026-11-21T16:00:00.000Z"),
+              createdById: adminUser,
+            },
+          ],
+        });
+        await adminClient.punchItem.createMany({
+          data: [
+            { id: ownPunch, orgId: orgA, projectId: projectA, title: "Own punch item", status: "open", createdById: adminUser },
+            { id: siblingPunch, orgId: orgA, projectId: siblingProject, title: "Sibling punch item", status: "open", createdById: adminUser },
+          ],
+        });
+        await adminClient.projectCloseout.createMany({
+          data: [
+            { id: ownCloseout, orgId: orgA, projectId: projectA, status: "draft" },
+            { id: siblingCloseout, orgId: orgA, projectId: siblingProject, status: "draft" },
+          ],
+        });
+        await adminClient.warrantyRecord.createMany({
+          data: [
+            { id: ownWarranty, orgId: orgA, projectId: projectA, title: "Own warranty", coverageText: "Own coverage.", sourceType: "other", createdById: adminUser },
+            { id: siblingWarranty, orgId: orgA, projectId: siblingProject, title: "Sibling warranty", coverageText: "Sibling coverage.", sourceType: "other", createdById: adminUser },
+          ],
+        });
+
+        const ownView = await runWithPortalDatabaseSession(appClient, portal(customerA), async () => ({
+          punches: await currentTransaction().punchItem.findMany({ orderBy: { id: "asc" } }),
+          closeouts: await currentTransaction().projectCloseout.findMany({ orderBy: { id: "asc" } }),
+          warranties: await currentTransaction().warrantyRecord.findMany({ orderBy: { id: "asc" } }),
+          foreignPunch: await currentTransaction().punchItem.findUnique({ where: { id: siblingPunch } }),
+          foreignCloseout: await currentTransaction().projectCloseout.findUnique({ where: { id: siblingCloseout } }),
+          foreignWarranty: await currentTransaction().warrantyRecord.findUnique({ where: { id: siblingWarranty } }),
+          ownCompletedJobs: await probe(projectA),
+          foreignCompletedJobs: await probe(siblingProject),
+        }));
+        expect(ownView.punches.map((row) => row.id)).toEqual([ownPunch]);
+        expect(ownView.closeouts.map((row) => row.id)).toEqual([ownCloseout]);
+        expect(ownView.warranties.map((row) => row.id)).toEqual([ownWarranty]);
+        expect(ownView.foreignPunch).toBeNull();
+        expect(ownView.foreignCloseout).toBeNull();
+        expect(ownView.foreignWarranty).toBeNull();
+        expect(ownView.ownCompletedJobs).toEqual([{ job_ids: [ownCompletedJob] }]);
+        expect(ownView.foreignCompletedJobs).toEqual([{ job_ids: [] }]);
+
+        const siblingView = await runWithPortalDatabaseSession(appClient, portal(siblingCustomer), async () => ({
+          punches: await currentTransaction().punchItem.findMany({ orderBy: { id: "asc" } }),
+          closeouts: await currentTransaction().projectCloseout.findMany({ orderBy: { id: "asc" } }),
+          warranties: await currentTransaction().warrantyRecord.findMany({ orderBy: { id: "asc" } }),
+          foreignPunch: await currentTransaction().punchItem.findUnique({ where: { id: ownPunch } }),
+          foreignCloseout: await currentTransaction().projectCloseout.findUnique({ where: { id: ownCloseout } }),
+          foreignWarranty: await currentTransaction().warrantyRecord.findUnique({ where: { id: ownWarranty } }),
+          ownCompletedJobs: await probe(siblingProject),
+          foreignCompletedJobs: await probe(projectA),
+        }));
+        expect(siblingView.punches.map((row) => row.id)).toEqual([siblingPunch]);
+        expect(siblingView.closeouts.map((row) => row.id)).toEqual([siblingCloseout]);
+        expect(siblingView.warranties.map((row) => row.id)).toEqual([siblingWarranty]);
+        expect(siblingView.foreignPunch).toBeNull();
+        expect(siblingView.foreignCloseout).toBeNull();
+        expect(siblingView.foreignWarranty).toBeNull();
+        expect(siblingView.ownCompletedJobs).toEqual([{ job_ids: [siblingCompletedJob] }]);
+        expect(siblingView.foreignCompletedJobs).toEqual([{ job_ids: [] }]);
+
+        // Staff reads are unchanged: an admin still sees both customers'
+        // rows in the org (the restrictive policies pass trivially for
+        // non-portal roles).
+        const staffView = await inSession(adminUser, orgA, "admin", async () => ({
+          punches: await currentTransaction().punchItem.findMany({ orderBy: { id: "asc" } }),
+          closeouts: await currentTransaction().projectCloseout.findMany({ orderBy: { id: "asc" } }),
+          warranties: await currentTransaction().warrantyRecord.findMany({ orderBy: { id: "asc" } }),
+        }));
+        expect(staffView.punches.map((row) => row.id).sort()).toEqual([ownPunch, siblingPunch].sort());
+        expect(staffView.closeouts.map((row) => row.id).sort()).toEqual([ownCloseout, siblingCloseout].sort());
+        expect(staffView.warranties.map((row) => row.id).sort()).toEqual([ownWarranty, siblingWarranty].sort());
+      } finally {
+        await adminClient.warrantyRecord.deleteMany({ where: { id: { in: [ownWarranty, siblingWarranty] } } });
+        await adminClient.projectCloseout.deleteMany({ where: { id: { in: [ownCloseout, siblingCloseout] } } });
+        await adminClient.punchItem.deleteMany({ where: { id: { in: [ownPunch, siblingPunch] } } });
+        await adminClient.job.deleteMany({ where: { id: { in: [ownCompletedJob, siblingCompletedJob] } } });
+        await adminClient.project.deleteMany({ where: { id: siblingProject } });
+        await adminClient.serviceAddress.deleteMany({ where: { id: siblingAddress } });
+        await adminClient.customer.deleteMany({ where: { id: siblingCustomer } });
+      }
+    });
   });
 });
 

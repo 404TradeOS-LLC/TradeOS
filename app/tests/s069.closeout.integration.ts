@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
-import { runWithDatabaseSession } from "../db/requestSession";
+import { runWithDatabaseSession, runWithPortalDatabaseSession } from "../db/requestSession";
 import { CloseoutService } from "../modules/closeout/service";
 
 /**
@@ -305,6 +305,141 @@ describe("S069 closeout and warranty workspace certification (live PostgreSQL)",
       ).toBe(0);
     } finally {
       await admin.punchItem.delete({ where: { id: punch.id } });
+    }
+  });
+
+  it("portal checklist reports the completed-job artifact present for a handed-off project", async () => {
+    // The journey test above left projectA handed off with every artifact
+    // present. Under a portal_customer session a plain jobs read returns
+    // zero rows (jobs_select_policy is staff-only), so without the probe
+    // this checklist would report the completed job missing and ready
+    // false — to the project's own customer.
+    const portalContext = { sessionId: randomUUID(), accessTokenId: randomUUID(), orgId: orgA, customerId: customerA };
+    const result = await runWithPortalDatabaseSession(app, portalContext, () =>
+      service.getCloseoutByProject(projectA, orgA, { portalCustomerId: customerA }),
+    );
+    expect(result.closeout.status).toBe("handed_off");
+    expect(result.checklist.ready).toBe(true);
+    expect(result.checklist.missing).toEqual([]);
+    expect(result.checklist.completedJobs).toEqual({ count: 1, ids: [jobA] });
+
+    // A different customer in the same org cannot see the closeout at all:
+    // the portal-scope policy hides the row before the service can read it.
+    const foreignCustomer = randomUUID();
+    await expect(
+      runWithPortalDatabaseSession(
+        app,
+        { sessionId: randomUUID(), accessTokenId: randomUUID(), orgId: orgA, customerId: foreignCustomer },
+        () => service.getCloseoutByProject(projectA, orgA, { portalCustomerId: foreignCustomer }),
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+
+    // The portal document uses the same probe-backed evidence: its summary
+    // counts the completed job, and a warranty with a recorded expiry
+    // renders that expiry (a warranty with no dates renders Not recorded).
+    const warranty = await runWithDatabaseSession(app, staffAuth, () =>
+      service.createWarrantyRecord({
+        orgId: orgA,
+        projectId: projectA,
+        title: "Dated workmanship warranty",
+        coverageText: "Two-year workmanship coverage per the signed contract.",
+        sourceType: "other",
+        startsAt: new Date("2026-07-03T18:00:00.000Z"),
+        endsAt: new Date("2028-07-03T18:00:00.000Z"),
+        createdById: staffUser,
+      }),
+    );
+    try {
+      const document = await runWithPortalDatabaseSession(app, portalContext, () =>
+        service.getCloseoutDocumentHtml(projectA, orgA, { portalCustomerId: customerA }),
+      );
+      expect(document.html).toContain("1 completed job");
+      expect(document.html).toContain("Expires");
+      expect(document.html).toContain("2028-07-03");
+      expect(document.html).toContain("Not recorded");
+    } finally {
+      await admin.warrantyRecord.delete({ where: { id: warranty.id } });
+    }
+  });
+
+  it("concurrent handoff attempts serialize: exactly one succeeds", async () => {
+    // A second project driven to ready, so the race runs against a
+    // closeout that is still ready when both attempts start. The
+    // conditional write (still ready AND no open punch item, in one
+    // statement) lets exactly one attempt land; the loser re-reads the
+    // row and reports 409 instead of recording a second handoff.
+    const projectB = randomUUID();
+    const proposalB = randomUUID();
+    const contractB = randomUUID();
+    const invoiceB = randomUUID();
+    const jobB = randomUUID();
+    try {
+      await admin.project.create({
+        data: { id: projectB, orgId: orgA, customerId: customerA, name: "S069 Project B" },
+      });
+      await admin.proposal.create({
+        data: { id: proposalB, projectId: projectB, status: "accepted", finalPrice: 100, priceLow: 90, priceHigh: 110 },
+      });
+      await admin.contract.create({
+        data: {
+          id: contractB,
+          projectId: projectB,
+          proposalId: proposalB,
+          status: "pending_signature",
+          termsText: "S069 contract B",
+          snapshotJson: contractSnapshot,
+          signedAt: new Date("2026-11-20T10:00:00.000Z"),
+        },
+      });
+      await admin.invoice.create({
+        data: { id: invoiceB, projectId: projectB, proposalId: proposalB, invoiceNumber: 2, status: "sent", amount: 100 },
+      });
+      await admin.job.create({
+        data: {
+          id: jobB,
+          orgId: orgA,
+          projectId: projectB,
+          customerId: customerA,
+          serviceAddressId: serviceAddressA,
+          jobNumber: "JOB-2026-000070",
+          title: "S069 Completed Job B",
+          jobType: "General Contracting",
+          status: "completed",
+          completedAt: new Date("2026-11-21T15:00:00.000Z"),
+          completedById: technicianUser,
+          createdById: staffUser,
+        },
+      });
+      await runWithDatabaseSession(app, staffAuth, () =>
+        service.createCloseoutForProject({ orgId: orgA, projectId: projectB, actorUserId: staffUser }),
+      );
+      await runWithDatabaseSession(app, staffAuth, () =>
+        service.markCloseoutReady(projectB, orgA, staffUser, "admin"),
+      );
+
+      const attempts = await Promise.allSettled([
+        runWithDatabaseSession(app, staffAuth, () => service.markCloseoutHandedOff(projectB, orgA, staffUser, "admin")),
+        runWithDatabaseSession(app, staffAuth, () => service.markCloseoutHandedOff(projectB, orgA, staffUser, "admin")),
+      ]);
+      expect(attempts.filter((attempt) => attempt.status === "fulfilled")).toHaveLength(1);
+      const rejected = attempts.filter((attempt) => attempt.status === "rejected");
+      expect(rejected).toHaveLength(1);
+      expect(rejected[0]).toMatchObject({ reason: { statusCode: 409 } });
+
+      const row = await admin.projectCloseout.findUniqueOrThrow({ where: { projectId: projectB } });
+      expect(row.status).toBe("handed_off");
+      expect(
+        await admin.activityEvent.count({
+          where: { orgId: orgA, entityType: "project_closeout", entityId: row.id, eventType: "project_closeout.handed_off" },
+        }),
+      ).toBe(1);
+    } finally {
+      await admin.projectCloseout.deleteMany({ where: { projectId: projectB } });
+      await admin.job.deleteMany({ where: { id: jobB } });
+      await admin.invoice.deleteMany({ where: { id: invoiceB } });
+      await admin.contract.deleteMany({ where: { id: contractB } });
+      await admin.proposal.deleteMany({ where: { id: proposalB } });
+      await admin.project.deleteMany({ where: { id: projectB } });
     }
   });
 });
