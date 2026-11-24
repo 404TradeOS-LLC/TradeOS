@@ -29,3 +29,16 @@ test("WorkspaceSwitcher switches through the server action and refreshes on succ
   assert.ok(source.includes('role="alert"'));
   assert.ok(source.includes("disabled={pending}"));
 });
+
+test("WorkspaceSwitcher re-enables the select after a successful switch", async () => {
+  const source = await readFile(switcherUrl, "utf8");
+  const fnIndex = source.indexOf("async function handleChange");
+  assert.notEqual(fnIndex, -1);
+  const fnSource = source.slice(fnIndex);
+  // router.refresh() preserves this client component's state, so the
+  // success path must clear pending explicitly — otherwise the select
+  // stays disabled until a full page reload.
+  const refreshIndex = fnSource.indexOf("router.refresh()");
+  assert.notEqual(refreshIndex, -1);
+  assert.ok(fnSource.slice(refreshIndex).includes("setPending(false)"));
+});
