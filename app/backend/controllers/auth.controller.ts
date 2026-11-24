@@ -3,6 +3,7 @@ import { z } from "zod";
 import { AuthService } from "../../modules/auth/service";
 import { scheduleEmailAfterResponse } from "../../modules/email/service";
 import { verifyAnyAuthToken } from "../auth/jwt";
+import { extractBearerToken } from "../auth/bearer";
 import { ApiError } from "../middleware/errorHandler";
 import { requireAuthContext, requireOrgId, requireRoles } from "../requestContext";
 
@@ -92,7 +93,7 @@ export const authController = {
   },
   async bootstrap(req: Request, res: Response) {
     const input = bootstrapSchema.parse(req.body);
-    const token = req.header("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+    const token = extractBearerToken(req.header("authorization"));
     if (!token) throw new ApiError(401, "Missing bearer token");
 
     const claims = await verifyAnyAuthToken(token);

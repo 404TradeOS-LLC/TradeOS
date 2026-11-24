@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { STAGING_AUTH, evaluateStagingAuth } from "../../domain";
 import { NextFunction, Request, Response } from "express";
 import { verifyAnyAuthToken } from "../auth/jwt";
+import { extractBearerToken } from "../auth/bearer";
 import { ApiError } from "./errorHandler";
 import { AuthContext } from "../auth/context";
 import { resolveAuthContext } from "../auth/session";
@@ -24,7 +25,7 @@ function matchesStagingFixtureSecret(token?: string): boolean {
 
 export function requireAuth(req: AuthedRequest, _res: Response, next: NextFunction): void {
   const bearer = req.header("authorization");
-  const token = bearer?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const token = extractBearerToken(bearer);
 
   const bypass = evaluateStagingAuth(process.env, "api");
   if (bypass.blocked) {

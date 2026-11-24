@@ -69,7 +69,7 @@ Every authenticated API request depends on three layers:
 2. organization-membership authorization
 3. forced PostgreSQL row-level security inside a scoped database session
 
-The organization context comes from the verified identity and the matching active membership, not from request-controlled tenant headers.
+The organization context comes from the verified identity and the matching active membership, not from request-controlled tenant headers. Bearer extraction in layer 1 is the linear parser `extractBearerToken` (`app/backend/auth/bearer.ts`); it replaced a polynomial backtracking regex (CodeQL #19, #4) with identical acceptance, so no header is accepted or rejected differently.
 
 The public customer portal is a separate identity boundary. A staff-issued
 high-entropy magic-link digest is stored in `customer_portal_access_tokens` and
