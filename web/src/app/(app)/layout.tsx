@@ -11,6 +11,16 @@ import { resolveWorkspaceKey } from "@/lib/workspace-key";
 
 const ATHENA_CAPABILITY_TIMEOUT_MS = 1500;
 
+// The memberships lookup gets its own, larger budget than the advisory
+// capability/settings lookups. GET /api/v1/auth/memberships takes
+// 311–2202ms against the staging API (Vercel runtime logs, 2026-11-24),
+// so the shared 1500ms budget aborted real lookups — and
+// resolveWorkspaceMemberships fails closed to [] on abort, which hides the
+// workspace switcher for multi-workspace users even though their
+// memberships exist and the endpoint answered 200. 5000ms covers the worst
+// observed latency by more than 2x while still bounding shell delay.
+const WORKSPACE_MEMBERSHIPS_TIMEOUT_MS = 5000;
+
 interface AthenaCapabilityResolution {
   enabled: boolean;
   retryOnClient: boolean;
@@ -54,7 +64,7 @@ async function resolveSettingsIdentity(token: string | null): Promise<{ role: st
 async function resolveWorkspaceMemberships(token: string | null): Promise<WorkspaceMembership[]> {
   if (!token) return [];
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), ATHENA_CAPABILITY_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), WORKSPACE_MEMBERSHIPS_TIMEOUT_MS);
   try {
     return await getWorkspaceMemberships(token, controller.signal);
   } catch {

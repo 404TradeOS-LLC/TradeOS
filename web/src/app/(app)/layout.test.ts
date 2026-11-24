@@ -4,6 +4,26 @@ import test from "node:test";
 
 const layoutUrl = new URL("./layout.tsx", import.meta.url);
 
+test("workspace memberships lookup gets a realistic timeout budget", async () => {
+  const source = await readFile(layoutUrl, "utf8");
+  // GET /api/v1/auth/memberships takes 311–2202ms against the staging API
+  // (Vercel runtime logs, 2026-11-24). The shared 1500ms advisory budget
+  // aborted real lookups, and resolveWorkspaceMemberships fails closed to
+  // [] on abort — which hides the workspace switcher for multi-workspace
+  // users even though their memberships exist and the endpoint answered
+  // 200. The memberships lookup must use its own larger budget.
+  const match = source.match(/WORKSPACE_MEMBERSHIPS_TIMEOUT_MS = (\d+)/);
+  assert.ok(match, "layout must define a dedicated memberships timeout");
+  assert.ok(
+    Number(match[1]) >= 5000,
+    `memberships timeout must be >= 5000ms, got ${match[1]}`
+  );
+  assert.ok(
+    source.includes("setTimeout(() => controller.abort(), WORKSPACE_MEMBERSHIPS_TIMEOUT_MS)"),
+    "resolveWorkspaceMemberships must use the dedicated memberships timeout"
+  );
+});
+
 test("AppLayout derives the remount key from the session token first", async () => {
   const source = await readFile(layoutUrl, "utf8");
   // The settings identity lookup fails closed to null after 1.5s, which
