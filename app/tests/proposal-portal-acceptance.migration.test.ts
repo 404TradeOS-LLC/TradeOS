@@ -57,3 +57,29 @@ describe("proposal portal acceptance policy migration", () => {
     expect(migration).toContain("Customer portal proposal acceptance may only award the project of the accepted proposal");
   });
 });
+
+// Codex P2 (PR #1079 promotion review): the trigger above only checked
+// the data-URL pattern, so a payload that decodes to bytes but is not an
+// image passed the database check. The follow-up migration carries the
+// magic-byte rule into the database without editing the landed migration.
+describe("signature image magic-byte migration", () => {
+  const migration = fs.readFileSync(
+    path.resolve(__dirname, "../prisma/migrations/20261124185609_add_signature_image_magic_bytes/migration.sql"),
+    "utf8"
+  );
+
+  it("adds a magic-byte validator for the accepted image types", () => {
+    expect(migration).toContain("create or replace function public.is_valid_signature_image(data_url text)");
+    expect(migration).toContain("decode(split_part(data_url, ',', 2), 'base64')");
+    // PNG 89 50 4E 47, JPEG FF D8 FF, GIF "GIF8", WebP RIFF....WEBP.
+    expect(migration).toContain("get_byte(bytes, 0) = 137");
+    expect(migration).toContain("get_byte(bytes, 0) = 255");
+    expect(migration).toContain("get_byte(bytes, 0) = 71");
+    expect(migration).toContain("get_byte(bytes, 8) = 87");
+  });
+
+  it("replaces the portal response trigger function with the magic-byte check", () => {
+    expect(migration).toContain("create or replace function public.enforce_customer_portal_proposal_response() returns trigger");
+    expect(migration).toContain("or not public.is_valid_signature_image(new.signature_data_url)");
+  });
+});
