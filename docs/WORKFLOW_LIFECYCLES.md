@@ -70,6 +70,7 @@ Current transition posture:
 - project status is partly direct and partly side-effect-driven from proposal and job workflows
 - proposal send/resend currently pushes persisted project status toward canonical `estimating`
 - proposal accept currently pushes persisted project status toward canonical `awarded`
+- proposal accept from the public portal is bound to the revision the customer reviewed (`expectedUpdatedAt`): a staff edit after the page rendered is a 409 — including a selection or allowance change, which advances the proposal revision in the same transaction as the child write
 - proposal draft creation/duplication and decline currently push persisted project status toward canonical `estimating` — except a decline from the public portal (DES-10-F7), which deliberately leaves the project untouched: a project may carry several proposals, and declining one must not un-award a project won through another
 - full canonical project transition enforcement remains a compatibility layer, not a single dedicated state machine
 

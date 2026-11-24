@@ -403,9 +403,10 @@ signatureDataUrl, signatureIpReported?, signatureUserAgentReported?,
 expectedUpdatedAt? }` and moves a `sent`/`viewed` proposal to `accepted`;
 `POST /api/v1/customer-portal/proposals/:id/decline` accepts `{ reason?,
 expectedUpdatedAt? }` (≤ 500 chars) and moves it to `declined`. The signature
-must be a drawn image that decodes to bytes
-(`data:image/png|jpeg|gif|webp;base64,…`, ≤ 2,000,000 chars) — a bare
-`data:image/` prefix with no payload is rejected with `400`. `expectedUpdatedAt`
+must be a drawn image that decodes to bytes starting with the magic bytes
+of the declared type (`data:image/png|jpeg|gif|webp;base64,…`, ≤ 2,000,000
+chars) — a bare `data:image/` prefix with no payload, a one-byte payload,
+and base64-encoded prose are rejected with `400`. `expectedUpdatedAt`
 is the proposal's `updatedAt` as rendered; when sent, a staff edit after the
 page rendered is a 409. The signer email is re-derived from the customer
 record, never taken from the request.
