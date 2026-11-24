@@ -8,7 +8,7 @@ import { assertApprovedRcUrl, assertNonProductionDataPlane } from "./beta-eviden
 import {
   APPROVED_EVENT_TYPE,
   REJECTED_EVENT_TYPE,
-  STAGING_PROJECT_REF,
+  ROLES_WITHOUT_BILLING_WRITE,
   WRONG_ROLE_BLOCKED,
   assertActivityEvent,
   assertChangeOrdersTab,
@@ -39,7 +39,8 @@ import {
 //     re-reject / edit an approved order (409), wrong-role create (403),
 //     cross-tenant read + approve (404), unauthenticated read + approve
 //     (401), unknown ids (404), and the absent portal decision endpoint
-//     (404). Customer approve/reject is BLOCKED by design (P1, ADR-010)
+//     (405 — the portal proxy route exports only GET). Customer
+//     approve/reject is BLOCKED by design (P1, ADR-010)
 //     and is never attempted.
 //
 // Bearer-material discipline (hard requirements, not guidance):
@@ -163,6 +164,13 @@ try {
   async function staffProxy(method, suffix, body, expectedStatus) {
     const response = await staffPage.request.fetch(new URL(`/api/proxy/${suffix}`, baseUrl).toString(), {
       method,
+      // The shipped proxy rejects mutations with a missing or foreign
+      // Origin before authentication (web/src/lib/proxy-origin.ts), and
+      // Playwright API requests carry no Origin by default — send the
+      // same-origin value explicitly so these calls exercise backend
+      // behavior instead of the CSRF guard. Safe methods do not need it,
+      // but sending it uniformly keeps every call on the same contract.
+      headers: { Origin: baseUrl },
       ...(body === undefined ? {} : { data: body }),
     });
     assert.equal(response.status(), expectedStatus, `${method} /api/proxy/${suffix} returned ${response.status()} (expected ${expectedStatus})`);
@@ -378,10 +386,13 @@ try {
   console.log(`PASS D1 change order CO-2 created through the staff ${report.stepPaths.create2 === "ui" ? "UI" : "API"}`);
 
   // N4 wrong-role: only exercisable when a low-permission staff identity is
-  // provisioned. The probe attempts a create (not a decision), so a
-  // 201 from an identity that holds billing.write after all can be cleaned
-  // up by deleting the draft it created instead of disturbing CO-1/CO-2.
-  // Without a provisioned identity the case is BLOCKED, never invented.
+  // provisioned. The principal's TEST Org role is verified BEFORE the
+  // mutation via GET /api/proxy/auth/memberships: only technician/viewer
+  // lack billing.write (app/domain/contracts.ts rolePermissions). A 201
+  // from a confirmed low-permission principal is an authorization
+  // regression and FAILs; a role that holds billing.write records
+  // NOT-APPLICABLE without attempting the mutation. Without a provisioned
+  // identity the case is BLOCKED, never invented.
   const wrongRoleEmail = config.wrongRoleEmail;
   const wrongRolePassword = config.wrongRolePassword;
   if (wrongRoleEmail && wrongRolePassword) {
@@ -404,18 +415,31 @@ try {
       await wrongRolePage.locator('[name="password"]').fill(wrongRolePassword);
       await wrongRolePage.getByRole("button", { name: "Sign in" }).click();
       await wrongRolePage.waitForURL(/\/(dashboard|finish-setup)(?:\?|$)/, { timeout: 60_000 });
-      const wrongRoleResponse = await wrongRolePage.request.post(new URL("/api/proxy/change-orders", baseUrl).toString(), {
-        data: { projectId: project.id, description: `S068 wrong-role probe ${suffix}`, scheduleImpactDays: 0 },
-      });
-      if (wrongRoleResponse.status() === 403) {
-        passCase("N4", "staff without billing.write denied change-order create (403)");
-      } else if (wrongRoleResponse.status() === 201) {
-        const created = await wrongRoleResponse.json();
-        await staffProxy("DELETE", `change-orders/${created.id}`, undefined, 204);
-        recordCase("N4", "NOT-APPLICABLE", "The provisioned identity holds billing.write (create returned 201); the probe draft was deleted");
-        console.log("NOT-APPLICABLE N4: provisioned identity holds billing.write; probe draft deleted");
+      const targetOrgId = config.orgId;
+      assert.ok(targetOrgId, "Cannot verify the wrong-role principal without the smoke org id (BETA_SMOKE_ORG_ID)");
+      const membershipsResponse = await wrongRolePage.request.get(new URL("/api/proxy/auth/memberships", baseUrl).toString());
+      assert.equal(membershipsResponse.status(), 200, `Wrong-role memberships lookup returned ${membershipsResponse.status()} (expected 200)`);
+      const memberships = await membershipsResponse.json();
+      assert.ok(Array.isArray(memberships), "Memberships lookup did not return an array");
+      const membership = memberships.find((entry) => entry.orgId === targetOrgId);
+      assert.ok(membership, "Wrong-role identity has no membership in the TEST Org");
+      if (!ROLES_WITHOUT_BILLING_WRITE.includes(membership.role)) {
+        recordCase("N4", "NOT-APPLICABLE", `The provisioned identity holds role ${membership.role}, which has billing.write; no low-permission identity is provisioned`);
+        console.log(`NOT-APPLICABLE N4: provisioned identity holds role ${membership.role}; mutation not attempted`);
       } else {
-        throw new Error(`Wrong-role create returned ${wrongRoleResponse.status()} (expected 403 or 201)`);
+        const wrongRoleResponse = await wrongRolePage.request.post(new URL("/api/proxy/change-orders", baseUrl).toString(), {
+          headers: { Origin: baseUrl },
+          data: { projectId: project.id, description: `S068 wrong-role probe ${suffix}`, scheduleImpactDays: 0 },
+        });
+        if (wrongRoleResponse.status() === 403) {
+          passCase("N4", "staff without billing.write denied change-order create (403)");
+        } else if (wrongRoleResponse.status() === 201) {
+          const created = await wrongRoleResponse.json();
+          await staffProxy("DELETE", `change-orders/${created.id}`, undefined, 204);
+          throw new Error(`Confirmed low-permission principal (role ${membership.role}) created a change order (201) — authorization regression; probe draft deleted`);
+        } else {
+          throw new Error(`Wrong-role create returned ${wrongRoleResponse.status()} (expected 403)`);
+        }
       }
       await wrongRoleContext.close();
     } catch (error) {
@@ -533,7 +557,13 @@ try {
     const anonContext = await browser.newContext({ viewport: { width: 1440, height: 1000 }, baseURL: baseUrl });
     const anonRead = await anonContext.request.get(`/api/proxy/change-orders/${changeOrder1.id}`);
     assert.equal(anonRead.status(), expectedStatusForCase("N6"), `Unauthenticated read returned ${anonRead.status()} (expected 401)`);
-    const anonApprove = await anonContext.request.post(`/api/proxy/change-orders/${changeOrder1.id}/approve`, { data: {} });
+    const anonApprove = await anonContext.request.post(`/api/proxy/change-orders/${changeOrder1.id}/approve`, {
+      // Same-origin value: the proxy rejects origin-less mutations (403)
+      // before authentication, so an anonymous probe without it would
+      // record 403 instead of the 401 the case is meant to prove.
+      headers: { Origin: baseUrl },
+      data: {},
+    });
     assert.equal(anonApprove.status(), expectedStatusForCase("N6"), `Unauthenticated approve returned ${anonApprove.status()} (expected 401)`);
     await anonContext.close();
     passCase("N6", "unauthenticated change-order read and approve denied (401)");
@@ -563,16 +593,22 @@ try {
 
   // N9: the customer portal exposes no change-order decision endpoint, and
   // its project read carries no change orders (service returns
-  // changeOrders: []). An anonymous decision POST must 404 (no such route);
-  // an anonymous portal project read must 401 (portal session required).
+  // changeOrders: []). An anonymous decision POST must 405: the portal
+  // proxy route exports only GET, so Next.js rejects the POST before any
+  // handler runs — that is the shipped proof that no decision action
+  // exists on the portal surface. An anonymous portal project read must
+  // 401 (portal session required).
   try {
     const anonContext = await browser.newContext({ viewport: { width: 1440, height: 1000 }, baseURL: baseUrl });
-    const portalApprove = await anonContext.request.post(`/api/customer-portal/change-orders/${changeOrder1.id}/approve`, { data: {} });
-    assert.equal(portalApprove.status(), expectedStatusForCase("N9"), `Portal decision POST returned ${portalApprove.status()} (expected 404)`);
+    const portalApprove = await anonContext.request.post(`/api/customer-portal/change-orders/${changeOrder1.id}/approve`, {
+      headers: { Origin: baseUrl },
+      data: {},
+    });
+    assert.equal(portalApprove.status(), expectedStatusForCase("N9"), `Portal decision POST returned ${portalApprove.status()} (expected 405)`);
     const portalProject = await anonContext.request.get(`/api/customer-portal/projects/${project.id}`);
     assert.equal(portalProject.status(), 401, `Unauthenticated portal project read returned ${portalProject.status()} (expected 401)`);
     await anonContext.close();
-    passCase("N9", "portal change-order decision endpoint absent (404); portal project read requires a session (401)");
+    passCase("N9", "portal change-order decision POST rejected (405 — route exports only GET); portal project read requires a session (401)");
   } catch (error) {
     failCase("N9", error);
   }

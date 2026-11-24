@@ -62,12 +62,12 @@ outcome only. All cases run against the sanitized tenant.
 | N1 | Approve an already-approved order | 409 |
 | N2 | Reject an already-approved order | 409 |
 | N3 | Add a line item to an approved order (draft-only guard) | 409 |
-| N4 | Create a change order as staff without `billing.write` | 403, or BLOCKED when no low-permission staff identity is provisioned (owner: Billy); NOT-APPLICABLE when the provisioned identity holds `billing.write` after all (its probe draft is deleted) |
+| N4 | Create a change order as staff without `billing.write` | 403, or BLOCKED when no low-permission staff identity is provisioned (owner: Billy). The script verifies the provisioned identity's TEST Org role via `GET /api/proxy/auth/memberships` before mutating: only technician/viewer lack `billing.write` (`app/domain/contracts.ts`). NOT-APPLICABLE when the provisioned identity holds a role with `billing.write` (no mutation attempted); a 201 from a confirmed low-permission principal FAILs as an authorization regression (its probe draft is deleted first) |
 | N5 | Read / approve a change order from another organization | 404 (requires `BETA_FOREIGN_CHANGE_ORDER_ID`; otherwise NOT-APPLICABLE) |
 | N6 | Read / approve a change order unauthenticated | 401 |
 | N7 | Approve an unknown change order id | 404 |
 | N8 | Create a change order for an unknown project | 404 |
-| N9 | Customer-portal change-order decision (`POST /api/customer-portal/change-orders/:id/approve`) | 404 — the endpoint does not exist; the portal project payload returns `changeOrders: []` |
+| N9 | Customer-portal change-order decision (`POST /api/customer-portal/change-orders/:id/approve`) | 405 — the portal proxy route exports only `GET`, so Next.js rejects the POST before any handler runs; that is the shipped proof no decision action exists on the portal surface. The portal project payload returns `changeOrders: []` |
 
 ### Blocked step (P1) — customer approve/reject, by design
 

@@ -10,6 +10,7 @@ import {
   CREDENTIAL_SCAN_PATTERNS,
   NEGATIVE_CASES,
   REJECTED_EVENT_TYPE,
+  ROLES_WITHOUT_BILLING_WRITE,
   S068_BLOCKED,
   STAGING_PROJECT_REF,
   WRONG_ROLE_BLOCKED,
@@ -135,8 +136,19 @@ test("covers every required negative case exactly once", () => {
   assert.equal(expectedStatusForCase("N4"), 403);
   assert.equal(expectedStatusForCase("N5"), 404);
   assert.equal(expectedStatusForCase("N6"), 401);
-  assert.equal(expectedStatusForCase("N9"), 404);
+  // N9 is a 405, not a 404: the portal proxy route exports only GET, so
+  // Next.js rejects the decision POST before any handler runs.
+  assert.equal(expectedStatusForCase("N9"), 405);
   assert.throws(() => expectedStatusForCase("N10"), /Unknown negative case/);
+});
+
+test("roles without billing.write match the domain rolePermissions map", () => {
+  // app/domain/contracts.ts: owner/admin/dispatcher/estimator hold
+  // billing.write; only technician and viewer lack it.
+  assert.deepEqual([...ROLES_WITHOUT_BILLING_WRITE], ["technician", "viewer"]);
+  for (const role of ["owner", "admin", "dispatcher", "estimator"]) {
+    assert.ok(!ROLES_WITHOUT_BILLING_WRITE.includes(role), `${role} holds billing.write`);
+  }
 });
 
 test("customer portal decision is BLOCKED by design, never a pass or a failure", () => {

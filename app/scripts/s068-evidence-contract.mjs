@@ -65,8 +65,16 @@ export const NEGATIVE_CASES = Object.freeze([
   Object.freeze({ caseId: "N6", step: "Read / approve a change order unauthenticated", expectedStatus: 401, expectedPage: null }),
   Object.freeze({ caseId: "N7", step: "Approve an unknown change order id", expectedStatus: 404, expectedPage: null }),
   Object.freeze({ caseId: "N8", step: "Create a change order for an unknown project", expectedStatus: 404, expectedPage: null }),
-  Object.freeze({ caseId: "N9", step: "Customer-portal change-order decision endpoint does not exist", expectedStatus: 404, expectedPage: null }),
+  Object.freeze({ caseId: "N9", step: "Customer-portal change-order decision POST is rejected (405 — the route exports only GET)", expectedStatus: 405, expectedPage: null }),
 ]);
+
+// Roles that lack billing.write, per app/domain/contracts.ts
+// rolePermissions: owner/admin/dispatcher/estimator hold it; technician
+// and viewer do not. The N4 wrong-role probe verifies the provisioned
+// identity's role against this list before mutating, so a 201 from a
+// confirmed low-permission principal is a FAIL, not a silent
+// NOT-APPLICABLE.
+export const ROLES_WITHOUT_BILLING_WRITE = Object.freeze(["technician", "viewer"]);
 
 export function expectedStatusForCase(caseId) {
   const found = NEGATIVE_CASES.find((entry) => entry.caseId === caseId);
