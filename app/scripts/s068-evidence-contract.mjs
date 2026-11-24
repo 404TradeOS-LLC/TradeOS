@@ -260,7 +260,11 @@ export function assertChangeOrdersTab({ pathname, search, projectId, status, bod
 export function assertDecisionHistory({ bodyText, decision }) {
   assert.ok(decision === "approved" || decision === "rejected", "Decision must be approved or rejected");
   const text = (bodyText ?? "").trim();
-  assert.ok(text.includes("Approval history"), "Change order must render the Approval history line");
+  // Case-insensitive: the workspace renders InfoPairs labels with CSS
+  // `uppercase`, so document.body.innerText reports "APPROVAL HISTORY"
+  // while the source label is "Approval history". The decision word and
+  // timestamp render in normal case and stay case-sensitive.
+  assert.ok(text.toLowerCase().includes("approval history"), "Change order must render the Approval history line");
   assert.ok(
     text.includes(decision === "approved" ? "Approved " : "Rejected "),
     `Approval history must record the ${decision} decision with a timestamp`,

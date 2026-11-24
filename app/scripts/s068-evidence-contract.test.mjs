@@ -80,6 +80,14 @@ test("accepts the approval-history line only with the decision word and a timest
   assert.doesNotThrow(() =>
     assertDecisionHistory({ bodyText: "Approval history Rejected 24 Nov 2026, 10:00", decision: "rejected" }),
   );
+  // Regression (evidence run 45494547637): the workspace renders InfoPairs
+  // labels with CSS `uppercase`, so innerText reports "APPROVAL HISTORY".
+  assert.doesNotThrow(() =>
+    assertDecisionHistory({ bodyText: "APPROVAL HISTORY Approved Nov 24, 2026, 9:48 PM", decision: "approved" }),
+  );
+  assert.doesNotThrow(() =>
+    assertDecisionHistory({ bodyText: "APPROVAL HISTORY Rejected Nov 24, 2026, 9:50 PM", decision: "rejected" }),
+  );
   assert.throws(() => assertDecisionHistory({ bodyText: "Approval history Draft", decision: "approved" }));
   assert.throws(() => assertDecisionHistory({ bodyText: "Approved 24 Nov 2026", decision: "approved" }));
   assert.throws(() =>

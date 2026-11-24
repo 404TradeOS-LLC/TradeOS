@@ -505,6 +505,12 @@ try {
   async function staffApiProbe(method, suffixPath, body, expectedStatus, label) {
     const response = await staffPage.request.fetch(new URL(`/api/proxy/${suffixPath}`, baseUrl).toString(), {
       method,
+      // Same-origin value: the shipped proxy rejects origin-less
+      // mutations with 403 before authentication (web/src/lib/proxy-origin.ts),
+      // and Playwright API requests carry no Origin by default — without
+      // this the probes record 403 instead of the backend's 409/404. The
+      // N6 anonymous probe already carries this header for the same reason.
+      headers: { Origin: baseUrl },
       ...(body === undefined ? {} : { data: body }),
     });
     assert.equal(response.status(), expectedStatus, `${label} returned ${response.status()} (expected ${expectedStatus})`);
