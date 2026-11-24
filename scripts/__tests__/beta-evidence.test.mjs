@@ -496,6 +496,15 @@ test("estimate finalize completes the Review readiness checklist first (DES-10-F
   assert.match(capture, /Checklist complete/);
   assert.ok(capture.indexOf('getByRole("checkbox", { name: "Exclusions reviewed"') < capture.indexOf(finalizeClick));
   assert.ok(capture.indexOf('getByRole("checkbox", { name: "Price sources reviewed"') < capture.indexOf(finalizeClick));
+  // The finalized-state wait must match the RENDERED badge label
+  // "Ready": StatusBadge title-cases the API status via
+  // formatStatusLabel, and exact text matching is case-sensitive, so
+  // the lowercase wait timed out on every run after PR #1054 added the
+  // title-case transform (staging orchestrator 45482601002; it had
+  // passed on staging 307b820d only because that build's badge rendered
+  // the raw status).
+  assert.match(capture, /getByText\("Ready", \{ exact: true \}\)\.waitFor/);
+  assert.doesNotMatch(capture, /getByText\("ready", \{ exact: true \}\)\.waitFor/);
 });
 
 test("canonical evidence navigates focused estimate stages at 390/768 and checks active step", () => {
@@ -556,10 +565,14 @@ test("post-markup rendered total settles on Review before it is asserted", () =>
 test("finalize ready wait is scoped to the Estimate workflow region", () => {
   // Regression guard for the run-41359082129 failure: the builder renders
   // the estimate status badge twice (page-header actions row + Review-stage
-  // "Internal estimate review" panel), so a bare getByText("ready") wait
-  // after Finalize estimate trips Playwright strict mode. The wait must be
-  // scoped to the Estimate workflow region, which selects the Review-stage
-  // badge adjacent to the finalize flow.
+  // "Internal estimate review" panel), so a bare text wait after Finalize
+  // estimate trips Playwright strict mode. The wait must be scoped to the
+  // Estimate workflow region, which selects the Review-stage badge
+  // adjacent to the finalize flow — and it must match the RENDERED label
+  // "Ready": StatusBadge title-cases the API status via formatStatusLabel
+  // and exact text matching is case-sensitive, so the lowercase wait
+  // timed out on every run after PR #1054 (staging orchestrator
+  // 45482601002).
   const finalizeBlock = capture.slice(capture.indexOf('getByRole("button", { name: "Finalize estimate" })'));
   const checkpoint06 = finalizeBlock.indexOf('await checkpoint("06"');
   assert.ok(checkpoint06 !== -1, "expected the finalize step to end at checkpoint 06");
@@ -567,13 +580,18 @@ test("finalize ready wait is scoped to the Estimate workflow region", () => {
   assert.ok(regionWait !== -1 && regionWait < checkpoint06, "expected a region-scoped wait in the finalize step");
   assert.match(
     finalizeBlock.slice(regionWait, checkpoint06),
-    /^getByRole\("region", \{ name: "Estimate workflow" \}\)\s*\.getByText\("ready", \{ exact: true \}\)\.waitFor/,
+    /^getByRole\("region", \{ name: "Estimate workflow" \}\)\s*\.getByText\("Ready", \{ exact: true \}\)\.waitFor/,
     "expected the finalize ready wait to be scoped to the Estimate workflow region",
   );
   assert.doesNotMatch(
     finalizeBlock.slice(0, checkpoint06),
     /await page\.getByText\("ready"/,
     "expected no bare ready wait in the finalize step",
+  );
+  assert.doesNotMatch(
+    finalizeBlock.slice(0, checkpoint06),
+    /\.getByText\("ready", \{ exact: true \}\)\.waitFor/,
+    "expected no lowercase ready wait in the finalize step",
   );
 });
 
