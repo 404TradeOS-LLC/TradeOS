@@ -101,6 +101,12 @@ export interface CreateProposalInput {
   finalPrice?: number | null;
   paymentScheduleJson?: unknown;
   termsAndConditions?: string;
+  // DES-10 Status Check: set when the contractor explicitly confirmed on
+  // the Status Check screen that no proposal for this project and estimate
+  // was present in the loaded list, then created again. Recorded as an
+  // activity event on a fresh create; never part of the idempotency hash,
+  // so a retry with or without the flag still replays the same draft.
+  confirmedNoMatch?: boolean;
 }
 
 export interface ProposalDTO {

@@ -61,6 +61,12 @@ export async function createProposalAction(_prev: CreateProposalActionState, for
   const timeline = String(formData.get("timeline") ?? "").trim();
   const termsAndConditions = String(formData.get("termsAndConditions") ?? "").trim();
   const paymentSchedule = readPaymentSchedule(formData);
+  // DES-10 Status Check: set only when the contractor explicitly confirmed
+  // on the Status Check screen that no proposal for this project and
+  // estimate was present in the loaded list, then created again. The
+  // service records the confirmation as an activity event on a fresh
+  // create; the flag never enters the idempotency hash.
+  const confirmedNoMatch = formData.get("confirmedNoMatch") === "1";
 
   if ("error" in paymentSchedule) {
     return { error: paymentSchedule.error };
@@ -94,6 +100,7 @@ export async function createProposalAction(_prev: CreateProposalActionState, for
         timeline: timeline || undefined,
         paymentScheduleJson: paymentSchedule.value,
         termsAndConditions: termsAndConditions || undefined,
+        ...(confirmedNoMatch ? { confirmedNoMatch: true } : {}),
       }),
     });
     proposal = result.data;
@@ -167,7 +174,14 @@ export async function confirmProposalStatusCheckAction(
   }
 
   revalidatePath(`/projects/${projectId}`);
-  redirect(buildEstimateReviewUrl(projectId, estimateId || null));
+  // DES-10 Status Check: the return carries ?confirmedNoMatch=1 so the
+  // estimate builder's create-proposal links (and the intake-only
+  // proposal form) thread the flag into the next create, where the
+  // server records it. The activity entry posted above stays: it
+  // records "saw no match and returned", a different fact from the
+  // server-side "created again after a confirmed no-match" — one
+  // record per fact, no double-recording of the same fact.
+  redirect(`${buildEstimateReviewUrl(projectId, estimateId || null)}?confirmedNoMatch=1`);
 }
 
 export async function updateProposalAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {

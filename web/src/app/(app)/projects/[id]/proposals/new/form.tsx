@@ -20,12 +20,22 @@ export function NewProposalForm({
   estimates,
   draft,
   initialEstimateId,
+  confirmedNoMatch = false,
 }: {
   initialIdempotencyKey: string;
   projectId: string;
   estimates: Estimate[];
   draft: ProposalDraftPreview;
   initialEstimateId?: string;
+  // DES-10 Status Check: the contractor confirmed on the Status Check
+  // screen that no matching draft was present, then created again. The
+  // create action records the confirmation as an activity event on a
+  // fresh create. The form deliberately keeps resolving the stored
+  // attempt key (see below): a retry replays the original attempt if
+  // the draft exists, and records the confirmation only on a genuinely
+  // fresh create — minting a fresh key here could duplicate a draft
+  // the loaded list missed.
+  confirmedNoMatch?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(createProposalAction, undefined);
   const canCheckProjectProposals = Boolean(state && "statusCheck" in state && state.statusCheck);
@@ -94,6 +104,7 @@ export function NewProposalForm({
         >
           <input type="hidden" name="projectId" value={projectId} />
           <input ref={keyInputRef} type="hidden" name="idempotencyKey" defaultValue={initialIdempotencyKey} />
+          {confirmedNoMatch ? <input type="hidden" name="confirmedNoMatch" value="1" /> : null}
           <div className="flex flex-col gap-2">
             <Label htmlFor="estimateId">Estimate</Label>
             <select

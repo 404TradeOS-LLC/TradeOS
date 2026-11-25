@@ -5,9 +5,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { getSessionToken } from "@/lib/session";
 import { NewProposalForm } from "./form";
 
-export default async function NewProposalPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ estimateId?: string }> }) {
+export default async function NewProposalPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ estimateId?: string; confirmedNoMatch?: string }> }) {
   const { id } = await params;
-  const { estimateId } = await searchParams;
+  const { estimateId, confirmedNoMatch } = await searchParams;
   const token = await getSessionToken();
   const [project, draft] = await Promise.all([getProject(token ?? "", id), getProjectProposalDraft(token ?? "", id)]);
 
@@ -20,7 +20,18 @@ export default async function NewProposalPage({ params, searchParams }: { params
         backLabel="Back to project"
       />
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <NewProposalForm initialIdempotencyKey={randomUUID()} projectId={id} estimates={project.estimates} draft={draft} initialEstimateId={estimateId} />
+        <NewProposalForm
+          initialIdempotencyKey={randomUUID()}
+          projectId={id}
+          estimates={project.estimates}
+          draft={draft}
+          initialEstimateId={estimateId}
+          // DES-10 Status Check: set when the contractor returns from the
+          // Status Check screen after confirming no matching draft was
+          // present. The create action records the explicit confirmation
+          // as an activity event on a fresh create.
+          confirmedNoMatch={confirmedNoMatch === "1"}
+        />
         <ProposalContextPanel projectId={project.id} latestVisit={project.siteVisits[0] ?? null} projectFiles={project.projectFiles} />
       </div>
     </div>

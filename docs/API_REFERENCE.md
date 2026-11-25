@@ -492,6 +492,8 @@ pool instead of returning a transaction-acquisition `500` after two seconds.
 - Same key and canonical request body: HTTP `200`, the original proposal JSON, and `Idempotency-Replayed: true`.
 - Same key with a different body: HTTP `409`; the caller should inspect the Project's Proposals list.
 - The key is unique within the project resolved from the authenticated organization; the request fingerprint uses SHA-256 over key-order-independent JSON. The database unique index resolves simultaneous creates.
+- First-party clients persist the key per (project, estimate) attempt in `sessionStorage`, so a retry after a page reload reuses the original key.
+- The create body accepts an optional `confirmedNoMatch: true`, set only when the contractor explicitly confirmed on the Status Check screen that no proposal for this project and estimate was present in the loaded list, then created again. A fresh create records a `proposal.status_check_confirmed` activity event on the project; a replay records nothing. The flag is excluded from the request fingerprint.
 - Invalid supplied keys fail validation before a proposal is written. Keyless legacy requests follow the original non-idempotent create behavior. This contract does not auto-retry requests or send the proposal.
 
 ## Proposal selections and allowances (DES-10-F8)

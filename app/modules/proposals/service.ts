@@ -29,7 +29,13 @@ function canonicalize(value: unknown): unknown {
 }
 
 function proposalRequestHash(input: CreateProposalInput): string {
-  const request = Object.fromEntries(Object.entries(input).filter(([key]) => key !== "orgId"));
+  // orgId is request scope, not request content; confirmedNoMatch is the
+  // contractor's explicit confirmation, not proposal content. Neither may
+  // change the hash, or a retry that gains (or loses) the flag would 409
+  // instead of replaying the original draft.
+  const request = Object.fromEntries(
+    Object.entries(input).filter(([key]) => key !== "orgId" && key !== "confirmedNoMatch"),
+  );
   return createHash("sha256").update(JSON.stringify(canonicalize(request))).digest("hex");
 }
 
@@ -130,6 +136,27 @@ export class ProposalsService {
           ? this.createFromEstimate(input, { idempotencyKey, requestHash })
           : this.createFromProject(input, { idempotencyKey, requestHash })
       );
+      if (input.confirmedNoMatch === true) {
+        // DES-10 Status Check: the contractor explicitly confirmed on the
+        // Status Check screen that no proposal for this project and
+        // estimate was present in the loaded list, then created again.
+        // The decision is persisted as an activity event, never a silent
+        // default. A replay records nothing — the original attempt already
+        // recorded it (or never carried the flag).
+        await this.activityService.record({
+          orgId: input.orgId,
+          entityType: "project",
+          entityId: row.projectId,
+          eventType: "proposal.status_check_confirmed",
+          title:
+            "Contractor confirmed no proposal for this project and estimate was present in the loaded list; created again",
+          metadata: {
+            proposalId: row.id,
+            estimateId: input.estimateId ?? null,
+            idempotencyKey,
+          },
+        });
+      }
       return { proposal: toDTO(row), replayed: false };
     } catch (error) {
       if (!isUniqueConstraintViolation(error)) throw error;

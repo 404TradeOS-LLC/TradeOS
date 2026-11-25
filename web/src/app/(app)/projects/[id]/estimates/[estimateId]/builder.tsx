@@ -76,7 +76,12 @@ interface AssemblyPreviewData {
   total: number;
 }
 
-export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope, customerName, jobType }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null; customerName?: string | null; jobType?: string | null }) {
+export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope, customerName, jobType, confirmedNoMatch = false }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null; customerName?: string | null; jobType?: string | null; confirmedNoMatch?: boolean }) {
+  // DES-10 Status Check: set when the contractor returns from the Status
+  // Check screen after confirming no matching draft was present. The
+  // create-proposal links carry the flag so the create action records the
+  // explicit confirmation as an activity event.
+  const proposalNewHref = `/projects/${projectId}/proposals/new?estimateId=${estimateId}${confirmedNoMatch ? "&confirmedNoMatch=1" : ""}`;
   const queryClient = useQueryClient();
   const router = useRouter();
   const reviewNavigator = useRef(createEstimateReviewNavigator());
@@ -269,7 +274,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
                 Finalize to create proposal
               </span>
             ) : (
-              <Link href={`/projects/${projectId}/proposals/new?estimateId=${estimateId}`} className={buttonVariants({ variant: "outline" })}>
+              <Link href={proposalNewHref} className={buttonVariants({ variant: "outline" })}>
                 Create proposal
               </Link>
             )}
@@ -337,6 +342,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         finalizePending={finalize.isPending || saveScope.isPending}
         finalizeError={finalize.isError ? (finalize.error instanceof Error ? finalize.error.message : "Unable to finalize estimate. Review the items and try again.") : null}
         recalculationDelta={recalculationDelta}
+        confirmedNoMatch={confirmedNoMatch}
       />
     </div>
   );
@@ -410,6 +416,7 @@ function EstimateStageFlow({
   finalizePending,
   finalizeError,
   recalculationDelta,
+  confirmedNoMatch = false,
 }: {
   projectId: string;
   projectName: string;
@@ -435,6 +442,11 @@ function EstimateStageFlow({
   finalizePending: boolean;
   finalizeError: string | null;
   recalculationDelta: { previousTotalMinor: number; currentTotalMinor: number; reason: string } | null;
+  // DES-10 Status Check: carried from the Status Check screen's "Return to
+  // Estimate Review" action after the contractor confirmed no matching
+  // draft was present. The finalized estimate's "Review proposal draft"
+  // link carries the flag so the create action records the confirmation.
+  confirmedNoMatch?: boolean;
 }) {
   // DES-10-F2: the Review readiness checklist gates Finalize. The flags
   // are server state (persisted review attestations); the button stays
@@ -443,6 +455,10 @@ function EstimateStageFlow({
   // There is no line-count gate: decision 22-B (Billy's word 2026-11-23)
   // allows finalizing a $0 estimate, so the button must not disable on
   // an empty line list.
+  // DES-10 Status Check: the finalized estimate's "Review proposal draft"
+  // link carries the confirmation flag when the contractor arrived from
+  // the Status Check screen, so the create action records it.
+  const proposalNewHref = `/projects/${projectId}/proposals/new?estimateId=${estimateId}${confirmedNoMatch ? "&confirmedNoMatch=1" : ""}`;
   const reviewChecklistComplete = estimate.exclusionsReviewedAt != null && estimate.priceSourcesReviewedAt != null;
   const stages: Array<{ id: EstimateStage; label: string }> = [
     { id: "scope", label: "Scope" },
@@ -673,7 +689,7 @@ function EstimateStageFlow({
                 <StickyTaskAction label={finalizePending ? "Finalizing…" : finalizeError ? "Retry finalization" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || !reviewChecklistComplete} />
               </>
             ) : (
-              <Link href={`/projects/${estimate.projectId}/proposals/new?estimateId=${estimateId}`} className={buttonVariants({ variant: "default" }) + " flex min-h-11 w-full items-center justify-center"}>
+              <Link href={proposalNewHref} className={buttonVariants({ variant: "default" }) + " flex min-h-11 w-full items-center justify-center"}>
                 Review proposal draft
               </Link>
             )}

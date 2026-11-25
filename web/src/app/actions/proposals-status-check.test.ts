@@ -34,9 +34,21 @@ const detailPageSource = readFileSync(
   "utf8",
 );
 
+const builderSource = readFileSync(
+  new URL("../../app/(app)/projects/[id]/estimates/[estimateId]/builder.tsx", import.meta.url),
+  "utf8",
+);
+
 function createProposalActionSource(): string {
   const start = actionsSource.indexOf("export async function createProposalAction");
   assert.notEqual(start, -1, "expected createProposalAction to exist");
+  const next = actionsSource.indexOf("export async function ", start + 1);
+  return actionsSource.slice(start, next === -1 ? undefined : next);
+}
+
+function confirmProposalStatusCheckActionSource(): string {
+  const start = actionsSource.indexOf("export async function confirmProposalStatusCheckAction");
+  assert.notEqual(start, -1, "expected confirmProposalStatusCheckAction to exist");
   const next = actionsSource.indexOf("export async function ", start + 1);
   return actionsSource.slice(start, next === -1 ? undefined : next);
 }
@@ -165,4 +177,49 @@ test("proposal detail page shows the replay notice and clears the resolved attem
   assert.match(detailPageSource, /recovered/);
   assert.match(detailPageSource, /resolvedKey/);
   assert.match(detailPageSource, /isValidIdempotencyKey\(resolvedSearchParams\.key\)/);
+});
+
+test("createProposalAction forwards the confirmed-no-match flag to the API", () => {
+  const fnSource = createProposalActionSource();
+  // The flag arrives as a hidden form field, set only when the contractor
+  // returned from the Status Check screen after confirming no matching
+  // draft was present. The server records it as an activity event on a
+  // fresh create; it never enters the idempotency hash.
+  assert.match(fnSource, /formData\.get\("confirmedNoMatch"\) === "1"/);
+  assert.match(fnSource, /confirmedNoMatch: true/);
+});
+
+test("confirm action returns to Estimate Review with the confirmation flag", () => {
+  const fnSource = confirmProposalStatusCheckActionSource();
+  // The redirect carries ?confirmedNoMatch=1 so the estimate builder's
+  // create-proposal links (and the intake-only proposal form) thread the
+  // flag into the next create. The client-side no-match activity entry
+  // stays: it records "saw no match and returned", a different fact from
+  // the server-side "created again after a confirmed no-match".
+  assert.match(fnSource, /confirmedNoMatch=1/);
+  assert.match(fnSource, /PROPOSAL_STATUS_CHECK_NO_MATCH_EVENT_TYPE/);
+});
+
+test("new-proposal form carries the confirmed-no-match flag when set", () => {
+  // The flag is a plain hidden input alongside the idempotency key: the
+  // form keeps resolving the stored attempt key (a retry replays the
+  // original attempt if the draft exists, and records the confirmation
+  // only on a genuinely fresh create) — it does not mint a fresh key
+  // for a confirmed no-match.
+  assert.match(formSource, /confirmedNoMatch/);
+  assert.match(formSource, /name="confirmedNoMatch" value="1"/);
+});
+
+test("new-proposal page threads the confirmation flag into the form", () => {
+  assert.match(newPageSource, /confirmedNoMatch\?: string/);
+  assert.match(newPageSource, /confirmedNoMatch=\{confirmedNoMatch === "1"\}/);
+});
+
+test("estimate builder create links carry the confirmation flag", () => {
+  // Both create-proposal links — the builder's "Create proposal" and the
+  // finalized estimate's "Review proposal draft" — carry the flag when
+  // the contractor arrived from the Status Check screen.
+  assert.match(builderSource, /confirmedNoMatch/);
+  assert.match(builderSource, /&confirmedNoMatch=1/);
+  assert.match(builderSource, /confirmedNoMatch=\{confirmedNoMatch\}/);
 });
