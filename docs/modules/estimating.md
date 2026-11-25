@@ -60,6 +60,7 @@ Own estimate creation, line-item pricing, pricing mode changes, duplication, com
 - **Filters:** `status` (comma-separated, accepts multiple canonical statuses in one request and transparently matches legacy raw synonyms — see `docs/WORKFLOW_LIFECYCLES.md`), `updatedAfter`, `updatedBefore`.
 - **Pagination:** opaque cursor, default page size 25, maximum 50, ordered by `updatedAt desc, id desc` with the id as a stable tie-breaker; an invalid cursor returns `400` rather than silently restarting from page 1. Response is `{ items, total, nextCursor }` with an exact filtered `total`.
 - **Response fields:** `id`, `projectId`, `projectName`, `customerName`, `status`, `amount` (`totalPrice`), `revision` (the existing `version` field — Estimate has no separate document-number field), `createdAt`, `updatedAt`. No `orgId` on individual items.
+- **Explicit column list (#1093):** the query selects exactly the columns the queue item consumes (plus the project/customer names) instead of select-all, mirroring the invoices queue's explicit-column raw SQL. A select-all read 500s the whole queue when the database lags the code by an additive column — production proved it when the DES-10-F2 review-checklist columns did not exist yet and Today marked "Estimates in progress" unavailable. A future additive column degrades one field, not the queue.
 - Shares the cursor/limit helpers in `app/modules/shared/pagination.ts` and the legacy-status expansion helper in `app/modules/shared/statusFilter.ts` with the equivalent Proposals and Invoices queue reads, so all three resources use one consistent pagination/filter strategy.
 
 ## Permissions
@@ -193,6 +194,7 @@ The same staged estimate flow remains available across mobile and desktop; only 
 - `app/tests/athena-tools.estimator.analyze-estimate.contracts.test.ts`
 - `app/tests/athena-tools.estimator.compare-estimates.contracts.test.ts`
 - `app/tests/estimate-engine.queue.test.ts`, `app/tests/estimate-engine.controller.queue.test.ts` — organization work-queue filters, pagination, and authorization
+- `app/tests/estimate-engine.queue.explicit-select.test.ts` — #1093 regression: the queue read succeeds against a database lacking the review-checklist columns and requests exactly the columns the queue item consumes
 - `app/tests/rls.integration.ts` (`organization work-queue reads` describe block) — live tenant isolation for the queue read
 - `app/tests/rls.integration.ts` (S040 core service boundary case) — same-org CRM/estimate/invoice/job access, cross-org 404 denial, and denied-estimate-write immutability
 
