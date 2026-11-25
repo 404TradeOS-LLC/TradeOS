@@ -34,6 +34,7 @@ import { projectCustomerScopeRouter } from "./routes/projectCustomerScope.routes
 import { projectsRouter } from "./routes/projects.routes";
 import { changeOrdersRouter } from "./routes/changeOrders.routes";
 import { closeoutRouter } from "./routes/closeout.routes";
+import { onboardingRouter } from "./routes/onboarding.routes";
 import { supplierIntegrationRouter, abcOAuthCallbackRouter } from "./routes/supplierIntegration.routes";
 import { supplierPriceSyncCronRouter } from "./routes/supplierPriceSyncCron.routes";
 import { organizationProvisioningRouter } from "./routes/organizationProvisioning.routes";
@@ -144,6 +145,7 @@ export function createServer() {
   app.use("/api/v1/notes", notesRouter);
   app.use("/api/v1/change-orders", changeOrdersRouter);
   app.use("/api/v1/closeout", closeoutRouter);
+  app.use("/api/v1/onboarding", onboardingRouter);
   app.use("/api/v1/supplier-integrations", supplierIntegrationRouter);
   app.use("/api/v1/project-intake", projectIntakeRouter);
   app.use("/api/v1/knowledge", knowledgeRuntimeRouter);

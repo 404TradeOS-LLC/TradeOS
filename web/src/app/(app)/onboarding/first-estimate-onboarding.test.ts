@@ -34,11 +34,22 @@ test("wizard follows the Figma rail: work, then the real-estimate composer", () 
   assert.match(form, /None of this blocks the first estimate\./);
 });
 
-test("wizard asks for no labor or region input the estimate cannot use", () => {
+test("wizard asks for the optional region and persists it; it does not collect a labor rate (DES-3 slice 2, Codex P1 on PR #1105)", () => {
   const form = read("first-estimate-onboarding-form.tsx");
-  assert.doesNotMatch(form, /laborRate|Labor rate|Your labor/);
-  assert.doesNotMatch(form, /region|Region/);
-  assert.doesNotMatch(form, /formatLaborRate|isValidLaborRate|DEFAULT_LABOR_RATE/);
+  // The labor-rate control is gone: no estimate-pricing consumer reads
+  // the persisted baseline yet, so collecting a rate promised a first
+  // estimate it never applied. Region stays.
+  assert.ok(!form.includes("Your labor rate"), "no labor-rate control");
+  assert.ok(!form.includes("carries into your first estimate"), "no labor-rate promise");
+  assert.ok(!form.includes('name="laborRate"'), "no labor-rate field is submitted");
+  assert.ok(!form.includes("formatLaborRateDollars"), "no labor-rate pre-fill");
+  assert.match(form, /Region \(optional\)/);
+  assert.match(form, /initialState\?\.region/);
+  assert.match(form, /saveOnboardingProgressAction/);
+  assert.match(form, /name="region"/);
+  assert.match(form, /initialState\?\.workTypes/);
+  assert.match(form, /initialState\?\.scopeText/);
+  assert.match(form, /initialState\?\.currentStep === 2 \? 2 : 1/);
 });
 
 test("step 2 carries the known-context work chip and example jobs from the frame", () => {

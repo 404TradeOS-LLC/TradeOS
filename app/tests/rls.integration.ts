@@ -4282,6 +4282,110 @@ describe("live organization row-level security", () => {
       }
     });
   });
+
+  describe("organization onboarding state RLS (DES-3 slice 2)", () => {
+    it("enforces onboarding-state tenant boundaries", async () => {
+      // DES-3 slice 2 table carries a direct org_id with forced RLS
+      // (20261125120000_add_organization_onboarding_state): org-scoped
+      // reads for every role; writes are owner/admin/estimator/dispatcher
+      // spelled out explicitly (NOT via current_app_can_write(), which
+      // the deployed 20260706120000 definition widened to include
+      // technician). One row per org (UNIQUE org_id). The RLS assertions
+      // below go through the request-scoped session (inSession /
+      // currentTransaction), never through mocked Prisma; the admin client
+      // only seeds fixtures and cleans up.
+      const stateA = randomUUID();
+      const stateB = randomUUID();
+      await adminClient.organizationOnboardingState.createMany({
+        data: [
+          { id: stateA, orgId: orgA, status: "in_progress", currentStep: 2, workTypes: ["Painting"], laborRateCents: 4800 },
+          { id: stateB, orgId: orgB, status: "skipped" },
+        ],
+      });
+      try {
+        // Same-org reads are allowed, for every role: the select policy
+        // is org-scoped, not assignment-scoped.
+        const visible = await inSession(adminUser, orgA, "admin", async () =>
+          currentTransaction().organizationOnboardingState.findUnique({ where: { id: stateA } }),
+        );
+        expect(visible?.id).toBe(stateA);
+        const technicianVisible = await inSession(technicianUser, orgA, "technician", async () =>
+          currentTransaction().organizationOnboardingState.findUnique({ where: { id: stateA } }),
+        );
+        expect(technicianVisible?.id).toBe(stateA);
+
+        // Cross-org reads are hidden.
+        const hidden = await inSession(otherUser, orgB, "owner", async () =>
+          currentTransaction().organizationOnboardingState.findUnique({ where: { id: stateA } }),
+        );
+        expect(hidden).toBeNull();
+        const foreignOnly = await inSession(otherUser, orgB, "owner", async () =>
+          currentTransaction().organizationOnboardingState.findMany(),
+        );
+        expect(foreignOnly.map((row) => row.id)).toEqual([stateB]);
+
+        // Cross-org writes are denied even with a matching org_id claim.
+        await expect(
+          inSession(otherUser, orgB, "owner", async () =>
+            currentTransaction().organizationOnboardingState.update({
+              where: { id: stateA },
+              data: { status: "skipped" },
+            }),
+          ),
+        ).rejects.toThrow();
+
+        // Viewers may read their own org's row but cannot write it.
+        await expect(
+          inSession(viewerUser, orgA, "viewer", async () =>
+            currentTransaction().organizationOnboardingState.update({
+              where: { id: stateA },
+              data: { status: "skipped" },
+            }),
+          ),
+        ).rejects.toThrow();
+
+        // Technicians cannot write onboarding state at all.
+        await expect(
+          inSession(technicianUser, orgA, "technician", async () =>
+            currentTransaction().organizationOnboardingState.update({
+              where: { id: stateA },
+              data: { status: "skipped" },
+            }),
+          ),
+        ).rejects.toThrow();
+
+        // A dispatcher write is allowed: the onboarding manager role
+        // holds crm.write, and the policies name dispatcher explicitly.
+        const dispatcherUser = randomUUID();
+        const dispatcherMembership = randomUUID();
+        await adminClient.appUser.create({
+          data: { id: dispatcherUser, authSubject: "rls-des3-dispatcher", email: "rls-des3-dispatcher@example.com" },
+        });
+        await adminClient.organizationMembership.create({
+          data: { id: dispatcherMembership, orgId: orgA, userId: dispatcherUser, role: "dispatcher", status: "active" },
+        });
+        try {
+          const updated = await inSession(dispatcherUser, orgA, "dispatcher", async () =>
+            currentTransaction().organizationOnboardingState.update({
+              where: { id: stateA },
+              data: { region: "Terre Haute, IN" },
+            }),
+          );
+          expect(updated.region).toBe("Terre Haute, IN");
+        } finally {
+          await adminClient.organizationMembership.deleteMany({ where: { id: dispatcherMembership } });
+          await adminClient.appUser.deleteMany({ where: { id: dispatcherUser } });
+        }
+
+        // The denied writes left the status untouched (the dispatcher
+        // write above changed only the region, which is allowed).
+        const after = await adminClient.organizationOnboardingState.findUniqueOrThrow({ where: { id: stateA } });
+        expect(after.status).toBe("in_progress");
+      } finally {
+        await adminClient.organizationOnboardingState.deleteMany({ where: { id: { in: [stateA, stateB] } } });
+      }
+    });
+  });
 });
 
 function inSession<T>(userId: string, orgId: string, role: SupportedRole, operation: () => Promise<T>): Promise<T> {

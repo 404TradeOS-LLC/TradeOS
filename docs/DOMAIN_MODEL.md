@@ -33,6 +33,17 @@ The tenant boundary for all application data.
 - owns memberships, cost-book records, customers, projects, jobs, activity, document history, settings, branding, and synchronized subscription billing state
 - Settings Console brand asset storage location (bucket/path/content type/size, not the bytes themselves) is tracked per organization in `SettingsAssetUpload`, one row per `(orgId, assetKey)` for the four brand asset fields (`logoUrl`/`darkLogoUrl`/`iconUrl`/`watermarkUrl`); see [modules/settings-and-operations.md](modules/settings-and-operations.md)
 
+## Organization onboarding state
+
+One row per organization tracking first-estimate onboarding progress (DES-3 slice 2).
+
+- persistent model: `OrganizationOnboardingState` (table `organization_onboarding_states`, migration `20261125120000_add_organization_onboarding_state`)
+- `orgId` is unique; `status` is `in_progress` | `skipped` | `completed`; `currentStep` is 1 or 2
+- wizard answers persisted per org: `workTypes` (text array), `scopeText`, `laborRateCents` ($1–$500/hr, default 4800 = $48/hr), `region`
+- `skippedAt` / `completedAt` record the lifecycle transitions; a skipped row reopens on a later progress save, a completed row keeps `completed` on later saves (defaults may still update)
+- forced row-level security is enabled; explicit per-role policies (owner/admin/estimator/dispatcher may write, viewer/technician denied) — no `current_app_can_write()` fallback
+- labor/region live ONLY on this record: they are not copied to `organizations.default_labor_rate` / `region_code` — those are owner-managed settings values the estimate engine does not read today; wiring the engine to the persisted baseline is a follow-up
+
 ## User
 
 An authenticated identity stored in `AppUser`.

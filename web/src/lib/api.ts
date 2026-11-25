@@ -132,6 +132,54 @@ export function getOrganizationSettings(token: string, signal?: AbortSignal) {
   return apiFetch<OrganizationSettingsResponse>("/api/v1/settings", { token, signal });
 }
 
+export interface OnboardingStateResponse {
+  state: import("@/lib/onboarding").OnboardingState | null;
+}
+
+export interface SaveOnboardingProgressInput {
+  currentStep?: number;
+  workTypes?: string[];
+  scopeText?: string | null;
+  laborRateCents?: number | null;
+  region?: string | null;
+}
+
+export interface CompleteOnboardingInput {
+  workTypes: string[];
+  scopeText: string;
+  laborRateCents?: number | null;
+  region?: string | null;
+}
+
+/**
+ * Persisted onboarding state (DES-3 slice 2). All four calls ride the
+ * org-scoped onboarding-state record; a missing row is normal (`state`
+ * null) and means the org has never opened the wizard.
+ */
+export function getOnboardingState(token: string, signal?: AbortSignal) {
+  return apiFetch<OnboardingStateResponse>("/api/v1/onboarding/state", { token, signal });
+}
+
+export function saveOnboardingProgress(token: string, input: SaveOnboardingProgressInput) {
+  return apiFetch<OnboardingStateResponse>("/api/v1/onboarding/state", {
+    token,
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function skipOnboarding(token: string) {
+  return apiFetch<OnboardingStateResponse>("/api/v1/onboarding/skip", { token, method: "POST" });
+}
+
+export function completeOnboarding(token: string, input: CompleteOnboardingInput) {
+  return apiFetch<OnboardingStateResponse>("/api/v1/onboarding/complete", {
+    token,
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export interface AthenaCapabilities {
   kernelEnabled: boolean;
 }
