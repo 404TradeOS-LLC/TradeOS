@@ -68,3 +68,40 @@ describe("PNG pixel-stream pre-validation (isDecodablePngImage)", () => {
     expect(isDecodablePngImage(Buffer.alloc(0))).toBe(false);
   });
 });
+
+describe("org-logo path pre-validation (drawValidatedPdfLogo)", () => {
+  // Same fixtures as the isDecodablePngImage suite, driven through the
+  // shared org-logo entry point instead of the validator directly.
+  const generate = (image: Buffer) =>
+    new Promise<{ drawn: boolean; pdf: Buffer }>((resolve, reject) => {
+      const doc = new PDFDocument();
+      const chunks: Buffer[] = [];
+      doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+      doc.on("end", () => resolve({ drawn, pdf: Buffer.concat(chunks) }));
+      doc.on("error", reject);
+      const drawn = drawValidatedPdfLogo(doc, image, { x: 24, y: 24, width: 64, height: 64 });
+      doc.text("Contractor");
+      doc.end();
+    });
+
+  it("rejects a header-valid PNG with corrupt IDAT and finishes the PDF without an image", async () => {
+    const corruptIdat = Buffer.from(rgbaPng);
+    corruptIdat.fill(0xff, 41, 41 + 18);
+    const { drawn, pdf } = await generate(corruptIdat);
+    expect(drawn).toBe(false);
+    expect(pdf.toString("latin1")).not.toContain("/Subtype /Image");
+  }, 10000);
+
+  it("rejects a bad-filter PNG and still draws a valid PNG", async () => {
+    const badFilter = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR4nOP8z8DwHwyBNBgAAEpqCgDvlywGAAAAAElFTkSuQmCC",
+      "base64",
+    );
+    const bad = await generate(badFilter);
+    expect(bad.drawn).toBe(false);
+    expect(bad.pdf.toString("latin1")).not.toContain("/Subtype /Image");
+    const good = await generate(rgbaPng);
+    expect(good.drawn).toBe(true);
+    expect(good.pdf.toString("latin1")).toContain("/Subtype /Image");
+  }, 10000);
+});
