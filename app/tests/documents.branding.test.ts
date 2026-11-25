@@ -6,13 +6,19 @@ const mockPrisma = {
   organizationSettings: { findUnique: jest.fn() },
 };
 
-jest.mock("../modules/brand-studio/service", () => ({
-  BrandStudioService: jest.fn().mockImplementation(() => ({
-    getProfile: getProfileMock,
-    getDocumentSettings: getDocumentSettingsMock,
-    getPreview: getPreviewMock,
-  })),
-}));
+jest.mock("../modules/brand-studio/service", () => {
+  // Keep the real isTradeosDefaultUrl / TRADEOS_BRAND_DEFAULTS: the tests
+  // below assert document-logo precedence against the actual package URLs.
+  const actual = jest.requireActual("../modules/brand-studio/service");
+  return {
+    ...actual,
+    BrandStudioService: jest.fn().mockImplementation(() => ({
+      getProfile: getProfileMock,
+      getDocumentSettings: getDocumentSettingsMock,
+      getPreview: getPreviewMock,
+    })),
+  };
+});
 
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
 
@@ -121,6 +127,82 @@ describe("document branding resolution", () => {
     await expect(getDocumentBrand("org-1")).resolves.toMatchObject({
       colors: { primary: "#0f172a", secondary: "#f8fafc", accent: "#123456" },
       logoUrl: null,
+    });
+  });
+
+  it("prefers a legacy stored logo over the TradeOS package default on documents", async () => {
+    mockPrisma.organization.findUnique.mockResolvedValue({
+      name: "Legacy Builders",
+      phone: "317-555-0199",
+      email: "legacy@example.com",
+      address: "9 Old Mill Road",
+      logoUrl: "https://cdn.example.com/legacy-logo.svg",
+    });
+    mockPrisma.organizationSettings.findUnique.mockResolvedValue({ settingsJson: {} });
+    getProfileMock.mockResolvedValue({
+      companyDisplayName: "Legacy Builders",
+      tagline: "",
+      logoUrl: "",
+      websiteUrl: "",
+      phone: "",
+      email: "",
+      addressLine1: "",
+      addressLine2: "",
+      city: "",
+      state: "",
+      postalCode: "",
+      licenseNumber: "",
+      insuranceSummary: "",
+      bondingSummary: "",
+    });
+    getDocumentSettingsMock.mockResolvedValue({ showPoweredByTradeOS: false, showLicenseNumber: true, showInsuranceSummary: true });
+    // No canonical logo or asset: the preview resolves the TradeOS package
+    // default — but the contractor's legacy logo outranks that default.
+    getPreviewMock.mockResolvedValue({
+      resolvedLogoUrls: { logoUrl: "/brand/horizontal-light-1600.png" },
+      validatedColors: { primary: "#123456", secondary: "#abcdef", accent: "#fedcba" },
+      typography: { style: "Professional", headingFontFamily: "sans-serif", bodyFontFamily: "sans-serif", accentFontFamily: "monospace" },
+    });
+
+    await expect(getDocumentBrand("org-1")).resolves.toMatchObject({
+      logoUrl: "https://cdn.example.com/legacy-logo.svg",
+    });
+  });
+
+  it("keeps the TradeOS package default on documents when no logo exists anywhere", async () => {
+    mockPrisma.organization.findUnique.mockResolvedValue({
+      name: "Fresh Builders",
+      phone: null,
+      email: null,
+      address: null,
+      logoUrl: "",
+    });
+    mockPrisma.organizationSettings.findUnique.mockResolvedValue({ settingsJson: {} });
+    getProfileMock.mockResolvedValue({
+      companyDisplayName: "Fresh Builders",
+      tagline: "",
+      logoUrl: "",
+      websiteUrl: "",
+      phone: "",
+      email: "",
+      addressLine1: "",
+      addressLine2: "",
+      city: "",
+      state: "",
+      postalCode: "",
+      licenseNumber: "",
+      insuranceSummary: "",
+      bondingSummary: "",
+    });
+    getDocumentSettingsMock.mockResolvedValue({ showPoweredByTradeOS: false, showLicenseNumber: true, showInsuranceSummary: true });
+    getPreviewMock.mockResolvedValue({
+      resolvedLogoUrls: { logoUrl: "/brand/horizontal-light-1600.png" },
+      validatedColors: { primary: "#123456", secondary: "#abcdef", accent: "#fedcba" },
+      typography: { style: "Professional", headingFontFamily: "sans-serif", bodyFontFamily: "sans-serif", accentFontFamily: "monospace" },
+    });
+
+    await expect(getDocumentBrand("org-1")).resolves.toMatchObject({
+      logoUrl: "/brand/horizontal-light-1600.png",
     });
   });
 

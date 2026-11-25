@@ -633,8 +633,15 @@ function buildDerivedLogoVariants(
   const derivedIconUrl = deriveVariantUrl(ownedLogoUrl, "icon");
   const derivedFaviconUrl = deriveVariantUrl(ownedLogoUrl, "favicon");
   const faviconUrl = profile.iconUrl || iconAssetUrl || derivedFaviconUrl || TRADEOS_BRAND_DEFAULTS.iconUrl;
-  const darkBase = resolvedLogoUrls.logoDarkUrl || resolvedLogoUrls.logoUrl;
-  const lightBase = resolvedLogoUrls.logoLightUrl || resolvedLogoUrls.logoUrl;
+  // Mono/print variants derive only from organization-owned artwork. The
+  // resolved dark/light URLs carry the platform default when the org set
+  // nothing, and deriveVariantUrlFromOwnedBase rejects defaults — so basing
+  // the derivation on the resolved URLs reported both variants missing for
+  // an org whose own primary logo could have supplied them.
+  const ownedDarkUrl = profile.logoDarkUrl || findAssetUrl(assets, ["logo-dark", "dark-logo"]);
+  const ownedLightUrl = profile.logoLightUrl || findAssetUrl(assets, ["logo-light", "light-logo"]);
+  const darkBase = ownedDarkUrl || ownedLogoUrl;
+  const lightBase = ownedLightUrl || ownedLogoUrl;
   const monoUrl = monoAssetUrl || deriveVariantUrlFromOwnedBase(darkBase, "mono");
   const printUrl = printSafeAssetUrl || deriveVariantUrlFromOwnedBase(lightBase, "print");
 
@@ -682,7 +689,7 @@ function iconVariantSource(
   return "missing";
 }
 
-function isTradeosDefaultUrl(url: string | null): boolean {
+export function isTradeosDefaultUrl(url: string | null): boolean {
   if (!url) return false;
   return (Object.values(TRADEOS_BRAND_DEFAULTS) as string[]).includes(url);
 }

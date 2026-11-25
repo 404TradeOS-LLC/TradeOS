@@ -206,6 +206,17 @@ test("Brand Studio derives the favicon from an organization's own logo before th
   assert.equal(favicon?.url, "https://cdn.example.com/acme-logo-favicon.png");
   assert.equal(favicon?.source, "derived");
   assert.equal(preview.resolvedLogoUrls.iconUrl, "https://cdn.example.com/acme-logo-icon.png");
+  // Only a primary logo is owned (no dark/light variant): mono and
+  // print-safe still derive from that owned logo, not from the platform
+  // default dark/light URLs.
+  const monochrome = preview.derivedLogoVariants.find((item) => item.kind === "monochrome");
+  assert.equal(monochrome?.url, "https://cdn.example.com/acme-logo-mono.png");
+  assert.equal(monochrome?.source, "derived");
+  assert.equal(monochrome?.derivedFrom, "https://cdn.example.com/acme-logo.png");
+  const printSafe = preview.derivedLogoVariants.find((item) => item.kind === "print-safe");
+  assert.equal(printSafe?.url, "https://cdn.example.com/acme-logo-print.png");
+  assert.equal(printSafe?.source, "derived");
+  assert.equal(printSafe?.derivedFrom, "https://cdn.example.com/acme-logo.png");
 });
 
 test("Brand Studio keeps an explicit organization logo ahead of the package default", () => {

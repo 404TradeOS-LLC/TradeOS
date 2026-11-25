@@ -263,6 +263,17 @@ describe("BrandStudioService", () => {
     expect(preview.validatedColors.secondary).toBe("#F7F5F1");
     expect(preview.resolvedLogoUrls.logoUrl).toBe("https://cdn.example.com/logo.svg");
     expect(preview.derivedLogoVariants.find((item) => item.kind === "favicon")?.source).toBe("derived");
+    // Only a primary logo is owned (no dark/light variant): mono and
+    // print-safe still derive from that owned logo, not from the platform
+    // default dark/light URLs.
+    const monochrome = preview.derivedLogoVariants.find((item) => item.kind === "monochrome");
+    expect(monochrome?.url).toBe("https://cdn.example.com/logo-mono.svg");
+    expect(monochrome?.source).toBe("derived");
+    expect(monochrome?.derivedFrom).toBe("https://cdn.example.com/logo.svg");
+    const printSafe = preview.derivedLogoVariants.find((item) => item.kind === "print-safe");
+    expect(printSafe?.url).toBe("https://cdn.example.com/logo-print.svg");
+    expect(printSafe?.source).toBe("derived");
+    expect(printSafe?.derivedFrom).toBe("https://cdn.example.com/logo.svg");
     expect(preview.typography.style).toBe("Modern");
     expect(preview.documentTheme.coverMode).toBe("editorial");
     expect(preview.visibleTrustSignals.map((item) => item.id)).toEqual(
