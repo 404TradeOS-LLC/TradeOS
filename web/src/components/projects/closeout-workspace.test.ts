@@ -22,6 +22,17 @@ test("closeout is a project workspace tab next to change orders", async () => {
   assert.ok(tabs.indexOf('"change-orders"') < tabs.indexOf('"closeout"'));
 });
 
+test("closeout tab carries its own Closeout and warranty heading", async () => {
+  const source = await read(workspaceUrl);
+  // The evidence contract requires the marker on the closeout tab itself
+  // (run 45553851005 failed B2/C1b/D1/E1 + all viewports on it): the
+  // separate warranty tab's CardTitle does not count, so the heading must
+  // live inside CloseoutTab.
+  const tabStart = source.indexOf("function CloseoutTab(");
+  assert.ok(tabStart >= 0, "CloseoutTab must exist");
+  assert.match(source.slice(tabStart), /<h2[^>]*>Closeout and warranty<\/h2>/);
+});
+
 test("closeout tab renders status, checklist states, and the document link", async () => {
   const source = await read(workspaceUrl);
   assert.match(source, /case "closeout":/);

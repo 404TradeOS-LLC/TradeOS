@@ -709,6 +709,7 @@ function CloseoutTab({
 
   return (
     <div className="grid gap-6">
+      <h2 className="font-heading text-lg font-semibold text-foreground">Closeout and warranty</h2>
       {closeout ? (
         checklist ? (
         <Card className="border-border/70">
