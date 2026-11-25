@@ -20,7 +20,38 @@ export function isLowGrossMargin(marginPct: number): boolean {
   return Number.isFinite(marginPct) && marginPct < LOW_GROSS_MARGIN_THRESHOLD_PCT;
 }
 
-export type PriceReadinessLine = Pick<EstimateLineItem, "priceReadiness" | "costType" | "description">;
+export type PriceReadinessLine = Pick<
+  EstimateLineItem,
+  "priceReadiness" | "costType" | "description" | "unitOfMeasure" | "lineCost"
+>;
+
+/**
+ * Whether a saved line is an allowance line (DES-10 Price-stage allowance
+ * signals). An allowance is a lump-sum line: the measurement contract
+ * defines the allowance takeoff family as a priced lump sum, never a
+ * measured quantity (`familyForUnit("LS") === "allowance"` in
+ * `app/modules/assemblies-database/measurement.ts`), and the web-side unit
+ * normalizer maps the ALLOWANCE alias onto LS
+ * (`normalizeUnit` in `@/components/costbook/assembly-catalog-model`).
+ * This is the estimate-side allowance: the F8 proposal allowances live on
+ * a Proposal, which does not exist yet at Price stage, so they are not the
+ * source for this signal.
+ *
+ * Limitation, stated plainly: the Figma Price frame (378:442) separates
+ * its two allowance rows (Permit allowance, Jobsite cleanup) from its six
+ * priced work lines by role, and four of those six work lines are also
+ * lump-sum units — estimate data carries no allowance flag that records
+ * that role distinction. The signal therefore covers lump-sum lines as
+ * the codebase's allowance family, and says so in the UI.
+ */
+export function isAllowanceLine(line: Pick<EstimateLineItem, "unitOfMeasure">): boolean {
+  const normalized = line.unitOfMeasure
+    .trim()
+    .toUpperCase()
+    .replace(/[._-]/g, " ")
+    .replace(/\s+/g, " ");
+  return normalized === "LS" || normalized === "LUMP SUM" || normalized === "ALLOWANCE";
+}
 
 export interface PriceReadinessCounts {
   missing: number;
@@ -52,6 +83,18 @@ export interface PriceReadinessSummary {
   uncheckedLines: string[];
   /** Per cost-type counts, for the direct-cost breakdown groups. */
   byCostType: Record<string, PriceReadinessCounts>;
+  /** Lump-sum (allowance) lines. */
+  allowances: number;
+  /** Sum of allowance line costs in dollars; null when any is invalid. */
+  allowanceTotal: number | null;
+  /** Allowance lines with no amount recorded (lineCost not a positive finite number). */
+  unsetAllowances: number;
+  /** Descriptions of allowance lines, in estimate order. */
+  allowanceLines: string[];
+  /** Descriptions of unset allowance lines, in estimate order. */
+  unsetAllowanceLines: string[];
+  /** Per cost-type allowance counts, for the direct-cost breakdown groups. */
+  allowancesByCostType: Record<string, number>;
 }
 
 const EMPTY_COUNTS: PriceReadinessCounts = { missing: 0, toReview: 0, unchecked: 0 };
@@ -61,6 +104,10 @@ export function priceReadinessCountsFor(
   costType: string,
 ): PriceReadinessCounts {
   return summary.byCostType[costType] ?? EMPTY_COUNTS;
+}
+
+export function allowanceCountFor(summary: PriceReadinessSummary, costType: string): number {
+  return summary.allowancesByCostType[costType] ?? 0;
 }
 
 export function summarizePriceReadiness(
@@ -77,7 +124,14 @@ export function summarizePriceReadiness(
     toReviewLines: [],
     uncheckedLines: [],
     byCostType: {},
+    allowances: 0,
+    allowanceTotal: 0,
+    unsetAllowances: 0,
+    allowanceLines: [],
+    unsetAllowanceLines: [],
+    allowancesByCostType: {},
   };
+  const allowanceCents: number[] = [];
   const countsFor = (costType: string): PriceReadinessCounts => {
     const existing = summary.byCostType[costType];
     if (existing) return existing;
@@ -86,6 +140,22 @@ export function summarizePriceReadiness(
     return created;
   };
   for (const line of lineItems) {
+    if (isAllowanceLine(line)) {
+      // Lump-sum lines are the estimate-side allowances. Their amounts are
+      // estimator-entered, not supplier-verified: a priced lump-sum line
+      // carries no supplier signal (priceReadiness null), so without this
+      // the Price stage never names them — the Figma Price frame lists
+      // them as explicit allowance rows against the supported subtotal.
+      summary.allowances += 1;
+      summary.allowanceLines.push(line.description);
+      summary.allowancesByCostType[line.costType] =
+        (summary.allowancesByCostType[line.costType] ?? 0) + 1;
+      if (!Number.isFinite(line.lineCost) || line.lineCost <= 0) {
+        summary.unsetAllowances += 1;
+        summary.unsetAllowanceLines.push(line.description);
+      }
+      allowanceCents.push(Math.round(line.lineCost * 100));
+    }
     const readiness: EstimateLinePriceReadiness | null | undefined = line.priceReadiness;
     if (readiness === undefined) {
       // The readiness lookup failed for the estimate (getById returns lines
@@ -106,5 +176,12 @@ export function summarizePriceReadiness(
       countsFor(line.costType).toReview += 1;
     }
   }
+  // Cent-safe total, mirroring groupSavedDirectCosts: an invalid line cost
+  // makes the total unavailable rather than silently becoming zero.
+  const allowanceCentsSum = allowanceCents.reduce((total, amount) => total + amount, 0);
+  summary.allowanceTotal =
+    allowanceCents.every(Number.isSafeInteger) && Number.isSafeInteger(allowanceCentsSum)
+      ? allowanceCentsSum / 100
+      : null;
   return summary;
 }

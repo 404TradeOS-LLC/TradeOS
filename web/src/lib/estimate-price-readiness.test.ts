@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   LOW_GROSS_MARGIN_THRESHOLD_PCT,
+  allowanceCountFor,
+  isAllowanceLine,
   isLowGrossMargin,
   priceReadinessCountsFor,
   summarizePriceReadiness,
@@ -12,6 +14,8 @@ const line = (partial: Partial<PriceReadinessLine>): PriceReadinessLine => ({
   priceReadiness: null,
   costType: "material",
   description: "Line",
+  unitOfMeasure: "EA",
+  lineCost: 100,
   ...partial,
 });
 
@@ -88,4 +92,76 @@ test("summary groups counts by cost type for the breakdown", () => {
   assert.deepEqual(priceReadinessCountsFor(summary, "material"), { missing: 1, toReview: 1, unchecked: 0 });
   assert.deepEqual(priceReadinessCountsFor(summary, "labor"), { missing: 0, toReview: 1, unchecked: 0 });
   assert.deepEqual(priceReadinessCountsFor(summary, "equipment"), { missing: 0, toReview: 0, unchecked: 0 });
+});
+
+test("allowance lines are lump-sum lines by unit, including aliases", () => {
+  assert.equal(isAllowanceLine({ unitOfMeasure: "LS" }), true);
+  assert.equal(isAllowanceLine({ unitOfMeasure: "ls" }), true);
+  assert.equal(isAllowanceLine({ unitOfMeasure: "Lump Sum" }), true);
+  assert.equal(isAllowanceLine({ unitOfMeasure: "ALLOWANCE" }), true);
+  assert.equal(isAllowanceLine({ unitOfMeasure: "  ls  " }), true);
+  assert.equal(isAllowanceLine({ unitOfMeasure: "SF" }), false);
+  assert.equal(isAllowanceLine({ unitOfMeasure: "LF" }), false);
+  assert.equal(isAllowanceLine({ unitOfMeasure: "EA" }), false);
+  assert.equal(isAllowanceLine({ unitOfMeasure: "" }), false);
+});
+
+test("summary totals allowance lines and names them in estimate order", () => {
+  const summary = summarizePriceReadiness([
+    line({ unitOfMeasure: "LS", lineCost: 350, description: "Permit allowance", costType: "other" }),
+    line({ unitOfMeasure: "SF", lineCost: 816, description: "Decking", costType: "material" }),
+    line({ unitOfMeasure: "LS", lineCost: 275, description: "Jobsite cleanup", costType: "other" }),
+    line({ unitOfMeasure: "LS", lineCost: 1892, description: "Deck framing", costType: "labor" }),
+  ]);
+  assert.equal(summary.allowances, 3);
+  assert.equal(summary.allowanceTotal, 2517);
+  assert.deepEqual(summary.allowanceLines, ["Permit allowance", "Jobsite cleanup", "Deck framing"]);
+  assert.equal(summary.unsetAllowances, 0);
+  assert.deepEqual(summary.unsetAllowanceLines, []);
+});
+
+test("summary flags allowance lines with no amount set", () => {
+  const summary = summarizePriceReadiness([
+    line({ unitOfMeasure: "LS", lineCost: 350, description: "Permit allowance", costType: "other" }),
+    line({ unitOfMeasure: "LS", lineCost: 0, description: "Unpriced allowance", costType: "other" }),
+    line({ unitOfMeasure: "EA", lineCost: 0, description: "Zero-priced item", costType: "material" }),
+  ]);
+  assert.equal(summary.allowances, 2);
+  assert.equal(summary.allowanceTotal, 350);
+  assert.equal(summary.unsetAllowances, 1);
+  assert.deepEqual(summary.unsetAllowanceLines, ["Unpriced allowance"]);
+});
+
+test("allowance total is null when an allowance line cost is invalid", () => {
+  const summary = summarizePriceReadiness([
+    line({ unitOfMeasure: "LS", lineCost: Number.NaN, description: "Broken allowance" }),
+  ]);
+  assert.equal(summary.allowances, 1);
+  assert.equal(summary.allowanceTotal, null);
+  assert.equal(summary.unsetAllowances, 1);
+});
+
+test("allowance counts group by cost type for the breakdown", () => {
+  const summary = summarizePriceReadiness([
+    line({ unitOfMeasure: "LS", lineCost: 350, costType: "other" }),
+    line({ unitOfMeasure: "LS", lineCost: 275, costType: "other" }),
+    line({ unitOfMeasure: "LS", lineCost: 988, costType: "labor" }),
+    line({ unitOfMeasure: "SF", lineCost: 816, costType: "material" }),
+  ]);
+  assert.equal(allowanceCountFor(summary, "other"), 2);
+  assert.equal(allowanceCountFor(summary, "labor"), 1);
+  assert.equal(allowanceCountFor(summary, "material"), 0);
+  assert.equal(allowanceCountFor(summary, "equipment"), 0);
+});
+
+test("summary has no allowances when no line is lump-sum", () => {
+  const summary = summarizePriceReadiness([
+    line({ priceReadiness: "current" }),
+    line({ priceReadiness: null }),
+  ]);
+  assert.equal(summary.allowances, 0);
+  assert.equal(summary.allowanceTotal, 0);
+  assert.equal(summary.unsetAllowances, 0);
+  assert.deepEqual(summary.allowanceLines, []);
+  assert.deepEqual(summary.allowancesByCostType, {});
 });

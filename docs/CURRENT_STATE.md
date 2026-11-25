@@ -61,6 +61,7 @@ related_code:
   - web/src/app/api/team-time
   - web/src/lib/api.ts
   - web/src/lib/api-response.ts
+  - web/src/lib/estimate-price-readiness.ts
   - web/src/lib/clientApi.ts
   - web/src/lib/customer-portal-session.ts
   - web/src/lib/json-response.ts
@@ -82,6 +83,10 @@ related_code:
   - web/src/lib/job-expenses.ts
   - .github/workflows/verify-repository.yml
 ---
+
+## Estimate Price-stage allowance signals — DES-10 (branch `fix/des10-price-allowance-signals`, 2026-11-25)
+
+The estimate Price stage now surfaces allowance signals alongside the F3 price-readiness chips (DES-10 verdict gap 5; Figma frame 378:442, which lists "Permit allowance $350" and "Jobsite cleanup $275" as explicit allowance rows against the supported subtotal). An allowance line is a lump-sum (LS) estimate line: the measurement contract defines the allowance takeoff family as a priced lump sum, never a measured quantity (`familyForUnit("LS") === "allowance"` in `app/modules/assemblies-database/measurement.ts`), and the web-side unit normalizer maps the ALLOWANCE alias onto LS. `summarizePriceReadiness` (`web/src/lib/estimate-price-readiness.ts`) now counts lump-sum lines, totals them cent-safely (null when any line cost is invalid), and flags unset allowances (lineCost not a positive finite number) by name; `PriceReadinessSignals` renders an "N allowances · $X" chip whenever any exist, an "Allowances: N lump-sum lines · $X" summary line (naming unset lines), and per-cost-type allowance counts in the direct-cost breakdown next to the missing/to-review/unchecked counts. Display-only, like the F3 signals: nothing is repriced and finalization is not gated. Stated limitation: the frame separates its two allowance rows from its six priced work lines by role, and four of those six work lines are also lump-sum units — estimate data carries no allowance flag recording that role distinction, so the signal covers lump-sum lines as the codebase's allowance family. The F8 proposal allowances (`ProposalAllowance` rows on a Proposal) are not the source here: no proposal exists yet at Price stage, and the allowances total there is display-only against `finalPrice`. Still design-only on frame 378:442: the $1,670 reconciliation (F4 fixture data, will not be built), the Pricing provenance disclosure as a Price-stage disclosure, imported-draft state, and the offline notice (no offline detection exists).
 
 ## Today Create sheet no longer bricks on a slow advisory lookup; Day timeline map is real — 2026-11-25
 

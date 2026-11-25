@@ -27,7 +27,7 @@ import { PriceDelta } from "@/components/motion/price-delta";
 import { nextRecalculationSnapshot, toMinorUnits } from "@/lib/motion/price-delta";
 import type { RecalculationSnapshot } from "@/lib/motion/price-delta";
 import { groupSavedDirectCosts } from "@/lib/estimate-direct-costs";
-import { isLowGrossMargin, priceReadinessCountsFor, summarizePriceReadiness } from "@/lib/estimate-price-readiness";
+import { allowanceCountFor, isLowGrossMargin, priceReadinessCountsFor, summarizePriceReadiness } from "@/lib/estimate-price-readiness";
 import { canAddReviewedEstimateCatalogItem } from "@/lib/estimate-catalog-review";
 import { createEstimateReviewNavigator } from "@/lib/estimate-review-navigation";
 import { EstimateCodesHints } from "@/components/estimate/estimate-codes-hints";
@@ -834,9 +834,9 @@ function PriceReadinessSignals({
     <section aria-label="Pricing readiness" className="space-y-3 rounded-lg border border-border/70 bg-muted/10 p-4">
       <div>
         <h3 className="text-sm font-semibold text-foreground">Pricing readiness</h3>
-        <p className="mt-1 text-xs text-muted-foreground">Missing and stale supplier prices on the saved lines. This check never changes a price.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Missing and stale supplier prices, and lump-sum allowance lines, on the saved lines. This check never changes a price.</p>
       </div>
-      {attentionCount > 0 || summary.unchecked > 0 || lowMargin ? (
+      {attentionCount > 0 || summary.unchecked > 0 || lowMargin || summary.allowances > 0 ? (
         <ul className="flex flex-wrap gap-2" aria-label="Price readiness signals">
           {summary.missing > 0 ? (
             <li><Badge variant="destructive">{summary.missing} missing {summary.missing === 1 ? "price" : "prices"}</Badge></li>
@@ -846,6 +846,9 @@ function PriceReadinessSignals({
           ) : null}
           {summary.unchecked > 0 ? (
             <li><Badge variant="outline">{summary.unchecked} unchecked</Badge></li>
+          ) : null}
+          {summary.allowances > 0 ? (
+            <li><Badge variant="outline">{summary.allowances} {summary.allowances === 1 ? "allowance" : "allowances"}{summary.allowanceTotal !== null ? ` · ${formatCurrency(summary.allowanceTotal)}` : ""}</Badge></li>
           ) : null}
           {lowMargin ? (
             <li><Badge variant="outline">Low margin: {formatPercent(marginPct)}</Badge></li>
@@ -872,6 +875,15 @@ function PriceReadinessSignals({
             ? `Omission check: ${summary.missing} missing · ${summary.toReview} to review.`
             : "Omission check complete · no missing or stale prices."}
       </p>
+      {summary.allowances > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Allowances: {summary.allowances} lump-sum {summary.allowances === 1 ? "line" : "lines"}
+          {summary.allowanceTotal !== null ? ` · ${formatCurrency(summary.allowanceTotal)}` : ""}
+          {summary.unsetAllowances > 0
+            ? ` · ${summary.unsetAllowances} ${summary.unsetAllowances === 1 ? "has" : "have"} no amount set — ${namedLines(summary.unsetAllowanceLines)}.`
+            : "."}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -889,11 +901,12 @@ function EstimateDirectCostBreakdown({ lineItems }: { lineItems: LineItem[] }) {
         <dl className="space-y-2 text-sm">
           {amounts.map((item) => {
             const counts = priceReadinessCountsFor(readiness, item.type);
+            const allowanceCount = allowanceCountFor(readiness, item.type);
             return (
               <div key={item.type} className="flex items-center justify-between gap-3">
                 <dt>
                   {item.label}
-                  {counts.missing > 0 || counts.toReview > 0 || counts.unchecked > 0 ? (
+                  {counts.missing > 0 || counts.toReview > 0 || counts.unchecked > 0 || allowanceCount > 0 ? (
                     <span className="text-muted-foreground">
                       {" · "}
                       {counts.missing > 0 ? `${counts.missing} missing` : ""}
@@ -901,6 +914,8 @@ function EstimateDirectCostBreakdown({ lineItems }: { lineItems: LineItem[] }) {
                       {counts.toReview > 0 ? `${counts.toReview} to review` : ""}
                       {(counts.missing > 0 || counts.toReview > 0) && counts.unchecked > 0 ? " · " : ""}
                       {counts.unchecked > 0 ? `${counts.unchecked} unchecked` : ""}
+                      {(counts.missing > 0 || counts.toReview > 0 || counts.unchecked > 0) && allowanceCount > 0 ? " · " : ""}
+                      {allowanceCount > 0 ? `${allowanceCount} ${allowanceCount === 1 ? "allowance" : "allowances"}` : ""}
                     </span>
                   ) : null}
                 </dt>

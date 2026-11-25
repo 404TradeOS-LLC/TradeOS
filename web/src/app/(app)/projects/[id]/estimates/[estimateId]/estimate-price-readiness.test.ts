@@ -36,18 +36,21 @@ test("price stage renders the readiness signals above the cost breakdown", async
   assert.match(stage, /onReviewPrices=\{\(\) => void goToStage\("items"\)\}/);
 });
 
-test("readiness signals show missing, to-review, and low-margin chips", async () => {
+test("readiness signals show missing, to-review, allowance, and low-margin chips", async () => {
   const builder = await readSource("./builder.tsx");
   const signals = readinessSignals(builder);
   assert.match(signals, /aria-label="Pricing readiness"/);
   assert.match(signals, /aria-label="Price readiness signals"/);
   assert.match(signals, /<Badge variant="destructive">\{summary\.missing\} missing/);
   assert.match(signals, /<Badge variant="outline">\{summary\.toReview\} to review/);
+  assert.match(signals, /summary\.allowances/);
+  assert.match(signals, /\{summary\.allowances\} \{summary\.allowances === 1 \? "allowance" : "allowances"\}/);
   assert.match(signals, /isLowGrossMargin\(marginPct\)/);
   assert.match(signals, /Low margin: \{formatPercent\(marginPct\)\}/);
   // Chips render only when something needs attention; the omission line always renders.
   // Unchecked lines (readiness lookup never ran) also surface as chips.
-  assert.match(signals, /attentionCount > 0 \|\| summary\.unchecked > 0 \|\| lowMargin/);
+  // Allowance lines surface as chips whenever they exist, even with nothing to fix.
+  assert.match(signals, /attentionCount > 0 \|\| summary\.unchecked > 0 \|\| lowMargin \|\| summary\.allowances > 0/);
 });
 
 test("readiness attention item names the lines and links back to Items", async () => {
@@ -82,6 +85,19 @@ test("omission check reports incomplete when the readiness lookup never ran", as
   assert.match(signals, /summary\.unchecked > 0\s*\n?\s*\? `Omission check incomplete/);
 });
 
+test("allowance summary names the lines, totals them, and flags unset amounts", async () => {
+  const builder = await readSource("./builder.tsx");
+  const signals = readinessSignals(builder);
+  assert.match(signals, /Allowances: \{summary\.allowances\} lump-sum/);
+  assert.match(signals, /formatCurrency\(summary\.allowanceTotal\)/);
+  assert.match(signals, /summary\.unsetAllowances > 0/);
+  assert.match(signals, /no amount set/);
+  assert.match(signals, /namedLines\(summary\.unsetAllowanceLines\)/);
+  // The allowance summary is display-only: it never reprices a line and
+  // never gates finalization — the section intro says so for the whole check.
+  assert.match(signals, /This check never changes a price\./);
+});
+
 test("direct-cost breakdown carries per-type readiness counts", async () => {
   const builder = await readSource("./builder.tsx");
   const breakdown = builder.slice(builder.indexOf("function EstimateDirectCostBreakdown("));
@@ -92,11 +108,15 @@ test("direct-cost breakdown carries per-type readiness counts", async () => {
   // A failed readiness lookup must not read as complete in the breakdown
   // either: unchecked lines surface per cost type.
   assert.match(breakdown, /\$\{counts\.unchecked\} unchecked/);
+  // Lump-sum allowance lines surface per cost type alongside the readiness
+  // counts, so the estimator sees which groups carry allowances.
+  assert.match(breakdown, /allowanceCountFor\(readiness, item\.type\)/);
+  assert.match(breakdown, /\$\{allowanceCount\} \$\{allowanceCount === 1 \? "allowance" : "allowances"\}/);
 });
 
 test("price stage low-margin flag uses the shared 10% threshold, not a local number", async () => {
   const builder = await readSource("./builder.tsx");
-  assert.match(builder, /import \{ isLowGrossMargin, priceReadinessCountsFor, summarizePriceReadiness \} from "@\/lib\/estimate-price-readiness";/);
+  assert.match(builder, /import \{ allowanceCountFor, isLowGrossMargin, priceReadinessCountsFor, summarizePriceReadiness \} from "@\/lib\/estimate-price-readiness";/);
   assert.doesNotMatch(priceStage(builder), /marginPct < 10/);
   const lib = await readSource("../../../../../../lib/estimate-price-readiness.ts");
   assert.match(lib, /LOW_GROSS_MARGIN_THRESHOLD_PCT = 10/);
