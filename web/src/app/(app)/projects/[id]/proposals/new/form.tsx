@@ -50,6 +50,25 @@ export function NewProposalForm({
   const hasEstimates = eligibleEstimates.length > 0;
   const [selectedEstimateId, setSelectedEstimateId] = useState(initialEstimateId ?? "");
   const selectedEstimate = eligibleEstimates.find((estimate) => estimate.id === selectedEstimateId);
+  // The estimate the form effectively submits for: the selected estimate,
+  // or intake when none is selected (a draft estimate id in the URL is
+  // not submittable, so it counts as intake). Every identity-bound
+  // behavior below uses this, not the raw select state.
+  const effectiveEstimateId = selectedEstimate?.id ?? "";
+  // DES-10 status check: the recovery controls belong to the submitted
+  // attempt. Snapshot the estimate the failed submission was for; if the
+  // contractor picks a different estimate afterwards, the stale controls
+  // disappear instead of checking the new estimate for the old attempt's
+  // outcome. The main Create button stays available for the new
+  // selection.
+  const [submittedEstimateId, setSubmittedEstimateId] = useState<string | null>(null);
+  const recoveryApplies = submittedEstimateId !== null && effectiveEstimateId === submittedEstimateId;
+  // DES-10 status check: the confirmation belongs to the estimate the
+  // contractor confirmed (or intake when no estimate was confirmed).
+  // Submit the flag only while the current selection still matches that
+  // identity — switching to a different estimate must not carry a
+  // confirmation the contractor did not make for it.
+  const submitConfirmedNoMatch = confirmedNoMatch && effectiveEstimateId === (initialEstimateId ?? "");
   // DES-10 status check: one idempotency key per create attempt, persisted
   // for that attempt (sessionStorage, keyed by project + estimate). The
   // page mints a seed per render only as a fallback; the resolved key is
@@ -75,18 +94,19 @@ export function NewProposalForm({
   }, [projectId, selectedEstimateId, initialIdempotencyKey]);
   // DES-10 status check: the recovery screen must be able to retire
   // exactly this attempt when the contractor opens the matching draft, so
-  // the check URL carries the resolved attempt key. The key is read from
-  // storage at click time (the form resolves it into the hidden input on
-  // mount); with no stored key there is nothing to retire, so the plain
-  // URL is used.
+  // the check URL carries the resolved attempt key for the submitted
+  // estimate (never the newly selected one — see recoveryApplies above).
+  // The key is read from storage at click time (the form resolves it into
+  // the hidden input on mount); with no stored key there is nothing to
+  // retire, so the plain URL is used.
   const router = useRouter();
   const openStatusCheck = () => {
     const attemptKey = readProposalIdempotencyKey(
       projectId,
-      selectedEstimateId || null,
+      effectiveEstimateId || null,
       getIdempotencyKeyStorage(),
     );
-    router.push(buildStatusCheckUrl(projectId, selectedEstimateId || null, attemptKey));
+    router.push(buildStatusCheckUrl(projectId, effectiveEstimateId || null, attemptKey));
   };
 
   return (
@@ -98,13 +118,19 @@ export function NewProposalForm({
         <form
           action={formAction}
           className="flex flex-col gap-5"
+          // Snapshot the submitted estimate before the action runs, so
+          // the recovery controls stay bound to that attempt (see
+          // recoveryApplies above).
+          onSubmit={() => {
+            setSubmittedEstimateId(effectiveEstimateId);
+          }}
           // Returned validation/API errors are fulfilled actions, so React
           // resets uncontrolled fields. Keep edits; successful creation redirects.
           onReset={(event) => event.preventDefault()}
         >
           <input type="hidden" name="projectId" value={projectId} />
           <input ref={keyInputRef} type="hidden" name="idempotencyKey" defaultValue={initialIdempotencyKey} />
-          {confirmedNoMatch ? <input type="hidden" name="confirmedNoMatch" value="1" /> : null}
+          {submitConfirmedNoMatch ? <input type="hidden" name="confirmedNoMatch" value="1" /> : null}
           <div className="flex flex-col gap-2">
             <Label htmlFor="estimateId">Estimate</Label>
             <select
@@ -212,7 +238,7 @@ export function NewProposalForm({
               <p ref={errorRef} role="alert" tabIndex={-1} className="text-sm text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
                 {state.error}
               </p>
-              {canCheckProjectProposals && (
+              {canCheckProjectProposals && recoveryApplies && (
                 <div className="mt-3 flex flex-col items-start gap-2">
                   <p className="text-sm text-muted-foreground">
                     If you cannot confirm whether the draft was created, check this Project’s proposals before trying again.

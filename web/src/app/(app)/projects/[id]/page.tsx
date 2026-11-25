@@ -74,12 +74,21 @@ export default async function ProjectDetailPage({
   const projectRequest = getProject(token ?? "", id);
   // Attach the rejection handler now, not in the later try block: if the
   // project load fails while the settings/assignee requests are still
-  // pending, the rejection would otherwise sit unhandled (and if the
-  // settings request rejects first, the try block below never runs at
-  // all). The later await still throws the original error.
+  // pending, the rejection would otherwise sit unhandled. The later await
+  // still throws the original error.
   void projectRequest.catch(() => {});
-  const [settings, assignees] = await Promise.all([
-    getOrganizationSettings(token ?? ""),
+  // DES-10 status check: settle the settings request without letting its
+  // rejection mask a project-load failure. On a status check the project
+  // failure IS the list failure the recovery card is for, so it is
+  // handled first; a settings-only failure still propagates once the
+  // project has loaded. The settings await is deliberately not inside
+  // the project try block — a settings failure is not a list failure and
+  // must never render the list-error copy.
+  const [settingsOutcome, assignees] = await Promise.all([
+    getOrganizationSettings(token ?? "").then(
+      (value) => ({ ok: true as const, value }),
+      (error: unknown) => ({ ok: false as const, error }),
+    ),
     getProjectTaskAssignees(token ?? "", id).catch(() => ({ canAssign: false, members: [] })),
   ]);
   // DES-10 status check (S6): the proposals list loads with the project,
@@ -115,6 +124,8 @@ export default async function ProjectDetailPage({
     }
     throw err;
   }
+  if (!settingsOutcome.ok) throw settingsOutcome.error;
+  const settings = settingsOutcome.value;
   // Closeout data is loaded only for the Closeout tab, and each call degrades
   // independently: a missing closeout record (or an unreachable closeout
   // service) stays local to the tab instead of failing the whole workspace.

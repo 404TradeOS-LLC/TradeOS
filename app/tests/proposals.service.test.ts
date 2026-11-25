@@ -206,6 +206,40 @@ describe("ProposalsService", () => {
     );
   });
 
+  it("records a status-check confirmation event on an unkeyed create with confirmedNoMatch", async () => {
+    const input = { orgId: "org-1", estimateId: "estimate-1", finalPrice: 7125.37, confirmedNoMatch: true };
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
+    });
+    mockPrisma.proposal.create.mockResolvedValue({ ...proposalRow("draft"), id: "proposal-1" });
+
+    const service = new ProposalsService();
+    const result = await service.create(input);
+
+    expect(result.id).toBe("proposal-1");
+    expect(mockActivityRecord).toHaveBeenCalledTimes(1);
+    expect(mockActivityRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: "org-1",
+        entityType: "project",
+        entityId: "project-1",
+        eventType: "proposal.status_check_confirmed",
+      }),
+    );
+  });
+
+  it("does not record a confirmation event on an unkeyed create without the flag", async () => {
+    const input = { orgId: "org-1", estimateId: "estimate-1", finalPrice: 7125.37 };
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
+    });
+    mockPrisma.proposal.create.mockResolvedValue({ ...proposalRow("draft"), id: "proposal-1" });
+
+    await new ProposalsService().create(input);
+
+    expect(mockActivityRecord).not.toHaveBeenCalled();
+  });
+
   it("does not record a second confirmation event on replay", async () => {
     const input = { orgId: "org-1", estimateId: "estimate-1", finalPrice: 7125.37, confirmedNoMatch: true };
     mockPrisma.estimate.findFirst.mockResolvedValue({

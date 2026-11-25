@@ -304,7 +304,7 @@ test("no-match confirmation records the explicit decision with its time", () => 
   const at = new Date("2026-11-25T09:00:00.000Z");
   assert.equal(
     buildNoMatchConfirmationDescription(at),
-    "Contractor confirmed no proposal for this Project and Estimate was present in the loaded list; created again at 2026-11-25T09:00:00.000Z.",
+    "Contractor confirmed no proposal for this Project and Estimate was present in the loaded list and returned to the proposal form at 2026-11-25T09:00:00.000Z.",
   );
   assert.equal(PROPOSAL_STATUS_CHECK_NO_MATCH_EVENT_TYPE, "proposal.status_check_no_match");
 });

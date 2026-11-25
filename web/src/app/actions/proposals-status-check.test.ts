@@ -126,8 +126,16 @@ test("form error box offers status check + same-key retry only on an unknown out
   // estimate so the match rule can apply, and the resolved attempt key
   // (read from storage at click time) so the recovery screen can retire
   // exactly this attempt when the contractor opens the matching draft.
-  assert.match(formSource, /buildStatusCheckUrl\(projectId, selectedEstimateId \|\| null, attemptKey\)/);
-  assert.match(formSource, /readProposalIdempotencyKey\(\s*projectId,\s*selectedEstimateId \|\| null/);
+  // Both use the effective submitted estimate — the estimate the form
+  // actually submits for — never the raw select state, so switching
+  // estimates after a failed submit cannot point the check at the new
+  // estimate for the old attempt's outcome.
+  assert.match(formSource, /buildStatusCheckUrl\(projectId, effectiveEstimateId \|\| null, attemptKey\)/);
+  assert.match(formSource, /readProposalIdempotencyKey\(\s*projectId,\s*effectiveEstimateId \|\| null/);
+  // The recovery controls render only while the current selection still
+  // matches the submitted attempt; a different selection clears them.
+  assert.match(formSource, /recoveryApplies/);
+  assert.match(formSource, /canCheckProjectProposals && recoveryApplies/);
   assert.match(formSource, /Check proposal status/);
   assert.match(formSource, /Try again with the same details/);
   // The retry renders only under the unknown outcome: the 409 key-reuse
@@ -208,6 +216,12 @@ test("new-proposal form carries the confirmed-no-match flag when set", () => {
   // for a confirmed no-match.
   assert.match(formSource, /confirmedNoMatch/);
   assert.match(formSource, /name="confirmedNoMatch" value="1"/);
+  // The flag submits only while the current selection still matches the
+  // estimate the contractor confirmed (or intake when no estimate was
+  // confirmed) — switching estimates must not carry a confirmation the
+  // contractor did not make for the new selection.
+  assert.match(formSource, /submitConfirmedNoMatch/);
+  assert.match(formSource, /submitConfirmedNoMatch \? <input type="hidden" name="confirmedNoMatch" value="1" \/> : null/);
 });
 
 test("new-proposal page threads the confirmation flag into the form", () => {

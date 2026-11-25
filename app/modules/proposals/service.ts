@@ -78,7 +78,42 @@ export class ProposalsService {
     const row = input.estimateId
       ? await this.createFromEstimate(input)
       : await this.createFromProject(input);
+    // DES-10 Status Check: the unkeyed (legacy) create path records the
+    // same confirmation event as the keyed path. A flag without a key
+    // must not silently drop the contractor's explicit confirmation;
+    // this path has no replays, so a retry creates a second draft (the
+    // legacy path's pre-existing behavior).
+    if (input.confirmedNoMatch === true && input.orgId) {
+      await this.recordStatusCheckConfirmation(row, input.orgId, input.estimateId ?? null, null);
+    }
     return toDTO(row);
+  }
+
+  /**
+   * Persist a contractor's explicit Status Check no-match confirmation as
+   * a `proposal.status_check_confirmed` activity event on the project.
+   * Recorded only on a genuinely fresh create, never on a replay; the
+   * flag is never part of the idempotency hash.
+   */
+  private async recordStatusCheckConfirmation(
+    row: { id: string; projectId: string },
+    orgId: string,
+    estimateId: string | null,
+    idempotencyKey: string | null,
+  ): Promise<void> {
+    await this.activityService.record({
+      orgId,
+      entityType: "project",
+      entityId: row.projectId,
+      eventType: "proposal.status_check_confirmed",
+      title:
+        "Contractor confirmed no proposal for this project and estimate was present in the loaded list; created again",
+      metadata: {
+        proposalId: row.id,
+        estimateId,
+        idempotencyKey,
+      },
+    });
   }
 
   /**
@@ -137,25 +172,9 @@ export class ProposalsService {
           : this.createFromProject(input, { idempotencyKey, requestHash })
       );
       if (input.confirmedNoMatch === true) {
-        // DES-10 Status Check: the contractor explicitly confirmed on the
-        // Status Check screen that no proposal for this project and
-        // estimate was present in the loaded list, then created again.
-        // The decision is persisted as an activity event, never a silent
-        // default. A replay records nothing — the original attempt already
+        // A replay records nothing — the original attempt already
         // recorded it (or never carried the flag).
-        await this.activityService.record({
-          orgId: input.orgId,
-          entityType: "project",
-          entityId: row.projectId,
-          eventType: "proposal.status_check_confirmed",
-          title:
-            "Contractor confirmed no proposal for this project and estimate was present in the loaded list; created again",
-          metadata: {
-            proposalId: row.id,
-            estimateId: input.estimateId ?? null,
-            idempotencyKey,
-          },
-        });
+        await this.recordStatusCheckConfirmation(row, input.orgId, input.estimateId ?? null, idempotencyKey);
       }
       return { proposal: toDTO(row), replayed: false };
     } catch (error) {

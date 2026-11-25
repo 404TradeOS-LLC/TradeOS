@@ -32,7 +32,12 @@ export const PROPOSAL_STATUS_CHECK_NO_MATCH_EVENT_TYPE = "proposal.status_check_
 export const PROPOSAL_STATUS_CHECK_NO_MATCH_TITLE = "Proposal status check: no matching draft";
 
 export function buildNoMatchConfirmationDescription(at: Date): string {
-  return `Contractor confirmed no proposal for this Project and Estimate was present in the loaded list; created again at ${at.toISOString()}.`;
+  // Record only the confirmation and the return: this entry is written
+  // before the contractor submits another create, so it must not claim
+  // a proposal was created. The creation itself is recorded separately
+  // by the server-side `proposal.status_check_confirmed` event on a
+  // fresh create.
+  return `Contractor confirmed no proposal for this Project and Estimate was present in the loaded list and returned to the proposal form at ${at.toISOString()}.`;
 }
 
 const IDEMPOTENCY_KEY_PATTERN =

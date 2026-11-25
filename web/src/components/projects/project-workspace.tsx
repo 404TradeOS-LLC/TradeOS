@@ -292,9 +292,16 @@ export async function ProjectWorkspace({
             description="Customer-facing scope and pricing history."
             empty="No proposals yet. Build the first draft when the estimate is ready for customer review."
             action={
-              <Link href={`/projects/${project.id}/proposals/new`} className={buttonVariants()}>
-                Build proposal draft
-              </Link>
+              // DES-10 status check: while a status check is open, the
+              // confirmation return form below is the only create path —
+              // the direct link carries no estimate, attempt key, or
+              // confirmation flag, so it could create a second draft the
+              // list did not show. Ordinary proposals-tab visits keep it.
+              statusCheck ? undefined : (
+                <Link href={`/projects/${project.id}/proposals/new`} className={buttonVariants()}>
+                  Build proposal draft
+                </Link>
+              )
             }
             items={proposals.map((proposal) => ({
               id: proposal.id,
