@@ -35,6 +35,7 @@ import { createEstimateCompareTool } from "./estimator/compareEstimates.tool";
 import { createScheduleJobTool } from "./dispatcher/scheduleJob.tool";
 import { createAssignTechnicianTool } from "./dispatcher/assignTechnician.tool";
 import { createOptimizeDayTool } from "./dispatcher/optimizeDay.tool";
+import { createActiveJobsTool } from "./dispatcher/activeJobs.tool";
 import { createWeatherImpactTool } from "./dispatcher/weatherImpact.tool";
 
 import { createCustomerSearchTool } from "./office/searchCustomers.tool";
@@ -72,6 +73,7 @@ export function createProductionAthenaToolRegistry(): AthenaToolRegistry {
     createScheduleJobTool({ jobs }),
     createAssignTechnicianTool({ jobs }),
     createOptimizeDayTool({ jobs }),
+    createActiveJobsTool({ jobs }),
     createWeatherImpactTool(),
 
     createCustomerSearchTool({ crm }),

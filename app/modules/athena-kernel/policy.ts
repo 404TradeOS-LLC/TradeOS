@@ -64,6 +64,17 @@ const mutationKeywords = ["send", "delete", "remove", "cancel", "approve", "reje
 
 const mutationKeywordPattern = new RegExp(`\\b(?:${mutationKeywords.join("|")})\\b`, "i");
 
+// 2026-11-25 draft-refusal regression: "What's on my schedule today?" was
+// classified as a mutation because "schedule" is a mutation keyword, so the
+// kernel denied a plain read-only question in production. "my schedule" and
+// "active jobs" are read-only noun phrases about work that already exists -
+// checked first, mirroring athena-router/classifier.ts's
+// DISPATCH_OVERVIEW_PHRASES carve-out. Genuine scheduling verbs ("Schedule
+// a job for Friday") contain no read-only phrase and still classify as
+// mutations.
+const readOnlySchedulePhrases: RegExp[] = [/\bmy schedule\b/i, /\bactive jobs\b/i];
+
 export function classifyAthenaCapability(message: string): AthenaCapability {
+  if (readOnlySchedulePhrases.some((pattern) => pattern.test(message))) return "draft_response";
   return mutationKeywordPattern.test(message) ? "mutate_business_record" : "draft_response";
 }

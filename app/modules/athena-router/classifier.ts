@@ -12,7 +12,18 @@ import { AthenaRouterResult, AthenaRoutingStrategy } from "./types";
 // bare words inside otherwise read-only noun phrases. The more specific
 // multi-word intent phrases are matched first so they win over the generic
 // single-verb classification.
-const DISPATCH_OVERVIEW_PHRASES: RegExp[] = [/\bdispatch board\b/i, /\bjob board\b/i, /\bschedule overview\b/i, /\bwho'?s working\b/i, /\btoday'?s jobs\b/i];
+//
+// 2026-11-25 draft-refusal regression: "What's on my schedule today?" and
+// "How many active jobs do I have today?" were classified as mutations
+// because "schedule" is a mutation keyword, so the planner produced a
+// needs_clarification plan and the kernel denied the request ("Athena can't
+// perform that action yet") in production. "my schedule" and "active jobs"
+// are read-only noun phrases about work that already exists - the same
+// carve-out as the dispatch-overview phrases above, mirrored in
+// athena-kernel/policy.ts's classifyAthenaCapability. Genuine scheduling
+// verbs ("Schedule a job for Friday") still fall through to the mutation
+// match because they contain no read-only phrase.
+const DISPATCH_OVERVIEW_PHRASES: RegExp[] = [/\bdispatch board\b/i, /\bjob board\b/i, /\bschedule overview\b/i, /\bwho'?s working\b/i, /\btoday'?s jobs\b/i, /\bmy schedule\b/i, /\bactive jobs\b/i];
 
 const KNOWLEDGE_LOOKUP_PHRASES: RegExp[] = [/\bcost of\b/i, /\bprice of\b/i, /\blabor rate\b/i, /\bmaterial cost\b/i, /\bhow much does\b/i];
 

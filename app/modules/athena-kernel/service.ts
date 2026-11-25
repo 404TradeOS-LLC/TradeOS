@@ -101,6 +101,35 @@ function buildApprovalActionId(toolId: string, toolVersion: string, planId: stri
   return [toolId, toolVersion, planId ?? "unknown-plan", stepId ?? "unknown-step", idempotencyKey ?? "missing-key"].join(":");
 }
 
+// 2026-11-25 draft-refusal regression: the kernel used to offer every
+// discovered tool as a candidate for every non-mutation intent, so the
+// planner emitted a tool_call step per tool with empty input and the first
+// step's input-schema validation failed (athena_action_invalid_input -
+// "Athena could not validate the input for this action.") for every plain
+// question once A12 registered real tools. Only dispatch_overview has
+// intent-matched read-only tools (both take empty input by design); every
+// other non-mutation intent discovers zero tools and fails soft to the
+// draft path - a question is never refused, and no tool the user did not
+// ask for ever executes. Explicitly supplied candidateTools (the DI seam
+// the A5/A6/A7 orchestration tests use) are honored as-is and never
+// filtered here - this selector applies to discovery only.
+const DISPATCH_OVERVIEW_TOOL_IDS: readonly string[] = [
+  "tradeos.athena.tools.dispatcher.optimize-day",
+  "tradeos.athena.tools.dispatcher.active-jobs",
+];
+
+function selectDiscoveredCandidateTools(
+  intent: string,
+  toolRegistry: Pick<AthenaToolRegistry, "discover">,
+  actor: AthenaActorContext
+): AthenaPlanCandidateTool[] {
+  if (intent !== "dispatch_overview") return [];
+  return toolRegistry
+    .discover({ role: actor.role, featureFlags: [] })
+    .filter((tool) => DISPATCH_OVERVIEW_TOOL_IDS.includes(tool.id))
+    .map((tool) => ({ toolId: tool.id, toolVersion: tool.version, summary: tool.description, input: {} }));
+}
+
 export interface AthenaKernelHandleInput {
   request: AthenaKernelRequest;
   actor: AthenaActorContext;
@@ -302,7 +331,7 @@ export class AthenaKernelService {
         await applyTransition("planning", "intent_classified", { intent: routerResult.intent, routingStrategy: routerDecision.strategyId, fallbackApplied: routerDecision.fallbackApplied });
 
         const toolRegistry = input.toolRegistry ?? createAthenaToolRegistry();
-        const candidateTools: AthenaPlanCandidateTool[] = input.candidateTools ?? toolRegistry.discover({ role: actor.role, featureFlags: [] }).map((tool) => ({ toolId: tool.id, toolVersion: tool.version, summary: tool.description, input: {} }));
+        const candidateTools: AthenaPlanCandidateTool[] = input.candidateTools ?? selectDiscoveredCandidateTools(routerResult.intent, toolRegistry, actor);
         const plan = buildAthenaPlan({ routerResult, candidateTools, toolRegistry });
         await recordAudit("tools_considered", { intent: routerResult.intent, toolIds: candidateTools.map((tool) => tool.toolId), planId: plan.planId, stepCount: plan.steps.length });
 

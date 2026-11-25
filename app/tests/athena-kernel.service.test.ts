@@ -88,7 +88,9 @@ import { createAthenaMemoryService } from "../modules/athena-memory/service";
 import type { AthenaMemoryService } from "../modules/athena-memory/service";
 import type { AthenaMemoryCandidateExtractor } from "../modules/athena-memory/types";
 import type { JobsService } from "../modules/jobs/service";
-import type { PaginatedJobsDTO } from "../modules/jobs/types";
+import type { DispatchSummaryDTO, PaginatedJobsDTO, ScheduleConflictResultDTO } from "../modules/jobs/types";
+import { createOptimizeDayTool } from "../modules/athena-tools/dispatcher/optimizeDay.tool";
+import { createEstimateCreateTool } from "../modules/athena-tools/estimator/createEstimate.tool";
 import { getRolePermissions } from "../domain";
 
 const baseEnv = { ATHENA_PROVIDER_MODE: "fake" } as NodeJS.ProcessEnv;
@@ -889,6 +891,136 @@ describe("AthenaKernelService", () => {
       expect(result.success).toBe(true);
       expect(result.state).toBe("succeeded");
       expect(failingMemoryService.remember).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("Draft-refusal regression (2026-11-25, all Athena flags on)", () => {
+    const regressionEnv = {
+      ...baseEnv,
+      ATHENA_ROUTER_PLANNER_ENABLED: "true",
+      ATHENA_ACTION_ENGINE_ENABLED: "true",
+      ATHENA_DRAFT_RESPONSES_ENABLED: "true",
+    } as NodeJS.ProcessEnv;
+
+    function buildFakeDispatchSummary(): DispatchSummaryDTO {
+      return {
+        activeJobs: 5,
+        unscheduledJobs: 0,
+        scheduledToday: 3,
+        overdueActionable: 0,
+        needsAttention: 0,
+        timezone: { source: "organization", value: "America/Chicago" },
+        todayRangeUtc: { start: "2026-11-25T06:00:00.000Z", end: "2026-11-26T06:00:00.000Z" },
+        weekRangeUtc: { start: "2026-11-25T06:00:00.000Z", end: "2026-12-02T06:00:00.000Z" },
+        generatedAt: "2026-11-25T12:00:00.000Z",
+        scope: { source: "organization", role: "owner" },
+      };
+    }
+
+    // Production-shaped registry: the read-only dispatch tool plus the
+    // write tool whose required input used to fail every plain question.
+    // The estimate tool must never execute for a read-only question.
+    function buildRegressionRegistry(): {
+      registry: AthenaToolRegistry;
+      counts: () => { optimizeDay: number; createEstimate: number };
+    } {
+      const registry = createAthenaToolRegistry();
+      let optimizeDay = 0;
+      let createEstimate = 0;
+      registry.register(
+        createOptimizeDayTool({
+          jobs: {
+            getDispatchSummary: async () => {
+              optimizeDay += 1;
+              return buildFakeDispatchSummary();
+            },
+            getScheduleConflicts: async (): Promise<ScheduleConflictResultDTO> => ({ conflicts: [], overrideAllowed: true }),
+          },
+        })
+      );
+      registry.register(
+        createEstimateCreateTool({
+          estimateEngine: {
+            create: async () => {
+              createEstimate += 1;
+              throw new Error("create-estimate must not execute for a read-only question");
+            },
+          } as never,
+        })
+      );
+      return { registry, counts: () => ({ optimizeDay, createEstimate }) };
+    }
+
+    function buildContextRegistry() {
+      const contextRegistry = createAthenaContextRegistry();
+      contextRegistry.register(
+        createDispatchProvider(
+          {},
+          {
+            async list() {
+              return { items: [], page: 1, pageSize: 25, total: 0 };
+            },
+            async getById() {
+              throw new Error("not found");
+            },
+          } as Pick<JobsService, "list" | "getById">
+        )
+      );
+      return contextRegistry;
+    }
+
+    async function ask(message: string, requestId: string) {
+      const { registry, counts } = buildRegressionRegistry();
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message, requestSource: "http" },
+        actor: actor(),
+        requestId,
+        env: regressionEnv,
+        toolRegistry: registry,
+        contextRegistry: buildContextRegistry(),
+      });
+      return { result, counts };
+    }
+
+    it("answers 'How many active jobs do I have today?' from the live dispatch tool instead of failing input validation", async () => {
+      const { result, counts } = await ask("How many active jobs do I have today?", "req-regression-q2");
+
+      expect(result.success).toBe(true);
+      expect(result.state).toBe("succeeded");
+      expect(result.message).toContain("5 active jobs");
+      expect(counts().optimizeDay).toBe(1);
+      expect(counts().createEstimate).toBe(0);
+    });
+
+    it("answers 'What's on my schedule today?' instead of denying it as a mutation", async () => {
+      const { result, counts } = await ask("What's on my schedule today?", "req-regression-q1");
+
+      expect(result.success).toBe(true);
+      expect(result.state).toBe("succeeded");
+      expect(result.message).toContain("5 active jobs");
+      expect(counts().optimizeDay).toBe(1);
+      expect(counts().createEstimate).toBe(0);
+    });
+
+    it("answers the draft-a-summary schedule question instead of denying it", async () => {
+      const { result, counts } = await ask("Draft a short summary of my schedule today for me to review.", "req-regression-q3");
+
+      expect(result.success).toBe(true);
+      expect(result.state).toBe("succeeded");
+      expect(result.message).toContain("5 active jobs");
+      expect(counts().optimizeDay).toBe(1);
+      expect(counts().createEstimate).toBe(0);
+    });
+
+    it("returns a provider draft for a plain question and executes no tool", async () => {
+      const { result, counts } = await ask("What is the status of this project?", "req-regression-draft");
+
+      expect(result.success).toBe(true);
+      expect(result.state).toBe("succeeded");
+      expect(result.message).toBe("This is a draft-only Athena response. No business records were changed.");
+      expect(counts().optimizeDay).toBe(0);
+      expect(counts().createEstimate).toBe(0);
     });
   });
 });

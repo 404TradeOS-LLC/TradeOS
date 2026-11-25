@@ -749,7 +749,12 @@ Project Athena A12 business tools (`app/modules/athena-tools/**`) add no new RES
 - enforces fail-closed approval verification for medium/high-risk actions by
   binding approval to org, user, tool, risk, idempotency key, canonical input
   hash, plan id, and step id;
-- exposes no separate tool-specific mutation endpoints.
+- exposes no separate tool-specific mutation endpoints;
+- plans tools by router intent only: `dispatch_overview` discovers the read-only
+  dispatcher tools, every other non-mutation intent discovers zero tools and
+  fails soft to the draft path, and genuine mutation requests are still
+  denied (2026-11-25 draft-refusal regression fix - plain schedule questions
+  were previously denied as mutations or failed tool input validation).
 
 The chat request body accepts `message`, optional `conversationId`, optional
 `selectedScope`, optional `idempotencyKey`, and the additive optional A14
