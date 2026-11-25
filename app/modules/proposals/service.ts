@@ -29,7 +29,13 @@ function canonicalize(value: unknown): unknown {
 }
 
 function proposalRequestHash(input: CreateProposalInput): string {
-  const request = Object.fromEntries(Object.entries(input).filter(([key]) => key !== "orgId"));
+  // orgId is request scope, not request content; confirmedNoMatch is the
+  // contractor's explicit confirmation, not proposal content. Neither may
+  // change the hash, or a retry that gains (or loses) the flag would 409
+  // instead of replaying the original draft.
+  const request = Object.fromEntries(
+    Object.entries(input).filter(([key]) => key !== "orgId" && key !== "confirmedNoMatch"),
+  );
   return createHash("sha256").update(JSON.stringify(canonicalize(request))).digest("hex");
 }
 
@@ -72,7 +78,42 @@ export class ProposalsService {
     const row = input.estimateId
       ? await this.createFromEstimate(input)
       : await this.createFromProject(input);
+    // DES-10 Status Check: the unkeyed (legacy) create path records the
+    // same confirmation event as the keyed path. A flag without a key
+    // must not silently drop the contractor's explicit confirmation;
+    // this path has no replays, so a retry creates a second draft (the
+    // legacy path's pre-existing behavior).
+    if (input.confirmedNoMatch === true && input.orgId) {
+      await this.recordStatusCheckConfirmation(row, input.orgId, input.estimateId ?? null, null);
+    }
     return toDTO(row);
+  }
+
+  /**
+   * Persist a contractor's explicit Status Check no-match confirmation as
+   * a `proposal.status_check_confirmed` activity event on the project.
+   * Recorded only on a genuinely fresh create, never on a replay; the
+   * flag is never part of the idempotency hash.
+   */
+  private async recordStatusCheckConfirmation(
+    row: { id: string; projectId: string },
+    orgId: string,
+    estimateId: string | null,
+    idempotencyKey: string | null,
+  ): Promise<void> {
+    await this.activityService.record({
+      orgId,
+      entityType: "project",
+      entityId: row.projectId,
+      eventType: "proposal.status_check_confirmed",
+      title:
+        "Contractor confirmed no proposal for this project and estimate was present in the loaded list; created again",
+      metadata: {
+        proposalId: row.id,
+        estimateId,
+        idempotencyKey,
+      },
+    });
   }
 
   /**
@@ -116,7 +157,10 @@ export class ProposalsService {
       });
       if (!existing) return null;
       if (existing.idempotencyHash !== requestHash) {
-        throw new ApiError(409, "This proposal request key was already used with different details. Check the project proposal list before starting a new draft.");
+        // Stable details.code (same convention as organization_name_required):
+        // the web classifies a 409 by this code, not by message text, so a
+        // draft-estimate rejection must not look like key reuse.
+        throw new ApiError(409, "This proposal request key was already used with different details. Check the project proposal list before starting a new draft.", { code: "idempotency_key_reused" });
       }
       return { proposal: toDTO(existing), replayed: true as const };
     };
@@ -130,6 +174,11 @@ export class ProposalsService {
           ? this.createFromEstimate(input, { idempotencyKey, requestHash })
           : this.createFromProject(input, { idempotencyKey, requestHash })
       );
+      if (input.confirmedNoMatch === true) {
+        // A replay records nothing — the original attempt already
+        // recorded it (or never carried the flag).
+        await this.recordStatusCheckConfirmation(row, input.orgId, input.estimateId ?? null, idempotencyKey);
+      }
       return { proposal: toDTO(row), replayed: false };
     } catch (error) {
       if (!isUniqueConstraintViolation(error)) throw error;
@@ -1087,7 +1136,10 @@ export class ProposalsService {
 
     const estimateStatus = normalizeEstimateStatus(estimate.status);
     if (estimateStatus === "draft") {
-      throw new ApiError(409, `Estimate ${input.estimateId} must be finalized before creating a proposal`);
+      // Stable details.code (same convention as organization_name_required):
+      // this 409 happens before insertion, so the web must classify it as a
+      // known rejection, never as key reuse with recovery guidance.
+      throw new ApiError(409, `Estimate ${input.estimateId} must be finalized before creating a proposal`, { code: "estimate_not_finalized" });
     }
     const finalizedEstimatePrice = estimate.totalPrice;
     const hasExplicitRange = input.priceLow != null || input.priceHigh != null;
@@ -1261,6 +1313,7 @@ function toDTO(row: {
   id: string;
   projectId: string;
   estimateId: string | null;
+  idempotencyKey: string | null;
   status: string;
   companyName: string | null;
   showLineItemDetail: boolean;
@@ -1322,6 +1375,7 @@ function toDTO(row: {
     id: row.id,
     projectId: row.projectId,
     estimateId: row.estimateId,
+    idempotencyKey: row.idempotencyKey,
     status: normalizeProposalStatus(row.status),
     companyName: row.companyName,
     showLineItemDetail: row.showLineItemDetail,

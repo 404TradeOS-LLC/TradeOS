@@ -59,6 +59,19 @@ interface ApiFetchOptions extends RequestInit {
 // Authorization header and the error-shape parsing for the backend's
 // consistent { error, details? } JSON error responses (see errorHandler.ts).
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
+  const { data } = await apiFetchWithResponse<T>(path, options);
+  return data;
+}
+
+// DES-10 status check: some callers must tell a replay from a create and
+// a known rejection from an unknown outcome. apiFetch returns the body
+// only, so response status and headers never reach the action. This
+// wrapper exposes them (status + the raw Headers) alongside the parsed
+// body; apiFetch above keeps its body-only contract by delegating here.
+export async function apiFetchWithResponse<T>(
+  path: string,
+  options: ApiFetchOptions = {},
+): Promise<{ data: T; status: number; headers: Headers }> {
   const { token, headers, ...rest } = options;
   const response = await fetch(`${BACKEND_API_URL}${path}`, {
     ...rest,
@@ -80,7 +93,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     throw new ApiClientError(error.message, response.status, error.details);
   }
 
-  return body as T;
+  return { data: body as T, status: response.status, headers: response.headers };
 }
 
 export type FinancialSourceStatus = "complete" | "partial" | "unavailable";
@@ -1266,6 +1279,10 @@ export interface Proposal {
   id: string;
   projectId: string;
   estimateId: string | null;
+  // DES-10 Status Check: the create-attempt identity. Optional because web
+  // and API deploy independently — an older API omits it and the
+  // status-check match falls back to estimateId.
+  idempotencyKey?: string | null;
   status: ProposalStatus;
   companyName: string | null;
   showLineItemDetail: boolean;

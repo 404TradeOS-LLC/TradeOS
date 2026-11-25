@@ -1,33 +1,45 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createProposalAction } from "@/app/actions/proposals";
 import { PaymentScheduleFields } from "@/components/proposals/payment-schedule-fields";
 import { SummaryMetricCard } from "@/components/shared/summary-metric-card";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Estimate, ProposalDraftPreview } from "@/lib/api";
+import { buildStatusCheckUrl, getIdempotencyKeyStorage, readProposalIdempotencyKey, resolveProposalIdempotencyKey } from "@/lib/proposal-status-check";
 
 export function NewProposalForm({
-  idempotencyKey,
+  initialIdempotencyKey,
   projectId,
   estimates,
   draft,
   initialEstimateId,
+  confirmedNoMatch = false,
 }: {
-  idempotencyKey: string;
+  initialIdempotencyKey: string;
   projectId: string;
   estimates: Estimate[];
   draft: ProposalDraftPreview;
   initialEstimateId?: string;
+  // DES-10 Status Check: the contractor confirmed on the Status Check
+  // screen that no matching draft was present, then created again. The
+  // create action records the confirmation as an activity event on a
+  // fresh create. The form deliberately keeps resolving the stored
+  // attempt key (see below): a retry replays the original attempt if
+  // the draft exists, and records the confirmation only on a genuinely
+  // fresh create — minting a fresh key here could duplicate a draft
+  // the loaded list missed.
+  confirmedNoMatch?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(createProposalAction, undefined);
   const canCheckProjectProposals = Boolean(state && "statusCheck" in state && state.statusCheck);
+  const outcome = state && "outcome" in state ? state.outcome : null;
   const errorRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (!state?.error) return;
@@ -38,6 +50,68 @@ export function NewProposalForm({
   const hasEstimates = eligibleEstimates.length > 0;
   const [selectedEstimateId, setSelectedEstimateId] = useState(initialEstimateId ?? "");
   const selectedEstimate = eligibleEstimates.find((estimate) => estimate.id === selectedEstimateId);
+  // The estimate the form effectively submits for: the selected estimate,
+  // or intake when none is selected (a draft estimate id in the URL is
+  // not submittable, so it counts as intake). Every identity-bound
+  // behavior below uses this, not the raw select state.
+  const effectiveEstimateId = selectedEstimate?.id ?? "";
+  // DES-10 status check: the recovery controls belong to the submitted
+  // attempt. Snapshot the estimate the failed submission was for; if the
+  // contractor picks a different estimate afterwards, the stale controls
+  // disappear instead of checking the new estimate for the old attempt's
+  // outcome. The main Create button stays available for the new
+  // selection.
+  const [submittedEstimateId, setSubmittedEstimateId] = useState<string | null>(null);
+  const recoveryApplies = submittedEstimateId !== null && effectiveEstimateId === submittedEstimateId;
+  // DES-10 status check: the confirmation belongs to the estimate the
+  // contractor confirmed (or intake when no estimate was confirmed).
+  // Submit the flag only while the current selection still matches that
+  // identity — switching to a different estimate must not carry a
+  // confirmation the contractor did not make for it.
+  const submitConfirmedNoMatch = confirmedNoMatch && effectiveEstimateId === (initialEstimateId ?? "");
+  // DES-10 status check: one idempotency key per create attempt, persisted
+  // for that attempt (sessionStorage, keyed by project + estimate). The
+  // page mints a seed per render only as a fallback; the resolved key is
+  // what the hidden input submits, so a retry — from "Try again" or after
+  // a page reload — reuses the original key and the server replays
+  // instead of creating a duplicate draft. A different estimate resolves
+  // its own key. The key is cleared once the attempt is confirmed created
+  // or replayed (ClearProposalAttemptKey on the proposal detail page).
+  // The input is uncontrolled: the effect writes the resolved key to the
+  // DOM node directly (no setState in an effect), so the submitted value
+  // is always the persisted attempt key while the server-rendered seed
+  // stays the hydration value.
+  const keyInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (keyInputRef.current) {
+      keyInputRef.current.value = resolveProposalIdempotencyKey(
+        // The effective estimate identity, not the raw select state: a
+        // draft estimate id in the URL submits as intake, so its key must
+        // live in the intake slot — the status-check path reads that slot,
+        // and a key stored under the draft id would be orphaned.
+        projectId,
+        effectiveEstimateId || null,
+        initialIdempotencyKey,
+        getIdempotencyKeyStorage(),
+      );
+    }
+  }, [projectId, effectiveEstimateId, initialIdempotencyKey]);
+  // DES-10 status check: the recovery screen must be able to retire
+  // exactly this attempt when the contractor opens the matching draft, so
+  // the check URL carries the resolved attempt key for the submitted
+  // estimate (never the newly selected one — see recoveryApplies above).
+  // The key is read from storage at click time (the form resolves it into
+  // the hidden input on mount); with no stored key there is nothing to
+  // retire, so the plain URL is used.
+  const router = useRouter();
+  const openStatusCheck = () => {
+    const attemptKey = readProposalIdempotencyKey(
+      projectId,
+      effectiveEstimateId || null,
+      getIdempotencyKeyStorage(),
+    );
+    router.push(buildStatusCheckUrl(projectId, effectiveEstimateId || null, attemptKey));
+  };
 
   return (
     <Card className="border-border/70 bg-muted/10">
@@ -48,12 +122,19 @@ export function NewProposalForm({
         <form
           action={formAction}
           className="flex flex-col gap-5"
+          // Snapshot the submitted estimate before the action runs, so
+          // the recovery controls stay bound to that attempt (see
+          // recoveryApplies above).
+          onSubmit={() => {
+            setSubmittedEstimateId(effectiveEstimateId);
+          }}
           // Returned validation/API errors are fulfilled actions, so React
           // resets uncontrolled fields. Keep edits; successful creation redirects.
           onReset={(event) => event.preventDefault()}
         >
           <input type="hidden" name="projectId" value={projectId} />
-          <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
+          <input ref={keyInputRef} type="hidden" name="idempotencyKey" defaultValue={initialIdempotencyKey} />
+          {submitConfirmedNoMatch ? <input type="hidden" name="confirmedNoMatch" value="1" /> : null}
           <div className="flex flex-col gap-2">
             <Label htmlFor="estimateId">Estimate</Label>
             <select
@@ -161,14 +242,21 @@ export function NewProposalForm({
               <p ref={errorRef} role="alert" tabIndex={-1} className="text-sm text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
                 {state.error}
               </p>
-              {canCheckProjectProposals && (
+              {canCheckProjectProposals && recoveryApplies && (
                 <div className="mt-3 flex flex-col items-start gap-2">
                   <p className="text-sm text-muted-foreground">
                     If you cannot confirm whether the draft was created, check this Project’s proposals before trying again.
                   </p>
-                  <Link href={`/projects/${projectId}?tab=proposals`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-                    Check Project proposals
-                  </Link>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" className="min-h-11" onClick={openStatusCheck}>
+                      Check proposal status
+                    </Button>
+                    {outcome === "unknown" && (
+                      <Button type="submit" variant="secondary" disabled={isPending} className="min-h-11">
+                        Try again with the same details
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

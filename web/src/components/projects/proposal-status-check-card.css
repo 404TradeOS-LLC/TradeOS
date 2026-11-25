@@ -1,0 +1,19 @@
+/* DES-10 status check: the guidance card and match verdict dissolve in
+   180ms, mirroring the F1 clarification transition. The global
+   prefers-reduced-motion override in globals.css collapses every
+   animation to 0.01ms, so reduced motion is honored without a local
+   media query. */
+.proposal-status-check-card,
+.proposal-status-check-verdict,
+.proposal-status-check-marker {
+  animation: proposal-status-check-dissolve 180ms ease-out both;
+}
+
+@keyframes proposal-status-check-dissolve {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

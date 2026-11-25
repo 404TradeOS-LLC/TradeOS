@@ -11,6 +11,8 @@ import { ProjectPhotoPanel } from "@/components/projects/project-photo-panel";
 import { ProjectStatusTimeline } from "@/components/projects/project-status-timeline";
 import { ProjectTaskForm } from "@/components/projects/project-task-form";
 import { ProjectWorkspaceTab } from "@/components/projects/project-workspace-tabs";
+import { ProposalStatusCheckCard } from "@/components/projects/proposal-status-check-card";
+import { ProposalStatusCheckReturnForm } from "@/components/projects/proposal-status-check-return-form";
 import { ActivityTimeline } from "@/components/shared/activity-timeline";
 import { NotificationCenter } from "@/components/shared/notification-center";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -20,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { ChangeOrder, ChangeOrderLineItem, Contract, Customer, Estimate, Invoice, JobSummary, Project, ProjectFile, ProjectTask, Proposal, PunchItem, SiteVisit, WarrantyRecord } from "@/lib/api";
 import { buildCloseoutChecklistArtifacts } from "@/lib/api";
+import { findMatchingProposal, buildRecoveredProposalUrl } from "@/lib/proposal-status-check";
 import {
   buildProjectActivity,
   buildProjectNotifications,
@@ -53,6 +56,15 @@ interface ProjectWorkspaceProps {
   canAssignTaskIdentity?: boolean;
   taskMembers?: Array<{ userId: string; fullName: string | null; email: string; status: string }>;
   closeoutData?: ProjectCloseoutData | null;
+  // DES-10 status check: when true, the proposals tab renders the
+  // recovery-guidance card above the loaded list for the attempt's
+  // estimate (null = intake-only attempt).
+  statusCheck?: boolean;
+  statusCheckEstimateId?: string | null;
+  // The resolved attempt key carried on the check URL, so the matching
+  // draft's link can retire exactly this attempt when opened (null =
+  // no key carried, in which case opening the match clears nothing).
+  statusCheckKey?: string | null;
 }
 
 export async function ProjectWorkspace({
@@ -72,6 +84,9 @@ export async function ProjectWorkspace({
   taskMembers = [],
   canAssignTaskIdentity = false,
   closeoutData = null,
+  statusCheck = false,
+  statusCheckEstimateId = null,
+  statusCheckKey = null,
 }: ProjectWorkspaceProps) {
   const activity = buildProjectActivity({ ...project, customer, estimates, siteVisits, projectFiles, proposals, invoices, contracts, changeOrders, tasks });
   const notifications = buildProjectNotifications({ ...project, proposals, contracts, invoices });
@@ -249,26 +264,68 @@ export async function ProjectWorkspace({
           </CardContent>
         </Card>
       );
-    case "proposals":
+    case "proposals": {
+      // DES-10 status check: the guidance card renders above the loaded
+      // list (a render means loaded — the tab is server-rendered), the
+      // matching row carries a text marker, and the explicit no-match
+      // confirmation appears below the list only when nothing matched.
+      const attemptEstimateId = statusCheck ? statusCheckEstimateId : null;
+      const match = statusCheck ? findMatchingProposal(proposals, attemptEstimateId, statusCheckKey) : null;
+      const attemptEstimate = attemptEstimateId
+        ? estimates.find((estimate) => estimate.id === attemptEstimateId)
+        : undefined;
       return (
-        <ListSection
-          title="Proposals"
-          description="Customer-facing scope and pricing history."
-          empty="No proposals yet. Build the first draft when the estimate is ready for customer review."
-          action={
-            <Link href={`/projects/${project.id}/proposals/new`} className={buttonVariants()}>
-              Build proposal draft
-            </Link>
-          }
-          items={proposals.map((proposal) => ({
-            id: proposal.id,
-            title: proposal.estimateId ? "Estimate-backed proposal" : "Project draft proposal",
-            subtitle: `${formatCurrency(proposal.finalPrice ?? proposal.priceHigh ?? proposal.priceLow)} • ${formatDateTime(proposal.createdAt)}`,
-            href: `/projects/${project.id}/proposals/${proposal.id}`,
-            badge: getProposalDisplayStatus(proposal),
-          }))}
-        />
+        <div className="grid gap-6">
+          {statusCheck && (
+            <ProposalStatusCheckCard
+              projectId={project.id}
+              projectName={project.name}
+              customerName={customer?.name ?? null}
+              estimateLabel={
+                attemptEstimate ? `Estimate v${attemptEstimate.version} · ${attemptEstimate.status}` : null
+              }
+              match={match ? { id: match.id } : null}
+            />
+          )}
+          <ListSection
+            title="Proposals"
+            description="Customer-facing scope and pricing history."
+            empty="No proposals yet. Build the first draft when the estimate is ready for customer review."
+            action={
+              // DES-10 status check: while a status check is open, the
+              // confirmation return form below is the only create path —
+              // the direct link carries no estimate, attempt key, or
+              // confirmation flag, so it could create a second draft the
+              // list did not show. Ordinary proposals-tab visits keep it.
+              statusCheck ? undefined : (
+                <Link href={`/projects/${project.id}/proposals/new`} className={buttonVariants()}>
+                  Build proposal draft
+                </Link>
+              )
+            }
+            items={proposals.map((proposal) => ({
+              id: proposal.id,
+              title: proposal.estimateId ? "Estimate-backed proposal" : "Project draft proposal",
+              subtitle: `${formatCurrency(proposal.finalPrice ?? proposal.priceHigh ?? proposal.priceLow)} • ${formatDateTime(proposal.createdAt)}`,
+              // DES-10 status check: opening the confirmed matching draft
+              // retires the resolved attempt — the link carries the
+              // recovery marker and the attempt key, so the detail page
+              // clears exactly this attempt's key (never a newer one).
+              // Other rows keep the plain detail URL.
+              href:
+                match?.id === proposal.id
+                  ? buildRecoveredProposalUrl(project.id, proposal.id, statusCheckKey)
+                  : `/projects/${project.id}/proposals/${proposal.id}`,
+              badge: getProposalDisplayStatus(proposal),
+              marker: match?.id === proposal.id ? "This is your draft" : undefined,
+            }))}
+          />
+          {statusCheck && !match && (
+            <ProposalStatusCheckReturnForm projectId={project.id} estimateId={attemptEstimateId} />
+          )}
+        </div>
       );
+    }
     case "contracts":
       return (
         <ListSection
@@ -944,7 +1001,7 @@ function ListSection({
   title: string;
   description: string;
   empty: string;
-  items: Array<{ id: string; title: string; subtitle: string; href: string; badge?: string }>;
+  items: Array<{ id: string; title: string; subtitle: string; href: string; badge?: string; marker?: string }>;
   action?: ReactNode;
 }) {
   return (
@@ -965,6 +1022,11 @@ function ListSection({
               <div>
                 <div className="font-medium text-foreground">{item.title}</div>
                 <div className="text-sm text-muted-foreground">{item.subtitle}</div>
+                {item.marker ? (
+                  <div className="proposal-status-check-marker mt-1 text-sm font-medium text-foreground">
+                    {item.marker}
+                  </div>
+                ) : null}
               </div>
               {item.badge ? <StatusBadge status={item.badge} /> : null}
             </Link>

@@ -34,6 +34,11 @@ const createSchema = z.object({
   finalPrice: z.number().nullable().optional(),
   paymentScheduleJson: z.unknown().optional(),
   termsAndConditions: z.string().optional(),
+  // DES-10 Status Check: the contractor explicitly confirmed on the Status
+  // Check screen that no proposal for this project and estimate was present
+  // in the loaded list, then created again. Recorded as an activity event
+  // on a fresh create; excluded from the idempotency hash in the service.
+  confirmedNoMatch: z.boolean().optional(),
 }).refine((value) => value.estimateId || value.projectId, {
   message: "Either estimateId or projectId is required",
   path: ["estimateId"],

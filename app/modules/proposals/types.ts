@@ -101,12 +101,24 @@ export interface CreateProposalInput {
   finalPrice?: number | null;
   paymentScheduleJson?: unknown;
   termsAndConditions?: string;
+  // DES-10 Status Check: set when the contractor explicitly confirmed on
+  // the Status Check screen that no proposal for this project and estimate
+  // was present in the loaded list, then created again. Recorded as an
+  // activity event on a fresh create; never part of the idempotency hash,
+  // so a retry with or without the flag still replays the same draft.
+  confirmedNoMatch?: boolean;
 }
 
 export interface ProposalDTO {
   id: string;
   projectId: string;
   estimateId: string | null;
+  // DES-10 Status Check: the create-attempt identity. Exposed so the web
+  // status-check screen can match a recovery attempt to the proposal that
+  // attempt created, instead of matching any proposal with the same
+  // estimateId (several intake proposals can share one project). The key
+  // is unique per project; it is already carried in the status-check URL.
+  idempotencyKey: string | null;
   status: ProposalStatus;
   companyName: string | null;
   showLineItemDetail: boolean;

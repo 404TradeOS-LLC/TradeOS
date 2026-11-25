@@ -163,6 +163,7 @@ Draft-creation request contract:
 
 - first-party `POST /api/v1/proposals` requests send a UUID `Idempotency-Key`; older web bundles and external clients may omit it during independent deployments, in which case creation keeps legacy non-idempotent behavior
 - a replay with the same canonical request returns the same Proposal without inserting another draft; a changed request under the same key returns `409`; requests without a key do not receive this guarantee
+- the create body accepts an optional `confirmedNoMatch: true` (contractor confirmed on the Status Check screen that no proposal for this project and estimate was present in the loaded list, then created again); a fresh create records a `proposal.status_check_confirmed` activity event, a replay records nothing, and the flag is excluded from the request fingerprint
 - this request contract prevents duplicate draft creation but does not add a proposal lifecycle state, automatic retry, customer send, or pricing transition
 
 - historical `rejected` rows remain accepted by the database constraint and are displayed canonically as `declined`

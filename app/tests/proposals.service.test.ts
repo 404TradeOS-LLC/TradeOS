@@ -40,6 +40,8 @@ const mockAthenaEventService = {
   publish: jest.fn(),
 };
 
+const mockActivityRecord = jest.fn().mockResolvedValue(undefined);
+
 const proposalUpdatedAt = new Date("2026-11-13T12:00:00.000Z");
 
 function proposalRow(status: string) {
@@ -47,6 +49,7 @@ function proposalRow(status: string) {
     id: "proposal-1",
     projectId: "project-1",
     estimateId: "estimate-1",
+    idempotencyKey: "9a8b7c6d-5e4f-4321-8abc-0123456789ab",
     status,
     companyName: null,
     showLineItemDetail: false,
@@ -76,7 +79,7 @@ jest.mock("../modules/proposal-generator/service", () => ({
 }));
 jest.mock("../modules/intelligence/service", () => ({
   ActivityTimelineService: jest.fn().mockImplementation(() => ({
-    record: jest.fn().mockResolvedValue(undefined),
+    record: mockActivityRecord,
   })),
 }));
 jest.mock("../modules/athena-events/service", () => ({
@@ -102,7 +105,27 @@ describe("ProposalsService", () => {
     mockPrisma.estimate.findFirst.mockResolvedValue({ id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "draft", totalPrice: 0 });
 
     const service = new ProposalsService();
-    await expect(service.create({ orgId: "org-1", estimateId: "estimate-1" })).rejects.toMatchObject({ statusCode: 409 });
+    await expect(service.create({ orgId: "org-1", estimateId: "estimate-1" })).rejects.toMatchObject({ statusCode: 409, details: { code: "estimate_not_finalized" } });
+    expect(mockPrisma.proposal.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects reusing an idempotency key with different details, with the stable key-reuse code", async () => {
+    const input = { orgId: "org-1", estimateId: "estimate-1", finalPrice: 7125.37 };
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
+    });
+    // Same key, different request hash: the stored attempt is a different
+    // create, so this is key reuse — not a replay and not a fresh create.
+    mockPrisma.proposal.findFirst.mockResolvedValue({
+      ...proposalRow("draft"),
+      idempotencyKey: "9a8b7c6d-5e4f-4321-8abc-0123456789ab",
+      idempotencyHash: "0".repeat(64),
+    });
+
+    const service = new ProposalsService();
+    await expect(
+      service.createWithIdempotency(input, "9a8b7c6d-5e4f-4321-8abc-0123456789ab"),
+    ).rejects.toMatchObject({ statusCode: 409, details: { code: "idempotency_key_reused" } });
     expect(mockPrisma.proposal.create).not.toHaveBeenCalled();
   });
 
@@ -179,6 +202,118 @@ describe("ProposalsService", () => {
     expect(first.replayed).toBe(false);
     expect(replay).toMatchObject({ replayed: true, proposal: { id: "proposal-1" } });
     expect(mockPrisma.proposal.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("records a status-check confirmation event on a fresh create with confirmedNoMatch", async () => {
+    const input = { orgId: "org-1", estimateId: "estimate-1", finalPrice: 7125.37, confirmedNoMatch: true };
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
+    });
+    mockPrisma.proposal.findFirst.mockResolvedValue(null);
+    mockPrisma.proposal.create.mockResolvedValue({ ...proposalRow("draft"), id: "proposal-1" });
+
+    const service = new ProposalsService();
+    const result = await service.createWithIdempotency(input, "9a8b7c6d-5e4f-4321-8abc-0123456789ab");
+
+    expect(result.replayed).toBe(false);
+    expect(mockActivityRecord).toHaveBeenCalledTimes(1);
+    expect(mockActivityRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: "org-1",
+        entityType: "project",
+        entityId: "project-1",
+        eventType: "proposal.status_check_confirmed",
+      }),
+    );
+  });
+
+  it("records a status-check confirmation event on an unkeyed create with confirmedNoMatch", async () => {
+    const input = { orgId: "org-1", estimateId: "estimate-1", finalPrice: 7125.37, confirmedNoMatch: true };
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
+    });
+    mockPrisma.proposal.create.mockResolvedValue({ ...proposalRow("draft"), id: "proposal-1" });
+
+    const service = new ProposalsService();
+    const result = await service.create(input);
+
+    expect(result.id).toBe("proposal-1");
+    expect(mockActivityRecord).toHaveBeenCalledTimes(1);
+    expect(mockActivityRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: "org-1",
+        entityType: "project",
+        entityId: "project-1",
+        eventType: "proposal.status_check_confirmed",
+      }),
+    );
+  });
+
+  it("does not record a confirmation event on an unkeyed create without the flag", async () => {
+    const input = { orgId: "org-1", estimateId: "estimate-1", finalPrice: 7125.37 };
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
+    });
+    mockPrisma.proposal.create.mockResolvedValue({ ...proposalRow("draft"), id: "proposal-1" });
+
+    await new ProposalsService().create(input);
+
+    expect(mockActivityRecord).not.toHaveBeenCalled();
+  });
+
+  it("does not record a second confirmation event on replay", async () => {
+    const input = { orgId: "org-1", estimateId: "estimate-1", finalPrice: 7125.37, confirmedNoMatch: true };
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
+    });
+    mockPrisma.proposal.findFirst.mockResolvedValueOnce(null).mockImplementationOnce(async () => ({
+      ...proposalRow("draft"),
+      idempotencyHash: mockPrisma.proposal.create.mock.calls[0][0].data.idempotencyHash,
+    }));
+    mockPrisma.proposal.create.mockResolvedValue({ ...proposalRow("draft"), id: "proposal-1" });
+
+    const service = new ProposalsService();
+    await service.createWithIdempotency(input, "9a8b7c6d-5e4f-4321-8abc-0123456789ab");
+    await service.createWithIdempotency(input, "9a8b7c6d-5e4f-4321-8abc-0123456789ab");
+
+    expect(mockActivityRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not record a confirmation event without the flag", async () => {
+    const input = { orgId: "org-1", estimateId: "estimate-1", finalPrice: 7125.37 };
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
+    });
+    mockPrisma.proposal.findFirst.mockResolvedValue(null);
+    mockPrisma.proposal.create.mockResolvedValue({ ...proposalRow("draft"), id: "proposal-1" });
+
+    await new ProposalsService().createWithIdempotency(input, "9a8b7c6d-5e4f-4321-8abc-0123456789ab");
+
+    expect(mockActivityRecord).not.toHaveBeenCalled();
+  });
+
+  it("confirmedNoMatch does not change the idempotency hash", async () => {
+    const base = { orgId: "org-1", estimateId: "estimate-1", finalPrice: 7125.37 };
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
+    });
+    mockPrisma.proposal.findFirst.mockResolvedValueOnce(null).mockImplementationOnce(async () => ({
+      ...proposalRow("draft"),
+      idempotencyHash: mockPrisma.proposal.create.mock.calls[0][0].data.idempotencyHash,
+    }));
+    mockPrisma.proposal.create.mockResolvedValue({ ...proposalRow("draft"), id: "proposal-1" });
+
+    const service = new ProposalsService();
+    const first = await service.createWithIdempotency(base, "9a8b7c6d-5e4f-4321-8abc-0123456789ab");
+    const replay = await service.createWithIdempotency(
+      { ...base, confirmedNoMatch: true },
+      "9a8b7c6d-5e4f-4321-8abc-0123456789ab",
+    );
+
+    expect(first.replayed).toBe(false);
+    expect(replay.replayed).toBe(true);
+    expect(mockPrisma.proposal.create).toHaveBeenCalledTimes(1);
+    expect(mockActivityRecord).not.toHaveBeenCalled();
   });
 
   it("an idempotency replay returns the original proposal's selections, allowances, and allowances total", async () => {
