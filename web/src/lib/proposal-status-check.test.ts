@@ -8,6 +8,7 @@ import {
   buildEstimateReviewUrl,
   buildNoMatchConfirmationDescription,
   buildProposalIdempotencyStorageKey,
+  buildRecoveredProposalUrl,
   buildStatusCheckUrl,
   classifyProposalCreateError,
   clearProposalIdempotencyKey,
@@ -169,6 +170,62 @@ test("resolveProposalIdempotencyKey returns the seed when no storage is availabl
   assert.equal(resolveProposalIdempotencyKey("project-1", "estimate-1", OTHER_UUID, null), OTHER_UUID);
 });
 
+test("resolveProposalIdempotencyKey returns the seed when storage throws (Codex P2: QuotaExceededError)", () => {
+  const throwingGet = {
+    getItem: () => {
+      throw new Error("QuotaExceededError");
+    },
+    setItem: () => {},
+    removeItem: () => {},
+  };
+  assert.equal(resolveProposalIdempotencyKey("project-1", "estimate-1", OTHER_UUID, throwingGet), OTHER_UUID);
+  const throwingSet = memoryStorage();
+  throwingSet.setItem = () => {
+    throw new Error("QuotaExceededError");
+  };
+  assert.equal(resolveProposalIdempotencyKey("project-1", "estimate-1", OTHER_UUID, throwingSet), OTHER_UUID);
+  // A failed mint is not persisted, so a later healthy call mints fresh.
+  assert.ok(isValidIdempotencyKey(resolveProposalIdempotencyKey("project-1", "estimate-1", OTHER_UUID, memoryStorage())));
+});
+
+test("clearProposalIdempotencyKey removes only when the stored key still matches the resolved one", () => {
+  const storage = memoryStorage({
+    [buildProposalIdempotencyStorageKey("project-1", "estimate-1")]: UUID,
+  });
+  // Revisiting an older landing after a newer attempt started: the stored
+  // value is the newer key, so the older key must not clear it.
+  clearProposalIdempotencyKey("project-1", "estimate-1", storage, OTHER_UUID);
+  assert.equal(storage.getItem(buildProposalIdempotencyStorageKey("project-1", "estimate-1")), UUID);
+  clearProposalIdempotencyKey("project-1", "estimate-1", storage, UUID);
+  assert.equal(storage.getItem(buildProposalIdempotencyStorageKey("project-1", "estimate-1")), null);
+  // A landing that carries no key cannot prove which attempt it resolves,
+  // so it clears nothing.
+  const storage2 = memoryStorage({
+    [buildProposalIdempotencyStorageKey("project-1", "estimate-1")]: UUID,
+  });
+  clearProposalIdempotencyKey("project-1", "estimate-1", storage2, null);
+  assert.equal(storage2.getItem(buildProposalIdempotencyStorageKey("project-1", "estimate-1")), UUID);
+  // A throwing store never throws out of the clear.
+  const throwing = memoryStorage({
+    [buildProposalIdempotencyStorageKey("project-1", "estimate-1")]: UUID,
+  });
+  throwing.removeItem = () => {
+    throw new Error("QuotaExceededError");
+  };
+  clearProposalIdempotencyKey("project-1", "estimate-1", throwing, UUID);
+});
+
+test("readProposalIdempotencyKey returns null when storage throws", () => {
+  const throwing = {
+    getItem: () => {
+      throw new Error("denied");
+    },
+    setItem: () => {},
+    removeItem: () => {},
+  };
+  assert.equal(readProposalIdempotencyKey("project-1", "estimate-1", throwing), null);
+});
+
 test("clearProposalIdempotencyKey removes only that attempt's key", () => {
   const storage = memoryStorage({
     [buildProposalIdempotencyStorageKey("project-1", "estimate-1")]: UUID,
@@ -209,6 +266,33 @@ test("status-check URL carries the check and the attempt estimate", () => {
   );
   assert.equal(buildStatusCheckUrl("project-1", null), "/projects/project-1?tab=proposals&statusCheck=1");
   assert.equal(buildStatusCheckUrl("project-1"), "/projects/project-1?tab=proposals&statusCheck=1");
+});
+
+test("status-check URL carries the resolved attempt key when valid, omits it otherwise", () => {
+  assert.equal(
+    buildStatusCheckUrl("project-1", "estimate-1", UUID),
+    `/projects/project-1?tab=proposals&statusCheck=1&estimateId=estimate-1&key=${UUID}`,
+  );
+  assert.equal(
+    buildStatusCheckUrl("project-1", "estimate-1", "not-a-uuid"),
+    "/projects/project-1?tab=proposals&statusCheck=1&estimateId=estimate-1",
+  );
+  assert.equal(buildStatusCheckUrl("project-1", null, null), "/projects/project-1?tab=proposals&statusCheck=1");
+});
+
+test("recovered draft URL marks the recovery landing and carries the resolved attempt key", () => {
+  assert.equal(
+    buildRecoveredProposalUrl("project-1", "proposal-1", UUID),
+    `/projects/project-1/proposals/proposal-1?recovered=1&key=${UUID}`,
+  );
+  assert.equal(
+    buildRecoveredProposalUrl("project-1", "proposal-1", null),
+    "/projects/project-1/proposals/proposal-1?recovered=1",
+  );
+  assert.equal(
+    buildRecoveredProposalUrl("project-1", "proposal-1", "not-a-uuid"),
+    "/projects/project-1/proposals/proposal-1?recovered=1",
+  );
 });
 
 test("estimate review URL returns to the estimate, or the proposal form for intake-only attempts", () => {

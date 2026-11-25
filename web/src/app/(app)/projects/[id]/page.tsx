@@ -49,7 +49,7 @@ export default async function ProjectDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; estimateStart?: string; statusCheck?: string; estimateId?: string }>;
+  searchParams: Promise<{ tab?: string; estimateStart?: string; statusCheck?: string; estimateId?: string; key?: string }>;
 }) {
   const [{ id }, resolvedSearchParams] = await Promise.all([params, searchParams]);
   const token = await getSessionToken();
@@ -63,7 +63,21 @@ export default async function ProjectDetailPage({
     resolvedSearchParams.estimateId && isValidIdempotencyKey(resolvedSearchParams.estimateId)
       ? resolvedSearchParams.estimateId
       : null;
+  // The form carries the resolved attempt key on the check URL so the
+  // recovery screen can retire exactly this attempt when the contractor
+  // opens the matching draft. An invalid or missing key is dropped, never
+  // echoed.
+  const statusCheckKey =
+    resolvedSearchParams.key && isValidIdempotencyKey(resolvedSearchParams.key)
+      ? resolvedSearchParams.key
+      : null;
   const projectRequest = getProject(token ?? "", id);
+  // Attach the rejection handler now, not in the later try block: if the
+  // project load fails while the settings/assignee requests are still
+  // pending, the rejection would otherwise sit unhandled (and if the
+  // settings request rejects first, the try block below never runs at
+  // all). The later await still throws the original error.
+  void projectRequest.catch(() => {});
   const [settings, assignees] = await Promise.all([
     getOrganizationSettings(token ?? ""),
     getProjectTaskAssignees(token ?? "", id).catch(() => ({ canAssign: false, members: [] })),
@@ -89,7 +103,7 @@ export default async function ProjectDetailPage({
             <CardContent className="flex flex-col items-start gap-3 p-5">
               <p className="text-sm text-foreground">{PROPOSAL_STATUS_CHECK_LIST_ERROR}</p>
               <Link
-                href={buildStatusCheckUrl(id, statusCheckEstimateId)}
+                href={buildStatusCheckUrl(id, statusCheckEstimateId, statusCheckKey)}
                 className={buttonVariants({ variant: "outline", className: "min-h-11" })}
               >
                 Reload the list
@@ -182,6 +196,7 @@ export default async function ProjectDetailPage({
           closeoutData={closeoutData}
           statusCheck={statusCheckRequested}
           statusCheckEstimateId={statusCheckEstimateId}
+          statusCheckKey={statusCheckKey}
         />
 
         <ProjectSidebar

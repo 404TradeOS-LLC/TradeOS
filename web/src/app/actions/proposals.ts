@@ -113,10 +113,14 @@ export async function createProposalAction(_prev: CreateProposalActionState, for
   // shows the one-time "already created by your earlier attempt" notice.
   // Both markers also let the detail page clear the resolved attempt key,
   // so a later new attempt mints fresh instead of replaying this one.
+  // The landing carries the resolved key so the clearer removes storage
+  // only when its current value still matches — revisiting an older
+  // landing URL after a newer attempt started must not delete the newer
+  // attempt's key.
   redirect(
     replayed
-      ? `/projects/${projectId}/proposals/${proposal.id}?replayed=1`
-      : `/projects/${projectId}/proposals/${proposal.id}?created=1`,
+      ? `/projects/${projectId}/proposals/${proposal.id}?replayed=1&key=${encodeURIComponent(idempotencyKey)}`
+      : `/projects/${projectId}/proposals/${proposal.id}?created=1&key=${encodeURIComponent(idempotencyKey)}`,
   );
 }
 

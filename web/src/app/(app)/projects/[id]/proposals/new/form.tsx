@@ -1,18 +1,18 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createProposalAction } from "@/app/actions/proposals";
 import { PaymentScheduleFields } from "@/components/proposals/payment-schedule-fields";
 import { SummaryMetricCard } from "@/components/shared/summary-metric-card";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Estimate, ProposalDraftPreview } from "@/lib/api";
-import { buildStatusCheckUrl, getIdempotencyKeyStorage, resolveProposalIdempotencyKey } from "@/lib/proposal-status-check";
+import { buildStatusCheckUrl, getIdempotencyKeyStorage, readProposalIdempotencyKey, resolveProposalIdempotencyKey } from "@/lib/proposal-status-check";
 
 export function NewProposalForm({
   initialIdempotencyKey,
@@ -63,6 +63,21 @@ export function NewProposalForm({
       );
     }
   }, [projectId, selectedEstimateId, initialIdempotencyKey]);
+  // DES-10 status check: the recovery screen must be able to retire
+  // exactly this attempt when the contractor opens the matching draft, so
+  // the check URL carries the resolved attempt key. The key is read from
+  // storage at click time (the form resolves it into the hidden input on
+  // mount); with no stored key there is nothing to retire, so the plain
+  // URL is used.
+  const router = useRouter();
+  const openStatusCheck = () => {
+    const attemptKey = readProposalIdempotencyKey(
+      projectId,
+      selectedEstimateId || null,
+      getIdempotencyKeyStorage(),
+    );
+    router.push(buildStatusCheckUrl(projectId, selectedEstimateId || null, attemptKey));
+  };
 
   return (
     <Card className="border-border/70 bg-muted/10">
@@ -192,12 +207,9 @@ export function NewProposalForm({
                     If you cannot confirm whether the draft was created, check this Project’s proposals before trying again.
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <Link
-                      href={buildStatusCheckUrl(projectId, selectedEstimateId || null)}
-                      className={buttonVariants({ variant: "outline", className: "min-h-11" })}
-                    >
+                    <Button type="button" variant="outline" className="min-h-11" onClick={openStatusCheck}>
                       Check proposal status
-                    </Link>
+                    </Button>
                     {outcome === "unknown" && (
                       <Button type="submit" variant="secondary" disabled={isPending} className="min-h-11">
                         Try again with the same details

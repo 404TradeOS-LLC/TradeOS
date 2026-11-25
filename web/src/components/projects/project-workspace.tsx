@@ -22,7 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { ChangeOrder, ChangeOrderLineItem, Contract, Customer, Estimate, Invoice, JobSummary, Project, ProjectFile, ProjectTask, Proposal, PunchItem, SiteVisit, WarrantyRecord } from "@/lib/api";
 import { buildCloseoutChecklistArtifacts } from "@/lib/api";
-import { findMatchingProposal } from "@/lib/proposal-status-check";
+import { findMatchingProposal, buildRecoveredProposalUrl } from "@/lib/proposal-status-check";
 import {
   buildProjectActivity,
   buildProjectNotifications,
@@ -61,6 +61,10 @@ interface ProjectWorkspaceProps {
   // estimate (null = intake-only attempt).
   statusCheck?: boolean;
   statusCheckEstimateId?: string | null;
+  // The resolved attempt key carried on the check URL, so the matching
+  // draft's link can retire exactly this attempt when opened (null =
+  // no key carried, in which case opening the match clears nothing).
+  statusCheckKey?: string | null;
 }
 
 export async function ProjectWorkspace({
@@ -82,6 +86,7 @@ export async function ProjectWorkspace({
   closeoutData = null,
   statusCheck = false,
   statusCheckEstimateId = null,
+  statusCheckKey = null,
 }: ProjectWorkspaceProps) {
   const activity = buildProjectActivity({ ...project, customer, estimates, siteVisits, projectFiles, proposals, invoices, contracts, changeOrders, tasks });
   const notifications = buildProjectNotifications({ ...project, proposals, contracts, invoices });
@@ -295,7 +300,15 @@ export async function ProjectWorkspace({
               id: proposal.id,
               title: proposal.estimateId ? "Estimate-backed proposal" : "Project draft proposal",
               subtitle: `${formatCurrency(proposal.finalPrice ?? proposal.priceHigh ?? proposal.priceLow)} • ${formatDateTime(proposal.createdAt)}`,
-              href: `/projects/${project.id}/proposals/${proposal.id}`,
+              // DES-10 status check: opening the confirmed matching draft
+              // retires the resolved attempt — the link carries the
+              // recovery marker and the attempt key, so the detail page
+              // clears exactly this attempt's key (never a newer one).
+              // Other rows keep the plain detail URL.
+              href:
+                match?.id === proposal.id
+                  ? buildRecoveredProposalUrl(project.id, proposal.id, statusCheckKey)
+                  : `/projects/${project.id}/proposals/${proposal.id}`,
               badge: getProposalDisplayStatus(proposal),
               marker: match?.id === proposal.id ? "This is your draft" : undefined,
             }))}

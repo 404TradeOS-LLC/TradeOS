@@ -59,6 +59,10 @@ test("createProposalAction redirects a replay to the original draft with the rep
   const fnSource = createProposalActionSource();
   assert.match(fnSource, /replayed/);
   assert.match(fnSource, /\?replayed=1/);
+  // Both landings carry the resolved attempt key so the detail page
+  // clears storage only when its current value still matches it.
+  assert.match(fnSource, /\?replayed=1&key=/);
+  assert.match(fnSource, /\?created=1&key=/);
 });
 
 test("createProposalAction distinguishes unknown, known-rejection, and key-reuse outcomes", () => {
@@ -107,8 +111,11 @@ test("new-proposal form persists the idempotency key for the attempt", () => {
 test("form error box offers status check + same-key retry only on an unknown outcome", () => {
   // The check URL is built by the shared helper (executed in
   // lib/proposal-status-check.test.ts); the form passes the attempt's
-  // estimate so the match rule can apply.
-  assert.match(formSource, /buildStatusCheckUrl\(projectId, selectedEstimateId \|\| null\)/);
+  // estimate so the match rule can apply, and the resolved attempt key
+  // (read from storage at click time) so the recovery screen can retire
+  // exactly this attempt when the contractor opens the matching draft.
+  assert.match(formSource, /buildStatusCheckUrl\(projectId, selectedEstimateId \|\| null, attemptKey\)/);
+  assert.match(formSource, /readProposalIdempotencyKey\(\s*projectId,\s*selectedEstimateId \|\| null/);
   assert.match(formSource, /Check proposal status/);
   assert.match(formSource, /Try again with the same details/);
   // The retry renders only under the unknown outcome: the 409 key-reuse
@@ -129,16 +136,33 @@ test("project page carries the status check into the proposals tab", () => {
   assert.match(projectPageSource, /statusCheck/);
   assert.match(projectPageSource, /estimateId/);
   assert.match(projectPageSource, /PROPOSAL_STATUS_CHECK_LIST_ERROR/);
+  // The resolved attempt key rides the check URL so the matching draft's
+  // link can retire exactly this attempt; an invalid key is dropped.
+  assert.match(projectPageSource, /statusCheckKey/);
+  assert.match(projectPageSource, /isValidIdempotencyKey\(resolvedSearchParams\.key\)/);
+  // The project request gets its rejection handler immediately: a failed
+  // project load while settings are still pending must not sit
+  // unhandled, and a settings failure must not leave it un-awaited.
+  assert.match(projectPageSource, /void projectRequest\.catch\(\(\) => \{\}\)/);
 });
 
 test("project workspace renders the guidance card above the proposals list on a status check", () => {
   assert.match(workspaceSource, /ProposalStatusCheckCard/);
   assert.match(workspaceSource, /statusCheck/);
   assert.match(workspaceSource, /This is your draft/);
+  // Opening the confirmed matching draft retires the resolved attempt:
+  // its link carries the recovery marker and the attempt key.
+  assert.match(workspaceSource, /buildRecoveredProposalUrl\(project\.id, proposal\.id, statusCheckKey\)/);
 });
 
 test("proposal detail page shows the replay notice and clears the resolved attempt key", () => {
   assert.match(detailPageSource, /replayed/);
   assert.match(detailPageSource, /PROPOSAL_REPLAY_NOTICE/);
   assert.match(detailPageSource, /ClearProposalAttemptKey/);
+  // A recovery landing (opened from the status-check screen's matching
+  // draft) resolves the attempt the same way, and every landing carries
+  // the resolved key so storage is removed only on a match.
+  assert.match(detailPageSource, /recovered/);
+  assert.match(detailPageSource, /resolvedKey/);
+  assert.match(detailPageSource, /isValidIdempotencyKey\(resolvedSearchParams\.key\)/);
 });

@@ -108,7 +108,11 @@ export function getIdempotencyKeyStorage(): IdempotencyKeyStorage | null {
  * stored (or the stored value is not a UUID); the resolved key is cleared
  * once the attempt is confirmed created or replayed (see
  * ClearProposalAttemptKey on the proposal detail page). With no storage
- * available (server render), the caller-supplied seed is returned.
+ * available (server render), the caller-supplied seed is returned. Storage
+ * failures (a blocked store, or QuotaExceededError on setItem) also fall
+ * back to the seed instead of throwing: the form stays usable with the
+ * server-generated seed, and the attempt simply has no persisted key to
+ * replay.
  */
 export function resolveProposalIdempotencyKey(
   projectId: string,
@@ -118,19 +122,59 @@ export function resolveProposalIdempotencyKey(
 ): string {
   if (!storage) return seed;
   const storageKey = buildProposalIdempotencyStorageKey(projectId, estimateId);
-  const stored = storage.getItem(storageKey);
+  let stored: string | null = null;
+  try {
+    stored = storage.getItem(storageKey);
+  } catch {
+    return seed;
+  }
   if (stored && isValidIdempotencyKey(stored)) return stored;
   const minted = crypto.randomUUID();
-  storage.setItem(storageKey, minted);
+  try {
+    storage.setItem(storageKey, minted);
+  } catch {
+    return seed;
+  }
   return minted;
 }
 
+/**
+ * Retire an attempt's key. With an expected key, remove storage only when
+ * its current value still matches that key: revisiting an older landing
+ * URL (browser history) after a newer attempt started must not delete the
+ * newer attempt's key. Without an expected key the stored key is removed
+ * unconditionally (the pre-key-carrying behavior, kept for callers that
+ * have no key to compare). Storage failures are swallowed — clearing is
+ * best-effort and must never break the page it runs on.
+ */
 export function clearProposalIdempotencyKey(
   projectId: string,
   estimateId: string | null,
   storage: IdempotencyKeyStorage | null,
+  expectedKey?: string | null,
 ): void {
-  storage?.removeItem(buildProposalIdempotencyStorageKey(projectId, estimateId));
+  if (!storage) return;
+  const storageKey = buildProposalIdempotencyStorageKey(projectId, estimateId);
+  if (expectedKey !== undefined && expectedKey !== null) {
+    let stored: string | null = null;
+    try {
+      stored = storage.getItem(storageKey);
+    } catch {
+      return;
+    }
+    if (stored !== expectedKey) return;
+  } else if (expectedKey === null) {
+    // No key was carried to compare against — do not clear. A landing
+    // without a key cannot prove which attempt it resolves, and the
+    // stored key (if any) belongs to a newer attempt.
+    return;
+  }
+  try {
+    storage.removeItem(storageKey);
+  } catch {
+    // Best-effort: a failed removal leaves the key stored, which the
+    // next attempt reuses (server replays) instead of breaking the page.
+  }
 }
 
 /** Read the stored key for an attempt without minting one. */
@@ -140,13 +184,45 @@ export function readProposalIdempotencyKey(
   storage: IdempotencyKeyStorage | null,
 ): string | null {
   if (!storage) return null;
-  const stored = storage.getItem(buildProposalIdempotencyStorageKey(projectId, estimateId));
+  let stored: string | null = null;
+  try {
+    stored = storage.getItem(buildProposalIdempotencyStorageKey(projectId, estimateId));
+  } catch {
+    return null;
+  }
   return stored && isValidIdempotencyKey(stored) ? stored : null;
 }
 
-export function buildStatusCheckUrl(projectId: string, estimateId?: string | null): string {
+export function buildStatusCheckUrl(
+  projectId: string,
+  estimateId?: string | null,
+  attemptKey?: string | null,
+): string {
   const base = `/projects/${projectId}?tab=proposals&statusCheck=1`;
-  return estimateId ? `${base}&estimateId=${encodeURIComponent(estimateId)}` : base;
+  const withEstimate = estimateId ? `${base}&estimateId=${encodeURIComponent(estimateId)}` : base;
+  // Carry the resolved attempt key so the recovery screen can retire
+  // exactly this attempt when the contractor opens the matching draft.
+  // An invalid or missing key is omitted rather than echoed.
+  return attemptKey && isValidIdempotencyKey(attemptKey)
+    ? `${withEstimate}&key=${encodeURIComponent(attemptKey)}`
+    : withEstimate;
+}
+
+/**
+ * Detail URL for a matching draft opened from the status-check recovery
+ * screen. The `recovered=1` marker tells the detail page this landing
+ * resolves the attempt, and the carried key lets it retire exactly that
+ * attempt's key (never a newer attempt's).
+ */
+export function buildRecoveredProposalUrl(
+  projectId: string,
+  proposalId: string,
+  attemptKey?: string | null,
+): string {
+  const base = `/projects/${projectId}/proposals/${proposalId}?recovered=1`;
+  return attemptKey && isValidIdempotencyKey(attemptKey)
+    ? `${base}&key=${encodeURIComponent(attemptKey)}`
+    : base;
 }
 
 export function buildEstimateReviewUrl(projectId: string, estimateId?: string | null): string {
