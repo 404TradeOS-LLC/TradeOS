@@ -7,8 +7,18 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 export const metadata: Metadata = {
   title: "TradeOS",
   description: "TradeOS helps contractors manage projects, estimating, documents, and field operations in one workflow.",
-  openGraph: { title: "TradeOS", description: "Built for what you build.", type: "website", images: [{ url: "/opengraph-image", width: 1200, height: 630 }] },
-  twitter: { card: "summary_large_image", title: "TradeOS", description: "Built for what you build.", images: ["/opengraph-image"] },
+  // Tab / shortcut / install icons come from the master logo package
+  // (docs/brand/tradeos-master-logo-package, served from /brand).
+  icons: {
+    icon: [
+      { url: "/brand/favicon.svg", type: "image/svg+xml" },
+      { url: "/brand/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/brand/favicon-16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: [{ url: "/brand/apple-touch-icon-180.png", sizes: "180x180", type: "image/png" }],
+  },
+  openGraph: { title: "TradeOS", description: "Built for what you build.", type: "website", images: [{ url: "/brand/social-share.png", width: 1200, height: 630 }] },
+  twitter: { card: "summary_large_image", title: "TradeOS", description: "Built for what you build.", images: ["/brand/social-share.png"] },
 };
 
 export default function RootLayout({
