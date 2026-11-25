@@ -57,6 +57,22 @@ test("a same-site cookie does not override a present Origin", () => {
   assert.equal(shouldRejectProxyMutation("DELETE", requestUrl, "not a url", null, true), true);
 });
 
+test("treats the serialized opaque origin \"null\" as a missing Origin", () => {
+  // Regression: the confirm flow declares Referrer-Policy: no-referrer, so
+  // Chrome serializes the confirm-form POST's Origin header as the literal
+  // string "null" (proven in a real Chromium A/B: no-referrer -> "null",
+  // without it -> the page origin). "null" carries no origin information,
+  // so it must fall through to the Sec-Fetch-Site / cookie proofs instead of
+  // being treated as an authoritative present Origin (new URL("null") throws
+  // and the guard rejected before the proofs were ever consulted).
+  assert.equal(shouldRejectProxyMutation("POST", requestUrl, "null", "same-origin"), false);
+  assert.equal(shouldRejectProxyMutation("POST", requestUrl, "null", null, true), false);
+  assert.equal(shouldRejectProxyMutation("POST", requestUrl, "null", "cross-site", true), false);
+  assert.equal(shouldRejectProxyMutation("POST", requestUrl, "null", null, false), true);
+  assert.equal(shouldRejectProxyMutation("POST", requestUrl, "null", "cross-site", false), true);
+  assert.equal(shouldRejectProxyMutation("POST", requestUrl, "null", "same-site", false), true);
+});
+
 test("a present Origin stays authoritative over Sec-Fetch-Site", () => {
   assert.equal(shouldRejectProxyMutation("POST", requestUrl, "https://app.404tradeos.com", "cross-site"), false);
   assert.equal(shouldRejectProxyMutation("POST", requestUrl, "https://evil.404tradeos.com", "same-origin"), true);

@@ -41,11 +41,13 @@ test("redemption requires an exact-origin POST or a same-site pending-token cook
   assert.ok(originCheck >= 0 && originCheck < cookieRead && cookieRead < redemption);
   assert.match(source, /sec-fetch-site/);
   // The guard also accepts a valid-format pending-access cookie as same-site
-  // proof: the browser's confirm-form POST arrives with neither Origin nor
-  // Sec-Fetch-Site (both stripped on the browser/proxy path), so the header
-  // proofs alone can never fire for it. The cookie is httpOnly,
-  // SameSite=strict, path-scoped, and cleared on redeem, so a cross-site
-  // request cannot carry it.
+  // proof. Proven in a real Chromium against the live app (2026-11-24): the
+  // browser's confirm-form POST carries `Origin: null` (the confirm flow
+  // declares Referrer-Policy: no-referrer, so Chrome serializes the Origin
+  // as the opaque string "null"), `Sec-Fetch-Site: same-origin`, and the
+  // valid-format pending-access cookie — the earlier "both headers stripped"
+  // theory was wrong. The cookie is httpOnly, SameSite=strict, path-scoped,
+  // and cleared on redeem, so a cross-site request cannot carry it.
   assert.match(source, /isValidCustomerPortalAccessToken\(\s*request\.cookies\.get\(CUSTOMER_PORTAL_PENDING_ACCESS_COOKIE\)/);
   assert.match(source, /export async function POST/);
   assert.match(source, /CUSTOMER_PORTAL_PENDING_ACCESS_COOKIE, ""/);
