@@ -10,6 +10,8 @@ import { AttentionItem } from "./attention-item";
 import { buttonVariants } from "@/components/ui/button";
 import { canUseUniversalCreate } from "@/lib/universal-create-access";
 import { buildUniversalCreateHref } from "@/lib/universal-create";
+import { buildDayMapPins } from "@/lib/today-map";
+import { DayMap } from "./day-map";
 import { formatInvoiceCurrency } from "@/lib/document-workflow";
 import type { TodayData, TodayAttentionItem, TodayWorkItem } from "@/lib/today-model";
 import { TodayTaskEditor } from "./today-task-editor";
@@ -86,7 +88,9 @@ function WorkRow({ item, onOpen, timeZone, showDate = false }: { item: TodayWork
 }
 function Timeline({ work, timeZone, onOpen }: { work: TodayWorkItem[]; timeZone: string; onOpen: (item: Selection) => void }) {
   const scheduled = work.filter(item => item.start && Number.isFinite(Date.parse(item.start)));
-  return <section className="today-panel"><div className="today-panel-heading"><div><h2>Day timeline</h2><p>Scheduled work · {timeZone}</p></div><span className="text-xs text-muted-foreground" title="Crew-location tracking is not connected">Map unavailable</span></div>
+  const pins = buildDayMapPins(work);
+  return <section className="today-panel"><div className="today-panel-heading"><div><h2>Day timeline</h2><p>Scheduled work · {timeZone}</p></div></div>
+    {pins.length ? <DayMap pins={pins} timeZone={timeZone} /> : null}
     {scheduled.length ? <div className="today-timeline" tabIndex={0} aria-label="Scrollable daily timeline"><div className="today-timeline-inner">
       <div className="today-hours">{[0,4,8,12,16,20,24].map(hour => <span key={hour}>{hour === 0 || hour === 24 ? 12 : hour > 12 ? hour - 12 : hour}{hour >= 12 && hour < 24 ? " PM" : " AM"}</span>)}</div>
       {scheduled.map(item => {

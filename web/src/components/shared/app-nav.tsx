@@ -112,7 +112,11 @@ const DOCK_LEFT_LINKS: NavLink[] = [
   { href: "/dispatch", label: "Dispatch", shortLabel: "Dispatch", icon: CalendarDays },
 ];
 const DOCK_RIGHT_LINK: NavLink = { href: "/projects", label: "Work", shortLabel: "Work", icon: BriefcaseBusiness };
-const ATHENA_CAPABILITY_RETRY_TIMEOUT_MS = 1500;
+// One bounded client retry for a transient capability failure. 5000ms,
+// matching the layout's advisory budgets: the 1500ms retry aborted on
+// the same slow production API that aborted the server lookup
+// (2026-11-25), so the retry never got its chance to recover Athena.
+const ATHENA_CAPABILITY_RETRY_TIMEOUT_MS = 5000;
 
 function isActive(pathname: string, href: string) {
   return href === "/dashboard" ? pathname === href : pathname.startsWith(href);

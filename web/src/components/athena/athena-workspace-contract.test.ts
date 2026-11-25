@@ -82,6 +82,13 @@ test("Athena navigation is feature-gated and retries one transient capability fa
   assert.match(nav, /const effectiveAthenaEnabled = athenaCapabilityRetryKey/);
   assert.match(nav, /clientAthenaCapability\?\.key === athenaCapabilityRetryKey/);
   assert.match(nav, /ATHENA_CAPABILITY_RETRY_TIMEOUT_MS/);
+  // The 1500ms retry aborted on the same slow production API that aborted
+  // the server lookup (2026-11-25), so the retry never got its chance to
+  // recover Athena. The retry budget must match the layout's advisory
+  // budgets (5000ms).
+  const retryBudget = nav.match(/ATHENA_CAPABILITY_RETRY_TIMEOUT_MS = (\d+)/);
+  assert.ok(retryBudget, "app-nav must define the capability retry timeout");
+  assert.ok(Number(retryBudget[1]) >= 5000, `capability retry timeout must be >= 5000ms, got ${retryBudget[1]}`);
   assert.match(nav, /setClientAthenaCapability\(\{ key: retryKey, enabled:/);
   assert.match(layout, /getAthenaCapabilities/);
   assert.match(layout, /return \{ enabled: capabilities\.kernelEnabled === true, retryOnClient: false \}/);

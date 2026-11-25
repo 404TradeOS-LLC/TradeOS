@@ -46,6 +46,7 @@ import ts from "typescript";
 import { hasPermission, isSupportedRole, normalizeRole } from "../../../app/domain/contracts.ts";
 import * as attentionModel from "../components/dashboard/needs-attention-model.ts";
 import * as todayModel from "./today-model.ts";
+import * as todayMap from "./today-map.ts";
 import type { TodayData } from "./today-model.ts";
 
 const FIXTURE_NOW = "2026-10-26T12:00:00.000Z";
@@ -82,6 +83,12 @@ function createLoader(role = "owner", overrides: Record<string, (...args: unknow
         case "@/lib/session": return { getSessionToken: async () => authenticated ? "private-test-token" : null, getSession: async () => authenticated ? { sub: "user-a", email: "billy@example.test" } : null };
         case "@/components/dashboard/needs-attention-model": return attentionModel;
         case "./today-model": return todayModel;
+        // The day-map geocode is stubbed to fail-soft null: the loader
+        // fixture carries no site addresses, and the loader must stay
+        // deterministic and offline. The pin cap comes from the real
+        // module so the constant cannot drift from the stub.
+        case "./geocode": return { geocodeAddress: async () => null };
+        case "./today-map": return todayMap;
         default: throw new Error(`Unstubbed dependency ${specifier}`);
       }
     },

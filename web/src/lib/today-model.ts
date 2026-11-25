@@ -31,6 +31,11 @@ export interface TodayWorkItem {
   assignee: string | null;
   status: string;
   href: string;
+  /** Project site address, carried from DispatchJob for the day map. */
+  siteAddress?: string | null;
+  /** Geocoded site coordinates, attached by the loader when the lookup succeeds. */
+  latitude?: number | null;
+  longitude?: number | null;
 }
 export interface TodaySource {
   id: string;

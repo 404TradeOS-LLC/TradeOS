@@ -38,6 +38,50 @@ test("workspace memberships lookup gets a realistic timeout budget", async () =>
   );
 });
 
+test("settings identity lookup gets a realistic timeout budget", async () => {
+  const source = await readFile(layoutUrl, "utf8");
+  // GET /api/v1/settings backs the Create sheet's role gate. The shared
+  // 1500ms advisory budget aborted real lookups on a slow production API
+  // (2026-11-25: the layout's settings + capabilities lookups both failed
+  // while the untimed page-data load of the same endpoint succeeded), and
+  // resolveSettingsIdentity fails closed to role null — which renders the
+  // Create sheet with zero options for an authenticated owner. The
+  // settings lookup must use its own larger budget, matching the
+  // memberships precedent (311–2202ms observed, 5000ms budget).
+  const match = source.match(/SETTINGS_IDENTITY_TIMEOUT_MS = (\d+)/);
+  assert.ok(match, "layout must define a dedicated settings-identity timeout");
+  assert.ok(
+    Number(match[1]) >= 5000,
+    `settings-identity timeout must be >= 5000ms, got ${match[1]}`
+  );
+  assert.ok(
+    source.includes("setTimeout(() => controller.abort(), SETTINGS_IDENTITY_TIMEOUT_MS)"),
+    "resolveSettingsIdentity must use the dedicated settings-identity timeout"
+  );
+});
+
+test("settings identity falls back to the session token role when the lookup fails", async () => {
+  const source = await readFile(layoutUrl, "utf8");
+  // The session token already carries the active role claim (and the
+  // layout already trusts its orgId claim for the workspace remount key).
+  // An advisory settings lookup failing must not brick presentation
+  // gating for an authenticated owner: fall back to the token claims.
+  // Server routes remain authoritative — this is presentation only.
+  const fnIndex = source.indexOf("async function resolveSettingsIdentity");
+  assert.notEqual(fnIndex, -1);
+  const fnSource = source.slice(fnIndex, source.indexOf("\n}\n", fnIndex));
+  // The catch must fall back to the claims already in the session token
+  // (the no-token early return legitimately stays nulls — that is not a
+  // failed lookup). The catch itself must never return bare nulls.
+  const catchIndex = fnSource.indexOf("} catch {");
+  assert.notEqual(catchIndex, -1, "resolveSettingsIdentity must have a catch block");
+  const catchSource = fnSource.slice(catchIndex);
+  assert.match(catchSource, /const claims = decodeLocalAccessToken\(token\);/);
+  assert.match(catchSource, /claims\?\.role/);
+  assert.match(catchSource, /claims\?\.orgId/);
+  assert.doesNotMatch(catchSource, /return \{ role: null, orgId: null \}/);
+});
+
 test("AppLayout derives the remount key from the session token first", async () => {
   const source = await readFile(layoutUrl, "utf8");
   // The settings identity lookup fails closed to null after 1.5s, which
