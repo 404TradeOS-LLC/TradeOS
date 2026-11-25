@@ -133,7 +133,21 @@ export class EstimateEngineService {
       prisma.estimate.count({ where: filterWhere }),
       prisma.estimate.findMany({
         where: pageWhere,
-        include: { project: { include: { customer: { select: { name: true } } } } },
+        // Explicit column list (#1093): a select-all read 500s the whole
+        // queue when the database lags the code by an additive column
+        // (here: the DES-10-F2 review-checklist columns). The queue item
+        // consumes only these columns, mirroring the invoices queue's
+        // explicit-column raw SQL.
+        select: {
+          id: true,
+          projectId: true,
+          version: true,
+          status: true,
+          totalPrice: true,
+          createdAt: true,
+          updatedAt: true,
+          project: { select: { name: true, customer: { select: { name: true } } } },
+        },
         orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
         take: limit,
       }),

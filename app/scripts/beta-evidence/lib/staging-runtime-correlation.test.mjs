@@ -4,8 +4,8 @@ import { correlateStagingRuntime, STAGING_WEB_ORIGIN, STAGING_API_ORIGIN, STAGIN
 const sha = 'a'.repeat(40);
 const input = () => ({ baseUrl: STAGING_WEB_ORIGIN, expectedSha: sha, projectRef: STAGING_PROJECT_REF });
 const payloads = () => [
-  { status: 'configured', branch: 'staging', commitSha: sha, supabaseProjectRef: STAGING_PROJECT_REF, backendOrigin: STAGING_API_ORIGIN, scope: 'public_configuration_only' },
-  { status: 'ok', commitSha: sha },
+  { status: 'configured', branch: 'staging', environment: 'preview', commitSha: sha, supabaseProjectRef: STAGING_PROJECT_REF, backendOrigin: STAGING_API_ORIGIN, scope: 'public_configuration_only' },
+  { status: 'ok', commitSha: sha, environment: 'preview' },
   { status: 'ready', checks: { database: { status: 'ok', projectRef: STAGING_PROJECT_REF } } },
 ];
 function transport(data, calls = []) {
@@ -18,12 +18,13 @@ function transport(data, calls = []) {
 test('correlates matching live web/API SHA and data plane with no redirects or cache', async () => {
   const calls = [];
   assert.deepEqual(await correlateStagingRuntime({ ...input(), fetchImpl: transport(payloads(), calls) }), { deploymentSha: sha, source: 'live-staging-web-api', dataPlaneRef: STAGING_PROJECT_REF });
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4);
   assert.ok(calls.every(c => c.options.redirect === 'error' && c.options.cache === 'no-store'));
 });
 for (const [name, index, field, value] of [
   ['web SHA',0,'commitSha','b'.repeat(40)], ['web branch',0,'branch','main'], ['web project',0,'supabaseProjectRef','kssaceuetdjwfqnbzhly'],
   ['web backend',0,'backendOrigin','https://api.404tradeos.com'], ['web scope',0,'scope','other'], ['API SHA',1,'commitSha','b'.repeat(40)], ['API health',1,'status','failed'],
+  ['web environment',0,'environment','production'], ['API environment',1,'environment','production'],
 ]) test(`rejects mismatched ${name}`, async () => {
   const data = payloads(); data[index][field] = value;
   await assert.rejects(correlateStagingRuntime({ ...input(), fetchImpl: transport(data) }), e => e.code === 'STAGING_RUNTIME_MISMATCH');
@@ -33,6 +34,36 @@ test('rejects ready failure, production data plane, and missing project proof', 
     const data = payloads(); data[2] = ready;
     await assert.rejects(correlateStagingRuntime({ ...input(), fetchImpl: transport(data) }));
   }
+});
+test('rejects a missing runtime environment on either surface', async () => {
+  for (const index of [0, 1]) {
+    const data = payloads(); delete data[index].environment;
+    await assert.rejects(correlateStagingRuntime({ ...input(), fetchImpl: transport(data) }));
+  }
+});
+test('rejects an unpublished web identity for staging correlation', async () => {
+  // Codex P1 on PR #1096: the pre-S071 correlation rejected a 404 web
+  // identity; the contract must not silently skip every web check for it.
+  const fetchImpl = async (url, options) => {
+    if (url.endsWith('staging-runtime-identity')) return { status: 404, ok: false };
+    return transport(payloads())(url, options);
+  };
+  await assert.rejects(correlateStagingRuntime({ ...input(), fetchImpl }), e => e.code === 'STAGING_RUNTIME_MISMATCH');
+});
+test('rejects a deployment change between the /health and /ready observations', async () => {
+  // CodeRabbit Minor on PR #1096: the collector re-reads /health after
+  // /ready to bind both observations to one deployment.
+  let healthCalls = 0;
+  const fetchImpl = async (url, options) => {
+    if (url.endsWith('/health')) {
+      healthCalls += 1;
+      const data = payloads();
+      data[1].commitSha = healthCalls === 1 ? sha : 'b'.repeat(40);
+      return { ok: true, json: async () => data[1] };
+    }
+    return transport(payloads())(url, options);
+  };
+  await assert.rejects(correlateStagingRuntime({ ...input(), fetchImpl }), e => e.code === 'STAGING_RUNTIME_MISMATCH');
 });
 test('rejects untrusted target and short SHA before making requests', async () => {
   for (const patch of [{baseUrl:'https://app.404tradeos.com'}, {expectedSha:'aaaaaaa'}, {projectRef:'kssaceuetdjwfqnbzhly'}]) {

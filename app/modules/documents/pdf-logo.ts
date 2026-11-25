@@ -50,7 +50,17 @@ export function validatePdfLogoBytes(bytes: Buffer | null | undefined): Buffer |
     width * height <= MAX_LOGO_PIXELS ? bytes : null;
 }
 
-/** Returns false and preserves the text-only PDF when decoding fails. */
+/**
+ * Returns false and preserves the text-only PDF when decoding fails.
+ * PNG bytes additionally prove their pixel stream decodes first
+ * (isDecodablePngImage): PDFKit (png-js) inflates IDAT asynchronously and
+ * throws inflate/filter errors inside the zlib callback — outside any
+ * try/catch around doc.image and outside the document's error listener —
+ * so a header-valid PNG with corrupt pixel data would hang or crash the
+ * process instead of falling back to text. JPEGs need no pixel
+ * pre-validation: PDFKit embeds their DCT data directly and any marker
+ * error throws synchronously from doc.image, inside the try/catch below.
+ */
 export function drawValidatedPdfLogo(
   doc: { image: (source: Buffer, x: number, y: number, options: { fit: [number, number]; align: "center"; valign: "center" }) => unknown },
   image: Buffer | null | undefined,
@@ -59,6 +69,7 @@ export function drawValidatedPdfLogo(
   const bytes = validatePdfLogoBytes(image);
   if (!bytes || [box.x, box.y, box.width, box.height].some((n) => !Number.isFinite(n)) ||
       box.width <= 0 || box.height <= 0) return false;
+  if (bytes[0] === 0x89 && !isDecodablePngImage(bytes)) return false;
   try {
     doc.image(bytes, box.x, box.y, {
       fit: [box.width, box.height],

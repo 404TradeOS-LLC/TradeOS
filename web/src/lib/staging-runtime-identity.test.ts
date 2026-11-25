@@ -14,6 +14,7 @@ test("reports only allowlisted public bindings for a pinned staging runtime", ()
   assert.equal(result.status, 200);
   assert.deepEqual(result.body, {
     status: "configured", commitSha: "a".repeat(40), branch: "staging",
+    environment: "preview",
     supabaseProjectRef: "qfbgdkbamfaasmtjfyru",
     backendOrigin: env().BACKEND_API_URL,
     scope: "public_configuration_only",

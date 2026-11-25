@@ -83,6 +83,10 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Today queue reads use explicit column selects (#1093) — 2026-11-25
+
+The estimates and proposals organization work-queue reads (`EstimateEngineService.listOrganizationQueue`, `ProposalsService.listOrganizationQueue`) no longer select-all: each now requests exactly the columns its queue item consumes (plus project/customer names, and the latest contract id for proposals), mirroring the invoices queue's explicit-column raw SQL. The hardening follows the #1093 diagnosis — production Today 500ed "Estimates in progress" and "Proposal follow-ups" because the production database lagged the code by additive columns (the DES-10-F2 review-checklist columns on estimates, the DES-10-F7 signature columns on proposals) and both queues selected them. The root-cause fix remains the pending production migration run; this change only makes a future code/DB drift degrade one field instead of taking down a whole queue. Behavior is identical when all columns exist. Regression coverage: `app/tests/estimate-engine.queue.explicit-select.test.ts` and `app/tests/proposals.queue.explicit-select.test.ts` — each simulates the lagging database (a select-all or a select naming a missing column throws a 42703-style error) and proves the queue loads and requests exactly the consumed columns. See `docs/modules/estimating.md` and `docs/modules/proposals.md` ("Organization work-queue read").
+
 ## Estimate-less proposal invoice pricing — 2026-11-25
 
 `POST /api/v1/invoices` with a `proposalId` and no `estimateId` no longer 409s when the proposal was created from the project (`estimateId: null`). The estimate-link guard in `InvoicesService.resolvePricingProposal` compared the stored `null` against the request's absent (`undefined`) with strict inequality, so every estimate-less proposal invoice failed — the S069 browser-evidence run (45547231123) died on it in Step A. The guard now normalizes both sides to `null` before comparing, so only a present `estimateId` that differs from the proposal's is rejected. Regression coverage: new service test creates an invoice from an accepted estimate-less proposal with manual line items. See [Invoices and payments](modules/invoices-and-payments.md#estimate-backed-invoice-creation).
@@ -270,7 +274,7 @@ A proposed backend service reads the active `SettingsAssetUpload` row for the al
 
 ## PDFKit trusted-logo byte rendering — merged primitive; storage bridge pending acceptance
 
-A new no-network PDF rendering helper validates bounded PNG/JPEG bytes (1 MiB, 2048px max edge, 2 MP max area) and draws them in invoice, contract, and proposal header slots. Malformed/unsafe inputs fall back to the contractor's company-name text. Tests cover image embedding and rejected payloads. PR #873 implements the organization-scoped private Storage byte reader, enabled only with protected backend credentials. No public bucket or arbitrary URL fetch is added. Staging credential provenance, seeded same-tenant image, cross-tenant tests, and PDF visual acceptance remain open under issue #870.
+A new no-network PDF rendering helper validates bounded PNG/JPEG bytes (1 MiB, 2048px max edge, 2 MP max area) and draws them in invoice, contract, and proposal header slots. Malformed/unsafe inputs fall back to the contractor's company-name text. PNG logo bytes additionally prove their pixel stream decodes before PDFKit touches them (`isDecodablePngImage`, applied in `drawValidatedPdfLogo`): a header-valid PNG with corrupt IDAT or a bad scanline filter byte fails closed to text instead of hanging or crashing the render, matching the proposal-signature path (PR #1094 follow-up). Tests cover image embedding and rejected payloads. PR #873 implements the organization-scoped private Storage byte reader, enabled only with protected backend credentials. No public bucket or arbitrary URL fetch is added. Staging credential provenance, seeded same-tenant image, cross-tenant tests, and PDF visual acceptance remain open under issue #870.
 
 ## Contractor-brand-only proposal PDF headers — merged PR #868
 
@@ -2150,6 +2154,8 @@ repository, JWT verification remains enabled, and unauthenticated access returns
 401. Authenticated role/tenant acceptance remains pending.
 All 71 staging migration names/checksums match main;
 do not replay them. See [the staged release sequence](operations/staging-runtime-parity.md).
+
+Update 2026-11-25 (S071): the endpoint now also reports `environment: "preview"` in its 200 body (the Vercel environment it already gated on), and API `/health` now reports `environment` (`production` | `preview` | `development`, from `VERCEL_ENV`, omitted when unrecognized). The canonical identity contract in `app/scripts/beta-evidence/lib/deployment-identity-contract.mjs` verifies commit, environment, backend host, and data-plane identifier from these runtime surfaces and fails closed on any mismatch, missing value, or unparseable identity — no secret or env inventory is fetched.
 
 ## Beta evidence fixture mismatch repair — 2026-11-12
 

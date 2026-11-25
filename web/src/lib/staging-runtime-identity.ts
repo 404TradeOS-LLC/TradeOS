@@ -18,7 +18,12 @@ export function stagingRuntimeIdentity(env: Record<string, string | undefined>) 
   return {
     status: 200,
     body: {
-      status: "configured", commitSha, branch: "staging",
+      // environment is the Vercel environment this deployment runs in. The
+      // gate above already proves VERCEL_ENV === "preview", so this is a
+      // derived public identifier (staging deploys as a preview-target
+      // deployment), not new data — evidence automation verifies it from
+      // the deployment instead of trusting an operator attestation.
+      status: "configured", commitSha, branch: "staging", environment: "preview",
       supabaseProjectRef: STAGING_PROJECT_REF, backendOrigin: STAGING_API_ORIGIN,
       scope: "public_configuration_only",
     },

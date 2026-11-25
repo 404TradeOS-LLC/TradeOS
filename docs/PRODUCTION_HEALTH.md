@@ -12,7 +12,7 @@ TradeOS exposes separate liveness and readiness probes so operators and automate
 
 `/health` is the liveness probe. It is dependency-free and should remain fast even when PostgreSQL or another downstream service is unavailable.
 
-The response includes status, service name, application version, timestamp, process uptime, and deployment commit SHA when available. A successful `/health` proves the API process is running; it does not prove the database is reachable.
+The response includes status, service name, application version, timestamp, process uptime, and deployment commit SHA when available. It also includes `environment`, the Vercel environment the deployment runs in (`production` | `preview` | `development`, from `VERCEL_ENV`), omitted when the runtime publishes no recognized value. Evidence automation (S071) verifies that environment from the deployment instead of trusting an operator attestation: staging and PR-preview deployments report `preview`, production reports `production`. A successful `/health` proves the API process is running; it does not prove the database is reachable.
 
 ## `GET /ready`
 
