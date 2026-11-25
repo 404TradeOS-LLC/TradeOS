@@ -232,6 +232,10 @@ What landed:
   environment cases, health + web identity tests extended; the new
   contract test is wired into `npm run pr:test`.
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:7f2ffd2fa359664d72b8e825a97c4b719f3a7df447ca444c6546aff82dc5b78b -->
+
 Rollout note: the new gate requires deployments built from this PR
 onward — it fails closed on the missing environment field against older
 deployments by design. Live non-production evidence (a contract run
@@ -240,3 +244,18 @@ mismatched-SHA run) is owed after merge + staging promotion; S071 stays
 `IN_REVIEW` until it passes. No secret fetched, decrypted, asserted, or
 retained; no production deployment or data-plane acceptance; no new
 deployment pipeline, hosting change, or trust boundary.
+
+## Post-merge follow-up risks (PR #1096)
+
+PR #1096 merged as `f1cf85f0b2444a68a37416ff205fc0c67d447e75`. S071 remains `IN_REVIEW` and S072 remains `PLANNED`.
+
+| Priority | Risk | What closes it |
+| --- | --- | --- |
+| Acceptance blocker | Older or mixed web/API deployments can block evidence because the gate requires both surfaces to publish the new environment field. Mocked tests do not establish that the live staging endpoints are reachable or that the web alias resolves to the API deployment whose readiness was checked. | After staging promotion, run the gate with SHA correlation enabled against the approved staging web/API pair. Record the matching full SHA, deployment IDs, backend alias binding, and public data-plane reference. Repeat with a different full SHA and confirm that the gate stops before capture. Link both run receipts in the S071 acceptance record before moving S071 to `DONE`. |
+| Workflow compatibility | The pre-merge S059 gate accepted a web identity 404 on ordinary previews and recorded the backend binding as unpublished. The merged gate requires web identity for every S059/S068/S069 target, but the web endpoint publishes it only for staging. The shared verifier's optional mode does not preserve that workflow path. | Confirm whether these three workflows are staging-only. If so, document that in all three dispatch inputs and test rejection of ordinary previews. If ordinary previews remain supported, define the required binding proof before restoring that path. Keep staging 404 rejection in either case. |
+| Evidence attribution | Staging correlation reads a mutable API alias. The second `/health` check catches a different SHA at the end of collection, but two deployments can share a SHA and `/ready` carries no deployment ID. Matching SHAs therefore do not prove that the readiness response came from the selected deployment. | Pin staging identity reads to a single resolved deployment and verify its binding to the web backend alias, or compare a common deployment ID on both API responses. Add coverage for a same-SHA redeploy with different deployment IDs. Preserve the web and API data-plane checks. |
+
+The merged code addresses the reviewed staging 404 case, detects SHA changes between the two health reads, and preserves the intentional SHA opt-out. The remaining risks concern evidence acceptance and attribution. The merged change adds public identity metadata and does not change tenant authorization, RLS, or migrations.
+
+
+<!-- /coderabbit-ai-generated:v1 -->
