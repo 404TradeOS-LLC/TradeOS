@@ -101,7 +101,13 @@ line. Progress invoices scale the sell total and tax composition by
 `lineItems` override estimate resolution and retain their supplied values;
 estimate allocation applies only when `lineItems` are absent or empty. Custom
 `lineItems` remain an explicit direct-input path and retain their existing
-behavior. Invoice-backed estimate creation rejects draft estimates. The
+behavior. A proposal created from the project carries no estimate
+(`estimateId: null`); an invoice request that names such a proposal without an
+`estimateId` is valid and creates the invoice from the supplied manual line
+items. The estimate-link guard rejects only a present `estimateId` that
+differs from the proposal's — `null` and absent are both "no estimate", not a
+mismatch (fixed 2026-11-25; the S069 browser-evidence run failed with 409 on
+this path before the fix). Invoice-backed estimate creation rejects draft estimates. The
 invoice persists `subtotal`, `taxPct`, and `taxAmount`; when an accepted
 proposal changes the total, the estimate's persisted tax composition is scaled
 proportionally so `subtotal + taxAmount = amount` without inventing a new tax
