@@ -88,8 +88,9 @@ import { createAthenaMemoryService } from "../modules/athena-memory/service";
 import type { AthenaMemoryService } from "../modules/athena-memory/service";
 import type { AthenaMemoryCandidateExtractor } from "../modules/athena-memory/types";
 import type { JobsService } from "../modules/jobs/service";
-import type { DispatchSummaryDTO, PaginatedJobsDTO, ScheduleConflictResultDTO } from "../modules/jobs/types";
+import type { DispatchSummaryDTO, JobSummaryDTO, PaginatedJobsDTO, ScheduleConflictResultDTO } from "../modules/jobs/types";
 import { createOptimizeDayTool } from "../modules/athena-tools/dispatcher/optimizeDay.tool";
+import { createActiveJobsTool } from "../modules/athena-tools/dispatcher/activeJobs.tool";
 import { createEstimateCreateTool } from "../modules/athena-tools/estimator/createEstimate.tool";
 import { getRolePermissions } from "../domain";
 
@@ -917,15 +918,18 @@ describe("AthenaKernelService", () => {
       };
     }
 
-    // Production-shaped registry: the read-only dispatch tool plus the
-    // write tool whose required input used to fail every plain question.
-    // The estimate tool must never execute for a read-only question.
+    // Production-shaped registry: both read-only dispatch tools (the
+    // registry used to omit active-jobs, which hid the kernel dropping the
+    // optimize-day schedule summary) plus the write tool whose required
+    // input used to fail every plain question. The estimate tool must
+    // never execute for a read-only question.
     function buildRegressionRegistry(): {
       registry: AthenaToolRegistry;
-      counts: () => { optimizeDay: number; createEstimate: number };
+      counts: () => { optimizeDay: number; activeJobs: number; createEstimate: number };
     } {
       const registry = createAthenaToolRegistry();
       let optimizeDay = 0;
+      let activeJobs = 0;
       let createEstimate = 0;
       registry.register(
         createOptimizeDayTool({
@@ -935,6 +939,41 @@ describe("AthenaKernelService", () => {
               return buildFakeDispatchSummary();
             },
             getScheduleConflicts: async (): Promise<ScheduleConflictResultDTO> => ({ conflicts: [], overrideAllowed: true }),
+          },
+        })
+      );
+      const fakeActiveJobs: JobSummaryDTO[] = [
+        {
+          id: "job-1",
+          jobNumber: "JOB-2026-000001",
+          title: "Furnace repair",
+          jobType: "repair",
+          status: "scheduled",
+          priority: "medium",
+          scheduledStart: "2026-11-25T14:00:00.000Z",
+          scheduledEnd: "2026-11-25T16:00:00.000Z",
+          archivedAt: null,
+        },
+        {
+          id: "job-2",
+          jobNumber: "JOB-2026-000002",
+          title: "Roof inspection",
+          jobType: "inspection",
+          status: "dispatched",
+          priority: "medium",
+          scheduledStart: "2026-11-25T16:00:00.000Z",
+          scheduledEnd: "2026-11-25T17:00:00.000Z",
+          archivedAt: null,
+        },
+      ];
+      registry.register(
+        createActiveJobsTool({
+          jobs: {
+            getDispatchSummary: async () => {
+              activeJobs += 1;
+              return buildFakeDispatchSummary();
+            },
+            list: async (): Promise<PaginatedJobsDTO> => ({ items: fakeActiveJobs, page: 1, pageSize: 25, total: fakeActiveJobs.length }),
           },
         })
       );
@@ -948,7 +987,7 @@ describe("AthenaKernelService", () => {
           } as never,
         })
       );
-      return { registry, counts: () => ({ optimizeDay, createEstimate }) };
+      return { registry, counts: () => ({ optimizeDay, activeJobs, createEstimate }) };
     }
 
     function buildContextRegistry() {
@@ -1000,6 +1039,21 @@ describe("AthenaKernelService", () => {
       expect(result.state).toBe("succeeded");
       expect(result.message).toContain("5 active jobs");
       expect(counts().optimizeDay).toBe(1);
+      expect(counts().createEstimate).toBe(0);
+    });
+
+    it("preserves the optimize-day schedule summary when active-jobs also runs for a schedule question", async () => {
+      const { result, counts } = await ask("What's on my schedule today?", "req-regression-q1-combined");
+
+      expect(result.success).toBe(true);
+      expect(result.state).toBe("succeeded");
+      // The kernel used to return only the last tool's result, so the
+      // active-job list overwrote the day's schedule summary (scheduled
+      // count, conflicts, warnings). Both halves must survive.
+      expect(result.message).toContain("3 scheduled");
+      expect(result.message).toContain("JOB-2026-000001");
+      expect(counts().optimizeDay).toBe(1);
+      expect(counts().activeJobs).toBe(1);
       expect(counts().createEstimate).toBe(0);
     });
 

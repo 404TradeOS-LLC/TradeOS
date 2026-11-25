@@ -338,7 +338,12 @@ export class AthenaKernelService {
         throwIfAborted();
         await applyTransition("policy_check", "plan_ready", { planId: plan.planId, planStatus: plan.status });
         const policyStart = Date.now();
-        let lastSuccessfulToolResult: AthenaKernelResult | null = null;
+        // 2026-11-25 (Codex P2): several dispatch_overview tools can
+        // succeed for one question (optimize-day + active-jobs). Every
+        // successful result is kept and combined below - returning only
+        // the last one let the active-job list overwrite the day's
+        // schedule summary.
+        const successfulToolResults: AthenaKernelResult[] = [];
 
         if (plan.status === "needs_clarification") {
           const decision = evaluateAthenaPolicy({ rawRole: input.actor.role, orgId: actor.orgId, userId: actor.userId, capability: "mutate_business_record" });
@@ -508,7 +513,7 @@ export class AthenaKernelService {
             return failure;
           }
 
-          lastSuccessfulToolResult = {
+          successfulToolResults.push({
             success: true,
             executionId,
             traceId,
@@ -518,7 +523,7 @@ export class AthenaKernelService {
             warnings: actionOutcome.result.toolResult.warnings,
             followUps: actionOutcome.result.toolResult.followUps,
             telemetry: { traceId, executionId },
-          };
+          });
           await recordAudit("execution_completed", { toolId: step.toolId, planId: plan.planId, stepId: step.stepId, summary: actionOutcome.result.toolResult.summary });
           await recordSecurityAudit("sensitive_action_completed", "succeeded", { decision: stepDecision.decision, planId: plan.planId, stepId: step.stepId, toolId: step.toolId, toolVersion: step.toolVersion, riskLevel: tool.risk }, { actionId: actionAuditId, approvalId: input.approvalId });
 
@@ -540,10 +545,21 @@ export class AthenaKernelService {
 
         await emitSpan("approval", "ok", Date.now() - policyStart, { planId: plan.planId, planStatus: plan.status, intent: plan.intent });
 
-        if (lastSuccessfulToolResult) {
+        if (successfulToolResults.length > 0) {
+          const combined: AthenaKernelResult = {
+            success: true,
+            executionId,
+            traceId,
+            state: "succeeded",
+            summary: successfulToolResults.map((result) => result.summary).join("\n"),
+            message: successfulToolResults.map((result) => result.summary).join("\n"),
+            warnings: successfulToolResults.flatMap((result) => result.warnings),
+            followUps: successfulToolResults.flatMap((result) => result.followUps),
+            telemetry: { traceId, executionId },
+          };
           await applyTransition("succeeded", "tool_action_completed");
-          await executionStore.finalizeExecutionRecord({ executionId, safeSummary: lastSuccessfulToolResult.summary });
-          return lastSuccessfulToolResult;
+          await executionStore.finalizeExecutionRecord({ executionId, safeSummary: combined.summary });
+          return combined;
         }
       }
 

@@ -12,10 +12,13 @@ import type { DispatchSummaryDTO, JobSummaryDTO } from "../../jobs/types";
 // regression: "How many active jobs do I have today?" used to fail input
 // validation because no intent-matched tool existed for it. "Active" is
 // getDispatchSummary's own definition - non-terminal, non-archived - so
-// the count here and in optimize-day can never disagree. The list is the
-// first page of JobsService.list() filtered to the same set; the
-// authoritative count comes from the count-only summary, never from the
-// page total (which also counts terminal jobs on the page's underlying
+// the count here and in optimize-day can never disagree. The list is
+// JobsService.list() pages filtered to the same set, paging on while
+// fewer than ACTIVE_JOBS_SUMMARY_ITEMS active jobs have been collected
+// (list() sorts by scheduledStart without filtering status, so a first
+// page of older terminal jobs must not produce an empty active list);
+// the authoritative count comes from the count-only summary, never from
+// the page total (which also counts terminal jobs on the pages' underlying
 // query). Customer contact details are intentionally omitted, same as the
 // dispatch context provider: job scheduling metadata only.
 
@@ -93,8 +96,26 @@ export function createActiveJobsTool(deps: ActiveJobsToolDeps): AthenaToolDefini
       // jobs. Gating on dispatch.manage would deny technicians a read their
       // RLS access is specifically designed to grant.
       const summary: DispatchSummaryDTO = await deps.jobs.getDispatchSummary(execution.orgId, actor);
-      const page = await deps.jobs.list({ orgId: execution.orgId, auth, archived: false, page: 1, pageSize: ACTIVE_JOBS_PAGE_SIZE });
-      const activeJobs = page.items.filter((job) => !isTerminalStatus(job.status)).map(toActiveJobsItem);
+      // 2026-11-25 (Codex P2): list() sorts by scheduledStart ascending
+      // without filtering status, so a first page of 25 older
+      // completed/cancelled jobs filters to an empty active list even when
+      // active jobs sit on later pages. Keep fetching pages until enough
+      // active jobs are collected for the summary or the pages run out.
+      // The loop is bounded by the first page's total: each iteration
+      // advances one page, and an empty page breaks out (a service that
+      // reports a total it never returns must not spin forever).
+      const activeJobs: ActiveJobsItem[] = [];
+      let pageNumber = 1;
+      let totalJobs = 0;
+      let fetchedJobs = 0;
+      while (activeJobs.length < ACTIVE_JOBS_SUMMARY_ITEMS && (pageNumber === 1 || fetchedJobs < totalJobs)) {
+        const page = await deps.jobs.list({ orgId: execution.orgId, auth, archived: false, page: pageNumber, pageSize: ACTIVE_JOBS_PAGE_SIZE });
+        totalJobs = page.total;
+        fetchedJobs += page.items.length;
+        activeJobs.push(...page.items.filter((job) => !isTerminalStatus(job.status)).map(toActiveJobsItem));
+        pageNumber += 1;
+        if (page.items.length === 0) break;
+      }
       const shown = activeJobs.slice(0, ACTIVE_JOBS_SUMMARY_ITEMS);
       const remaining = summary.activeJobs - shown.length;
 

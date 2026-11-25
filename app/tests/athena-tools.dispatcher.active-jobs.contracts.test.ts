@@ -95,6 +95,52 @@ describe("athena-tools dispatcher: active-jobs", () => {
     expect(result.data?.jobs).toEqual([]);
   });
 
+  it("collects active jobs from later pages when the first page is all terminal jobs", async () => {
+    // 25 older completed jobs fill page 1 (sorted by scheduledStart asc);
+    // the 5 active jobs sit on page 2. Filtering page 1 alone used to
+    // produce an empty active list with a "5 active jobs; and 5 more"
+    // summary naming none of them.
+    const terminalPage = Array.from({ length: 25 }, (_, index) =>
+      buildFakeJob({
+        id: `old-job-${index}`,
+        jobNumber: `JOB-2025-${String(index + 1).padStart(6, "0")}`,
+        title: `Old completed job ${index + 1}`,
+        status: "completed",
+      })
+    );
+    const activePage = Array.from({ length: 5 }, (_, index) =>
+      buildFakeJob({
+        id: `active-job-${index}`,
+        jobNumber: `JOB-2026-00010${index + 1}`,
+        title: `Active job ${index + 1}`,
+        status: "scheduled",
+      })
+    );
+    const jobs: ActiveJobsToolDeps["jobs"] = {
+      getDispatchSummary: jest.fn(async () => Promise.resolve(buildFakeDispatchSummary())),
+      list: jest.fn(async (filters) =>
+        Promise.resolve(
+          filters.page === 1
+            ? { items: terminalPage, page: 1, pageSize: 25, total: 30 }
+            : { items: activePage, page: 2, pageSize: 25, total: 30 }
+        )
+      ),
+    };
+    const tool = createActiveJobsTool({ jobs });
+
+    const result = await tool.execute(validInput, {} as never, execution());
+
+    expect(result.success).toBe(true);
+    expect(result.summary).toContain("5 active jobs");
+    expect(result.summary).toContain("JOB-2026-000101");
+    expect(result.summary).not.toContain("JOB-2025-000001");
+    expect(result.summary).not.toContain("and 5 more");
+    expect(result.data?.jobs).toHaveLength(5);
+    expect(jobs.list).toHaveBeenCalledTimes(2);
+    expect(jobs.list).toHaveBeenCalledWith(expect.objectContaining({ page: 1 }));
+    expect(jobs.list).toHaveBeenCalledWith(expect.objectContaining({ page: 2 }));
+  });
+
   it("scopes the list call to the caller's organization and passes the actor through", async () => {
     const jobs = createFakeJobsService(buildFakeDispatchSummary(), [buildFakeJob()]);
     const tool = createActiveJobsTool({ jobs });
