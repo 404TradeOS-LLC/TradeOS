@@ -103,6 +103,22 @@
       "routeServiceOwner": "app/modules/estimate-engine/service.ts"
     },
     {
+      "model": "EstimateScopeClarification",
+      "table": "estimate_scope_clarifications",
+      "journeys": [
+        "scope-estimate"
+      ],
+      "role": "child/inherited",
+      "tenantSource": "estimate parent and session organization",
+      "migration": "20261125120000_add_estimate_scope_clarification/migration.sql",
+      "policy": "estimate_scope_clarifications_select_policy, estimate_scope_clarifications_insert_policy, estimate_scope_clarifications_update_policy",
+      "sameOrg": "saves, reloads and retries one normalized answer without changing saved items or money",
+      "crossOrg": "denies cross-tenant clarification reads and writes at the service and database",
+      "scopeTest": "rejects a competing revision, saves the explicit assumption after refresh and denies technician writes",
+      "status": "COVERED",
+      "routeServiceOwner": "app/modules/ai-estimate-assist/service.ts"
+    },
+    {
       "model": "AthenaGenerationRun",
       "table": "athena_generation_runs",
       "journeys": [

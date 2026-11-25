@@ -7,7 +7,29 @@ import { requireAuthContext, requireOrgId, requirePermissions, requireRoles } fr
 const service = new AIEstimateAssistService();
 const structuredEstimator = new StructuredAIEstimatorService();
 
+const saveClarificationSchema = z.object({
+  questionKey: z.string().min(1).max(100),
+  expectedRevision: z.number().int().min(0).max(2_147_483_646),
+  answer: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("details"), detail: z.string().trim().min(1).max(1000) }).strict(),
+    z.object({ kind: z.literal("site_check_assumption") }).strict(),
+  ]),
+}).strict();
+
 export const aiEstimateAssistController = {
+  async getScopeClarification(req: Request, res: Response) {
+    requirePermissions(req, ["billing.read"]);
+    const estimateId = z.guid().parse(req.params.id);
+    res.json({ clarification: await service.getScopeClarification(estimateId, requireOrgId(req)) });
+  },
+
+  async saveScopeClarification(req: Request, res: Response) {
+    requirePermissions(req, ["billing.write"]);
+    const body = saveClarificationSchema.parse(req.body);
+    const estimateId = z.guid().parse(req.params.id);
+    res.json({ clarification: await service.saveScopeClarification({ ...body, estimateId, orgId: requireOrgId(req) }) });
+  },
+
   async generate(req: Request, res: Response) {
     requirePermissions(req, ["crm.read"]);
     const schema = z.object({

@@ -38,6 +38,12 @@ Provide advisory estimate suggestions grounded in the tenant cost book and revie
 
 The backend also exposes a structured AI estimating engine path for contractor-language scopes. It parses scope text, matches Knowledge Runtime candidates, resolves them to existing app-owned cost items or assemblies, retrieves pricing through the costbook and assembly services, and stages a structured draft for human review.
 
+## Persisted Scope check (DES-10-F1)
+
+The estimate builder is the editing surface for the one footing question. The API selects the question from the saved project scope and persists the normalized answer on the authenticated draft Estimate. The response restores the same answer after reload. A conflict requires reloading the current answer before submitting the retained note against the newer revision.
+
+Structured review picks up the saved clarification when its input matches the saved project scope. The note appears under Athena understood and contributes a footing-review warning. It is kept out of the quantity parser. A site-check assumption and a detailed field note both require human verification before a contractor includes footing replacement. Item generation and application use the existing review controls.
+
 ## Source code locations
 
 - `app/modules/ai-estimate-assist/*`

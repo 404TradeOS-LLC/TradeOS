@@ -168,6 +168,10 @@ The estimates and proposals organization work-queue reads (`EstimateEngineServic
 
 The read-only selected-account ABC sandbox quote (`POST /api/v1/supplier-integrations/abc/selected-price-probe`, Settings → Test selected ABC price) accepted only two SKUs (`654210`, `02GASTZ3WW`), which blocked probing the test data ABC API Support sent 2026-11-24 (Penny Simpson). The allowlist is now 20 SKUs: the two pilot SKUs plus the 18 ABC-provided test SKUs — branch 254 items `17CTRV12FN`, `0150013884`; branch 340 priced items `02IKDYARAB`, `02IKDYARCA`, `0150013846`, `0170030023`, `0150013902`, `02CTL303GG`, `05CTSRR10`, `02GATZ3WW`, `04CTPRSTWW`, `01CT25BK`, `14MIDEGBK`; branch 340 $0-price items `07CS300054`, `07GAEGUCGY`, `08GAEPADH`, `23CTCI9GG`, `GGC615VGWH`. It stays a closed allowlist: the server enum (`selectedQuoteSchema`) and the Settings dropdown (`ABC_SELECTED_QUOTE_SKUS`) enforce the same list, no free-form SKU input exists, and an unallowlisted SKU is still rejected with 400 before any provider call (existing route test). The `price-probe` route stays locked to `ABC-654210`. No priced line has been verified yet — this only unblocks the probes; they run in production Settings after deploy. Regression coverage: new route test quotes `17CTRV12FN` at branch 254.
 
+## Estimate Scope clarification — DES-10-F1 (proposed)
+
+The Scope stage presents one footing question when the saved work describes structural deck work or existing deck footings. A draft estimate can save a field note or explicitly keep the site-check assumption. Reload restores the normalized answer, retries preserve the same revision, and a competing save prompts the contractor to load the latest version while retaining their text. The structured Athena review shows the saved clarification when reviewing that project's saved scope. The answer is advisory context; review and application of item suggestions remain explicit actions. The source change requires authenticated viewport and tenant-denial evidence before release status is recorded.
+
 ## Estimate Review readiness checklist — DES-10-F2 (branch `feat/des10-f2-review-readiness-gate`)
 
 <!-- DES-10-F2-START: keep this entry delimited; parallel DES-10 lanes edit other sections of this file. -->
@@ -1757,7 +1761,7 @@ The one-dominant-action pattern is now a shared component, `StickyTaskAction` (`
 
 The estimate builder includes an embedded Athena context panel beside the desktop pricing inspector and within the mobile Scope stage. It uses the existing reviewable suggestion contract to surface assembly and Costbook matches, confidence, provenance warnings, and explicit setup-required states without applying anything automatically. The full review route now uses contractor-facing Athena terminology while the internal API/type names remain unchanged. Estimate Engine mutations remain authoritative.
 
-The canonical one-question clarification interaction is still a real product gap. Structured estimator output can report missing information, but production does not yet expose a persisted one-question-at-a-time answer/regenerate contract, so the mobile UI explicitly does not simulate that behavior.
+At the time of this mobile workspace update, the canonical one-question interaction remained a product gap. The separate DES-10-F1 entry above tracks the proposed footing clarification contract and its release evidence.
 
 ## Contextual Athena provenance clarification
 

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clientFetch } from "@/lib/clientApi";
 import { PageHeader } from "@/components/shared/page-header";
+import { EstimateScopeClarificationForm, ScopeClarificationSummary } from "@/components/estimate-assist/estimate-scope-clarification";
+import { getEstimateScopeClarification, type EstimateScopeClarification } from "@/lib/estimate-scope-clarification";
 import { ContextualAthenaPanel } from "@/components/estimate-assist/contextual-athena-panel";
 import { assessCostItemMapping, type StarterCatalogComponent, type StarterCatalogTemplate } from "@/components/costbook/assembly-catalog-model";
 import { MappingResolveChecklist } from "@/components/costbook/mapping-resolve-checklist";
@@ -311,6 +313,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         projectId={projectId}
         projectName={projectName}
         simpleScope={scopeDraft}
+        persistedScope={persistedScope}
         onScopeChange={(value) => {
           saveScope.reset();
           setScopeDraft(value);
@@ -395,6 +398,7 @@ function EstimateStageFlow({
   projectId,
   projectName,
   simpleScope,
+  persistedScope,
   onScopeChange,
   onSaveScope,
   onOpenFullReview,
@@ -421,6 +425,7 @@ function EstimateStageFlow({
   projectId: string;
   projectName: string;
   simpleScope: string;
+  persistedScope: string;
   onScopeChange: (value: string) => void;
   onSaveScope: () => Promise<boolean>;
   onOpenFullReview: () => void;
@@ -460,6 +465,21 @@ function EstimateStageFlow({
   // the Status Check screen, so the create action records it.
   const proposalNewHref = `/projects/${projectId}/proposals/new?estimateId=${estimateId}${confirmedNoMatch ? "&confirmedNoMatch=1" : ""}`;
   const reviewChecklistComplete = estimate.exclusionsReviewedAt != null && estimate.priceSourcesReviewedAt != null;
+  const queryClient = useQueryClient();
+  const clarificationKey = ["estimate-scope-clarification", estimateId, persistedScope.trim()];
+  const clarification = useQuery({
+    queryKey: clarificationKey,
+    queryFn: () => getEstimateScopeClarification(estimateId),
+    enabled: Boolean(persistedScope.trim()),
+    retry: false,
+  });
+  const [openClarification, setOpenClarification] = useState<EstimateScopeClarification | null>(null);
+  const [clarificationBusy, setClarificationBusy] = useState(false);
+  const scopeCheckTrigger = useRef<HTMLButtonElement>(null);
+  const rememberClarification = (saved: EstimateScopeClarification) => {
+    void queryClient.cancelQueries({ queryKey: clarificationKey, exact: true });
+    queryClient.setQueryData(clarificationKey, saved);
+  };
   const stages: Array<{ id: EstimateStage; label: string }> = [
     { id: "scope", label: "Scope" },
     { id: "items", label: "Items" },
@@ -503,7 +523,7 @@ function EstimateStageFlow({
   }, [activeStage]);
 
   const goToStage = async (stage: EstimateStage) => {
-    if (stage === activeStage || scopeSavePending) return;
+    if (stage === activeStage || scopeSavePending || clarificationBusy) return;
     if (activeStage === "scope" && isDraft && scopeDirty) {
       const saved = await onSaveScope();
       if (!saved) return;
@@ -529,7 +549,7 @@ function EstimateStageFlow({
                   type="button"
                   aria-current={activeStage === stage.id ? "step" : undefined}
                   onClick={() => void goToStage(stage.id)}
-                  disabled={scopeSavePending && activeStage === "scope" && stage.id !== "scope"}
+                  disabled={(scopeSavePending || clarificationBusy) && activeStage === "scope" && stage.id !== "scope"}
                   className={cn(
                     "min-h-11 w-full border-b-2 border-transparent px-1 text-xs font-semibold transition-colors lg:text-left lg:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                     activeStage === stage.id ? "text-primary" : "text-muted-foreground"
@@ -556,20 +576,60 @@ function EstimateStageFlow({
         <div className="min-w-0 bg-card px-4 py-6 sm:px-6">
           <div hidden={activeStage !== "scope"} className="space-y-4">
             <h2 ref={(node) => { stageHeadingRefs.current.scope = node; }} tabIndex={-1} className="font-heading text-xl font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Start with the work.</h2>
-            <EstimateScopeEditor
-              value={simpleScope}
-              onChange={onScopeChange}
-              onSave={onSaveScope}
-              isDraft={isDraft}
-              pending={scopeSavePending}
-              saved={scopeSaveSuccess && !scopeDirty}
-              error={scopeSaveError}
-            />
-            <div className="text-sm text-muted-foreground">
-              Athena suggestions are review-first. Nothing is added automatically; open Athena review for deeper scope analysis.
+            {openClarification ? (
+              <EstimateScopeClarificationForm
+                estimateId={estimateId}
+                initial={openClarification}
+                onBusyChange={setClarificationBusy}
+                onSaved={rememberClarification}
+                onBack={() => {
+                  setOpenClarification(null);
+                  requestAnimationFrame(() => scopeCheckTrigger.current?.focus());
+                }}
+                onContinue={() => {
+                  setOpenClarification(null);
+                  void goToStage("items");
+                }}
+              />
+            ) : null}
+            <div hidden={openClarification !== null} className="space-y-4">
+              <EstimateScopeEditor
+                value={simpleScope}
+                onChange={onScopeChange}
+                onSave={onSaveScope}
+                isDraft={isDraft}
+                pending={scopeSavePending}
+                saved={scopeSaveSuccess && !scopeDirty}
+                error={scopeSaveError}
+              />
+              <div className="text-sm text-muted-foreground">
+                Athena suggestions are review-first. Nothing is added automatically; open Athena review for deeper scope analysis.
+              </div>
+              {clarification.data && !scopeDirty ? (
+                <div className="space-y-2 border border-border p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-foreground">
+                    {clarification.data.answer ? "Athena understood" : "Athena / Scope check"}
+                  </p>
+                  <ScopeClarificationSummary clarification={clarification.data} />
+                  {isDraft ? <Button
+                    ref={scopeCheckTrigger}
+                    type="button"
+                    variant="outline"
+                    className="min-h-11"
+                    onClick={() => setOpenClarification(clarification.data ?? null)}
+                  >
+                    {clarification.data.answer ? "Reopen clarification" : "Answer scope question"}
+                  </Button> : null}
+                </div>
+              ) : null}
+              {clarification.isError && !scopeDirty ? (
+                <p className="text-sm text-destructive" role="alert">
+                  Scope check could not load. <Button variant="link" className="min-h-11 px-1" onClick={() => void clarification.refetch()}>Retry scope check</Button>
+                </p>
+              ) : null}
+              <EstimateCodesHints estimateId={estimateId} />
+              <StickyTaskAction label={scopeSavePending ? "Saving scope…" : "Continue to items"} onClick={advance} disabled={scopeSavePending} />
             </div>
-            <EstimateCodesHints estimateId={estimateId} />
-            <StickyTaskAction label={scopeSavePending ? "Saving scope…" : "Continue to items"} onClick={advance} disabled={scopeSavePending} />
           </div>
 
           <div hidden={activeStage !== "items"} className="space-y-4">

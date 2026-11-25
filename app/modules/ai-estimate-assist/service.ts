@@ -1,4 +1,6 @@
-import { prisma } from "../../db/client";
+import { basePrisma, prisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
+import { resolveScopeClarification } from "./scopeClarification";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { EstimateEngineService } from "../estimate-engine/service";
 import { KnowledgeRuntimeService } from "../knowledge-runtime/service";
@@ -13,6 +15,8 @@ import {
   AppliedAIEstimateSuggestion,
   CostDataProvenanceStatus,
   GenerateAIEstimateSuggestionsInput,
+  EstimateScopeClarification,
+  SaveEstimateScopeClarificationInput,
   SkippedAIEstimateSuggestion,
   extractProvenanceDetail,
 } from "./types";
@@ -25,6 +29,61 @@ export class AIEstimateAssistService {
   private readonly estimateEngine = new EstimateEngineService();
   private readonly assembliesDatabase = new AssembliesDatabaseService();
   private readonly costDatabase = new CostDatabaseService();
+
+  async getScopeClarification(estimateId: string, orgId: string): Promise<EstimateScopeClarification | null> {
+    const estimate = await prisma.estimate.findFirst({
+      where: { id: estimateId, orgId },
+      select: { project: { select: { simpleScope: true } } },
+    });
+    if (!estimate) throw new ApiError(404, "Estimate not found");
+    return resolveScopeClarification(estimateId, orgId, estimate.project.simpleScope ?? "");
+  }
+
+  async saveScopeClarification(input: SaveEstimateScopeClarificationInput): Promise<EstimateScopeClarification> {
+    const { estimateId, orgId, questionKey, expectedRevision } = input;
+    const detail = input.answer.kind === "details" ? input.answer.detail.trim() : null;
+    if (detail !== null && (detail.length === 0 || detail.length > 1000)) {
+      throw new ApiError(400, "Enter a site-check note of 1–1000 characters");
+    }
+
+    return runInDatabaseTransaction(basePrisma, async (transaction) => {
+      // Serialize with other answer saves and with estimate finalization.
+      // Locking reads the tenant-scoped estimate without touching its totals or timestamps.
+      const [locked] = await transaction.$queryRaw<Array<{ status: string }>>`
+        SELECT status FROM public.estimates
+        WHERE id = ${estimateId}::uuid AND org_id = ${orgId}::uuid
+        FOR UPDATE
+      `;
+      if (!locked) throw new ApiError(404, "Estimate not found");
+
+      const current = await this.getScopeClarification(estimateId, orgId);
+      if (!current || current.questionKey !== questionKey) {
+        throw new ApiError(409, "The saved scope no longer has this question. Reload Scope to review it.");
+      }
+
+      const sameAnswer = current.answer?.kind === input.answer.kind
+        && (current.answer.kind !== "details" || current.answer.detail === detail);
+      if (sameAnswer && (expectedRevision === current.revision || expectedRevision === current.revision - 1)) return current;
+
+      if (locked.status !== "draft") throw new ApiError(409, "Only draft estimates can save a scope clarification");
+      if (expectedRevision !== current.revision) {
+        throw new ApiError(409, "A newer answer was saved. Review it before saving your note again.");
+      }
+
+      const data = { question: current.question, revision: current.revision + 1, answerKind: input.answer.kind, detail };
+      await transaction.estimateScopeClarification.upsert({
+        where: { estimateId_questionKey: { estimateId, questionKey } },
+        create: { estimateId, questionKey, ...data },
+        update: data,
+      });
+      return {
+        questionKey,
+        question: current.question,
+        revision: data.revision,
+        answer: detail === null ? { kind: "site_check_assumption" } : { kind: "details", detail },
+      };
+    });
+  }
 
   async generateSuggestions(input: GenerateAIEstimateSuggestionsInput): Promise<{
     suggestions: AIEstimateSuggestion[];

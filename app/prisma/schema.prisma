@@ -1100,6 +1100,7 @@ model Estimate {
 
   organization Organization?       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   project      Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scopeClarifications EstimateScopeClarification[]
   lineItems    EstimateLineItem[]
   codesJobAssessments CodesJobAssessment[]
   changeOrders ChangeOrder[]
@@ -1110,6 +1111,20 @@ model Estimate {
   @@index([projectId])
   @@unique([projectId, version])
   @@map("estimates")
+}
+
+model EstimateScopeClarification {
+  estimateId  String   @map("estimate_id")
+  questionKey String   @map("question_key")
+  question    String
+  revision    Int
+  answerKind  String   @map("answer_kind")
+  detail      String?
+
+  estimate Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+
+  @@id([estimateId, questionKey])
+  @@map("estimate_scope_clarifications")
 }
 
 model EstimateLineItem {

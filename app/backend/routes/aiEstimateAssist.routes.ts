@@ -5,6 +5,8 @@ import { aiEstimateAssistController as ctrl } from "../controllers/aiEstimateAss
 
 export const aiEstimateAssistRouter = Router();
 
+aiEstimateAssistRouter.get("/:id/ai-estimator/clarification", asyncHandler(ctrl.getScopeClarification));
+aiEstimateAssistRouter.put("/:id/ai-estimator/clarification", asyncHandler(ctrl.saveScopeClarification));
 aiEstimateAssistRouter.post("/:id/ai-suggestions", asyncHandler(ctrl.generate));
 aiEstimateAssistRouter.post("/:id/ai-suggestions/apply", asyncHandler(ctrl.apply));
 aiEstimateAssistRouter.post("/:id/ai-estimator/draft", aiEstimateRateLimit, asyncHandler(ctrl.draftStructuredEstimate));

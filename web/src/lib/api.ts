@@ -800,6 +800,7 @@ export interface StructuredAIEstimateDraftLineItem {
 }
 
 export interface StructuredAIEstimateDraft {
+  clarification?: import("./estimate-scope-clarification").EstimateScopeClarification;
   generationId?: string;
   estimateId: string;
   projectId: string;
