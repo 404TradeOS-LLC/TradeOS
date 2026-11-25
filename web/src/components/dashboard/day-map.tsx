@@ -13,7 +13,10 @@ import { dayMapBounds, type DayMapPin } from "@/lib/today-map";
  */
 export function DayMap({ pins, timeZone }: { pins: DayMapPin[]; timeZone: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const pinsKey = pins.map((pin) => `${pin.id}:${pin.lat},${pin.lon}`).join("|");
+  // Popup content (start, title, address) is part of the key: a job
+  // rescheduled or renamed without moving keeps its coordinates, and the
+  // markers must rebuild so the popup shows the new time and title.
+  const pinsKey = pins.map((pin) => `${pin.id}:${pin.lat},${pin.lon}:${pin.start ?? ""}:${pin.title}:${pin.address}`).join("|");
 
   useEffect(() => {
     const container = containerRef.current;
