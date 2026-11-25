@@ -33,13 +33,20 @@ test("email-link GET stores a short-lived pending token without redeeming it", (
   assert.doesNotMatch(source, /customer-portal\/redeem|\bfetch\s*\(/);
 });
 
-test("redemption requires an explicit exact-origin POST and clears the pending token", () => {
+test("redemption requires an exact-origin POST or a same-site pending-token cookie, and clears the pending token", () => {
   const source = readSource("app/customer-portal/access/redeem/route.ts");
   const originCheck = source.indexOf("shouldRejectProxyMutation");
   const cookieRead = source.indexOf("request.cookies.get");
   const redemption = source.indexOf("/api/v1/customer-portal/redeem");
   assert.ok(originCheck >= 0 && originCheck < cookieRead && cookieRead < redemption);
   assert.match(source, /sec-fetch-site/);
+  // The guard also accepts a valid-format pending-access cookie as same-site
+  // proof: the browser's confirm-form POST arrives with neither Origin nor
+  // Sec-Fetch-Site (both stripped on the browser/proxy path), so the header
+  // proofs alone can never fire for it. The cookie is httpOnly,
+  // SameSite=strict, path-scoped, and cleared on redeem, so a cross-site
+  // request cannot carry it.
+  assert.match(source, /isValidCustomerPortalAccessToken\(\s*request\.cookies\.get\(CUSTOMER_PORTAL_PENDING_ACCESS_COOKIE\)/);
   assert.match(source, /export async function POST/);
   assert.match(source, /CUSTOMER_PORTAL_PENDING_ACCESS_COOKIE, ""/);
   assert.match(source, /maxAge: 0/);
