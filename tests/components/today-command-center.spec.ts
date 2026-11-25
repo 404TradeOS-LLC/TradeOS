@@ -122,6 +122,9 @@ test('Athena discards previous-identity notes before another actor can review th
   const composer = page.getByRole('textbox', { name: 'Ask Athena' });
   await composer.fill('Private notes for synthetic actor A');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
+  // Notes are added explicitly now, not auto-appended on send: tap the
+  // per-message action, then the note exists for the identity check below.
+  await page.getByRole('button', { name: 'Add to estimate notes' }).click();
   await expect(handoff.getByRole('textbox', { name: 'Estimate note 1' })).toHaveValue('Private notes for synthetic actor A');
 
   // Simulate a refreshed authenticated Today model under another actor
@@ -136,6 +139,7 @@ test('Athena discards previous-identity notes before another actor can review th
 
   await composer.fill('Only synthetic actor B can transfer this scope');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await page.getByRole('button', { name: 'Add to estimate notes' }).click();
   await expect(handoff.getByRole('textbox', { name: 'Estimate note 1' })).toHaveValue('Only synthetic actor B can transfer this scope');
   await handoff.getByRole('button', { name: /Review as estimate/ }).click();
   const saved = await page.evaluate(() => sessionStorage.getItem('tradeos:athena-estimate-draft:v1'));
