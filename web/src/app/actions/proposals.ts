@@ -3,9 +3,17 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { apiFetch, ApiClientError, Proposal } from "@/lib/api";
+import { apiFetch, apiFetchWithResponse, ApiClientError, Proposal } from "@/lib/api";
 import { customerPortalApiFetch } from "@/lib/customer-portal-session";
 import { getSessionToken } from "@/lib/session";
+import {
+  buildEstimateReviewUrl,
+  buildNoMatchConfirmationDescription,
+  classifyProposalCreateError,
+  isValidIdempotencyKey,
+  PROPOSAL_STATUS_CHECK_NO_MATCH_EVENT_TYPE,
+  PROPOSAL_STATUS_CHECK_NO_MATCH_TITLE,
+} from "@/lib/proposal-status-check";
 import { FormActionState } from "./customers";
 
 function readPaymentSchedule(formData: FormData) {
@@ -36,7 +44,9 @@ function readPaymentSchedule(formData: FormData) {
   };
 }
 
-type CreateProposalActionState = FormActionState | { error: string; statusCheck: true };
+type CreateProposalActionState =
+  | FormActionState
+  | { error: string; statusCheck: true; outcome: "unknown" | "key-reuse" };
 
 export async function createProposalAction(_prev: CreateProposalActionState, formData: FormData): Promise<CreateProposalActionState> {
   const token = await getSessionToken();
@@ -55,13 +65,21 @@ export async function createProposalAction(_prev: CreateProposalActionState, for
   if ("error" in paymentSchedule) {
     return { error: paymentSchedule.error };
   }
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
+  if (!isValidIdempotencyKey(idempotencyKey)) {
     return { error: "Refresh this form before creating the proposal." };
   }
 
+  // DES-10 status check: the create ends in exactly one of five outcomes
+  // and the web must tell them apart. The server returns 201 on a create,
+  // 200 + `Idempotency-Replayed: true` on a replay, 409 when the key was
+  // already used with different details, and a 4xx when it definitively
+  // said no. Anything else (5xx, network drop, timeout, abort) leaves the
+  // outcome unknown — the draft may or may not exist — so the contractor
+  // checks the loaded proposals list instead of guessing.
   let proposal: Proposal;
+  let replayed: boolean;
   try {
-    proposal = await apiFetch<Proposal>("/api/v1/proposals", {
+    const result = await apiFetchWithResponse<Proposal>("/api/v1/proposals", {
       method: "POST",
       token: token ?? undefined,
       headers: { "Idempotency-Key": idempotencyKey },
@@ -78,15 +96,74 @@ export async function createProposalAction(_prev: CreateProposalActionState, for
         termsAndConditions: termsAndConditions || undefined,
       }),
     });
+    proposal = result.data;
+    replayed = result.headers.get("Idempotency-Replayed") === "true";
   } catch (err) {
-    return {
-      error: err instanceof ApiClientError ? err.message : "Something went wrong.",
-      statusCheck: true,
-    };
+    const { outcome, message } = classifyProposalCreateError(err);
+    // A known rejection is an inline error only: the server definitively
+    // said no, so there is nothing to check and no retry to offer.
+    if (outcome === "known-rejection") {
+      return { error: message };
+    }
+    return { error: message, statusCheck: true, outcome };
   }
 
   revalidatePath(`/projects/${projectId}`);
-  redirect(`/projects/${projectId}/proposals/${proposal.id}`);
+  // A replay must never look identical to a fresh create: the detail page
+  // shows the one-time "already created by your earlier attempt" notice.
+  // Both markers also let the detail page clear the resolved attempt key,
+  // so a later new attempt mints fresh instead of replaying this one.
+  redirect(
+    replayed
+      ? `/projects/${projectId}/proposals/${proposal.id}?replayed=1`
+      : `/projects/${projectId}/proposals/${proposal.id}?created=1`,
+  );
+}
+
+/**
+ * DES-10 status check: the explicit, persisted no-match confirmation.
+ * After the loaded proposals list shows no draft for this Project and
+ * Estimate, returning to Estimate Review records that decision as an
+ * activity entry (never a silent default), then redirects to the estimate
+ * the draft was created from — or the proposal form for intake-only
+ * attempts, which have no estimate to return to. Creating again from
+ * there is permitted only after this confirmation.
+ */
+export async function confirmProposalStatusCheckAction(
+  _prev: FormActionState,
+  formData: FormData,
+): Promise<FormActionState> {
+  const token = await getSessionToken();
+  const projectId = String(formData.get("projectId") ?? "");
+  const estimateId = String(formData.get("estimateId") ?? "");
+  const idempotencyKey = String(formData.get("idempotencyKey") ?? "");
+  if (!projectId) return { error: "Project is missing." };
+
+  const at = new Date();
+  try {
+    await apiFetch("/api/v1/intelligence/activity", {
+      method: "POST",
+      token: token ?? undefined,
+      body: JSON.stringify({
+        entityType: estimateId ? "estimate" : "project",
+        entityId: estimateId || projectId,
+        eventType: PROPOSAL_STATUS_CHECK_NO_MATCH_EVENT_TYPE,
+        title: PROPOSAL_STATUS_CHECK_NO_MATCH_TITLE,
+        description: buildNoMatchConfirmationDescription(at),
+        metadata: {
+          projectId,
+          ...(estimateId ? { estimateId } : {}),
+          ...(idempotencyKey ? { idempotencyKey } : {}),
+        },
+        occurredAt: at.toISOString(),
+      }),
+    });
+  } catch (err) {
+    return { error: err instanceof ApiClientError ? err.message : "Something went wrong." };
+  }
+
+  revalidatePath(`/projects/${projectId}`);
+  redirect(buildEstimateReviewUrl(projectId, estimateId || null));
 }
 
 export async function updateProposalAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {

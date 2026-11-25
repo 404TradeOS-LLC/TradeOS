@@ -12,15 +12,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Estimate, ProposalDraftPreview } from "@/lib/api";
+import { buildStatusCheckUrl, getIdempotencyKeyStorage, resolveProposalIdempotencyKey } from "@/lib/proposal-status-check";
 
 export function NewProposalForm({
-  idempotencyKey,
+  initialIdempotencyKey,
   projectId,
   estimates,
   draft,
   initialEstimateId,
 }: {
-  idempotencyKey: string;
+  initialIdempotencyKey: string;
   projectId: string;
   estimates: Estimate[];
   draft: ProposalDraftPreview;
@@ -28,6 +29,7 @@ export function NewProposalForm({
 }) {
   const [state, formAction, isPending] = useActionState(createProposalAction, undefined);
   const canCheckProjectProposals = Boolean(state && "statusCheck" in state && state.statusCheck);
+  const outcome = state && "outcome" in state ? state.outcome : null;
   const errorRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (!state?.error) return;
@@ -38,6 +40,29 @@ export function NewProposalForm({
   const hasEstimates = eligibleEstimates.length > 0;
   const [selectedEstimateId, setSelectedEstimateId] = useState(initialEstimateId ?? "");
   const selectedEstimate = eligibleEstimates.find((estimate) => estimate.id === selectedEstimateId);
+  // DES-10 status check: one idempotency key per create attempt, persisted
+  // for that attempt (sessionStorage, keyed by project + estimate). The
+  // page mints a seed per render only as a fallback; the resolved key is
+  // what the hidden input submits, so a retry — from "Try again" or after
+  // a page reload — reuses the original key and the server replays
+  // instead of creating a duplicate draft. A different estimate resolves
+  // its own key. The key is cleared once the attempt is confirmed created
+  // or replayed (ClearProposalAttemptKey on the proposal detail page).
+  // The input is uncontrolled: the effect writes the resolved key to the
+  // DOM node directly (no setState in an effect), so the submitted value
+  // is always the persisted attempt key while the server-rendered seed
+  // stays the hydration value.
+  const keyInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (keyInputRef.current) {
+      keyInputRef.current.value = resolveProposalIdempotencyKey(
+        projectId,
+        selectedEstimateId || null,
+        initialIdempotencyKey,
+        getIdempotencyKeyStorage(),
+      );
+    }
+  }, [projectId, selectedEstimateId, initialIdempotencyKey]);
 
   return (
     <Card className="border-border/70 bg-muted/10">
@@ -53,7 +78,7 @@ export function NewProposalForm({
           onReset={(event) => event.preventDefault()}
         >
           <input type="hidden" name="projectId" value={projectId} />
-          <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
+          <input ref={keyInputRef} type="hidden" name="idempotencyKey" defaultValue={initialIdempotencyKey} />
           <div className="flex flex-col gap-2">
             <Label htmlFor="estimateId">Estimate</Label>
             <select
@@ -166,9 +191,19 @@ export function NewProposalForm({
                   <p className="text-sm text-muted-foreground">
                     If you cannot confirm whether the draft was created, check this Project’s proposals before trying again.
                   </p>
-                  <Link href={`/projects/${projectId}?tab=proposals`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-                    Check Project proposals
-                  </Link>
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href={buildStatusCheckUrl(projectId, selectedEstimateId || null)}
+                      className={buttonVariants({ variant: "outline", className: "min-h-11" })}
+                    >
+                      Check proposal status
+                    </Link>
+                    {outcome === "unknown" && (
+                      <Button type="submit" variant="secondary" disabled={isPending} className="min-h-11">
+                        Try again with the same details
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

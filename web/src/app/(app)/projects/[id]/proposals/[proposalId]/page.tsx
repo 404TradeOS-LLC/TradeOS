@@ -14,18 +14,38 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getProject, getProposal } from "@/lib/api";
 import { buildProposalTimeline, formatInvoiceCurrency, getProposalDisplayStatus } from "@/lib/document-workflow";
+import { PROPOSAL_REPLAY_NOTICE } from "@/lib/proposal-status-check";
+import { ClearProposalAttemptKey } from "@/components/proposals/clear-proposal-attempt-key";
 import { getSessionToken } from "@/lib/session";
 
-export default async function ProposalDetailPage({ params }: { params: Promise<{ id: string; proposalId: string }> }) {
-  const { id: projectId, proposalId } = await params;
+export default async function ProposalDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string; proposalId: string }>;
+  searchParams: Promise<{ replayed?: string; created?: string }>;
+}) {
+  const [{ id: projectId, proposalId }, resolvedSearchParams] = await Promise.all([params, searchParams]);
   const token = await getSessionToken();
   const [project, proposal] = await Promise.all([getProject(token ?? "", projectId), getProposal(token ?? "", proposalId)]);
   const paymentSchedule = Array.isArray(proposal.paymentScheduleJson) ? proposal.paymentScheduleJson : [];
   const timeline = buildProposalTimeline(proposal);
   const displayStatus = getProposalDisplayStatus(proposal);
+  // DES-10 status check (S2): a replay must never look identical to a
+  // fresh create. The redirect lands here with ?replayed=1 and the notice
+  // says the draft already existed. Both landing markers also clear the
+  // resolved attempt key so a later new attempt mints fresh.
+  const showReplayNotice = resolvedSearchParams.replayed === "1";
+  const clearAttemptKey = showReplayNotice || resolvedSearchParams.created === "1";
 
   return (
     <div className="flex flex-col gap-6">
+      {clearAttemptKey && <ClearProposalAttemptKey projectId={projectId} estimateId={proposal.estimateId} />}
+      {showReplayNotice && (
+        <p role="status" className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-foreground">
+          {PROPOSAL_REPLAY_NOTICE}
+        </p>
+      )}
       <PageHeader
         title="Proposal Review"
         description="Review the final scope, pricing, and payment milestones before the proposal goes out. Keep this page as the source of truth from internal review through customer decision."

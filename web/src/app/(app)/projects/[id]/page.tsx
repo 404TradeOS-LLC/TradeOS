@@ -4,8 +4,13 @@ import { ProjectSidebar } from "@/components/projects/project-sidebar";
 import { ProjectWorkspace } from "@/components/projects/project-workspace";
 import { ProjectWorkspaceTabs, resolveProjectWorkspaceTab } from "@/components/projects/project-workspace-tabs";
 import { getProjectTaskAssignees, getOrganizationSettings, getProject, getProjectCloseout, listPunchItems, listWarranties, ApiClientError } from "@/lib/api";
+import { buildStatusCheckUrl, isValidIdempotencyKey, PROPOSAL_STATUS_CHECK_LIST_ERROR } from "@/lib/proposal-status-check";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import type { ProjectCloseoutData } from "@/components/projects/workspace-types";
 import { getSessionToken } from "@/lib/session";
+import Link from "next/link";
 
 const JOB_MANAGER_ROLES = new Set(["owner", "admin", "dispatcher"]);
 
@@ -44,16 +49,58 @@ export default async function ProjectDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; estimateStart?: string }>;
+  searchParams: Promise<{ tab?: string; estimateStart?: string; statusCheck?: string; estimateId?: string }>;
 }) {
   const [{ id }, resolvedSearchParams] = await Promise.all([params, searchParams]);
   const token = await getSessionToken();
-  const [project, settings, assignees] = await Promise.all([
-    getProject(token ?? "", id),
+  const activeTab = resolveProjectWorkspaceTab(resolvedSearchParams.tab);
+  // DES-10 status check: the proposals tab renders the recovery-guidance
+  // card when the form links here with statusCheck=1. The estimate id
+  // scopes the match rule (project + estimate); a missing or malformed id
+  // means an intake-only attempt, which matches intake drafts only.
+  const statusCheckRequested = activeTab === "proposals" && resolvedSearchParams.statusCheck === "1";
+  const statusCheckEstimateId =
+    resolvedSearchParams.estimateId && isValidIdempotencyKey(resolvedSearchParams.estimateId)
+      ? resolvedSearchParams.estimateId
+      : null;
+  const projectRequest = getProject(token ?? "", id);
+  const [settings, assignees] = await Promise.all([
     getOrganizationSettings(token ?? ""),
     getProjectTaskAssignees(token ?? "", id).catch(() => ({ canAssign: false, members: [] })),
   ]);
-  const activeTab = resolveProjectWorkspaceTab(resolvedSearchParams.tab);
+  // DES-10 status check (S6): the proposals list loads with the project,
+  // so a failed project load IS the list failing to load. On a status
+  // check, say so and offer a reload instead of the generic error page;
+  // anything else keeps the existing failure behavior.
+  let project: Awaited<typeof projectRequest>;
+  try {
+    project = await projectRequest;
+  } catch (err) {
+    if (statusCheckRequested) {
+      return (
+        <div className="flex flex-col gap-6">
+          <PageHeader
+            title="Check proposal status"
+            description="Use the loaded Project proposals list to check before creating again. This guide does not fetch or infer a result."
+            backHref={`/projects/${id}`}
+            backLabel="Back to project"
+          />
+          <Card className="border-border/70">
+            <CardContent className="flex flex-col items-start gap-3 p-5">
+              <p className="text-sm text-foreground">{PROPOSAL_STATUS_CHECK_LIST_ERROR}</p>
+              <Link
+                href={buildStatusCheckUrl(id, statusCheckEstimateId)}
+                className={buttonVariants({ variant: "outline", className: "min-h-11" })}
+              >
+                Reload the list
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+    throw err;
+  }
   // Closeout data is loaded only for the Closeout tab, and each call degrades
   // independently: a missing closeout record (or an unreachable closeout
   // service) stays local to the tab instead of failing the whole workspace.
@@ -133,6 +180,8 @@ export default async function ProjectDetailPage({
           taskMembers={assignees.members}
           canAssignTaskIdentity={assignees.canAssign}
           closeoutData={closeoutData}
+          statusCheck={statusCheckRequested}
+          statusCheckEstimateId={statusCheckEstimateId}
         />
 
         <ProjectSidebar
