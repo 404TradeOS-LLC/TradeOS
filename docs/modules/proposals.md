@@ -192,9 +192,16 @@ estimate-backed and project-draft render paths, served live by
 lines with the signer name and signed date under them. The image is embedded
 only after the same integrity validation that guards storage
 (`isValidSignatureDataUrl` magic-bytes check plus PDF image byte
-validation); bytes that fail either check — including stored GIF/WebP, which
-PDFKit cannot embed — fall back to name and date text, and an embed failure
-never breaks the PDF. An unsigned proposal keeps the blank lines. Coverage:
+validation) and a PNG pixel-stream pre-validation (chunk CRCs, IDAT
+inflate, expected scanline size, filter bytes 0..4): PDFKit decodes PNG
+pixels asynchronously and throws inflate/filter errors inside the zlib
+callback, outside any try/catch around `doc.image`, so a header-valid PNG
+with corrupt pixel data would hang or crash the process instead of falling
+back. Bytes that fail any check — including stored GIF/WebP, which PDFKit
+cannot embed — fall back to name and date text, and an embed failure never
+breaks the PDF. The signed block grows from the measured signer-label
+height, so a long signer name cannot overflow it. An unsigned proposal
+keeps the blank lines. Coverage:
 `app/tests/proposal-pdf-acceptance.test.ts` and
 `web/src/components/proposals/proposal-acceptance-card.test.ts`.
 

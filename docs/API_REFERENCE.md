@@ -418,8 +418,9 @@ agent, and `signedAt` on the proposal, awards the owning project
 matching activity row. The recorded signature is rendered on the staff
 proposal page (Acceptance card) and in the proposal PDF Acceptance block
 (signature image with signer name and signed date, both PDF render paths);
-rendering re-validates the stored bytes and falls back to name and date when
-the image cannot be embedded. Decline records an optional `declinedReason` and a
+rendering re-validates the stored bytes — including a PNG pixel-stream
+pre-validation, since PDFKit decodes PNG pixels asynchronously — and falls
+back to name and date when the image cannot be embedded. Decline records an optional `declinedReason` and a
 `proposal.declined` event the same way, and deliberately leaves the project
 untouched (a project may carry several proposals; declining one must not
 un-award a project won through another — unlike staff reject, which sets

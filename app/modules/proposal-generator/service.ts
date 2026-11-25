@@ -1,5 +1,5 @@
 import PDFDocument from "pdfkit";
-import { drawValidatedPdfLogo, validatePdfLogoBytes } from "../documents/pdf-logo";
+import { drawValidatedPdfLogo, isDecodablePngImage, validatePdfLogoBytes } from "../documents/pdf-logo";
 import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { getDocumentBrand } from "../documents/branding";
@@ -344,15 +344,22 @@ function writePaymentScheduleSection(doc: any, paymentScheduleJson: unknown) {
 // The recorded portal signature is embedded only after the same integrity
 // validation that guards storage: the data URL must pass the signature
 // magic-bytes check, and the decoded bytes must pass the PDF image byte
-// validation (PNG/JPEG magic bytes + dimension bounds). Bytes that fail
-// either check are never embedded — the block falls back to the signer
-// name and date text. PDFKit cannot embed GIF/WebP, so a stored signature
-// in either of those formats also falls back to name and date; the pad
-// produces PNG, so the normal path embeds.
+// validation (PNG/JPEG magic bytes + dimension bounds). A PNG additionally
+// proves its pixel stream decodes here: PDFKit inflates IDAT asynchronously
+// and throws inflate/filter errors inside the zlib callback — outside any
+// try/catch around doc.image — so a header-valid PNG with corrupt pixel
+// data would hang or crash the process instead of falling back. Bytes that
+// fail any check — including stored GIF/WebP, which PDFKit cannot embed —
+// fall back to name and date text. JPEGs need no pixel pre-validation:
+// PDFKit embeds their DCT data directly and any marker error throws
+// synchronously from doc.image, inside the try/catch below.
 function decodeValidatedSignatureImage(dataUrl: string | null | undefined): Buffer | null {
   if (!isValidSignatureDataUrl(dataUrl)) return null;
   const payload = dataUrl.slice(dataUrl.indexOf(",") + 1);
-  return validatePdfLogoBytes(Buffer.from(payload, "base64"));
+  const bytes = validatePdfLogoBytes(Buffer.from(payload, "base64"));
+  if (!bytes) return null;
+  if (bytes[0] === 0x89 && !isDecodablePngImage(bytes)) return null;
+  return bytes;
 }
 
 function writeAcceptanceBlock(doc: any, acceptance?: ProposalAcceptance) {
@@ -360,7 +367,24 @@ function writeAcceptanceBlock(doc: any, acceptance?: ProposalAcceptance) {
     acceptance != null &&
     (acceptance.signerName != null || acceptance.signedAt != null || acceptance.signatureDataUrl != null);
   const signatureImage = signed ? decodeValidatedSignatureImage(acceptance.signatureDataUrl) : null;
-  const blockHeight = signed ? 156 : 108;
+  // The signer label is drawn at 9pt Helvetica in a 220pt column; a long
+  // name wraps to several lines, so the signed block grows from the
+  // measured label height instead of a fixed 156pt. Short names keep the
+  // 156pt minimum and the previous geometry exactly.
+  let blockHeight = 108;
+  let nameLabel = "Accepted by";
+  let dateLabel = "Date";
+  if (signed) {
+    nameLabel = acceptance.signerName ? `Accepted by ${acceptance.signerName}` : "Accepted by";
+    dateLabel = acceptance.signedAt ? `Date ${formatDocumentDate(acceptance.signedAt)}` : "Date";
+    doc.font("Helvetica").fontSize(9);
+    const labelHeight = Math.max(
+      doc.heightOfString(nameLabel, { width: 220 }),
+      doc.heightOfString(dateLabel, { width: 120 }),
+    );
+    // Signature lines sit at y+104; labels start at y+110.
+    blockHeight = Math.max(156, 110 + labelHeight + 16);
+  }
   ensureSpace(doc, blockHeight + 24);
   const { left, right } = bounds(doc);
   const y = doc.y;
@@ -385,10 +409,10 @@ function writeAcceptanceBlock(doc: any, acceptance?: ProposalAcceptance) {
         // acceptance.
       }
     }
-    drawSignatureLine(doc, left + 16, y + 104, 220, acceptance.signerName ? `Accepted by ${acceptance.signerName}` : "Accepted by");
-    drawSignatureLine(doc, left + 256, y + 104, 120, acceptance.signedAt ? `Date ${formatDocumentDate(acceptance.signedAt)}` : "Date");
+    drawSignatureLine(doc, left + 16, y + 104, 220, nameLabel);
+    drawSignatureLine(doc, left + 256, y + 104, 120, dateLabel);
     doc.fillColor(BRAND.ink);
-    doc.y = y + 172;
+    doc.y = y + blockHeight + 16;
     return;
   }
   drawSignatureLine(doc, left + 16, y + 78, 220, "Accepted by");

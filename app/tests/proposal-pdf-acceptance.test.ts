@@ -59,7 +59,10 @@ const estimateArgs = {
   brand, showLineItemDetail: false, termsAndConditions: "Terms", finalPrice: 8500,
 };
 const acceptance = {
-  signerName: "TEST Customer",
+  // Deliberately distinct from the customer name ("TEST Customer") so the
+  // signed-PDF assertions prove the Acceptance block renders the signer,
+  // not the customer card.
+  signerName: "TEST Signer",
   signerEmail: "test-customer@example.invalid",
   signatureDataUrl: SIGNATURE_DATA_URL,
   signedAt: SIGNED_AT,
@@ -93,7 +96,7 @@ describe("Proposal PDF acceptance block", () => {
     const pdf = await renderEstimateProposalPdf(estimate, { ...estimateArgs, acceptance });
     expect(pdf.toString("latin1")).toContain("/Subtype /Image");
     const text = pdfText(pdf);
-    expect(text).toContain("TEST Customer");
+    expect(text).toContain("TEST Signer");
     expect(text).toContain("2026-11-25");
   });
 
@@ -110,15 +113,69 @@ describe("Proposal PDF acceptance block", () => {
     });
     expect(pdf.toString("latin1")).not.toContain("/Subtype /Image");
     const text = pdfText(pdf);
-    expect(text).toContain("TEST Customer");
+    expect(text).toContain("TEST Signer");
     expect(text).toContain("2026-11-25");
+  });
+
+  it("draws a valid alpha-channel signature (the pad produces RGBA/grayscale-alpha PNGs)", async () => {
+    // The signature pad canvas emits PNGs with an alpha channel. PDFKit
+    // takes the async pixel-decode path for those (splitAlphaChannel), not
+    // the direct-embed path used for opaque RGB PNGs, so the render must
+    // complete with the image embedded. This is a real 2x2 RGBA PNG
+    // (color type 6), built with correct chunk CRCs and a valid zlib stream.
+    const alphaPng = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR4nGP4z8DwHwyBNBgAAEnICff5q7YNAAAAAElFTkSuQmCC";
+    const pdf = await renderEstimateProposalPdf(estimate, {
+      ...estimateArgs,
+      acceptance: { ...acceptance, signatureDataUrl: `data:image/png;base64,${alphaPng}` },
+    });
+    expect(pdf.toString("latin1")).toContain("/Subtype /Image");
+    const text = pdfText(pdf);
+    expect(text).toContain("TEST Signer");
+    expect(text).toContain("2026-11-25");
+  });
+
+  it("falls back to name and date without an image when the stored signature has corrupt pixel data", async () => {
+    // Corrupt the IDAT payload (same length, invalid zlib stream) of the
+    // 2x2 RGBA PNG above: the PNG headers stay valid, so both the storage
+    // magic-bytes check and the PDF image byte validation pass. The alpha
+    // channel forces PDFKit down its async pixel-decode path, where an
+    // inflate error is thrown inside the zlib callback, outside any
+    // try/catch around doc.image — so only a pixel-stream pre-validation
+    // can fall back safely.
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR4nGP4z8DwHwyBNBgAAEnICff5q7YNAAAAAElFTkSuQmCC",
+      "base64",
+    );
+    const corrupt = Buffer.from(png);
+    corrupt.fill(0xff, 41, 41 + 18);
+    const pdf = await renderEstimateProposalPdf(estimate, {
+      ...estimateArgs,
+      acceptance: { ...acceptance, signatureDataUrl: `data:image/png;base64,${corrupt.toString("base64")}` },
+    });
+    expect(pdf.toString("latin1")).not.toContain("/Subtype /Image");
+    const text = pdfText(pdf);
+    expect(text).toContain("TEST Signer");
+    expect(text).toContain("2026-11-25");
+  });
+
+  it("grows the signed block for a long signer name instead of overlapping the following content", async () => {
+    const longName =
+      "Alexander Bartholomew Christopher Davidson Montgomery Fitzpatrick Richardson Williamson Harrington Beauregard Worthington the Third of Terre Haute Indiana";
+    const pdf = await renderEstimateProposalPdf(estimate, {
+      ...estimateArgs,
+      brand: { ...brand, showPoweredByTradeOS: true },
+      acceptance: { ...acceptance, signerName: longName },
+    });
+    const text = pdfText(pdf).replace(/\s+/g, " ");
+    expect(text).toContain(longName);
+    expect(text).toContain("Powered by TradeOS");
   });
 
   it("draws the recorded signature image with signer name and date (project-draft PDF)", async () => {
     const pdf = await renderProjectProposalPdf({ ...projectProposal, ...acceptance }, brand, null);
     expect(pdf.toString("latin1")).toContain("/Subtype /Image");
     const text = pdfText(pdf);
-    expect(text).toContain("TEST Customer");
+    expect(text).toContain("TEST Signer");
     expect(text).toContain("2026-11-25");
   });
 
