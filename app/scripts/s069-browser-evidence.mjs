@@ -155,6 +155,19 @@ async function screenshot(page, name) {
   return file;
 }
 
+// Every capture site in this script sits AFTER the marker assert, so a
+// failed assert skips the screenshot entirely (run 45553851005 produced
+// zero PNGs). Capture best-effort BEFORE the assert and never let a
+// capture failure mask the real failure.
+async function screenshotBestEffort(page, name) {
+  try {
+    return await screenshot(page, name);
+  } catch (error) {
+    console.error(`Screenshot ${name} failed (continuing): ${redactBearerMaterial(error.message)}`);
+    return null;
+  }
+}
+
 async function metrics(page) {
   return page.evaluate(() => ({
     pathname: location.pathname,
@@ -243,8 +256,16 @@ try {
       headers: { Origin: baseUrl },
       ...(body === undefined ? {} : { data: body }),
     });
-    assert.equal(response.status(), expectedStatus, `${method} /api/proxy/${suffix} returned ${response.status()} (expected ${expectedStatus})`);
-    return { status: response.status(), text: await response.text(), contentType: response.headers()["content-type"] ?? "" };
+    const text = await response.text();
+    // A bare status mismatch hides the mechanism (run 45553851005: E2's
+    // 500 arrived with no body anywhere in the log). Attach the truncated,
+    // bearer-redacted body so the next failure names its cause.
+    assert.equal(
+      response.status(),
+      expectedStatus,
+      `${method} /api/proxy/${suffix} returned ${response.status()} (expected ${expectedStatus})${response.status() !== expectedStatus && text ? ` — body: ${redactBearerMaterial(text.slice(0, 500))}` : ""}`,
+    );
+    return { status: response.status(), text, contentType: response.headers()["content-type"] ?? "" };
   }
 
   const suffix = `s069-${runId}`;
@@ -391,12 +412,15 @@ try {
   try {
     const status = await gotoCloseoutTab();
     const state = await metrics(staffPage);
+    // Capture BEFORE the marker assert: on a failed assert the screenshot
+    // below would never run (run 45553851005 produced zero PNGs). The
+    // file lands in outDir and is uploaded with the artifact either way.
+    await screenshotBestEffort(staffPage, "closeout-draft-1440");
     assertCloseoutTab({ ...state, projectId: project.id, status, markers: ["Closeout and warranty", "Closeout status", "Punch list", "Warranties"] });
     assertCloseoutStatus({ bodyText: state.bodyText, status: "draft" });
     // The checklist is already ready here: every prerequisite is present
     // and no punch item is open yet — the closeout itself is still draft.
     assertChecklist({ bodyText: state.bodyText, ready: true });
-    await screenshot(staffPage, "closeout-draft-1440");
     passCase("B2", "draft closeout with the ready checklist renders on the workspace");
   } catch (error) {
     failCase("B2", error);
@@ -527,7 +551,31 @@ try {
   try {
     await gotoCloseoutTab();
     await staffPage.getByRole("button", { name: "Verify", exact: true }).click();
-    await staffPage.getByText("0 open · 1 resolved or verified").waitFor({ timeout: 30_000 });
+    // The counts line ("0 open · 1 resolved or verified") is already true
+    // after resolve, so waiting on it cannot prove the verify submit
+    // landed (run 45553851005: the wait passed and the item stayed
+    // `resolved`). The Verify control itself disappears only when the item
+    // leaves `resolved`; a rejected submit re-renders the form with its
+    // error text instead — wait for one of those two discriminating
+    // states, and surface the form error when that is what happened.
+    await staffPage.waitForFunction(
+      () => {
+        const verifyGone = ![...document.querySelectorAll("button")].some((button) =>
+          ["Verify", "Verifying…"].includes(button.textContent?.trim()),
+        );
+        const formError = document.querySelector("form p.text-destructive")?.textContent?.trim();
+        return verifyGone || Boolean(formError);
+      },
+      { timeout: 30_000 },
+    );
+    // Read the form error only when one is actually rendered: a bare
+    // textContent() on a missing element would wait out the full timeout
+    // on the success path, where no error exists.
+    const errorLocator = staffPage.locator("form p.text-destructive");
+    const formError = (await errorLocator.count()) > 0 ? await errorLocator.first().textContent() : null;
+    if (formError?.trim()) {
+      throw new Error(`UI verify rejected the submit: ${redactBearerMaterial(formError.trim())}`);
+    }
     report.stepPaths.verifyPunch = "ui";
   } catch (error) {
     console.error(`UI verify unavailable, falling back to the authenticated API: ${redactBearerMaterial(error.message)}`);
@@ -652,9 +700,11 @@ try {
       await staffPage.setViewportSize({ width: viewport.width, height: viewport.height });
       const status = await gotoCloseoutTab();
       const state = await metrics(staffPage);
-      assertCloseoutTab({ ...state, projectId: project.id, status, markers: ["Closeout and warranty", "Closeout status", "Ready for handoff"] });
+      // Capture BEFORE the marker assert (see B2): a failed assert must
+      // still leave a screenshot for the failure report.
+      entry.screenshot = await screenshotBestEffort(staffPage, `closeout-ready-${viewport.name}`);
       entry.dimensions = { scrollWidth: state.scrollWidth, clientWidth: state.clientWidth };
-      entry.screenshot = await screenshot(staffPage, `closeout-ready-${viewport.name}`);
+      assertCloseoutTab({ ...state, projectId: project.id, status, markers: ["Closeout and warranty", "Closeout status", "Ready for handoff"] });
       entry.passed = true;
     } catch (error) {
       entry.error = redactBearerMaterial(error.message);
@@ -709,9 +759,11 @@ try {
       await staffPage.setViewportSize({ width: viewport.width, height: viewport.height });
       const status = await gotoCloseoutTab();
       const state = await metrics(staffPage);
-      assertCloseoutTab({ ...state, projectId: project.id, status, markers: ["Closeout and warranty", "Closeout status", "Handed off"] });
+      // Capture BEFORE the marker assert (see B2): a failed assert must
+      // still leave a screenshot for the failure report.
+      entry.screenshot = await screenshotBestEffort(staffPage, `closeout-handed-off-${viewport.name}`);
       entry.dimensions = { scrollWidth: state.scrollWidth, clientWidth: state.clientWidth };
-      entry.screenshot = await screenshot(staffPage, `closeout-handed-off-${viewport.name}`);
+      assertCloseoutTab({ ...state, projectId: project.id, status, markers: ["Closeout and warranty", "Closeout status", "Handed off"] });
       entry.passed = true;
     } catch (error) {
       entry.error = redactBearerMaterial(error.message);
@@ -796,6 +848,9 @@ try {
         await portalPage.setViewportSize({ width: viewport.width, height: viewport.height });
         const response = await portalPage.goto(portalUrl, { waitUntil: "networkidle", timeout: 60_000 });
         const state = await metrics(portalPage);
+        // Capture BEFORE the marker assert (see B2): a failed assert must
+        // still leave a screenshot for the failure report.
+        entry.screenshot = await screenshotBestEffort(portalPage, `portal-handoff-${viewport.name}`);
         assertPortalHandoff({
           ...state,
           projectId: project.id,
@@ -803,12 +858,22 @@ try {
           markers: ["Closeout handoff", "Closeout status", "Handed off", "View closeout document"],
         });
         entry.dimensions = { scrollWidth: state.scrollWidth, clientWidth: state.clientWidth };
-        entry.screenshot = await screenshot(portalPage, `portal-handoff-${viewport.name}`);
         entry.passed = true;
       } catch (error) {
+        // The portal page renders the same "Portal access required" shell
+        // whenever getPortalProject throws (run 45553851005: F1 failed on
+        // the marker with no page text anywhere in the log, so the shell
+        // vs render-miss question could not be answered). Record a snippet.
+        let pageSnippet = "";
+        try {
+          pageSnippet = redactBearerMaterial((await metrics(portalPage)).bodyText.slice(0, 300));
+        } catch {
+          pageSnippet = "";
+        }
         entry.error = redactBearerMaterial(error.message);
-        report.failures = [...(report.failures ?? []), { slug: "portal-handoff", viewport: viewport.name, error: redactBearerMaterial(error.message) }];
-        console.error(`FAIL portal-handoff ${viewport.name}px: ${redactBearerMaterial(error.message)}`);
+        if (pageSnippet) entry.pageSnippet = pageSnippet;
+        report.failures = [...(report.failures ?? []), { slug: "portal-handoff", viewport: viewport.name, error: redactBearerMaterial(error.message), ...(pageSnippet ? { pageSnippet } : {}) }];
+        console.error(`FAIL portal-handoff ${viewport.name}px: ${redactBearerMaterial(error.message)}${pageSnippet ? ` — page: ${pageSnippet}` : ""}`);
       } finally {
         await writeReport();
       }
