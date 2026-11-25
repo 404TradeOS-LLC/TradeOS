@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   apiFetch,
@@ -14,6 +15,8 @@ import { getSessionToken } from "@/lib/session";
 import {
   deriveProjectNameFromScope,
   MAX_SCOPE_TEXT_LENGTH,
+  ONBOARDING_SKIPPED_COOKIE,
+  ONBOARDING_SKIP_COOKIE_MAX_AGE_SECONDS,
   ONBOARDING_WORK_TYPES,
   parseLaborRateDollars,
   validateOnboardingInput,
@@ -119,11 +122,14 @@ export async function completeFirstEstimateOnboarding(
  *
  * The skip is persisted on the org's onboarding-state record
  * (POST /api/v1/onboarding/skip) — slice 1's browser-scoped cookie is
- * gone. Completion needs no persistence call — the created draft estimate
- * makes the org non-empty and clears the dashboard bypass by itself. A
- * failed skip write fails open to the dashboard (the org is simply
- * re-prompted on its next first run); onboarding must never strand a
- * signed-in user.
+ * gone as the primary path. Completion needs no persistence call — the
+ * created draft estimate makes the org non-empty and clears the dashboard
+ * bypass by itself. A failed skip write fails open to the dashboard via
+ * the legacy skip cookie (Codex P2, PR #1105): without it, the dashboard
+ * gate re-reads the un-skipped state and bounces the user back to
+ * /onboarding, stranding them in a redirect loop whenever the
+ * onboarding-state read is down. The cookie is set only on persist
+ * failure, never on the success path.
  */
 export async function skipFirstEstimateOnboarding(): Promise<void> {
   const token = await getSessionToken();
@@ -131,7 +137,16 @@ export async function skipFirstEstimateOnboarding(): Promise<void> {
     try {
       await skipOnboarding(token);
     } catch {
-      // Fail open: see above.
+      // Fallback bypass: the persisted skip failed, so preserve the
+      // escape with the cookie the dashboard gate already honors.
+      const cookieStore = await cookies();
+      cookieStore.set(ONBOARDING_SKIPPED_COOKIE, "1", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: ONBOARDING_SKIP_COOKIE_MAX_AGE_SECONDS,
+      });
     }
   }
   redirect("/dashboard");
@@ -145,6 +160,12 @@ export async function skipFirstEstimateOnboarding(): Promise<void> {
  * half-filled step 1 has no scope text yet, and a progress save must
  * never block the wizard. Returns { ok } so the form can advance
  * regardless of the outcome.
+ *
+ * Explicit clears (Codex P2, PR #1105): a field the form sends present
+ * but empty is sent as `null`, not omitted — the service preserves
+ * stored values for omitted fields, so omitting a cleared scope or
+ * region would restore the deleted text on resume. A field the form
+ * does not send at all stays omitted.
  */
 export async function saveOnboardingProgressAction(formData: FormData): Promise<{ ok: boolean }> {
   const token = await getSessionToken();
@@ -157,17 +178,23 @@ export async function saveOnboardingProgressAction(formData: FormData): Promise<
       (entry): entry is string =>
         typeof entry === "string" && (ONBOARDING_WORK_TYPES as ReadonlyArray<string>).includes(entry),
     );
-  const scopeText = typeof formData.get("scopeText") === "string" ? (formData.get("scopeText") as string) : "";
+  const scopeText = typeof formData.get("scopeText") === "string" ? (formData.get("scopeText") as string) : null;
   const { cents: laborRateCents } = parseLaborRateDollars(formData.get("laborRate"));
-  const region = typeof formData.get("region") === "string" ? (formData.get("region") as string).trim() : "";
+  const region = typeof formData.get("region") === "string" ? (formData.get("region") as string).trim() : null;
 
   try {
     await saveOnboardingProgress(token, {
       ...(Number.isInteger(step) && (step === 1 || step === 2) ? { currentStep: step } : {}),
       workTypes,
-      ...(scopeText.length > 0 && scopeText.length <= MAX_SCOPE_TEXT_LENGTH ? { scopeText } : {}),
+      ...(scopeText === null
+        ? {}
+        : scopeText.trim().length === 0
+          ? { scopeText: null }
+          : scopeText.length <= MAX_SCOPE_TEXT_LENGTH
+            ? { scopeText: scopeText.trim() }
+            : {}),
       ...(laborRateCents !== null ? { laborRateCents } : {}),
-      ...(region.length > 0 ? { region } : {}),
+      ...(region === null ? {} : region.length > 0 ? { region } : { region: null }),
     });
     return { ok: true };
   } catch {

@@ -66,6 +66,22 @@ describe("onboarding service (DES-3 slice 2)", () => {
     expect(update.scopeText).toBe("Paint the garage floor.");
   });
 
+  it("saveProgress with explicit null clears a stored scope and region (Codex P2, PR #1105)", async () => {
+    db.organizationOnboardingState.findUnique.mockResolvedValue(
+      row({ scopeText: "Paint the garage floor.", region: "Terre Haute, IN" }),
+    );
+    db.organizationOnboardingState.upsert.mockResolvedValue(row({ scopeText: null, region: null }));
+    const state = await new OnboardingService(db as never).saveProgress(ORG, {
+      scopeText: null,
+      region: null,
+    });
+    expect(state.scopeText).toBeNull();
+    expect(state.region).toBeNull();
+    const update = db.organizationOnboardingState.upsert.mock.calls[0][0].update;
+    expect(update.scopeText).toBeNull();
+    expect(update.region).toBeNull();
+  });
+
   it("saveProgress keeps a completed row completed while updating defaults", async () => {
     db.organizationOnboardingState.findUnique.mockResolvedValue(row({ status: "completed", completedAt: NOW }));
     db.organizationOnboardingState.upsert.mockResolvedValue(row({ status: "completed", laborRateCents: 5500 }));

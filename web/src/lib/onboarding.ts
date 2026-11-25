@@ -17,13 +17,14 @@
  * Persistence boundary (DES-3 slice 2): the wizard persists to the org's
  * onboarding-state record (`organization_onboarding_states`, forced RLS)
  * via `GET/PATCH /api/v1/onboarding/state` — step, work types, scope
- * text, labor baseline, and region — so an org resumes where it left off
- * and a skip is org-scoped. Completion is recorded by the draft estimate
- * the wizard creates and by the state row's `completed` status.
- * Labor/region defaults returned with slice 2 (they were removed from the
- * wizard in slice 1's Codex review because no persistence path existed);
- * the estimate engine does not read the persisted baseline yet — wiring
- * it is a follow-up slice.
+ * text, and region — so an org resumes where it left off and a skip is
+ * org-scoped. Completion is recorded by the draft estimate the wizard
+ * creates and by the state row's `completed` status. The wizard no
+ * longer collects a labor baseline (removed per Codex P1 review on PR
+ * #1105: no estimate-pricing consumer reads it yet, so asking for it
+ * promised a rate the first estimate never applied); completion still
+ * records the $48/hr default on the state row for the follow-up wiring
+ * slice, and the estimate engine does not read it yet.
  */
 
 export const ONBOARDING_ROUTE = "/onboarding";
@@ -33,11 +34,12 @@ export const ONBOARDING_SKIPPED_COOKIE = "tradeos-onboarding-skipped";
 export const ONBOARDING_SKIP_COOKIE_MAX_AGE_SECONDS = 180 * 24 * 60 * 60;
 
 /**
- * Labor baseline for the wizard (DES-3 slice 2). The wizard asks for the
- * org's labor baseline in whole dollars per hour and persists it (cents)
- * on the org's onboarding-state record, pre-filled on resume. $48/hr is
- * the slice-1 plan default; the estimate engine does not read it yet —
- * wiring the engine to the persisted baseline is a follow-up slice.
+ * Labor baseline for the wizard (DES-3 slice 2). Completion records the
+ * $48/hr default (whole dollars per hour, persisted in cents) on the
+ * org's onboarding-state record; the wizard itself no longer asks for a
+ * rate (Codex P1 review, PR #1105) until the estimate engine consumes
+ * the baseline. Wiring the engine to the persisted baseline is a
+ * follow-up slice.
  */
 export const DEFAULT_LABOR_RATE_CENTS = 4800;
 export const MIN_LABOR_RATE_DOLLARS = 1;

@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/shared/page-header";
 import {
-  formatLaborRateDollars,
   MIN_SCOPE_TEXT_LENGTH,
   ONBOARDING_DEFERRED_SETUP,
   ONBOARDING_EXAMPLE_SCOPES,
@@ -31,7 +30,6 @@ export function FirstEstimateOnboardingForm({ initialState }: { initialState?: O
   const [step, setStep] = useState(initialState?.currentStep === 2 ? 2 : 1);
   const [workTypes, setWorkTypes] = useState<string[]>(initialState?.workTypes ?? []);
   const [scopeText, setScopeText] = useState(initialState?.scopeText ?? "");
-  const [laborRate, setLaborRate] = useState(formatLaborRateDollars(initialState?.laborRateCents ?? null));
   const [region, setRegion] = useState(initialState?.region ?? "");
 
   const step1Valid = workTypes.length > 0;
@@ -51,7 +49,6 @@ export function FirstEstimateOnboardingForm({ initialState }: { initialState?: O
     formData.set("currentStep", String(nextStep));
     for (const workType of workTypes) formData.append("workTypes", workType);
     formData.set("scopeText", scopeText);
-    formData.set("laborRate", laborRate);
     formData.set("region", region);
     try {
       await saveOnboardingProgressAction(formData);
@@ -62,7 +59,6 @@ export function FirstEstimateOnboardingForm({ initialState }: { initialState?: O
 
   const contextChips = [
     { label: "Work", value: workTypes.length > 0 ? workTypes.join(" + ") : "Not set", hint: "Selected" },
-    { label: "Labor", value: `$${laborRate || "48"}/hr`, hint: "Baseline" },
     ...(region.trim().length > 0
       ? [{ label: "Region", value: region.trim(), hint: "Where you work" }]
       : []),
@@ -147,7 +143,6 @@ export function FirstEstimateOnboardingForm({ initialState }: { initialState?: O
               {workTypes.map((workType) => (
                 <input key={workType} type="hidden" name="workTypes" value={workType} />
               ))}
-              <input type="hidden" name="laborRate" value={laborRate} />
               <input type="hidden" name="region" value={region} />
 
               {step === 1 ? (
@@ -177,29 +172,6 @@ export function FirstEstimateOnboardingForm({ initialState }: { initialState?: O
                       })}
                     </div>
                   </fieldset>
-
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="laborRateField">Your labor rate</Label>
-                    <div className="flex items-center gap-2">
-                      <span aria-hidden="true" className="text-sm text-muted-foreground">
-                        $
-                      </span>
-                      <Input
-                        id="laborRateField"
-                        type="number"
-                        inputMode="numeric"
-                        min={1}
-                        max={500}
-                        value={laborRate}
-                        onChange={(event) => setLaborRate(event.target.value)}
-                        className="w-28"
-                      />
-                      <span className="text-sm text-muted-foreground">per hour</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Your baseline crew rate, starting at $48. It carries into your first estimate — you can change it per line later.
-                    </p>
-                  </div>
 
                   <div className="flex flex-col gap-2">
                     <Label htmlFor="regionField">Region (optional)</Label>

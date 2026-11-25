@@ -99,8 +99,33 @@ test("skip action persists an org-scoped skip via the API and returns to the das
   const source = readActionSource("skipFirstEstimateOnboarding");
   assert.match(source, /await skipOnboarding\(token\)/);
   assert.match(source, /redirect\("\/dashboard"\)/);
-  assert.ok(!source.includes("ONBOARDING_SKIPPED_COOKIE"), "slice 1's browser cookie is gone — the skip is org-scoped");
-  assert.ok(!source.includes("cookieStore"), "skip no longer touches cookies");
+  // The persisted skip is the primary path. The legacy skip cookie is
+  // set ONLY when the persist fails (Codex P2, PR #1105): without the
+  // fallback bypass, a failed skip bounces the user from the dashboard
+  // back to /onboarding in a loop.
+  const catchIndex = source.indexOf("} catch {");
+  assert.notEqual(catchIndex, -1, "expected a failure path");
+  const cookieIndex = source.indexOf("ONBOARDING_SKIPPED_COOKIE");
+  assert.ok(cookieIndex > catchIndex, "the fallback cookie is set only on persist failure");
+  assert.match(source, /ONBOARDING_SKIP_COOKIE_MAX_AGE_SECONDS/);
+  assert.ok(source.indexOf("await skipOnboarding(token)") < cookieIndex, "the API persist is tried first");
+});
+
+test("progress save sends explicit nulls for cleared scope and region (Codex P2, PR #1105)", () => {
+  const source = readActionSource("saveOnboardingProgressAction");
+  // The service preserves stored values for omitted fields, so a cleared
+  // field must be sent as null — otherwise the deleted text reappears
+  // on resume. A field the form never sends stays omitted.
+  assert.match(source, /\{ scopeText: null \}/);
+  assert.match(source, /\{ region: null \}/);
+  assert.ok(
+    source.indexOf("scopeText === null") < source.indexOf("{ scopeText: null }"),
+    "null is sent only when the form sent the field present-but-empty",
+  );
+  assert.ok(
+    source.indexOf("region === null") < source.indexOf("{ region: null }"),
+    "null is sent only when the form sent the field present-but-empty",
+  );
 });
 
 test("onboarding never touches the legacy recovery route or the signup path", () => {
