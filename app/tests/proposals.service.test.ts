@@ -811,6 +811,12 @@ describe("ProposalsService", () => {
       priceHigh: 15000,
       finalPrice: 12000,
       paymentScheduleJson: undefined,
+      acceptance: {
+        signerName: null,
+        signerEmail: null,
+        signatureDataUrl: null,
+        signedAt: null,
+      },
     });
   });
 

@@ -537,6 +537,14 @@ export class ProposalsService {
       priceHigh: row.priceHigh != null ? Number(row.priceHigh) : null,
       finalPrice: row.finalPrice != null ? Number(row.finalPrice) : null,
       paymentScheduleJson: row.paymentScheduleJson,
+      // The recorded portal signature (if any) renders in the PDF Acceptance
+      // block; the project-draft path reads the same fields from the row.
+      acceptance: {
+        signerName: row.signerName ?? null,
+        signerEmail: row.signerEmail ?? null,
+        signatureDataUrl: row.signatureDataUrl ?? null,
+        signedAt: row.signedAt ?? null,
+      },
     });
   }
 

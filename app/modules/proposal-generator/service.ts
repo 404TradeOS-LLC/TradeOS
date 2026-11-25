@@ -1,12 +1,13 @@
 import PDFDocument from "pdfkit";
-import { drawValidatedPdfLogo } from "../documents/pdf-logo";
+import { drawValidatedPdfLogo, isDecodablePngImage, validatePdfLogoBytes } from "../documents/pdf-logo";
 import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { getDocumentBrand } from "../documents/branding";
 import { loadOrganizationPdfLogo } from "../documents/pdf-logo-storage";
+import { isValidSignatureDataUrl } from "../proposals/signatureValidation";
 import type { DocumentFrameBrand } from "../documents/frame";
 import { formatDocumentCurrency, formatDocumentDate, formatDocumentNumber } from "../documents/format";
-import { GenerateProjectProposalInput, GenerateProposalInput, ProposalDocument } from "./types";
+import { GenerateProjectProposalInput, GenerateProposalInput, ProposalAcceptance, ProposalDocument } from "./types";
 
 const DEFAULT_TERMS =
   "This proposal is valid for 30 days from the date issued. A deposit may be required to secure labor and materials. Any changes to the scope of work described in this proposal will be documented and priced separately before additional work proceeds.";
@@ -46,6 +47,7 @@ export class ProposalGeneratorService {
       priceHigh: input.priceHigh,
       finalPrice: input.finalPrice,
       paymentScheduleJson: input.paymentScheduleJson,
+      acceptance: input.acceptance,
     });
 
     return {
@@ -105,6 +107,10 @@ interface ProposalWithRelations {
   paymentScheduleJson: unknown;
   termsAndConditions: string | null;
   createdAt: Date;
+  signerName: string | null;
+  signerEmail: string | null;
+  signatureDataUrl: string | null;
+  signedAt: Date | null;
   project: {
     name: string;
     siteAddress: string | null;
@@ -115,7 +121,7 @@ interface ProposalWithRelations {
 
 export function renderEstimateProposalPdf(
   estimate: EstimateWithRelations,
-  opts: { brand: DocumentFrameBrand; showLineItemDetail: boolean; termsAndConditions: string; scopeOfWork?: string; assumptions?: string; exclusions?: string; timeline?: string; priceLow?: number | null; priceHigh?: number | null; finalPrice?: number | null; paymentScheduleJson?: unknown; logoImage?: Buffer | null }
+  opts: { brand: DocumentFrameBrand; showLineItemDetail: boolean; termsAndConditions: string; scopeOfWork?: string; assumptions?: string; exclusions?: string; timeline?: string; priceLow?: number | null; priceHigh?: number | null; finalPrice?: number | null; paymentScheduleJson?: unknown; logoImage?: Buffer | null; acceptance?: ProposalAcceptance }
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 46, size: "LETTER" });
@@ -152,7 +158,7 @@ export function renderEstimateProposalPdf(
     writePaymentScheduleSection(doc, opts.paymentScheduleJson);
     writeTextSection(doc, "Pricing Notes", "This estimate is presented as a client-facing proposal and may be refined if field conditions or selections change.");
     writeTextSection(doc, "Terms & Conditions", opts.termsAndConditions);
-    writeAcceptanceBlock(doc);
+    writeAcceptanceBlock(doc, opts.acceptance);
     drawTrustFooter(doc, opts.brand);
     doc.end();
   });
@@ -196,7 +202,12 @@ export function renderProjectProposalPdf(proposal: ProposalWithRelations, brand:
     writeTextSection(doc, "Estimated Timeline", proposal.timeline ?? "Scheduling to be confirmed after scope approval.");
     writePaymentScheduleSection(doc, proposal.paymentScheduleJson);
     writeTextSection(doc, "Terms & Conditions", proposal.termsAndConditions ?? DEFAULT_TERMS);
-    writeAcceptanceBlock(doc);
+    writeAcceptanceBlock(doc, {
+      signerName: proposal.signerName ?? null,
+      signerEmail: proposal.signerEmail ?? null,
+      signatureDataUrl: proposal.signatureDataUrl ?? null,
+      signedAt: proposal.signedAt ?? null,
+    });
     drawTrustFooter(doc, brand);
     doc.end();
   });
@@ -330,13 +341,56 @@ function writePaymentScheduleSection(doc: any, paymentScheduleJson: unknown) {
   writeTextSection(doc, "Payment Schedule", content);
 }
 
-function writeAcceptanceBlock(doc: any) {
-  ensureSpace(doc, 130);
+// The recorded portal signature is embedded only after the same integrity
+// validation that guards storage: the data URL must pass the signature
+// magic-bytes check, and the decoded bytes must pass the PDF image byte
+// validation (PNG/JPEG magic bytes + dimension bounds). A PNG additionally
+// proves its pixel stream decodes here: PDFKit inflates IDAT asynchronously
+// and throws inflate/filter errors inside the zlib callback — outside any
+// try/catch around doc.image — so a header-valid PNG with corrupt pixel
+// data would hang or crash the process instead of falling back. Bytes that
+// fail any check — including stored GIF/WebP, which PDFKit cannot embed —
+// fall back to name and date text. JPEGs need no pixel pre-validation:
+// PDFKit embeds their DCT data directly and any marker error throws
+// synchronously from doc.image, inside the try/catch below.
+function decodeValidatedSignatureImage(dataUrl: string | null | undefined): Buffer | null {
+  if (!isValidSignatureDataUrl(dataUrl)) return null;
+  const payload = dataUrl.slice(dataUrl.indexOf(",") + 1);
+  const bytes = validatePdfLogoBytes(Buffer.from(payload, "base64"));
+  if (!bytes) return null;
+  if (bytes[0] === 0x89 && !isDecodablePngImage(bytes)) return null;
+  return bytes;
+}
+
+function writeAcceptanceBlock(doc: any, acceptance?: ProposalAcceptance) {
+  const signed =
+    acceptance != null &&
+    (acceptance.signerName != null || acceptance.signedAt != null || acceptance.signatureDataUrl != null);
+  const signatureImage = signed ? decodeValidatedSignatureImage(acceptance.signatureDataUrl) : null;
+  // The signer label is drawn at 9pt Helvetica in a 220pt column; a long
+  // name wraps to several lines, so the signed block grows from the
+  // measured label height instead of a fixed 156pt. Short names keep the
+  // 156pt minimum and the previous geometry exactly.
+  let blockHeight = 108;
+  let nameLabel = "Accepted by";
+  let dateLabel = "Date";
+  if (signed) {
+    nameLabel = acceptance.signerName ? `Accepted by ${acceptance.signerName}` : "Accepted by";
+    dateLabel = acceptance.signedAt ? `Date ${formatDocumentDate(acceptance.signedAt)}` : "Date";
+    doc.font("Helvetica").fontSize(9);
+    const labelHeight = Math.max(
+      doc.heightOfString(nameLabel, { width: 220 }),
+      doc.heightOfString(dateLabel, { width: 120 }),
+    );
+    // Signature lines sit at y+104; labels start at y+110.
+    blockHeight = Math.max(156, 110 + labelHeight + 16);
+  }
+  ensureSpace(doc, blockHeight + 24);
   const { left, right } = bounds(doc);
   const y = doc.y;
   doc.save();
-  doc.roundedRect(left, y, right - left, 108, 18).fill("#fff");
-  doc.roundedRect(left, y, right - left, 108, 18).stroke(BRAND.line);
+  doc.roundedRect(left, y, right - left, blockHeight, 18).fill("#fff");
+  doc.roundedRect(left, y, right - left, blockHeight, 18).stroke(BRAND.line);
   doc.restore();
   doc.font("Helvetica-Bold").fontSize(12).fillColor(BRAND.ink).text("Acceptance", left + 16, y + 14);
   doc.font("Helvetica").fontSize(10).fillColor(BRAND.muted).text(
@@ -345,6 +399,22 @@ function writeAcceptanceBlock(doc: any) {
     y + 34,
     { width: right - left - 32, lineGap: 2 }
   );
+  if (signed) {
+    if (signatureImage) {
+      try {
+        doc.image(signatureImage, left + 16, y + 62, { fit: [200, 32] });
+      } catch {
+        // An image whose bytes validate but which still fails to embed must
+        // never break the PDF; the name and date below still record the
+        // acceptance.
+      }
+    }
+    drawSignatureLine(doc, left + 16, y + 104, 220, nameLabel);
+    drawSignatureLine(doc, left + 256, y + 104, 120, dateLabel);
+    doc.fillColor(BRAND.ink);
+    doc.y = y + blockHeight + 16;
+    return;
+  }
   drawSignatureLine(doc, left + 16, y + 78, 220, "Accepted by");
   drawSignatureLine(doc, left + 256, y + 78, 120, "Date");
   doc.fillColor(BRAND.ink);
