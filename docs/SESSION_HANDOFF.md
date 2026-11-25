@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-11-24
+last_verified: 2026-11-25
 source_of_truth: true
 related_docs:
   - docs/TRADEOS_BIBLE.md
@@ -12,13 +12,14 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
-## Sprint implementation — 2026-11-25: S071 implemented (PR pending)
+## Sprint implementation — 2026-11-25: S071 merged (PR #1096); S048 promotion blocked
 
-- S071 — Deployment identity and data-plane proof — implementation in branch `feat/s071-deployment-identity-contract` (base main `0ad368b6`), on Billy's word 2026-11-25 ~00:33 EST ("Start the next tasks that are not blocked"). Live overlap rechecked 2026-11-25: only open PRs are the lane-owned drafts #1090 (DES-10-F1) and #1091 (#518), disjoint scope; no S071 remote branch, no live S071 lane. Overlap classification: NEW_WORK_REQUIRED.
+- S071 — Deployment identity and data-plane proof — implementation merged as PR #1096 (squash `f1cf85f0`, head `8a8fd229`, base main `0ad368b6`, merged 2026-11-25T06:39:25Z); the implementation branch was deleted after merge. Follow-up docs PRs #1099 (`820985dd`, post-merge follow-up risks) and #1100 (`d3054357`, merge validation) are also merged.
 - Built: `/health` now reports `environment` from `VERCEL_ENV` (`resolveRuntimeEnvironment`, exact-match only, omitted when unrecognized); the web staging-runtime-identity endpoint now reports `environment: "preview"` in its 200 body; canonical contract `app/scripts/beta-evidence/lib/deployment-identity-contract.mjs` (`verifyDeploymentIdentity`, `collectRuntimeIdentity`, `verifyIdentityUnchanged`) verifying commit, environment, backend host, and non-secret data-plane identifier from the deployment, fail-closed, production refused, no secret or env inventory fetched. The S059/S068/S069 identity gate and the staging orchestrator correlation now verify through the contract; the s027 env-inventory script is untouched.
 - Tests: contract test 33/33, correlation test updated with environment cases, health + web identity tests extended; new contract test wired into `npm run pr:test`.
-- S071 is `IN_REVIEW` on merge; full acceptance still owed: live non-production evidence against a real preview/staging deployment plus a negative mismatched-SHA run, after merge + staging promotion (the new gate requires deployments built from this PR onward).
+- S071 is `IN_REVIEW` on merge; full acceptance still owed: live non-production evidence against a real preview/staging deployment plus a negative mismatched-SHA run, after merge + staging promotion (the new gate requires deployments built from this PR onward). Blocked on staging promotion: re-promotion 11 reached staging `e99b0c89` git-side, but Vercel created no deployments for it (parent-owned; staging still serves `6b1bc94f`).
 - No secret handling, no production deployment or data-plane acceptance, no new pipeline/hosting/trust boundary.
+- Readiness-promotion check for the next PLANNED sprint with satisfied dependencies, S048 (Beta tenant onboarding; S047 DONE): dependencies satisfied, overlap clear (only open PRs are lane-owned drafts #1090/#1091, disjoint scope; no S048 branch or lane), but promotion BLOCKED — the founder decision ("select beta tenants and rollout date") is unresolved, and the protocol stop condition bars promoting a sprint whose founder-decision field is YES while the decision is unresolved. S048 stays PLANNED until Billy decides. S046 stays PLANNED (dependencies S039/S045 both BLOCKED on production/live-deployment access); S072 stays PLANNED (depends on S071, IN_REVIEW, not DONE).
 
 ## Sprint implementation — 2026-11-24: S069 implemented (merged)
 
@@ -39,7 +40,7 @@ related_docs:
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: S071 is `IN_REVIEW` (implementation in branch `feat/s071-deployment-identity-contract`, PR pending; live evidence still owed after merge + staging promotion). S069 is `IN_REVIEW` (implementation merged as PR #1073, `eb3c2f9e`, 2026-11-24; browser evidence pending). S068 is `IN_REVIEW` (implementation merged as PR #1067, `1388baae`, 2026-11-24; browser evidence pending). S059 is `IN_REVIEW` (browser evidence pending). S072 depends on S071 and stays `PLANNED`. Do not start implementation on a `PLANNED` sprint without its own promotion.
-Dependencies: S071 depends on S051 (DONE).
-Overlap check: Live open PRs rechecked 2026-11-25 (main `0ad368b6`): only the lane-owned drafts #1090 (DES-10-F1) and #1091 (#518), disjoint scope. No competing S071 lane exists.
-Startup prompt: No sprint is READY; the next eligible sprint is NONE until S071 leaves IN_REVIEW or another sprint is promoted.
+Eligibility: S071 is `IN_REVIEW` (implementation merged as PR #1096, `f1cf85f0`, 2026-11-25; live evidence pending staging promotion). S048 promotion is blocked on the unresolved founder decision (beta tenants + rollout date). S046 dependencies (S039/S045) are BLOCKED; S072 depends on S071 (IN_REVIEW, not DONE). Do not start implementation on a `PLANNED` sprint without its own promotion.
+Dependencies: S071 depends on S051 (DONE). S048 depends on S047 (DONE) with an unresolved founder decision.
+Overlap check: Live open PRs rechecked 2026-11-25 (main `106f729e`): only the lane-owned drafts #1090 (DES-10-F1) and #1091 (#518), disjoint scope. No competing S048 or S071 lane exists.
+Startup prompt: No sprint is READY; the next eligible sprint is NONE until S071 leaves IN_REVIEW, Billy decides S048's beta tenants and rollout date, or another sprint is promoted.
