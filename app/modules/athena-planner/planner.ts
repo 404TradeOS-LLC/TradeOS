@@ -14,9 +14,14 @@ import { AthenaPlan, AthenaPlanCandidateTool, AthenaPlanRouterInput, AthenaPlanS
 // Approval Policy ordering.
 export interface AthenaPlanBuildInput {
   routerResult: AthenaPlanRouterInput;
-  // Empty in every production A5 call - A2 has no real business tools yet
-  // (A12 work). Non-empty only in tests, proving the resolve-or-throw loop
-  // for future tool candidates.
+  // Candidates are the tools the caller offers for this intent - the
+  // planner plans every supplied candidate (and throws on an unregistered
+  // one). The kernel is the only caller: it offers explicitly supplied
+  // candidateTools as-is, and offers discovered tools only after filtering
+  // them by intent (2026-11-25 regression - offering every discovered tool
+  // for every question planned all 20 production tools with empty input and
+  // failed the first step's schema validation). Non-empty in production
+  // since A12 registered real business tools.
   candidateTools: AthenaPlanCandidateTool[];
   toolRegistry: Pick<AthenaToolRegistry, "resolve">;
   planId?: string;

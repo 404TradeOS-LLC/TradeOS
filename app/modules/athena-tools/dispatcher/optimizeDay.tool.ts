@@ -74,7 +74,7 @@ export function createOptimizeDayTool(deps: OptimizeDayToolDeps): AthenaToolDefi
       }
 
       return successResult<OptimizeDayData>({
-        summary: `Today: ${summary.scheduledToday} scheduled, ${summary.unscheduledJobs} unscheduled, ${summary.overdueActionable} overdue, ${conflicts.conflicts.length} conflict(s).`,
+        summary: `Today: ${summary.activeJobs} active job${summary.activeJobs === 1 ? "" : "s"}, ${summary.scheduledToday} scheduled, ${summary.unscheduledJobs} unscheduled, ${summary.overdueActionable} overdue, ${conflicts.conflicts.length} conflict(s).`,
         data: { summary, conflicts },
         telemetry,
         warnings,

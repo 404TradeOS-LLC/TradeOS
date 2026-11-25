@@ -33,6 +33,17 @@ test("preset starter prompts never become contractor-owned scope by pressing Sen
   assert.match(workspace, /setSelectedStarter\(null\)/);
 });
 
+// 2026-11-25 draft-refusal regression (production side effect): every typed
+// message auto-appended to the estimate notes, so plain questions became
+// Estimate notes 1-3. Notes are now added only by an explicit tap on the
+// message itself.
+test("plain questions never become estimate notes without an explicit add", async () => {
+  const workspace = await source("./athena-workspace.tsx");
+  assert.match(workspace, /Add to estimate notes/);
+  assert.match(workspace, /canAddToEstimate/);
+  assert.doesNotMatch(workspace, /setContractorNotes\(\(current\) => \[\.\.\.current, \{ id: userId, text: trimmed \}\]\)/);
+});
+
 test("estimate handoff is permission- and actor-gated in both Today and full Athena", async () => {
   const workspace = await source("./athena-workspace.tsx");
   const today = await source("../dashboard/today-experience.tsx");

@@ -58,6 +58,10 @@ interface ConversationTurn {
   role: "user" | "athena" | "error";
   text: string;
   result?: AthenaKernelResult;
+  /** False for a verbatim starter prompt: starters are real chat requests,
+   *  not contractor-authored scope, so they can never be added to the
+   *  estimate notes. */
+  canAddToEstimate?: boolean;
 }
 
 interface ContractorNote {
@@ -303,6 +307,18 @@ export function AthenaWorkspace({
     setHandoffError(null);
   };
 
+  // 2026-11-25 draft-refusal regression (production side effect): every
+  // typed message used to auto-append to the estimate notes, so plain
+  // questions ("What's on my schedule today?") landed in the Estimate
+  // handoff panel as Estimate notes 1-3. Notes are now added only by an
+  // explicit tap on the message itself - asking a question never creates
+  // scope. A note added twice is a no-op (same turn id).
+  const addNote = (turn: ConversationTurn) => {
+    if (!canCreateEstimate || !estimateHandoffIdentity || turn.canAddToEstimate === false) return;
+    setContractorNotes((current) => (current.some((note) => note.id === turn.id) ? current : [...current, { id: turn.id, text: turn.text }]));
+    setHandoffError(null);
+  };
+
   const submitMessage = async (
     message: string,
     options: { idempotencyKey?: string; addUserTurn?: boolean } = {}
@@ -317,11 +333,10 @@ export function AthenaWorkspace({
 
     if (options.addUserTurn !== false) {
       const userId = nextTurnIdRef.current++;
-      setTurns([{ id: userId, role: "user", text: trimmed }]);
-      // Starter prompts are real chat requests, not contractor-authored scope.
-      if (canCreateEstimate && estimateHandoffIdentity && trimmed !== selectedStarter) {
-        setContractorNotes((current) => [...current, { id: userId, text: trimmed }]);
-      }
+      // Starter prompts are real chat requests, not contractor-authored
+      // scope. A verbatim starter records canAddToEstimate false so its
+      // turn never offers the estimate-notes action.
+      setTurns([{ id: userId, role: "user", text: trimmed, canAddToEstimate: trimmed !== selectedStarter }]);
       setSelectedStarter(null);
       setHandoffError(null);
     } else {
@@ -388,8 +403,8 @@ export function AthenaWorkspace({
             <div>
               <p className="text-sm font-semibold text-foreground">Start an estimate from your notes</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Transfers only your typed messages into the existing Project scope form for review.
-                Athena replies and earlier questions are not verified scope or preserved conversation memory.
+                Transfers only the notes you add into the existing Project scope form for review.
+                Athena replies and other questions are not verified scope or preserved conversation memory.
               </p>
             </div>
             <Button type="button" onClick={prepareEstimate} disabled={isSending}>
@@ -490,10 +505,23 @@ export function AthenaWorkspace({
             ) : (
               turns.map((turn) =>
                 turn.role === "user" ? (
-                  <div key={turn.id} className="ml-auto max-w-[88%] rounded-2xl rounded-br-md bg-foreground px-4 py-3 text-sm leading-6 text-background">
-                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-background/65">You</p>
-                    {turn.text}
-                  </div>
+                  <Fragment key={turn.id}>
+                    <div className="ml-auto max-w-[88%] rounded-2xl rounded-br-md bg-foreground px-4 py-3 text-sm leading-6 text-background">
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-background/65">You</p>
+                      {turn.text}
+                    </div>
+                    {canCreateEstimate && estimateHandoffIdentity && turn.canAddToEstimate ? (
+                      <div className="flex justify-end">
+                        {contractorNotes.some((note) => note.id === turn.id) ? (
+                          <span className="text-xs text-muted-foreground">Added to estimate notes</span>
+                        ) : (
+                          <Button type="button" size="sm" variant="outline" onClick={() => addNote(turn)}>
+                            Add to estimate notes
+                          </Button>
+                        )}
+                      </div>
+                    ) : null}
+                  </Fragment>
                 ) : turn.role === "error" ? (
                   <div key={turn.id} className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
                     {turn.text}

@@ -61,5 +61,19 @@ describe("athena kernel policy adapter", () => {
       expect(classifyAthenaCapability("What's my payment history?")).toBe("draft_response"); // "pay" inside "payment"
       expect(classifyAthenaCapability("Who is the assignment for?")).toBe("draft_response"); // "assign" inside "assignment"
     });
+
+    it("does not treat reading your own schedule as a mutation request (2026-11-25 regression)", () => {
+      // "schedule" is a mutation keyword on its own, but these phrases ask
+      // about the schedule that already exists - they are read-only, same
+      // carve-out as athena-router's dispatch-overview phrases.
+      expect(classifyAthenaCapability("What's on my schedule today?")).toBe("draft_response");
+      expect(classifyAthenaCapability("How many active jobs do I have today?")).toBe("draft_response");
+      expect(classifyAthenaCapability("Draft a short summary of my schedule today for me to review.")).toBe("draft_response");
+    });
+
+    it("still treats scheduling new work as a mutation request", () => {
+      expect(classifyAthenaCapability("Schedule a job for Friday")).toBe("mutate_business_record");
+      expect(classifyAthenaCapability("Schedule a technician for tomorrow")).toBe("mutate_business_record");
+    });
   });
 });

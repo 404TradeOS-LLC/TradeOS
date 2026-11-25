@@ -59,6 +59,26 @@ describe("classifyAthenaIntent", () => {
     expect(classifyAthenaIntent("Book me a look at the dispatch board").intent).toBe("dispatch_overview");
   });
 
+  it("treats reading your own schedule as a dispatch-overview request, not a mutation (2026-11-25 regression)", () => {
+    // "schedule" is a mutation keyword on its own, but these phrases ask
+    // about the schedule that already exists - they are read-only.
+    for (const message of [
+      "What's on my schedule today?",
+      "How many active jobs do I have today?",
+      "Draft a short summary of my schedule today for me to review.",
+    ]) {
+      const result = classifyAthenaIntent(message);
+      expect(result.intent).toBe("dispatch_overview");
+      expect(result.requestedContextIntents).toEqual(["dispatch_overview"]);
+      expect(result.riskHint).toBe("low");
+    }
+  });
+
+  it("still treats scheduling new work as a mutation request", () => {
+    expect(classifyAthenaIntent("Schedule a job for Friday").intent).toBe("mutate_business_record");
+    expect(classifyAthenaIntent("Schedule a technician for tomorrow").intent).toBe("mutate_business_record");
+  });
+
   it("carries a distinct reasonCode per matched branch", () => {
     expect(classifyAthenaIntent("Show me the dispatch board").reasonCode).toBe("athena_router_dispatch_overview_matched");
     expect(classifyAthenaIntent("What's the cost of drywall?").reasonCode).toBe("athena_router_knowledge_lookup_matched");

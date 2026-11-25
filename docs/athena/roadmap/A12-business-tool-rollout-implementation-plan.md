@@ -109,7 +109,7 @@ refactors, no new frameworks):
    `ctx.orgId` + the underlying service's own `orgId`-scoped queries for
    tenant isolation, the same posture every non-Athena route already uses.
 
-## 4. Tool catalog (19 tools, 5 domains)
+## 4. Tool catalog (20 tools, 5 domains)
 
 All IDs follow `tradeos.athena.tools.<domain>.<action>`, version `1.0.0`,
 owner `athena-tools-<domain>`, module `app/modules/athena-tools/<domain>/`.
@@ -130,6 +130,7 @@ owner `athena-tools-<domain>`, module `app/modules/athena-tools/<domain>/`.
 | `dispatcher.schedule-job` | `JobsService.schedule` | yes | `dispatch.manage` | low | `JobScheduled` |
 | `dispatcher.assign-technician` | `JobsService.addAssignment` | yes | `dispatch.manage` | low | `TechnicianAssigned` |
 | `dispatcher.optimize-day` | `JobsService.getDispatchSummary` + `getScheduleConflicts` using the summary's organization-local day range | no | `dispatch.manage` | low | none |
+| `dispatcher.active-jobs` | `JobsService.getDispatchSummary` (authoritative active-jobs count) + `JobsService.list` first page filtered to non-terminal/non-archived; customer contact details omitted | no | none (RLS + `scopedJobAccessWhere()` narrow per role, dispatch-provider precedent) | low | none |
 | `dispatcher.weather-impact` | reads `aiContext.weather` (A3 provider section) | no | `dispatch.manage` | low | none |
 
 `weather-impact` explicitly does not call any external weather API - A3's

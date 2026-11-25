@@ -206,6 +206,33 @@ Athena may summarize or route on that input, but it may not:
   domains and selected-scope support rather than hydrating every recognized
   context section.
 
+## Intent-matched tool discovery (2026-11-25)
+
+The kernel offers discovered tools by router intent and never invents a
+tool call: only `dispatch_overview` discovers tools (the read-only
+`optimize-day` and `active-jobs` dispatcher tools, both empty-input by
+design); every other non-mutation intent discovers zero tools and fails
+soft to the draft path, so a plain question is never refused for having no
+matching tool. The planner still plans every candidate it is offered (its
+documented contract, covered by the builder tests); the filtering happens
+at discovery, and explicitly supplied candidate tools (the DI seam the
+A5/A6/A7 orchestration tests use) are honored as-is. A selected tool that
+is unregistered or removed still throws instead of silently downgrading.
+Genuine mutation requests still classify as `mutate_business_record`, still
+receive a `needs_clarification` plan, and are still denied by the policy
+gate - the read-only "my schedule" / "active jobs" carve-out changes
+classification of read-only phrases only, never the denial itself.
+
+The new `tradeos.athena.tools.dispatcher.active-jobs` tool declares no
+permission gate (permissions `[]`), following the same precedent as the
+dispatch context provider and `GET /api/v1/jobs/dispatch-summary`: the
+underlying `JobsService.list()` call carries the caller's `AuthContext` and
+the jobs RLS select policy plus `scopedJobAccessWhere()` narrow the rows to
+the caller's assignment for any role other than owner/admin/dispatcher, so
+a technician sees only their own active jobs. Customer contact details are
+omitted from the tool's output by design. The tool is read-only, low risk,
+never requires confirmation, and writes nothing.
+
 ## A12.1 transactional event security invariant
 
 For the six required canonical business events, event persistence now participates in the same database transaction as the authorized business mutation. This does not move authorization into the event layer: identity, organization scope, permissions, object-scope checks, approval policy, service validation, and forced RLS remain authoritative before and during the mutation. A required event-persistence failure rolls the authorized business mutation back; it never creates a permission bypass or cross-tenant fallback. Subscriber delivery remains asynchronous after commit.
