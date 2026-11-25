@@ -46,6 +46,7 @@ Current workflow relationship:
 Important scope note:
 
 - estimates, proposals, and contracts may feed project and job execution, but the current repository does not enforce one rigid automatic chain where every job must pass through the same commercial sequence before field work begins
+- an accepted proposal created from the project (no estimate) can price an invoice: the invoice request names the proposal without an `estimateId`, and the estimate-link guard rejects only a present `estimateId` that differs from the proposal's
 - scheduling, technician assignment, dispatcher coordination, and field-status progression are already part of the implemented product surface
 
 ## Projects

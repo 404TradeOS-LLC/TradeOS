@@ -334,6 +334,43 @@ describe("InvoicesService", () => {
     expect(mockPrisma.invoice.create).not.toHaveBeenCalled();
   });
 
+  it("creates an invoice from an estimate-less accepted proposal with manual line items", async () => {
+    // S069 evidence run 45547231123: a proposal created from the project (no
+    // estimate) stores estimateId: null, while the invoice request carries no
+    // estimateId at all (undefined). The pricing guard must treat null and
+    // undefined as the same "no estimate" — otherwise it 409s a legitimate
+    // accepted, final-priced, estimate-less proposal.
+    mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
+    mockPrisma.proposal.findFirst.mockResolvedValue({
+      id: "proposal-1", projectId: "project-1", estimateId: null, status: "accepted", finalPrice: 2450,
+    });
+    mockPrisma.invoice.aggregate.mockResolvedValue({ _max: { invoiceNumber: null } });
+    mockPrisma.invoice.create.mockResolvedValue({
+      id: "invoice-1", projectId: "project-1", estimateId: null, proposalId: "proposal-1",
+      invoiceNumber: 1, type: "full", status: "draft", percentComplete: null, amount: 2450,
+      dueDate: null, sentAt: null, paidAt: null, createdAt: new Date(),
+    });
+    mockPrisma.invoice.findFirst.mockResolvedValue({
+      id: "invoice-1", projectId: "project-1", estimateId: null, proposalId: "proposal-1",
+      invoiceNumber: 1, type: "full", status: "draft", percentComplete: null, amount: 2450,
+      dueDate: null, sentAt: null, paidAt: null, createdAt: new Date(), lineItems: [], deliveries: [],
+    });
+
+    const created = await new InvoicesService().create({
+      orgId: "org-1",
+      actorRole: "admin",
+      projectId: "project-1",
+      proposalId: "proposal-1",
+      lineItems: [{ description: "Deck replacement", quantity: 1, unitOfMeasure: "job", unitPrice: 2450 }],
+    });
+
+    expect(mockPrisma.invoice.create).toHaveBeenCalled();
+    expect(mockPrisma.invoice.create.mock.calls[0][0].data).toEqual(
+      expect.objectContaining({ proposalId: "proposal-1", amount: 2450 }),
+    );
+    expect(created).toEqual(expect.objectContaining({ proposalId: "proposal-1", amount: 2450 }));
+  });
+
   it("scales the persisted sell total for progress invoices", async () => {
     mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
     mockPrisma.estimate.findFirst.mockResolvedValue({

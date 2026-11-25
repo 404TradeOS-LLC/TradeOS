@@ -643,7 +643,11 @@ export class InvoicesService {
     });
     if (input.proposalId && !proposal) throw new ApiError(404, `Proposal ${input.proposalId} not found`);
     if (!proposal) return null;
-    if (input.proposalId && proposal.estimateId !== input.estimateId) {
+    // A proposal created from the project (no estimate) stores estimateId:
+    // null, while a request without an estimate carries undefined. Treat
+    // both as "no estimate" so the comparison only rejects a real mismatch
+    // (a present estimateId that differs from the proposal's).
+    if (input.proposalId && (proposal.estimateId ?? null) !== (input.estimateId ?? null)) {
       throw new ApiError(409, `Proposal ${proposal.id} is not linked to estimate ${input.estimateId}`);
     }
     if (normalizeProposalStatus(proposal.status) !== "accepted") {
