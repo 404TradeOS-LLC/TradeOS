@@ -14,13 +14,16 @@
  * frame), so it is implemented as the minimal rail flow the DES-3 brief
  * describes. Step 2 follows frames `58:2` / `59:4`.
  *
- * Persistence boundary (deliberate, see the PR body): the wizard itself is
- * session-scoped. Completion is recorded by the draft estimate it creates.
- * Labor/region defaults were removed from the wizard (Codex review, PR
- * #1043): there is no organization-defaults persistence path for them, so
- * asking for a labor baseline or region the estimate cannot use would be
- * contractor-visible unfinished UX. They return with the persisted-onboarding
- * follow-up slice (migration + RLS for org defaults).
+ * Persistence boundary (DES-3 slice 2): the wizard persists to the org's
+ * onboarding-state record (`organization_onboarding_states`, forced RLS)
+ * via `GET/PATCH /api/v1/onboarding/state` — step, work types, scope
+ * text, labor baseline, and region — so an org resumes where it left off
+ * and a skip is org-scoped. Completion is recorded by the draft estimate
+ * the wizard creates and by the state row's `completed` status.
+ * Labor/region defaults returned with slice 2 (they were removed from the
+ * wizard in slice 1's Codex review because no persistence path existed);
+ * the estimate engine does not read the persisted baseline yet — wiring
+ * it is a follow-up slice.
  */
 
 export const ONBOARDING_ROUTE = "/onboarding";
@@ -28,6 +31,33 @@ export const ONBOARDING_ROUTE = "/onboarding";
 /** Set by the skip action; the dashboard bypass reads it server-side. */
 export const ONBOARDING_SKIPPED_COOKIE = "tradeos-onboarding-skipped";
 export const ONBOARDING_SKIP_COOKIE_MAX_AGE_SECONDS = 180 * 24 * 60 * 60;
+
+/**
+ * Labor baseline for the wizard (DES-3 slice 2). The wizard asks for the
+ * org's labor baseline in whole dollars per hour and persists it (cents)
+ * on the org's onboarding-state record, pre-filled on resume. $48/hr is
+ * the slice-1 plan default; the estimate engine does not read it yet —
+ * wiring the engine to the persisted baseline is a follow-up slice.
+ */
+export const DEFAULT_LABOR_RATE_CENTS = 4800;
+export const MIN_LABOR_RATE_DOLLARS = 1;
+export const MAX_LABOR_RATE_DOLLARS = 500;
+export const MAX_ONBOARDING_REGION_LENGTH = 120;
+
+/** Parse a wizard labor-rate field (whole dollars) to cents, or null when blank. */
+export function parseLaborRateDollars(input: unknown): { cents: number | null; error: string | null } {
+  if (input === undefined || input === null || input === "") return { cents: null, error: null };
+  const dollars = typeof input === "number" ? input : Number(String(input).trim());
+  if (!Number.isInteger(dollars) || dollars < MIN_LABOR_RATE_DOLLARS || dollars > MAX_LABOR_RATE_DOLLARS) {
+    return { cents: null, error: `Enter a labor rate between $${MIN_LABOR_RATE_DOLLARS} and $${MAX_LABOR_RATE_DOLLARS} per hour.` };
+  }
+  return { cents: dollars * 100, error: null };
+}
+
+/** Whole-dollar display for a persisted cents value (e.g. 4800 → "48"). */
+export function formatLaborRateDollars(cents: number | null): string {
+  return cents === null ? String(DEFAULT_LABOR_RATE_CENTS / 100) : String(Math.round(cents / 100));
+}
 
 export const MIN_SCOPE_TEXT_LENGTH = 10;
 export const MAX_SCOPE_TEXT_LENGTH = 10_000;
@@ -114,14 +144,24 @@ export function deriveProjectNameFromScope(scope: string): string {
 export interface ValidatedOnboardingInput {
   workTypes: string[];
   scopeText: string;
+  /** Whole-dollar labor baseline, persisted in cents; defaults to $48/hr. */
+  laborRateCents: number;
+  /** Optional free-text region, persisted as entered (trimmed); null when blank. */
+  region: string | null;
 }
 
 /**
  * Validate the fields the onboarding server action persists.
+ *
+ * laborRate is the wizard's whole-dollar labor baseline (blank = the $48/hr
+ * default); region is optional free text. Both are persisted on the org's
+ * onboarding-state record (DES-3 slice 2) and pre-filled on resume.
  */
 export function validateOnboardingInput(input: {
   workTypes: unknown;
   scopeText: unknown;
+  laborRate?: unknown;
+  region?: unknown;
 }): { value: ValidatedOnboardingInput | null; error: string | null } {
   const rawWorkTypes = Array.isArray(input.workTypes) ? input.workTypes : [];
   const workTypes = rawWorkTypes.filter(
@@ -143,7 +183,33 @@ export function validateOnboardingInput(input: {
     return { value: null, error: "That job description is too long. Keep it to a few sentences." };
   }
 
-  return { value: { workTypes, scopeText }, error: null };
+  const { cents, error: laborError } = parseLaborRateDollars(input.laborRate);
+  if (laborError) return { value: null, error: laborError };
+
+  const region = typeof input.region === "string" ? input.region.trim() : "";
+  if (region.length > MAX_ONBOARDING_REGION_LENGTH) {
+    return { value: null, error: "Keep the region to a short place name." };
+  }
+
+  return { value: { workTypes, scopeText, laborRateCents: cents ?? DEFAULT_LABOR_RATE_CENTS, region: region || null }, error: null };
+}
+
+/**
+ * Persisted onboarding state for one organization (DES-3 slice 2), as
+ * returned by GET /api/v1/onboarding/state. Null when the org has never
+ * opened the wizard.
+ */
+export interface OnboardingState {
+  orgId: string;
+  status: "in_progress" | "skipped" | "completed";
+  currentStep: number;
+  workTypes: string[];
+  scopeText: string | null;
+  laborRateCents: number | null;
+  region: string | null;
+  skippedAt: string | null;
+  completedAt: string | null;
+  updatedAt: string;
 }
 
 /**
@@ -152,13 +218,18 @@ export function validateOnboardingInput(input: {
  * they skipped it); every other org lands on Today as before. A failed
  * count read must fail open to the dashboard, so callers treat a null
  * count as "not first run" rather than guessing.
+ *
+ * `skipped` is the legacy browser-cookie skip (slice 1); `persistedSkipped`
+ * is the org-scoped skip from the onboarding-state record (slice 2).
+ * Either one suppresses the redirect.
  */
 export function shouldRedirectToOnboarding(input: {
   projectCount: number | null;
   estimateCount: number | null;
   skipped: boolean;
+  persistedSkipped?: boolean;
 }): boolean {
-  if (input.skipped) return false;
+  if (input.skipped || input.persistedSkipped) return false;
   if (input.projectCount === null || input.estimateCount === null) return false;
   return input.projectCount === 0 && input.estimateCount === 0;
 }

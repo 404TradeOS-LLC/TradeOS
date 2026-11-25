@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  DEFAULT_LABOR_RATE_CENTS,
   MIN_SCOPE_TEXT_LENGTH,
   ONBOARDING_EXAMPLE_SCOPES,
   ONBOARDING_WORK_TYPES,
@@ -41,10 +42,44 @@ test("validateOnboardingInput requires a known work type and a real scope", () =
 
   const valid = validateOnboardingInput({ workTypes: ["Painting", "Remodeling"], scopeText: `  ${EXAMPLE_SCOPE}  ` });
   assert.equal(valid.error, null);
-  assert.deepEqual(valid.value, { workTypes: ["Painting", "Remodeling"], scopeText: EXAMPLE_SCOPE });
+  assert.deepEqual(valid.value, {
+    workTypes: ["Painting", "Remodeling"],
+    scopeText: EXAMPLE_SCOPE,
+    laborRateCents: DEFAULT_LABOR_RATE_CENTS,
+    region: null,
+  });
 
   const tooLong = validateOnboardingInput({ workTypes: ["Painting"], scopeText: "x".repeat(10_001) });
   assert.match(tooLong.error ?? "", /too long/);
+});
+
+test("labor baseline defaults to $48/hr and rejects out-of-range rates", () => {
+  assert.equal(DEFAULT_LABOR_RATE_CENTS, 4800);
+  const withRate = validateOnboardingInput({
+    workTypes: ["Painting"],
+    scopeText: EXAMPLE_SCOPE,
+    laborRate: "65",
+    region: "Terre Haute, IN",
+  });
+  assert.equal(withRate.error, null);
+  assert.equal(withRate.value?.laborRateCents, 6500);
+  assert.equal(withRate.value?.region, "Terre Haute, IN");
+  assert.equal(
+    validateOnboardingInput({ workTypes: ["Painting"], scopeText: EXAMPLE_SCOPE, laborRate: "0" }).error,
+    "Enter a labor rate between $1 and $500 per hour.",
+  );
+  assert.equal(
+    validateOnboardingInput({ workTypes: ["Painting"], scopeText: EXAMPLE_SCOPE, laborRate: "501" }).error,
+    "Enter a labor rate between $1 and $500 per hour.",
+  );
+  assert.equal(
+    validateOnboardingInput({ workTypes: ["Painting"], scopeText: EXAMPLE_SCOPE, laborRate: "48.5" }).error,
+    "Enter a labor rate between $1 and $500 per hour.",
+  );
+  assert.equal(
+    validateOnboardingInput({ workTypes: ["Painting"], scopeText: EXAMPLE_SCOPE, region: "x".repeat(121) }).error,
+    "Keep the region to a short place name.",
+  );
 });
 
 test("scope minimum matches the composer's ten-character floor", () => {
@@ -71,6 +106,11 @@ test("shouldRedirectToOnboarding fires only for a truly empty, non-skipped org",
   assert.equal(shouldRedirectToOnboarding({ projectCount: 1, estimateCount: 0, skipped: false }), false);
   assert.equal(shouldRedirectToOnboarding({ projectCount: 0, estimateCount: 1, skipped: false }), false);
   assert.equal(shouldRedirectToOnboarding({ projectCount: 0, estimateCount: 0, skipped: true }), false);
+  // A persisted (org-scoped) skip suppresses the redirect exactly like the legacy cookie skip.
+  assert.equal(
+    shouldRedirectToOnboarding({ projectCount: 0, estimateCount: 0, skipped: false, persistedSkipped: true }),
+    false,
+  );
   // Uncountable reads fail open to the dashboard, never to onboarding.
   assert.equal(shouldRedirectToOnboarding({ projectCount: null, estimateCount: 0, skipped: false }), false);
   assert.equal(shouldRedirectToOnboarding({ projectCount: 0, estimateCount: null, skipped: false }), false);

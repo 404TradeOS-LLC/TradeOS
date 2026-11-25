@@ -34,11 +34,18 @@ test("wizard follows the Figma rail: work, then the real-estimate composer", () 
   assert.match(form, /None of this blocks the first estimate\./);
 });
 
-test("wizard asks for no labor or region input the estimate cannot use", () => {
+test("wizard asks for the labor baseline + optional region and persists them (DES-3 slice 2)", () => {
   const form = read("first-estimate-onboarding-form.tsx");
-  assert.doesNotMatch(form, /laborRate|Labor rate|Your labor/);
-  assert.doesNotMatch(form, /region|Region/);
-  assert.doesNotMatch(form, /formatLaborRate|isValidLaborRate|DEFAULT_LABOR_RATE/);
+  assert.match(form, /Your labor rate/);
+  assert.match(form, /formatLaborRateDollars\(initialState\?\.laborRateCents/);
+  assert.match(form, /Region \(optional\)/);
+  assert.match(form, /initialState\?\.region/);
+  assert.match(form, /saveOnboardingProgressAction/);
+  assert.match(form, /name="laborRate"/);
+  assert.match(form, /name="region"/);
+  assert.match(form, /initialState\?\.workTypes/);
+  assert.match(form, /initialState\?\.scopeText/);
+  assert.match(form, /initialState\?\.currentStep === 2 \? 2 : 1/);
 });
 
 test("step 2 carries the known-context work chip and example jobs from the frame", () => {

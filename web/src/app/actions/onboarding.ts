@@ -1,20 +1,27 @@
 "use server";
 
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { apiFetch, ApiClientError, type Estimate } from "@/lib/api";
+import { redirect } from "next/navigation";
+import {
+  apiFetch,
+  ApiClientError,
+  completeOnboarding,
+  saveOnboardingProgress,
+  skipOnboarding,
+  type Estimate,
+} from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import {
-  ONBOARDING_SKIPPED_COOKIE,
-  ONBOARDING_SKIP_COOKIE_MAX_AGE_SECONDS,
   deriveProjectNameFromScope,
+  MAX_SCOPE_TEXT_LENGTH,
+  ONBOARDING_WORK_TYPES,
+  parseLaborRateDollars,
   validateOnboardingInput,
 } from "@/lib/onboarding";
 import type { FormActionState } from "./customers";
 
 /**
- * First-estimate onboarding completion (DES-3 slice 1).
+ * First-estimate onboarding completion (DES-3 slices 1–2).
  *
  * Signup → login → dashboard is untouched: the dashboard sends a brand-new
  * org here, and this action takes it to a draft estimate instead of the
@@ -24,7 +31,11 @@ import type { FormActionState } from "./customers";
  *    first selected work type as `jobType`; scope persisted as
  *    `simpleScope`, the same field the estimate workspace reads).
  * 2. Create a draft Estimate on that Project.
- * 3. Land on the draft estimate workspace, where the existing Athena
+ * 3. Persist the wizard's answers (work types, scope, labor baseline,
+ *    region) on the org's onboarding-state record and mark it completed
+ *    (best-effort: a persistence failure never blocks the redirect — the
+ *    created draft estimate is itself the completion record).
+ * 4. Land on the draft estimate workspace, where the existing Athena
  *    review button continues Items → Price → Review. Athena review
  *    generates the structured draft on demand from the persisted scope —
  *    no draft is staged here: `StructuredAIEstimatorService.generateDraft`
@@ -49,6 +60,8 @@ export async function completeFirstEstimateOnboarding(
   const { value, error } = validateOnboardingInput({
     workTypes: formData.getAll("workTypes"),
     scopeText: formData.get("scopeText"),
+    laborRate: formData.get("laborRate"),
+    region: formData.get("region"),
   });
   if (!value) return { error: error ?? "Check the onboarding answers and try again." };
 
@@ -83,24 +96,81 @@ export async function completeFirstEstimateOnboarding(
     redirect(`/projects/${projectId}?estimateStart=review`);
   }
 
+  try {
+    await completeOnboarding(token, {
+      workTypes: value.workTypes,
+      scopeText: value.scopeText,
+      laborRateCents: value.laborRateCents,
+      region: value.region,
+    });
+  } catch {
+    // Best-effort: the draft estimate is the completion record. A failed
+    // state write leaves the org resumable (in_progress) rather than
+    // blocking the first estimate.
+  }
+
   revalidatePath("/dashboard");
   revalidatePath(`/projects/${projectId}`);
   redirect(`/projects/${projectId}/estimates/${estimate.id}`);
 }
 
 /**
- * Skip onboarding for this browser. Completion needs no cookie — the
- * created draft estimate makes the org non-empty and clears the dashboard
- * bypass by itself. A skip is browser-scoped (not org-scoped) until
- * persisted onboarding state lands; see `web/src/lib/onboarding.ts`.
+ * Skip onboarding for this org (DES-3 slice 2).
+ *
+ * The skip is persisted on the org's onboarding-state record
+ * (POST /api/v1/onboarding/skip) — slice 1's browser-scoped cookie is
+ * gone. Completion needs no persistence call — the created draft estimate
+ * makes the org non-empty and clears the dashboard bypass by itself. A
+ * failed skip write fails open to the dashboard (the org is simply
+ * re-prompted on its next first run); onboarding must never strand a
+ * signed-in user.
  */
 export async function skipFirstEstimateOnboarding(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.set(ONBOARDING_SKIPPED_COOKIE, "1", {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: ONBOARDING_SKIP_COOKIE_MAX_AGE_SECONDS,
-  });
+  const token = await getSessionToken();
+  if (token) {
+    try {
+      await skipOnboarding(token);
+    } catch {
+      // Fail open: see above.
+    }
+  }
   redirect("/dashboard");
+}
+
+/**
+ * Best-effort wizard progress save (DES-3 slice 2).
+ *
+ * Called when the wizard moves between steps so an org resumes where it
+ * left off. Invalid or missing fields are dropped, never errors: a
+ * half-filled step 1 has no scope text yet, and a progress save must
+ * never block the wizard. Returns { ok } so the form can advance
+ * regardless of the outcome.
+ */
+export async function saveOnboardingProgressAction(formData: FormData): Promise<{ ok: boolean }> {
+  const token = await getSessionToken();
+  if (!token) return { ok: false };
+
+  const step = Number(formData.get("currentStep"));
+  const workTypes = formData
+    .getAll("workTypes")
+    .filter(
+      (entry): entry is string =>
+        typeof entry === "string" && (ONBOARDING_WORK_TYPES as ReadonlyArray<string>).includes(entry),
+    );
+  const scopeText = typeof formData.get("scopeText") === "string" ? (formData.get("scopeText") as string) : "";
+  const { cents: laborRateCents } = parseLaborRateDollars(formData.get("laborRate"));
+  const region = typeof formData.get("region") === "string" ? (formData.get("region") as string).trim() : "";
+
+  try {
+    await saveOnboardingProgress(token, {
+      ...(Number.isInteger(step) && (step === 1 || step === 2) ? { currentStep: step } : {}),
+      workTypes,
+      ...(scopeText.length > 0 && scopeText.length <= MAX_SCOPE_TEXT_LENGTH ? { scopeText } : {}),
+      ...(laborRateCents !== null ? { laborRateCents } : {}),
+      ...(region.length > 0 ? { region } : {}),
+    });
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
 }

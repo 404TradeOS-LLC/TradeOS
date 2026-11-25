@@ -32,6 +32,8 @@ test("onboarding completion validates the wizard payload before creating anythin
   assert.match(source, /validateOnboardingInput\(\{/);
   assert.match(source, /workTypes: formData\.getAll\("workTypes"\)/);
   assert.match(source, /scopeText: formData\.get\("scopeText"\)/);
+  assert.match(source, /laborRate: formData\.get\("laborRate"\)/);
+  assert.match(source, /region: formData\.get\("region"\)/);
   assert.match(source, /if \(!value\) return \{ error: error/);
   assert.ok(
     source.indexOf("validateOnboardingInput") < source.indexOf("/api/v1/projects"),
@@ -76,12 +78,29 @@ test("estimate-create failure redirects to the saved project instead of retrying
   assert.match(source, /redirect\(`\/projects\/\$\{projectId\}\?estimateStart=review`\)/);
 });
 
-test("skip action persists a browser-scoped skip and returns to the dashboard", () => {
+test("completion persists the wizard answers on the org onboarding record, best-effort", () => {
+  const source = readActionSource("completeFirstEstimateOnboarding");
+  assert.match(source, /completeOnboarding\(token, \{/);
+  assert.match(source, /workTypes: value\.workTypes/);
+  assert.match(source, /scopeText: value\.scopeText/);
+  assert.match(source, /laborRateCents: value\.laborRateCents/);
+  assert.match(source, /region: value\.region/);
+  assert.ok(
+    source.indexOf("completeOnboarding") > source.indexOf('apiFetch<Estimate>("/api/v1/estimates"'),
+    "the draft estimate must exist before its onboarding state is completed",
+  );
+  assert.ok(
+    source.indexOf("completeOnboarding") < source.indexOf("redirect(`/projects/${projectId}/estimates/${estimate.id}`)"),
+    "completion is recorded before landing on the workspace",
+  );
+});
+
+test("skip action persists an org-scoped skip via the API and returns to the dashboard", () => {
   const source = readActionSource("skipFirstEstimateOnboarding");
-  assert.match(source, /cookieStore\.set\(ONBOARDING_SKIPPED_COOKIE, "1"/);
-  assert.match(source, /httpOnly: true/);
-  assert.match(source, /maxAge: ONBOARDING_SKIP_COOKIE_MAX_AGE_SECONDS/);
+  assert.match(source, /await skipOnboarding\(token\)/);
   assert.match(source, /redirect\("\/dashboard"\)/);
+  assert.ok(!source.includes("ONBOARDING_SKIPPED_COOKIE"), "slice 1's browser cookie is gone — the skip is org-scoped");
+  assert.ok(!source.includes("cookieStore"), "skip no longer touches cookies");
 });
 
 test("onboarding never touches the legacy recovery route or the signup path", () => {

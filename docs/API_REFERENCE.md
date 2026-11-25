@@ -544,6 +544,11 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/knowledge`
 - `/api/v1/settings`
 - `/api/v1/company`
+- `/api/v1/onboarding` — persisted first-estimate onboarding state (DES-3 slice 2); see `app/modules/onboarding/service.ts`. No new permission is introduced: reads require `crm.read`, writes require `crm.write`, and all rows are org-scoped through the authenticated request session and forced RLS.
+  - `GET /state` — the org's onboarding state, or `{ state: null }` when the org has never started onboarding.
+  - `PATCH /state` — upsert wizard progress: `{ currentStep?, workTypes?, scopeText?, laborRateCents?, region? }`. A skipped row reopens to `in_progress`; a completed row keeps `completed` while its defaults may still update.
+  - `POST /skip` — persist a per-org skip (`status: "skipped"`, `skippedAt` set). The slice-1 browser cookie is no longer set; it is read only as a legacy fallback by the dashboard first-run gate.
+  - `POST /complete` — persist completion (`status: "completed"`, `completedAt` set) with the final wizard answers. The web completion action calls this best-effort after creating the draft estimate; a failure never blocks the redirect.
 - `/api/v1/import/customers`
 - `/api/v1/brand-studio`
 - `/api/v1/intelligence`
