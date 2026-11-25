@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -188,6 +188,7 @@ export function AIEstimateAssist({
   initialKnowledgeTrades,
   initialKnowledgeMatch,
   initialStructuredDraft,
+  autoRunReview,
 }: {
   projectId: string;
   estimateId: string;
@@ -197,6 +198,11 @@ export function AIEstimateAssist({
   initialKnowledgeTrades: KnowledgeTrade[];
   initialKnowledgeMatch: KnowledgeScopeMatch | null;
   initialStructuredDraft?: StructuredAIEstimateDraft | null;
+  // DES-3 slice 3 — auto-run Athena review on landing from onboarding.
+  // The assist page sets this only when the landing URL carries
+  // ?autoReview=1; every other landing (including the builder's manual
+  // "Athena review" button) leaves it unset and the review stays manual.
+  autoRunReview?: boolean;
 }) {
   const [scopeOfWork, setScopeOfWork] = useState(initialScopeOfWork || "");
   const [suggestions, setSuggestions] = useState<SuggestionDraft[]>(initialStructuredDraft?.lineItems.map(structuredToDraft) ?? initialSuggestions.map(toDraft));
@@ -366,11 +372,32 @@ export function AIEstimateAssist({
   const acceptedReadyToApply = suggestions.some((suggestion) => suggestion.status === "accepted" && suggestion.selectedTarget && suggestion.originalTargetId === suggestion.selectedTarget.id && suggestion.originalTargetKind === suggestion.selectedTarget.kind);
   const reviewLocked = applyState === "pending" || applyState === "unconfirmed" || regenerateSuggestions.isPending;
 
-  const runReview = () => {
+  // Stable enough for the auto-run effect's dependency list: the mutation
+  // callback itself is stable (React Query v5 binds `mutate` to an
+  // observer created once), but the result object identity changes with
+  // mutation state, so the auto-run effect's ref guard — not this
+  // identity — is the once-only guarantee.
+  const runReview = useCallback(() => {
     if (applySession.current.isLocked || generationInFlight.current) return;
     generationInFlight.current = true;
     regenerateSuggestions.mutate();
-  };
+  }, [regenerateSuggestions]);
+
+  // DES-3 slice 3 — auto-run Athena review on landing from onboarding.
+  // Fires exactly once: the ref guard survives re-renders (and React
+  // StrictMode's double-effect in development), and the guards mirror
+  // the manual button — non-empty scope, no draft yet, nothing already
+  // generating. The scope guard precedes the once-guard so a blank scope
+  // never consumes the single attempt. A failed auto-run surfaces
+  // through the existing generation error alert and the manual "Run
+  // Athena review" button stays available — the user is never stuck.
+  const autoRunAttempted = useRef(false);
+  useEffect(() => {
+    if (!autoRunReview || autoRunAttempted.current) return;
+    if (structuredDraft || !scopeOfWork.trim()) return;
+    autoRunAttempted.current = true;
+    runReview();
+  }, [autoRunReview, structuredDraft, scopeOfWork, runReview]);
 
   // Revealed boundary: a draft counts as revealed only once its payload
   // has arrived and no newer generation is in flight. While generating,
