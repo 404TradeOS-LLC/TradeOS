@@ -51,9 +51,13 @@ export type ProposalCreateOutcome = "unknown" | "known-rejection" | "key-reuse";
 
 /**
  * Tell a failed create apart. Only a definitive 4xx rejection means the
- * server said no — a 409 is the key-reuse conflict (a draft *does* exist
- * for this key), and anything else (5xx, network drop, timeout, abort)
- * leaves the outcome unknown, so the contractor must check the list.
+ * server said no — a 409 with the idempotency_key_reused code is the
+ * key-reuse conflict (a draft *does* exist for this key), while a 409 with
+ * the estimate_not_finalized code rejected before insertion, so there is no
+ * draft to recover and it is a known rejection. A 409 from an older API
+ * without codes keeps the previous key-reuse reading. Anything else (5xx,
+ * network drop, timeout, abort) leaves the outcome unknown, so the
+ * contractor must check the list.
  */
 export function classifyProposalCreateError(error: unknown): {
   outcome: ProposalCreateOutcome;
@@ -74,15 +78,48 @@ export function classifyProposalCreateError(error: unknown): {
     error.message
       ? error.message
       : "Something went wrong.";
-  if (status === 409) return { outcome: "key-reuse", message };
+  if (status === 409) {
+    // Stable machine-readable code (details.code, the same convention as
+    // organization_name_required): message text is UI copy, not a contract.
+    if (readProposalErrorCode(error) === "estimate_not_finalized") {
+      return { outcome: "known-rejection", message };
+    }
+    return { outcome: "key-reuse", message };
+  }
   if (status !== null && status >= 400 && status < 500) return { outcome: "known-rejection", message };
   return { outcome: "unknown", message };
 }
 
-export function findMatchingProposal<T extends { id: string; estimateId: string | null }>(
+/** Read a stable error code from details.code (ApiClientError) or a top-level code (plain-object errors). */
+function readProposalErrorCode(error: unknown): string | null {
+  if (typeof error !== "object" || error === null) return null;
+  const record = error as { code?: unknown; details?: unknown };
+  if (typeof record.code === "string") return record.code;
+  const details = record.details;
+  if (typeof details === "object" && details !== null && typeof (details as { code?: unknown }).code === "string") {
+    return (details as { code: string }).code;
+  }
+  return null;
+}
+
+export function findMatchingProposal<T extends { id: string; estimateId: string | null; idempotencyKey?: string | null }>(
   proposals: T[],
   estimateId: string | null,
+  attemptKey?: string | null,
 ): T | null {
+  // The attempt's idempotency key is the identity: it is unique per
+  // project, so it identifies the proposal this attempt created even when
+  // several intake proposals share estimateId null. When the API exposes
+  // keys (a current API), match on the key alone — a key with no proposal
+  // carrying it means the attempt's draft is not in the list, so there is
+  // no match to offer. When no row carries a key (an older API that omits
+  // it), fall back to the estimateId match.
+  if (attemptKey && isValidIdempotencyKey(attemptKey)) {
+    const keyed = proposals.filter((proposal) => typeof proposal.idempotencyKey === "string");
+    if (keyed.length > 0) {
+      return keyed.find((proposal) => proposal.idempotencyKey === attemptKey) ?? null;
+    }
+  }
   return proposals.find((proposal) => proposal.estimateId === estimateId) ?? null;
 }
 

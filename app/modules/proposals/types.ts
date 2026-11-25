@@ -113,6 +113,12 @@ export interface ProposalDTO {
   id: string;
   projectId: string;
   estimateId: string | null;
+  // DES-10 Status Check: the create-attempt identity. Exposed so the web
+  // status-check screen can match a recovery attempt to the proposal that
+  // attempt created, instead of matching any proposal with the same
+  // estimateId (several intake proposals can share one project). The key
+  // is unique per project; it is already carried in the status-check URL.
+  idempotencyKey: string | null;
   status: ProposalStatus;
   companyName: string | null;
   showLineItemDetail: boolean;

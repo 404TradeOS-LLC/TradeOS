@@ -270,7 +270,7 @@ export async function ProjectWorkspace({
       // matching row carries a text marker, and the explicit no-match
       // confirmation appears below the list only when nothing matched.
       const attemptEstimateId = statusCheck ? statusCheckEstimateId : null;
-      const match = statusCheck ? findMatchingProposal(proposals, attemptEstimateId) : null;
+      const match = statusCheck ? findMatchingProposal(proposals, attemptEstimateId, statusCheckKey) : null;
       const attemptEstimate = attemptEstimateId
         ? estimates.find((estimate) => estimate.id === attemptEstimateId)
         : undefined;

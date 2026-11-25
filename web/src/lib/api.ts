@@ -1279,6 +1279,10 @@ export interface Proposal {
   id: string;
   projectId: string;
   estimateId: string | null;
+  // DES-10 Status Check: the create-attempt identity. Optional because web
+  // and API deploy independently — an older API omits it and the
+  // status-check match falls back to estimateId.
+  idempotencyKey?: string | null;
   status: ProposalStatus;
   companyName: string | null;
   showLineItemDetail: boolean;

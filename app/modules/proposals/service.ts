@@ -157,7 +157,10 @@ export class ProposalsService {
       });
       if (!existing) return null;
       if (existing.idempotencyHash !== requestHash) {
-        throw new ApiError(409, "This proposal request key was already used with different details. Check the project proposal list before starting a new draft.");
+        // Stable details.code (same convention as organization_name_required):
+        // the web classifies a 409 by this code, not by message text, so a
+        // draft-estimate rejection must not look like key reuse.
+        throw new ApiError(409, "This proposal request key was already used with different details. Check the project proposal list before starting a new draft.", { code: "idempotency_key_reused" });
       }
       return { proposal: toDTO(existing), replayed: true as const };
     };
@@ -1133,7 +1136,10 @@ export class ProposalsService {
 
     const estimateStatus = normalizeEstimateStatus(estimate.status);
     if (estimateStatus === "draft") {
-      throw new ApiError(409, `Estimate ${input.estimateId} must be finalized before creating a proposal`);
+      // Stable details.code (same convention as organization_name_required):
+      // this 409 happens before insertion, so the web must classify it as a
+      // known rejection, never as key reuse with recovery guidance.
+      throw new ApiError(409, `Estimate ${input.estimateId} must be finalized before creating a proposal`, { code: "estimate_not_finalized" });
     }
     const finalizedEstimatePrice = estimate.totalPrice;
     const hasExplicitRange = input.priceLow != null || input.priceHigh != null;
@@ -1307,6 +1313,7 @@ function toDTO(row: {
   id: string;
   projectId: string;
   estimateId: string | null;
+  idempotencyKey: string | null;
   status: string;
   companyName: string | null;
   showLineItemDetail: boolean;
@@ -1368,6 +1375,7 @@ function toDTO(row: {
     id: row.id,
     projectId: row.projectId,
     estimateId: row.estimateId,
+    idempotencyKey: row.idempotencyKey,
     status: normalizeProposalStatus(row.status),
     companyName: row.companyName,
     showLineItemDetail: row.showLineItemDetail,

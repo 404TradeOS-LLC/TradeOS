@@ -83,6 +83,28 @@ test("classifyProposalCreateError: 409 is key reuse with the server message verb
   assert.equal(result.message, serverMessage);
 });
 
+test("classifyProposalCreateError: a 409 with the estimate_not_finalized code is a known rejection, not key reuse", () => {
+  const serverMessage = "Estimate estimate-1 must be finalized before creating a proposal";
+  // details.code is what ApiClientError carries from the API error body.
+  assert.deepEqual(
+    classifyProposalCreateError({ status: 409, message: serverMessage, details: { code: "estimate_not_finalized" } }),
+    { outcome: "known-rejection", message: serverMessage },
+  );
+  // A plain-object error carrying a top-level code reads the same way.
+  assert.deepEqual(
+    classifyProposalCreateError({ status: 409, message: serverMessage, code: "estimate_not_finalized" }),
+    { outcome: "known-rejection", message: serverMessage },
+  );
+});
+
+test("classifyProposalCreateError: a 409 with the idempotency_key_reused code is key reuse", () => {
+  const serverMessage = "This proposal request key was already used with different details.";
+  assert.deepEqual(
+    classifyProposalCreateError({ status: 409, message: serverMessage, details: { code: "idempotency_key_reused" } }),
+    { outcome: "key-reuse", message: serverMessage },
+  );
+});
+
 test("classifyProposalCreateError: 4xx rejections are known rejections", () => {
   assert.deepEqual(classifyProposalCreateError({ status: 400, message: "Estimate not found." }), {
     outcome: "known-rejection",
@@ -124,6 +146,28 @@ test("findMatchingProposal matches only on project + estimate", () => {
   // An intake-only attempt matches only an intake draft, never an estimate-backed row.
   assert.equal(findMatchingProposal(proposals, null)?.id, "proposal-intake");
   assert.equal(findMatchingProposal([], "estimate-1"), null);
+});
+
+test("findMatchingProposal matches the attempt by idempotency key, not by estimateId alone", () => {
+  const attemptKey = "11111111-2222-3333-8444-555555555555";
+  const otherKey = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  const proposals = [
+    { id: "proposal-older-intake", estimateId: null, idempotencyKey: otherKey },
+    { id: "proposal-attempt", estimateId: null, idempotencyKey: attemptKey },
+  ];
+  // The older intake proposal shares estimateId null, but the key proves
+  // which draft this attempt created.
+  assert.equal(findMatchingProposal(proposals, null, attemptKey)?.id, "proposal-attempt");
+  // A key with no proposal carrying it means the attempt's draft is not in
+  // the list — never fall back to an older intake row with the same estimateId.
+  assert.equal(findMatchingProposal(proposals, null, "22222222-3333-4444-8555-666666666666"), null);
+  // When no row carries a key (an older API that omits it), the estimateId
+  // match is the fallback.
+  const keyless = [
+    { id: "proposal-older-intake", estimateId: null },
+    { id: "proposal-attempt", estimateId: null },
+  ];
+  assert.equal(findMatchingProposal(keyless, null, attemptKey)?.id, "proposal-older-intake");
 });
 
 test("idempotency storage key is scoped by project + estimate", () => {

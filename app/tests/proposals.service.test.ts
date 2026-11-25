@@ -49,6 +49,7 @@ function proposalRow(status: string) {
     id: "proposal-1",
     projectId: "project-1",
     estimateId: "estimate-1",
+    idempotencyKey: "9a8b7c6d-5e4f-4321-8abc-0123456789ab",
     status,
     companyName: null,
     showLineItemDetail: false,
@@ -104,7 +105,27 @@ describe("ProposalsService", () => {
     mockPrisma.estimate.findFirst.mockResolvedValue({ id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "draft", totalPrice: 0 });
 
     const service = new ProposalsService();
-    await expect(service.create({ orgId: "org-1", estimateId: "estimate-1" })).rejects.toMatchObject({ statusCode: 409 });
+    await expect(service.create({ orgId: "org-1", estimateId: "estimate-1" })).rejects.toMatchObject({ statusCode: 409, details: { code: "estimate_not_finalized" } });
+    expect(mockPrisma.proposal.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects reusing an idempotency key with different details, with the stable key-reuse code", async () => {
+    const input = { orgId: "org-1", estimateId: "estimate-1", finalPrice: 7125.37 };
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 7125.37,
+    });
+    // Same key, different request hash: the stored attempt is a different
+    // create, so this is key reuse — not a replay and not a fresh create.
+    mockPrisma.proposal.findFirst.mockResolvedValue({
+      ...proposalRow("draft"),
+      idempotencyKey: "9a8b7c6d-5e4f-4321-8abc-0123456789ab",
+      idempotencyHash: "0".repeat(64),
+    });
+
+    const service = new ProposalsService();
+    await expect(
+      service.createWithIdempotency(input, "9a8b7c6d-5e4f-4321-8abc-0123456789ab"),
+    ).rejects.toMatchObject({ statusCode: 409, details: { code: "idempotency_key_reused" } });
     expect(mockPrisma.proposal.create).not.toHaveBeenCalled();
   });
 

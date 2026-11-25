@@ -85,13 +85,17 @@ export function NewProposalForm({
   useEffect(() => {
     if (keyInputRef.current) {
       keyInputRef.current.value = resolveProposalIdempotencyKey(
+        // The effective estimate identity, not the raw select state: a
+        // draft estimate id in the URL submits as intake, so its key must
+        // live in the intake slot — the status-check path reads that slot,
+        // and a key stored under the draft id would be orphaned.
         projectId,
-        selectedEstimateId || null,
+        effectiveEstimateId || null,
         initialIdempotencyKey,
         getIdempotencyKeyStorage(),
       );
     }
-  }, [projectId, selectedEstimateId, initialIdempotencyKey]);
+  }, [projectId, effectiveEstimateId, initialIdempotencyKey]);
   // DES-10 status check: the recovery screen must be able to retire
   // exactly this attempt when the contractor opens the matching draft, so
   // the check URL carries the resolved attempt key for the submitted
