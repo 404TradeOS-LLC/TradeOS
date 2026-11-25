@@ -1149,7 +1149,11 @@ Invoice responses and PDFs expose persisted `subtotal`, `taxPct`, and
 `taxAmount`, plus server-derived payments and `balanceDue`. When explicit
 non-empty `lineItems` are supplied, they override estimate resolution and
 retain their supplied values; estimate-backed allocation applies only when
-`lineItems` are absent or empty.
+`lineItems` are absent or empty. A proposal created from the project has
+`estimateId: null`; naming it in `POST /api/v1/invoices` without an
+`estimateId` is valid — the estimate-link guard treats `null` and absent as
+the same "no estimate" and rejects only a present `estimateId` that differs
+from the proposal's.
 
 Invoice line-item payloads use `unitPrice` and `lineTotal`. The former
 `unitCost` and `lineCost` names are retired for `InvoiceLineItem` payloads;
