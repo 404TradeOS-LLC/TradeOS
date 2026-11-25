@@ -2146,6 +2146,8 @@ repository, JWT verification remains enabled, and unauthenticated access returns
 All 71 staging migration names/checksums match main;
 do not replay them. See [the staged release sequence](operations/staging-runtime-parity.md).
 
+Update 2026-11-25 (S071): the endpoint now also reports `environment: "preview"` in its 200 body (the Vercel environment it already gated on), and API `/health` now reports `environment` (`production` | `preview` | `development`, from `VERCEL_ENV`, omitted when unrecognized). The canonical identity contract in `app/scripts/beta-evidence/lib/deployment-identity-contract.mjs` verifies commit, environment, backend host, and data-plane identifier from these runtime surfaces and fails closed on any mismatch, missing value, or unparseable identity — no secret or env inventory is fetched.
+
 ## Beta evidence fixture mismatch repair — 2026-11-12
 
 Staging run `43130359603` passed runtime and migration gates but failed after

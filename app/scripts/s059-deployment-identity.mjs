@@ -1,12 +1,24 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import assert from "node:assert/strict";
-import { assertApprovedRcUrl, assertNonProductionDataPlane } from "./beta-evidence/lib/rc-target.mjs";
+import { assertApprovedRcUrl, assertNonProductionDataPlane, deriveEnvironmentFromUrl } from "./beta-evidence/lib/rc-target.mjs";
+import {
+  collectRuntimeIdentity,
+  verifyDeploymentIdentity,
+  verifyIdentityUnchanged,
+} from "./beta-evidence/lib/deployment-identity-contract.mjs";
 
 // S059 deployment identity. Proves, BEFORE any capture, that the web origin
 // under test is the expected READY Vercel deployment of the expected SHA, and
 // that the backend actually serving it reports the same SHA on /health and
 // the expected non-production data plane on /ready.
+//
+// The runtime checks go through the canonical S071 identity contract
+// (app/scripts/beta-evidence/lib/deployment-identity-contract.mjs), shared
+// with the staging orchestrator: commit, environment, backend host, and
+// data-plane identifier are verified from the deployment itself and fail
+// closed on any mismatch, missing value, or unparseable identity. No env
+// inventory is fetched, decrypted, or asserted.
 //
 // Deliberately NOT a copy of s027-deployment-identity.mjs: that script also
 // fetches the full Preview env inventory and asserts a branch-scoped
@@ -84,16 +96,22 @@ const apiDeployment = (apiList.deployments ?? []).find(
 assert.ok(apiDeployment, `No READY API deployment of ${requireCorrelation ? expectedSha : branch} found; deploy the API for this branch first`);
 const apiOrigin = `https://${apiDeployment.url}`;
 
-const health = await fetchJson(`${apiOrigin}/health`, "API /health");
-assert.equal(health.status, "ok", "API /health is not ok");
-if (requireCorrelation) {
-  assert.equal(health.commitSha, expectedSha, "API /health SHA mismatch");
-}
-
-const ready = await fetchJson(`${apiOrigin}/ready`, "API /ready");
-assert.equal(ready.status, "ready", "API /ready is not ready");
-assert.equal(ready.checks?.database?.status, "ok", "API /ready database check failed");
-assert.equal(ready.checks?.database?.projectRef, expectedSupabaseRef, "API /ready data plane is not the expected RC Supabase project");
+// Canonical S071 identity contract: verify commit, environment, backend
+// host, and data-plane identifier from the deployment itself. The contract
+// fails closed on any mismatch, missing value, or unparseable identity and
+// refuses production targets; the Vercel deployment-list proof above still
+// binds the alias to a READY deployment of the expected SHA.
+const observed = await collectRuntimeIdentity({ webOrigin: url.origin, apiOrigin });
+const verified = verifyDeploymentIdentity({
+  expected: {
+    commitSha: expectedSha,
+    environment: deriveEnvironmentFromUrl(url.href),
+    backendHost: new URL(apiOrigin).hostname,
+    supabaseProjectRef: expectedSupabaseRef,
+  },
+  observed,
+  options: { requireShaCorrelation: requireCorrelation },
+});
 
 // Bind the web's effective backend to the selected API deployment. The
 // runtime-identity endpoint returns 200 only on staging previews whose
@@ -102,12 +120,8 @@ assert.equal(ready.checks?.database?.projectRef, expectedSupabaseRef, "API /read
 // are not verified (fail — that is a real misconfiguration signal).
 let backendOrigin = null;
 let backendBinding = "not-published";
-const runtimeIdentityResponse = await fetch(`${url.origin}/api/staging-runtime-identity`, {
-  signal: AbortSignal.timeout(30_000),
-});
-if (runtimeIdentityResponse.status === 200) {
-  const runtimeIdentity = await runtimeIdentityResponse.json();
-  backendOrigin = runtimeIdentity.backendOrigin;
+if (observed.webIdentityPublished) {
+  backendOrigin = observed.webBackendHost ? `https://${observed.webBackendHost}` : null;
   assert.ok(typeof backendOrigin === "string" && backendOrigin.length > 0, "Runtime identity returned no backendOrigin");
   const backendDeployment = await fetchJson(
     `https://api.vercel.com/v13/deployments/${new URL(backendOrigin).hostname}?teamId=${TEAM_ID}`,
@@ -120,11 +134,6 @@ if (runtimeIdentityResponse.status === 200) {
     "Web backend alias does not resolve to the selected API deployment",
   );
   backendBinding = "verified";
-} else if (runtimeIdentityResponse.status === 404) {
-  // Non-staging preview: no runtime-identity binding is published; the
-  // /health + /ready checks above are the only backend attestation.
-} else {
-  assert.fail(`Staging runtime identity lookup failed with HTTP ${runtimeIdentityResponse.status} (bindings not verified)`);
 }
 
 const identity = {
@@ -132,6 +141,7 @@ const identity = {
   url: deployment.url,
   commitSha: reportedSha,
   branch,
+  environment: verified.environment,
   apiDeploymentId: apiDeployment.uid,
   apiDeploymentUrl: apiOrigin,
   backendOrigin,
@@ -150,6 +160,29 @@ if (process.argv.includes("--verify")) {
   assert.equal(identity.backendOrigin, before.backendOrigin, "Web backend origin changed during evidence capture");
   assert.equal(identity.backendBinding, before.backendBinding, "Web backend binding changed during evidence capture");
   assert.equal(identity.supabaseProjectRef, before.supabaseProjectRef, "Preview data-plane attestation changed during evidence capture");
+  assert.equal(identity.environment, before.environment, "Deployment environment changed during evidence capture");
+  verifyIdentityUnchanged(
+    {
+      commitSha: before.commitSha,
+      environment: before.environment,
+      backendHost: before.apiDeploymentUrl ? new URL(before.apiDeploymentUrl).hostname : undefined,
+      supabaseProjectRef: before.supabaseProjectRef,
+      id: before.id,
+      apiDeploymentId: before.apiDeploymentId,
+      backendOrigin: before.backendOrigin,
+      backendBinding: before.backendBinding,
+    },
+    {
+      commitSha: identity.commitSha,
+      environment: identity.environment,
+      backendHost: new URL(identity.apiDeploymentUrl).hostname,
+      supabaseProjectRef: identity.supabaseProjectRef,
+      id: identity.id,
+      apiDeploymentId: identity.apiDeploymentId,
+      backendOrigin: identity.backendOrigin,
+      backendBinding: identity.backendBinding,
+    },
+  );
   await fs.writeFile(path.join(outDir, "deployment-identity-after.json"), JSON.stringify(identity, null, 2));
 } else {
   await fs.writeFile(target, JSON.stringify(identity, null, 2));

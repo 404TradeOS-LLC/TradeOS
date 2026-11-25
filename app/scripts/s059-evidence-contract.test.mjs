@@ -204,14 +204,14 @@ test("deployment identity proves web SHA, API SHA, and /ready project ref withou
         });
       }
       if (url.pathname === "/api/staging-runtime-identity") return Response.json({
-        status: "configured", commitSha: "${sha}", branch: "staging",
+        status: "configured", commitSha: "${sha}", branch: "staging", environment: "preview",
         supabaseProjectRef: "${ref}", backendOrigin: "https://${apiUrl}", scope: "public_configuration_only",
       });
       if (url.pathname === "/v6/deployments") return Response.json({ deployments: [{
         uid: "dpl_api_fixture", url: "${apiUrl}", projectId: "prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD",
         state: "READY", createdAt: 2000, meta: { githubCommitSha: "${sha}", githubCommitRef: "staging" }
       }]});
-      if (url.pathname === "/health") return Response.json({ status: "ok", service: "tradeos-costbook-api", commitSha: "${sha}" });
+      if (url.pathname === "/health") return Response.json({ status: "ok", service: "tradeos-costbook-api", commitSha: "${sha}", environment: "preview" });
       if (url.pathname === "/ready") return Response.json({
         status: "ready", checks: { database: { status: "ok", latencyMs: 1, projectRef: "${ref}" }, schema: { status: "ok" } }
       });
@@ -237,6 +237,9 @@ test("deployment identity proves web SHA, API SHA, and /ready project ref withou
     assert.equal(identity.supabaseProjectRef, ref);
     assert.equal(identity.commitSha, sha);
     assert.equal(identity.branch, "staging");
+    // The fixture host is a preview host, so the deployment environment
+    // derived from its URL is "preview" even though the branch is staging.
+    assert.equal(identity.environment, "preview");
     assert.equal(identity.apiDeploymentId, "dpl_api_fixture");
     assert.equal(identity.backendOrigin, `https://${apiUrl}`);
     assert.equal(identity.backendBinding, "verified");
@@ -266,14 +269,14 @@ test("deployment identity refuses a backend alias that resolves to another API d
         });
       }
       if (url.pathname === "/api/staging-runtime-identity") return Response.json({
-        status: "configured", commitSha: "${sha}", branch: "staging",
+        status: "configured", commitSha: "${sha}", branch: "staging", environment: "preview",
         supabaseProjectRef: "${ref}", backendOrigin: "https://${otherUrl}", scope: "public_configuration_only",
       });
       if (url.pathname === "/v6/deployments") return Response.json({ deployments: [{
         uid: "dpl_api_fixture", url: "${apiUrl}", projectId: "prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD",
         state: "READY", createdAt: 2000, meta: { githubCommitSha: "${sha}", githubCommitRef: "staging" }
       }]});
-      if (url.pathname === "/health") return Response.json({ status: "ok", service: "tradeos-costbook-api", commitSha: "${sha}" });
+      if (url.pathname === "/health") return Response.json({ status: "ok", service: "tradeos-costbook-api", commitSha: "${sha}", environment: "preview" });
       if (url.pathname === "/ready") return Response.json({
         status: "ready", checks: { database: { status: "ok", latencyMs: 1, projectRef: "${ref}" }, schema: { status: "ok" } }
       });

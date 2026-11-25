@@ -6,7 +6,7 @@ jest.mock("../backend/logging", () => ({ logError: jest.fn() }));
 
 import { basePrisma } from "../db/client";
 import { logError } from "../backend/logging";
-import { buildHealthPayload, checkReadiness, resolveDatabaseProjectRef } from "../backend/health";
+import { buildHealthPayload, checkReadiness, resolveDatabaseProjectRef, resolveRuntimeEnvironment } from "../backend/health";
 
 const queryRawUnsafe = basePrisma.$queryRawUnsafe as jest.Mock;
 const mockedLogError = logError as jest.Mock;
@@ -16,6 +16,7 @@ describe("production health surfaces", () => {
     jest.clearAllMocks();
     delete process.env.VERCEL_GIT_COMMIT_SHA;
     delete process.env.GIT_COMMIT_SHA;
+    delete process.env.VERCEL_ENV;
     delete process.env.DATABASE_URL;
     delete process.env.SUPABASE_URL;
   });
@@ -29,6 +30,26 @@ describe("production health surfaces", () => {
     expect(payload.commitSha).toBe("abc123");
     expect(payload.uptimeSeconds).toEqual(expect.any(Number));
     expect(queryRawUnsafe).not.toHaveBeenCalled();
+  });
+
+  it("publishes the Vercel environment on the liveness payload, and omits it when unrecognized", () => {
+    process.env.VERCEL_ENV = "preview";
+    expect(buildHealthPayload(new Date("2026-08-12T22:00:00.000Z")).environment).toBe("preview");
+    process.env.VERCEL_ENV = "production";
+    expect(buildHealthPayload(new Date("2026-08-12T22:00:00.000Z")).environment).toBe("production");
+    delete process.env.VERCEL_ENV;
+    expect(buildHealthPayload(new Date("2026-08-12T22:00:00.000Z")).environment).toBeUndefined();
+  });
+
+  it("recognizes only the exact Vercel environment values", () => {
+    expect(resolveRuntimeEnvironment({ VERCEL_ENV: "preview" } as NodeJS.ProcessEnv)).toBe("preview");
+    expect(resolveRuntimeEnvironment({ VERCEL_ENV: "production" } as NodeJS.ProcessEnv)).toBe("production");
+    expect(resolveRuntimeEnvironment({ VERCEL_ENV: "development" } as NodeJS.ProcessEnv)).toBe("development");
+    expect(resolveRuntimeEnvironment({} as NodeJS.ProcessEnv)).toBeUndefined();
+    expect(resolveRuntimeEnvironment({ VERCEL_ENV: "" } as NodeJS.ProcessEnv)).toBeUndefined();
+    expect(resolveRuntimeEnvironment({ VERCEL_ENV: "staging" } as NodeJS.ProcessEnv)).toBeUndefined();
+    expect(resolveRuntimeEnvironment({ VERCEL_ENV: "Preview" } as NodeJS.ProcessEnv)).toBeUndefined();
+    expect(resolveRuntimeEnvironment({ VERCEL_ENV: "PRODUCTION" } as NodeJS.ProcessEnv)).toBeUndefined();
   });
 
   it("reports ready when the database probe succeeds", async () => {

@@ -4,8 +4,8 @@ import { correlateStagingRuntime, STAGING_WEB_ORIGIN, STAGING_API_ORIGIN, STAGIN
 const sha = 'a'.repeat(40);
 const input = () => ({ baseUrl: STAGING_WEB_ORIGIN, expectedSha: sha, projectRef: STAGING_PROJECT_REF });
 const payloads = () => [
-  { status: 'configured', branch: 'staging', commitSha: sha, supabaseProjectRef: STAGING_PROJECT_REF, backendOrigin: STAGING_API_ORIGIN, scope: 'public_configuration_only' },
-  { status: 'ok', commitSha: sha },
+  { status: 'configured', branch: 'staging', environment: 'preview', commitSha: sha, supabaseProjectRef: STAGING_PROJECT_REF, backendOrigin: STAGING_API_ORIGIN, scope: 'public_configuration_only' },
+  { status: 'ok', commitSha: sha, environment: 'preview' },
   { status: 'ready', checks: { database: { status: 'ok', projectRef: STAGING_PROJECT_REF } } },
 ];
 function transport(data, calls = []) {
@@ -24,6 +24,7 @@ test('correlates matching live web/API SHA and data plane with no redirects or c
 for (const [name, index, field, value] of [
   ['web SHA',0,'commitSha','b'.repeat(40)], ['web branch',0,'branch','main'], ['web project',0,'supabaseProjectRef','kssaceuetdjwfqnbzhly'],
   ['web backend',0,'backendOrigin','https://api.404tradeos.com'], ['web scope',0,'scope','other'], ['API SHA',1,'commitSha','b'.repeat(40)], ['API health',1,'status','failed'],
+  ['web environment',0,'environment','production'], ['API environment',1,'environment','production'],
 ]) test(`rejects mismatched ${name}`, async () => {
   const data = payloads(); data[index][field] = value;
   await assert.rejects(correlateStagingRuntime({ ...input(), fetchImpl: transport(data) }), e => e.code === 'STAGING_RUNTIME_MISMATCH');
@@ -31,6 +32,12 @@ for (const [name, index, field, value] of [
 test('rejects ready failure, production data plane, and missing project proof', async () => {
   for (const ready of [{ status:'failed' }, { status:'ready', checks:{ database:{status:'ok',projectRef:'kssaceuetdjwfqnbzhly'} } }, { status:'ready',checks:{database:{status:'ok'}} }]) {
     const data = payloads(); data[2] = ready;
+    await assert.rejects(correlateStagingRuntime({ ...input(), fetchImpl: transport(data) }));
+  }
+});
+test('rejects a missing runtime environment on either surface', async () => {
+  for (const index of [0, 1]) {
+    const data = payloads(); delete data[index].environment;
     await assert.rejects(correlateStagingRuntime({ ...input(), fetchImpl: transport(data) }));
   }
 });
