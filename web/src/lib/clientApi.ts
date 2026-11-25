@@ -1,10 +1,12 @@
 export class ClientApiError extends Error {
   public readonly status: number;
+  public readonly details?: unknown;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, details?: unknown) {
     super(message);
     this.name = "ClientApiError";
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -14,6 +16,14 @@ function getErrorMessage(body: unknown): string {
   }
 
   return "Request failed";
+}
+
+function getErrorDetails(body: unknown): unknown {
+  if (typeof body === "object" && body !== null && "details" in body) {
+    return (body as { details?: unknown }).details;
+  }
+
+  return undefined;
 }
 
 function normalizeProxyPath(path: string): string {
@@ -46,7 +56,7 @@ export async function clientFetch<T>(path: string, init: RequestInit = {}): Prom
   }
 
   if (!response.ok) {
-    throw new ClientApiError(getErrorMessage(body), response.status);
+    throw new ClientApiError(getErrorMessage(body), response.status, getErrorDetails(body));
   }
 
   return body as T;

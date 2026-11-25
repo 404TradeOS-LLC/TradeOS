@@ -37,6 +37,11 @@ related_docs:
 - Implementation merged as PR #1067 (squash `1388baae`); S068 is `IN_REVIEW` with full acceptance still owed (browser-evidence workflow dispatch + run record in a follow-up PR).
 - GAP-1 fixed: attributable `change_order.approved` / `change_order.rejected` activity events. GAP-2 BLOCKED by design (customer portal approve/reject, ADR-010). GAP-3 finding: no downstream roll-up of approved change orders — founder decision.
 
+## Estimate Scope clarification — DES-10-F1
+
+- Branch `feat/des10-f1-one-question-clarification`. Scope owns the footing answer and revision recovery, and Athena review reads it as advisory context. The change requires the additive `20261125120000_add_estimate_scope_clarification` migration.
+- Continue with exact-head CI and authenticated 390/768/1024/1440 evidence for save, reload, retry, stale revision and tenant denial. Deployment certification requires the matching nonproduction API/web build and migration state. DES-10-F2 and the F7 portal redeem paths are outside this lane.
+
 ## Next Eligible Sprint
 
 Sprint ID: NONE

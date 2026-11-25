@@ -11,6 +11,7 @@ import { KnowledgeRuntimeService } from "../knowledge-runtime/service";
 import { CostDatabaseService } from "../cost-database/service";
 import { AssembliesDatabaseService } from "../assemblies-database/service";
 import { createAthenaGenerationRecord, createAthenaGenerationReview, findAthenaGenerationRecord } from "../athena-generation/store";
+import { resolveScopeClarification } from "./scopeClarification";
 import { findNumberUnitMatches, QuantityUnitAlternative } from "../shared/quantityText";
 import {
   AIEstimateSuggestionKind,
@@ -53,6 +54,10 @@ export class StructuredAIEstimatorService {
       throw new ApiError(400, "scopeOfWork is required when the project does not already have a simple scope");
     }
 
+    const savedProjectScope = estimate.project.simpleScope?.trim();
+    const clarification = savedProjectScope === scopeOfWork
+      ? await resolveScopeClarification(estimate.id, input.orgId, scopeOfWork)
+      : null;
     const toolRuns: AIEstimatorToolRun[] = [];
     let knowledgeMatch: ReturnType<KnowledgeRuntimeService["matchScope"]>;
     try {
@@ -104,6 +109,9 @@ export class StructuredAIEstimatorService {
 
     const warnings = [
       ...knowledgeMatch.reviewWarnings,
+      ...(clarification ? [clarification.answer?.kind === "details"
+        ? "Verify the saved footing field note before including replacement in the estimate."
+        : "Confirm existing footings at the site before pricing replacement."] : []),
       ...lineItems.flatMap((lineItem) => lineItem.reviewWarnings),
       ...(resolvedCount === 0 ? ["No generated line item is currently tied to an existing estimate target."] : []),
     ];
@@ -144,6 +152,7 @@ export class StructuredAIEstimatorService {
       projectId: estimate.projectId,
       scopeOfWork,
       parsedScope,
+      ...(clarification ? { clarification } : {}),
       detectedTrade: knowledgeMatch.detectedTrade,
       confidenceScore: knowledgeMatch.confidenceScore,
       lineItems,

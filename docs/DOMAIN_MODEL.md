@@ -170,6 +170,10 @@ A priced commercial draft stored in `Estimate`.
 - Estimate Engine currently enforces draft-only mutations and `draft -> ready` finalization; customer-facing later transitions are separate workflow scope
 - carries two nullable Review readiness attestations, `exclusionsReviewedAt` and `priceSourcesReviewedAt` (DES-10-F2): timestamps recording when the estimator confirmed the exclusions and the line price sources were reviewed. Both must be set before `draft -> ready` is allowed; there is no line-count gate — decision 22-B (Billy's word 2026-11-23) allows finalizing a $0 estimate. A duplicated draft starts with null attestations and must be re-reviewed
 
+## EstimateScopeClarification
+
+The internal field note or explicit site-check assumption belongs to one Estimate and one stable question key. The row stores the question as asked, the current answer, and a positive revision. Forced RLS follows the parent Estimate's organization, and writes require the existing billing-write roles and a draft parent. A new estimate version starts without an inherited answer. Saving the row leaves the parent estimate and its line items untouched.
+
 ## Proposal
 
 A customer-facing commercial document stored in `Proposal`.

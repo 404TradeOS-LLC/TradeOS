@@ -6,6 +6,8 @@ const mockStructuredEstimator = {
 const mockLegacyService = {
   generateSuggestions: jest.fn(),
   applySuggestions: jest.fn(),
+  getScopeClarification: jest.fn(),
+  saveScopeClarification: jest.fn(),
 };
 
 jest.mock("../modules/ai-estimate-assist/structuredEstimator", () => ({
@@ -269,5 +271,30 @@ describe("aiEstimateAssistController structured estimator endpoints", () => {
       )
     ).rejects.toThrow();
     expect(mockStructuredEstimator.generateDraft).not.toHaveBeenCalled();
+  });
+});
+
+describe("aiEstimateAssistController scope clarification endpoints", () => {
+  const body = {
+    questionKey: "existing-deck-footing-site-check.v1",
+    expectedRevision: 0,
+    answer: { kind: "details", detail: "  field note  " },
+  };
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it("derives identity from the URL and authentication and normalizes the detail", async () => {
+    const res = response();
+    await aiEstimateAssistController.saveScopeClarification(authedRequest(body), res as never);
+    expect(mockLegacyService.saveScopeClarification).toHaveBeenCalledWith({
+      ...body, answer: { kind: "details", detail: "field note" },
+      orgId: "org-from-auth", estimateId: "10000000-0000-0000-0000-000000000001",
+    });
+  });
+
+  it("rejects unauthorized writes and client-supplied organization IDs", async () => {
+    await expect(aiEstimateAssistController.saveScopeClarification(authedRequest(body, undefined, "technician"), response() as never)).rejects.toMatchObject({ statusCode: 403 });
+    await expect(aiEstimateAssistController.saveScopeClarification(authedRequest({ ...body, orgId: "foreign" }), response() as never)).rejects.toThrow();
+    expect(mockLegacyService.saveScopeClarification).not.toHaveBeenCalled();
   });
 });

@@ -18,6 +18,7 @@ const mockPrisma = {
   estimate: {
     findFirst: jest.fn(),
   },
+  estimateScopeClarification: { findFirst: jest.fn() },
   estimateLineItem: {
     findFirst: jest.fn(),
   },
@@ -113,6 +114,30 @@ describe("StructuredAIEstimatorService", () => {
 
   afterEach(() => {
     process.env.NODE_ENV = originalNodeEnv;
+  });
+
+  it("uses the saved footing note as interpretation context without changing reviewed item quantities", async () => {
+    const scope = "Replace 12x16 deck, reuse existing footings";
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", orgId: "org-1", projectId: "project-1", status: "draft",
+      project: { simpleScope: scope },
+    });
+    mockPrisma.estimateScopeClarification.findFirst.mockResolvedValue({
+      questionKey: "existing-deck-footing-site-check.v1",
+      question: "Have the footings been checked?",
+      answerKind: "details", detail: "Observed 24 LF of damaged foundation", revision: 1,
+    });
+    const estimator = new StructuredAIEstimatorService();
+    const draft = await estimator.generateDraft({ estimateId: "estimate-1", orgId: "org-1", scopeOfWork: scope });
+    expect(draft.clarification).toMatchObject({ revision: 1, answer: { kind: "details", detail: "Observed 24 LF of damaged foundation" } });
+    expect(draft.parsedScope.quantities).not.toContainEqual(expect.objectContaining({ value: 24, unit: "LF" }));
+    expect(draft.validation.warnings).toContain("Verify the saved footing field note before including replacement in the estimate.");
+    expect(mockEstimateEngine.addLineItem).not.toHaveBeenCalled();
+    expect(mockPrisma.estimateScopeClarification.findFirst).toHaveBeenCalledWith({
+      where: { estimateId: "estimate-1", questionKey: "existing-deck-footing-site-check.v1", estimate: { orgId: "org-1" } },
+    });
+    const edited = await estimator.generateDraft({ estimateId: "estimate-1", orgId: "org-1", scopeOfWork: "Build a different deck" });
+    expect(edited.clarification).toBeUndefined();
   });
 
   it("converts contractor language into a priced structured draft using resolved assembly targets", async () => {

@@ -58,14 +58,14 @@ test("mobile stages expose native sequential step navigation instead of an incom
 
 test("stage navigation preserves fail-closed asynchronous scope-save transitions", async () => {
   const builder = await readSource("./builder.tsx");
-  assert.match(builder, /if \(stage === activeStage \|\| scopeSavePending\) return;/);
+  assert.match(builder, /if \(stage === activeStage \|\| scopeSavePending \|\| clarificationBusy\) return;/);
   assert.match(builder, /if \(activeStage === "scope" && isDraft && scopeDirty\)/);
   assert.match(builder, /const saved = await onSaveScope\(\);\s*if \(!saved\) return;\s*\}\s*focusOnStageChange\.current = true;\s*onStageChange\(stage\);/);
   assert.match(builder, /if \(!focusOnStageChange\.current\) return;/);
   assert.match(builder, /stageHeadingRefs\.current\[activeStage\]\?\.focus\(\)/);
   assert.match(builder, /tabIndex=\{-1\}/);
   assert.match(builder, /onClick=\{\(\) => void goToStage\(stage.id\)\}/);
-  assert.match(builder, /disabled=\{scopeSavePending && activeStage === "scope" && stage.id !== "scope"\}/);
+  assert.match(builder, /disabled=\{\(scopeSavePending \|\| clarificationBusy\) && activeStage === "scope" && stage.id !== "scope"\}/);
   assert.match(builder, /min-h-11 w-full/);
   assert.match(builder, /<section className="space-y-4" aria-label="Estimate workflow">/);
 });
@@ -309,4 +309,20 @@ test("estimate builder header shows customer and job-description identity lines 
   assert.match(builder, /title=\{`Estimate v\$\{estimate\.version\}`\}/);
   assert.match(builder, /<StatusBadge status=\{estimate\.status\} \/>/);
   assert.doesNotMatch(builder, /EST-\d+|ESTIMATE #\d+/);
+});
+
+test("review navigation waits for a pending clarification save (DES-10-F1 CodeRabbit)", async () => {
+  const builder = await readSource("./builder.tsx");
+
+  // The clarification busy flag is owned by the builder, not the stage
+  // flow, so both review entrypoints see it: the header action and the
+  // contextual review action both go through openFullReview.
+  assert.match(builder, /const \[clarificationBusy, setClarificationBusy\] = useState\(false\);/);
+  assert.match(builder, /if \(saveScope\.isPending \|\| clarificationBusy\) return;/);
+  assert.match(builder, /disabled=\{reviewNavigationPending \|\| saveScope\.isPending \|\| clarificationBusy\}/);
+  assert.match(builder, /fullReviewPending=\{reviewNavigationPending \|\| saveScope\.isPending \|\| clarificationBusy\}/);
+  assert.match(builder, /clarificationBusy=\{clarificationBusy\}/);
+  assert.match(builder, /onClarificationBusyChange=\{setClarificationBusy\}/);
+  // No second local copy: the stage flow must not own its own flag.
+  assert.equal((builder.match(/const \[clarificationBusy, setClarificationBusy\] = useState\(false\);/g) ?? []).length, 1);
 });

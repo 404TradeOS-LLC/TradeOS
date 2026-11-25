@@ -42,6 +42,7 @@ import {
   type VerifiedEstimateApplyLine,
 } from "@/lib/estimate-apply-verification";
 import { ResolveSequence } from "@/components/motion/resolve-sequence";
+import { ScopeClarificationSummary } from "./estimate-scope-clarification";
 import { draftCategories } from "@/lib/motion/adapters";
 
 type SuggestionStatus = "pending" | "accepted" | "rejected";
@@ -511,6 +512,13 @@ export function AIEstimateAssist({
                   revealed={interpretationDraft !== null}
                   generationKey={`generation-${generationSequence}`}
                 />
+              </div>
+            ) : null}
+            {interpretationDraft?.clarification ? (
+              <div className="space-y-2 rounded-lg border border-border p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-foreground">Athena understood</p>
+                <ScopeClarificationSummary clarification={interpretationDraft.clarification} />
+                <Link href={`/projects/${projectId}/estimates/${estimateId}`} className="inline-flex min-h-11 items-center text-sm text-primary underline underline-offset-4">Review clarification in Scope</Link>
               </div>
             ) : null}
             {structuredDraft ? (

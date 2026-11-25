@@ -26,6 +26,7 @@ import {
 } from "../modules/supplier-integration/abcOAuth";
 import { AssembliesDatabaseService } from "../modules/assemblies-database/service";
 import { ProposalsService } from "../modules/proposals/service";
+import { AIEstimateAssistService } from "../modules/ai-estimate-assist/service";
 import { EstimateEngineService } from "../modules/estimate-engine/service";
 import { InvoicesService } from "../modules/invoices/service";
 import { CrmService } from "../modules/crm/service";
@@ -4386,6 +4387,84 @@ describe("live organization row-level security", () => {
       }
     });
   });
+  describe("estimate scope clarification (DES-10-F1)", () => {
+    const service = new AIEstimateAssistService();
+    const deckProject = randomUUID();
+    const deckEstimate = randomUUID();
+    const questionKey = "existing-deck-footing-site-check.v1";
+    const detail = "24 in × 12 in, sound concrete";
+    const payload = {
+      estimateId: deckEstimate,
+      orgId: orgA,
+      questionKey,
+      expectedRevision: 0,
+      answer: { kind: "details", detail: `  ${detail}  ` } as const,
+    };
+    const ownerSession = <T>(operation: () => Promise<T>) => inSession(adminUser, orgA, "admin", operation);
+
+    beforeEach(async () => {
+      await adminClient.project.create({
+        data: { id: deckProject, orgId: orgA, customerId: customerA, name: "Deck", simpleScope: "Replace deck and reuse existing footings" },
+      });
+      await adminClient.estimate.create({
+        data: {
+          id: deckEstimate, orgId: orgA, projectId: deckProject, subtotalCost: 200, totalPrice: 237,
+          lineItems: {
+            create: { description: "Saved deck line", quantity: 1, unitOfMeasure: "EA", unitCost: 200, lineCost: 200 },
+          },
+        },
+      });
+    });
+
+    afterEach(() => adminClient.project.delete({ where: { id: deckProject } }));
+
+    it("saves, reloads and retries one normalized answer without changing saved items or money", async () => {
+      const before = await adminClient.estimate.findUnique({ where: { id: deckEstimate }, include: { lineItems: true } });
+      await expect(ownerSession(() => service.getScopeClarification(deckEstimate, orgA))).resolves.toMatchObject({
+        questionKey, revision: 0, answer: null,
+      });
+      const responses = await Promise.all([
+        ownerSession(() => service.saveScopeClarification(payload)),
+        ownerSession(() => service.saveScopeClarification(payload)),
+      ]);
+      expect(responses[0]).toEqual(responses[1]);
+      expect(responses[0]).toMatchObject({ questionKey, revision: 1, answer: { kind: "details", detail } });
+      await expect(ownerSession(() => service.getScopeClarification(deckEstimate, orgA))).resolves.toEqual(responses[0]);
+      expect(await adminClient.estimate.findUnique({ where: { id: deckEstimate }, include: { lineItems: true } })).toEqual(before);
+    });
+
+    it("denies cross-tenant clarification reads and writes at the service and database", async () => {
+      await ownerSession(() => service.saveScopeClarification(payload));
+      const foreign = <T>(operation: () => Promise<T>) => inSession(otherUser, orgB, "admin", operation);
+      await expect(foreign(() => service.getScopeClarification(deckEstimate, orgB))).rejects.toMatchObject({ statusCode: 404 });
+      await expect(foreign(() => service.saveScopeClarification({ ...payload, orgId: orgB }))).rejects.toMatchObject({ statusCode: 404 });
+      await expect(foreign(() => currentTransaction().estimateScopeClarification.findMany({ where: { estimateId: deckEstimate } }))).resolves.toEqual([]);
+      await expect(foreign(() => currentTransaction().estimateScopeClarification.create({
+        data: { estimateId: deckEstimate, questionKey: "foreign-key", question: "Foreign", revision: 1, answerKind: "site_check_assumption" },
+      }))).rejects.toThrow(/row.level security/i);
+    });
+
+    it("rejects a competing revision, saves the explicit assumption after refresh and denies technician writes", async () => {
+      await ownerSession(() => service.saveScopeClarification(payload));
+      const assumption = { ...payload, answer: { kind: "site_check_assumption" } as const };
+      await expect(ownerSession(() => service.saveScopeClarification(assumption))).rejects.toMatchObject({ statusCode: 409 });
+      const saved = await ownerSession(() => service.saveScopeClarification({ ...assumption, expectedRevision: 1 }));
+      expect(saved).toMatchObject({ revision: 2, answer: { kind: "site_check_assumption" } });
+      await expect(ownerSession(() => service.getScopeClarification(deckEstimate, orgA))).resolves.toEqual(saved);
+      await expect(inSession(technicianUser, orgA, "technician", () => currentTransaction().estimateScopeClarification.create({
+        data: { estimateId: deckEstimate, questionKey: "technician-key", question: "Not allowed", revision: 1, answerKind: "site_check_assumption" },
+      }))).rejects.toThrow(/row.level security/i);
+    });
+
+    it("rejects a clarification save on a finalized estimate with the ESTIMATE_FINALIZED code", async () => {
+      await adminClient.estimate.update({ where: { id: deckEstimate }, data: { status: "finalized" } });
+      await expect(ownerSession(() => service.saveScopeClarification(payload))).rejects.toMatchObject({
+        statusCode: 409,
+        details: { code: "ESTIMATE_FINALIZED" },
+      });
+    });
+  });
+
 });
 
 function inSession<T>(userId: string, orgId: string, role: SupportedRole, operation: () => Promise<T>): Promise<T> {

@@ -88,6 +88,25 @@ export interface AIEstimateSuggestion {
   provenanceDetail?: AIEstimateProvenanceDetail;
 }
 
+export type EstimateClarificationAnswer =
+  | { kind: "details"; detail: string }
+  | { kind: "site_check_assumption" };
+
+export interface EstimateScopeClarification {
+  questionKey: string;
+  question: string;
+  revision: number;
+  answer: EstimateClarificationAnswer | null;
+}
+
+export interface SaveEstimateScopeClarificationInput {
+  estimateId: string;
+  orgId: string;
+  questionKey: string;
+  expectedRevision: number;
+  answer: EstimateClarificationAnswer;
+}
+
 export interface GenerateAIEstimateSuggestionsInput {
   estimateId: string;
   orgId: string;
@@ -201,6 +220,7 @@ export interface StructuredEstimateDraft {
   projectId: string;
   scopeOfWork: string;
   parsedScope: ParsedContractorScope;
+  clarification?: EstimateScopeClarification;
   detectedTrade: string | null;
   confidenceScore: number;
   lineItems: StructuredEstimateDraftLineItem[];
