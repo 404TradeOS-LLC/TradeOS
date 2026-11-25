@@ -11,7 +11,14 @@ import { shouldRejectProxyMutation } from "@/lib/proxy-origin";
 const BACKEND_API_URL = process.env.BACKEND_API_URL ?? "http://localhost:4000";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  if (shouldRejectProxyMutation(request.method, request.url, request.headers.get("origin"))) {
+  if (
+    shouldRejectProxyMutation(
+      request.method,
+      request.url,
+      request.headers.get("origin"),
+      request.headers.get("sec-fetch-site"),
+    )
+  ) {
     return NextResponse.json({ error: "Cross-origin portal redemption is not allowed" }, { status: 403 });
   }
 

@@ -39,6 +39,7 @@ test("redemption requires an explicit exact-origin POST and clears the pending t
   const cookieRead = source.indexOf("request.cookies.get");
   const redemption = source.indexOf("/api/v1/customer-portal/redeem");
   assert.ok(originCheck >= 0 && originCheck < cookieRead && cookieRead < redemption);
+  assert.match(source, /sec-fetch-site/);
   assert.match(source, /export async function POST/);
   assert.match(source, /CUSTOMER_PORTAL_PENDING_ACCESS_COOKIE, ""/);
   assert.match(source, /maxAge: 0/);
