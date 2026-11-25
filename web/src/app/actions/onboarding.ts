@@ -38,14 +38,18 @@ import type { FormActionState } from "./customers";
  *    region) on the org's onboarding-state record and mark it completed
  *    (best-effort: a persistence failure never blocks the redirect — the
  *    created draft estimate is itself the completion record).
- * 4. Land on the draft estimate workspace, where the existing Athena
- *    review button continues Items → Price → Review. Athena review
- *    generates the structured draft on demand from the persisted scope —
- *    no draft is staged here: `StructuredAIEstimatorService.generateDraft`
- *    persists only generation metadata, not retrievable line items, and
- *    there is no endpoint to fetch a staged draft, so a fire-and-forget
- *    generation here would discard its result. Draft persistence +
- *    hydration is a follow-up slice (storage + GET + migration).
+ * 4. Land on the Athena review route for the draft estimate, with
+ *    `?autoReview=1` so the review runs on landing (DES-3 slice 3).
+ *    Athena review generates the structured draft on demand from the
+ *    persisted scope — no draft is staged here:
+ *    `StructuredAIEstimatorService.generateDraft` persists only
+ *    generation metadata, not retrievable line items, and there is no
+ *    endpoint to fetch a staged draft, so a fire-and-forget generation
+ *    here would discard its result. Draft persistence + hydration is a
+ *    follow-up slice (storage + GET + migration). The review itself
+ *    runs client-side on the assist route (auto-run once on mount when
+ *    the landing carries the param, manual otherwise); nothing is
+ *    applied to the estimate without the user's accept step.
  *
  * Failure semantics (mirrors `createProjectAction` with intent=estimate):
  * a project that fails to save returns an inline error; an estimate that
@@ -114,7 +118,7 @@ export async function completeFirstEstimateOnboarding(
 
   revalidatePath("/dashboard");
   revalidatePath(`/projects/${projectId}`);
-  redirect(`/projects/${projectId}/estimates/${estimate.id}`);
+  redirect(`/projects/${projectId}/estimates/${estimate.id}/assist?autoReview=1`);
 }
 
 /**

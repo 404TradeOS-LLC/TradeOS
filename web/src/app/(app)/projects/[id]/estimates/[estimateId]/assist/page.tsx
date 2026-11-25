@@ -9,10 +9,16 @@ import { cn } from "@/lib/utils";
 
 export default async function AIEstimateAssistPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; estimateId: string }>;
+  // DES-3 slice 3: onboarding completion lands here with ?autoReview=1 so
+  // the review runs on landing. Every other landing omits it and the
+  // review stays manual (the builder's "Athena review" button navigates
+  // here without the param).
+  searchParams: Promise<{ autoReview?: string }>;
 }) {
-  const { id, estimateId } = await params;
+  const [{ id, estimateId }, { autoReview }] = await Promise.all([params, searchParams]);
   const token = await getSessionToken();
   const project = await getProject(token ?? "", id);
   const initialScope = savedScopeForEstimateReview(project, id, estimateId);
@@ -56,6 +62,7 @@ export default async function AIEstimateAssistPage({
         initialKnowledgeTrades={knowledgeTrades}
         initialKnowledgeMatch={null}
         initialStructuredDraft={null}
+        autoRunReview={autoReview === "1"}
       />
     </div>
   );

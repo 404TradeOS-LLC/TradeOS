@@ -41,20 +41,26 @@ test("onboarding completion validates the wizard payload before creating anythin
   );
 });
 
-test("scope-to-workspace wiring: project, then estimate, then workspace", () => {
+test("scope-to-review wiring: project, then estimate, then Athena review with auto-run (DES-3 slice 3)", () => {
   const source = readActionSource("completeFirstEstimateOnboarding");
   const projectIndex = source.indexOf('apiFetch<{ id: string }>("/api/v1/projects"');
   const estimateIndex = source.indexOf('apiFetch<Estimate>("/api/v1/estimates"');
-  const redirectIndex = source.indexOf("redirect(`/projects/${projectId}/estimates/${estimate.id}`)");
+  const redirectIndex = source.indexOf("redirect(`/projects/${projectId}/estimates/${estimate.id}/assist?autoReview=1`)");
   for (const [name, index] of [
     ["project create", projectIndex],
     ["estimate create", estimateIndex],
-    ["workspace redirect", redirectIndex],
+    ["review redirect", redirectIndex],
   ] as const) {
     assert.notEqual(index, -1, `expected ${name}`);
   }
   assert.ok(projectIndex < estimateIndex, "project must be created before its estimate");
-  assert.ok(estimateIndex < redirectIndex, "estimate must exist before the workspace redirect");
+  assert.ok(estimateIndex < redirectIndex, "estimate must exist before the review redirect");
+  // The landing is the Athena review route, not the builder: the review
+  // auto-runs there, so the user never has to find the review button.
+  assert.ok(
+    !source.includes("redirect(`/projects/${projectId}/estimates/${estimate.id}`)"),
+    "completion must not land on the builder without auto-run",
+  );
 });
 
 test("completion never calls the draft endpoint: no staged draft exists to hydrate", () => {
@@ -90,8 +96,8 @@ test("completion persists the wizard answers on the org onboarding record, best-
     "the draft estimate must exist before its onboarding state is completed",
   );
   assert.ok(
-    source.indexOf("completeOnboarding") < source.indexOf("redirect(`/projects/${projectId}/estimates/${estimate.id}`)"),
-    "completion is recorded before landing on the workspace",
+    source.indexOf("completeOnboarding") < source.indexOf("redirect(`/projects/${projectId}/estimates/${estimate.id}/assist?autoReview=1`)"),
+    "completion is recorded before landing on the review",
   );
 });
 
