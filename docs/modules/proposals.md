@@ -95,6 +95,7 @@ Display: the staff proposal detail page (`/projects/[id]/proposals/[proposalId]`
 - **Filters:** `status` (comma-separated, multiple statuses, legacy-synonym-aware), `sent` (`sentAt` non-null), `viewed` (`viewedAt` non-null), `unsigned` (no `Contract` row references the proposal yet — conversion is independent of that contract's own signature state), `staleBefore` (matches `sentAt <= staleBefore`; there is no hard-coded staleness age), `updatedAfter`, `updatedBefore`.
 - **Pagination:** opaque cursor, default 25 / max 50, `updatedAt desc, id desc` with a stable id tie-breaker, invalid cursor -> `400`. Response is `{ items, total, nextCursor }` with an exact filtered `total`.
 - **Response fields:** `id`, `projectId`, `projectName`, `customerName`, `status`, `amount` (`finalPrice`, nullable — a proposal only has a single canonical amount once finalized; `priceLow`/`priceHigh` remain range fields, not folded into this figure), `contractId` (nullable, the most recently created linked `Contract`'s id), `sentAt`, `viewedAt`, `updatedAt`. No `orgId` on individual items.
+- **Explicit column list (#1093):** the query selects exactly the columns the queue item consumes (plus the project/customer names and the latest contract id) instead of select-all, mirroring the invoices queue's explicit-column raw SQL. A select-all read 500s the whole queue when the database lags the code by an additive column — production proved it when the DES-10-F7 signature columns did not exist yet and Today marked "Proposal follow-ups" unavailable. A future additive column degrades one field, not the queue.
 - The product spec's "canceled/voided proposals must not satisfy unsigned/stale" rule has no canonical status to apply to in the current domain (see Known limitations below and `docs/WORKFLOW_LIFECYCLES.md`).
 
 ## Permissions
@@ -264,6 +265,7 @@ absent.
 - `app/tests/proposal-delivery.migration.test.ts`
 - `app/tests/proposals.athena-events-integration.test.ts`
 - `app/tests/proposals.queue.test.ts`, `app/tests/proposals.controller.queue.test.ts` — organization work-queue filters (sent/viewed/unsigned/stale), pagination, and authorization
+- `app/tests/proposals.queue.explicit-select.test.ts` — #1093 regression: the queue read succeeds against a database lacking the F7 signature columns and requests exactly the columns the queue item consumes
 - `app/tests/rls.integration.ts` (`organization work-queue reads` describe block) — live tenant isolation and unsigned/contractId resolution for the queue read
 - `app/tests/rls.integration.ts` — live same-org/cross-org proposal mutation and competing accept/decline transition coverage
 - `app/tests/documents.branding.test.ts` — canonical organization-brand resolution and safe fallback/color behavior

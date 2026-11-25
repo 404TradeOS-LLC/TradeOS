@@ -198,8 +198,20 @@ export class ProposalsService {
       prisma.proposal.count({ where: filterWhere }),
       prisma.proposal.findMany({
         where: pageWhere,
-        include: {
-          project: { include: { customer: { select: { name: true } } } },
+        // Explicit column list (#1093): a select-all read 500s the whole
+        // queue when the database lags the code by an additive column
+        // (here: the DES-10-F7 signature columns). The queue item consumes
+        // only these columns, mirroring the invoices queue's
+        // explicit-column raw SQL.
+        select: {
+          id: true,
+          projectId: true,
+          status: true,
+          finalPrice: true,
+          sentAt: true,
+          viewedAt: true,
+          updatedAt: true,
+          project: { select: { name: true, customer: { select: { name: true } } } },
           contracts: { select: { id: true }, orderBy: { createdAt: "desc" }, take: 1 },
         },
         orderBy: [{ updatedAt: "desc" }, { id: "desc" }],

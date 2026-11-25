@@ -124,6 +124,7 @@ Organization work-queue reads (`GET /api/v1/estimates`, see `docs/modules/estima
 - the queue includes every non-deleted estimate; the current Estimate model has no soft-delete/archive flag, so this is unconditionally true today and no status is treated as an implicit default-view exclusion
 - a `status` filter (or comma-separated multiple statuses) is matched against the canonical value; matching also expands to any legacy raw stored value that normalizes to it, so callers never have to know the compatibility mapping
 - `sent` is accepted as its own canonical queue filter and does not match `ready`
+- the queue read selects explicitly the columns the queue item consumes (no select-all), so a database lagging the code by an additive column does not take the whole queue down (#1093: the DES-10-F2 review-checklist columns missing in production 500ed "Estimates in progress")
 - this is a read-only aggregate; it introduces no new estimate state or transition
 
 ## Costbook Workspace
@@ -206,6 +207,7 @@ Organization work-queue reads (`GET /api/v1/proposals`, see `docs/modules/propos
 - `unsigned` means no `Contract` row references the proposal yet — conversion is the Contract row's existence, independent of that contract's own `pending_signature`/`signed`/`voided` state
 - `stale` has no fixed age; the caller supplies `staleBefore` and the queue matches proposals whose `sentAt <= staleBefore`
 - the product spec for this queue calls for cancelled/voided proposals to be excluded from `unsigned`/`stale`, but the current domain has no canonical cancelled/voided proposal status (only `declined`/`expired` exist as terminal states) — there is nothing for that exclusion rule to apply to today; it is not implemented as a status value that does not exist in this domain
+- the queue read selects explicitly the columns the queue item consumes (no select-all), so a database lagging the code by an additive column does not take the whole queue down (#1093: the DES-10-F7 signature columns missing in production 500ed "Proposal follow-ups")
 - this is a read-only aggregate; it introduces no new proposal state or transition
 
 Proposal, invoice, and contract PDF generation preserves each workflow's
