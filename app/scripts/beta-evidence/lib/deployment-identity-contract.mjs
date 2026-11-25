@@ -76,6 +76,12 @@ function hostOf(origin) {
  * caller is explicitly running without SHA correlation and the returned
  * record says so. Environment, backend host, and data-plane checks are
  * never relaxed.
+ * `options.requireWebIdentity` (default false) requires the web runtime
+ * identity to be published. Staging correlation and S059 evidence set it:
+ * without a published web identity the web SHA, branch, backend binding,
+ * and data plane are unverifiable, and silently skipping them would accept
+ * a target the pre-S071 implementation rejected. Ordinary previews keep
+ * the optional behavior — their web runtime reports 404 by design.
  * Returns the verified identity (public identifiers only). Throws
  * DeploymentIdentityError on any mismatch, missing value, unparseable
  * identity, or production target.
@@ -144,6 +150,16 @@ export function verifyDeploymentIdentity({ expected, observed, options = {} }) {
     fail("IDENTITY_DATA_PLANE_INVALID", "Expected data-plane identifier is not an approved non-production project.");
   }
   if (observedRef !== expectedRef) fail("IDENTITY_DATA_PLANE_MISMATCH", "Data-plane identifier mismatch.");
+
+  // Staging correlation and S059 evidence require the web identity to be
+  // published: without it the web SHA, branch, backend binding, and data
+  // plane are unverifiable, and silently skipping them would accept a
+  // target the pre-S071 implementation rejected (it failed on a non-200
+  // web identity response). Ordinary previews keep the optional behavior
+  // — their web runtime reports 404 by design.
+  if (options.requireWebIdentity && !observed?.webIdentityPublished) {
+    fail("IDENTITY_WEB_IDENTITY_UNPUBLISHED", "The web runtime identity is not published for this deployment.");
+  }
 
   if (observed?.webIdentityPublished) {
     if (typeof observed.webCommitSha === "string" && observed.webCommitSha.trim().toLowerCase() !== observedSha) {

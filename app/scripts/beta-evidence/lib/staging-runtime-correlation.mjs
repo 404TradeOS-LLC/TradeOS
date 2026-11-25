@@ -23,6 +23,10 @@ export async function correlateStagingRuntime({ baseUrl, expectedSha, projectRef
         supabaseProjectRef: STAGING_PROJECT_REF,
       },
       observed,
+      // Staging correlation requires the web identity to be published:
+      // without it the web SHA, branch, backend binding, and data plane
+      // are unverifiable (Codex P1 on PR #1096).
+      options: { requireWebIdentity: true },
     });
   } catch {
     fail();

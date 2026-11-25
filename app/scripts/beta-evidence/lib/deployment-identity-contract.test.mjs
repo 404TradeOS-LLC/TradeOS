@@ -62,6 +62,20 @@ test("verifies a matching preview identity when the web identity is not publishe
   assert.equal(verified.environment, "preview");
 });
 
+test("fails closed on an unpublished web identity when the caller requires it", () => {
+  const bad = observed();
+  bad.webIdentityPublished = false;
+  delete bad.webCommitSha;
+  delete bad.webEnvironment;
+  delete bad.webBranch;
+  delete bad.webBackendHost;
+  delete bad.webProjectRef;
+  throwsWithCode(
+    () => verifyDeploymentIdentity({ expected: expected(), observed: bad, options: { requireWebIdentity: true } }),
+    "IDENTITY_WEB_IDENTITY_UNPUBLISHED",
+  );
+});
+
 for (const [name, mutate, code] of [
   ["commit mismatch", (o) => { o.commitSha = OTHER_SHA; }, "IDENTITY_SHA_MISMATCH"],
   ["commit missing", (o) => { delete o.commitSha; }, "IDENTITY_SHA_MISSING"],

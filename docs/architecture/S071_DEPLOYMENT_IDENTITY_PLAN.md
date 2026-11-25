@@ -207,6 +207,19 @@ What landed:
   (`app/scripts/beta-evidence/lib/staging-runtime-correlation.mjs`) now
   verify through the contract. The s027 env-inventory script is
   untouched.
+- The web's backend claim is checked for shape and non-production only,
+  NOT for equality with the API origin host: the web points at the
+  backend by its stable alias while evidence fetches `/health` from the
+  selected deployment's own URL, so the two hosts legitimately differ;
+  the alias-to-deployment binding is proven separately by the caller's
+  Vercel deployment lookup (deployment-uid equality). Equating the
+  hosts would fail closed on every real staging run.
+- `requireWebIdentity` (Codex P1 on PR #1096, fixed in-branch): staging
+  correlation and S059 evidence require the web identity to be
+  published (`IDENTITY_WEB_IDENTITY_UNPUBLISHED` otherwise); without it
+  the web SHA, branch, backend binding, and data plane are
+  unverifiable, and the pre-S071 implementation rejected a 404 web
+  identity. Ordinary previews keep the optional behavior.
 - Tests: contract test 33/33 (each field verified; each
   mismatch/missing/unparseable case failing closed; production refusal;
   no-secret handling), staging-runtime-correlation test updated with

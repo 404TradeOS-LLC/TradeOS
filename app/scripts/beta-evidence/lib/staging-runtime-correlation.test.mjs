@@ -41,6 +41,15 @@ test('rejects a missing runtime environment on either surface', async () => {
     await assert.rejects(correlateStagingRuntime({ ...input(), fetchImpl: transport(data) }));
   }
 });
+test('rejects an unpublished web identity for staging correlation', async () => {
+  // Codex P1 on PR #1096: the pre-S071 correlation rejected a 404 web
+  // identity; the contract must not silently skip every web check for it.
+  const fetchImpl = async (url, options) => {
+    if (url.endsWith('staging-runtime-identity')) return { status: 404, ok: false };
+    return transport(payloads())(url, options);
+  };
+  await assert.rejects(correlateStagingRuntime({ ...input(), fetchImpl }), e => e.code === 'STAGING_RUNTIME_MISMATCH');
+});
 test('rejects untrusted target and short SHA before making requests', async () => {
   for (const patch of [{baseUrl:'https://app.404tradeos.com'}, {expectedSha:'aaaaaaa'}, {projectRef:'kssaceuetdjwfqnbzhly'}]) {
     await assert.rejects(correlateStagingRuntime({ ...input(), ...patch, fetchImpl: () => assert.fail('must not fetch') }));

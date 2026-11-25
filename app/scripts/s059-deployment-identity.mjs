@@ -110,7 +110,7 @@ const verified = verifyDeploymentIdentity({
     supabaseProjectRef: expectedSupabaseRef,
   },
   observed,
-  options: { requireShaCorrelation: requireCorrelation },
+  options: { requireShaCorrelation: requireCorrelation, requireWebIdentity: true },
 });
 
 // Bind the web's effective backend to the selected API deployment. The
