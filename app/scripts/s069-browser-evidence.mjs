@@ -158,13 +158,17 @@ async function screenshot(page, name) {
 // Every capture site in this script sits AFTER the marker assert, so a
 // failed assert skips the screenshot entirely (run 45553851005 produced
 // zero PNGs). Capture best-effort BEFORE the assert and never let a
-// capture failure mask the real failure.
+// capture failure mask the real failure — but the failure is NOT
+// swallowed: the caller must fail its case/viewport when `file` is null,
+// or a run could certify an evidence bundle with required screenshots
+// missing (Codex review on PR #1101).
 async function screenshotBestEffort(page, name) {
   try {
-    return await screenshot(page, name);
+    return { file: await screenshot(page, name), error: null };
   } catch (error) {
-    console.error(`Screenshot ${name} failed (continuing): ${redactBearerMaterial(error.message)}`);
-    return null;
+    const message = redactBearerMaterial(error.message);
+    console.error(`Screenshot ${name} failed (continuing): ${message}`);
+    return { file: null, error: message };
   }
 }
 
@@ -415,12 +419,17 @@ try {
     // Capture BEFORE the marker assert: on a failed assert the screenshot
     // below would never run (run 45553851005 produced zero PNGs). The
     // file lands in outDir and is uploaded with the artifact either way.
-    await screenshotBestEffort(staffPage, "closeout-draft-1440");
+    // A failed capture still fails B2 (after the diagnostics above):
+    // certifying a draft closeout with no screenshot is not evidence.
+    const draftCapture = await screenshotBestEffort(staffPage, "closeout-draft-1440");
     assertCloseoutTab({ ...state, projectId: project.id, status, markers: ["Closeout and warranty", "Closeout status", "Punch list", "Warranties"] });
     assertCloseoutStatus({ bodyText: state.bodyText, status: "draft" });
     // The checklist is already ready here: every prerequisite is present
     // and no punch item is open yet — the closeout itself is still draft.
     assertChecklist({ bodyText: state.bodyText, ready: true });
+    if (!draftCapture.file) {
+      throw new Error(`Screenshot capture failed for closeout-draft-1440: ${draftCapture.error ?? "unknown error"} — evidence bundle incomplete`);
+    }
     passCase("B2", "draft closeout with the ready checklist renders on the workspace");
   } catch (error) {
     failCase("B2", error);
@@ -701,10 +710,15 @@ try {
       const status = await gotoCloseoutTab();
       const state = await metrics(staffPage);
       // Capture BEFORE the marker assert (see B2): a failed assert must
-      // still leave a screenshot for the failure report.
-      entry.screenshot = await screenshotBestEffort(staffPage, `closeout-ready-${viewport.name}`);
+      // still leave a screenshot for the failure report. A failed capture
+      // still fails the viewport (after the diagnostics above).
+      const readyCapture = await screenshotBestEffort(staffPage, `closeout-ready-${viewport.name}`);
+      entry.screenshot = readyCapture.file;
       entry.dimensions = { scrollWidth: state.scrollWidth, clientWidth: state.clientWidth };
       assertCloseoutTab({ ...state, projectId: project.id, status, markers: ["Closeout and warranty", "Closeout status", "Ready for handoff"] });
+      if (!readyCapture.file) {
+        throw new Error(`Screenshot capture failed for closeout-ready-${viewport.name}: ${readyCapture.error ?? "unknown error"} — evidence bundle incomplete`);
+      }
       entry.passed = true;
     } catch (error) {
       entry.error = redactBearerMaterial(error.message);
@@ -760,10 +774,15 @@ try {
       const status = await gotoCloseoutTab();
       const state = await metrics(staffPage);
       // Capture BEFORE the marker assert (see B2): a failed assert must
-      // still leave a screenshot for the failure report.
-      entry.screenshot = await screenshotBestEffort(staffPage, `closeout-handed-off-${viewport.name}`);
+      // still leave a screenshot for the failure report. A failed capture
+      // still fails the viewport (after the diagnostics above).
+      const handedOffCapture = await screenshotBestEffort(staffPage, `closeout-handed-off-${viewport.name}`);
+      entry.screenshot = handedOffCapture.file;
       entry.dimensions = { scrollWidth: state.scrollWidth, clientWidth: state.clientWidth };
       assertCloseoutTab({ ...state, projectId: project.id, status, markers: ["Closeout and warranty", "Closeout status", "Handed off"] });
+      if (!handedOffCapture.file) {
+        throw new Error(`Screenshot capture failed for closeout-handed-off-${viewport.name}: ${handedOffCapture.error ?? "unknown error"} — evidence bundle incomplete`);
+      }
       entry.passed = true;
     } catch (error) {
       entry.error = redactBearerMaterial(error.message);
@@ -849,8 +868,10 @@ try {
         const response = await portalPage.goto(portalUrl, { waitUntil: "networkidle", timeout: 60_000 });
         const state = await metrics(portalPage);
         // Capture BEFORE the marker assert (see B2): a failed assert must
-        // still leave a screenshot for the failure report.
-        entry.screenshot = await screenshotBestEffort(portalPage, `portal-handoff-${viewport.name}`);
+        // still leave a screenshot for the failure report. A failed capture
+        // still fails the viewport (after the diagnostics above).
+        const portalCapture = await screenshotBestEffort(portalPage, `portal-handoff-${viewport.name}`);
+        entry.screenshot = portalCapture.file;
         assertPortalHandoff({
           ...state,
           projectId: project.id,
@@ -858,6 +879,9 @@ try {
           markers: ["Closeout handoff", "Closeout status", "Handed off", "View closeout document"],
         });
         entry.dimensions = { scrollWidth: state.scrollWidth, clientWidth: state.clientWidth };
+        if (!portalCapture.file) {
+          throw new Error(`Screenshot capture failed for portal-handoff-${viewport.name}: ${portalCapture.error ?? "unknown error"} — evidence bundle incomplete`);
+        }
         entry.passed = true;
       } catch (error) {
         // The portal page renders the same "Portal access required" shell
