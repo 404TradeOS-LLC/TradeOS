@@ -19,7 +19,7 @@ export function ScopeClarificationSummary({ clarification }: { clarification: Es
       {clarification.answer?.kind === "details" ? (
         <p className="whitespace-pre-wrap break-words">{clarification.answer.detail}</p>
       ) : (
-        <p>{clarification.answer ? "Site-check assumption kept." : "No answer yet."} Footing replacement is excluded pending a site check.</p>
+        <p>{clarification.answer ? "Site-check assumption kept." : "No answer yet."} Footing replacement is unconfirmed — review before pricing replacement.</p>
       )}
     </div>
   );
@@ -166,7 +166,7 @@ export function EstimateScopeClarificationForm({
             </p>
             <p>{saving || error
               ? "Estimate items and pricing stay the same during an answer save."
-              : "Keep footing suitability as a site-check assumption. Replacement remains excluded until a site check confirms the work."}</p>
+              : "Keep footing suitability as a site-check assumption. Replacement stays unconfirmed until a site check — review before pricing it."}</p>
           </div>
           {showLatest ? <div className="space-y-1 rounded-md border border-border p-3">
             <p className="text-sm font-semibold">Latest saved answer</p>
