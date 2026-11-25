@@ -299,7 +299,7 @@ export function AppNav({
         <div className="flex min-h-16 items-center justify-between gap-3 py-3">
           <div className="flex min-w-0 items-center gap-3">
             <Link href="/dashboard" className="flex min-w-0 items-center gap-3 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#202225] p-2 shadow-(--elev-1)">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#222426] p-2 shadow-(--elev-1)">
                 <MetalLogo variant="mark" className="size-full" />
               </span>
               <div className="min-w-0">

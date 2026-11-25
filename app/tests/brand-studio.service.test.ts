@@ -260,9 +260,20 @@ describe("BrandStudioService", () => {
     const preview = await service.getPreview("org-1");
 
     expect(preview.validatedColors.primary).toBe("#123456");
-    expect(preview.validatedColors.secondary).toBe("#E5E7EB");
+    expect(preview.validatedColors.secondary).toBe("#F7F5F1");
     expect(preview.resolvedLogoUrls.logoUrl).toBe("https://cdn.example.com/logo.svg");
     expect(preview.derivedLogoVariants.find((item) => item.kind === "favicon")?.source).toBe("derived");
+    // Only a primary logo is owned (no dark/light variant): mono and
+    // print-safe still derive from that owned logo, not from the platform
+    // default dark/light URLs.
+    const monochrome = preview.derivedLogoVariants.find((item) => item.kind === "monochrome");
+    expect(monochrome?.url).toBe("https://cdn.example.com/logo-mono.svg");
+    expect(monochrome?.source).toBe("derived");
+    expect(monochrome?.derivedFrom).toBe("https://cdn.example.com/logo.svg");
+    const printSafe = preview.derivedLogoVariants.find((item) => item.kind === "print-safe");
+    expect(printSafe?.url).toBe("https://cdn.example.com/logo-print.svg");
+    expect(printSafe?.source).toBe("derived");
+    expect(printSafe?.derivedFrom).toBe("https://cdn.example.com/logo.svg");
     expect(preview.typography.style).toBe("Modern");
     expect(preview.documentTheme.coverMode).toBe("editorial");
     expect(preview.visibleTrustSignals.map((item) => item.id)).toEqual(
@@ -272,5 +283,36 @@ describe("BrandStudioService", () => {
       expect.arrayContaining(["Add your website URL", "Add a customer-facing email", "Add your business address"])
     );
     expect(preview.completionPercentage).toBeGreaterThan(0);
+  });
+
+  it("resolves an unbranded organization to the TradeOS master logo package defaults", async () => {
+    mockPrisma.brandProfile.findUnique.mockResolvedValue(null);
+    mockPrisma.brandDocumentSettings.findUnique.mockResolvedValue(null);
+    mockPrisma.brandAsset.findMany.mockResolvedValue([]);
+
+    const service = new BrandStudioService();
+    const preview = await service.getPreview("org-1");
+
+    expect(preview.validatedColors).toEqual({
+      primary: "#222426",
+      secondary: "#F7F5F1",
+      accent: "#C98460",
+    });
+    expect(preview.resolvedLogoUrls).toEqual({
+      logoUrl: "/brand/horizontal-light-1600.png",
+      logoDarkUrl: "/brand/horizontal-dark-1600.png",
+      logoLightUrl: "/brand/horizontal-light-1600.png",
+      iconUrl: "/brand/favicon.svg",
+      watermarkUrl: "/brand/mark-copper-1024.png",
+      coverImageUrl: "/brand/social-cover.png",
+    });
+    // The platform default is not the organization's own brand: the setup
+    // checklist still prompts for their logo.
+    expect(preview.missingSetupItems).toEqual(expect.arrayContaining(["Add a primary logo"]));
+    const favicon = preview.derivedLogoVariants.find((item) => item.kind === "favicon");
+    expect(favicon?.url).toBe("/brand/favicon.svg");
+    expect(favicon?.source).toBe("default");
+    const monochrome = preview.derivedLogoVariants.find((item) => item.kind === "monochrome");
+    expect(monochrome?.source).toBe("missing");
   });
 });

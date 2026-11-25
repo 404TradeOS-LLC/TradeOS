@@ -15,10 +15,25 @@ import {
   type UpdateBrandProfileInput,
 } from "./types";
 
+/** Platform brand defaults from the TradeOS master logo package
+ * (docs/brand/tradeos-master-logo-package, served from web/public/brand).
+ * These are display fallbacks for an organization that has not set its own
+ * brand yet: they are never persisted into the organization's profile, and
+ * any explicit profile value or uploaded asset wins over them. Clearing an
+ * uploaded asset returns the slot to the platform default. */
+export const TRADEOS_BRAND_DEFAULTS = {
+  logoUrl: "/brand/horizontal-light-1600.png",
+  logoDarkUrl: "/brand/horizontal-dark-1600.png",
+  logoLightUrl: "/brand/horizontal-light-1600.png",
+  iconUrl: "/brand/favicon.svg",
+  watermarkUrl: "/brand/mark-copper-1024.png",
+  coverImageUrl: "/brand/social-cover.png",
+} as const;
+
 const DEFAULT_COLORS = {
-  primary: "#111827",
-  secondary: "#E5E7EB",
-  accent: "#D97706",
+  primary: "#222426",
+  secondary: "#F7F5F1",
+  accent: "#C98460",
 } as const;
 
 const DEFAULT_TYPOGRAPHY_STYLE = "Professional";
@@ -196,13 +211,26 @@ export class BrandStudioService {
     const profile = toBrandProfileDTO(orgId, organization.name, profileRow);
     const settings = toBrandDocumentSettingsDTO(orgId, settingsRow);
 
-    const resolvedLogoUrls = {
+    // Explicit organization branding only (profile value or uploaded asset).
+    // The setup checklist and completion score measure the organization's own
+    // branding, not the platform default below.
+    const explicitLogoUrls = {
       logoUrl: profile.logoUrl || findAssetUrl(assets, ["logo", "primary-logo"]),
       logoDarkUrl: profile.logoDarkUrl || findAssetUrl(assets, ["logo-dark", "dark-logo"]),
       logoLightUrl: profile.logoLightUrl || findAssetUrl(assets, ["logo-light", "light-logo"]),
       iconUrl: profile.iconUrl || findAssetUrl(assets, ["icon", "favicon"]),
       watermarkUrl: profile.watermarkUrl || findAssetUrl(assets, ["watermark"]),
       coverImageUrl: profile.coverImageUrl || findAssetUrl(assets, ["cover", "cover-image"]),
+    };
+    // Display resolution: the organization's own branding, falling back to the
+    // TradeOS master logo package so a fresh organization renders branded.
+    const resolvedLogoUrls = {
+      logoUrl: explicitLogoUrls.logoUrl || TRADEOS_BRAND_DEFAULTS.logoUrl,
+      logoDarkUrl: explicitLogoUrls.logoDarkUrl || TRADEOS_BRAND_DEFAULTS.logoDarkUrl,
+      logoLightUrl: explicitLogoUrls.logoLightUrl || TRADEOS_BRAND_DEFAULTS.logoLightUrl,
+      iconUrl: explicitLogoUrls.iconUrl || deriveVariantUrl(explicitLogoUrls.logoUrl, "icon") || TRADEOS_BRAND_DEFAULTS.iconUrl,
+      watermarkUrl: explicitLogoUrls.watermarkUrl || TRADEOS_BRAND_DEFAULTS.watermarkUrl,
+      coverImageUrl: explicitLogoUrls.coverImageUrl || TRADEOS_BRAND_DEFAULTS.coverImageUrl,
     };
     const derivedLogoVariants = buildDerivedLogoVariants(profile, assets, resolvedLogoUrls);
     const typography = getTypographySpecimen(profile.typographyStyle);
@@ -231,7 +259,7 @@ export class BrandStudioService {
 
     const missingSetupItems = [
       !profile.companyDisplayName ? "Add your company display name" : null,
-      !resolvedLogoUrls.logoUrl ? "Add a primary logo" : null,
+      !explicitLogoUrls.logoUrl ? "Add a primary logo" : null,
       !profile.primaryColor ? "Choose a primary brand color" : null,
       !profile.websiteUrl ? "Add your website URL" : null,
       !profile.phone ? "Add a customer-facing phone number" : null,
@@ -247,9 +275,9 @@ export class BrandStudioService {
     const completionChecklist = [
       Boolean(profile.companyDisplayName),
       Boolean(profile.tagline),
-      Boolean(resolvedLogoUrls.logoUrl),
-      Boolean(profile.logoDarkUrl || resolvedLogoUrls.logoDarkUrl),
-      Boolean(profile.iconUrl || resolvedLogoUrls.iconUrl),
+      Boolean(explicitLogoUrls.logoUrl),
+      Boolean(profile.logoDarkUrl || explicitLogoUrls.logoDarkUrl),
+      Boolean(profile.iconUrl || explicitLogoUrls.iconUrl),
       Boolean(profile.primaryColor),
       Boolean(profile.secondaryColor),
       Boolean(profile.accentColor),
@@ -601,15 +629,30 @@ function buildDerivedLogoVariants(
   const iconAssetUrl = findAssetUrl(assets, ["icon", "favicon"]);
   const monoAssetUrl = findAssetUrl(assets, ["logo-mono", "mono", "monochrome"]);
   const printSafeAssetUrl = findAssetUrl(assets, ["logo-print", "print-safe", "print"]);
+  const ownedLogoUrl = profile.logoUrl || findAssetUrl(assets, ["logo", "primary-logo"]);
+  const derivedIconUrl = deriveVariantUrl(ownedLogoUrl, "icon");
+  const derivedFaviconUrl = deriveVariantUrl(ownedLogoUrl, "favicon");
+  const faviconUrl = profile.iconUrl || iconAssetUrl || derivedFaviconUrl || TRADEOS_BRAND_DEFAULTS.iconUrl;
+  // Mono/print variants derive only from organization-owned artwork. The
+  // resolved dark/light URLs carry the platform default when the org set
+  // nothing, and deriveVariantUrlFromOwnedBase rejects defaults — so basing
+  // the derivation on the resolved URLs reported both variants missing for
+  // an org whose own primary logo could have supplied them.
+  const ownedDarkUrl = profile.logoDarkUrl || findAssetUrl(assets, ["logo-dark", "dark-logo"]);
+  const ownedLightUrl = profile.logoLightUrl || findAssetUrl(assets, ["logo-light", "light-logo"]);
+  const darkBase = ownedDarkUrl || ownedLogoUrl;
+  const lightBase = ownedLightUrl || ownedLogoUrl;
+  const monoUrl = monoAssetUrl || deriveVariantUrlFromOwnedBase(darkBase, "mono");
+  const printUrl = printSafeAssetUrl || deriveVariantUrlFromOwnedBase(lightBase, "print");
 
   return [
     buildLogoVariant("primary", resolvedLogoUrls.logoUrl, resolvedLogoUrls.logoUrl ? sourceForResolvedLogo(profile.logoUrl, resolvedLogoUrls.logoUrl) : "missing"),
     buildLogoVariant("dark", resolvedLogoUrls.logoDarkUrl, resolvedLogoUrls.logoDarkUrl ? sourceForResolvedLogo(profile.logoDarkUrl, resolvedLogoUrls.logoDarkUrl) : "missing"),
     buildLogoVariant("light", resolvedLogoUrls.logoLightUrl, resolvedLogoUrls.logoLightUrl ? sourceForResolvedLogo(profile.logoLightUrl, resolvedLogoUrls.logoLightUrl) : "missing"),
-    buildLogoVariant("icon", profile.iconUrl || iconAssetUrl || deriveVariantUrl(resolvedLogoUrls.logoUrl, "icon"), profile.iconUrl ? "explicit" : iconAssetUrl ? "asset" : resolvedLogoUrls.logoUrl ? "derived" : "missing", resolvedLogoUrls.logoUrl),
-    buildLogoVariant("favicon", iconAssetUrl || profile.iconUrl || deriveVariantUrl(resolvedLogoUrls.logoUrl, "favicon"), iconAssetUrl ? "asset" : profile.iconUrl ? "explicit" : resolvedLogoUrls.logoUrl ? "derived" : "missing", resolvedLogoUrls.logoUrl),
-    buildLogoVariant("monochrome", monoAssetUrl || deriveVariantUrl(resolvedLogoUrls.logoDarkUrl || resolvedLogoUrls.logoUrl, "mono"), monoAssetUrl ? "asset" : resolvedLogoUrls.logoDarkUrl || resolvedLogoUrls.logoUrl ? "derived" : "missing", resolvedLogoUrls.logoDarkUrl || resolvedLogoUrls.logoUrl),
-    buildLogoVariant("print-safe", printSafeAssetUrl || deriveVariantUrl(resolvedLogoUrls.logoLightUrl || resolvedLogoUrls.logoUrl, "print"), printSafeAssetUrl ? "asset" : resolvedLogoUrls.logoLightUrl || resolvedLogoUrls.logoUrl ? "derived" : "missing", resolvedLogoUrls.logoLightUrl || resolvedLogoUrls.logoUrl),
+    buildLogoVariant("icon", resolvedLogoUrls.iconUrl, iconVariantSource(profile.iconUrl, iconAssetUrl, derivedIconUrl, resolvedLogoUrls.iconUrl), resolvedLogoUrls.logoUrl),
+    buildLogoVariant("favicon", faviconUrl, iconVariantSource(profile.iconUrl, iconAssetUrl, derivedFaviconUrl, faviconUrl), resolvedLogoUrls.logoUrl),
+    buildLogoVariant("monochrome", monoUrl, monoAssetUrl ? "asset" : monoUrl ? "derived" : "missing", darkBase),
+    buildLogoVariant("print-safe", printUrl, printSafeAssetUrl ? "asset" : printUrl ? "derived" : "missing", lightBase),
   ];
 }
 
@@ -623,7 +666,41 @@ function buildLogoVariant(
 }
 
 function sourceForResolvedLogo(explicitUrl: string, resolvedUrl: string): DerivedLogoVariantDTO["source"] {
-  return explicitUrl && explicitUrl === resolvedUrl ? "explicit" : "asset";
+  if (explicitUrl && explicitUrl === resolvedUrl) return "explicit";
+  if (isTradeosDefaultUrl(resolvedUrl)) return "default";
+  return "asset";
+}
+
+/** Source for an icon/favicon variant: an explicit icon wins, then an
+ * uploaded icon asset, then a derivation from the organization's own logo,
+ * then the platform default. Derivation from the organization's own logo
+ * must outrank the platform default, or an org with a logo but no icon
+ * would get the TradeOS mark as its favicon. */
+function iconVariantSource(
+  explicitUrl: string,
+  assetUrl: string | null,
+  derivedUrl: string | null,
+  resolvedUrl: string | null
+): DerivedLogoVariantDTO["source"] {
+  if (explicitUrl && explicitUrl === resolvedUrl) return "explicit";
+  if (assetUrl && assetUrl === resolvedUrl) return "asset";
+  if (derivedUrl && derivedUrl === resolvedUrl) return "derived";
+  if (isTradeosDefaultUrl(resolvedUrl)) return "default";
+  return "missing";
+}
+
+export function isTradeosDefaultUrl(url: string | null): boolean {
+  if (!url) return false;
+  return (Object.values(TRADEOS_BRAND_DEFAULTS) as string[]).includes(url);
+}
+
+/** Derive a mono/print variant only from organization-owned artwork. The
+ * platform default ships its own one-color masters in the master package
+ * (docs/brand/tradeos-master-logo-package), so no "-mono"/"-print" suffix is
+ * ever appended to a package URL. */
+function deriveVariantUrlFromOwnedBase(url: string | null, variant: "mono" | "print"): string | null {
+  if (!url || isTradeosDefaultUrl(url)) return null;
+  return deriveVariantUrl(url, variant);
 }
 
 function deriveVariantUrl(url: string | null, variant: "icon" | "favicon" | "mono" | "print"): string | null {

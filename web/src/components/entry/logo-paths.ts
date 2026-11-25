@@ -1,3 +1,9 @@
+// Canonical TradeOS mark and wordmark geometry, verified against the master
+// logo package (docs/brand/tradeos-master-logo-package/vector/) by
+// web/src/app/brand-source.test.ts. The package is the source of truth:
+// if the artwork changes, update these paths to match the package files.
+// MetalLogo and the cinematic entry render this same geometry with a
+// metallic treatment; the flat file assets live under web/public/brand.
 export const MARK_PATHS = [
   {
     d: "M0 0H145V244H100V208h12v-5h-12V190h7v-5h-7V172h7v-5h-7V154h12v-5h-12V136h7v-5h-7V118h7v-5h-7V100h12v-5h-12V82h7v-5h-7V64h7v-5h-7V44H0Z",

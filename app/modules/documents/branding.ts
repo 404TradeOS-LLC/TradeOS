@@ -1,4 +1,4 @@
-import { BrandStudioService } from "../brand-studio/service";
+import { BrandStudioService, isTradeosDefaultUrl } from "../brand-studio/service";
 import { prisma } from "../../db/client";
 import type { DocumentFrameBrand } from "./frame";
 
@@ -36,7 +36,9 @@ export async function getDocumentBrand(orgId?: string, fallbackCompanyName = "Yo
   return {
     companyName: firstNonEmpty(profile.companyDisplayName, legacy.companyName, organization?.name, fallbackCompanyName) || "Your Company Name",
     tagline: profile.tagline,
-    logoUrl: safeAssetUrl(preview.resolvedLogoUrls.logoUrl || legacy.logoUrl || organization?.logoUrl || null),
+    logoUrl: safeAssetUrl(
+      resolveDocumentLogoUrl(preview.resolvedLogoUrls.logoUrl, legacy.logoUrl, organization?.logoUrl),
+    ),
     colors: {
       primary: safeHex(preview.validatedColors.primary, DEFAULT_BRAND.primary),
       secondary: safeHex(preview.validatedColors.secondary, DEFAULT_BRAND.secondary),
@@ -90,6 +92,23 @@ function fromFallback(companyName: string): DocumentFrameBrand {
 
 function safeHex(value: string, fallback: string): string {
   return /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+}
+
+/**
+ * A TradeOS package URL is a display fallback, not the organization's own
+ * brand: a legacy stored logo outranks it, exactly as it did before the
+ * master logo package landed (the resolved URL used to be empty for an
+ * unbranded org, so the legacy fallbacks were reached). An explicit or
+ * asset logo — anything that is not a package URL — still wins over legacy,
+ * and an org with no logo anywhere still gets the package lockup.
+ */
+function resolveDocumentLogoUrl(
+  resolved: string | null | undefined,
+  legacySettingsLogo: string | undefined,
+  organizationLogo: string | null | undefined,
+): string | null {
+  if (resolved && !isTradeosDefaultUrl(resolved)) return resolved;
+  return legacySettingsLogo || organizationLogo || resolved || null;
 }
 
 function safeAssetUrl(value: string | null): string | null {

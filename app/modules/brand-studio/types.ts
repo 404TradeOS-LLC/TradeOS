@@ -71,7 +71,7 @@ export interface TypographySpecimenDTO {
 export interface DerivedLogoVariantDTO {
   kind: string;
   url: string | null;
-  source: "explicit" | "asset" | "derived" | "missing";
+  source: "explicit" | "asset" | "derived" | "default" | "missing";
   derivedFrom: string | null;
 }
 
