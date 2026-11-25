@@ -1,6 +1,8 @@
 import { basePrisma } from "../db/client";
 import { logError } from "./logging";
 
+export type RuntimeEnvironment = "production" | "preview" | "development";
+
 export interface HealthPayload {
   status: "ok";
   service: string;
@@ -8,6 +10,13 @@ export interface HealthPayload {
   timestamp: string;
   uptimeSeconds: number;
   commitSha?: string;
+  // The Vercel environment the deployment runs in (a public identifier, not
+  // a secret). Evidence automation verifies it from the deployment instead
+  // of trusting an operator attestation: staging and PR-preview deployments
+  // report "preview", production reports "production". Omitted when the
+  // runtime does not publish a recognized value, so callers fail closed
+  // rather than guessing.
+  environment?: RuntimeEnvironment;
 }
 
 export interface ReadinessPayload {
@@ -63,6 +72,19 @@ function serviceMetadata() {
   };
 }
 
+// Identify the Vercel environment the deployment runs in. Only the exact
+// values Vercel publishes are recognized; anything else (including a
+// differently-cased value) is unrecognized and returns undefined, so
+// callers fail closed rather than treating an unknown runtime as a
+// non-production target.
+export function resolveRuntimeEnvironment(env: NodeJS.ProcessEnv = process.env): RuntimeEnvironment | undefined {
+  const value = env.VERCEL_ENV;
+  if (value === "production" || value === "preview" || value === "development") {
+    return value;
+  }
+  return undefined;
+}
+
 // Identify the configured Supabase data plane from the connection URLs:
 // DATABASE_URL first (direct `db.<ref>.supabase.co` host, or the pooler
 // username `postgres.<ref>`), then SUPABASE_URL (`<ref>.supabase.co`).
@@ -101,6 +123,7 @@ export function resolveDatabaseProjectRef(env: NodeJS.ProcessEnv = process.env):
 
 export function buildHealthPayload(now: Date = new Date()): HealthPayload {
   const metadata = serviceMetadata();
+  const environment = resolveRuntimeEnvironment();
   return {
     status: "ok",
     service: metadata.service,
@@ -108,6 +131,7 @@ export function buildHealthPayload(now: Date = new Date()): HealthPayload {
     timestamp: now.toISOString(),
     uptimeSeconds: Math.round(process.uptime()),
     ...(metadata.commitSha ? { commitSha: metadata.commitSha } : {}),
+    ...(environment ? { environment } : {}),
   };
 }
 

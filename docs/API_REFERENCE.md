@@ -313,7 +313,7 @@ The backend is mounted under `/api/v1`.
 
 Special cases:
 
-- `/health` is the unauthenticated, dependency-free liveness endpoint
+- `/health` is the unauthenticated, dependency-free liveness endpoint. It reports `commitSha` and `environment` (the Vercel environment: `production` | `preview` | `development`, omitted when unrecognized) alongside status, service, version, timestamp, and uptime — the two identity fields the S071 deployment-identity contract verifies from the runtime (see `docs/architecture/S071_DEPLOYMENT_IDENTITY_PLAN.md`).
 - `/ready` is the unauthenticated, database-aware readiness endpoint (see `docs/PRODUCTION_HEALTH.md`)
 - `/admin` is the internal HTML admin surface
 - `/api/v1/platform/*` is reserved for organization provisioning

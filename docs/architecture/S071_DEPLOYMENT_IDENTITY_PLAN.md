@@ -176,3 +176,67 @@ of S071 and are not decided by this promotion.
   `npm run docs:check -- --base origin/main`;
   `(cd app && npm test && npm run lint && npm run build && npm run test:integration)`;
   applicable web test/lint/build lanes where touched; exact-head CI.
+
+## Implementation status (2026-11-25)
+
+Implementation branch `feat/s071-deployment-identity-contract` (base main
+`0ad368b6`), on Billy's word 2026-11-25 ~00:33 EST ("Start the next tasks
+that are not blocked"). Live overlap rechecked 2026-11-25: only open PRs
+are the lane-owned drafts #1090 (DES-10-F1) and #1091 (#518), disjoint
+scope; no S071 remote branch, no live S071 lane — NEW_WORK_REQUIRED.
+
+What landed:
+
+- Runtime: `/health` reports `environment` from `VERCEL_ENV`
+  (`resolveRuntimeEnvironment` in `app/backend/health.ts`, exact-match
+  only, omitted when unrecognized); the web staging-runtime-identity
+  endpoint reports `environment: "preview"` in its 200 body (the value
+  it already gated on). Backend host is published by the web identity
+  endpoint as `backendOrigin` (pre-existing) and by the API origin the
+  evidence fetches `/health` from — the contract cross-checks both.
+- Canonical contract
+  `app/scripts/beta-evidence/lib/deployment-identity-contract.mjs`:
+  `verifyDeploymentIdentity` (commit, environment, backend host,
+  data-plane identifier; production refusal; `requireShaCorrelation`
+  option preserved for the s059 script's opt-out mode),
+  `collectRuntimeIdentity` (the three public runtime surfaces only, no
+  headers, no env inventory), `verifyIdentityUnchanged` (pre/post-capture
+  drift). The S059/S068/S069 identity gate
+  (`app/scripts/s059-deployment-identity.mjs`) and the staging
+  orchestrator correlation
+  (`app/scripts/beta-evidence/lib/staging-runtime-correlation.mjs`) now
+  verify through the contract. The s027 env-inventory script is
+  untouched.
+- The web's backend claim is checked for shape and non-production only,
+  NOT for equality with the API origin host: the web points at the
+  backend by its stable alias while evidence fetches `/health` from the
+  selected deployment's own URL, so the two hosts legitimately differ;
+  the alias-to-deployment binding is proven separately by the caller's
+  Vercel deployment lookup (deployment-uid equality). Equating the
+  hosts would fail closed on every real staging run.
+- `requireWebIdentity` (Codex P1 on PR #1096, fixed in-branch): staging
+  correlation and S059 evidence require the web identity to be
+  published (`IDENTITY_WEB_IDENTITY_UNPUBLISHED` otherwise); without it
+  the web SHA, branch, backend binding, and data plane are
+  unverifiable, and the pre-S071 implementation rejected a 404 web
+  identity. Ordinary previews keep the optional behavior.
+- CodeRabbit review fixes (PR #1096, fixed in-branch): the collector
+  re-reads `/health` after `/ready` and the two SHAs must agree,
+  binding both observations to one deployment (`IDENTITY_CHANGED`
+  otherwise — `/ready` reports no commit SHA); the web/API SHA
+  equality is gated on `requireShaCorrelation`, so the s059 opt-out
+  mode does not re-impose correlation between the web and API surfaces.
+- Tests: contract test 33/33 (each field verified; each
+  mismatch/missing/unparseable case failing closed; production refusal;
+  no-secret handling), staging-runtime-correlation test updated with
+  environment cases, health + web identity tests extended; the new
+  contract test is wired into `npm run pr:test`.
+
+Rollout note: the new gate requires deployments built from this PR
+onward — it fails closed on the missing environment field against older
+deployments by design. Live non-production evidence (a contract run
+against a real preview/staging deployment plus a negative
+mismatched-SHA run) is owed after merge + staging promotion; S071 stays
+`IN_REVIEW` until it passes. No secret fetched, decrypted, asserted, or
+retained; no production deployment or data-plane acceptance; no new
+deployment pipeline, hosting change, or trust boundary.
