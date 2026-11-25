@@ -41,6 +41,7 @@ const searchSchema = z.object({ q: z.string().trim().max(200).optional() }).stri
 const unitCostQuerySchema = z.object({ regionId: z.guid().optional() }).strict();
 const installCatalogSchema = z.object({
   templateId: z.string().trim().min(1).max(100),
+  expectedRecipeVersion: z.number().int().positive().optional(),
   componentMappings: z.array(z.object({
     componentKey: z.string().trim().min(1).max(100),
     costItemId: z.guid(),
@@ -50,6 +51,11 @@ const installCatalogSchema = z.object({
   // dimensionless factor on the mapped CostItem's rate (>0, at most 10x).
   wasteOverridePct: z.number().finite().min(0).max(100).optional(),
   productionRateFactor: z.number().finite().positive().max(10).optional(),
+}).strict();
+
+const confirmRecipeUpgradeSchema = z.object({
+  reviewToken: z.string().regex(/^[a-f0-9]{64}$/),
+  componentMappings: installCatalogSchema.shape.componentMappings.min(0),
 }).strict();
 
 // DEV-17 S9: reuse a previous install's mapping for another template.
@@ -66,6 +72,16 @@ export const assembliesDatabaseController = {
     requirePermissions(req, ["costbook.write"]);
     const body = installCatalogSchema.parse(req.body);
     res.status(201).json(await service.installStarterCatalogAssembly({ ...body, orgId: requireOrgId(req) }));
+  },
+  async previewRecipeUpgrade(req: Request, res: Response) {
+    requirePermissions(req, ["costbook.read"]);
+    res.json(await service.previewRecipeUpgrade(idSchema.parse(req.params.id), requireOrgId(req)));
+  },
+  async confirmRecipeUpgrade(req: Request, res: Response) {
+    requirePermissions(req, ["costbook.write"]);
+    res.json(await service.confirmRecipeUpgrade(
+      idSchema.parse(req.params.id), requireOrgId(req), confirmRecipeUpgradeSchema.parse(req.body),
+    ));
   },
   async mappingSuggestions(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);

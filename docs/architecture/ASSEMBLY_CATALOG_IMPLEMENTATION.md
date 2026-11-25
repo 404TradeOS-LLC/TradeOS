@@ -12,6 +12,8 @@ related_code:
   - app/modules/costbook/tradeosAssemblySources.ts
   - app/modules/assemblies-database/service.ts
   - app/modules/assemblies-database/measurement.ts
+  - app/modules/assemblies-database/recipeHistory.json
+  - app/modules/assemblies-database/recipeUpgrade.ts
   - app/backend/controllers/assembliesDatabase.controller.ts
   - app/backend/routes/costbook.routes.ts
   - web/src/components/costbook/assembly-catalog.tsx
@@ -78,6 +80,30 @@ counts.
 - Research recipes fail closed on unregistered evidence sources: a recipe whose
   `evidenceRefs` do not all resolve against `TRADEOS_ASSEMBLY_SOURCES` carries
   `blockingReasons` and cannot be installed until its provenance is repaired.
+
+## Recipe versioning and installed updates
+
+The catalog release label groups recipes for browsing. Each recipe's integer
+version is its revision count in `recipeHistory.json`. For a new recipe, add
+its initial structure at version 1. For an existing recipe, append one
+revision when a slot is added or removed, its quantity changes, its compatible
+units or Cost Item kinds change, or the recipe measurement basis changes.
+Each slot key is a stable identity. Issue a new key when a slot represents a
+different component and its prior mapping should end. Preserve all published
+history entries for upgrades from older installs. The catalog invariant suite
+checks the current structure against the latest entry and rejects adjacent
+duplicates. Editorial copy, provenance, and ordering changes leave the
+version unchanged.
+
+The installed template detail compares versions and lets a Costbook writer
+review the diff for that assembly. Existing compatible mappings carry
+forward. A removed slot drops its mapping, and a new slot or an incompatible
+mapping requires an explicit Cost Item selection. An unkeyed local component
+blocks confirmation until the estimator resolves it in the assembly editor.
+A stale review must be refreshed. Confirming locks the reviewed assembly and
+components and atomically records the update and audit event. The configured
+waste and production overrides carry forward. Costbook price records and
+persisted estimate snapshots stay as recorded.
 
 ## Source-blocked recipes (2 of 107)
 

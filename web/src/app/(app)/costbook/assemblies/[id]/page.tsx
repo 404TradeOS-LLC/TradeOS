@@ -8,6 +8,8 @@ import {
   Layers3,
   Ruler,
 } from "lucide-react";
+import { AssemblyRecipeUpgrade } from "@/components/costbook/assembly-recipe-upgrade";
+import { getCostbookWorkspace } from "@/lib/api";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -77,6 +79,9 @@ export default async function CostbookAssemblyDetailPage({
       error: error instanceof Error ? error.message : "Current unit cost could not be resolved.",
     }));
 
+  const canUpgrade = assembly.installedRecipeId && assembly.isActive && assembly.isTemplate
+    ? await getCostbookWorkspace(token).then((workspace) => workspace.permissions.canWrite).catch(() => false)
+    : false;
   const shownItems = itemsPage.items;
   const hasMoreItems = Boolean(itemsPage.nextCursor) || itemsPage.total > shownItems.length;
 
@@ -102,6 +107,10 @@ export default async function CostbookAssemblyDetailPage({
           </div>
         }
       />
+      {assembly.installedRecipeId ? (
+        <AssemblyRecipeUpgrade assembly={assembly} canUpgrade={canUpgrade} />
+      ) : null}
+
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid content-start gap-5">

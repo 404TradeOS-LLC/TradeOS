@@ -2336,6 +2336,41 @@ describe("live organization row-level security", () => {
     expect(templatesForOrgB.map((row) => row.id)).not.toContain(created.id);
   });
 
+  it("scopes assembly upgrade audit history and blocks forged or rewritten records", async () => {
+    const recipeId = "site-excavation";
+    const assembly = await adminClient.assembly.create({ data: {
+      orgId: orgA, code: "RECIPE-UPGRADE-AUDIT", name: "Upgrade audit fixture", unitOfMeasure: "CY",
+      isTemplate: true, installedRecipeId: recipeId, installedRecipeVersion: 2, installedAt: new Date(),
+    } });
+    const audit = { assemblyId: assembly.id, recipeId, fromVersion: 1, toVersion: 2 };
+    await expect(inSession(otherUser, orgB, "owner", () =>
+      currentTransaction().assemblyRecipeUpgrade.create({ data: { ...audit, actorId: otherUser } }),
+    )).rejects.toThrow(/row-level security/i);
+    await expect(inSession(technicianUser, orgA, "technician", () =>
+      currentTransaction().assemblyRecipeUpgrade.create({ data: { ...audit, actorId: technicianUser } }),
+    )).rejects.toThrow(/row-level security/i);
+    await expect(inSession(adminUser, orgA, "admin", () =>
+      currentTransaction().assemblyRecipeUpgrade.create({ data: { ...audit, actorId: otherUser } }),
+    )).rejects.toThrow(/row-level security/i);
+
+    const saved = await inSession(adminUser, orgA, "admin", () =>
+      currentTransaction().assemblyRecipeUpgrade.create({ data: { ...audit, actorId: adminUser } }),
+    );
+    const where = { id: saved.id };
+    expect(await inSession(technicianUser, orgA, "technician", () =>
+      currentTransaction().assemblyRecipeUpgrade.findUnique({ where }),
+    )).toEqual(saved);
+    expect(await inSession(otherUser, orgB, "owner", () =>
+      currentTransaction().assemblyRecipeUpgrade.findUnique({ where }),
+    )).toBeNull();
+    expect(await inSession(adminUser, orgA, "admin", () =>
+      currentTransaction().assemblyRecipeUpgrade.updateMany({ where, data: { actorId: otherUser } }),
+    )).toEqual({ count: 0 });
+    expect(await inSession(adminUser, orgA, "admin", () =>
+      currentTransaction().assemblyRecipeUpgrade.deleteMany({ where }),
+    )).toEqual({ count: 0 });
+  });
+
   it("persists price changes for admins while hiding audit history from viewers", async () => {
     await inSession(adminUser, orgA, "admin", async () => {
       await new MaterialDatabaseService().update(

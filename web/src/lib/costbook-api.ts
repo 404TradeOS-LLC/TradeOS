@@ -12,6 +12,11 @@ export interface CostbookAssembly {
   description: string | null;
   isTemplate: boolean;
   isActive: boolean;
+  installedRecipeId?: string | null;
+  installedRecipeVersion?: number | null;
+  installedAt?: string | null;
+  currentRecipeVersion?: number | null;
+  updateAvailable?: boolean;
   /** Absolute waste % override for this install (null = recipe/mapped-item defaults). DEV-17 S10. */
   wasteOverridePct: number | null;
   /** Production-rate factor override for this install (null = recipe default, 1.0). DEV-17 S10. */

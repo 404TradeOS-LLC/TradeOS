@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { prisma } from "../db/client";
 import { runWithDatabaseSession } from "../db/requestSession";
 import type { SupportedRole } from "../domain";
+import * as catalog from "../modules/assemblies-database/tradeosCatalogAdapter";
 import { AssembliesDatabaseService } from "../modules/assemblies-database/service";
 
 const appClient = new PrismaClient({ datasources: { db: { url: required("TEST_DATABASE_URL") } } });
@@ -113,9 +114,96 @@ describe("live Costbook assembly RLS", () => {
     }));
     const foreignView = await inSession(ownerB, orgB, "owner", () => prisma.assembly.findFirst({ where: { id: installed.id } }));
 
-    expect(installed.code).toBe("31 23 16-TOS-001");
+    expect(installed).toMatchObject({
+      code: "31 23 16-TOS-001", installedRecipeId: "site-excavation",
+      installedRecipeVersion: 1, currentRecipeVersion: 1, updateAvailable: false,
+      installedAt: expect.any(Date),
+    });
+    expect(ownComponents.map((row) => row.recipeComponentKey)).toEqual(["excavation", "haul"]);
     expect(ownComponents.map((row) => row.costItemId)).toEqual([excavationItemA, haulItemA]);
     expect(foreignView).toBeNull();
+  });
+
+  it("reviews and applies one tenant upgrade atomically, preserving prices, mappings, and audit visibility", async () => {
+    const recipe = catalog.getExpandedCatalogTemplate("site-excavation")!;
+    const mappings = [
+      { componentKey: "excavation", costItemId: excavationItemA },
+      { componentKey: "haul", costItemId: haulItemA },
+    ];
+    const installLookup = jest.spyOn(catalog, "getExpandedCatalogTemplate")
+      .mockReturnValueOnce({ ...recipe, code: "UPGRADE-FIXTURE" });
+    const installed = await inSession(ownerA, orgA, "owner", () => service.installStarterCatalogAssembly({
+      orgId: orgA, templateId: recipe.id, expectedRecipeVersion: 1, componentMappings: mappings,
+      wasteOverridePct: 10, productionRateFactor: 0.9,
+    })).finally(() => installLookup.mockRestore());
+    const beforeRows = await adminClient.assemblyItem.findMany({ where: { assemblyId: installed.id }, orderBy: { sortOrder: "asc" } });
+    const project = await adminClient.project.create({ data: { name: "Upgrade test", orgId: orgA } });
+    const estimate = await adminClient.estimate.create({ data: {
+      projectId: project.id, orgId: orgA, subtotalCost: 180, totalPrice: 200,
+      lineItems: { create: {
+        assemblyId: installed.id, description: "Reviewed estimate line", unitOfMeasure: "CY",
+        quantity: 2, unitCost: 90, lineCost: 180,
+      } },
+    }, include: { lineItems: true } });
+    const costWhere = { id: { in: [excavationItemA, haulItemA] } };
+    const originalCostItems = await adminClient.costItem.findMany({ where: costWhere, orderBy: { id: "asc" } });
+    const lookup = jest.spyOn(catalog, "getExpandedCatalogTemplate");
+    lookup.mockReturnValue({
+      ...recipe, version: 2, measurementBasis: "Loose cubic yard of soil",
+      components: [
+        { ...recipe.components[0], quantityPerUnit: 2 },
+        { ...recipe.components[1], key: "disposal" },
+      ],
+    });
+
+    try {
+      const preview = await inSession(ownerA, orgA, "owner", () => service.previewRecipeUpgrade(installed.id, orgA));
+      expect(preview).toMatchObject({ fromVersion: 1, toVersion: 2, updateAvailable: true, history: [] });
+      expect(preview.changes.map(({ key, change, mapping }) => [key, change, mapping])).toEqual([
+        ["excavation", "changed", "preserved"], ["haul", "removed", "removed"], ["disposal", "added", "needed"],
+      ]);
+      expect(await adminClient.assemblyItem.findMany({ where: { assemblyId: installed.id }, orderBy: { sortOrder: "asc" } })).toEqual(beforeRows);
+      const input = { reviewToken: preview.reviewToken, componentMappings: [{ componentKey: "disposal", costItemId: haulItemA }] };
+      await expect(inSession(ownerB, orgB, "owner", () => service.previewRecipeUpgrade(installed.id, orgB))).rejects.toThrow("not found");
+      await expect(inSession(ownerB, orgB, "owner", () => service.confirmRecipeUpgrade(installed.id, orgB, input))).rejects.toThrow("not found");
+      await expect(inSession(techA, orgA, "technician", () => service.confirmRecipeUpgrade(installed.id, orgA, input))).rejects.toThrow();
+      await expect(inSession(ownerA, orgA, "owner", () => service.confirmRecipeUpgrade(installed.id, orgA, {
+        ...input, componentMappings: [],
+      }))).rejects.toThrow("mapping for each flagged component");
+      await expect(inSession(ownerA, orgA, "owner", () => service.confirmRecipeUpgrade(installed.id, orgA, {
+        ...input, componentMappings: [{ componentKey: "disposal", costItemId: itemB }],
+      }))).rejects.toThrow("compatible Cost Item");
+
+      await inSession(ownerA, orgA, "owner", () => prisma.assembly.update({
+        where: { id: installed.id }, data: { productionRateFactor: 0.8 },
+      }));
+      await expect(inSession(ownerA, orgA, "owner", () => service.confirmRecipeUpgrade(installed.id, orgA, input))).rejects.toThrow("latest diff");
+      const fresh = await inSession(ownerA, orgA, "owner", () => service.previewRecipeUpgrade(installed.id, orgA));
+      const attempts = await Promise.allSettled([1, 2].map(() =>
+        inSession(ownerA, orgA, "owner", () => service.confirmRecipeUpgrade(installed.id, orgA, { ...input, reviewToken: fresh.reviewToken })),
+      ));
+      expect(attempts.map(({ status }) => status).sort()).toEqual(["fulfilled", "rejected"]);
+      expect(attempts.find(({ status }) => status === "fulfilled")).toMatchObject({ value: {
+        installedRecipeVersion: 2, currentRecipeVersion: 2, updateAvailable: false,
+        installedAt: installed.installedAt, wasteOverridePct: 10, productionRateFactor: 0.8,
+      } });
+
+      const rows = await adminClient.assemblyItem.findMany({ where: { assemblyId: installed.id }, orderBy: { sortOrder: "asc" } });
+      expect(rows).toMatchObject([
+        { id: beforeRows[0].id, recipeComponentKey: "excavation", costItemId: excavationItemA },
+        { recipeComponentKey: "disposal", costItemId: haulItemA },
+      ]);
+      expect(rows.map((row) => Number(row.quantityPerUnit))).toEqual([2, 1]);
+      expect(rows[1].id).not.toBe(beforeRows[1].id);
+      expect(await adminClient.costItem.findMany({ where: costWhere, orderBy: { id: "asc" } })).toEqual(originalCostItems);
+      expect(await adminClient.estimate.findUnique({ where: { id: estimate.id }, include: { lineItems: true } })).toEqual(estimate);
+
+      const { history } = await inSession(techA, orgA, "technician", () => service.previewRecipeUpgrade(installed.id, orgA));
+      expect(history).toMatchObject([{ assemblyId: installed.id, recipeId: recipe.id, fromVersion: 1, toVersion: 2, actorId: ownerA, upgradedAt: expect.any(Date) }]);
+      expect(await inSession(ownerB, orgB, "owner", () => prisma.assemblyRecipeUpgrade.findMany({ where: { assemblyId: installed.id } }))).toEqual([]);
+    } finally {
+      lookup.mockRestore();
+    }
   });
 
   it("stores install overrides on the assembly and prices with them, invisibly to other tenants (DEV-17 S10)", async () => {

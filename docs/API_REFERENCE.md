@@ -1092,6 +1092,24 @@ PR #216 extends the existing Costbook namespace without adding parallel domain s
 
 `GET /api/v1/costbook/assemblies/starter-catalog` requires `costbook.read` and returns `{ catalogVersion, coverage, items }`. The web Assembly starter browser derives combined NAHB/CSI/trade/unit facets locally from this full **static starter payload**, using tenant-scoped active Assembly codes for the installed/not-installed facet. This does not filter a bounded DB page or add a new API write path. Recipes include NAHB work groups, CSI codes, measurement bases, review/version metadata, and component slots with `compatibleUnits` and `allowedCostItemKinds`; `coverage` is derived from those recipes. The response contains no prices. `POST /api/v1/costbook/assemblies/starter-catalog/install` requires `costbook.write`; its strict body contains `templateId` and a `componentMappings` array of `{ componentKey, costItemId }`. Every required slot and every distinct Cost Item must appear exactly once. Each Cost Item must be active, owned by the authenticated organization, and compatible with the slot's unit and kind. The route atomically creates an ordinary tenant-scoped reusable Assembly and AssemblyItem set by joining the active request transaction or opening a direct-service transaction. Duplicate assembly codes return `409`; missing, unknown, or duplicate mappings return `400`; unavailable or cross-tenant Cost Items return `404`; incompatible unit/type mappings return `422`. The install body also accepts two optional override fields (DEV-17 S10): `wasteOverridePct` (absolute percentage, 0–100) and `productionRateFactor` (dimensionless multiplier, greater than 0 and at most 10). They are stored on the installed Assembly (nullable; omitted means the recipe defaults) and applied at pricing time through the existing unit-cost resolver — the waste override replaces each mapped Material's own `wasteFactorPct` on material legs, the production factor multiplies each mapped CostItem's `productionRate` on labor/equipment legs — while stored item quantities stay the recipe quantities and a child assembly resolves with its own overrides. The Assembly DTO exposes `wasteOverridePct` and `productionRateFactor` (numbers or `null`); the Assembly PATCH endpoint accepts the same two fields (number sets, `null` clears). No price is embedded by either field.
 
+Catalog installs accept optional `expectedRecipeVersion`; a mismatch returns
+`409` with instructions to refresh the reviewed recipe. The Assembly DTO adds
+`installedRecipeId`, `installedRecipeVersion`, `installedAt`,
+`currentRecipeVersion`, and `updateAvailable`.
+
+- `GET /api/v1/costbook/assemblies/:id/recipe-upgrade` (`costbook.read`) returns
+  the installed and current versions, structure and mapping diff, blockers,
+  review token, and upgrade history for the tenant's installed assembly.
+- `POST /api/v1/costbook/assemblies/:id/recipe-upgrade` (`costbook.write`) takes
+  `{ reviewToken, componentMappings }` for one assembly. Submit mappings only
+  for new or broken slots. The server preserves compatible mappings and
+  validates every replacement against the active tenant's Costbook. A stale
+  review or blocked upgrade returns `409`, invalid replacement mappings return
+  `422`, and unavailable or cross-tenant assemblies return `404`. Success
+  updates the template and appends history in one transaction.
+- The same routes are available under `/api/v1/assemblies`.
+
+
 The S027 catalog continuation applies the same page envelope and opaque
 keyset-cursor contract to materials, labor rates, equipment, hierarchy,
 CostItems, assemblies, assembly templates, supplier review queues, and the two

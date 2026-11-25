@@ -10,6 +10,8 @@ assembliesDatabaseRouter.get("/starter-catalog", asyncHandler(ctrl.starterCatalo
 assembliesDatabaseRouter.get("/starter-catalog/:templateId/mapping-suggestions", asyncHandler(ctrl.mappingSuggestions));
 assembliesDatabaseRouter.post("/starter-catalog/install", asyncHandler(ctrl.installStarterCatalog));
 assembliesDatabaseRouter.get("/", asyncHandler(ctrl.list));
+assembliesDatabaseRouter.get("/:id/recipe-upgrade", asyncHandler(ctrl.previewRecipeUpgrade));
+assembliesDatabaseRouter.post("/:id/recipe-upgrade", asyncHandler(ctrl.confirmRecipeUpgrade));
 assembliesDatabaseRouter.get("/:id/unit-cost", asyncHandler(ctrl.getUnitCost));
 assembliesDatabaseRouter.get("/:id/items", asyncHandler(ctrl.listItems));
 assembliesDatabaseRouter.get("/:id", asyncHandler(ctrl.getById));

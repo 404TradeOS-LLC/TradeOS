@@ -34,6 +34,11 @@ export interface AssemblyDTO {
   description: string | null;
   isTemplate: boolean;
   isActive: boolean;
+  installedRecipeId: string | null;
+  installedRecipeVersion: number | null;
+  installedAt: Date | null;
+  currentRecipeVersion: number | null;
+  updateAvailable: boolean;
   /** Absolute waste % override for this install (NULL = recipe/mapped-item defaults). */
   wasteOverridePct: number | null;
   /** Production-rate factor override for this install (NULL = recipe default, 1.0). */
@@ -61,6 +66,7 @@ export interface AssemblyUnitCostResult {
 export interface InstallCatalogAssemblyInput {
   orgId: string;
   templateId: string;
+  expectedRecipeVersion?: number;
   componentMappings: Array<{ componentKey: string; costItemId: string }>;
   /**
    * Optional install-time overrides (DEV-17 S10, issue #518). wasteOverridePct
@@ -107,4 +113,9 @@ export interface MappingReuseResultDTO {
   suggestions: MappingReuseSuggestionDTO[];
   mappedCount: number;
   unmappedComponentKeys: string[];
+}
+
+export interface ConfirmRecipeUpgradeInput {
+  reviewToken: string;
+  componentMappings: InstallCatalogAssemblyInput["componentMappings"];
 }
