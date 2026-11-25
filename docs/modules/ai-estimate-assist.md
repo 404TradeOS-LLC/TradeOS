@@ -40,7 +40,7 @@ The backend also exposes a structured AI estimating engine path for contractor-l
 
 ## Persisted Scope check (DES-10-F1)
 
-The estimate builder is the editing surface for the one footing question. The API selects the question from the saved project scope and persists the normalized answer on the authenticated draft Estimate. The response restores the same answer after reload. A conflict requires reloading the current answer before submitting the retained note against the newer revision.
+The estimate builder is the editing surface for the one footing question. The API selects the question from the saved project scope and persists the normalized answer on the authenticated draft Estimate. The response restores the same answer after reload. A conflict requires reloading the current answer before submitting the retained note against the newer revision. A save against a finalized estimate is a different 409 (`details.code` `ESTIMATE_FINALIZED`): the form shows a read-only way back to Scope instead of offering a retry, and review navigation waits while a clarification save is pending.
 
 Structured review picks up the saved clarification when its input matches the saved project scope. The note appears under Athena understood and contributes a footing-review warning. It is kept out of the quantity parser. A site-check assumption and a detailed field note both require human verification before a contractor includes footing replacement. Item generation and application use the existing review controls.
 

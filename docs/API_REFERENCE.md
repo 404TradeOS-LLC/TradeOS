@@ -1130,7 +1130,7 @@ Existing proposal, contract, invoice, and document-frame endpoints retain their 
 
 - `GET /api/v1/estimates/:id/ai-estimator/clarification` requires `billing.read`. Returns `{ clarification }`; the value is null when the saved project scope has no applicable question. An unanswered question has revision 0 and a null answer.
 - `PUT /api/v1/estimates/:id/ai-estimator/clarification` requires `billing.write` and accepts `{ questionKey, expectedRevision, answer }`. Use `{ kind: "details", detail }` for a trimmed 1–1000 character note or `{ kind: "site_check_assumption" }` to defer the footing judgment to a site check. The server takes the estimate ID from the path and the organization from the authenticated session. It returns the normalized current clarification. Retrying the same answer at its saved or immediately preceding revision returns the same revision.
-- A stale competing revision, an inapplicable question, or a new write to a finalized estimate returns 409. Foreign estimates return 404 for authenticated callers with the required permission. Scope answers change zero estimate lines and totals.
+- A stale competing revision, an inapplicable question, or a new write to a finalized estimate returns 409. A finalized estimate is distinguished by `details.code` `ESTIMATE_FINALIZED`; the other 409s carry no code. Foreign estimates return 404 for authenticated callers with the required permission. Scope answers change zero estimate lines and totals.
 - `POST /api/v1/estimates/:id/ai-estimator/draft` includes the advisory `clarification` when the generated draft uses the saved matching scope. The reviewed apply path continues to own line item writes.
 
 ## S025 AI generation persistence

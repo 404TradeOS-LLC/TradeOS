@@ -46,6 +46,10 @@ export function EstimateScopeClarificationForm({
   const [status, setStatus] = useState<"editing" | "saving" | "saved" | "refreshing">("editing");
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
+  // A finalized estimate is a different 409 from a revision conflict:
+  // the answer can never be saved again, so the form offers a read-only
+  // way back instead of the refresh-and-retry recovery.
+  const [finalized, setFinalized] = useState(false);
   const [showLatest, setShowLatest] = useState(false);
   const saving = status === "saving";
   const busy = saving || status === "refreshing";
@@ -53,7 +57,7 @@ export function EstimateScopeClarificationForm({
   useEffect(() => { heading.current?.focus(); }, []);
 
   async function save(answer: EstimateClarificationAnswer) {
-    if (operationPending.current || conflict) return;
+    if (operationPending.current || conflict || finalized) return;
     operationPending.current = true;
     onBusyChange(true);
     setStatus("saving");
@@ -72,9 +76,19 @@ export function EstimateScopeClarificationForm({
       requestAnimationFrame(() => restoredHeading.current?.focus());
     } catch (cause) {
       const isConflict = cause instanceof ClientApiError && cause.status === 409;
-      setConflict(isConflict);
-      setStatus("editing");
-      setError(isConflict ? cause.message : "Your answer could not be saved. Your note is still here.");
+      const isFinalized = isConflict
+        && typeof cause.details === "object" && cause.details !== null
+        && (cause.details as { code?: unknown }).code === "ESTIMATE_FINALIZED";
+      if (isFinalized) {
+        setFinalized(true);
+        setConflict(false);
+        setStatus("editing");
+        setError("This estimate was finalized in another session, so this answer can no longer be saved.");
+      } else {
+        setConflict(isConflict);
+        setStatus("editing");
+        setError(isConflict ? cause.message : "Your answer could not be saved. Your note is still here.");
+      }
       requestAnimationFrame(() => input.current?.focus());
     } finally {
       operationPending.current = false;
@@ -134,6 +148,12 @@ export function EstimateScopeClarificationForm({
             requestAnimationFrame(() => input.current?.focus());
           }}>Reopen clarification</Button>
           <Button variant="link" className="min-h-11 w-full" onClick={onBack}>Back to scope</Button>
+        </div>
+      ) : finalized ? (
+        <div className="space-y-4">
+          <p role="alert" className="text-sm text-destructive">{error}</p>
+          <p className="text-sm text-muted-foreground">The estimate is now read-only. Return to Scope to review the saved work.</p>
+          <Button type="button" variant="outline" className="min-h-11 w-full" onClick={onBack}>Back to scope</Button>
         </div>
       ) : (
         <>

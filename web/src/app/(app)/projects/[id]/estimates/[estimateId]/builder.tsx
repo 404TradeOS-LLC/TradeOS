@@ -89,6 +89,11 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
   const reviewNavigator = useRef(createEstimateReviewNavigator());
   const reviewContext = useRef<{ projectId: string; estimateId: string } | null>(null);
   const [reviewNavigationPending, setReviewNavigationPending] = useState(false);
+  // Clarification saving is owned here, not in the stage flow, so the
+  // header "Athena review" action and the contextual review action both
+  // wait for a pending clarification save instead of navigating away
+  // while the form is still saving (the note would be lost on unmount).
+  const [clarificationBusy, setClarificationBusy] = useState(false);
 
   useEffect(() => {
     reviewContext.current = { projectId, estimateId };
@@ -231,7 +236,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
   const jobDescription = persistedScope.trim() || jobType?.trim() || null;
 
   const openFullReview = () => {
-    if (saveScope.isPending) return;
+    if (saveScope.isPending || clarificationBusy) return;
     void reviewNavigator.current({
       scope: scopeDraft,
       persistedScope,
@@ -268,7 +273,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
             <Link href={`/projects/${projectId}/estimates/compare`} className={buttonVariants({ variant: "outline" })}>
               Compare versions
             </Link>
-            <Button type="button" variant="outline" className="min-h-11" onClick={openFullReview} disabled={reviewNavigationPending || saveScope.isPending}>
+            <Button type="button" variant="outline" className="min-h-11" onClick={openFullReview} disabled={reviewNavigationPending || saveScope.isPending || clarificationBusy}>
               {reviewNavigationPending ? "Saving scope…" : "Athena review"}
             </Button>
             {isDraft ? (
@@ -327,7 +332,9 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
           }
         }}
         onOpenFullReview={openFullReview}
-        fullReviewPending={reviewNavigationPending || saveScope.isPending}
+        fullReviewPending={reviewNavigationPending || saveScope.isPending || clarificationBusy}
+        clarificationBusy={clarificationBusy}
+        onClarificationBusyChange={setClarificationBusy}
         scopeDirty={scopeDraft.trim() !== persistedScope.trim()}
         scopeSavePending={saveScope.isPending}
         scopeSaveSuccess={saveScope.isSuccess}
@@ -403,6 +410,8 @@ function EstimateStageFlow({
   onSaveScope,
   onOpenFullReview,
   fullReviewPending,
+  clarificationBusy,
+  onClarificationBusyChange,
   scopeDirty,
   scopeSavePending,
   scopeSaveSuccess,
@@ -430,6 +439,8 @@ function EstimateStageFlow({
   onSaveScope: () => Promise<boolean>;
   onOpenFullReview: () => void;
   fullReviewPending: boolean;
+  clarificationBusy: boolean;
+  onClarificationBusyChange: (busy: boolean) => void;
   scopeDirty: boolean;
   scopeSavePending: boolean;
   scopeSaveSuccess: boolean;
@@ -474,7 +485,6 @@ function EstimateStageFlow({
     retry: false,
   });
   const [openClarification, setOpenClarification] = useState<EstimateScopeClarification | null>(null);
-  const [clarificationBusy, setClarificationBusy] = useState(false);
   const scopeCheckTrigger = useRef<HTMLButtonElement>(null);
   const rememberClarification = (saved: EstimateScopeClarification) => {
     void queryClient.cancelQueries({ queryKey: clarificationKey, exact: true });
@@ -580,7 +590,7 @@ function EstimateStageFlow({
               <EstimateScopeClarificationForm
                 estimateId={estimateId}
                 initial={openClarification}
-                onBusyChange={setClarificationBusy}
+                onBusyChange={onClarificationBusyChange}
                 onSaved={rememberClarification}
                 onBack={() => {
                   setOpenClarification(null);

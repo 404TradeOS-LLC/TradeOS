@@ -310,3 +310,19 @@ test("estimate builder header shows customer and job-description identity lines 
   assert.match(builder, /<StatusBadge status=\{estimate\.status\} \/>/);
   assert.doesNotMatch(builder, /EST-\d+|ESTIMATE #\d+/);
 });
+
+test("review navigation waits for a pending clarification save (DES-10-F1 CodeRabbit)", async () => {
+  const builder = await readSource("./builder.tsx");
+
+  // The clarification busy flag is owned by the builder, not the stage
+  // flow, so both review entrypoints see it: the header action and the
+  // contextual review action both go through openFullReview.
+  assert.match(builder, /const \[clarificationBusy, setClarificationBusy\] = useState\(false\);/);
+  assert.match(builder, /if \(saveScope\.isPending \|\| clarificationBusy\) return;/);
+  assert.match(builder, /disabled=\{reviewNavigationPending \|\| saveScope\.isPending \|\| clarificationBusy\}/);
+  assert.match(builder, /fullReviewPending=\{reviewNavigationPending \|\| saveScope\.isPending \|\| clarificationBusy\}/);
+  assert.match(builder, /clarificationBusy=\{clarificationBusy\}/);
+  assert.match(builder, /onClarificationBusyChange=\{setClarificationBusy\}/);
+  // No second local copy: the stage flow must not own its own flag.
+  assert.equal((builder.match(/const \[clarificationBusy, setClarificationBusy\] = useState\(false\);/g) ?? []).length, 1);
+});

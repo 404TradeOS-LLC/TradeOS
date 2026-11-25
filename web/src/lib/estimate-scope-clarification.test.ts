@@ -35,3 +35,15 @@ test("surfaces a stale answer conflict for explicit recovery", async (t) => {
     (error) => error instanceof ClientApiError && error.status === 409,
   );
 });
+
+test("surfaces the finalized-estimate code on a 409", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => Response.json(
+    { error: "Only draft estimates can save a scope clarification", details: { code: "ESTIMATE_FINALIZED" } },
+    { status: 409 },
+  ));
+  await assert.rejects(
+    saveEstimateScopeClarification("estimate-1", question, { kind: "site_check_assumption" }),
+    (error) => error instanceof ClientApiError && error.status === 409
+      && (error.details as { code?: string } | undefined)?.code === "ESTIMATE_FINALIZED",
+  );
+});

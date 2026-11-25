@@ -4455,6 +4455,14 @@ describe("live organization row-level security", () => {
         data: { estimateId: deckEstimate, questionKey: "technician-key", question: "Not allowed", revision: 1, answerKind: "site_check_assumption" },
       }))).rejects.toThrow(/row.level security/i);
     });
+
+    it("rejects a clarification save on a finalized estimate with the ESTIMATE_FINALIZED code", async () => {
+      await adminClient.estimate.update({ where: { id: deckEstimate }, data: { status: "finalized" } });
+      await expect(ownerSession(() => service.saveScopeClarification(payload))).rejects.toMatchObject({
+        statusCode: 409,
+        details: { code: "ESTIMATE_FINALIZED" },
+      });
+    });
   });
 
 });

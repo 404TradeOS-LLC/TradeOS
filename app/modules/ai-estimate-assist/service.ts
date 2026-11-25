@@ -65,7 +65,7 @@ export class AIEstimateAssistService {
         && (current.answer.kind !== "details" || current.answer.detail === detail);
       if (sameAnswer && (expectedRevision === current.revision || expectedRevision === current.revision - 1)) return current;
 
-      if (locked.status !== "draft") throw new ApiError(409, "Only draft estimates can save a scope clarification");
+      if (locked.status !== "draft") throw new ApiError(409, "Only draft estimates can save a scope clarification", { code: "ESTIMATE_FINALIZED" });
       if (expectedRevision !== current.revision) {
         throw new ApiError(409, "A newer answer was saved. Review it before saving your note again.");
       }
