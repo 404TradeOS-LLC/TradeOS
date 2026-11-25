@@ -1,3 +1,10 @@
+export interface ProposalAcceptance {
+  signerName: string | null;
+  signerEmail: string | null;
+  signatureDataUrl: string | null;
+  signedAt: Date | null;
+}
+
 export interface GenerateProposalInput {
   estimateId: string;
   orgId?: string;
@@ -12,6 +19,7 @@ export interface GenerateProposalInput {
   priceHigh?: number | null;
   finalPrice?: number | null;
   paymentScheduleJson?: unknown;
+  acceptance?: ProposalAcceptance;
 }
 
 export interface GenerateProjectProposalInput {

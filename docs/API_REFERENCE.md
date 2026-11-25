@@ -415,7 +415,12 @@ agent, and `signedAt` on the proposal, awards the owning project
 (`estimating` → `awarded`, staff accept parity), and writes a
 `proposal.accepted` delivery event (`delivery_channel: "portal"`,
 `actorType: "customer_portal"`, customer id, portal session id) plus the
-matching activity row. Decline records an optional `declinedReason` and a
+matching activity row. The recorded signature is rendered on the staff
+proposal page (Acceptance card) and in the proposal PDF Acceptance block
+(signature image with signer name and signed date, both PDF render paths);
+rendering re-validates the stored bytes — including a PNG pixel-stream
+pre-validation, since PDFKit decodes PNG pixels asynchronously — and falls
+back to name and date when the image cannot be embedded. Decline records an optional `declinedReason` and a
 `proposal.declined` event the same way, and deliberately leaves the project
 untouched (a project may carry several proposals; declining one must not
 un-award a project won through another — unlike staff reject, which sets

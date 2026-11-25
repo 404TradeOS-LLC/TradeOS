@@ -181,6 +181,30 @@ Live coverage: `app/tests/proposal-portal-acceptance.integration.ts` (accept
 `app/tests/proposals.portal-acceptance.test.ts` (unit) plus
 `web/src/components/proposals/portal-proposal-approval.test.ts`.
 
+The recorded signature is rendered in two places. The staff proposal page
+shows an Acceptance card (`ProposalAcceptanceCard`, right column after the
+lifecycle panel) with the signature image, signer name, signed date, and
+signer email whenever the proposal is `accepted` and carries acceptance
+evidence; it renders nothing when no acceptance evidence exists. The
+proposal PDF Acceptance block (`writeAcceptanceBlock`, both the
+estimate-backed and project-draft render paths, served live by
+`ProposalsService.getPdf`) draws the signature image above the signature
+lines with the signer name and signed date under them. The image is embedded
+only after the same integrity validation that guards storage
+(`isValidSignatureDataUrl` magic-bytes check plus PDF image byte
+validation) and a PNG pixel-stream pre-validation (chunk CRCs, IDAT
+inflate, expected scanline size, filter bytes 0..4): PDFKit decodes PNG
+pixels asynchronously and throws inflate/filter errors inside the zlib
+callback, outside any try/catch around `doc.image`, so a header-valid PNG
+with corrupt pixel data would hang or crash the process instead of falling
+back. Bytes that fail any check — including stored GIF/WebP, which PDFKit
+cannot embed — fall back to name and date text, and an embed failure never
+breaks the PDF. The signed block grows from the measured signer-label
+height, so a long signer name cannot overflow it. An unsigned proposal
+keeps the blank lines. Coverage:
+`app/tests/proposal-pdf-acceptance.test.ts` and
+`web/src/components/proposals/proposal-acceptance-card.test.ts`.
+
 ## Accepted proposal → field job (step 9)
 
 The organization-scoped `POST /api/v1/jobs/from-proposal/:proposalId` converts

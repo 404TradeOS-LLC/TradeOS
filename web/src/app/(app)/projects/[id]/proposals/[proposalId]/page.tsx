@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ActivityTimeline } from "@/components/shared/activity-timeline";
 import { ConnectionLine } from "@/components/motion/connection-line";
+import { ProposalAcceptanceCard } from "@/components/proposals/proposal-acceptance-card";
 import { ProposalContextPanel } from "@/components/proposals/proposal-context-panel";
 import { ProposalLifecyclePanel } from "@/components/proposals/proposal-lifecycle-panel";
 import { ProposalReviewForm } from "@/components/proposals/proposal-review-form";
@@ -97,6 +98,7 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
           </Card>
 
           <ProposalLifecyclePanel projectId={projectId} proposal={proposal} />
+          <ProposalAcceptanceCard proposal={proposal} />
 
           <ActivityTimeline title="Proposal activity" items={timeline} />
 
