@@ -254,24 +254,6 @@ try {
     return response.json();
   }
 
-  async function staffProxyRaw(method, suffix, body, expectedStatus) {
-    const response = await staffPage.request.fetch(new URL(`/api/proxy/${suffix}`, baseUrl).toString(), {
-      method,
-      headers: { Origin: baseUrl },
-      ...(body === undefined ? {} : { data: body }),
-    });
-    const text = await response.text();
-    // A bare status mismatch hides the mechanism (run 45553851005: E2's
-    // 500 arrived with no body anywhere in the log). Attach the truncated,
-    // bearer-redacted body so the next failure names its cause.
-    assert.equal(
-      response.status(),
-      expectedStatus,
-      `${method} /api/proxy/${suffix} returned ${response.status()} (expected ${expectedStatus})${response.status() !== expectedStatus && text ? ` — body: ${redactBearerMaterial(text.slice(0, 500))}` : ""}`,
-    );
-    return { status: response.status(), text, contentType: response.headers()["content-type"] ?? "" };
-  }
-
   const suffix = `s069-${runId}`;
 
   // ---- Phase A: ready-checklist prerequisites + completed job (API). ----
@@ -559,31 +541,24 @@ try {
   // Verify as staff (UI preferred, API fallback).
   try {
     await gotoCloseoutTab();
-    await staffPage.getByRole("button", { name: "Verify", exact: true }).click();
-    // The counts line ("0 open · 1 resolved or verified") is already true
-    // after resolve, so waiting on it cannot prove the verify submit
-    // landed (run 45553851005: the wait passed and the item stayed
-    // `resolved`). The Verify control itself disappears only when the item
-    // leaves `resolved`; a rejected submit re-renders the form with its
-    // error text instead — wait for one of those two discriminating
-    // states, and surface the form error when that is what happened.
-    await staffPage.waitForFunction(
-      () => {
-        const verifyGone = ![...document.querySelectorAll("button")].some((button) =>
-          ["Verify", "Verifying…"].includes(button.textContent?.trim()),
-        );
-        const formError = document.querySelector("form p.text-destructive")?.textContent?.trim();
-        return verifyGone || Boolean(formError);
+    const punchForm = staffPage.locator(`form:has(input[name="punchItemId"][value="${punch.id}"])`);
+    await punchForm.getByRole("button", { name: "Verify", exact: true }).click();
+    // Resolve already satisfies the summary count. Wait for this item's
+    // Verify control to disappear or its own form to report a rejection.
+    const outcome = await staffPage.waitForFunction(
+      (punchItemId) => {
+        const form = [...document.querySelectorAll('input[name="punchItemId"]')]
+          .filter((input) => input.value === punchItemId)
+          .map((input) => input.form)
+          .find((form) => ["Verify", "Verifying…"].includes(form?.querySelector("button")?.textContent?.trim()));
+        return form ? form.querySelector("p.text-destructive")?.textContent?.trim() || false : true;
       },
+      punch.id,
       { timeout: 30_000 },
     );
-    // Read the form error only when one is actually rendered: a bare
-    // textContent() on a missing element would wait out the full timeout
-    // on the success path, where no error exists.
-    const errorLocator = staffPage.locator("form p.text-destructive");
-    const formError = (await errorLocator.count()) > 0 ? await errorLocator.first().textContent() : null;
-    if (formError?.trim()) {
-      throw new Error(`UI verify rejected the submit: ${redactBearerMaterial(formError.trim())}`);
+    const result = await outcome.jsonValue();
+    if (typeof result === "string") {
+      throw new Error(`UI verify rejected the submit: ${redactBearerMaterial(result)}`);
     }
     report.stepPaths.verifyPunch = "ui";
   } catch (error) {
@@ -795,10 +770,19 @@ try {
   }
   await staffPage.setViewportSize({ width: 1440, height: 1000 });
 
-  // Staff closeout document: served as text/html from the staff API.
+  // Follow the staff document link through the browser's document proxy.
   try {
-    const document = await staffProxyRaw("GET", `closeout/projects/${project.id}/closeout/document`, undefined, 200);
-    assertCloseoutDocument({ contentType: document.contentType, bodyText: document.text, projectName: project.name });
+    const href = await staffPage.getByRole("link", { name: "View closeout document", exact: true }).getAttribute("href");
+    const expectedHref = `/api/documents/closeout/projects/${project.id}/closeout/document`;
+    assert.equal(href, expectedHref, "Staff closeout document link must use the document proxy");
+    const document = await staffPage.request.get(href);
+    const bodyText = await document.text();
+    assert.equal(
+      document.status(),
+      200,
+      `GET ${href} returned ${document.status()} (expected 200)${document.status() !== 200 && bodyText ? ` — body: ${redactBearerMaterial(bodyText.slice(0, 500))}` : ""}`,
+    );
+    assertCloseoutDocument({ contentType: document.headers()["content-type"] ?? "", bodyText, projectName: project.name });
     passCase("E2", "staff closeout document served as text/html naming the project");
   } catch (error) {
     failCase("E2", error);
