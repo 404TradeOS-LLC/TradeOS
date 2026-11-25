@@ -110,6 +110,23 @@ Server-side confirmation (folded in from the parallel DES-10 lane, Billy's word 
 
 <!-- coderabbit-ai-generated:v1 -->
 
+<!-- coderabbit-ai-generated-section:v1:7cdf45411d50351c07f60bbd5aa0b128a3423f74da80c9079daf3fee3cc20f20 -->
+
+### Post-merge follow-up risks ([PR #1108](https://github.com/404TradeOS-LLC/TradeOS/pull/1108))
+
+- **Recovery can identify the wrong draft.** The matcher falls back to estimate ID if no row has a string key, even when the current API returns explicit null keys on legacy rows. On an intake project containing only unkeyed drafts, this can label an unrelated draft “This is your draft.” Treat an explicit null as a supported field with no key, and treat results without verifiable attempt identity as inconclusive. Cover all-null rows, omitted fields during a mixed deployment, and multiple drafts for the same estimate or intake project.
+- **Reload safety depends on retaining the submitted key.** When storage is blocked, the form can submit a server seed but the Status Check button reads only storage, so the check loses the actual attempt key. A reload or a no-match return can then submit a different key and create a second draft if the first request committed. Carry the submitted key through recovery, and test a response lost after commit with storage unavailable, including both estimate and intake returns. Cross-tab recovery is also outside the session storage guarantee.
+- **Confirmation events are not proof of a completed check.** The API accepts a client-supplied boolean without correlating it to a recorded no-match decision; the confirmation event also omits the authenticated actor. The return action takes the key from the current storage slot rather than from the checked attempt. Before using these events as audit evidence, bind the decision to the authorized actor, organization, project, estimate or intake, and attempt key. Verify stale confirmations cannot be attached to a later attempt and that a different tenant cannot read or write the recovery records.
+- **The shared proposal DTO exposes attempt keys beyond staff recovery.** The customer portal uses the shared proposal service; its redaction currently preserves top-level fields. Check list and detail responses for both staff and customer sessions, and keep attempt keys out of customer responses and unnecessary URL, analytics, and log retention. The key is a correlation identifier, not a credential or an authorization control.
+- **Live recovery and responsive acceptance are still owed.** On an isolated staging deployment serving the merged change, verify a committed create with a lost response, reload and same-key retry, a 200 replay with the original proposal ID and replay header, and one persisted draft. For a true no-match followed by a fresh create, verify separate no-match and confirmation events, with no additional confirmation on replay; verify a failed event write rolls back the HTTP create. At 1440, 1024, 768, and 390 px, check the guidance card, form errors, keyboard focus, and reduced motion. Include project-load failure and a settings-only failure, which currently prevents recovery from rendering even when the proposal list loaded.
+- **The outcome docs still overstate the 409 rule.** The description above groups all 409s as key reuse, but `estimate_not_finalized` is an inline rejection; an unrecognized or uncoded 409 still goes through key reuse. Pin both cases at the HTTP boundary and document the fallback so a new 409 reason cannot silently be mistaken for a draft conflict.
+
+This PR adds no schema migration or RLS policy change. The live checks above remain unverified by the merge evidence.
+
+<!-- /coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated:v1 -->
+
 <!-- coderabbit-ai-generated-section:v1:3254bf3efa54bd71950bc273a1e15f186242747e7edb6d56f77b74035a972e5f -->
 
 ### Post-merge follow-up risks ([PR #1106](https://github.com/404TradeOS-LLC/TradeOS/pull/1106))
