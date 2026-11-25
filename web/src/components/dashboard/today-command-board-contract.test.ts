@@ -11,6 +11,29 @@ test("all Today entry points share the authenticated loader and interactive expe
     assert.match(page, /TodayExperience data=\{data\}/);
   }
 });
+test("day timeline shows a real map for scheduled work, never a hardcoded unavailable stub", async () => {
+  const ui = await read("./today-experience.tsx");
+  // 2026-11-25 production dogfood: the Day timeline heading hardcoded
+  // "Map unavailable" even though the scheduled jobs carry site addresses.
+  // The timeline renders the day map whenever pins exist; with no pins it
+  // shows the timeline alone — never a stub claiming maps are unavailable.
+  assert.doesNotMatch(ui, /Map unavailable/);
+  assert.match(ui, /DayMap/);
+  assert.match(ui, /buildDayMapPins\(work\)/);
+});
+test("Today geocodes scheduled job sites for the day map", async () => {
+  const data = await read("../../lib/today-data.ts");
+  // DispatchJob.project.siteAddress is already in the Today data path; the
+  // loader carries it onto job work items and geocodes scheduled jobs so
+  // the timeline can pin them. Geocoding is bounded and fail-soft: a
+  // failed lookup drops that pin, never the timeline.
+  assert.match(data, /siteAddress: job\.project\?\.siteAddress/);
+  assert.match(data, /geocodeScheduledJobSites|geocodeAddress/);
+  const model = await read("../../lib/today-model.ts");
+  assert.match(model, /siteAddress\?: string \| null/);
+  assert.match(model, /latitude\?: number \| null/);
+  assert.match(model, /longitude\?: number \| null/);
+});
 test("Today keeps financial analytics off the operating surface and actions in source workspaces", async () => {
   const ui = await read("./today-experience.tsx");
   assert.doesNotMatch(ui, /receivables|loadedOutstanding|Revenue This Week|<MoneySummary/);

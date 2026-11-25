@@ -11,6 +11,20 @@ import { resolveWorkspaceKey } from "@/lib/workspace-key";
 
 const ATHENA_CAPABILITY_TIMEOUT_MS = 1500;
 
+// The settings lookup backs the Create sheet's role gate, so it gets its
+// own, larger budget like the memberships lookup. GET /api/v1/settings
+// takes as long as the memberships endpoint on a slow production API
+// (311–2202ms observed against staging, 2026-11-24, before serverless
+// cold starts), and the shared 1500ms budget aborted real lookups —
+// 2026-11-25 the layout's settings + capabilities lookups both failed
+// while the untimed page-data load of the same settings endpoint
+// succeeded minutes earlier, and resolveSettingsIdentity failing closed
+// to role null rendered the Create sheet with zero options for an
+// authenticated owner. 5000ms covers the worst observed latency by more
+// than 2x while still bounding shell delay; the token fallback below
+// covers anything slower still.
+const SETTINGS_IDENTITY_TIMEOUT_MS = 5000;
+
 // The memberships lookup gets its own, larger budget than the advisory
 // capability/settings lookups. GET /api/v1/auth/memberships takes
 // 311–2202ms against the staging API (Vercel runtime logs, 2026-11-24),
@@ -47,12 +61,19 @@ async function resolveAthenaEnabled(token: string | null): Promise<AthenaCapabil
 async function resolveSettingsIdentity(token: string | null): Promise<{ role: string | null; orgId: string | null }> {
   if (!token) return { role: null, orgId: null };
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), ATHENA_CAPABILITY_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), SETTINGS_IDENTITY_TIMEOUT_MS);
   try {
     const settings = await getOrganizationSettings(token, controller.signal);
     return { role: settings.currentRole, orgId: settings.orgId };
   } catch {
-    return { role: null, orgId: null };
+    // Presentation gating only — server routes remain authoritative. The
+    // session token already carries the active role and org claims (the
+    // layout already trusts its orgId claim for the workspace remount
+    // key), so an advisory lookup failing must not brick the shell for an
+    // authenticated user. Fall back to the token claims; a token without
+    // them still fails closed to null, exactly as before.
+    const claims = decodeLocalAccessToken(token);
+    return { role: claims?.role ?? null, orgId: claims?.orgId ?? null };
   } finally {
     clearTimeout(timeoutId);
   }

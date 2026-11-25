@@ -115,7 +115,13 @@ export async function buildTodayFixture() {
     const webpack = webRequire('next/dist/compiled/webpack/webpack').webpack;
     await new Promise<void>((done, fail) => webpack({
       mode: 'development', devtool: false, entry: join(directory, 'entry.tsx'),
-      output: { path: directory, filename: 'bundle.js' },
+      // The bundle is inlined into the served HTML, so there is no script
+      // URL for webpack's automatic publicPath detection — and the DayMap's
+      // dynamic `import("leaflet")` pulls in the chunk-loading runtime that
+      // evaluates it at startup. An explicit (empty) publicPath keeps the
+      // bundle loadable; chunk loads never fire here because the fixture
+      // renders with no geocoded pins.
+      output: { path: directory, filename: 'bundle.js', publicPath: '' },
       resolve: { extensions: ['.tsx', '.ts', '.js'], alias: {
         'next/link$': join(directory, 'next-link.tsx'),
         'next/navigation$': join(directory, 'next-navigation.ts'),

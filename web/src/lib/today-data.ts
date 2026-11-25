@@ -10,10 +10,16 @@ import {
 import { getSession, getSessionToken } from "@/lib/session";
 import { buildAthenaEstimateIdentity } from "@/lib/athena-estimate-handoff";
 import { getStaleProposalCutoffIso, buildAttentionInvoiceRows, buildAttentionProposalRows } from "@/components/dashboard/needs-attention-model";
+import { geocodeAddress } from "./geocode";
+import { MAX_DAY_MAP_PINS } from "./today-map";
 import { prioritizeTodayAttention, safeTodayTimeZone, taskNeedsAttention, isTodayTask, type TodayAttentionItem, type TodayData, type TodaySource, type TodayWorkItem } from "./today-model";
 
 const LIMIT = 50;
 const JOB_PAGE_LIMIT = 5;
+// One Census geocode lookup per site address, run in parallel. 2s bounds
+// the slowest lookup; the map step runs off the schedule read so it
+// overlaps the other queue reads instead of stacking onto the load.
+const GEOCODE_TIMEOUT_MS = 2000;
 
 /** Bounded operational view. Every backend read retains JWT, membership and forced RLS. */
 export const loadTodayData = cache(async (includeRecentUnsigned = false): Promise<TodayData | null> => {
@@ -88,11 +94,45 @@ export const loadTodayData = cache(async (includeRecentUnsigned = false): Promis
       kind: "job", start: job.scheduledStart, end: job.scheduledEnd,
       assignee: job.assignedTechnicians.map((tech) => tech.name).join(", ") || null, status: job.status,
       href: field ? `/field?job=${job.id}` : `/dispatch?view=all&q=${encodeURIComponent(job.jobNumber)}`,
+      siteAddress: job.project?.siteAddress ?? null,
     });
     addOverdueJobs(todayJobs);
   });
 
   const requests: Promise<void>[] = [schedule];
+  // Pin today's scheduled jobs on the day map. Chained off the schedule
+  // read so geocoding overlaps the other queue reads; capped, one lookup
+  // per unique site address, and fail-soft — a failed lookup drops that
+  // pin, never the timeline or the load.
+  requests.push(schedule.then(async () => {
+    const candidates = work.filter(
+      (item) =>
+        item.kind === "job" &&
+        item.start !== null &&
+        Number.isFinite(Date.parse(item.start)) &&
+        typeof item.siteAddress === "string" &&
+        item.siteAddress.trim().length > 0
+    ).slice(0, MAX_DAY_MAP_PINS);
+    const byAddress = new Map<string, TodayWorkItem[]>();
+    for (const item of candidates) {
+      const key = item.siteAddress!.trim();
+      const group = byAddress.get(key);
+      if (group) group.push(item);
+      else byAddress.set(key, [item]);
+    }
+    const addresses = [...byAddress.keys()];
+    const settled = await Promise.allSettled(
+      addresses.map((address) => geocodeAddress(address, AbortSignal.timeout(GEOCODE_TIMEOUT_MS)))
+    );
+    addresses.forEach((address, index) => {
+      const result = settled[index];
+      if (result.status !== "fulfilled" || !result.value) return;
+      for (const item of byAddress.get(address)!) {
+        item.latitude = result.value.lat;
+        item.longitude = result.value.lon;
+      }
+    });
+  }));
   if (summary) requests.push(read("jobs-overdue", "Overdue work", async () => {
     const jobs: DispatchJob[] = [];
     let page = 1, total = 0;
@@ -131,6 +171,7 @@ export const loadTodayData = cache(async (includeRecentUnsigned = false): Promis
         kind: "job", start: job.scheduledStart, end: job.scheduledEnd,
         assignee: job.assignedTechnicians.map((tech) => tech.name).join(", ") || null, status: job.status,
         href: field ? `/field?job=${job.id}` : `/dispatch?view=all&q=${encodeURIComponent(job.jobNumber)}`,
+        siteAddress: job.project?.siteAddress ?? null,
       });
     }
   }));

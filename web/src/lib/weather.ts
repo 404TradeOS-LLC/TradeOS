@@ -1,5 +1,6 @@
 import "server-only";
 import { ForecastPeriodCandidate, selectRelevantForecastPeriod } from "@/lib/weather-forecast";
+import { geocodeAddress } from "@/lib/geocode";
 
 export interface WeatherSnapshot {
   locationLabel: string;
@@ -22,15 +23,6 @@ const REVALIDATE_SECONDS = 1800;
 // rather than budgeting each individually.
 const TOTAL_TIMEOUT_MS = 5000;
 
-interface CensusGeocodeResponse {
-  result?: {
-    addressMatches?: Array<{
-      coordinates?: { x?: number; y?: number };
-      matchedAddress?: string;
-    }>;
-  };
-}
-
 interface NwsPointsResponse {
   properties?: {
     forecast?: string;
@@ -42,24 +34,6 @@ interface NwsForecastResponse {
   properties?: {
     periods?: ForecastPeriodCandidate[];
   };
-}
-
-async function geocodeAddress(address: string, signal: AbortSignal): Promise<{ lat: number; lon: number } | null> {
-  const url = new URL("https://geocoding.geo.census.gov/geocoder/locations/onelineaddress");
-  url.searchParams.set("address", address);
-  url.searchParams.set("benchmark", "Public_AR_Current");
-  url.searchParams.set("format", "json");
-
-  const response = await fetch(url, { signal, next: { revalidate: REVALIDATE_SECONDS } });
-  if (!response.ok) return null;
-
-  const data = (await response.json()) as CensusGeocodeResponse;
-  const match = data.result?.addressMatches?.[0];
-  const lat = match?.coordinates?.y;
-  const lon = match?.coordinates?.x;
-  if (typeof lat !== "number" || typeof lon !== "number") return null;
-
-  return { lat, lon };
 }
 
 /**
