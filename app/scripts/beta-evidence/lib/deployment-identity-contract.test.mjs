@@ -137,6 +137,20 @@ test("without SHA correlation the commit must still be present and well-formed, 
   );
 });
 
+test("allows different published web and API SHAs when SHA correlation is off", () => {
+  // CodeRabbit Minor on PR #1096: with correlation off the s059 script
+  // accepts any READY deployment on the branch, so the web and API
+  // surfaces may legitimately disagree.
+  const bad = observed();
+  bad.webCommitSha = OTHER_SHA;
+  const verified = verifyDeploymentIdentity({
+    expected: expected(),
+    observed: bad,
+    options: { requireShaCorrelation: false },
+  });
+  assert.equal(verified.shaCorrelated, false);
+});
+
 test("never reports a production deployment as verified, even with a matching SHA", () => {
   throwsWithCode(
     () =>
@@ -184,7 +198,7 @@ test("collects the observed identity from the three public runtime surfaces", as
   assert.equal(found.webIdentityPublished, true);
   assert.equal(found.webBranch, "staging");
   assert.equal(found.webBackendHost, STAGING_API_HOST);
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4);
   assert.ok(calls.every((call) => call.options.redirect === "error" && call.options.cache === "no-store"));
   assert.ok(calls.every((call) => !call.options.headers), "no headers are sent: the surfaces are public and no credential is presented");
   assert.ok(!calls.some((call) => /vercel\.com\/v\d+\/projects\/.*\/env/.test(call.url)), "no env inventory is fetched");
@@ -195,6 +209,26 @@ test("collects an unpublished web identity (non-staging preview) without failing
   assert.equal(found.webIdentityPublished, false);
   assert.equal(found.webBranch, undefined);
   assert.equal(found.commitSha, SHA);
+});
+
+test("fails closed when the deployment changes between the /health and /ready observations", async () => {
+  // CodeRabbit Minor on PR #1096: /ready reports no commit SHA, so
+  // /health is read again after /ready to bind both observations to one
+  // deployment. An alias repoint between the two reads is a mid-collection
+  // deployment change and must fail the collect.
+  let healthCalls = 0;
+  const fetchImpl = async (url) => {
+    if (url.endsWith("/api/staging-runtime-identity")) return { status: 200, ok: true, json: async () => webBody() };
+    if (url.endsWith("/health")) {
+      healthCalls += 1;
+      return { status: 200, ok: true, json: async () => ({ status: "ok", commitSha: healthCalls === 1 ? SHA : OTHER_SHA, environment: "preview" }) };
+    }
+    return { status: 200, ok: true, json: async () => readyBody() };
+  };
+  await assert.rejects(
+    collectRuntimeIdentity({ webOrigin: STAGING_WEB, apiOrigin: STAGING_API, fetchImpl }),
+    (error) => error instanceof DeploymentIdentityError && error.code === "IDENTITY_CHANGED",
+  );
 });
 
 test("fails closed when a runtime surface is unavailable, non-200, or unparseable", async () => {

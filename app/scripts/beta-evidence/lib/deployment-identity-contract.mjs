@@ -74,8 +74,12 @@ function hostOf(origin) {
  * commit to equal the expected commit. When false, the observed commit must
  * still be present and well-formed, but equality is not asserted — the
  * caller is explicitly running without SHA correlation and the returned
- * record says so. Environment, backend host, and data-plane checks are
- * never relaxed.
+ * record says so. The web/API SHA equality is part of SHA correlation and
+ * is gated on the same option (CodeRabbit Minor on PR #1096): with
+ * correlation off, the s059 script accepts any READY deployment on the
+ * branch, so the web and API surfaces may legitimately disagree. The web
+ * SHA is still collected and recorded. Environment, backend host, and
+ * data-plane checks are never relaxed.
  * `options.requireWebIdentity` (default false) requires the web runtime
  * identity to be published. Staging correlation and S059 evidence set it:
  * without a published web identity the web SHA, branch, backend binding,
@@ -162,7 +166,11 @@ export function verifyDeploymentIdentity({ expected, observed, options = {} }) {
   }
 
   if (observed?.webIdentityPublished) {
-    if (typeof observed.webCommitSha === "string" && observed.webCommitSha.trim().toLowerCase() !== observedSha) {
+    // The web/API SHA equality is a SHA-correlation assertion, gated on
+    // requireShaCorrelation (see the option's doc comment): with
+    // correlation off, the web and API surfaces may legitimately be
+    // different READY deployments of the same branch.
+    if (requireShaCorrelation && typeof observed.webCommitSha === "string" && observed.webCommitSha.trim().toLowerCase() !== observedSha) {
       fail("IDENTITY_WEB_SHA_MISMATCH", "Web runtime commit does not match the API runtime commit.");
     }
     if (typeof observed.webEnvironment === "string" && observed.webEnvironment !== runtimeEnvironment) {
@@ -240,9 +248,12 @@ async function readJson(fetchImpl, url, label) {
  * Collect the observed runtime identity from the deployment's public
  * surfaces. Fetches the web runtime identity (404 = not published, which
  * non-staging previews report by design), the API /health, and the API
- * /ready — no headers, no credentials, no env inventory. Throws
- * DeploymentIdentityError fail-closed on any unavailable, non-200 (other
- * than web 404), missing, or malformed identity.
+ * /ready — no headers, no credentials, no env inventory. /health is read
+ * a second time after /ready and the two SHAs must agree, binding the
+ * /health and /ready observations to one deployment (/ready reports no
+ * commit SHA). Throws DeploymentIdentityError fail-closed on any
+ * unavailable, non-200 (other than web 404), missing, or malformed
+ * identity, or on a deployment change mid-collection.
  */
 export async function collectRuntimeIdentity({ webOrigin, apiOrigin, fetchImpl = globalThis.fetch }) {
   const web = assertPublicOrigin(webOrigin, "Web");
@@ -283,6 +294,19 @@ export async function collectRuntimeIdentity({ webOrigin, apiOrigin, fetchImpl =
   const projectRef = ready?.checks?.database?.projectRef;
   if (ready?.status !== "ready" || ready?.checks?.database?.status !== "ok" || typeof projectRef !== "string" || projectRef === "") {
     fail("IDENTITY_UNPARSEABLE", "API /ready did not report a usable data-plane identity.");
+  }
+
+  // Bind the /health and /ready observations to one deployment: /ready
+  // reports no commit SHA, so /health is read again after /ready and the
+  // two SHAs must agree. If the alias repointed between the two reads,
+  // the deployment changed mid-collection and the identity is rejected
+  // (IDENTITY_CHANGED, the same code as the pre/post-capture check).
+  const healthRecheck = await readJson(fetchImpl, `${api}/health`, "API /health");
+  if (healthRecheck?.status !== "ok" || typeof healthRecheck?.commitSha !== "string" || healthRecheck.commitSha === "") {
+    fail("IDENTITY_UNPARSEABLE", "API /health did not report a usable identity.");
+  }
+  if (healthRecheck.commitSha !== health.commitSha) {
+    fail("IDENTITY_CHANGED", "Deployment identity changed during collection (commitSha).");
   }
 
   const observed = {

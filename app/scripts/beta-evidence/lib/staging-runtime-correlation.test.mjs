@@ -18,7 +18,7 @@ function transport(data, calls = []) {
 test('correlates matching live web/API SHA and data plane with no redirects or cache', async () => {
   const calls = [];
   assert.deepEqual(await correlateStagingRuntime({ ...input(), fetchImpl: transport(payloads(), calls) }), { deploymentSha: sha, source: 'live-staging-web-api', dataPlaneRef: STAGING_PROJECT_REF });
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4);
   assert.ok(calls.every(c => c.options.redirect === 'error' && c.options.cache === 'no-store'));
 });
 for (const [name, index, field, value] of [
@@ -46,6 +46,21 @@ test('rejects an unpublished web identity for staging correlation', async () => 
   // identity; the contract must not silently skip every web check for it.
   const fetchImpl = async (url, options) => {
     if (url.endsWith('staging-runtime-identity')) return { status: 404, ok: false };
+    return transport(payloads())(url, options);
+  };
+  await assert.rejects(correlateStagingRuntime({ ...input(), fetchImpl }), e => e.code === 'STAGING_RUNTIME_MISMATCH');
+});
+test('rejects a deployment change between the /health and /ready observations', async () => {
+  // CodeRabbit Minor on PR #1096: the collector re-reads /health after
+  // /ready to bind both observations to one deployment.
+  let healthCalls = 0;
+  const fetchImpl = async (url, options) => {
+    if (url.endsWith('/health')) {
+      healthCalls += 1;
+      const data = payloads();
+      data[1].commitSha = healthCalls === 1 ? sha : 'b'.repeat(40);
+      return { ok: true, json: async () => data[1] };
+    }
     return transport(payloads())(url, options);
   };
   await assert.rejects(correlateStagingRuntime({ ...input(), fetchImpl }), e => e.code === 'STAGING_RUNTIME_MISMATCH');

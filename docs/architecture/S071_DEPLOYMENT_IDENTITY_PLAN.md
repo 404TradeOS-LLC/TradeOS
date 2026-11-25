@@ -220,6 +220,12 @@ What landed:
   the web SHA, branch, backend binding, and data plane are
   unverifiable, and the pre-S071 implementation rejected a 404 web
   identity. Ordinary previews keep the optional behavior.
+- CodeRabbit review fixes (PR #1096, fixed in-branch): the collector
+  re-reads `/health` after `/ready` and the two SHAs must agree,
+  binding both observations to one deployment (`IDENTITY_CHANGED`
+  otherwise — `/ready` reports no commit SHA); the web/API SHA
+  equality is gated on `requireShaCorrelation`, so the s059 opt-out
+  mode does not re-impose correlation between the web and API surfaces.
 - Tests: contract test 33/33 (each field verified; each
   mismatch/missing/unparseable case failing closed; production refusal;
   no-secret handling), staging-runtime-correlation test updated with
