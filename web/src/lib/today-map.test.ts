@@ -30,11 +30,23 @@ test("buildDayMapPins keeps only scheduled jobs with coordinates", () => {
   ]);
 });
 
-test("buildDayMapPins drops non-finite coordinates and caps the pin count", () => {
+test("buildDayMapPins drops non-finite coordinates", () => {
+  const pins = buildDayMapPins([
+    jobItem({ id: "job-nan", latitude: Number.NaN, longitude: -87.4, siteAddress: "NaN St" }),
+    jobItem({ id: "job-inf", latitude: Number.POSITIVE_INFINITY, longitude: -87.4, siteAddress: "Inf St" }),
+    jobItem({ id: "job-neg-inf", latitude: 39.5, longitude: Number.NEGATIVE_INFINITY, siteAddress: "Neg Inf St" }),
+    jobItem({ id: "job-ok", latitude: 39.4665, longitude: -87.413, siteAddress: "4050 S State Road 63" }),
+  ]);
+  assert.deepEqual(
+    pins.map((pin) => pin.id),
+    ["job-ok"]
+  );
+});
+
+test("buildDayMapPins caps the pin count", () => {
   const items = Array.from({ length: MAX_DAY_MAP_PINS + 3 }, (_, i) =>
     jobItem({ id: `job-${i}`, latitude: 39 + i * 0.01, longitude: -87.4, siteAddress: `${i} Main St` })
   );
-  items.push(jobItem({ id: "job-nan", latitude: Number.NaN, longitude: -87.4, siteAddress: "NaN St" }));
   const pins = buildDayMapPins(items);
   assert.equal(pins.length, MAX_DAY_MAP_PINS);
   assert.ok(pins.every((pin) => Number.isFinite(pin.lat) && Number.isFinite(pin.lon)));

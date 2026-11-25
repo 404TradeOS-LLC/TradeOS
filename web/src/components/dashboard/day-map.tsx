@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
 import { dayMapBounds, type DayMapPin } from "@/lib/today-map";
 
@@ -13,10 +13,17 @@ import { dayMapBounds, type DayMapPin } from "@/lib/today-map";
  */
 export function DayMap({ pins, timeZone }: { pins: DayMapPin[]; timeZone: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // Pin set whose Leaflet load failed (chunk failed or map init threw).
+  // Derived, not reset in the effect: the container hides only for the
+  // failed pin set, so the timeline stands alone instead of showing an
+  // empty 220px box — and a later pin change retries the load, because
+  // the new key no longer matches the failed one.
+  const [failedPinsKey, setFailedPinsKey] = useState<string | null>(null);
   // Popup content (start, title, address) is part of the key: a job
   // rescheduled or renamed without moving keeps its coordinates, and the
   // markers must rebuild so the popup shows the new time and title.
   const pinsKey = pins.map((pin) => `${pin.id}:${pin.lat},${pin.lon}:${pin.start ?? ""}:${pin.title}:${pin.address}`).join("|");
+  const loadFailed = failedPinsKey !== null && failedPinsKey === pinsKey;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -24,7 +31,8 @@ export function DayMap({ pins, timeZone }: { pins: DayMapPin[]; timeZone: string
     let cancelled = false;
     let map: import("leaflet").Map | null = null;
 
-    void import("leaflet").then((L) => {
+    void import("leaflet")
+      .then((L) => {
       if (cancelled || !containerRef.current) return;
       const reducedMotion =
         typeof window !== "undefined" &&
@@ -59,7 +67,19 @@ export function DayMap({ pins, timeZone }: { pins: DayMapPin[]; timeZone: string
         if (pins.length === 1) map.setView([pins[0].lat, pins[0].lon], 13);
         else map.fitBounds([[bounds.minLat, bounds.minLon], [bounds.maxLat, bounds.maxLon]], { padding: [24, 24] });
       }
-    });
+      })
+      .catch(() => {
+        // The chunk request failed (or map init threw): remove any
+        // partially initialized map and hide the container so the
+        // timeline stands alone instead of an empty box. The failure
+        // stays inside this promise chain — no caller receives it.
+        if (cancelled) return;
+        if (map) {
+          map.remove();
+          map = null;
+        }
+        setFailedPinsKey(pinsKey);
+      });
 
     return () => {
       cancelled = true;
@@ -72,7 +92,7 @@ export function DayMap({ pins, timeZone }: { pins: DayMapPin[]; timeZone: string
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pinsKey, timeZone]);
 
-  if (pins.length === 0) return null;
+  if (pins.length === 0 || loadFailed) return null;
   return (
     <div
       ref={containerRef}
