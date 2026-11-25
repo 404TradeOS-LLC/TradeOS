@@ -179,6 +179,11 @@ only one winning terminal result; the losing request fails closed without a
 second delivery/activity event or project-side-effect overwrite. Repeated
 terminal approval/decline remains an invalid transition.
 
+An accepted proposal's recorded signature is visible on the staff proposal
+page (Acceptance card) and in the proposal PDF Acceptance block (signature
+image with signer name and signed date); rendering validates the stored bytes
+and falls back to name and date when the image cannot be embedded.
+
 Selection and allowance writes (DES-10-F8) are draft-only mutations, not
 lifecycle transitions: they are allowed in any non-accepted state and rejected
 with `409` once the proposal is accepted or has a contract, following the same
