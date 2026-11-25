@@ -36,6 +36,27 @@ test("rejects a missing Origin without a same-origin Sec-Fetch-Site", () => {
   assert.equal(shouldRejectProxyMutation("POST", requestUrl, "", "same-origin"), false);
 });
 
+test("allows a missing Origin when a same-site cookie proves the request origin", () => {
+  // Regression: the staging confirm-form POST arrives with neither Origin nor
+  // Sec-Fetch-Site (both stripped on the browser/proxy path), so the header
+  // proofs #1088 added can never fire for it. The pending-access cookie is
+  // httpOnly, SameSite=strict, path-scoped, and cleared on redeem, so its
+  // presence on the request proves same-site even when headers are stripped.
+  assert.equal(shouldRejectProxyMutation("POST", requestUrl, null, null, true), false);
+  assert.equal(shouldRejectProxyMutation("POST", requestUrl, null, "cross-site", true), false);
+});
+
+test("rejects a missing Origin with neither Sec-Fetch-Site nor a same-site cookie", () => {
+  assert.equal(shouldRejectProxyMutation("POST", requestUrl, null, null, false), true);
+  assert.equal(shouldRejectProxyMutation("POST", requestUrl, null, "same-site", false), true);
+});
+
+test("a same-site cookie does not override a present Origin", () => {
+  assert.equal(shouldRejectProxyMutation("POST", requestUrl, "https://evil.404tradeos.com", "same-origin", true), true);
+  assert.equal(shouldRejectProxyMutation("POST", requestUrl, "https://app.404tradeos.com", "cross-site", true), false);
+  assert.equal(shouldRejectProxyMutation("DELETE", requestUrl, "not a url", null, true), true);
+});
+
 test("a present Origin stays authoritative over Sec-Fetch-Site", () => {
   assert.equal(shouldRejectProxyMutation("POST", requestUrl, "https://app.404tradeos.com", "cross-site"), false);
   assert.equal(shouldRejectProxyMutation("POST", requestUrl, "https://evil.404tradeos.com", "same-origin"), true);

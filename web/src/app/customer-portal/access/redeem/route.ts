@@ -17,6 +17,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       request.url,
       request.headers.get("origin"),
       request.headers.get("sec-fetch-site"),
+      isValidCustomerPortalAccessToken(
+        request.cookies.get(CUSTOMER_PORTAL_PENDING_ACCESS_COOKIE)?.value,
+      ),
     )
   ) {
     return NextResponse.json({ error: "Cross-origin portal redemption is not allowed" }, { status: 403 });
