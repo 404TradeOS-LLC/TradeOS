@@ -168,9 +168,23 @@ The estimates and proposals organization work-queue reads (`EstimateEngineServic
 
 The read-only selected-account ABC sandbox quote (`POST /api/v1/supplier-integrations/abc/selected-price-probe`, Settings → Test selected ABC price) accepted only two SKUs (`654210`, `02GASTZ3WW`), which blocked probing the test data ABC API Support sent 2026-11-24 (Penny Simpson). The allowlist is now 20 SKUs: the two pilot SKUs plus the 18 ABC-provided test SKUs — branch 254 items `17CTRV12FN`, `0150013884`; branch 340 priced items `02IKDYARAB`, `02IKDYARCA`, `0150013846`, `0170030023`, `0150013902`, `02CTL303GG`, `05CTSRR10`, `02GATZ3WW`, `04CTPRSTWW`, `01CT25BK`, `14MIDEGBK`; branch 340 $0-price items `07CS300054`, `07GAEGUCGY`, `08GAEPADH`, `23CTCI9GG`, `GGC615VGWH`. It stays a closed allowlist: the server enum (`selectedQuoteSchema`) and the Settings dropdown (`ABC_SELECTED_QUOTE_SKUS`) enforce the same list, no free-form SKU input exists, and an unallowlisted SKU is still rejected with 400 before any provider call (existing route test). The `price-probe` route stays locked to `ABC-654210`. No priced line has been verified yet — this only unblocks the probes; they run in production Settings after deploy. Regression coverage: new route test quotes `17CTRV12FN` at branch 254.
 
-## Estimate Scope clarification — DES-10-F1 (proposed)
+<!-- coderabbit-ai-generated:v1 -->
 
-The Scope stage presents one footing question when the saved work describes structural deck work or existing deck footings. A draft estimate can save a field note or explicitly keep the site-check assumption. Reload restores the normalized answer, retries preserve the same revision, and a competing save prompts the contractor to load the latest version while retaining their text. The structured Athena review shows the saved clarification when reviewing that project's saved scope. The answer is advisory context; review and application of item suggestions remain explicit actions. The source change requires authenticated viewport and tenant-denial evidence before release status is recorded.
+<!-- coderabbit-ai-generated-section:v1:5c3dfd0b11e4fce98c701a401b6e5d5bac571017508fdddf2b54de74b46dc4b7 -->
+
+## Estimate Scope clarification — DES-10-F1 (merged; staging acceptance pending)
+
+[PR #1090](https://github.com/404TradeOS-LLC/TradeOS/pull/1090) merged as `69a9d0ac9430d194b6e914def1d6edde5d4867e2`. Eligible draft estimates can save a footing field note or a site-check assumption. Athena shows the answer as advisory context on explicit review of matching saved scope. The save leaves items, quantities, and totals unchanged.
+
+### Post-merge follow-up risks
+
+- **Schema and app rollout can get out of sequence.** The clarification routes and Athena draft generation for eligible scopes query the new table. Before promoting a candidate, verify `20261125120000_add_estimate_scope_clarification` is applied in the approved database ledger and the restricted API role can use the table with forced RLS. Record the matching web and API build identities and the API's database identity. Hold promotion if the evidence does not match. If application rollback is needed, keep the additive table and saved notes.
+- **A saved field note can outlive the work it describes.** The row is keyed by estimate and question; neither the save nor the read binds the answer to the scope that the user saw. A second session can change the deck scope while the form is open, or make the question inapplicable and later bring it back. When the same question key applies again, Athena can show the old note under the revised scope. Test both two-session cases and decide when to require reconfirmation before presenting that note for review.
+- **Finalization recovery still depends on refreshing the parent estimate.** The form recognizes `409` with `details.code: ESTIMATE_FINALIZED`, but Back to Scope only closes the form; the builder can still render draft controls from its cached estimate. Add a two-session browser regression that finalizes after the form opens, then verifies the error survives the web proxy, focus moves to a visible control, and returning to Scope refreshes the estimate and hides editing controls. Also pin the documented distinction between a new write and an identical replay after finalization: the replay may return the existing revision without a database write.
+- **Tenant and role checks need coverage on the deployed paths.** The PR reports local foreign GET/PUT denials and restricted-role integration coverage for foreign reads and inserts. On the approved candidate, verify foreign GET, PUT, and Athena draft requests return 404 without returning a note. Add restricted-role coverage for attempts to update an existing clarification across organizations, as a same-organization technician, and after finalization; assert the row and revision remain unchanged. Check that the same-organization reader and writer paths still work.
+- **Browser acceptance and automated behavior coverage are still open.** Run authenticated acceptance at 390, 768, 1024, and 1440 px on the matching candidate. Exercise a failed save, retry, reload, stale revision recovery with entered text retained, pending navigation, and keyboard focus. Confirm Athena renders the note, while saved items and totals stay identical even when a footing-replacement item already exists. The [PR review](https://github.com/404TradeOS-LLC/TradeOS/pull/1090#issuecomment-7149341567) also identifies gaps in automated form behavior and question selection: cover the real refresh and retry interaction and the cases for new footings without reuse and scope without deck work. The reported hosted checks for final PR head `5d9bcf04` and local browser checks for an earlier tree do not certify the deployed candidate. Record the candidate results before updating release status.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 ## Estimate Review readiness checklist — DES-10-F2 (branch `feat/des10-f2-review-readiness-gate`)
 
@@ -1761,7 +1775,13 @@ The one-dominant-action pattern is now a shared component, `StickyTaskAction` (`
 
 The estimate builder includes an embedded Athena context panel beside the desktop pricing inspector and within the mobile Scope stage. It uses the existing reviewable suggestion contract to surface assembly and Costbook matches, confidence, provenance warnings, and explicit setup-required states without applying anything automatically. The full review route now uses contractor-facing Athena terminology while the internal API/type names remain unchanged. Estimate Engine mutations remain authoritative.
 
-At the time of this mobile workspace update, the canonical one-question interaction remained a product gap. The separate DES-10-F1 entry above tracks the proposed footing clarification contract and its release evidence.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:3ef1395cbb64d988feb45a9cdd7c565dd9a341cb46b740ab27e1c3e921414854 -->
+
+The canonical one-question interaction was still a gap when this mobile workspace update landed. See [DES-10-F1](#estimate-scope-clarification--des-10-f1-merged-staging-acceptance-pending) for the merged footing clarification and pending staging evidence.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 ## Contextual Athena provenance clarification
 

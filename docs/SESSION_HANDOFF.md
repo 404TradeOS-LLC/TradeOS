@@ -37,10 +37,15 @@ related_docs:
 - Implementation merged as PR #1067 (squash `1388baae`); S068 is `IN_REVIEW` with full acceptance still owed (browser-evidence workflow dispatch + run record in a follow-up PR).
 - GAP-1 fixed: attributable `change_order.approved` / `change_order.rejected` activity events. GAP-2 BLOCKED by design (customer portal approve/reject, ADR-010). GAP-3 finding: no downstream roll-up of approved change orders — founder decision.
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:4d727bf5f30fcc7f5f8d76cb008446b91f0e7a28d0a3b7c6601176a3f49d8e35 -->
+
 ## Estimate Scope clarification — DES-10-F1
 
-- Branch `feat/des10-f1-one-question-clarification`. Scope owns the footing answer and revision recovery, and Athena review reads it as advisory context. The change requires the additive `20261125120000_add_estimate_scope_clarification` migration.
-- Continue with exact-head CI and authenticated 390/768/1024/1440 evidence for save, reload, retry, stale revision and tenant denial. Deployment certification requires the matching nonproduction API/web build and migration state. DES-10-F2 and the F7 portal redeem paths are outside this lane.
+[PR #1090](https://github.com/404TradeOS-LLC/TradeOS/pull/1090) merged in `69a9d0ac`; staging acceptance remains pending. The next step is to verify the approved candidate's API and web identities and migration ledger, then run the [DES-10-F1 follow-up checks](CURRENT_STATE.md#estimate-scope-clarification--des-10-f1-merged-staging-acceptance-pending).
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 ## Next Eligible Sprint
 
