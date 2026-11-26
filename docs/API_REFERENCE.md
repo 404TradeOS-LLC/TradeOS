@@ -1097,14 +1097,23 @@ Catalog installs accept optional `expectedRecipeVersion`; a mismatch returns
 `installedRecipeId`, `installedRecipeVersion`, `installedAt`,
 `currentRecipeVersion`, and `updateAvailable`.
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:40192a2388301b981d7831d0ff2e6627466424e2d5be2020f74084dbc050e655 -->
+
 **Rollout order (PR #1091):** apply migration
-`20261125150000_version_installed_assembly_recipes` and deploy the backend
-first, then deploy the web. The web sends `expectedRecipeVersion` on install,
-and the backend is what enforces it: a web deployed ahead of the backend would
-have the field stripped by the old backend and install against a changed
-recipe with no version check. After both sides are live, verify on staging
-that an install with the current recipe version returns `201` and an install
-with a stale `expectedRecipeVersion` returns `409`.
+`20261125150000_version_installed_assembly_recipes`, deploy the backend, then
+deploy the web. Both web install entry points send `expectedRecipeVersion`.
+The backend immediately before PR #1091 uses a strict request schema and
+rejects the new field with `400`. The new backend accepts requests without the
+field for compatibility, so those callers do not get the version check.
+On staging, verify both web install entry points forward the field and that
+a current version returns `201` and a stale version returns `409` without
+creating an Assembly or its items. See the
+[post-merge risks](architecture/ASSEMBLY_CATALOG_IMPLEMENTATION.md#post-merge-follow-up-risks-pr-1091)
+for the migration and client compatibility checks.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 - `GET /api/v1/costbook/assemblies/:id/recipe-upgrade` (`costbook.read`) returns
   the installed and current versions, structure and mapping diff, blockers,

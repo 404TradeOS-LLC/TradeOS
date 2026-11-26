@@ -95,15 +95,68 @@ checks the current structure against the latest entry and rejects adjacent
 duplicates. Editorial copy, provenance, and ordering changes leave the
 version unchanged.
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:bbad0b602b2e00cd059320d10620822e9db64ad303113fd7352a3a9ec5d86557 -->
+
 The installed template detail compares versions and lets a Costbook writer
 review the diff for that assembly. Existing compatible mappings carry
 forward. A removed slot drops its mapping, and a new slot or an incompatible
-mapping requires an explicit Cost Item selection. An unkeyed local component
-blocks confirmation until the estimator resolves it in the assembly editor.
-A stale review must be refreshed. Confirming locks the reviewed assembly and
-components and atomically records the update and audit event. The configured
-waste and production overrides carry forward. Costbook price records and
-persisted estimate snapshots stay as recorded.
+mapping requires an explicit Cost Item selection. An unverified component
+blocks confirmation. Removing it in the editor drops that component and its
+installed mapping; the editor has no supported action to assign it a verified
+slot. A stale review must be refreshed. Confirming locks the reviewed assembly
+and components and atomically records the update and audit event. The
+configured waste and production overrides carry forward. Costbook price
+records and persisted estimate snapshots stay as recorded.
+
+### Post-merge follow-up risks (PR #1091)
+
+[PR #1091](https://github.com/404TradeOS-LLC/TradeOS/pull/1091) merged as
+`05e49a517e8e6f62660a162e107ff6147cbd7ffb`. The PR reports a disposable
+PostgreSQL rehearsal and passing hosted checks. Staging acceptance is still
+owed after promotion; the PR discussion contains no staging result.
+
+- **Mixed deployments can reject installs or leave a provenance gap.** Apply
+  the migration before the backend, then deploy the web. The previous backend
+  rejects the new version field with `400`; it can still accept an old
+  request and create an unversioned install after the one-time backfill has
+  finished. The release owner should verify the migration ledger and the
+  deployed API and web builds on the same staging candidate. Pause catalog
+  installs while old API instances can still write after the backfill, or
+  reconcile installs from that window by tenant before release. Verify the
+  current-version `201` and stale-version `409` with no rows written, and
+  verify both web entry points forward the version. Inventory any remaining
+  callers that omit it before considering a required version field.
+- **Legacy and local layouts can lose components during reconciliation.**
+  The migration leaves rows without install markers unlinked and only assigns
+  slot keys when the complete position and quantity set matches. Ordinary
+  editor additions also have no slot key. Removing an unverified row to
+  unblock review is a separate write that can change future resolved unit
+  cost even if the upgrade is abandoned. Inventory unlinked and unkeyed
+  installs using tenant-scoped results; do not infer identity from a code
+  alone. Before the first structural revision, define an estimator recovery
+  path that preserves the original rows and mappings for comparison and
+  checks both cancellation and the resulting unit cost.
+- **Published version history can be rewritten without a test failure.**
+  The invariant test compares the latest entry to the current recipe and
+  rejects adjacent duplicates. It does not compare published entries to the
+  base revision. Editing an older entry can change upgrade diffs for installed
+  tenants; editing the recipe and its last entry together can hide drift
+  without increasing the version. Before publishing version 2, add a check
+  that existing histories retain the published prefix and append a new entry
+  for structural changes.
+- **Upgrade coverage stops short of the deployed browser path.** The live DB
+  tests cover tenant isolation and competing confirms; the web upgrade test
+  checks source text. Use a disposable version 1 fixture with a version 2
+  target in a nonproduction candidate. Exercise picker selection, a successful
+  confirmation with one actor-attributed event, and a stale review from a
+  second session. Verify that refreshing lets the estimator review again,
+  the rejected confirmation leaves components and history unchanged, and a
+  same-tenant reader and another tenant cannot confirm or see data outside
+  their permissions. Check the Costbook web proxy and both API route mounts.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 ## Source-blocked recipes (2 of 107)
 
@@ -186,9 +239,16 @@ with a visible "Research evidence pending" alert and are not installable.
   2026-11-21 triage, latest 2026-10-11. Diagnosed 2026-11-22, DEV-17 S5: the
   failures were a workflow-file parse error, already fixed on main via #853;
   a green run is still blocked on Billy-only read-only smoke secrets.)
-- [ ] Add a mapping-quality review queue and version history before supporting
-  organization-wide recipe upgrades. (Issue #518 S2/S3: `Assembly` still has no
-  template-origin fields; install bakes version into free-text `description`.)
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:2fc3888b2ad0e552ab3456a85abd8d070fd804cdf8851ceca6117c15791e4d50 -->
+
+- [ ] Add a mapping-quality review queue before supporting organization-wide
+  recipe upgrades. PR #1091 added installed template origin fields and
+  per-template history and review. Organization-wide upgrades are outside
+  that flow.
+
+<!-- /coderabbit-ai-generated:v1 -->
 - [ ] Connect derived takeoff quantities to takeoff records (S8b): the S8
   measurement contracts and derivation are merged (PR #1035), but the
   takeoff-record connection remains a named follow-up gated on S065 + S4; the
