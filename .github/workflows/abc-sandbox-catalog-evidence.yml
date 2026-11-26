@@ -148,3 +148,7 @@ jobs:
             }
           ' "${RUNNER_TEMP}/abc-catalog-metadata.json"
           rm -f "${RUNNER_TEMP}/abc-catalog-metadata.json"
+          # The step summary is only readable in the authenticated web UI;
+          # echo it to the log so the numbers are retrievable via the API
+          # (counts and tallies only — no item content, tokens, or payloads).
+          if [ -s "${GITHUB_STEP_SUMMARY}" ]; then cat "${GITHUB_STEP_SUMMARY}"; fi
