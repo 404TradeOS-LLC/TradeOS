@@ -61,4 +61,22 @@ in the repo. The default (`phase0 = false`) one/two-page proof is unchanged.
 
 Persistent catalog replication, full-page ingestion, delta checkpoint retention, images, and supplier data re-display need written ABC permission for the intended rights model. Only after that permission should a separately governed storage/import/RLS change be merged and activated. Customer Ship-To/branch authorization and positive Price Items evidence use the existing independent **user-present** pricing lane.
 
-A green CI run with mocked provider responses does **not** satisfy this live-provider gate. The dedicated manual action requires real sandbox client credentials and must actually finish successfully.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:3b5e99c3817326c2a72daffd6488d1e4881a814ae29674f3916c0dc773b4df23 -->
+
+A green CI run with mocked provider responses does **not** satisfy this live-provider gate. The dedicated manual action requires real sandbox client credentials and must finish successfully.
+
+### Follow-up risks from PR #1125
+
+Review these checks against the merged probe before accepting the census on [#735](https://github.com/404TradeOS-LLC/TradeOS/issues/735).
+
+- **Verify rows returned, not just requests completed.** The [Phase 0 probe](../../app/scripts/probe-abc-sandbox-catalog.ts) requires a nonempty first page and stable pagination metadata, but it counts later empty or short pages as verified. With synthetic responses reporting 3,000 items across three pages, it reported success after sampling just one item. Reconcile each page's returned row count with the provider pagination contract, including a valid partial final page. Add regression cases for empty later pages and inconsistent totals, and report per-page row counts.
+- **Make the price and hierarchy checks match the stated guarantees.** The price-key scan stops beyond depth 10 and runs only on catalog item objects, so it misses deeper keys and fields outside those objects. The [client](../../app/modules/supplier-integration/abcCatalog.ts) maps the separate hierarchy response before the probe sees it; a malformed nested node can be truncated into a partial path, and the probe can report success with zero paths despite a positive provider total. Validate the intended raw response boundaries before projection and fail closed if the scan cannot finish. Test deep price keys, malformed hierarchy roots and levels, and a positive hierarchy total with no paths. Keep failures redacted and raw data out of logs, artifacts, and product routes.
+- **Exercise the workflow's report step without credentials.** The [workflow](../../.github/workflows/abc-sandbox-catalog-evidence.yml) chooses the validation branch from the summary status and accepts a Phase 0 summary with fewer than three pages. Bind the expected status to the requested mode and require three pages at 1,000 items per page and three latency samples for Phase 0. Run the actual report step against valid summaries for both modes, a status/mode mismatch, and an incomplete Phase 0 summary.
+- **Record live evidence before accepting Phase 0.** The merge evidence contains no live Phase 0 result. Have an authorized operator run the workflow from `main` with `phase0 = true` and record the run URL, source SHA, provider totals, actual rows per page, census highlights, latency, and storage estimate on #735. If the run fails, record the redacted failure code and leave acceptance open. Label the requested page size separately from the returned rows. The first three pages cannot establish field completeness across the full catalog, and the reported p95 is the maximum of those three timings.
+
+Before Phase 1 changes any schema, record the available Supabase disk headroom and a capacity budget that includes indexes and room for refreshes. Reconcile the written shared-reference-copy permission recorded on #735 with the proposed retention, searchable display, images, and delta checkpoints before enabling those uses. Require migration rehearsal and database-backed access tests showing that shared reference reads grant no access to another tenant's data or pricing, and that ordinary tenant roles cannot write the shared catalog. PR #1125 adds no persistence, tenant access, migrations, or RLS changes; these checks apply to the future importer.
+
+
+<!-- /coderabbit-ai-generated:v1 -->
