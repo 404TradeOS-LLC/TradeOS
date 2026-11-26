@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-11-24
+last_verified: 2026-11-26
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -134,6 +134,8 @@ Update 2026-11-25 (post-merge): implementation merged as PR #1096 (squash `f1cf8
 
 Readiness-promotion check run by the 03:00 sprint runner on main `106f729e`: S048 is the first PLANNED sprint with satisfied dependencies (S047 DONE, PR #397); live overlap found no S048 lane (only open PRs are lane-owned drafts #1090/#1091, disjoint scope; no S048 remote branch). Promotion is BLOCKED on the unresolved founder decision — select beta tenants and rollout date — which the protocol stop condition bars promoting past. S048 stays PLANNED until Billy makes that decision; S046 stays PLANNED (S039/S045 BLOCKED) and S072 stays PLANNED (depends on S071, IN_REVIEW).
 
+Re-check (2026-11-26, 03:00 sprint runner, main `4f51fa84`): dependencies still satisfied; live overlap rechecked — the only open PR is draft #1121 (Today Needs You filter reset, disjoint scope); #1090 and #1091 have since merged; no S048 remote branch or live S048 lane exists. The founder decision is still unresolved — promotion remains BLOCKED; S048 stays PLANNED. No sprint is READY; next eligible sprint NONE.
+
 
 Costbook Data Foundation (merged 2026-10-04): founder-authorized non-numbered PR #628 landed on `main` as `8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf`, extending the existing Costbook supplier-evidence, canonical-key, BLS research-candidate, forced-RLS, Assembly, and Estimate snapshot boundaries. It does not create a second Costbook or change the numbered-sprint selector.
 
@@ -143,7 +145,7 @@ S063 implementation merge (2026-10-03): PR #631 merged as `b25988a11a3a4b62551f5
 
 S062 implementation merge (2026-10-03): PR #629 merged as `6f6a0a6567c1413c837afc86b943c1c45f5f03e0` after exact-head Web/docs/governance checks. The created Customer opens its record and context-free Job intent continues through Project creation. S052/S056/S058 release certification remains separate. S063 is next for bounded continuity on the existing Project-backed Lead and derived CRM surfaces; no duplicate CRM persistence model.
 
-S064 backlog reconciliation (2026-10-02): PR #520 merged on 2026-09-22 and PR #560's reviewed estimate-assist contract is on main. S064 is now `IN_REVIEW` in draft PR #624 after implementation started. S053 remains `IN_REVIEW` and is still mandatory for release certification, but an external browser-evidence availability blocker no longer freezes the Phase 12 implementation lane.
+S064 backlog reconciliation (2026-10-02): PR #520 merged on 2026-09-22 and PR #560's reviewed estimate-assist contract is on main. S064 is `IN_REVIEW`; its implementation merged as PR #624 (`8efb5f8d`, 2026-10-02). S053 remains `IN_REVIEW` and is still mandatory for release certification, but an external browser-evidence availability blocker no longer freezes the Phase 12 implementation lane.
 
 
 Merge queue support (2026-10-01): `Native merge queue` consumes explicit

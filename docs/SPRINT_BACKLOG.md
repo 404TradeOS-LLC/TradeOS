@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-11-24
+last_verified: 2026-11-26
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -544,6 +544,7 @@ Objective: Prepare and execute controlled onboarding for known contractor beta u
 Founder decision required: YES — select beta tenants and rollout date.
 Acceptance: onboarding checklist, support path, feedback capture, and rollback plan.
 Readiness check (2026-11-25): dependencies satisfied — S047 is DONE (PR #397). Live overlap rechecked 2026-11-25 on main `106f729e`: the only open PRs are lane-owned drafts #1090 (DES-10-F1) and #1091 (#518), disjoint scope; no S048 remote branch and no live S048 lane exist. Promotion BLOCKED: the founder decision ("select beta tenants and rollout date") is unresolved, and the protocol stop condition bars promoting a sprint whose founder-decision field is YES while the decision is unresolved. S048 stays PLANNED until Billy selects the beta tenants and rollout date.
+Re-check (2026-11-26, 03:00 sprint runner, main `4f51fa84`): dependencies still satisfied (S047 DONE); live overlap rechecked — the only open PR is draft #1121 (Today Needs You filter reset, disjoint scope; founder-only undraft); #1090 and #1091 have since merged; no S048 remote branch and no live S048 lane exist. The founder decision is still unresolved — promotion remains BLOCKED; S048 stays PLANNED.
 
 ## Phase 10 — Post-RC Cleanup and Launch Stabilization
 
@@ -1047,11 +1048,11 @@ S036 is complete through PR #476. PR #470 (the Costbook/Knowledge Engine audit) 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S064 — Embedded assembly picker in estimate Items
-Completion status: S064 is `IN_REVIEW` in draft PR #624. The first slice adds installed-assembly cost/component preview and starter-recipe setup-required gating; inline mapping/install remains active work on the same branch. S053 remains `IN_REVIEW` as a separate release-certification prerequisite.
+Active Sprint: none — no numbered sprint is currently in implementation.
+Completion status: S064 is `IN_REVIEW`; its implementation merged as PR #624 (`8efb5f8d`, 2026-10-02), not a draft PR. S053 remains `IN_REVIEW` as a separate release-certification prerequisite.
 Dependencies: S064 depends on S051 for sprint governance; PR #520 and PR #560 are merged implementation prerequisites.
 Protected boundary: S064 must preserve explicit reviewed writes through Estimate Engine, provenance, setup-required behavior, pricing truth, and tenant isolation. No pricing-policy, schema, auth/RLS, or unreviewed AI-write expansion is authorized.
 
 ## Next Eligible Sprint
 
-No numbered sprint is currently `READY`. S071 is `IN_REVIEW` (implementation in branch `feat/s071-deployment-identity-contract`, PR pending; live evidence still owed after merge + staging promotion). S069 is `IN_REVIEW` (implementation merged as PR #1073, `eb3c2f9e`, 2026-11-24; browser evidence pending). S068 is `IN_REVIEW` (implementation merged as PR #1067, `1388baae`, 2026-11-24; browser evidence pending). S059 is `IN_REVIEW` (implementation merged as PR #1032, `0a3aeefe`, 2026-11-23; browser evidence pending). S046/S048/S050 remain blocked on unmet dependencies or unresolved founder decisions; all other `PLANNED` sprints have unmet `Dependencies:`. Do not start implementation on a `PLANNED` sprint without its own promotion.
+No numbered sprint is currently `READY`. S071 is `IN_REVIEW` (implementation merged as PR #1096, `f1cf85f0`, 2026-11-25; live non-production evidence still owed after staging promotion). S069 is `IN_REVIEW` (implementation merged as PR #1073, `eb3c2f9e`, 2026-11-24; browser evidence pending). S068 is `IN_REVIEW` (implementation merged as PR #1067, `1388baae`, 2026-11-24; browser evidence pending). S059 is `IN_REVIEW` (implementation merged as PR #1032, `0a3aeefe`, 2026-11-23; browser evidence pending). S048 promotion re-checked 2026-11-26 on main `4f51fa84` — still BLOCKED on the unresolved founder decision (select beta tenants and rollout date). S046 stays PLANNED (dependencies S039/S045 BLOCKED); S072 stays PLANNED (depends on S071, IN_REVIEW); all other `PLANNED` sprints have unmet `Dependencies:`. Do not start implementation on a `PLANNED` sprint without its own promotion.
