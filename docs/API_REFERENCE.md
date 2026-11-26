@@ -1097,6 +1097,15 @@ Catalog installs accept optional `expectedRecipeVersion`; a mismatch returns
 `installedRecipeId`, `installedRecipeVersion`, `installedAt`,
 `currentRecipeVersion`, and `updateAvailable`.
 
+**Rollout order (PR #1091):** apply migration
+`20261125150000_version_installed_assembly_recipes` and deploy the backend
+first, then deploy the web. The web sends `expectedRecipeVersion` on install,
+and the backend is what enforces it: a web deployed ahead of the backend would
+have the field stripped by the old backend and install against a changed
+recipe with no version check. After both sides are live, verify on staging
+that an install with the current recipe version returns `201` and an install
+with a stale `expectedRecipeVersion` returns `409`.
+
 - `GET /api/v1/costbook/assemblies/:id/recipe-upgrade` (`costbook.read`) returns
   the installed and current versions, structure and mapping diff, blockers,
   review token, and upgrade history for the tenant's installed assembly.
