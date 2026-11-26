@@ -55,7 +55,12 @@ real sandbox hierarchy levels do not all carry `code`/`label` as the docs
 describe, and failing closed discarded the main-page numbers along with the
 finding. The probe still fails closed on pagination drift, duplicate
 identities, and any price-like key — only hierarchy shape is census data.
-It reports only counts, latencies, and population
+The hierarchy page is read through the probe-only `listHierarchyRaw`
+(no `hierarchyPath` mapping), because the strict `listHierarchy()` throws
+on a level missing `code`/`label` and would abort the run on the same data
+the census describes (CodeRabbit on #1129); the strict reader stays the
+mapped path for product surfaces, and the raw page's hierarchies are
+censused for findings too. It reports only counts, latencies, and population
 tallies to the step summary (`totalItems`/`totalPages`, page latency p50/p95
 nearest-rank over the 3 pages, census table, hierarchy totals and shape
 findings, and an estimated full-catalog storage range at 2–5 KB/item before indexes). No item

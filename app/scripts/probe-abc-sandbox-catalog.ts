@@ -72,7 +72,7 @@ export interface AbcCatalogPhase0Summary {
 }
 
 type CatalogPageReader = Pick<AbcCatalogClient, "list">;
-type Phase0CatalogReader = Pick<AbcCatalogClient, "listRaw" | "listHierarchy">;
+type Phase0CatalogReader = Pick<AbcCatalogClient, "listRaw" | "listHierarchyRaw">;
 
 /** Fixed Phase 0 bounds: three full pages at the documented 1000/page max, plus one hierarchy page. */
 const PHASE0_PAGES = 3;
@@ -299,13 +299,27 @@ export async function probeAbcSandboxCatalogPhase0(
   }
 
   const hierarchyStartedAt = now();
-  const hierarchyPage = await client.listHierarchy(1, PHASE0_HIERARCHY_ITEMS_PER_PAGE);
+  // Raw hierarchy read: the strict `listHierarchy()` maps through
+  // `hierarchyPath` and throws on a level missing code/label, which would
+  // abort Phase 0 on the same data the census is meant to describe.
+  const hierarchyPage = await client.listHierarchyRaw(1, PHASE0_HIERARCHY_ITEMS_PER_PAGE);
   const hierarchyLatencyMs = now() - hierarchyStartedAt;
   if (hierarchyPage.environment !== "sandbox" || hierarchyPage.source !== "ABC Supply" ||
     hierarchyPage.persisted !== false || hierarchyPage.pricing !== "not-requested" ||
     hierarchyPage.pagination.pageNumber !== 1 ||
     hierarchyPage.pagination.itemsPerPage !== PHASE0_HIERARCHY_ITEMS_PER_PAGE) {
     throw new Error("catalog_probe_contract_mismatch");
+  }
+  // Census the hierarchy page too (findings only — the full/partial path
+  // counts describe sampled items). A non-object entry is itself a finding.
+  for (const rawHierarchy of hierarchyPage.hierarchies) {
+    if (!isRecord(rawHierarchy)) {
+      const kind = Array.isArray(rawHierarchy) ? "array" : typeof rawHierarchy;
+      const key = `hierarchy:not-object:${kind}`;
+      hierarchyCensus.hierarchyShapeFindings[key] = (hierarchyCensus.hierarchyShapeFindings[key] ?? 0) + 1;
+      continue;
+    }
+    censusHierarchyLevels(rawHierarchy, hierarchyCensus, false);
   }
 
   const sortedLatencies = [...pageLatenciesMs].sort((a, b) => a - b);
@@ -330,7 +344,7 @@ export async function probeAbcSandboxCatalogPhase0(
     hierarchyLatencyMs,
     hierarchyTotalItems: hierarchyPage.pagination.totalItems,
     hierarchyTotalPages: hierarchyPage.pagination.totalPages,
-    hierarchyPathsSampled: hierarchyPage.paths.length,
+    hierarchyPathsSampled: hierarchyPage.hierarchies.length,
     fieldCensus,
     uomCensus,
     dimensionalCensus,
@@ -351,7 +365,7 @@ function censusRawItem(
   fieldCensus: Record<string, { populated: number; total: number }>,
   uomCensus: { itemsWithUoms: number; totalUomEntries: number; entriesWithCode: number; entriesWithName: number; entriesWithDescription: number },
   dimensionalCensus: { dimensionalItems: number; withDimensionVariations: number; withWidthThicknessHeight: number },
-  hierarchyCensus: { itemsWithHierarchy: number; fullSixLevel: number; partialHierarchy: number; hierarchyShapeFindings: Record<string, number> },
+  hierarchyCensus: HierarchyCensus,
 ): void {
   const record = item as unknown as Record<string, unknown>;
   if (!isNonEmptyString(item.itemNumber) || seen.has(item.itemNumber)) {
@@ -395,39 +409,59 @@ function censusRawItem(
   }
 
   const hierarchy = record.hierarchy;
-  if (isRecord(hierarchy)) {
-    hierarchyCensus.itemsWithHierarchy++;
-    let current: unknown = hierarchy;
-    let depth = 0;
-    for (const level of HIERARCHY_LEVELS) {
-      if (!isRecord(current)) break;
-      const node = current[level];
-      // Absent next level: a genuinely partial path, counted not failed.
-      if (node === undefined) break;
-      // Present but malformed: record the deviation as census data, never
-      // fail the run. Phase 0 measures the real sandbox shape; a strict
-      // throw (live run 45904451563) discards the main-page numbers along
-      // with the finding. Only the level name and the missing field or the
-      // node's kind are recorded — never payload values.
-      if (!isRecord(node)) {
-        const kind = Array.isArray(node) ? "array" : typeof node;
-        const key = `${level}:not-object:${kind}`;
-        hierarchyCensus.hierarchyShapeFindings[key] = (hierarchyCensus.hierarchyShapeFindings[key] ?? 0) + 1;
-        break;
-      }
-      if (!isNonEmptyString(node.code)) {
-        const key = `${level}:missing-code`;
-        hierarchyCensus.hierarchyShapeFindings[key] = (hierarchyCensus.hierarchyShapeFindings[key] ?? 0) + 1;
-      }
-      if (!isNonEmptyString(node.label)) {
-        const key = `${level}:missing-label`;
-        hierarchyCensus.hierarchyShapeFindings[key] = (hierarchyCensus.hierarchyShapeFindings[key] ?? 0) + 1;
-      }
-      if (isNonEmptyString(node.code) && isNonEmptyString(node.label)) depth++;
-      current = node;
+  censusHierarchyLevels(hierarchy, hierarchyCensus);
+}
+
+type HierarchyCensus = {
+  itemsWithHierarchy: number; fullSixLevel: number; partialHierarchy: number;
+  hierarchyShapeFindings: Record<string, number>;
+};
+
+/**
+ * Walks one hierarchy object level by level. A present but malformed level
+ * is recorded as a census finding (`<level>:missing-code`,
+ * `<level>:missing-label`, `<level>:not-object:<kind>`) — never a throw:
+ * Phase 0 measures the real sandbox shape, and the strict `hierarchyPath`
+ * mapping in `listHierarchy()` would abort the run on the same data (live
+ * run 45904451563). Only level names and missing fields/kinds are recorded,
+ * never payload values. With `countPath` false (the hierarchy page), only
+ * findings are recorded; the full/partial path counts describe sampled items.
+ */
+function censusHierarchyLevels(
+  hierarchy: unknown,
+  census: HierarchyCensus,
+  countPath = true,
+): void {
+  if (!isRecord(hierarchy)) return;
+  if (countPath) census.itemsWithHierarchy++;
+  let current: unknown = hierarchy;
+  let depth = 0;
+  for (const level of HIERARCHY_LEVELS) {
+    if (!isRecord(current)) break;
+    const node = current[level];
+    // Absent next level: a genuinely partial path, counted not failed.
+    if (node === undefined) break;
+    // Present but malformed: record the deviation as census data, never fail.
+    if (!isRecord(node)) {
+      const kind = Array.isArray(node) ? "array" : typeof node;
+      const key = `${level}:not-object:${kind}`;
+      census.hierarchyShapeFindings[key] = (census.hierarchyShapeFindings[key] ?? 0) + 1;
+      break;
     }
-    if (depth === HIERARCHY_LEVELS.length) hierarchyCensus.fullSixLevel++;
-    else hierarchyCensus.partialHierarchy++;
+    if (!isNonEmptyString(node.code)) {
+      const key = `${level}:missing-code`;
+      census.hierarchyShapeFindings[key] = (census.hierarchyShapeFindings[key] ?? 0) + 1;
+    }
+    if (!isNonEmptyString(node.label)) {
+      const key = `${level}:missing-label`;
+      census.hierarchyShapeFindings[key] = (census.hierarchyShapeFindings[key] ?? 0) + 1;
+    }
+    if (isNonEmptyString(node.code) && isNonEmptyString(node.label)) depth++;
+    current = node;
+  }
+  if (countPath) {
+    if (depth === HIERARCHY_LEVELS.length) census.fullSixLevel++;
+    else census.partialHierarchy++;
   }
 }
 

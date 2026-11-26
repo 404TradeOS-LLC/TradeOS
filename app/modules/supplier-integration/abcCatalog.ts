@@ -126,6 +126,23 @@ export interface AbcHierarchyPage {
   persisted: false;
 }
 
+/**
+ * One hierarchy page exactly as parsed (passthrough hierarchies intact).
+ * Probe/diagnostics only: the caller must not persist, display, or price from
+ * it. Unlike `listHierarchy()`, this performs no `hierarchyPath` mapping, so
+ * a level missing `code`/`label` is returned intact for the probe census
+ * instead of aborting the read. `listHierarchy()` remains the only strict
+ * mapped read path for product surfaces.
+ */
+export interface AbcHierarchyRawPage {
+  hierarchies: unknown[];
+  pagination: { itemsPerPage: number; pageNumber: number; totalPages: number; totalItems: number };
+  source: "ABC Supply";
+  environment: "sandbox";
+  pricing: "not-requested";
+  persisted: false;
+}
+
 const abcHierarchySchema = z.object({
   pagination: z.object({
     itemsPerPage: z.number().int().min(1).max(1000),
@@ -424,6 +441,31 @@ export class AbcCatalogClient {
     }
     return {
       paths: parsed.hierarchies.map(hierarchyPath),
+      pagination: parsed.pagination,
+      source: "ABC Supply", environment: "sandbox", pricing: "not-requested", persisted: false,
+    };
+  }
+
+  /** Raw hierarchy page for the Phase 0 (#735) probe census. No persistence, no pricing. */
+  async listHierarchyRaw(pageNumber: number, itemsPerPage = 50): Promise<AbcHierarchyRawPage> {
+    if (!Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > 100_000 ||
+        !Number.isInteger(itemsPerPage) || itemsPerPage < 1 || itemsPerPage > 50) {
+      throw new Error("Invalid ABC hierarchy pagination");
+    }
+    const token = await this.serverToken();
+    const params = new URLSearchParams({ itemsPerPage: String(itemsPerPage), pageNumber: String(pageNumber) });
+    const response = await this.callWithRetry(HIERARCHY_URL + "?" + params.toString(), {
+      method: "GET", headers: { authorization: "Bearer " + token },
+    });
+    const parsed = abcHierarchySchema.parse(await response.json());
+    if (parsed.pagination.pageNumber !== pageNumber ||
+        parsed.pagination.itemsPerPage !== itemsPerPage ||
+        parsed.hierarchies.length > itemsPerPage ||
+        (parsed.pagination.totalPages > 0 && pageNumber > parsed.pagination.totalPages)) {
+      throw new Error("ABC hierarchy pagination mismatch");
+    }
+    return {
+      hierarchies: parsed.hierarchies,
       pagination: parsed.pagination,
       source: "ABC Supply", environment: "sandbox", pricing: "not-requested", persisted: false,
     };

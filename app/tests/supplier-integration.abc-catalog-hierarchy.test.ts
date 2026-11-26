@@ -69,4 +69,24 @@ describe("ABC official hierarchy — on-demand provider reads (#735)", () => {
     await expect(clientWith(fetchFn).listHierarchy(1, 25))
       .rejects.toThrow("ABC hierarchy missing provider code or label");
   });
+
+  it("listHierarchyRaw returns malformed levels intact for the Phase 0 census (CodeRabbit #1129)", async () => {
+    const malformed = { productGroup: { code: "1000", label: "Roofing", category: { code: "13" } } };
+    const pageJson = () => json({
+      pagination: { pageNumber: 1, itemsPerPage: 50, totalPages: 2, totalItems: 62 },
+      hierarchies: [malformed, hierarchy],
+    });
+    const fetchFn = jest.fn()
+      .mockResolvedValueOnce(json({ access_token: "token", expires_in: 1800 }))
+      .mockResolvedValueOnce(pageJson())
+      // No second token fetch: serverToken() caches the token within the client.
+      .mockResolvedValueOnce(pageJson());
+    const client = clientWith(fetchFn);
+    // The strict reader still fails closed on the same payload (production contract).
+    await expect(client.listHierarchy(1, 50)).rejects.toThrow("ABC hierarchy missing provider code or label");
+    const raw = await client.listHierarchyRaw(1, 50);
+    expect(raw.hierarchies).toEqual([malformed, hierarchy]);
+    expect(raw).toMatchObject({ source: "ABC Supply", environment: "sandbox",
+      pricing: "not-requested", persisted: false, pagination: { totalItems: 62, pageNumber: 1 } });
+  });
 });
