@@ -113,14 +113,7 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
 
   function hierarchyPage() {
     return {
-      paths: [[
-        { level: "productGroup", code: "1000", label: "Steep Slope Products" },
-        { level: "category", code: "13", label: "Steep Slope Roofing" },
-        { level: "productType", code: "70", label: "Fiberglass Shingles" },
-        { level: "materialComposition", code: "62", label: "Asphalt" },
-        { level: "warranty", code: "143", label: "Dimensional Shingles" },
-        { level: "brandLine", code: "3232", label: "GAF Timberline HD" },
-      ]],
+      hierarchies: [fullHierarchy],
       pagination: { itemsPerPage: 50, pageNumber: 1, totalPages: 2, totalItems: 62 },
       source: "ABC Supply" as const, environment: "sandbox" as const,
       pricing: "not-requested" as const, persisted: false as const,
@@ -147,7 +140,7 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
         .mockResolvedValueOnce(rawPage(1, 3, 2500, [dimensional, plain]))
         .mockResolvedValueOnce(rawPage(2, 3, 2500, [inactive]))
         .mockResolvedValueOnce(rawPage(3, 3, 2500, [raw("PLAIN-04")])),
-      listHierarchy: jest.fn().mockResolvedValue(hierarchyPage()),
+      listHierarchyRaw: jest.fn().mockResolvedValue(hierarchyPage()),
     };
     // Clock: page latencies 1200, 800, 1000 ms; hierarchy 50 ms.
     const ticks = [0, 1200, 1200, 2000, 2000, 3000, 3000, 3050];
@@ -156,7 +149,7 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
     expect(client.listRaw).toHaveBeenNthCalledWith(1, { pageNumber: 1, itemsPerPage: 1000, familyItems: true });
     expect(client.listRaw).toHaveBeenNthCalledWith(2, { pageNumber: 2, itemsPerPage: 1000, familyItems: true });
     expect(client.listRaw).toHaveBeenNthCalledWith(3, { pageNumber: 3, itemsPerPage: 1000, familyItems: true });
-    expect(client.listHierarchy).toHaveBeenCalledWith(1, 50);
+    expect(client.listHierarchyRaw).toHaveBeenCalledWith(1, 50);
     expect(summary).toMatchObject({
       status: "verified_sandbox_phase0", environment: "sandbox",
       productScope: "product.read", pagesVerified: 3, itemsPerPage: 1000,
@@ -183,7 +176,7 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
     });
     expect(summary.hierarchyCensus).toMatchObject({
       itemsWithHierarchy: 1, fullSixLevel: 1, partialHierarchy: 0,
-      hierarchyShapeMismatches: 0,
+      hierarchyShapeFindings: {},
       nestingOrder: "productGroup>category>productType>materialComposition>warranty>brandLine",
     });
     // No provider content escapes: no item numbers, names, or manufacturers.
@@ -198,7 +191,7 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
       listRaw: jest.fn()
         .mockResolvedValueOnce(rawPage(1, 3, 2500, [raw("A")]))
         .mockResolvedValueOnce(rawPage(2, 3, 2501, [raw("B")])),
-      listHierarchy: jest.fn().mockResolvedValue(hierarchyPage()),
+      listHierarchyRaw: jest.fn().mockResolvedValue(hierarchyPage()),
     };
     await expect(probeAbcSandboxCatalogPhase0(drifting)).rejects.toThrow("catalog_probe_pagination_drift");
 
@@ -206,7 +199,7 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
       listRaw: jest.fn()
         .mockResolvedValueOnce(rawPage(1, 3, 2500, [raw("DUP")]))
         .mockResolvedValueOnce(rawPage(2, 3, 2500, [raw("DUP")])),
-      listHierarchy: jest.fn().mockResolvedValue(hierarchyPage()),
+      listHierarchyRaw: jest.fn().mockResolvedValue(hierarchyPage()),
     };
     await expect(probeAbcSandboxCatalogPhase0(duplicated))
       .rejects.toThrow("catalog_probe_identity_or_pricing_mismatch");
@@ -214,14 +207,14 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
     const priced = {
       listRaw: jest.fn()
         .mockResolvedValueOnce(rawPage(1, 1, 1, [raw("P", { unitPrice: 9.99 })])),
-      listHierarchy: jest.fn().mockResolvedValue(hierarchyPage()),
+      listHierarchyRaw: jest.fn().mockResolvedValue(hierarchyPage()),
     };
     await expect(probeAbcSandboxCatalogPhase0(priced)).rejects.toThrow("catalog_probe_price_key_found");
 
     const nestedPriced = {
       listRaw: jest.fn()
         .mockResolvedValueOnce(rawPage(1, 1, 1, [raw("NP", { uoms: [{ code: "EA", unitPrice: 9.99 }] })])),
-      listHierarchy: jest.fn().mockResolvedValue(hierarchyPage()),
+      listHierarchyRaw: jest.fn().mockResolvedValue(hierarchyPage()),
     };
     await expect(probeAbcSandboxCatalogPhase0(nestedPriced)).rejects.toThrow("catalog_probe_price_key_found");
   });
@@ -230,10 +223,10 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
     const tiny = {
       listRaw: jest.fn()
         .mockResolvedValueOnce(rawPage(1, 1, 1500, [raw("ONLY-01"), raw("ONLY-02")])),
-      listHierarchy: jest.fn().mockResolvedValue(hierarchyPage()),
+      listHierarchyRaw: jest.fn().mockResolvedValue(hierarchyPage()),
     };
     await expect(probeAbcSandboxCatalogPhase0(tiny)).rejects.toThrow("catalog_probe_insufficient_pages");
-    expect(tiny.listHierarchy).not.toHaveBeenCalled();
+    expect(tiny.listHierarchyRaw).not.toHaveBeenCalled();
   });
 
   it("counts dimensional placeholders as absent measurements", async () => {
@@ -246,7 +239,7 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
         .mockResolvedValueOnce(rawPage(1, 3, 3000, [placeholder]))
         .mockResolvedValueOnce(rawPage(2, 3, 3000, [raw("P2")]))
         .mockResolvedValueOnce(rawPage(3, 3, 3000, [raw("P3")])),
-      listHierarchy: jest.fn().mockResolvedValue(hierarchyPage()),
+      listHierarchyRaw: jest.fn().mockResolvedValue(hierarchyPage()),
     };
     const summary = await probeAbcSandboxCatalogPhase0(client, { now: () => 0 });
     expect(summary.dimensionalCensus).toEqual({
@@ -254,28 +247,46 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
     });
   });
 
-  it("fails when a present hierarchy level lacks a code or label", async () => {
+  it("records malformed hierarchy levels as census findings instead of failing", async () => {
+    // Live run 45904451563 proved the old fail-closed behavior wrong: real
+    // sandbox hierarchy levels can lack a code or label, and throwing away
+    // the whole run discards the main-page numbers along with the finding.
     const brokenHierarchy = raw("H-01", {
       hierarchy: { productGroup: { code: "1000", category: { label: "No code" } } },
     });
     const client = {
-      listRaw: jest.fn().mockResolvedValue(rawPage(1, 1, 1, [brokenHierarchy])),
-      listHierarchy: jest.fn().mockResolvedValue(hierarchyPage()),
+      listRaw: jest.fn()
+        .mockResolvedValueOnce(rawPage(1, 3, 3000, [brokenHierarchy]))
+        .mockResolvedValueOnce(rawPage(2, 3, 3000, [raw("P2")]))
+        .mockResolvedValueOnce(rawPage(3, 3, 3000, [raw("P3")])),
+      listHierarchyRaw: jest.fn().mockResolvedValue(hierarchyPage()),
     };
-    await expect(probeAbcSandboxCatalogPhase0(client))
-      .rejects.toThrow("catalog_probe_hierarchy_shape_mismatch");
+    const summary = await probeAbcSandboxCatalogPhase0(client, { now: () => 0 });
+    expect(summary.hierarchyCensus).toMatchObject({
+      itemsWithHierarchy: 1, fullSixLevel: 0, partialHierarchy: 1,
+      hierarchyShapeFindings: { "productGroup:missing-label": 1, "category:missing-code": 1 },
+    });
+    // Only level names and missing fields are recorded — never values.
+    expect(JSON.stringify(summary)).not.toContain("No code");
   });
 
-  it("fails when a present hierarchy level is not an object", async () => {
+  it("records a non-object hierarchy level as a census finding and keeps the partial path", async () => {
     const stringLevel = raw("H-02", {
       hierarchy: { productGroup: { code: "1000", label: "Roofing", category: "invalid" } },
     });
     const client = {
-      listRaw: jest.fn().mockResolvedValue(rawPage(1, 1, 1, [stringLevel])),
-      listHierarchy: jest.fn().mockResolvedValue(hierarchyPage()),
+      listRaw: jest.fn()
+        .mockResolvedValueOnce(rawPage(1, 3, 3000, [stringLevel]))
+        .mockResolvedValueOnce(rawPage(2, 3, 3000, [raw("P2")]))
+        .mockResolvedValueOnce(rawPage(3, 3, 3000, [raw("P3")])),
+      listHierarchyRaw: jest.fn().mockResolvedValue(hierarchyPage()),
     };
-    await expect(probeAbcSandboxCatalogPhase0(client))
-      .rejects.toThrow("catalog_probe_hierarchy_shape_mismatch");
+    const summary = await probeAbcSandboxCatalogPhase0(client, { now: () => 0 });
+    expect(summary.hierarchyCensus).toMatchObject({
+      itemsWithHierarchy: 1, fullSixLevel: 0, partialHierarchy: 1,
+      hierarchyShapeFindings: { "category:not-object:string": 1 },
+    });
+    expect(JSON.stringify(summary)).not.toContain("invalid");
 
     // A genuinely absent deeper level is a partial path, not a failure.
     const partial = raw("H-03", {
@@ -286,11 +297,40 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
         .mockResolvedValueOnce(rawPage(1, 3, 3000, [partial]))
         .mockResolvedValueOnce(rawPage(2, 3, 3000, [raw("P2")]))
         .mockResolvedValueOnce(rawPage(3, 3, 3000, [raw("P3")])),
-      listHierarchy: jest.fn().mockResolvedValue(hierarchyPage()),
+      listHierarchyRaw: jest.fn().mockResolvedValue(hierarchyPage()),
     };
-    const summary = await probeAbcSandboxCatalogPhase0(partialClient, { now: () => 0 });
-    expect(summary.hierarchyCensus).toMatchObject({
+    const partialSummary = await probeAbcSandboxCatalogPhase0(partialClient, { now: () => 0 });
+    expect(partialSummary.hierarchyCensus).toMatchObject({
       itemsWithHierarchy: 1, fullSixLevel: 0, partialHierarchy: 1,
+      hierarchyShapeFindings: {},
+    });
+  });
+
+  it("records malformed levels from the hierarchy page as findings instead of failing", async () => {
+    // CodeRabbit on #1129: the strict listHierarchy() mapping would abort the
+    // run on the same malformed data the census describes, so the probe reads
+    // the hierarchy page raw and censuses it too (findings only).
+    const malformedPage = {
+      hierarchies: [
+        { productGroup: { code: "1000", label: "Roofing", category: { code: "13" } } },
+        "not-an-object",
+      ],
+      pagination: { itemsPerPage: 50, pageNumber: 1, totalPages: 2, totalItems: 62 },
+      source: "ABC Supply" as const, environment: "sandbox" as const,
+      pricing: "not-requested" as const, persisted: false as const,
+    };
+    const client = {
+      listRaw: jest.fn()
+        .mockResolvedValueOnce(rawPage(1, 3, 3000, [raw("P1")]))
+        .mockResolvedValueOnce(rawPage(2, 3, 3000, [raw("P2")]))
+        .mockResolvedValueOnce(rawPage(3, 3, 3000, [raw("P3")])),
+      listHierarchyRaw: jest.fn().mockResolvedValue(malformedPage),
+    };
+    const summary = await probeAbcSandboxCatalogPhase0(client, { now: () => 0 });
+    expect(summary.hierarchyPathsSampled).toBe(2);
+    expect(summary.hierarchyCensus.hierarchyShapeFindings).toMatchObject({
+      "category:missing-label": 1,
+      "hierarchy:not-object:string": 1,
     });
   });
 });

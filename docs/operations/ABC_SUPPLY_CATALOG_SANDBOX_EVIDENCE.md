@@ -46,10 +46,24 @@ the 12 s interactive timeout — the first run (45901367450) failed with the
 generic `provider_or_schema_failure` after ~43 s, consistent with repeated
 12 s timeouts. If a later run still fails, the probe now reports a distinct
 code instead (`provider_request_failed`, `provider_unavailable_http_*`, or
-`schema_mismatch:<field-paths>`, never payload values). It reports only counts, latencies, and population
+`schema_mismatch:<field-paths>`, never payload values). The hierarchy census
+records shape deviations as findings (`<level>:missing-code`,
+`<level>:missing-label`, `<level>:not-object:<kind>` with counts) instead of
+failing the run: the second live run (45904451563, on the merged timeout fix)
+ran ~51 s and failed with `catalog_probe_hierarchy_shape_mismatch` because
+real sandbox hierarchy levels do not all carry `code`/`label` as the docs
+describe, and failing closed discarded the main-page numbers along with the
+finding. The probe still fails closed on pagination drift, duplicate
+identities, and any price-like key — only hierarchy shape is census data.
+The hierarchy page is read through the probe-only `listHierarchyRaw`
+(no `hierarchyPath` mapping), because the strict `listHierarchy()` throws
+on a level missing `code`/`label` and would abort the run on the same data
+the census describes (CodeRabbit on #1129); the strict reader stays the
+mapped path for product surfaces, and the raw page's hierarchies are
+censused for findings too. It reports only counts, latencies, and population
 tallies to the step summary (`totalItems`/`totalPages`, page latency p50/p95
-nearest-rank over the 3 pages, census table, hierarchy totals, and an
-estimated full-catalog storage range at 2–5 KB/item before indexes). No item
+nearest-rank over the 3 pages, census table, hierarchy totals and shape
+findings, and an estimated full-catalog storage range at 2–5 KB/item before indexes). No item
 numbers, names, descriptions, tokens, or payload content are logged or
 uploaded, and nothing is stored: `storedProducts` is 0 and the probe fails
 closed if any price-like key appears in a payload. Post the run's numbers to
