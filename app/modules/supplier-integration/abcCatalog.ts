@@ -190,6 +190,12 @@ export interface AbcCatalogQuery {
   q?: string;
   searchBy?: "itemDescription" | "itemNumber";
   familyId?: string;
+  /**
+   * Request family items on the list read. Defaults to false (the provider
+   * returns familyItems as null otherwise). `list()` never sets it; the
+   * Phase 0 probe sets it so its census measures the field, not the default.
+   */
+  familyItems?: boolean;
 }
 
 export function isCatalogEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -452,7 +458,8 @@ export class AbcCatalogClient {
       };
     } else {
       const params = new URLSearchParams({
-        pageNumber: String(query.pageNumber), itemsPerPage: String(query.itemsPerPage), familyItems: "false",
+        pageNumber: String(query.pageNumber), itemsPerPage: String(query.itemsPerPage),
+        familyItems: query.familyItems === true ? "true" : "false",
       });
       url += "?" + params.toString();
     }

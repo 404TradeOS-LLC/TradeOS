@@ -118,6 +118,20 @@ describe("ABC Supply provider-backed catalog (#735)", () => {
     expect(JSON.stringify(result)).not.toContain("unitPrice");
   });
 
+  it("listRaw requests family items only when asked; list() keeps familyItems=false", async () => {
+    const fetchFn = jest.fn()
+      .mockResolvedValueOnce(json({ access_token: "server-token", expires_in: 1800 }))
+      .mockResolvedValueOnce(json(page([{ itemNumber: "F-01", familyItems: [{ itemNumber: "F-02" }] }], 1, 1, 1, 25)));
+    await clientWith(fetchFn).listRaw({ pageNumber: 1, itemsPerPage: 25, familyItems: true });
+    expect(String(fetchFn.mock.calls[1][0])).toContain("familyItems=true");
+
+    const plain = jest.fn()
+      .mockResolvedValueOnce(json({ access_token: "server-token", expires_in: 1800 }))
+      .mockResolvedValueOnce(json(page([{ itemNumber: "F-01" }], 1, 1, 1, 25)));
+    await clientWith(plain).list({ pageNumber: 1, itemsPerPage: 25 });
+    expect(String(plain.mock.calls[1][0])).toContain("familyItems=false");
+  });
+
   it("filters inactive provider items and does not invent missing attributes", async () => {
     const fetchFn = jest.fn()
       .mockResolvedValueOnce(json({ access_token: "server-token", expires_in: 1800 }))

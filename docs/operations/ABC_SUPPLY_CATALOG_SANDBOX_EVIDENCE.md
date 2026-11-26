@@ -37,7 +37,10 @@ Phase 0 ("prove the numbers") reuses this workflow with `phase0 = true`
 pages at `itemsPerPage=1000` plus one hierarchy page at 50, times each page,
 and records a field census over the sampled raw items — which response fields
 are actually populated in sandbox, UOM roles, dimensional variations, and
-hierarchy nesting order. It reports only counts, latencies, and population
+hierarchy nesting order. `familyItems=true` is requested so the census measures
+that field instead of the provider's null default; top-level `variations` is not
+a Get All Items field and is not counted (dimensional variations are counted
+under `dimensions.variations`). It reports only counts, latencies, and population
 tallies to the step summary (`totalItems`/`totalPages`, page latency p50/p95
 nearest-rank over the 3 pages, census table, hierarchy totals, and an
 estimated full-catalog storage range at 2–5 KB/item before indexes). No item

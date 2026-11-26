@@ -82,9 +82,13 @@ const PHASE0_HIERARCHY_ITEMS_PER_PAGE = 50;
 const CENSUS_FIELDS = [
   "itemNumber", "itemDescription", "marketingDescription", "familyId", "familyName",
   "supplierName", "status", "isDimensional", "uoms", "dimensions", "color", "finish",
-  "weights", "variations", "prop65Warnings", "specifications", "images", "hierarchy",
+  "weights", "prop65Warnings", "specifications", "images", "hierarchy",
   "branches", "familyItems",
 ] as const;
+// NOTE: no top-level "variations" field — Get All Items has no such field;
+// dimensional variations live under dimensions.variations and are counted
+// separately in dimensionalCensus. familyItems is requested explicitly
+// (familyItems=true) because the provider returns it as null otherwise.
 
 const HIERARCHY_LEVELS = [
   "productGroup", "category", "productType", "materialComposition", "warranty", "brandLine",
@@ -101,6 +105,32 @@ function isPopulated(value: unknown): boolean {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** A dimension counts only when its nested value carries a real measurement — a null value or {} wrapper does not. */
+function hasDimensionValue(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const v = value.value;
+  return (typeof v === "string" && v.trim().length > 0) ||
+    (typeof v === "number" && Number.isFinite(v));
+}
+
+/**
+ * Any price-like key at any depth fails the probe. Parsed provider JSON is
+ * shallow, but the walk is depth-capped so a pathological payload cannot
+ * exhaust the stack.
+ */
+function containsPriceKey(value: unknown, depth = 0): boolean {
+  if (depth > 10 || value === null || typeof value !== "object") return false;
+  if (Array.isArray(value)) return value.some((entry) => containsPriceKey(entry, depth + 1));
+  const record = value as Record<string, unknown>;
+  return Object.keys(record).some(
+    (key) => /price/i.test(key) || containsPriceKey(record[key], depth + 1),
+  );
 }
 
 /** Nearest-rank percentile over a small sorted sample (p95 of 3 samples is the max). */
@@ -188,8 +218,10 @@ export async function probeAbcSandboxCatalog(
  * Phase 0 (#735): prove the catalog numbers before any importer is built.
  * Fetches exactly three pages at itemsPerPage=1000 plus one hierarchy page,
  * times each page, and records a field census over the sampled raw items.
- * Read-only: nothing is persisted, nothing is priced, and only counts,
- * latencies, and population tallies are returned — never item content.
+ * familyItems=true is requested so the census measures that field instead of
+ * the provider's null default. Read-only: nothing is persisted, nothing is
+ * priced, and only counts, latencies, and population tallies are returned —
+ * never item content.
  */
 export async function probeAbcSandboxCatalogPhase0(
   client: Phase0CatalogReader,
@@ -224,7 +256,7 @@ export async function probeAbcSandboxCatalogPhase0(
   for (let pageNumber = 1; pageNumber <= PHASE0_PAGES; pageNumber++) {
     if (providerTotalPages !== null && pageNumber > providerTotalPages) break;
     const startedAt = now();
-    const page = await client.listRaw({ pageNumber, itemsPerPage: PHASE0_ITEMS_PER_PAGE });
+    const page = await client.listRaw({ pageNumber, itemsPerPage: PHASE0_ITEMS_PER_PAGE, familyItems: true });
     pageLatenciesMs.push(now() - startedAt);
     const pagination = page.pagination;
 
@@ -258,6 +290,12 @@ export async function probeAbcSandboxCatalogPhase0(
 
   if (providerTotalItems === null || providerTotalPages === null || pageLatenciesMs.length < 1) {
     throw new Error("catalog_probe_missing_pagination");
+  }
+  // Phase 0 is a fixed three-page contract: a catalog that fits in fewer
+  // pages cannot produce a p50/p95 over 3 pages, so it fails closed with a
+  // distinct code instead of reporting a one-page "verified" summary.
+  if (pagesVerified < PHASE0_PAGES) {
+    throw new Error("catalog_probe_insufficient_pages");
   }
 
   const hierarchyStartedAt = now();
@@ -321,11 +359,9 @@ function censusRawItem(
   }
   seen.add(item.itemNumber);
 
-  // No pricing may ride along with a catalog payload: any price-like top-level
-  // key fails the probe instead of being silently counted.
-  for (const key of Object.keys(record)) {
-    if (/price/i.test(key)) throw new Error("catalog_probe_price_key_found");
-  }
+  // No pricing may ride along with a catalog payload: any price-like key at
+  // any depth fails the probe instead of being silently counted.
+  if (containsPriceKey(record)) throw new Error("catalog_probe_price_key_found");
 
   for (const field of CENSUS_FIELDS) {
     fieldCensus[field].total++;
@@ -348,27 +384,31 @@ function censusRawItem(
   if (item.isDimensional === true) {
     dimensionalCensus.dimensionalItems++;
     const dimensions = record.dimensions;
-    if (dimensions && typeof dimensions === "object" && !Array.isArray(dimensions)) {
-      const dims = dimensions as Record<string, unknown>;
-      const variations = Array.isArray(dims.variations) ? dims.variations : [];
+    if (isRecord(dimensions)) {
+      const variations = Array.isArray(dimensions.variations) ? dimensions.variations : [];
       if (variations.length > 0) dimensionalCensus.withDimensionVariations++;
-      if (dims.width != null && dims.thickness != null && dims.height != null) {
+      if (hasDimensionValue(dimensions.width) && hasDimensionValue(dimensions.thickness) &&
+          hasDimensionValue(dimensions.height)) {
         dimensionalCensus.withWidthThicknessHeight++;
       }
     }
   }
 
   const hierarchy = record.hierarchy;
-  if (hierarchy && typeof hierarchy === "object" && !Array.isArray(hierarchy)) {
+  if (isRecord(hierarchy)) {
     hierarchyCensus.itemsWithHierarchy++;
     let current: unknown = hierarchy;
     let depth = 0;
     for (const level of HIERARCHY_LEVELS) {
-      if (typeof current !== "object" || current === null || Array.isArray(current)) break;
-      const node = (current as Record<string, unknown>)[level];
-      if (typeof node !== "object" || node === null || Array.isArray(node)) break;
-      const fields = node as Record<string, unknown>;
-      if (!isNonEmptyString(fields.code) || !isNonEmptyString(fields.label)) {
+      if (!isRecord(current)) break;
+      const node = current[level];
+      // Absent next level: a genuinely partial path, counted not failed.
+      if (node === undefined) break;
+      // Present but malformed level (wrong type, or no code/label): fail closed.
+      if (!isRecord(node)) {
+        throw new Error("catalog_probe_hierarchy_shape_mismatch");
+      }
+      if (!isNonEmptyString(node.code) || !isNonEmptyString(node.label)) {
         throw new Error("catalog_probe_hierarchy_shape_mismatch");
       }
       depth++;
@@ -422,6 +462,7 @@ if (require.main === module) {
       "catalog_probe_missing_pagination",
       "catalog_probe_price_key_found",
       "catalog_probe_hierarchy_shape_mismatch",
+      "catalog_probe_insufficient_pages",
     ]);
     const message = error instanceof Error ? error.message : "";
     const code = allowedCodes.has(message) ? message
