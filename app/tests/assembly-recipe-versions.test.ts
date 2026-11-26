@@ -63,5 +63,7 @@ it("blocks an installed component without verifiable slot identity", () => {
     orgId: "tenant", unitOfMeasure: "CY", items: [{ ...row, recipeComponentKey: null }],
   });
   expect(diff.blockers).toHaveLength(1);
+  expect(diff.blockers[0]).toMatch(/Remove the unverified row in the assembly editor to upgrade/);
+  expect(diff.blockers[0]).toMatch(/drops that component and its installed Cost Item mapping/);
   expect(diff.changes[0].mapping).toBe("needed");
 });

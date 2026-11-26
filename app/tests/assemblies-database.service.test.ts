@@ -220,6 +220,26 @@ describe("AssembliesDatabaseService", () => {
         .toMatchObject({ csiDivision: "11", blockingReasons: [] });
     });
 
+    it("rejects a stale expected recipe version with 409 and writes no assembly row", async () => {
+      let caught: unknown;
+      try {
+        await new AssembliesDatabaseService().installStarterCatalogAssembly({
+          orgId: "org-1",
+          templateId: "site-excavation",
+          expectedRecipeVersion: 999,
+          componentMappings: [],
+        });
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toMatchObject({
+        statusCode: 409,
+        message: expect.stringMatching(/This recipe changed/),
+      });
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.assembly.create).not.toHaveBeenCalled();
+    });
+
     it("rejects unresolved research source evidence before accessing tenant data", async () => {
       await expect(new AssembliesDatabaseService().installStarterCatalogAssembly({
         orgId: "org-1",

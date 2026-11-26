@@ -30,7 +30,7 @@ export function assessRecipeUpgrade(
   for (const item of installed.items) {
     const key = item.recipeComponentKey;
     if (!key || !Object.hasOwn(previous.components, key) || rowsByKey.has(key)) {
-      if (!blockers.length) blockers.push("An installed component has no verified catalog slot. Review it in the assembly editor before upgrading.");
+      if (!blockers.length) blockers.push("An installed component has no verified catalog slot. Remove the unverified row in the assembly editor to upgrade — removing it drops that component and its installed Cost Item mapping from the assembly.");
       continue;
     }
     rowsByKey.set(key, item);

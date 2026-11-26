@@ -92,7 +92,7 @@ export function AssemblyRecipeUpgrade({ assembly, canUpgrade }: { assembly: Cost
   }
 
   return (
-    <Card>
+    <Card className="overflow-visible">
       <CardHeader>
         <CardTitle className="text-base">Catalog recipe</CardTitle>
       </CardHeader>

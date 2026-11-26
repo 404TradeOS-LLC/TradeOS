@@ -39,13 +39,14 @@ const templateListSchema = catalogQuerySchema.strict();
 const itemsListSchema = catalogQuerySchema.omit({ q: true }).strict();
 const searchSchema = z.object({ q: z.string().trim().max(200).optional() }).strict();
 const unitCostQuerySchema = z.object({ regionId: z.guid().optional() }).strict();
+const componentMappingSchema = z.object({
+  componentKey: z.string().trim().min(1).max(100),
+  costItemId: z.guid(),
+}).strict();
 const installCatalogSchema = z.object({
   templateId: z.string().trim().min(1).max(100),
   expectedRecipeVersion: z.number().int().positive().optional(),
-  componentMappings: z.array(z.object({
-    componentKey: z.string().trim().min(1).max(100),
-    costItemId: z.guid(),
-  }).strict()).min(1).max(50),
+  componentMappings: z.array(componentMappingSchema).min(1).max(50),
   // DEV-17 S10 install overrides (optional; omitted = recipe defaults).
   // Waste is an absolute percentage (0-100); the production override is a
   // dimensionless factor on the mapped CostItem's rate (>0, at most 10x).
@@ -55,7 +56,11 @@ const installCatalogSchema = z.object({
 
 const confirmRecipeUpgradeSchema = z.object({
   reviewToken: z.string().regex(/^[a-f0-9]{64}$/),
-  componentMappings: installCatalogSchema.shape.componentMappings.min(0),
+  // Upgrades that preserve every mapping submit an empty replacement list;
+  // the install schema above keeps .min(1) because every slot needs a mapping.
+  // (Zod 4.6.7 .min(0) does not replace an inherited .min(1), so the upgrade
+  // array is defined separately instead of deriving it from the install one.)
+  componentMappings: z.array(componentMappingSchema).max(50),
 }).strict();
 
 // DEV-17 S9: reuse a previous install's mapping for another template.
