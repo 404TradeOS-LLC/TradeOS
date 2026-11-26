@@ -19,6 +19,10 @@ related_docs:
 - This run corrects stale backlog/handoff text only: the backlog footer claimed S064 was "IN_REVIEW in draft PR #624" (PR #624 merged 2026-10-02 as `8efb5f8d`) and that S071's implementation was "PR pending" (merged as PR #1096, `f1cf85f0`, 2026-11-25). No sprint status changed; no implementation started.
 - S071 live non-production evidence still owed after staging promotion (staging still serves `6b1bc94f` per last verification; Vercel built nothing for staging `e99b0c89` — parent-owned).
 
+## Needs You filter reset
+
+The approved Needs You handoff identified a filtered-empty reset missing from main at `f47b3270`. The branch `feat/figma-to-code-completion` adds **All actions** recovery on the existing attention route. The action only resets local controls and restores focus. It does not change source loading or access. Staging acceptance and the in-place Figma sample correction remain pending. See [current state](CURRENT_STATE.md#needs-you-filtered-empty-recovery).
+
 ## Sprint implementation — 2026-11-25: S071 merged (PR #1096); S048 promotion blocked
 
 - S071 — Deployment identity and data-plane proof — implementation merged as PR #1096 (squash `f1cf85f0`, head `8a8fd229`, base main `0ad368b6`, merged 2026-11-25T06:39:25Z); the implementation branch was deleted after merge. Follow-up docs PRs #1099 (`820985dd`, post-merge follow-up risks) and #1100 (`d3054357`, merge validation) are also merged.

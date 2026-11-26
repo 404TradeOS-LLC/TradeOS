@@ -592,6 +592,10 @@ PR #841 (`feat/today-attention-item-figma-align`) merged as `335841c0357d75da982
 
 
 
+## Needs You filtered-empty recovery
+
+The Needs You view offers **All actions** when active filters return zero loaded records. It clears search, source, priority, and assignee in place, restores search focus, and announces the updated loaded-row count. Source failures and unknown totals keep their existing semantics. The reviewed Figma targets are [desktop](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=1338-3201) and [mobile](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=1338-3272). Authenticated staging acceptance remains pending.
+
 ## Today 2.0 implementation branch — 2026-10-26
 
 PR #798 continues on `feat/today-2-command-center` (`EXISTING_WORK_FOUND`, Sprint ID NONE). Today, Needs You and Work share authenticated source data, operational indicators, contextual source workspaces, semantic themes and the persistent five-slot Control Dock. Previous head `fdcc63cc6c6a28d94c8642e9e821857fda729960` passed 518 frontend tests, 20 Chromium component tests and hosted PostgreSQL integration/migration rehearsal (run 40427077847). Its real Vercel Preview is READY; unauthenticated dashboard redirect to login was observed. Secure sign-in was declined, so authenticated live-data journeys remain unverified.

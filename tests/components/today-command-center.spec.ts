@@ -228,6 +228,50 @@ test('Needs You filters real source rows, opens context, and preserves unknown t
   await page.screenshot({ path: test.info().outputPath('today-needs-you-mobile.png'), fullPage: true });
 });
 
+for (const width of [390, 768, 1024, 1440]) {
+  test(`Needs You restores loaded actions after clearing filters at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await openSyntheticToday(page, '?view=attention&role=office&failure=attention');
+    const queue = page.locator('.today-attention');
+    const search = queue.getByRole('textbox', { name: 'Search attention items' });
+    const sources = queue.getByRole('group', { name: 'Filter by source' });
+    const priority = queue.getByLabel('Filter by priority');
+    const assignee = queue.getByLabel('Filter by assignee');
+    const results = queue.getByRole('status');
+    const reset = queue.getByRole('button', { name: 'All actions', exact: true });
+
+    await expect(results).toHaveText('3 matching loaded records');
+    await expect(reset).toHaveCount(0);
+    await search.fill('no matching customer');
+    await sources.getByRole('button', { name: 'Proposals', exact: true }).click();
+    await priority.selectOption('high');
+    await assignee.selectOption('Synthetic Office');
+    await expect(results).toHaveText('0 matching loaded records');
+    await expect(reset).toBeVisible();
+    expect((await reset.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    await expectNoPageOverflow(page, width);
+
+    await assignee.press('Tab');
+    await expect(reset).toBeFocused();
+    await expect(reset).toBeInViewport();
+    expect(await reset.evaluate(button => {
+      const { x, y, width, height } = button.getBoundingClientRect();
+      return button.contains(document.elementFromPoint(x + width / 2, y + height / 2));
+    })).toBe(true);
+    await page.screenshot({ path: test.info().outputPath('needs-you-filtered-empty.png'), animations: 'disabled' });
+    await page.keyboard.press('Enter');
+
+    await expect(search).toBeFocused();
+    await expect(search).toHaveValue('');
+    await expect(sources.getByRole('button', { name: 'All sources' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(priority).toHaveValue('all');
+    await expect(assignee).toHaveValue('all');
+    await expect(results).toHaveText('3 matching loaded records');
+    await expect(queue.locator('.today-count')).toHaveText('—');
+    await expect(reset).toHaveCount(0);
+  });
+}
+
 test('field presentation retains assigned work and denies creation entry points', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 1000 });
   await openSyntheticToday(page, '?role=field');

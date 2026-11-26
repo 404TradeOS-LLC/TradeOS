@@ -7,7 +7,7 @@ import { AlertTriangle, ArrowRight, BriefcaseBusiness, CalendarClock, CheckCheck
 import { AthenaWorkspace } from "@/components/athena/athena-workspace";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { AttentionItem } from "./attention-item";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { canUseUniversalCreate } from "@/lib/universal-create-access";
 import { buildUniversalCreateHref } from "@/lib/universal-create";
 import { buildDayMapPins } from "@/lib/today-map";
@@ -127,6 +127,7 @@ export function TodayExperience({ data, initialView = "today" }: { data: TodayDa
   const [pending, refresh] = useTransition();
   const [selected, setSelected] = useState<Selection | null>(null);
   const [taskFeedback, setTaskFeedback] = useState<string | null>(null);
+  const attentionSearchRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [source, setSource] = useState("all");
   const [priority, setPriority] = useState("all");
@@ -152,6 +153,14 @@ export function TodayExperience({ data, initialView = "today" }: { data: TodayDa
   const stale = Date.parse(now) - Date.parse(data.generatedAt) > 180_000;
   const roleLabel = data.viewer.presentation === "owner" ? "Owner" : data.viewer.presentation === "office" ? "Office manager" : "Field crew";
   const attention = data.attention.filter(item => (source === "all" || item.source === source) && (priority === "all" || item.priority === priority) && (assignee === "all" || item.assignee === assignee) && `${item.title} ${item.context} ${item.assignee || ""} ${item.action}`.toLowerCase().includes(query.toLowerCase()));
+  const hasAttentionFilters = Boolean(query || source !== "all" || priority !== "all" || assignee !== "all");
+  function clearQueueFilters() {
+    setQuery("");
+    setSource("all");
+    setPriority("all");
+    setAssignee("all");
+    attentionSearchRef.current?.focus();
+  }
   const restrictedSources = data.sources.filter(s => s.state === "restricted");
   const work = data.work.filter(item => workKind === "all" || item.kind === workKind);
   const next = data.attention[0] || data.progress[0];
@@ -169,8 +178,26 @@ export function TodayExperience({ data, initialView = "today" }: { data: TodayDa
     {initialView === "today" ? <section aria-label="Operational indicators" className="today-stats">{data.stats.map((stat, index) => { const Icon = ICONS[index % ICONS.length]; return <Link href={stat.href} key={stat.id} className="today-stat"><span className="today-record-icon bg-primary/10 text-primary"><Icon size={19} /></span><div><p className="font-heading text-2xl font-semibold tabular-nums">{stat.value == null ? "—" : stat.value}</p><p className="mt-1 text-xs font-medium">{stat.label}</p><p className="mt-1 text-[10px] leading-4 text-muted-foreground">{stat.helper}</p></div><ChevronRight className="ml-auto shrink-0 text-muted-foreground" size={14} /></Link>; })}</section> : null}
     <div className={cn("today-main-grid", initialView !== "today" && "today-main-grid-expanded", initialView === "attention" && "today-attention-grid")}>
       {initialView !== "work" ? <section className="today-panel today-attention"><div className="today-panel-heading"><div><h2>Needs You <span className="today-count">{attentionBadge}</span></h2><p>Unresolved actions · loaded records</p></div>{initialView === "today" ? <Link href="/dashboard/needs-you">View all <ChevronRight size={14} /></Link> : <Filter size={17} className="text-muted-foreground" />}</div>
-        {initialView === "attention" ? <div className="today-queue-filters"><label className="today-search"><Search size={16} /><input aria-label="Search attention items" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search work, customer, or action…" /></label><div className="flex flex-wrap gap-2"><div className="today-work-tabs today-queue-sources basis-full" role="group" aria-label="Filter by source">{["all", ...allSources].map((value) => <button key={value} type="button" aria-pressed={source === value} onClick={() => setSource(value)}>{value === "all" ? "All sources" : value}</button>)}</div><select aria-label="Filter by priority" value={priority} onChange={e => setPriority(e.target.value)}><option value="all">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="medium">Medium</option></select><select aria-label="Filter by assignee" value={assignee} onChange={e => setAssignee(e.target.value)}><option value="all">All assignees</option>{assignees.map(s => <option key={s}>{s}</option>)}</select></div><p className="text-xs text-muted-foreground" role="status">{attention.length} matching loaded records</p></div> : null}
-        {attention.length ? <ul>{attention.slice(0, initialView === "today" ? 4 : undefined).map(item => <AttentionRow key={item.id} item={item} onOpen={setSelected} />)}</ul> : <div className="today-empty"><CheckCheck className="mb-3 text-primary" size={24} /><p>{query || source !== "all" || priority !== "all" || assignee !== "all" ? "No items match these filters." : unavailable.length ? "No attention items loaded from the available sources. Check source status above." : "Nothing is waiting on you in the available sources."}</p></div>}
+        {initialView === "attention" ? <div className="today-queue-filters"><label className="today-search"><Search size={16} /><input ref={attentionSearchRef} aria-label="Search attention items" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search work, customer, or action…" /></label><div className="flex flex-wrap gap-2"><div className="today-work-tabs today-queue-sources basis-full" role="group" aria-label="Filter by source">{["all", ...allSources].map((value) => <button key={value} type="button" aria-pressed={source === value} onClick={() => setSource(value)}>{value === "all" ? "All sources" : value}</button>)}</div><select aria-label="Filter by priority" value={priority} onChange={e => setPriority(e.target.value)}><option value="all">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="medium">Medium</option></select><select aria-label="Filter by assignee" value={assignee} onChange={e => setAssignee(e.target.value)}><option value="all">All assignees</option>{assignees.map(s => <option key={s}>{s}</option>)}</select></div><p className="text-xs text-muted-foreground" role="status">{attention.length} matching loaded records</p></div> : null}
+        {attention.length ? (
+          <ul>{attention.slice(0, initialView === "today" ? 4 : undefined).map(item => <AttentionRow key={item.id} item={item} onOpen={setSelected} />)}</ul>
+        ) : (
+          <div className="today-empty">
+            <CheckCheck aria-hidden="true" className="mb-3 text-primary" size={24} />
+            <p>{hasAttentionFilters ? "No items match these filters." : unavailable.length ? "No attention items loaded from the available sources. Check source status above." : "Nothing is waiting on you in the available sources."}</p>
+            {initialView === "attention" && hasAttentionFilters && (
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3 min-h-11 scroll-mb-24 px-4"
+                onFocus={event => event.currentTarget.scrollIntoView({ block: "nearest" })}
+                onClick={clearQueueFilters}
+              >
+                All actions
+              </Button>
+            )}
+          </div>
+        )}
       </section> : null}
       {initialView !== "attention" ? <section className="today-panel today-work"><div className="today-panel-heading"><div><h2>Today’s Work</h2><p>{data.viewer.presentation === "field" ? "Your assigned field work" : "Jobs, tasks, and site visits"}</p></div><Link href="/dispatch">Dispatch <ChevronRight size={14} /></Link></div><div className="today-work-tabs" role="group" aria-label="Filter today's work">{([["all", "All"], ["job", "Jobs"], ...(data.viewer.presentation !== "field" || data.work.some(item => item.kind === "task") ? [["task", "Tasks"]] : []), ...(data.work.some(item => item.kind === "visit") ? [["visit", "Site visits"]] : [])]).map(([value,label]) => <button type="button" aria-pressed={workKind === value} onClick={() => setWorkKind(value)} key={value}>{label}</button>)}</div>{work.length ? <ul>{work.slice(0, initialView === "today" ? 6 : undefined).map(item => <WorkRow key={item.id} item={item} timeZone={timeZone} onOpen={setSelected} />)}</ul> : <p className="today-empty">No {workKind === "all" ? "work" : workKind === "visit" ? "site visits" : `${workKind}s`} loaded for this view.</p>}<Link href={data.viewer.presentation === "field" ? "/field" : "/dispatch?view=all&status=unscheduled"} className="today-panel-footer">{data.viewer.presentation === "field" ? "Open my field day" : "Review unscheduled work"}<ArrowRight size={15} /></Link></section> : null}
       {initialView === "attention" ? <AttentionQueueSummary data={data} /> : null}
