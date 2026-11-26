@@ -1,4 +1,4 @@
-import { probeAbcSandboxCatalog, probeAbcSandboxCatalogPhase0 } from "../scripts/probe-abc-sandbox-catalog";
+import { probeAbcSandboxCatalog, probeAbcSandboxCatalogPhase0, classifyProbeError } from "../scripts/probe-abc-sandbox-catalog";
 import type { AbcCatalogItem, AbcCatalogPage, AbcCatalogRawItem, AbcCatalogRawPage } from "../modules/supplier-integration/abcCatalog";
 
 function product(itemNumber: string): AbcCatalogItem {
@@ -292,5 +292,34 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
     expect(summary.hierarchyCensus).toMatchObject({
       itemsWithHierarchy: 1, fullSixLevel: 0, partialHierarchy: 1,
     });
+  });
+});
+
+describe("probe failure classification (redacted codes only)", () => {
+  it("passes known probe codes through", () => {
+    expect(classifyProbeError(new Error("catalog_probe_pagination_drift")))
+      .toBe("catalog_probe_pagination_drift");
+  });
+
+  it("maps client failures to distinct codes", () => {
+    expect(classifyProbeError(new Error("ABC catalog provider denied request: HTTP 403")))
+      .toBe("provider_denied");
+    expect(classifyProbeError(new Error("ABC catalog provider request failed")))
+      .toBe("provider_request_failed");
+    expect(classifyProbeError(new Error("ABC catalog provider unavailable: HTTP 503")))
+      .toBe("provider_unavailable_http_503");
+    expect(classifyProbeError(new Error("something else"))).toBe("provider_or_schema_failure");
+  });
+
+  it("reports schema failures by field path and code, never values", () => {
+    const zodLike = {
+      issues: [
+        { path: ["items", 412, "familyName"], code: "invalid_type", received: "SECRET-VALUE" },
+        { path: ["pagination", "totalItems"], code: "invalid_type", received: 1 },
+      ],
+    };
+    const code = classifyProbeError(zodLike);
+    expect(code).toBe("schema_mismatch:items.412.familyName:invalid_type;pagination.totalItems:invalid_type");
+    expect(code).not.toContain("SECRET-VALUE");
   });
 });

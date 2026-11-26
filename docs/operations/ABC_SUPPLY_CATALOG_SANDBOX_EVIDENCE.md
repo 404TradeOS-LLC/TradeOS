@@ -40,7 +40,13 @@ are actually populated in sandbox, UOM roles, dimensional variations, and
 hierarchy nesting order. `familyItems=true` is requested so the census measures
 that field instead of the provider's null default; top-level `variations` is not
 a Get All Items field and is not counted (dimensional variations are counted
-under `dimensions.variations`). It reports only counts, latencies, and population
+under `dimensions.variations`). Phase 0 uses a 120 s per-request timeout with
+2 attempts (the workflow allows 20 minutes) because 1000-item pages exceed
+the 12 s interactive timeout — the first run (45901367450) failed with the
+generic `provider_or_schema_failure` after ~43 s, consistent with repeated
+12 s timeouts. If a later run still fails, the probe now reports a distinct
+code instead (`provider_request_failed`, `provider_unavailable_http_*`, or
+`schema_mismatch:<field-paths>`, never payload values). It reports only counts, latencies, and population
 tallies to the step summary (`totalItems`/`totalPages`, page latency p50/p95
 nearest-rank over the 3 pages, census table, hierarchy totals, and an
 estimated full-catalog storage range at 2–5 KB/item before indexes). No item

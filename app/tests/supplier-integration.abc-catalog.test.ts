@@ -1,4 +1,4 @@
-import { AbcCatalogClient, isCatalogEnabled } from "../modules/supplier-integration/abcCatalog";
+import { AbcCatalogClient, isCatalogEnabled, type AbcCatalogClientOptions } from "../modules/supplier-integration/abcCatalog";
 
 const config = { clientId: "sandbox-app", clientSecret: "example-secret" };
 
@@ -16,12 +16,13 @@ function page(items: unknown[], pageNumber = 1, totalItems = items.length, total
   };
 }
 
-function clientWith(fetchFn: jest.Mock): AbcCatalogClient {
+function clientWith(fetchFn: jest.Mock, options?: AbcCatalogClientOptions): AbcCatalogClient {
   return new AbcCatalogClient(
     config,
     fetchFn as unknown as typeof fetch,
     () => 1_000_000,
     async () => undefined,
+    options,
   );
 }
 
@@ -182,6 +183,26 @@ describe("ABC Supply provider-backed catalog (#735)", () => {
     const fetchFn = jest.fn();
     await expect(clientWith(fetchFn).list({ pageNumber: 1, itemsPerPage: 1001 }))
       .rejects.toThrow("Invalid ABC catalog pagination");
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it("honors a configured per-request timeout and attempt budget", async () => {
+    const hanging = jest.fn().mockImplementation((_url: string, init?: RequestInit) => {
+      return new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+      });
+    });
+    const client = clientWith(hanging, { requestTimeoutMs: 50, maxAttempts: 2 });
+    await expect(client.list({ pageNumber: 1, itemsPerPage: 25 }))
+      .rejects.toThrow("ABC catalog provider request failed");
+    expect(hanging).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects invalid client options before any provider request", () => {
+    const fetchFn = jest.fn();
+    expect(() => clientWith(fetchFn, { requestTimeoutMs: 0 })).toThrow("Invalid ABC catalog client options");
+    expect(() => clientWith(fetchFn, { maxAttempts: 0 })).toThrow("Invalid ABC catalog client options");
+    expect(() => clientWith(fetchFn, { maxAttempts: 6 })).toThrow("Invalid ABC catalog client options");
     expect(fetchFn).not.toHaveBeenCalled();
   });
 });
