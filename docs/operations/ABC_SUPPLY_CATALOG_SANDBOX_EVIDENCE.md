@@ -60,7 +60,9 @@ The hierarchy page is read through the probe-only `listHierarchyRaw`
 on a level missing `code`/`label` and would abort the run on the same data
 the census describes (CodeRabbit on #1129); the strict reader stays the
 mapped path for product surfaces, and the raw page's hierarchies are
-censused for findings too. It reports only counts, latencies, and population
+censused for findings too. The step summary is also echoed to the job log:
+the summary markdown is only readable in the authenticated web UI, so the
+log is the API-retrievable record of the run's numbers. It reports only counts, latencies, and population
 tallies to the step summary (`totalItems`/`totalPages`, page latency p50/p95
 nearest-rank over the 3 pages, census table, hierarchy totals and shape
 findings, and an estimated full-catalog storage range at 2–5 KB/item before indexes). No item
