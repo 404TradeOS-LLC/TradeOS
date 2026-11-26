@@ -114,6 +114,7 @@ jobs:
                 "| Hierarchy total items / pages | " + p.hierarchyTotalItems + " / " + p.hierarchyTotalPages + " |\n" +
                 "| Hierarchy paths sampled | " + p.hierarchyPathsSampled + " (latency " + p.hierarchyLatencyMs + " ms) |\n" +
                 "| Hierarchy full six-level / partial | " + p.hierarchyCensus.fullSixLevel + " / " + p.hierarchyCensus.partialHierarchy + " of " + p.hierarchyCensus.itemsWithHierarchy + " with hierarchy |\n" +
+                "| Hierarchy shape findings | " + (Object.entries(p.hierarchyCensus.hierarchyShapeFindings).map(([k, v]) => k + ": " + v).join(", ") || "none — all sampled levels well-formed") + " |\n" +
                 "| Items with UOMs | " + p.uomCensus.itemsWithUoms + " (" + p.uomCensus.totalUomEntries + " entries, " + p.uomCensus.entriesWithCode + " with code) |\n" +
                 "| Dimensional items | " + p.dimensionalCensus.dimensionalItems + " (" + p.dimensionalCensus.withDimensionVariations + " with variations, " + p.dimensionalCensus.withWidthThicknessHeight + " with width/thickness/height) |\n" +
                 "| Estimated full-catalog storage (2-5 KB/item) | " + gb(p.estimatedStorageBytesLow) + " - " + gb(p.estimatedStorageBytesHigh) + " |\n" +

@@ -183,7 +183,7 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
     });
     expect(summary.hierarchyCensus).toMatchObject({
       itemsWithHierarchy: 1, fullSixLevel: 1, partialHierarchy: 0,
-      hierarchyShapeMismatches: 0,
+      hierarchyShapeFindings: {},
       nestingOrder: "productGroup>category>productType>materialComposition>warranty>brandLine",
     });
     // No provider content escapes: no item numbers, names, or manufacturers.
@@ -254,28 +254,46 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
     });
   });
 
-  it("fails when a present hierarchy level lacks a code or label", async () => {
+  it("records malformed hierarchy levels as census findings instead of failing", async () => {
+    // Live run 45904451563 proved the old fail-closed behavior wrong: real
+    // sandbox hierarchy levels can lack a code or label, and throwing away
+    // the whole run discards the main-page numbers along with the finding.
     const brokenHierarchy = raw("H-01", {
       hierarchy: { productGroup: { code: "1000", category: { label: "No code" } } },
     });
     const client = {
-      listRaw: jest.fn().mockResolvedValue(rawPage(1, 1, 1, [brokenHierarchy])),
+      listRaw: jest.fn()
+        .mockResolvedValueOnce(rawPage(1, 3, 3000, [brokenHierarchy]))
+        .mockResolvedValueOnce(rawPage(2, 3, 3000, [raw("P2")]))
+        .mockResolvedValueOnce(rawPage(3, 3, 3000, [raw("P3")])),
       listHierarchy: jest.fn().mockResolvedValue(hierarchyPage()),
     };
-    await expect(probeAbcSandboxCatalogPhase0(client))
-      .rejects.toThrow("catalog_probe_hierarchy_shape_mismatch");
+    const summary = await probeAbcSandboxCatalogPhase0(client, { now: () => 0 });
+    expect(summary.hierarchyCensus).toMatchObject({
+      itemsWithHierarchy: 1, fullSixLevel: 0, partialHierarchy: 1,
+      hierarchyShapeFindings: { "productGroup:missing-label": 1, "category:missing-code": 1 },
+    });
+    // Only level names and missing fields are recorded — never values.
+    expect(JSON.stringify(summary)).not.toContain("No code");
   });
 
-  it("fails when a present hierarchy level is not an object", async () => {
+  it("records a non-object hierarchy level as a census finding and keeps the partial path", async () => {
     const stringLevel = raw("H-02", {
       hierarchy: { productGroup: { code: "1000", label: "Roofing", category: "invalid" } },
     });
     const client = {
-      listRaw: jest.fn().mockResolvedValue(rawPage(1, 1, 1, [stringLevel])),
+      listRaw: jest.fn()
+        .mockResolvedValueOnce(rawPage(1, 3, 3000, [stringLevel]))
+        .mockResolvedValueOnce(rawPage(2, 3, 3000, [raw("P2")]))
+        .mockResolvedValueOnce(rawPage(3, 3, 3000, [raw("P3")])),
       listHierarchy: jest.fn().mockResolvedValue(hierarchyPage()),
     };
-    await expect(probeAbcSandboxCatalogPhase0(client))
-      .rejects.toThrow("catalog_probe_hierarchy_shape_mismatch");
+    const summary = await probeAbcSandboxCatalogPhase0(client, { now: () => 0 });
+    expect(summary.hierarchyCensus).toMatchObject({
+      itemsWithHierarchy: 1, fullSixLevel: 0, partialHierarchy: 1,
+      hierarchyShapeFindings: { "category:not-object:string": 1 },
+    });
+    expect(JSON.stringify(summary)).not.toContain("invalid");
 
     // A genuinely absent deeper level is a partial path, not a failure.
     const partial = raw("H-03", {
@@ -288,9 +306,10 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
         .mockResolvedValueOnce(rawPage(3, 3, 3000, [raw("P3")])),
       listHierarchy: jest.fn().mockResolvedValue(hierarchyPage()),
     };
-    const summary = await probeAbcSandboxCatalogPhase0(partialClient, { now: () => 0 });
-    expect(summary.hierarchyCensus).toMatchObject({
+    const partialSummary = await probeAbcSandboxCatalogPhase0(partialClient, { now: () => 0 });
+    expect(partialSummary.hierarchyCensus).toMatchObject({
       itemsWithHierarchy: 1, fullSixLevel: 0, partialHierarchy: 1,
+      hierarchyShapeFindings: {},
     });
   });
 });

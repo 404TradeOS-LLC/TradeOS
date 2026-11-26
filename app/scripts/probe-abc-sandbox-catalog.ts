@@ -59,7 +59,7 @@ export interface AbcCatalogPhase0Summary {
     itemsWithHierarchy: number;
     fullSixLevel: number;
     partialHierarchy: number;
-    hierarchyShapeMismatches: 0;
+    hierarchyShapeFindings: Record<string, number>;
     nestingOrder: "productGroup>category>productType>materialComposition>warranty>brandLine";
   };
   priceKeysFound: 0;
@@ -239,7 +239,7 @@ export async function probeAbcSandboxCatalogPhase0(
   };
   const hierarchyCensus = {
     itemsWithHierarchy: 0, fullSixLevel: 0, partialHierarchy: 0,
-    hierarchyShapeMismatches: 0 as const,
+    hierarchyShapeFindings: {} as Record<string, number>,
     nestingOrder: "productGroup>category>productType>materialComposition>warranty>brandLine" as const,
   };
 
@@ -351,7 +351,7 @@ function censusRawItem(
   fieldCensus: Record<string, { populated: number; total: number }>,
   uomCensus: { itemsWithUoms: number; totalUomEntries: number; entriesWithCode: number; entriesWithName: number; entriesWithDescription: number },
   dimensionalCensus: { dimensionalItems: number; withDimensionVariations: number; withWidthThicknessHeight: number },
-  hierarchyCensus: { itemsWithHierarchy: number; fullSixLevel: number; partialHierarchy: number; hierarchyShapeMismatches: number },
+  hierarchyCensus: { itemsWithHierarchy: number; fullSixLevel: number; partialHierarchy: number; hierarchyShapeFindings: Record<string, number> },
 ): void {
   const record = item as unknown as Record<string, unknown>;
   if (!isNonEmptyString(item.itemNumber) || seen.has(item.itemNumber)) {
@@ -404,14 +404,26 @@ function censusRawItem(
       const node = current[level];
       // Absent next level: a genuinely partial path, counted not failed.
       if (node === undefined) break;
-      // Present but malformed level (wrong type, or no code/label): fail closed.
+      // Present but malformed: record the deviation as census data, never
+      // fail the run. Phase 0 measures the real sandbox shape; a strict
+      // throw (live run 45904451563) discards the main-page numbers along
+      // with the finding. Only the level name and the missing field or the
+      // node's kind are recorded — never payload values.
       if (!isRecord(node)) {
-        throw new Error("catalog_probe_hierarchy_shape_mismatch");
+        const kind = Array.isArray(node) ? "array" : typeof node;
+        const key = `${level}:not-object:${kind}`;
+        hierarchyCensus.hierarchyShapeFindings[key] = (hierarchyCensus.hierarchyShapeFindings[key] ?? 0) + 1;
+        break;
       }
-      if (!isNonEmptyString(node.code) || !isNonEmptyString(node.label)) {
-        throw new Error("catalog_probe_hierarchy_shape_mismatch");
+      if (!isNonEmptyString(node.code)) {
+        const key = `${level}:missing-code`;
+        hierarchyCensus.hierarchyShapeFindings[key] = (hierarchyCensus.hierarchyShapeFindings[key] ?? 0) + 1;
       }
-      depth++;
+      if (!isNonEmptyString(node.label)) {
+        const key = `${level}:missing-label`;
+        hierarchyCensus.hierarchyShapeFindings[key] = (hierarchyCensus.hierarchyShapeFindings[key] ?? 0) + 1;
+      }
+      if (isNonEmptyString(node.code) && isNonEmptyString(node.label)) depth++;
       current = node;
     }
     if (depth === HIERARCHY_LEVELS.length) hierarchyCensus.fullSixLevel++;
@@ -466,7 +478,6 @@ const PROBE_ERROR_CODES = new Set([
   "catalog_probe_identity_or_pricing_mismatch",
   "catalog_probe_missing_pagination",
   "catalog_probe_price_key_found",
-  "catalog_probe_hierarchy_shape_mismatch",
   "catalog_probe_insufficient_pages",
 ]);
 
