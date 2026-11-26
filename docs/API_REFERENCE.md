@@ -1326,8 +1326,11 @@ Server and frontend are `no-store`; no database or Material/Estimate writes.
 Neither provider-level availability nor customer-specific pricing is claimed.
 
 **Not a full catalog import endpoint.** Persistent replication, delta
-checkpoints, and local indexes require express ABC storage permission, a new
-governed schema/RLS design, and live provider/CI verification. The existing
+checkpoints, and local indexes require a new
+governed schema/RLS design, and live provider/CI verification. Express ABC
+storage permission for the stated shared-reference-copy use was received
+2026-11-25 (Penny Simpson email, recorded on #735); the replication itself
+is still unbuilt. The existing
 customer OAuth and price-review endpoints remain separate.
 Docs: https://apidocs.abcsupply.com/get-all-items/,
 https://apidocs.abcsupply.com/search-items/,
@@ -1337,6 +1340,8 @@ https://www.abcsupply.com/legal/.
 ## ABC sandbox Product API read-only runtime evidence (issue #735, proposed)
 
 The manual `app/scripts/probe-abc-sandbox-catalog.ts` task is **not** an HTTP endpoint, import worker, or price API. It reads at most two 25-item sandbox pages through the existing `AbcCatalogClient` with an independent server `product.read` token. It validates the server-only response contract, pagination consistency, active product identities, and explicit `pricing:"not-requested"`/`persisted:false` boundary. Its sanitized metadata output contains provider-reported totals and active item counts only; no API body/SKU or credentials are printed or persisted. To run, use the reviewed manual GitHub Actions workflow and `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md`. Existing authenticated Costbook catalog HTTP routes and pricing authorization are unchanged.
+
+**Phase 0 census mode (issue #735).** With `--phase0`, the same script fetches exactly three pages at `itemsPerPage=1000` plus one hierarchy page through the probe-only `AbcCatalogClient.listRaw` reader (raw parsed pages; no HTTP route exposes it), times each page, and returns counts, page latency p50/p95, and a field census (UOM roles, dimensional variations, hierarchy nesting order, estimated full-catalog storage at 2–5 KB/item). It fails closed if any price-like key appears in a payload. Still zero stored rows and no pricing.
 
 
 ## ABC Get Item provider-backed read (issue #735 proposed)

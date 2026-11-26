@@ -13,6 +13,11 @@ on:
         type: boolean
         required: true
         default: false
+      phase0:
+        description: Phase 0 (#735) census — three 1000-item pages plus one hierarchy page, with latency and field census (ignores two_pages)
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
@@ -60,18 +65,21 @@ jobs:
       - name: Validate probe contract without credentials
         run: npx --no-install jest --runInBand --runTestsByPath tests/supplier-integration.abc-live-catalog-probe.test.ts tests/supplier-integration.abc-catalog.test.ts
 
-      - name: Read one or two real ABC sandbox catalog pages
+      - name: Read real ABC sandbox catalog pages
         env:
           ABC_SUPPLY_SANDBOX_CLIENT_ID: ${{ secrets.ABC_SUPPLY_SANDBOX_CLIENT_ID }}
           ABC_SUPPLY_SANDBOX_CLIENT_SECRET: ${{ secrets.ABC_SUPPLY_SANDBOX_CLIENT_SECRET }}
           TWO_PAGES: ${{ inputs.two_pages }}
+          PHASE0: ${{ inputs.phase0 }}
         run: |
           set -euo pipefail
           if [[ -z "${ABC_SUPPLY_SANDBOX_CLIENT_ID:-}" || -z "${ABC_SUPPLY_SANDBOX_CLIENT_SECRET:-}" ]]; then
             echo "::error::Sandbox product.read app credentials have not been installed in the abc-sandbox environment or repo secrets."
             exit 1
           fi
-          if [[ "${TWO_PAGES}" == "true" ]]; then
+          if [[ "${PHASE0}" == "true" ]]; then
+            npx --no-install ts-node scripts/probe-abc-sandbox-catalog.ts --phase0 > "${RUNNER_TEMP}/abc-catalog-metadata.json"
+          elif [[ "${TWO_PAGES}" == "true" ]]; then
             npx --no-install ts-node scripts/probe-abc-sandbox-catalog.ts --two-pages > "${RUNNER_TEMP}/abc-catalog-metadata.json"
           else
             npx --no-install ts-node scripts/probe-abc-sandbox-catalog.ts > "${RUNNER_TEMP}/abc-catalog-metadata.json"
@@ -79,6 +87,45 @@ jobs:
           node -e '
             const fs = require("node:fs");
             const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const gb = (bytes) => (bytes / 1e9).toFixed(2) + " GB";
+            if (p.status === "verified_sandbox_phase0") {
+              if (p.provider !== "ABC Supply" || p.environment !== "sandbox" ||
+                  p.storedProducts !== 0 || p.providerPricingRequested !== false ||
+                  p.priceKeysFound !== 0 || p.pagesVerified < 1 ||
+                  p.providerReportedTotalItems < 1 || p.uniqueItemIdentitiesChecked < 1 ||
+                  p.pageLatenciesMs.length !== p.pagesVerified) {
+                throw new Error("Live sandbox catalog Phase 0 proof did not meet validation contract");
+              }
+              console.log("ABC sandbox Product API Phase 0 validation: PASSED (counts, latencies, census only)");
+              const censusRows = Object.entries(p.fieldCensus).map(([field, c]) =>
+                "| " + field + " | " + c.populated + " / " + c.total + " |\n").join("");
+              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+                "## ABC Supply sandbox Product API evidence — Phase 0 (#735)\n\n" +
+                "| Field | Result |\n|---|---|\n" +
+                "| Auth | client_credentials, product.read |\n" +
+                "| Provider total items | " + p.providerReportedTotalItems + " |\n" +
+                "| Provider total pages | " + p.providerReportedTotalPages + " |\n" +
+                "| Pages sampled | " + p.pagesVerified + " x " + p.itemsPerPage + " items |\n" +
+                "| Items sampled | " + p.itemsSampled + " |\n" +
+                "| Active / Inactive / Other status | " + p.activeItemsReturned + " / " + p.inactiveItemsReturned + " / " + p.otherStatusItemsReturned + " |\n" +
+                "| Unique item identities checked | " + p.uniqueItemIdentitiesChecked + " |\n" +
+                "| Page latency p50 / p95 | " + p.pageLatencyP50Ms + " ms / " + p.pageLatencyP95Ms + " ms (" + p.latencyMethod + ") |\n" +
+                "| Page latencies | " + p.pageLatenciesMs.join(", ") + " ms |\n" +
+                "| Hierarchy total items / pages | " + p.hierarchyTotalItems + " / " + p.hierarchyTotalPages + " |\n" +
+                "| Hierarchy paths sampled | " + p.hierarchyPathsSampled + " (latency " + p.hierarchyLatencyMs + " ms) |\n" +
+                "| Hierarchy full six-level / partial | " + p.hierarchyCensus.fullSixLevel + " / " + p.hierarchyCensus.partialHierarchy + " of " + p.hierarchyCensus.itemsWithHierarchy + " with hierarchy |\n" +
+                "| Items with UOMs | " + p.uomCensus.itemsWithUoms + " (" + p.uomCensus.totalUomEntries + " entries, " + p.uomCensus.entriesWithCode + " with code) |\n" +
+                "| Dimensional items | " + p.dimensionalCensus.dimensionalItems + " (" + p.dimensionalCensus.withDimensionVariations + " with variations, " + p.dimensionalCensus.withWidthThicknessHeight + " with width/thickness/height) |\n" +
+                "| Estimated full-catalog storage (2-5 KB/item) | " + gb(p.estimatedStorageBytesLow) + " - " + gb(p.estimatedStorageBytesHigh) + " |\n" +
+                "| Stored catalog items | 0 |\n" +
+                "| Customer pricing requested | No |\n" +
+                "| Price keys found in payloads | 0 |\n\n" +
+                "### Field census (populated / sampled)\n\n" +
+                "| Field | Populated |\n|---|---|\n" + censusRows + "\n" +
+                "This is NOT proof of completed full import, deployed UI or an authorized quote. " +
+                "Storage estimate is a planning figure (2-5 KB/item before indexes); confirm DB headroom against the Supabase plan before Phase 1.\n");
+              return;
+            }
             if (p.status !== "verified_sandbox_page" || p.provider !== "ABC Supply" ||
                 p.environment !== "sandbox" || p.storedProducts !== 0 ||
                 p.providerPricingRequested !== false || p.pagesVerified < 1 ||

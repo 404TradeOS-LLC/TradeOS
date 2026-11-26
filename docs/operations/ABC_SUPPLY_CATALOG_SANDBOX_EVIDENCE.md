@@ -29,6 +29,25 @@ These secrets represent the ABC Supply Third-Party Aggregator sandbox applicatio
 
 Failure exit codes contain no raw token or provider payload. Missing credentials, insufficient `product.read` entitlement, provider HTTP denial, empty sandbox catalog, invalid schema, pagination drift, or duplicated ABC identities must be investigated, not waived. Do not repeatedly retry arbitrary hardcoded SKUs.
 
+## Phase 0 census (#735) — three 1000-item pages
+
+Phase 0 ("prove the numbers") reuses this workflow with `phase0 = true`
+(and the same `VERIFY_ABC_SANDBOX_PRODUCT_READ` confirmation). It runs
+`scripts/probe-abc-sandbox-catalog.ts --phase0`, which fetches exactly three
+pages at `itemsPerPage=1000` plus one hierarchy page at 50, times each page,
+and records a field census over the sampled raw items — which response fields
+are actually populated in sandbox, UOM roles, dimensional variations, and
+hierarchy nesting order. It reports only counts, latencies, and population
+tallies to the step summary (`totalItems`/`totalPages`, page latency p50/p95
+nearest-rank over the 3 pages, census table, hierarchy totals, and an
+estimated full-catalog storage range at 2–5 KB/item before indexes). No item
+numbers, names, descriptions, tokens, or payload content are logged or
+uploaded, and nothing is stored: `storedProducts` is 0 and the probe fails
+closed if any price-like key appears in a payload. Post the run's numbers to
+issue #735; the storage estimate is a planning figure — confirm DB headroom
+against the Supabase plan before Phase 1, since no plan/limit record exists
+in the repo. The default (`phase0 = false`) one/two-page proof is unchanged.
+
 ## Beyond this gate
 
 Persistent catalog replication, full-page ingestion, delta checkpoint retention, images, and supplier data re-display need written ABC permission for the intended rights model. Only after that permission should a separately governed storage/import/RLS change be merged and activated. Customer Ship-To/branch authorization and positive Price Items evidence use the existing independent **user-present** pricing lane.

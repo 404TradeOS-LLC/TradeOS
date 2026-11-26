@@ -86,6 +86,38 @@ describe("ABC Supply provider-backed catalog (#735)", () => {
     expect(result.pagination.totalItems).toBe(30);
   });
 
+  it("listRaw returns the parsed provider page intact for the Phase 0 probe census (#735)", async () => {
+    const fetchFn = jest.fn()
+      .mockResolvedValueOnce(json({ access_token: "server-token", expires_in: 1800 }))
+      .mockResolvedValueOnce(json(page([
+        {
+          itemNumber: "RAW-01", status: "Inactive",
+          marketingDescription: "Provider copy",
+          hierarchy: { productGroup: { code: "1", label: "Roofing" } },
+          weights: [{ value: "2", uom: "LB" }],
+          specifications: [{ name: "Future field" }],
+          images: [],
+          branches: [{ number: "579" }],
+          familyItems: [{ itemNumber: "RAW-02" }],
+        },
+        { itemNumber: "RAW-02", status: "Active" },
+      ], 1, 2, 1, 25)));
+    const result = await clientWith(fetchFn).listRaw({ pageNumber: 1, itemsPerPage: 25 });
+    // Inactive rows stay in the raw page (list() filters them); passthrough
+    // fields survive for the census; nothing is persisted or priced.
+    expect(result.items).toHaveLength(2);
+    expect(result.items[0]).toMatchObject({
+      itemNumber: "RAW-01", marketingDescription: "Provider copy",
+      hierarchy: { productGroup: { code: "1", label: "Roofing" } },
+      weights: [{ value: "2", uom: "LB" }],
+    });
+    expect(result).toMatchObject({
+      persisted: false, pricing: "not-requested", environment: "sandbox",
+      pagination: { totalItems: 2 },
+    });
+    expect(JSON.stringify(result)).not.toContain("unitPrice");
+  });
+
   it("filters inactive provider items and does not invent missing attributes", async () => {
     const fetchFn = jest.fn()
       .mockResolvedValueOnce(json({ access_token: "server-token", expires_in: 1800 }))
