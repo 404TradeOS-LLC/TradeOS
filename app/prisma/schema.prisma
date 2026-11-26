@@ -827,9 +827,13 @@ model Assembly {
   // rewritten by an override.
   wasteOverridePct     Decimal? @map("waste_override_pct") @db.Decimal(5, 2)
   productionRateFactor Decimal? @map("production_rate_factor") @db.Decimal(6, 4)
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+  installedRecipeId      String?   @map("installed_recipe_id")
+  installedRecipeVersion Int?      @map("installed_recipe_version")
+  installedAt            DateTime? @map("installed_at") @db.Timestamptz(6)
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at")
 
+  recipeUpgrades    AssemblyRecipeUpgrade[]
   organization      Organization?      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   items             AssemblyItem[]      @relation("AssemblyToItems")
   usedAsChildIn     AssemblyItem[]      @relation("ChildAssembly")
@@ -848,12 +852,29 @@ model AssemblyItem {
   quantityPerUnit  Decimal @map("quantity_per_unit") @db.Decimal(12, 4)
   sortOrder        Int     @default(0) @map("sort_order")
 
+  recipeComponentKey String? @map("recipe_component_key")
+
   assembly      Assembly  @relation("AssemblyToItems", fields: [assemblyId], references: [id], onDelete: Cascade)
   costItem      CostItem? @relation(fields: [costItemId], references: [id], onDelete: Cascade)
   childAssembly Assembly? @relation("ChildAssembly", fields: [childAssemblyId], references: [id], onDelete: Cascade)
 
   @@index([assemblyId])
   @@map("assembly_items")
+}
+
+model AssemblyRecipeUpgrade {
+  id          String   @id @default(uuid()) @db.Uuid
+  assemblyId  String   @map("assembly_id")
+  recipeId    String   @map("recipe_id")
+  fromVersion Int      @map("from_version")
+  toVersion   Int      @map("to_version")
+  actorId     String   @map("actor_id") @db.Uuid
+  upgradedAt  DateTime @default(now()) @map("upgraded_at") @db.Timestamptz(6)
+
+  assembly Assembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+
+  @@unique([assemblyId, toVersion])
+  @@map("assembly_recipe_upgrades")
 }
 
 // Codes & Permits registry (issue #946 TODO 2; migration

@@ -1,3 +1,5 @@
+import recipeHistory from "./recipeHistory.json";
+
 export const CSI_DIVISIONS = [
   { code: "02", name: "Existing Conditions" },
   { code: "03", name: "Concrete" },
@@ -32,6 +34,15 @@ export type AssemblyCatalogUnit = "CY" | "EA" | "GAL" | "HR" | "LF" | "LS" | "SF
 export type AssemblyCatalogCostItemKind = "allowance" | "composite" | "equipment" | "labor" | "material" | "subcontractor";
 
 export const ASSEMBLY_CATALOG_VERSION = "2026.09.1";
+
+// Append a structural revision to publish the next integer version.
+export const ASSEMBLY_RECIPE_HISTORY: Readonly<Partial<Record<string, readonly RecipeStructure[]>>> = recipeHistory;
+
+export function getRecipeVersion(id: string): number {
+  const revisions = ASSEMBLY_RECIPE_HISTORY[id];
+  if (!revisions?.length) throw new Error(`Missing structural recipe history for ${id}`);
+  return revisions.length;
+}
 
 const MATERIAL_KINDS: readonly AssemblyCatalogCostItemKind[] = ["material", "composite"];
 const LABOR_KINDS: readonly AssemblyCatalogCostItemKind[] = ["labor", "subcontractor", "composite"];
@@ -221,7 +232,7 @@ function template(
     trade,
     measurementBasis,
     wasteGuidance,
-    version: 1,
+    version: getRecipeVersion(id),
     review: {
       status: "reviewed",
       source: "TradeOS-authored",
@@ -304,4 +315,31 @@ function uniqueSorted<T extends string>(values: T[]): T[] {
 
 export function getAssemblyCatalogTemplate(id: string): AssemblyCatalogTemplate | undefined {
   return ASSEMBLY_CATALOG.find((template) => template.id === id);
+}
+
+// Recipe history compares quantities, slot identities, mapping contracts, and
+// measurement basis. Presentation copy and evidence never enter the comparison.
+export interface RecipeStructure {
+  unitOfMeasure: string;
+  measurementBasis: string;
+  components: Record<string, {
+    quantityPerUnit: number;
+    compatibleUnits: string[];
+    allowedCostItemKinds: string[];
+  }>;
+}
+
+export function recipeStructure(template: Pick<AssemblyCatalogTemplate, "unitOfMeasure" | "measurementBasis" | "components">): RecipeStructure {
+  return {
+    unitOfMeasure: template.unitOfMeasure,
+    measurementBasis: template.measurementBasis,
+    components: Object.fromEntries(template.components.map((component) => [
+      component.key,
+      {
+        quantityPerUnit: component.quantityPerUnit,
+        compatibleUnits: [...new Set(component.compatibleUnits)].sort(),
+        allowedCostItemKinds: [...new Set(component.allowedCostItemKinds)].sort(),
+      },
+    ])),
+  };
 }

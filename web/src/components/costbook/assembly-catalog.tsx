@@ -550,6 +550,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, reuseRefr
         method: "POST",
         body: JSON.stringify({
           templateId: selected.id,
+          expectedRecipeVersion: selected.version,
           componentMappings,
           ...(parsedWaste !== undefined ? { wasteOverridePct: parsedWaste } : {}),
           ...(parsedFactor !== undefined ? { productionRateFactor: parsedFactor } : {}),
@@ -653,7 +654,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, reuseRefr
   </section>;
 }
 
-function CostItemSearchPicker({ initialOptions, valueId, valueItem, component, unavailableIds = new Set<string>(), onSelect, disabled }: {
+export function CostItemSearchPicker({ initialOptions, valueId, valueItem, component, unavailableIds = new Set<string>(), onSelect, disabled }: {
   initialOptions: CostItemCatalogRecord[];
   valueId: string;
   valueItem?: CostItemCatalogRecord;

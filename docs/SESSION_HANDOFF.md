@@ -21,6 +21,17 @@ related_docs:
 - No secret handling, no production deployment or data-plane acceptance, no new pipeline/hosting/trust boundary.
 - Readiness-promotion check for the next PLANNED sprint with satisfied dependencies, S048 (Beta tenant onboarding; S047 DONE): dependencies satisfied, overlap clear (only open PRs are lane-owned drafts #1090/#1091, disjoint scope; no S048 branch or lane), but promotion BLOCKED — the founder decision ("select beta tenants and rollout date") is unresolved, and the protocol stop condition bars promoting a sprint whose founder-decision field is YES while the decision is unresolved. S048 stays PLANNED until Billy decides. S046 stays PLANNED (dependencies S039/S045 both BLOCKED on production/live-deployment access); S072 stays PLANNED (depends on S071, IN_REVIEW, not DONE).
 
+## Assembly Catalog recipe versions and reviewed upgrades — issue #518
+
+- Implementation branch `feat/assembly-recipe-versions-518` started from live
+  `origin/main` `2b547c975ae47f0221860307015c7f7d8b78755b` in an isolated
+  worktree. No overlapping PR or branch was present at startup.
+- Catalog version history captures structural changes. Installed templates
+  show drift, support explicit per-template mapping review and confirmation,
+  and expose tenant-scoped audit history.
+- This branch is pending PR review. Hosted checks and the ADR-009 risk record
+  belong to the PR. The numbered sprint queue remains governed by the backlog.
+
 ## Sprint implementation — 2026-11-24: S069 implemented (merged)
 
 - Implementation merged as PR #1073 (squash `eb3c2f9e`); S069 is `IN_REVIEW` with full acceptance still owed (browser-evidence workflow dispatch + run record in a follow-up PR).

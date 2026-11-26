@@ -1,5 +1,8 @@
+import { createHash } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { basePrisma, prisma } from "../../db/client";
-import { runInDatabaseTransaction } from "../../db/requestSession";
+import { getCurrentDatabaseSessionActor, runInDatabaseTransaction } from "../../db/requestSession";
+import { hasAnyPermission } from "../../domain";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { CostDatabaseService } from "../cost-database/service";
 import { round2 } from "../estimate-engine/formulas";
@@ -10,6 +13,7 @@ import {
   AssemblyItemDTO,
   AssemblyUnitCostResult,
   CreateAssemblyInput,
+  ConfirmRecipeUpgradeInput,
   InstallCatalogAssemblyInput,
   MappingReuseResultDTO,
   SuggestCatalogMappingReuseInput,
@@ -17,6 +21,7 @@ import {
 } from "./types";
 import {
   ASSEMBLY_CATALOG_VERSION,
+  ASSEMBLY_RECIPE_HISTORY,
   assessCatalogComponentMapping,
 } from "./catalog";
 import {
@@ -24,6 +29,7 @@ import {
   EXPANDED_ASSEMBLY_CATALOG_COVERAGE,
   getExpandedCatalogTemplate,
 } from "./tradeosCatalogAdapter";
+import { assessRecipeUpgrade } from "./recipeUpgrade";
 import { suggestBulkMapping, type MappingReuseCandidate } from "./mappingReuse";
 
 // Assemblies Database module: composes multiple cost items (and, recursively,
@@ -81,6 +87,10 @@ export class AssembliesDatabaseService {
       throw new ApiError(422, `Research assembly cannot be installed: ${template.blockingReasons.join("; ")}`);
     }
 
+    if (input.expectedRecipeVersion !== undefined && input.expectedRecipeVersion !== template.version) {
+      throw new ApiError(409, "This recipe changed. Reload the catalog and review the current version before installing.");
+    }
+
     const mappingByKey = new Map(input.componentMappings.map((mapping) => [mapping.componentKey, mapping.costItemId]));
     if (mappingByKey.size !== input.componentMappings.length) {
       throw new ApiError(400, "Each catalog component may be mapped only once");
@@ -132,8 +142,11 @@ export class AssembliesDatabaseService {
           code: template.code,
           name: template.name,
           unitOfMeasure: template.unitOfMeasure,
-          description: `${template.description} Catalog ${ASSEMBLY_CATALOG_VERSION}; recipe v${template.version}; CSI ${template.csiDivision} ${template.csiTitle}; NAHB ${template.nahbGroup}. ${template.wasteGuidance}${"evidenceRefs" in template ? ` Research evidence: ${template.evidenceRefs.join(", ")}.` : ""}`,
+          description: `${template.description} Catalog ${ASSEMBLY_CATALOG_VERSION}; CSI ${template.csiDivision} ${template.csiTitle}; NAHB ${template.nahbGroup}. ${template.wasteGuidance}${"evidenceRefs" in template ? ` Research evidence: ${template.evidenceRefs.join(", ")}.` : ""}`,
           isTemplate: true,
+          installedRecipeId: template.id,
+          installedRecipeVersion: template.version,
+          installedAt: new Date(),
           // DEV-17 S10: the install-time overrides are stored on the assembly
           // itself (NULL = no override). The item quantities below stay the
           // recipe quantities; the overrides apply at pricing time.
@@ -144,6 +157,7 @@ export class AssembliesDatabaseService {
       await transaction.assemblyItem.createMany({
         data: template.components.map((component, index) => ({
           assemblyId: assembly.id,
+          recipeComponentKey: component.key,
           costItemId: mappingByKey.get(component.key) as string,
           quantityPerUnit: component.quantityPerUnit,
           sortOrder: index + 1,
@@ -151,6 +165,157 @@ export class AssembliesDatabaseService {
       });
       return toDTO(assembly);
     });
+  }
+
+  async previewRecipeUpgrade(id: string, orgId: string) {
+    const review = await this.loadUpgradeReview(prisma, id, orgId);
+    const history = await prisma.assemblyRecipeUpgrade.findMany({
+      where: { assemblyId: id, assembly: { orgId } },
+      orderBy: { toVersion: "desc" },
+    });
+    return { ...review.preview, history };
+  }
+
+  async confirmRecipeUpgrade(id: string, orgId: string, input: ConfirmRecipeUpgradeInput): Promise<AssemblyDTO> {
+    const actor = getCurrentDatabaseSessionActor();
+    if (!actor || actor.orgId !== orgId || !hasAnyPermission(actor.role, ["costbook.write"])) {
+      throw new ApiError(403, "A tenant-scoped Costbook writer is required");
+    }
+
+    return runInDatabaseTransaction(basePrisma, async (db) => {
+      // Serialize with another confirm, parent edits, item inserts (FK lock),
+      // and item deletes. Compatibility is rechecked under Cost Item locks.
+      const locked = await db.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM assemblies WHERE id = ${id}::uuid AND org_id = ${orgId}::uuid FOR UPDATE
+      `;
+      if (!locked.length) throw new ApiError(404, "Installed catalog template not found");
+      await db.$queryRaw`
+        SELECT id FROM assembly_items WHERE assembly_id = ${id}::uuid ORDER BY id FOR UPDATE
+      `;
+
+      const review = await this.loadUpgradeReview(db, id, orgId, input.componentMappings.map((mapping) => mapping.costItemId));
+      const { preview, assembly, rowsByKey } = review;
+      if (preview.reviewToken !== input.reviewToken || !preview.updateAvailable) {
+        throw new ApiError(409, "The installed template or recipe changed. Review the latest diff.");
+      }
+      if (preview.blockers.length) throw new ApiError(409, preview.blockers.join(" "));
+      const { template } = review;
+      if (!template || !preview.fromVersion) throw new ApiError(409, "Recipe version is unavailable");
+
+      const replacements = new Map(input.componentMappings.map((mapping) => [mapping.componentKey, mapping.costItemId]));
+      const needsMapping = preview.changes.filter((change) => change.mapping === "breaks" || change.mapping === "needed");
+      if (replacements.size !== input.componentMappings.length || replacements.size !== needsMapping.length ||
+          needsMapping.some((change) => !replacements.has(change.key))) {
+        throw new ApiError(422, "Select a mapping for each flagged component and keep the preserved mappings.");
+      }
+
+      const selected = await db.costItem.findMany({
+        where: { id: { in: [...replacements.values()] }, orgId, isActive: true },
+      });
+      const selectedById = new Map(selected.map((item) => [item.id, item]));
+      const assignments = new Map<string, string>();
+      for (const change of preview.changes) {
+        if (!change.component) continue;
+        const replacementId = replacements.get(change.key);
+        const candidate = replacementId ? selectedById.get(replacementId) : null;
+        const costItemId = replacementId ? candidate?.id : change.costItem?.id;
+        if (!costItemId || (candidate && !assessCatalogComponentMapping(change.component, candidate).compatible)) {
+          throw new ApiError(422, `Choose a compatible Cost Item for ${change.label}.`);
+        }
+        assignments.set(change.key, costItemId);
+      }
+      if (new Set(assignments.values()).size !== assignments.size) {
+        throw new ApiError(422, "Each Cost Item may be mapped to only one recipe slot");
+      }
+
+      for (const change of preview.changes) {
+        const row = rowsByKey.get(change.key);
+        if (row && change.mapping === "removed") await db.assemblyItem.delete({ where: { id: row.id } });
+      }
+      for (const [index, component] of template.components.entries()) {
+        const existing = rowsByKey.get(component.key);
+        const data = {
+          recipeComponentKey: component.key,
+          costItemId: assignments.get(component.key)!,
+          quantityPerUnit: component.quantityPerUnit,
+          sortOrder: index + 1,
+        };
+        if (existing) await db.assemblyItem.update({ where: { id: existing.id }, data });
+        else await db.assemblyItem.create({ data: { ...data, assemblyId: id } });
+      }
+      const updated = await db.assembly.update({
+        where: { id, orgId },
+        data: {
+          installedRecipeVersion: template.version,
+          unitOfMeasure: template.unitOfMeasure,
+          description: assembly.description?.replace(
+            / Catalog 2026\.09\.1; recipe v1; CSI /, " Catalog 2026.09.1; CSI ",
+          ),
+        },
+      });
+      await db.assemblyRecipeUpgrade.create({
+        data: {
+          assemblyId: id, recipeId: template.id, fromVersion: assembly.installedRecipeVersion!,
+          toVersion: template.version, actorId: actor.userId,
+        },
+      });
+      return toDTO(updated);
+    });
+  }
+
+  private async loadUpgradeReview(db: Prisma.TransactionClient, id: string, orgId: string, replacementIds?: string[]) {
+    const assembly = await db.assembly.findFirst({ where: { id, orgId } });
+    if (!assembly?.installedRecipeId || !assembly.installedRecipeVersion) {
+      throw new ApiError(404, "Installed catalog template not found");
+    }
+    const template = getExpandedCatalogTemplate(assembly.installedRecipeId);
+    const fromVersion = assembly.installedRecipeVersion;
+    const updateAvailable = Boolean(template && template.version > fromVersion);
+    const previous = ASSEMBLY_RECIPE_HISTORY[assembly.installedRecipeId]?.[fromVersion - 1];
+    const blockers: string[] = [];
+    if (!template || !previous) blockers.push("The catalog revision needed to review this upgrade is unavailable.");
+    if (!assembly.isActive || !assembly.isTemplate) blockers.push("Only active installed templates can be upgraded.");
+    if (template && "blockingReasons" in template) blockers.push(...template.blockingReasons);
+
+    const items = updateAvailable ? await db.assemblyItem.findMany({
+      where: { assemblyId: id, assembly: { orgId } },
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    }) : [];
+    const costItemIds = items.flatMap((item) => item.costItemId ? [item.costItemId] : []);
+    if (replacementIds) {
+      const ids = [...new Set([...costItemIds, ...replacementIds])];
+      if (ids.length) await db.$queryRaw`
+        SELECT id FROM cost_items WHERE org_id = ${orgId}::uuid
+          AND id IN (${Prisma.join(ids.map((itemId) => Prisma.sql`${itemId}::uuid`))}) ORDER BY id FOR SHARE
+      `;
+    }
+    const costItems = costItemIds.length ? await db.costItem.findMany({
+      where: { id: { in: costItemIds }, orgId },
+      select: { id: true, orgId: true, name: true, code: true, unitOfMeasure: true, isActive: true,
+        materialId: true, laborRateId: true, equipmentId: true, subcontractorId: true },
+    }) : [];
+    const costItemsById = new Map(costItems.map((item) => [item.id, item]));
+    const diff = updateAvailable && previous && template ? assessRecipeUpgrade(previous, template, {
+      orgId, unitOfMeasure: assembly.unitOfMeasure,
+      items: items.map((item) => ({
+        ...item, quantityPerUnit: Number(item.quantityPerUnit),
+        costItem: costItemsById.get(item.costItemId ?? "") ?? null,
+      })),
+    }) : null;
+    const preview = {
+      fromVersion,
+      toVersion: template?.version ?? null,
+      updateAvailable,
+      blockers: [...blockers, ...(diff?.blockers ?? [])],
+      changes: diff?.changes ?? [],
+      measurement: diff?.measurement ?? null,
+    };
+    // Bind confirmation to the tenant assembly, target structure and visible
+    // review, along with the persisted rows that produced it.
+    const reviewToken = createHash("sha256").update(JSON.stringify({
+      id, orgId, recipeId: assembly.installedRecipeId, updatedAt: assembly.updatedAt, items, preview,
+    })).digest("hex");
+    return { assembly, template, rowsByKey: diff?.rowsByKey ?? new Map(), preview: { ...preview, reviewToken } };
   }
 
   /**
@@ -474,9 +639,13 @@ function toDTO(row: {
   description: string | null;
   isTemplate: boolean;
   isActive: boolean;
+  installedRecipeId?: string | null;
+  installedRecipeVersion?: number | null;
+  installedAt?: Date | null;
   wasteOverridePct?: unknown;
   productionRateFactor?: unknown;
 }): AssemblyDTO {
+  const currentRecipeVersion = row.installedRecipeId ? getExpandedCatalogTemplate(row.installedRecipeId)?.version ?? null : null;
   return {
     id: row.id,
     orgId: row.orgId,
@@ -486,6 +655,11 @@ function toDTO(row: {
     description: row.description,
     isTemplate: row.isTemplate,
     isActive: row.isActive,
+    installedRecipeId: row.installedRecipeId ?? null,
+    installedRecipeVersion: row.installedRecipeVersion ?? null,
+    installedAt: row.installedAt ?? null,
+    currentRecipeVersion,
+    updateAvailable: currentRecipeVersion !== null && row.installedRecipeVersion != null && currentRecipeVersion > row.installedRecipeVersion,
     // Prisma returns Decimal objects for these columns; rows built before the
     // S10 migration (or in tests) carry no value at all. Either way the DTO
     // exposes plain numbers or null.

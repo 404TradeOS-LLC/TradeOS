@@ -99,6 +99,8 @@ costbookRouter.get("/assemblies/templates", asyncHandler(assemblyCtrl.templates)
 costbookRouter.get("/assemblies/starter-catalog", asyncHandler(assemblyCtrl.starterCatalog));
 costbookRouter.get("/assemblies/starter-catalog/:templateId/mapping-suggestions", asyncHandler(assemblyCtrl.mappingSuggestions));
 costbookRouter.post("/assemblies/starter-catalog/install", asyncHandler(assemblyCtrl.installStarterCatalog));
+costbookRouter.get("/assemblies/:id/recipe-upgrade", asyncHandler(assemblyCtrl.previewRecipeUpgrade));
+costbookRouter.post("/assemblies/:id/recipe-upgrade", asyncHandler(assemblyCtrl.confirmRecipeUpgrade));
 costbookRouter.get("/assemblies/:id/unit-cost", asyncHandler(assemblyCtrl.getUnitCost));
 costbookRouter.get("/assemblies/:id/items", asyncHandler(assemblyCtrl.listItems));
 costbookRouter.get("/assemblies/:id", asyncHandler(assemblyCtrl.getById));

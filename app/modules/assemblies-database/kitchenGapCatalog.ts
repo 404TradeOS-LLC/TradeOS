@@ -4,6 +4,7 @@
  * The estimator must select tenant-owned Cost Items normalized to the native
  * output units and review site conditions, product instructions and exclusions.
  */
+import { getRecipeVersion } from "./catalog";
 import type { ResearchAssemblyCatalogTemplate } from "./tradeosCatalogAdapter";
 
 export const KITCHEN_GAP_CATALOG: readonly ResearchAssemblyCatalogTemplate[] = [
@@ -20,7 +21,7 @@ export const KITCHEN_GAP_CATALOG: readonly ResearchAssemblyCatalogTemplate[] = [
     trade: "Finish Carpentry",
     measurementBasis: "Each individual finished wall cabinet, not linear feet of a cabinet run. Verify each model, width, height, depth, wall substrate and fastener requirements before pricing.",
     wasteGuidance: "Zero preset cabinet waste. Confirm load-bearing stud/blocking attachment and manufacturer-compatible cabinet mounting screws, shims, wall condition, and helper access. Excludes demolition, electrical/lighting, additional framing/blocking, crown molding, fillers and decorative panels; price them as separate Cost Items or assemblies. Source SRC-0069 describes general hanging practices, not a product-specific structural certification.",
-    version: 1,
+    version: getRecipeVersion("kitchen:wall-cabinet-prefab"),
     review: {
       status: "research",
       source: "TradeOS-authored scope recipe using installation guidance",
@@ -69,7 +70,7 @@ export const KITCHEN_GAP_CATALOG: readonly ResearchAssemblyCatalogTemplate[] = [
     trade: "Finish Carpentry",
     measurementBasis: "Linear foot of installed, straight countertop along the front edge at the specific product's fixed depth and profile. Corner returns, islands, variable-depth pieces and seams require separate measurements and scope.",
     wasteGuidance: "Zero preset waste: verify actual piece lengths, cut-off waste and finish-end counts. Material Cost Item must be normalized to LF for the chosen countertop profile; never equate an EA 8-ft slab to 1 LF. Excludes sink/cooktop cutouts, fabrication of seams and miters, exposed end-cap kits, separate backsplash, plumbing disconnect/reconnect, structural support repair and removal of old tops. Scope and price separately. Source SRC-0070 documents laminate cutout considerations, not an all-purpose installation design.",
-    version: 1,
+    version: getRecipeVersion("kitchen:laminate-countertop-straight"),
     review: {
       status: "research",
       source: "TradeOS-authored scope recipe using laminate manufacturer guidance",

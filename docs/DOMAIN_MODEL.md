@@ -535,6 +535,21 @@ Cost Item and Assembly lookup semantics remain unchanged: both services support 
 
 `Assembly` carries two nullable install-override columns (migration `20261123050000_add_assembly_install_overrides`, DEV-17 S10, issue #518): `waste_override_pct` (absolute waste percentage, 0–100) and `production_rate_factor` (dimensionless multiplier, greater than 0 and at most 10), each guarded by a database CHECK matching the API validation. NULL on either column means "recipe defaults". The columns ride the existing tenant-scoped assembly row — no RLS change, no new role — and they store assumptions only, never prices: the waste override replaces each mapped Material's own `wasteFactorPct` on material legs and the production factor multiplies each mapped CostItem's `productionRate` on labor/equipment legs, applied at pricing time through the existing unit-cost resolver. Stored `AssemblyItem` quantities are never rewritten by an override.
 
+Catalog installs record `installed_recipe_id`, `installed_recipe_version`,
+and `installed_at` on the tenant's Assembly. A catalog-derived AssemblyItem
+also records its stable `recipe_component_key`. Standalone assemblies and
+custom components have null recipe fields. The migration identifies legacy
+installs by the known recipe code and installer description marker, uses the
+assembly creation time as the install time, and assigns slot keys only to
+complete layouts matching the original install positions and quantities.
+
+`AssemblyRecipeUpgrade` is an append-only history of confirmed upgrades. It
+records the parent assembly, recipe ID, from/to versions, authenticated actor
+ID, and timestamp. Forced RLS scopes reads through the tenant's parent Assembly.
+Inserts require a Costbook writer and matching session actor and installed
+recipe version. Tenant roles have no audit update or delete policy.
+
+
 ## Codes & Permits registry (issue #946 TODO 2, draft)
 
 The #945 Codes & Permits advisory pilot's in-code source index moves into four global reference tables (migration `20261109220000_add_codes_authority_jurisdiction_source`). These tables are **not** tenant-scoped: they carry no `org_id`, no pricing, no CostItem, no estimate, no customer and no payment data.

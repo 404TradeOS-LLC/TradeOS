@@ -1727,6 +1727,7 @@ function StarterAssemblySetup({
           method: "POST",
           body: JSON.stringify({
             templateId: template.id,
+            expectedRecipeVersion: template.version,
             componentMappings: template.components.map((component) => ({
               componentKey: component.key,
               costItemId: mappings[component.key].id,

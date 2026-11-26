@@ -4,6 +4,7 @@
  * must be selected and reviewed by the tenant; these are NOT model-specific
  * instructions, supplier prices, engineered designs or production rates.
  */
+import { getRecipeVersion } from "./catalog";
 import type { ResearchAssemblyCatalogTemplate } from "./tradeosCatalogAdapter";
 
 const research = {
@@ -27,7 +28,7 @@ export const OPENINGS_APPLIANCE_GAP_CATALOG: readonly ResearchAssemblyCatalogTem
     trade: "Window Installation",
     measurementBasis: "Each installed new-construction flanged vinyl window; select the exact model, size, glazing, performance rating and flange design.",
     wasteGuidance: "No flat percentage waste. Verify opening geometry, shimming, sill pan, flashing transitions, sealant compatibility and fastener schedule against manufacturer instructions. SRC-0071 covers JELD-WEN vinyl windows with an integral nailing fin; other brands, flange designs and wall conditions require their own applicable instructions. Excludes rough-opening framing/repair, structural engineering, exterior trim, interior casing, painting, temporary access equipment and window disposal. All must be priced separately when needed.",
-    version: 1,
+    version: getRecipeVersion("openings:window-vinyl-new-construction-flanged"),
     review: research,
     evidenceRefs: ["SRC-0071"],
     blockingReasons: [],
@@ -71,7 +72,7 @@ export const OPENINGS_APPLIANCE_GAP_CATALOG: readonly ResearchAssemblyCatalogTem
     trade: "Garage Door Installation",
     measurementBasis: "Each completed sectional garage door opening with selected width, height, wind rating, insulation level and track/lift configuration.",
     wasteGuidance: "No preset waste. Qualified garage-door professionals must assess high-tension spring and cable work. Do not treat spring parts as optional generic hardware or provide improvised spring adjustment instructions. Verify structural backing, headroom, wind load and manufacturer instructions. Excludes opening reframing, trim, existing door removal/disposal, motorized opener, power/circuit work and smart controls unless separately quoted.",
-    version: 1,
+    version: getRecipeVersion("openings:garage-door-section-steel"),
     review: research,
     evidenceRefs: ["SRC-0072"],
     blockingReasons: [],
@@ -107,7 +108,7 @@ export const OPENINGS_APPLIANCE_GAP_CATALOG: readonly ResearchAssemblyCatalogTem
     trade: "Appliance Installation",
     measurementBasis: "Each newly installed built-in dishwasher in a prepared opening with existing approved connections and adequate clearances.",
     wasteGuidance: "No default material waste. Confirm manufacturer model, supply voltage, dedicated branch-circuit/cord or hardwire requirements, local code, shutoff, drainage/high-loop or air gap instructions, cabinet clearance and leak/operation test. Licensed trades may be required. Excludes new plumbing, circuit or receptacle, countertop modification, old-appliance haul-away, cabinet replacement and leak remediation. Treat uncertain utility scope as separate trade estimate.",
-    version: 1,
+    version: getRecipeVersion("appliances:dishwasher-built-in-existing-ready"),
     review: research,
     evidenceRefs: ["SRC-0073"],
     blockingReasons: [],

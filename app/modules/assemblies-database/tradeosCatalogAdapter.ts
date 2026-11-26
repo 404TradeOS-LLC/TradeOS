@@ -14,6 +14,7 @@ import {
   type AssemblyCatalogCostItemKind,
   type AssemblyCatalogTemplate,
   type AssemblyCatalogUnit,
+  getRecipeVersion,
 } from "./catalog";
 import { assessTemplateMeasurement } from "./measurement";
 
@@ -58,7 +59,7 @@ export const TRADEOS_RESEARCH_CATALOG: readonly ResearchAssemblyCatalogTemplate[
       assembly.requiresLocalCalibration ? "Local production-rate calibration required." : "Verify production assumptions locally.",
       assembly.scopeExclusions.length ? `Excluded: ${assembly.scopeExclusions.join("; ")}.` : "",
     ].filter(Boolean).join(" "),
-    version: 1,
+    version: getRecipeVersion(`tradeos:${assembly.id}`),
     review: {
       status: "research",
       source: "TradeOS research assembly corpus",
