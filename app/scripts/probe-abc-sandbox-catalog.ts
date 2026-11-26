@@ -430,10 +430,18 @@ async function main(): Promise<void> {
   }
   const config = loadAbcSupplyAuthConfig();
   if (!config) throw new Error("missing_sandbox_client_credentials");
-  const client = new AbcCatalogClient({
-    clientId: config.clientId,
-    clientSecret: config.clientSecret,
-  });
+  // Phase 0 reads 1000-item pages, which exceed the 12 s interactive timeout
+  // (a 25-item page was once observed taking ~29 s). The probe gets a 120 s
+  // per-request budget with 2 attempts; the workflow allows 20 minutes.
+  const client = arg === "--phase0"
+    ? new AbcCatalogClient(
+      { clientId: config.clientId, clientSecret: config.clientSecret },
+      fetch, Date.now, undefined, { requestTimeoutMs: 120_000, maxAttempts: 2 },
+    )
+    : new AbcCatalogClient({
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+    });
   if (arg === "--phase0") {
     const result = await probeAbcSandboxCatalogPhase0(client);
     // Metadata, counts, latencies, and census tallies only. No item numbers,
@@ -449,27 +457,48 @@ async function main(): Promise<void> {
   process.stdout.write(JSON.stringify(result) + "\n");
 }
 
+const PROBE_ERROR_CODES = new Set([
+  "invalid_probe_arguments",
+  "missing_sandbox_client_credentials",
+  "catalog_probe_contract_mismatch",
+  "catalog_probe_empty_first_page",
+  "catalog_probe_pagination_drift",
+  "catalog_probe_identity_or_pricing_mismatch",
+  "catalog_probe_missing_pagination",
+  "catalog_probe_price_key_found",
+  "catalog_probe_hierarchy_shape_mismatch",
+  "catalog_probe_insufficient_pages",
+]);
+
+/**
+ * Maps a probe failure to one redacted code for the operator. Never prints
+ * provider response bodies, tokens, credentials, or raw exceptions. A schema
+ * failure reports only the failing field paths and issue codes — never the
+ * received values — so the next failure names the field without leaking data.
+ */
+export function classifyProbeError(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  if (PROBE_ERROR_CODES.has(message)) return message;
+  if (/^ABC catalog provider denied request: HTTP \d{3}$/.test(message)) return "provider_denied";
+  if (message === "ABC catalog provider request failed") return "provider_request_failed";
+  const unavailable = /^ABC catalog provider unavailable: HTTP (\d{3})$/.exec(message);
+  if (unavailable) return "provider_unavailable_http_" + unavailable[1];
+  if (error && typeof error === "object" && Array.isArray((error as { issues?: unknown }).issues)) {
+    const issues = (error as { issues: Array<{ path?: unknown; code?: unknown }> }).issues;
+    const paths = [...new Set(issues.map((issue) => {
+      const path = Array.isArray(issue.path) ? issue.path.map(String).join(".") : "";
+      const code = typeof issue.code === "string" ? issue.code : "unknown";
+      return (path ? path + ":" : "") + code;
+    }))].slice(0, 5);
+    return paths.length > 0 ? "schema_mismatch:" + paths.join(";") : "schema_mismatch";
+  }
+  return "provider_or_schema_failure";
+}
+
 if (require.main === module) {
   void main().catch((error: unknown) => {
     // Never print provider response bodies, token, credential, or raw exception.
-    const allowedCodes = new Set([
-      "invalid_probe_arguments",
-      "missing_sandbox_client_credentials",
-      "catalog_probe_contract_mismatch",
-      "catalog_probe_empty_first_page",
-      "catalog_probe_pagination_drift",
-      "catalog_probe_identity_or_pricing_mismatch",
-      "catalog_probe_missing_pagination",
-      "catalog_probe_price_key_found",
-      "catalog_probe_hierarchy_shape_mismatch",
-      "catalog_probe_insufficient_pages",
-    ]);
-    const message = error instanceof Error ? error.message : "";
-    const code = allowedCodes.has(message) ? message
-      : /^ABC catalog provider denied request: HTTP \d{3}$/.test(message)
-        ? "provider_denied"
-        : "provider_or_schema_failure";
-    process.stderr.write("ABC sandbox Product API validation failed: " + code + "\n");
+    process.stderr.write("ABC sandbox Product API validation failed: " + classifyProbeError(error) + "\n");
     process.exitCode = 1;
   });
 }

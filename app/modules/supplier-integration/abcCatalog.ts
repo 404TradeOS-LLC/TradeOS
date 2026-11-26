@@ -245,16 +245,39 @@ function mapItem(item: z.infer<typeof catalogItemSchema>): AbcCatalogItem {
   };
 }
 
+export interface AbcCatalogClientOptions {
+  /**
+   * Per-request timeout override (default 12_000 ms). Batch diagnostics
+   * (Phase 0 probe) use a longer budget because 1000-item pages exceed the
+   * interactive timeout; interactive reads keep the default.
+   */
+  requestTimeoutMs?: number;
+  /** Retry attempts override (default 3). */
+  maxAttempts?: number;
+}
+
 export class AbcCatalogClient {
   private token: { value: string; expiresAt: number } | null = null;
   private nextRequestAt = 0;
+  private readonly requestTimeoutMs: number;
+  private readonly maxAttempts: number;
 
   constructor(
     private readonly config: { clientId: string; clientSecret: string },
     private readonly fetchFn: typeof fetch = fetch,
     private readonly now: () => number = Date.now,
     private readonly sleep: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-  ) {}
+    options: AbcCatalogClientOptions = {},
+  ) {
+    const requestTimeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
+    const maxAttempts = options.maxAttempts ?? MAX_ATTEMPTS;
+    if (!Number.isInteger(requestTimeoutMs) || requestTimeoutMs < 1 ||
+        !Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 5) {
+      throw new Error("Invalid ABC catalog client options");
+    }
+    this.requestTimeoutMs = requestTimeoutMs;
+    this.maxAttempts = maxAttempts;
+  }
 
   private async serverToken(): Promise<string> {
     if (this.token && this.token.expiresAt - TOKEN_EXPIRY_MARGIN_MS > this.now()) return this.token.value;
@@ -272,20 +295,20 @@ export class AbcCatalogClient {
   }
 
   private async callWithRetry(url: string, init: RequestInit): Promise<Response> {
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    for (let attempt = 0; attempt < this.maxAttempts; attempt++) {
       const until = this.nextRequestAt - this.now();
       if (until > 0) await this.sleep(until);
       this.nextRequestAt = Math.max(this.nextRequestAt, this.now()) + MIN_REQUEST_SPACING_MS;
       try {
         const response = await this.fetchFn(url, {
           ...init,
-          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+          signal: AbortSignal.timeout(this.requestTimeoutMs),
         });
         if (response.ok) return response;
         if (response.status !== 429 && response.status < 500) {
           throw new Error("ABC catalog provider denied request: HTTP " + response.status);
         }
-        if (attempt === MAX_ATTEMPTS - 1) {
+        if (attempt === this.maxAttempts - 1) {
           throw new Error("ABC catalog provider unavailable: HTTP " + response.status);
         }
         const retryAfter = response.headers?.get("retry-after");
@@ -296,7 +319,7 @@ export class AbcCatalogClient {
         // Authentication errors and explicit provider denials must not be retried.
         if (message.startsWith("ABC catalog provider denied") ||
             message.startsWith("ABC catalog provider unavailable")) throw error;
-        if (attempt === MAX_ATTEMPTS - 1) throw new Error("ABC catalog provider request failed");
+        if (attempt === this.maxAttempts - 1) throw new Error("ABC catalog provider request failed");
         await this.sleep(250 * 2 ** attempt);
       }
     }
