@@ -158,6 +158,23 @@ function hierarchyPath(value: unknown): Array<{ level: string; code: string; lab
   return path;
 }
 
+export type AbcCatalogRawItem = z.infer<typeof catalogItemSchema>;
+
+/**
+ * One provider page exactly as parsed (passthrough fields intact: hierarchy,
+ * marketingDescription, weights, specifications, images, branches, familyItems).
+ * Probe/diagnostics only: the caller must not persist, display, or price from
+ * it. `list()` remains the only mapped read path for product surfaces.
+ */
+export interface AbcCatalogRawPage {
+  items: AbcCatalogRawItem[];
+  pagination: { itemsPerPage: number; pageNumber: number; totalPages: number; totalItems: number };
+  source: "ABC Supply";
+  environment: "sandbox";
+  pricing: "not-requested";
+  persisted: false;
+}
+
 export interface AbcCatalogPage {
   items: AbcCatalogItem[];
   pagination: { itemsPerPage: number; pageNumber: number; totalPages: number; totalItems: number };
@@ -173,6 +190,12 @@ export interface AbcCatalogQuery {
   q?: string;
   searchBy?: "itemDescription" | "itemNumber";
   familyId?: string;
+  /**
+   * Request family items on the list read. Defaults to false (the provider
+   * returns familyItems as null otherwise). `list()` never sets it; the
+   * Phase 0 probe sets it so its census measures the field, not the default.
+   */
+  familyItems?: boolean;
 }
 
 export function isCatalogEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -384,6 +407,31 @@ export class AbcCatalogClient {
   }
 
   async list(query: AbcCatalogQuery): Promise<AbcCatalogPage> {
+    const raw = await this.fetchRawPage(query);
+    return {
+      items: raw.items.filter((item) => item.status?.toLowerCase() !== "inactive").map(mapItem),
+      pagination: raw.pagination,
+      source: "ABC Supply",
+      environment: "sandbox",
+      pricing: "not-requested",
+      persisted: false,
+    };
+  }
+
+  /** Raw provider page for the Phase 0 (#735) probe census. No persistence, no pricing. */
+  async listRaw(query: AbcCatalogQuery): Promise<AbcCatalogRawPage> {
+    const raw = await this.fetchRawPage(query);
+    return {
+      items: raw.items,
+      pagination: raw.pagination,
+      source: "ABC Supply",
+      environment: "sandbox",
+      pricing: "not-requested",
+      persisted: false,
+    };
+  }
+
+  private async fetchRawPage(query: AbcCatalogQuery): Promise<AbcCatalogRawPage> {
     if (!Number.isInteger(query.pageNumber) || query.pageNumber < 1 ||
         !Number.isInteger(query.itemsPerPage) || query.itemsPerPage < 1 || query.itemsPerPage > 1000) {
       throw new Error("Invalid ABC catalog pagination");
@@ -410,7 +458,8 @@ export class AbcCatalogClient {
       };
     } else {
       const params = new URLSearchParams({
-        pageNumber: String(query.pageNumber), itemsPerPage: String(query.itemsPerPage), familyItems: "false",
+        pageNumber: String(query.pageNumber), itemsPerPage: String(query.itemsPerPage),
+        familyItems: query.familyItems === true ? "true" : "false",
       });
       url += "?" + params.toString();
     }
@@ -429,7 +478,7 @@ export class AbcCatalogClient {
       seen.add(item.itemNumber);
     }
     return {
-      items: parsed.items.filter((item) => item.status?.toLowerCase() !== "inactive").map(mapItem),
+      items: parsed.items,
       pagination: parsed.pagination,
       source: "ABC Supply",
       environment: "sandbox",

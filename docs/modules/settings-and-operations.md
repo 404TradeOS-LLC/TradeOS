@@ -379,9 +379,11 @@ database writes. Product data is not retained in TradeOS. The frontend
 
 **ABC data-rights gate:** the provider's April 9, 2026 API Terms of Use
 prohibit building databases/permanent copies absent express permission and
-restrict caching to provider headers. Do not enable durable shared-catalog
-replication, ingestion checkpoints containing payloads, or image storage until
-written ABC permission and display/retention rules are established. Existing
+restrict caching to provider headers. Written ABC permission for the stated
+shared-reference-copy use was received 2026-11-25 (Penny Simpson email,
+recorded on #735); durable replication, ingestion checkpoints containing
+payloads, and image storage are still unbuilt and remain Phase 1+ work, not
+something this branch enables. Existing
 user-present `account.read`/`pricing.read` OAuth, review gates and historical
 estimate snapshots remain unchanged. This branch is not production access.
 Sources: https://apidocs.abcsupply.com/third-party-aggregator-integration-track/
@@ -390,7 +392,9 @@ and https://www.abcsupply.com/legal/.
 
 ## ABC Product API read-only live-probe operator controls (issue #735)
 
-The `abc-sandbox-catalog-evidence.yml` GitHub Actions workflow is a manual, confirmation-gated probe requiring sandbox Third-Party Aggregator `ABC_SUPPLY_SANDBOX_CLIENT_ID` and `ABC_SUPPLY_SANDBOX_CLIENT_SECRET` with `product.read` in the repository or `abc-sandbox` GitHub Environment. It does not read Vercel secrets, customer OAuth credentials, user-specific prices, or any database; it writes only sanitized counts into the job summary. A missing credential is a hard failure. The full runbook is `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md`; green mocked tests alone do not prove provider access. ABC Terms authorization for durable full-catalog data storage remains separate and unresolved.
+The `abc-sandbox-catalog-evidence.yml` GitHub Actions workflow is a manual, confirmation-gated probe requiring sandbox Third-Party Aggregator `ABC_SUPPLY_SANDBOX_CLIENT_ID` and `ABC_SUPPLY_SANDBOX_CLIENT_SECRET` with `product.read` in the repository or `abc-sandbox` GitHub Environment. It does not read Vercel secrets, customer OAuth credentials, user-specific prices, or any database; it writes only sanitized counts into the job summary. A missing credential is a hard failure. The full runbook is `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md`; green mocked tests alone do not prove provider access. Written ABC permission for the stated shared-reference-copy use was received 2026-11-25 (Penny Simpson email, recorded on #735); durable replication itself is Phase 1+ work, not built here.
+
+**Phase 0 census mode (issue #735).** With `phase0 = true` the same workflow runs `probe-abc-sandbox-catalog.ts --phase0`: exactly three pages at `itemsPerPage=1000` plus one hierarchy page, page latency p50/p95, and a field census — counts and tallies only, still zero stored rows, failing closed on any price-like payload key. The run's numbers are posted to #735; the storage estimate is a planning figure, and DB headroom against the Supabase plan is a Phase 1 check, since no plan/limit record exists in the repo.
 
 
 ## ABC Catalog item detail boundary (issue #735)
