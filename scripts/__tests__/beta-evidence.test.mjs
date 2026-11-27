@@ -2,6 +2,7 @@ import "../../app/scripts/beta-evidence/lib/browser-runtime.test.mjs";
 import "../../app/scripts/beta-evidence/lib/staging-runtime-correlation.test.mjs";
 
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import os from "node:os";
@@ -186,6 +187,119 @@ test("deployment SHA correlation is asserted, never assumed", () => {
   assert.equal(codeOf(() => assertDeploymentSha(undefined, "2828f67")), "SHA_EXPECTED_MISSING");
   assert.equal(codeOf(() => assertDeploymentSha("2828f67", "deadbee")), "SHA_MISMATCH");
   assert.equal(assertDeploymentSha("2828f67a3546238cf49487860ec3b588943b3cb1", "2828f67"), "2828f67");
+});
+
+// Runs resolve-rc-target.mjs as a subprocess with its network stubbed, so
+// the staging SHA decision is proven end-to-end instead of by source text.
+// The stub answers the three public identity surfaces the live correlation
+// reads (web /api/staging-runtime-identity, API /health, API /ready) with
+// STUB_LIVE_SHA and logs every fetch, proving whether the pre-check or the
+// live correlation decided the run.
+const RESOLVE_FETCH_STUB = `
+import fs from "node:fs";
+const liveSha = process.env.STUB_LIVE_SHA;
+const logPath = process.env.STUB_FETCH_LOG;
+function jsonResponse(body, status = 200) {
+  return { ok: status >= 200 && status < 300, status, json: async () => body };
+}
+globalThis.fetch = async (url) => {
+  fs.appendFileSync(logPath, String(url) + "\\n");
+  const target = String(url);
+  if (target.includes("/api/staging-runtime-identity")) {
+    return jsonResponse({
+      status: "configured",
+      commitSha: liveSha,
+      branch: "staging",
+      environment: "preview",
+      supabaseProjectRef: "qfbgdkbamfaasmtjfyru",
+      backendOrigin: "https://tradeos-costbook-git-staging-billykshowalters.vercel.app",
+      scope: "public_configuration_only",
+    });
+  }
+  if (target.endsWith("/health")) {
+    return jsonResponse({ status: "ok", commitSha: liveSha, environment: "preview" });
+  }
+  if (target.endsWith("/ready")) {
+    return jsonResponse({ status: "ready", checks: { database: { status: "ok", projectRef: "qfbgdkbamfaasmtjfyru" } } });
+  }
+  throw new Error("unexpected fetch: " + target);
+};
+`;
+
+function runResolveRcTarget({ expectedSha, reportedSha, liveSha, requireShaCorrelation }) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "beta-evidence-resolve-"));
+  const stub = path.join(dir, "fetch-stub.mjs");
+  const log = path.join(dir, "fetch-log.txt");
+  const artifacts = path.join(dir, "artifacts");
+  fs.writeFileSync(stub, RESOLVE_FETCH_STUB);
+  fs.writeFileSync(log, "");
+  const env = { ...process.env };
+  for (const name of ["BETA_RC_BASE_URL_VARIABLE", "BETA_RC_DEPLOYMENT_URL", "BETA_ACTUAL_ENVIRONMENT", "BETA_ALLOW_MUTATIONS"]) {
+    delete env[name];
+  }
+  Object.assign(env, {
+    BETA_EVIDENCE_DIR: artifacts,
+    BETA_RC_BASE_URL: "https://tradeos-costbook-web-git-staging-billykshowalters.vercel.app",
+    BETA_EXPECTED_ENVIRONMENT: "staging",
+    BETA_EXPECTED_SHA: expectedSha,
+    BETA_RC_DEPLOYMENT_SHA: reportedSha,
+    BETA_RC_SUPABASE_PROJECT_REF: "qfbgdkbamfaasmtjfyru",
+    BETA_REQUIRE_SHA_CORRELATION: requireShaCorrelation ? "true" : "false",
+    STUB_LIVE_SHA: liveSha,
+    STUB_FETCH_LOG: log,
+  });
+  const result = spawnSync(
+    process.execPath,
+    ["--import", stub, "app/scripts/beta-evidence/resolve-rc-target.mjs"],
+    { cwd: root, env, encoding: "utf8" },
+  );
+  const targetPath = path.join(artifacts, "rc-target.json");
+  const target = fs.existsSync(targetPath) ? JSON.parse(fs.readFileSync(targetPath, "utf8")) : null;
+  const fetchCalls = fs.readFileSync(log, "utf8").split("\n").filter(Boolean);
+  return { ...result, target, fetchCalls };
+}
+
+test("a stale BETA_RC_DEPLOYMENT_SHA no longer fails a staging run", () => {
+  const expectedSha = "ab".repeat(20);
+  const staleSha = "cd".repeat(20);
+  const run = runResolveRcTarget({
+    expectedSha,
+    reportedSha: staleSha,
+    liveSha: expectedSha,
+    requireShaCorrelation: false,
+  });
+  assert.equal(run.status, 0, `resolver failed on a stale variable: ${run.stderr}`);
+  assert.equal(run.target?.deploymentCommitSha, expectedSha);
+  assert.equal(run.target?.shaCorrelationSource, "live-staging-web-api");
+  assert.ok(run.fetchCalls.length > 0, "the live correlation must have run");
+});
+
+test("a live SHA mismatch still fails a staging run closed", () => {
+  const expectedSha = "ab".repeat(20);
+  const staleSha = "cd".repeat(20);
+  const run = runResolveRcTarget({
+    expectedSha,
+    reportedSha: staleSha,
+    liveSha: "ef".repeat(20),
+    requireShaCorrelation: false,
+  });
+  assert.notEqual(run.status, 0, "a live mismatch must fail the run");
+  assert.match(run.stderr, /failure-code=STAGING_RUNTIME_MISMATCH/);
+  assert.equal(run.target, null, "no rc-target.json may be written for a failed correlation");
+});
+
+test("require_sha_correlation still asserts the configured variable first", () => {
+  const expectedSha = "ab".repeat(20);
+  const staleSha = "cd".repeat(20);
+  const run = runResolveRcTarget({
+    expectedSha,
+    reportedSha: staleSha,
+    liveSha: expectedSha,
+    requireShaCorrelation: true,
+  });
+  assert.notEqual(run.status, 0, "s052/s053/beta_pdf must still refuse a stale configured SHA");
+  assert.match(run.stderr, /failure-code=SHA_MISMATCH/);
+  assert.equal(run.fetchCalls.length, 0, "the pre-check must fire before any live fetch");
 });
 
 test("the viewport matrix is exactly the beta contract", () => {
@@ -724,6 +838,12 @@ test("the workflow is least privilege, serialized, and never continues on error"
   assert.doesNotMatch(workflow, /set -x/);
 });
 
+test("the evidence job is bounded so a hung Playwright run cannot hold the group for 6h", () => {
+  // beta-evidence.yml has a single job; its timeout must be the 30-minute
+  // bound, not GitHub's 6 h default.
+  assert.match(workflow, /jobs:\n  evidence:\n    name: Beta evidence[\s\S]*?timeout-minutes: 30/);
+});
+
 test("a failed run still clears session state, so cleanup is not truncated", () => {
   const run = read("app/scripts/beta-evidence/run.mjs");
   // process.exit() terminates before an awaited finally completes, which would
@@ -818,6 +938,16 @@ test("staging beta evidence pins the verified selected TEST UUID and forwards it
   assert.match(workflow, /smoke_org_id:\s+[\s\S]*?type: string/);
   assert.match(workflow, /BETA_SMOKE_ORG_ID: \$\{\{ inputs\.smoke_org_id \}\}/);
   assert.match(authSetup, /expectedOrgId = process\.env\.BETA_SMOKE_ORG_ID/);
+});
+
+test("the orchestrator wait job cannot hang on a stalled alias or API response", () => {
+  // A stalled connection (accepted but never completed) must return and let
+  // the attempt counter advance; without a per-request limit the helper's
+  // 10-attempt bound never engages and the job holds until its 55-minute
+  // timeout (CodeRabbit Minor on PR #1143).
+  assert.match(stagingOrchestrator, /curl -s --connect-timeout 10 --max-time 20 "\$\{bypass_args\[@\]\}" "\$alias_url\$identity_path"/);
+  assert.match(stagingOrchestrator, /curl -s --max-time 30 -w "\\n%\{http_code\}"/);
+  assert.match(stagingOrchestrator, /curl -s --connect-timeout 10 --max-time 20 "\$\{bypass_args\[@\]\}" "\$web_url\/api\/staging-runtime-identity"/);
 });
 
 test("login credentials are filled only after the login film dismisses", () => {

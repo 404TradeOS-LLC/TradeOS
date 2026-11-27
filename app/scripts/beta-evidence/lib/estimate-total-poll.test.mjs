@@ -40,6 +40,21 @@ test("tolerates failed fetches instead of throwing", async () => {
   assert.equal(detail.totalPrice, 5920.89);
 });
 
+test("stops polling after consecutive failed fetches instead of burning the full timeout", async () => {
+  const page = fakePage([null]);
+  const detail = await waitForEstimateTotal(page, "e1", 5920.89, { timeoutMs: 60_000, intervalMs: 1 });
+  assert.equal(detail, null);
+  assert.equal(page.state.calls, 3, "three consecutive failures end the poll, not sixty seconds of them");
+  assert.equal(page.state.sleeps, 2);
+});
+
+test("intermittent failures reset the consecutive-failure count", async () => {
+  const page = fakePage([null, null, { totalPrice: 5100 }, null, null, { totalPrice: 5920.89 }]);
+  const detail = await waitForEstimateTotal(page, "e1", 5920.89);
+  assert.equal(detail.totalPrice, 5920.89);
+  assert.equal(page.state.calls, 6);
+});
+
 test("returns the last-seen detail when the timeout expires", async () => {
   const page = fakePage([{ totalPrice: 5100 }]);
   const detail = await waitForEstimateTotal(page, "e1", 5920.89, { timeoutMs: 50, intervalMs: 1 });

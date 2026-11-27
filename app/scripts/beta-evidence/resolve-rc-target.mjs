@@ -70,8 +70,20 @@ async function main() {
   let shaCorrelationSource = null;
   if (environment === "staging" && expectedSha) {
     // A repository variable is configuration, not observation of the target.
-    // Still reject contradictory configured metadata; never excuse a mismatch.
-    if (reportedSha) assertDeploymentSha(expectedSha, reportedSha);
+    // BETA_RC_DEPLOYMENT_SHA is set but updated only out-of-band (no
+    // workflow sets it; verified 2026-11-26: value 6b1bc94f…, updated
+    // 2026-11-25T05:19:33Z), so a stale value used to fail every staging
+    // run here before any live check ran — the Nov 24 push→fail→redispatch
+    // pile-up. The live correlation below is the proof: it reads the
+    // deployment's own /api/staging-runtime-identity + /health + /ready
+    // and fails closed on any mismatch, so the configured value is no
+    // longer consulted on the staging path. Only the explicit
+    // require_sha_correlation scenarios (s052/s053/beta_pdf) still assert
+    // the configured value first, as defence in depth for those
+    // certification paths.
+    if (reportedSha && process.env.BETA_REQUIRE_SHA_CORRELATION === "true") {
+      assertDeploymentSha(expectedSha, reportedSha);
+    }
     const live = await correlateStagingRuntime({
       baseUrl: parsed.origin,
       expectedSha,

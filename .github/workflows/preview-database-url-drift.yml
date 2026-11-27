@@ -23,7 +23,9 @@ name: Preview DATABASE_URL drift detector
 # - deployment_status (best-effort, same limitation as
 #   preview-smoke-check.yml): checks the staging alias plus the deployment
 #   that just succeeded, when it is a Preview deployment of the API
-#   project. The exact deployment.environment values have not been
+#   project, plus the latest READY Preview deployments (so a replacement
+#   run after a cancellation still covers the cancelled run's targets).
+#   The exact deployment.environment values have not been
 #   confirmed against a live event in this repo; if the filter does not
 #   fire as expected, the schedule and workflow_dispatch paths still work.
 # - workflow_dispatch: manual run. Pass expected_ref to test the detector
@@ -56,7 +58,11 @@ permissions:
 
 concurrency:
   group: preview-database-url-drift
-  cancel-in-progress: false
+  # Read-only detector: a newer deployment's check supersedes an older
+  # one's, so cancel the stale run instead of queueing one check per
+  # deployment_status event. The daily schedule still sweeps the latest
+  # READY Preview deployments, so a cancelled run loses no coverage.
+  cancel-in-progress: true
 
 jobs:
   detect:
@@ -99,11 +105,14 @@ jobs:
             printf '%s\n' "$INPUT_PREVIEW_URL" >> "$targets_file"
           fi
 
-          # schedule / dispatch: latest READY Preview deployments of the API
-          # project, via the read-only Vercel deployments API. A missing or
-          # failing token only skips the Preview listing; the staging check
-          # still runs.
-          if [ "$EVENT_NAME" != "deployment_status" ] && [ -n "${VERCEL_TOKEN:-}" ]; then
+          # Latest READY Preview deployments of the API project, via the
+          # read-only Vercel deployments API — on every trigger, including
+          # deployment_status. The concurrency group cancels stale runs, so
+          # a replacement run must cover the cancelled run's targets: the
+          # cancelled deployment is recent, so it is among the latest READY
+          # previews. A missing or failing token only skips the Preview
+          # listing; the staging check still runs.
+          if [ -n "${VERCEL_TOKEN:-}" ]; then
             api_response="$(curl --fail --silent --show-error --max-time 30 \
               -H "Authorization: Bearer $VERCEL_TOKEN" \
               "https://api.vercel.com/v6/deployments?projectId=$API_PROJECT_ID&state=READY&target=preview&limit=5")" || {

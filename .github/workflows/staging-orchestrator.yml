@@ -27,12 +27,19 @@ name: Staging orchestrator
 #   phase may create records in the non-production smoke tenant through
 #   the app. Nothing in this workflow pushes to main or merges anything.
 # - Beta-evidence SHA correlation is deliberately NOT required here:
-#   beta-evidence correlates against the BETA_RC_DEPLOYMENT_SHA repository
-#   variable, which is unset, so requiring it would fail every run. Web SHA
-#   proof comes from Vercel deployment metadata filtered to the staging ref
-#   (wait job) + the staging branch alias + the head guard; backend SHA proof
-#   comes from /health, including on the alias.
-#   The evidence metadata honestly records shaCorrelated=false.
+#   the staging path of resolve-rc-target.mjs no longer consults the
+#   BETA_RC_DEPLOYMENT_SHA repository variable at all — it is set but
+#   updated only out-of-band (no workflow sets it), so requiring it
+#   failed every staging push whose promotion lagged the variable. SHA
+#   proof comes from live correlation (the deployment's own
+#   /api/staging-runtime-identity + /health + /ready, failing closed on
+#   any mismatch) plus Vercel deployment metadata filtered to the staging
+#   ref (wait job) + the staging branch alias + the head guard; backend
+#   SHA proof comes from /health, including on the alias. Only the
+#   explicit require_sha_correlation scenarios (s052/s053/beta_pdf)
+#   still assert the configured variable, as defence in depth.
+#   The evidence metadata honestly records shaCorrelated=false when no
+#   live correlation was performed.
 
 on:
   push:
@@ -431,6 +438,7 @@ jobs:
       web_deployment_url: ${{ steps.poll.outputs.web_deployment_url }}
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
       SHA: ${{ needs.record.outputs.sha }}
     steps:
       - name: Poll Vercel until both deployments of the SHA are READY
@@ -447,13 +455,56 @@ jobs:
             exit 1
           fi
 
+          # The bypass header is inert while Vercel Authentication is off
+          # (current state on both projects) and is required only if
+          # deployment protection is ever enabled. The secret is never printed.
+          bypass_args=()
+          if [ -n "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
+            bypass_args=(-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET")
+          fi
+
+          # After a deployment reports READY, its branch alias may still
+          # serve the previous deployment until Vercel propagates the
+          # assignment. Poll the alias's own live identity until it
+          # reports the approved SHA (bounded: 10 attempts x 30 s), so
+          # evidence never starts against a stale alias. Fails closed on
+          # timeout, and on a SHA that is present but different from the
+          # approved one. Progress goes to stderr so it never pollutes
+          # poll_project's captured stdout. Each request carries its own
+          # transfer timeout: a stalled response must return and let the
+          # attempt counter advance, not hold the job until its 55-minute
+          # timeout (CodeRabbit Minor on PR #1143). The job timeout is the
+          # outer bound if every attempt is slow.
+          wait_alias_identity() {
+            local label="$1" alias_url="$2" identity_path="$3"
+            local attempt=0
+            while [ "$attempt" -lt 10 ]; do
+              attempt=$((attempt + 1))
+              local body reported
+              body="$(curl -s --connect-timeout 10 --max-time 20 "${bypass_args[@]}" "$alias_url$identity_path" || true)"
+              reported="$(printf '%s' "$body" | jq -r '.commitSha // empty' 2>/dev/null || true)"
+              if [ "$reported" = "$SHA" ]; then
+                echo "$label staging alias now serves $SHA (attempt $attempt)." >&2
+                return 0
+              fi
+              if [ -n "$reported" ]; then
+                echo "$label staging alias serves $reported, not $SHA yet (attempt $attempt); retrying in 30s." >&2
+              else
+                echo "$label staging alias identity unavailable (attempt $attempt); retrying in 30s." >&2
+              fi
+              sleep 30
+            done
+            echo "::error::$label staging alias did not report the approved SHA $SHA after 10 attempts (5 minutes). The alias may still point at the previous deployment; refusing the run." >&2
+            return 1
+          }
+
           poll_project() {
             local project_id="$1" label="$2"
             local attempt=0
-            while [ "$attempt" -lt 45 ]; do
+            while [ "$attempt" -lt 30 ]; do
               attempt=$((attempt + 1))
               local response http_code body match state uid url
-              response="$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $VERCEL_TOKEN" \
+              response="$(curl -s --max-time 30 -w "\n%{http_code}" -H "Authorization: Bearer $VERCEL_TOKEN" \
                 "https://api.vercel.com/v6/deployments?projectId=${project_id}&limit=50")" || {
                 echo "::warning::Network error polling Vercel for $label (attempt $attempt); retrying in 60s." >&2
                 sleep 60
@@ -482,6 +533,13 @@ jobs:
               state="$(printf '%s' "$match" | cut -d' ' -f3)"
               echo "$label deployment $uid is $state." >&2
               if [ "$state" = "READY" ]; then
+                # READY is not enough: prove the branch alias serves this
+                # deployment before evidence starts (see wait_alias_identity).
+                if [ "$label" = "backend" ]; then
+                  wait_alias_identity "$label" "$API_STAGING_ALIAS" "/health" || return 1
+                else
+                  wait_alias_identity "$label" "$WEB_STAGING_ALIAS" "/api/staging-runtime-identity" || return 1
+                fi
                 printf '%s %s' "$uid" "$url"
                 return 0
               fi
@@ -491,7 +549,7 @@ jobs:
               fi
               sleep 60
             done
-            echo "::error::Timed out waiting for a READY $label deployment of $SHA after 45 minutes. Check the Vercel dashboard for the staging-branch deployments of this SHA." >&2
+            echo "::error::Timed out waiting for a READY $label deployment of $SHA after 30 minutes. Check the Vercel dashboard for the staging-branch deployments of this SHA." >&2
             return 1
           }
 
@@ -595,16 +653,24 @@ jobs:
           }
           check_backend "$API_DEPLOYMENT_URL" "Backend deployment"
           check_backend "$API_STAGING_ALIAS" "Backend staging alias"
+          # The frontend previously proved reachability (HTTP 200) only, so
+          # a stale alias serving the previous deployment passed this job.
+          # Verify the web runtime identity instead: the deployment's own
+          # /api/staging-runtime-identity must report the approved SHA.
+          # The wait job already polls for this; this step re-proves it
+          # immediately before evidence. A missing or mismatched SHA fails
+          # closed, exactly like the backend /health check above.
           for web_url in "$WEB_DEPLOYMENT_URL" "$WEB_STAGING_ALIAS"; do
-            code="$(curl -s -o /dev/null -w "%{http_code}" "${bypass_args[@]}" "$web_url")" || {
-              echo "::error::Frontend request failed at $web_url."
+            identity="$(curl -s --connect-timeout 10 --max-time 20 "${bypass_args[@]}" "$web_url/api/staging-runtime-identity")" || {
+              echo "::error::Frontend identity request failed at $web_url."
               exit 1
             }
-            if [ "$code" != "200" ]; then
-              echo "::error::Frontend at $web_url returned HTTP $code (expected 200). If deployment protection was enabled, provision VERCEL_AUTOMATION_BYPASS_SECRET; otherwise check the Vercel deployment log."
+            web_sha="$(printf '%s' "$identity" | jq -r '.commitSha // empty')"
+            if [ "$web_sha" != "$SHA" ]; then
+              echo "::error::Frontend at $web_url reports commitSha '${web_sha:-absent}', not the approved SHA $SHA. The served deployment is not the approved one; refusing the run."
               exit 1
             fi
-            echo "Frontend OK: $web_url returned HTTP 200."
+            echo "Frontend OK: $web_url serves SHA $SHA."
           done
 
   guard:
@@ -642,10 +708,13 @@ jobs:
       # Verified non-production fixture UUID in TradeOS Staging, not a credential.
       smoke_org_id: d86d0874-6ba3-4b06-94b6-bd0ae99fe532
       expected_sha: ${{ needs.record.outputs.sha }}
-      # Deliberately false: beta-evidence correlates against the
-      # BETA_RC_DEPLOYMENT_SHA repository variable, which is unset, so
-      # requiring it would fail every run. SHA proof comes from the wait
-      # job (Vercel deployment meta), the alias, the guard, and /health.
+      # Deliberately false: the staging path of resolve-rc-target.mjs no
+      # longer consults the BETA_RC_DEPLOYMENT_SHA repository variable —
+      # it is set but updated only out-of-band, so requiring it failed
+      # every staging push whose promotion lagged the variable. SHA proof
+      # comes from live correlation (the deployment's own identity
+      # endpoints, failing closed on any mismatch) plus the wait job
+      # (Vercel deployment meta), the alias, the guard, and /health.
       require_sha_correlation: false
     secrets: inherit
 

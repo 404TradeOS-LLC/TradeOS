@@ -149,3 +149,25 @@ test("PR maintenance canonicalizes numeric workflow_dispatch input and rejects m
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("drift-detector cancellation cannot silently drop a deployment target", () => {
+  const drift = read(".github/workflows/preview-database-url-drift.yml");
+
+  // The detector's concurrency group cancels stale runs: a newer
+  // deployment's check supersedes an older one's.
+  assert.match(drift, /group: preview-database-url-drift\n\s+# [\s\S]*?cancel-in-progress: true/);
+
+  // A replacement run must still cover the cancelled run's targets. The
+  // cancelled deployment is recent, so it is among the latest READY
+  // previews — but only if the listing runs on deployment_status events
+  // too, not just on schedule/dispatch. Excluding deployment_status here
+  // let a frontend event cancel an API drift investigation and replace it
+  // with a staging-only check (Codex P2 on PR #1143).
+  assert.match(drift, /api\.vercel\.com\/v6\/deployments\?projectId=\$API_PROJECT_ID&state=READY&target=preview&limit=5/);
+  assert.doesNotMatch(drift, /EVENT_NAME.*!=.*deployment_status/);
+
+  // The just-succeeded deployment is still named explicitly as a target
+  // in addition to the listing, so it is covered even before it appears
+  // in the READY list.
+  assert.match(drift, /if \[ "\$EVENT_NAME" = "deployment_status" \] && \[ "\$DEPLOYMENT_STATE" = "success" \]/);
+});
