@@ -264,6 +264,43 @@ describe("GoogleGeminiAthenaProvider", () => {
     expect(inputSignal.aborted).toBe(false);
   }, 10_000);
 
+  it("classifies a timeout during the response-body read as a provider timeout, not an empty response", async () => {
+    // Headers arrive, then the body stalls past the provider deadline:
+    // the fetch-level timeout aborts mid-read, so the failure must be
+    // typed as a provider timeout (terminal), not an empty response.
+    global.fetch = jest.fn(async () => {
+      return {
+        ok: true,
+        status: 200,
+        json: async () =>
+          new Promise<never>((_resolve, reject) => {
+            setTimeout(() => reject(new DOMException("The operation was aborted.", "AbortError")), 50);
+          }),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    await expect(
+      provider().generateDraft({ message: "hello", signal: new AbortController().signal, deadline: new Date(Date.now() + 20) }),
+    ).rejects.toMatchObject({ code: "athena_provider_timeout", category: "timeout", retryable: false });
+  }, 10_000);
+
+  it("maps malformed JSON in the response body to an empty-response error", async () => {
+    // The body-read timeout check must not swallow a genuine parse
+    // failure: with a live deadline, malformed JSON keeps the
+    // empty-response error.
+    global.fetch = jest.fn(async () => {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new SyntaxError("Unexpected token");
+        },
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    await expect(
+      provider().generateDraft({ message: "hello", signal: new AbortController().signal, deadline: new Date(Date.now() + 5_000) }),
+    ).rejects.toMatchObject({ code: "athena_provider_empty_response", category: "service", retryable: false });
+  });
+
   it("truncates an over-budget context block but never drops scope ids", async () => {
     let capturedBody = "";
     global.fetch = jest.fn(async (_url: string, init: RequestInit) => {

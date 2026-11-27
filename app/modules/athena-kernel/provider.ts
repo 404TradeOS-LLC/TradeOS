@@ -239,7 +239,14 @@ export class GoogleGeminiAthenaProvider implements AthenaProviderAdapter {
     let payload: GeminiGenerateContentResponse;
     try {
       payload = (await response.json()) as GeminiGenerateContentResponse;
-    } catch {
+    } catch (error) {
+      // A stall during the body read aborts the same fetch-level timeout
+      // signal: surface it as a provider timeout, not an empty response,
+      // so the timeout contract survives the headers-then-stall path.
+      // Malformed JSON with a live deadline keeps the empty-response error.
+      if (fetchTimeoutSignal.aborted) {
+        throw athenaTimeoutError("Athena did not respond in time.", "athena_provider_timeout");
+      }
       throw geminiEmptyResponseError({ model: this.model });
     }
     // Usage is extracted before the empty/blocked checks below: a blocked
