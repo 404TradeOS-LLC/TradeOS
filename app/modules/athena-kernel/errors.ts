@@ -10,13 +10,26 @@ export class AthenaKernelError extends Error {
   public readonly category: AthenaErrorCategory;
   public readonly retryable: boolean;
   public readonly safeSummary: string;
+  // Chargeable usage of a failed provider attempt, when the provider knows
+  // it (a safety-blocked or empty Gemini response still consumes input
+  // tokens). Internal only: normalizeAthenaError never forwards it, so it
+  // never reaches a caller — the kernel uses it to persist the failed
+  // attempt in the generation-run ledger so the daily spend cap counts it.
+  public readonly inputTokens?: number;
+  public readonly outputTokens?: number;
+  public readonly estimatedUsd?: number;
+  public readonly model?: string;
 
-  constructor(input: { code: string; category: AthenaErrorCategory; retryable: boolean; safeSummary: string; message?: string }) {
+  constructor(input: { code: string; category: AthenaErrorCategory; retryable: boolean; safeSummary: string; message?: string; inputTokens?: number; outputTokens?: number; estimatedUsd?: number; model?: string }) {
     super(input.message ?? input.safeSummary);
     this.code = input.code;
     this.category = input.category;
     this.retryable = input.retryable;
     this.safeSummary = input.safeSummary;
+    this.inputTokens = input.inputTokens;
+    this.outputTokens = input.outputTokens;
+    this.estimatedUsd = input.estimatedUsd;
+    this.model = input.model;
   }
 }
 

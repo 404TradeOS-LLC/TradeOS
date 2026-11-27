@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { basePrisma, prisma } from "../../db/client";
 import { runWithBackgroundDatabaseSession } from "../../db/requestSession";
 import type { AthenaSecurityReasonCode } from "../athena-security/types";
+import { getDailySpendStatus, parseDailySpendCapUsd } from "../athena-kernel/spendCap";
 import { getEventHealth, getModelMetrics, getOverviewMetrics, getToolMetrics } from "./metricsService";
 import { AthenaAlertEvaluation, AthenaAlertRecord, AthenaAlertRuleId, AthenaAlertSeverity, AthenaAlertStatus, AthenaModelMetric, AthenaOverviewMetrics, AthenaToolMetric } from "./types";
 
@@ -267,6 +268,34 @@ function evaluateCostSpike(overview: AthenaOverviewMetrics): AthenaAlertEvaluati
   };
 }
 
+// Daily Gemini spend cap (modules/athena-kernel/spendCap.ts). Unlike the
+// windowed rules above, this reads the current UTC day's generation-run
+// spend, not a trailing 15-minute window: the cap is a daily state, so the
+// rule stays firing while the cap holds and resolves the next UTC day.
+// It fires on the same ledger the kernel's circuit breaker enforces, so
+// the alert and the breaker can never disagree about whether the cap is
+// hit. NOTE: like every rule here, this only fires when something runs
+// the evaluation (scripts/run-athena-observability-alerts.ts) - nothing
+// schedules that script today, so the in-request cap-trip telemetry span
+// (model/error, errorCode athena_daily_spend_cap_reached) is the live
+// signal and this rule is the durable record for when evaluation runs.
+async function evaluateDailySpendCapReached(orgId: string): Promise<AthenaAlertEvaluation> {
+  const capUsd = parseDailySpendCapUsd(process.env);
+  const spend = await getDailySpendStatus({ orgId, capUsd });
+  const firing = spend.reached;
+  const day = spend.dayStartUtc.toISOString().slice(0, 10);
+  return {
+    ruleId: "daily_spend_cap_reached",
+    dedupeKey: "daily_spend_cap_reached",
+    firing,
+    severity: "high",
+    summary: firing
+      ? `Daily Gemini spend $${spend.spentUsd.toFixed(2)} reached the $${capUsd.toFixed(2)} cap for ${day} (UTC) - real draft calls are paused until tomorrow`
+      : `Daily Gemini spend $${spend.spentUsd.toFixed(2)} within the $${capUsd.toFixed(2)} cap for ${day} (UTC)`,
+    metadata: { dailySpendUsd: spend.spentUsd, capUsd, dayStartUtc: spend.dayStartUtc.toISOString() },
+  };
+}
+
 async function evaluateUnauthorizedExecution(orgId: string, from: Date, to: Date): Promise<AthenaAlertEvaluation> {
   const deniedApprovalCount = await prisma.athenaTelemetryRecordRow.count({
     where: { orgId, spanType: "approval", status: "denied", createdAt: { gte: from, lt: to } },
@@ -476,6 +505,7 @@ export async function evaluateAthenaAlerts(orgId: string, now: Date = new Date()
   evaluations.push(evaluateTraceCompletenessDrop(overview));
   evaluations.push(evaluateEventDlqGrowth(eventHealth));
   evaluations.push(evaluateCostSpike(overview));
+  evaluations.push(await evaluateDailySpendCapReached(orgId));
   evaluations.push(await evaluateUnauthorizedExecution(orgId, from, to));
   evaluations.push(await evaluateApprovalBypassAttempt(orgId, from, to));
   evaluations.push(await evaluateCrossTenantAccessAttempt(orgId, from, to));

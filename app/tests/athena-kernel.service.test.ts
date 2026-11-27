@@ -59,6 +59,22 @@ const athenaGenerationRunCreate = jest.fn(async ({ data }: { data: FakeGeneratio
   generationRows.push(row);
   return row;
 });
+// Sums the in-memory generation rows the way the SECURITY DEFINER function
+// would (org + chargeable statuses + UTC-day window + non-null
+// estimatedUsd), so the cap tests exercise the service against a faithful
+// ledger. The SQL values arrive as [orgId, dayStart, dayEnd].
+const athenaSpendQueryRaw = jest.fn(async (sql: { values: unknown[] }) => {
+  const [orgId, start, end] = sql.values as [string, Date, Date];
+  let sum = 0;
+  for (const row of generationRows) {
+    if (row.orgId !== orgId) continue;
+    if (row.status !== "succeeded" && row.status !== "failed") continue;
+    if (!(row.createdAt >= start && row.createdAt < end)) continue;
+    if (row.estimatedUsd == null) continue;
+    sum += row.estimatedUsd.toNumber();
+  }
+  return [{ spend_usd: { toNumber: () => sum } }];
+});
 
 jest.mock("../db/client", () => ({
   prisma: {
@@ -66,6 +82,7 @@ jest.mock("../db/client", () => ({
     athenaExecutionTransition: { create: athenaExecutionTransitionCreate },
     athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate },
     athenaGenerationRun: { create: athenaGenerationRunCreate },
+    $queryRaw: athenaSpendQueryRaw,
   },
 }));
 
@@ -73,8 +90,8 @@ import type { AthenaApprovalVerifier } from "../modules/athena-action-engine/app
 import { createInMemoryAthenaIdempotencyStore } from "../modules/athena-action-engine/idempotency";
 import { computeCanonicalInputHash } from "../modules/athena-action-engine/inputHash";
 import { AthenaKernelService } from "../modules/athena-kernel/service";
-import { AthenaProviderAdapter } from "../modules/athena-kernel/provider";
-import { athenaCancellationError } from "../modules/athena-kernel/errors";
+import { AthenaProviderAdapter, GoogleGeminiAthenaProvider } from "../modules/athena-kernel/provider";
+import { AthenaKernelError, athenaCancellationError } from "../modules/athena-kernel/errors";
 import { AthenaActorContext } from "../modules/athena-kernel/types";
 import { createAthenaContextRegistry } from "../modules/athena-context-engine/registry";
 import { createDispatchProvider } from "../modules/athena-context-engine/providers/dispatchProvider";
@@ -1076,5 +1093,171 @@ describe("AthenaKernelService", () => {
       expect(counts().optimizeDay).toBe(0);
       expect(counts().createEstimate).toBe(0);
     });
+  });
+});
+
+describe("daily spend cap (ATHENA_DAILY_SPEND_CAP_USD)", () => {
+  beforeEach(() => {
+    executions.clear();
+    transitions.length = 0;
+    telemetryRows.length = 0;
+    generationRows.length = 0;
+    jest.clearAllMocks();
+  });
+
+  function seedSpendUsd(amounts: number[], status: "succeeded" | "failed" = "succeeded"): void {
+    for (const amount of amounts) {
+      generationRows.push({
+        id: `gen-seed-${generationRows.length}`,
+        orgId: "org-1",
+        actorUserId: "user-1",
+        requestId: "req-seed",
+        traceId: "trace-seed",
+        provider: "google",
+        model: "gemini-3.5-flash-lite",
+        status,
+        inputTokens: 100,
+        outputTokens: 50,
+        estimatedUsd: { toNumber: () => amount },
+        latencyMs: 100,
+        toolNamesJson: [],
+        provenanceJson: {},
+        retentionExpiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(),
+      });
+    }
+  }
+
+  function realProvider(): GoogleGeminiAthenaProvider {
+    return new GoogleGeminiAthenaProvider({ GEMINI_API_KEY: "test-key" } as NodeJS.ProcessEnv);
+  }
+
+  async function askDraft(requestId: string, env: NodeJS.ProcessEnv, provider?: AthenaProviderAdapter) {
+    const service = new AthenaKernelService();
+    return service.handleRequest({
+      request: { message: "What is the status of this project this week?", requestSource: "http" },
+      actor: actor(),
+      requestId,
+      env,
+      provider,
+    });
+  }
+
+  function hasCapTripSpan(): boolean {
+    return telemetryRows.some(
+      (row) => row.spanType === "model" && row.status === "error" && (row.metadataJson as { errorCode?: string } | null)?.errorCode === "athena_daily_spend_cap_reached"
+    );
+  }
+
+  it("pauses real drafts at the cap without calling the provider", async () => {
+    seedSpendUsd([0.6, 0.5]);
+    const provider = realProvider();
+    const generateDraft = jest.spyOn(provider, "generateDraft");
+
+    const result = await askDraft("req-cap-hit", { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true" } as NodeJS.ProcessEnv, provider);
+
+    expect(result.success).toBe(true);
+    expect(result.state).toBe("succeeded");
+    expect(result.message).toBeNull();
+    expect(result.warnings.some((w) => w.code === "athena_daily_spend_cap_reached")).toBe(true);
+    expect(generateDraft).not.toHaveBeenCalled();
+    expect(hasCapTripSpan()).toBe(true);
+  });
+
+  it("calls the real provider once when spend is below the cap", async () => {
+    seedSpendUsd([0.5]);
+    const provider = realProvider();
+    const generateDraft = jest.spyOn(provider, "generateDraft").mockResolvedValue({
+      text: "Here is your draft.",
+      provider: "google",
+      model: "gemini-3.5-flash-lite",
+      inputTokens: 100,
+      outputTokens: 50,
+      estimatedUsd: 0.0002,
+    });
+
+    const result = await askDraft("req-cap-miss", { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true" } as NodeJS.ProcessEnv, provider);
+
+    expect(generateDraft).toHaveBeenCalledTimes(1);
+    expect(result.success).toBe(true);
+    expect(result.message).toBe("Here is your draft.");
+    expect(hasCapTripSpan()).toBe(false);
+  });
+
+  it("honors a configured cap below the default", async () => {
+    seedSpendUsd([0.5]);
+    const provider = realProvider();
+    const generateDraft = jest.spyOn(provider, "generateDraft");
+
+    const result = await askDraft(
+      "req-cap-custom",
+      { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true", ATHENA_DAILY_SPEND_CAP_USD: "0.10" } as NodeJS.ProcessEnv,
+      provider
+    );
+
+    expect(generateDraft).not.toHaveBeenCalled();
+    expect(result.message).toBeNull();
+    expect(result.warnings.some((w) => w.code === "athena_daily_spend_cap_reached")).toBe(true);
+  });
+
+  it("never caps the fake provider, even when spend is over the cap", async () => {
+    seedSpendUsd([0.6, 0.5]);
+
+    const result = await askDraft("req-cap-fake", { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true" } as NodeJS.ProcessEnv);
+
+    expect(result.success).toBe(true);
+    expect(result.message).not.toBeNull();
+    expect(hasCapTripSpan()).toBe(false);
+  });
+
+  it("counts failed rows with chargeable usage toward the cap", async () => {
+    seedSpendUsd([0.6], "failed");
+    seedSpendUsd([0.5]);
+    const provider = realProvider();
+    const generateDraft = jest.spyOn(provider, "generateDraft");
+
+    const result = await askDraft("req-cap-failed-rows", { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true" } as NodeJS.ProcessEnv, provider);
+
+    expect(generateDraft).not.toHaveBeenCalled();
+    expect(result.message).toBeNull();
+    expect(result.warnings.some((w) => w.code === "athena_daily_spend_cap_reached")).toBe(true);
+  });
+
+  it("persists a failed generation row when a blocked response consumed tokens, and still reports the failure", async () => {
+    const provider = realProvider();
+    jest.spyOn(provider, "generateDraft").mockRejectedValue(
+      new AthenaKernelError({
+        code: "athena_provider_empty_response",
+        category: "service",
+        retryable: false,
+        safeSummary: "Athena could not complete this request.",
+        inputTokens: 1000,
+        outputTokens: 0,
+        estimatedUsd: 0.0003,
+        model: "gemini-3.5-flash-lite",
+      })
+    );
+
+    const result = await askDraft("req-cap-blocked", { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true" } as NodeJS.ProcessEnv, provider);
+
+    expect(result.success).toBe(false);
+    expect(result.state).toBe("failed");
+    expect(result.error?.code).toBe("athena_provider_empty_response");
+    const failedRow = generationRows.find((row) => row.status === "failed");
+    expect(failedRow).toBeDefined();
+    expect(failedRow?.estimatedUsd?.toNumber()).toBeCloseTo(0.0003);
+    expect(failedRow?.failureCode).toBe("athena_provider_empty_response");
+    expect(failedRow?.provider).toBe("google");
+  });
+
+  it("does not persist a failed row when the provider error carries no chargeable usage", async () => {
+    const provider = realProvider();
+    jest.spyOn(provider, "generateDraft").mockRejectedValue(new Error("raw upstream provider stack trace, do not leak"));
+
+    const result = await askDraft("req-cap-no-usage", { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true" } as NodeJS.ProcessEnv, provider);
+
+    expect(result.success).toBe(false);
+    expect(result.state).toBe("failed");
+    expect(generationRows.filter((row) => row.status === "failed")).toHaveLength(0);
   });
 });

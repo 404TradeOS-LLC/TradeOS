@@ -181,6 +181,11 @@ export const athenaAlertRuleIds = [
   "trace_completeness_drop",
   "event_dlq_growth",
   "cost_spike",
+  // Daily Gemini spend cap (spendCap.ts): fires when an org's generation-run
+  // spend for the current UTC day reaches ATHENA_DAILY_SPEND_CAP_USD. Unlike
+  // the windowed rules, this is a daily state, not a trailing-15-minute
+  // spike - it stays firing while the cap holds and resolves the next day.
+  "daily_spend_cap_reached",
   "unauthorized_execution",
   "approval_bypass_attempt",
   "telemetry_write_failure",

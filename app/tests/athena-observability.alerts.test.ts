@@ -20,6 +20,7 @@ const mockPrisma = {
     count: jest.fn(),
     findMany: jest.fn(),
   },
+  $queryRaw: jest.fn(),
 };
 
 const runWithBackgroundDatabaseSession = jest.fn((_client: unknown, _input: unknown, operation: () => unknown) => operation());
@@ -80,6 +81,7 @@ beforeEach(() => {
   mockPrisma.athenaAlert.findMany.mockResolvedValue([]);
   mockPrisma.athenaTelemetryRecordRow.count.mockResolvedValue(0);
   mockPrisma.athenaTelemetryRecordRow.findMany.mockResolvedValue([]);
+  mockPrisma.$queryRaw.mockResolvedValue([{ spend_usd: { toNumber: () => 0 } }]);
   mockGetOverviewMetrics.mockResolvedValue(healthyOverview());
   mockGetToolMetrics.mockResolvedValue([]);
   mockGetModelMetrics.mockResolvedValue([]);
@@ -218,6 +220,31 @@ describe("evaluateAthenaAlerts", () => {
     mockGetOverviewMetrics.mockResolvedValue(healthyOverview({ totalCostUsd: 999999 }));
     const evaluations = await evaluateAthenaAlerts(ORG);
     expect(evaluations.find((e) => e.ruleId === "cost_spike")?.firing).toBe(true);
+  });
+
+  it("fires daily_spend_cap_reached when generation-run spend reaches the daily cap", async () => {
+    process.env.ATHENA_DAILY_SPEND_CAP_USD = "1";
+    try {
+      mockPrisma.$queryRaw.mockResolvedValue([{ spend_usd: { toNumber: () => 1.1 } }]);
+      const evaluations = await evaluateAthenaAlerts(ORG);
+      const evaluation = evaluations.find((e) => e.ruleId === "daily_spend_cap_reached");
+      expect(evaluation?.firing).toBe(true);
+      expect(evaluation?.severity).toBe("high");
+      expect(evaluation?.metadata.dailySpendUsd).toBeCloseTo(1.1);
+    } finally {
+      delete process.env.ATHENA_DAILY_SPEND_CAP_USD;
+    }
+  });
+
+  it("does not fire daily_spend_cap_reached when spend is below the cap", async () => {
+    process.env.ATHENA_DAILY_SPEND_CAP_USD = "1";
+    try {
+      mockPrisma.$queryRaw.mockResolvedValue([{ spend_usd: { toNumber: () => 0.5 } }]);
+      const evaluations = await evaluateAthenaAlerts(ORG);
+      expect(evaluations.find((e) => e.ruleId === "daily_spend_cap_reached")?.firing).toBe(false);
+    } finally {
+      delete process.env.ATHENA_DAILY_SPEND_CAP_USD;
+    }
   });
 
   it("fires unauthorized_execution when denied approval spans exceed threshold", async () => {

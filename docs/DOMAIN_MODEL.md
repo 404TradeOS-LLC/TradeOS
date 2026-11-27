@@ -646,6 +646,16 @@ actor, execution correlation, model usage, status, and retention expiry; they
 do not persist raw prompts, model output, tool arguments, or tool results by
 default. Business mutations remain owned by existing review-first services.
 
+The daily Gemini spend cap reads the ledger through
+`public.athena_org_daily_spend_usd(p_org_id, p_day_start, p_day_end)`
+(migration `20261127050000_add_athena_org_daily_spend`), a read-only STABLE
+SECURITY DEFINER function — not a new entity. The generation-runs SELECT
+policy is actor-scoped, so a plain read would give non-admin actors separate
+budgets; the function sums the whole org (`succeeded` plus `failed` rows with
+non-null `estimatedUsd`) from the caller's session org and raises 42501 unless
+the requested org equals the session org. It reveals only the org's aggregate
+spend, never per-actor rows, and changes no entity, relationship, or policy.
+
 
 ## S028 estimate deliverability
 
