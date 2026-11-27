@@ -2601,3 +2601,113 @@ model AthenaAuditEvent {
   @@index([orgId, actionId, createdAt])
   @@map("athena_audit_events")
 }
+
+// ABC shared catalog (issue #735, Phase 1). Org-less reference data by
+// design: no tenant data, no prices. RLS is defined in migration
+// 20261127010000_add_abc_shared_catalog (global SELECT, ingestion-only
+// writes under the app.abc_catalog_ingestion flag, no DELETE policy).
+model AbcCatalogItem {
+  itemNumber          String   @id @map("item_number")
+  description         String?
+  marketingDescription String? @map("marketing_description")
+  manufacturer        String?
+  familyId            String?  @map("family_id")
+  familyName          String?  @map("family_name")
+  status              String   @default("Active")
+  isDimensional       Boolean  @default(false) @map("is_dimensional")
+  uoms                Json     @default("[]")
+  dimensions          Json?
+  color               Json?
+  finish              Json?
+  weights             Json     @default("[]")
+  variations          Json     @default("[]")
+  prop65Warnings      Json     @default("[]") @map("prop65_warnings")
+  hierarchyPath       Json?    @map("hierarchy_path")
+  contentHash         String   @map("content_hash")
+  firstSeenAt         DateTime @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  lastSeenAt          DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  lastSyncedAt        DateTime @default(now()) @map("last_synced_at") @db.Timestamptz(6)
+  isDisplayable       Boolean  @default(true) @map("is_displayable")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([hierarchyPath], type: Gin)
+  @@map("abc_catalog_items")
+}
+
+// One row per distinct six-level ABC hierarchy path; path_key is the six
+// level codes joined with '/'. Table, not a view over
+// AbcCatalogItem.hierarchyPath: hierarchy is seeded from its own provider
+// endpoint and needs its own index (see the Phase 1 migration header).
+model AbcCatalogHierarchy {
+  pathKey      String   @id @map("path_key")
+  level1Code   String?  @map("level1_code")
+  level1Label  String?  @map("level1_label")
+  level1Name   String?  @map("level1_name")
+  level2Code   String?  @map("level2_code")
+  level2Label  String?  @map("level2_label")
+  level2Name   String?  @map("level2_name")
+  level3Code   String?  @map("level3_code")
+  level3Label  String?  @map("level3_label")
+  level3Name   String?  @map("level3_name")
+  level4Code   String?  @map("level4_code")
+  level4Label  String?  @map("level4_label")
+  level4Name   String?  @map("level4_name")
+  level5Code   String?  @map("level5_code")
+  level5Label  String?  @map("level5_label")
+  level5Name   String?  @map("level5_name")
+  level6Code   String?  @map("level6_code")
+  level6Label  String?  @map("level6_label")
+  level6Name   String?  @map("level6_name")
+  levels       Json
+  firstSeenAt  DateTime @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  lastSeenAt   DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([levels], type: Gin)
+  @@map("abc_catalog_hierarchy")
+}
+
+// One row per ABC catalog import/delta run (the audit trail). Never deleted.
+model AbcCatalogSyncRun {
+  id                  String    @id @default(uuid()) @db.Uuid
+  kind                String
+  status              String
+  startedAt           DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt          DateTime? @map("finished_at") @db.Timestamptz(6)
+  providerTotalItems  Int?      @map("provider_total_items")
+  providerTotalPages  Int?      @map("provider_total_pages")
+  pagesProcessed      Int       @default(0) @map("pages_processed")
+  itemsSeen           Int       @default(0) @map("items_seen")
+  itemsAdded          Int       @default(0) @map("items_added")
+  itemsUpdated        Int       @default(0) @map("items_updated")
+  itemsDeactivated    Int       @default(0) @map("items_deactivated")
+  itemsFailed         Int       @default(0) @map("items_failed")
+  checkpointPage      Int?      @map("checkpoint_page")
+  correlationId       String?   @map("correlation_id")
+  error               String?
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  successfulStates AbcCatalogSyncState[] @relation("AbcCatalogSyncStateLastSuccessfulRun")
+
+  @@index([startedAt])
+  @@map("abc_catalog_sync_runs")
+}
+
+// Single-row ABC catalog sync checkpoint (id is always 'abc-catalog').
+// Written only by the importer; read by the scheduler.
+model AbcCatalogSyncState {
+  id                 String   @id @default("abc-catalog")
+  lastFullSyncAt     DateTime? @map("last_full_sync_at") @db.Timestamptz(6)
+  lastDeltaAt        DateTime? @map("last_delta_at") @db.Timestamptz(6)
+  lastSeenTotalItems Int?      @map("last_seen_total_items")
+  lastSeenTotalPages Int?      @map("last_seen_total_pages")
+  lastSuccessfulRunId String?  @map("last_successful_run_id") @db.Uuid
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  lastSuccessfulRun AbcCatalogSyncRun? @relation("AbcCatalogSyncStateLastSuccessfulRun", fields: [lastSuccessfulRunId], references: [id], onDelete: SetNull)
+
+  @@map("abc_catalog_sync_state")
+}
