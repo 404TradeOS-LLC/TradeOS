@@ -1,0 +1,334 @@
+name: ABC shared-catalog import (sandbox, disposable DB)
+
+# Manual-only full import of the ABC Supply sandbox catalog (issue #735,
+# Phase 2). Writes the shared, org-less reference tables — never prices,
+# never SupplierProduct/Material rows, never customer data.
+#
+# TARGET DATABASE — READ THIS FIRST: this workflow imports into a DISPOSABLE
+# Postgres started in the runner, not into staging. No single GitHub
+# environment holds both halves of a staging import: the `abc-sandbox`
+# environment holds only ABC_SUPPLY_SANDBOX_CLIENT_ID/SECRET (no database
+# secret), and the `staging` environment holds only
+# STAGING_DATABASE_ADMIN_URL / STAGING_APP_DB_ROLE_PASSWORD (no ABC
+# credentials). A GitHub job runs under exactly one environment, and passing
+# 258k provider items between jobs would need a payload upload, which this
+# workflow forbids. That is the exact blocker for a staging-DB import run:
+# OWNER ACTION — add ABC_SUPPLY_SANDBOX_CLIENT_ID and
+# ABC_SUPPLY_SANDBOX_CLIENT_SECRET to the `staging` environment (or add the
+# staging database URL to `abc-sandbox`); either placement is secret
+# creation and needs the owner. Once placed, the same script runs against
+# staging unchanged — the target database is just DATABASE_URL, and the
+# workflow's disposable-DB steps are replaced by the staging secret.
+# Until then, this workflow proves the importer end to end (full import,
+# resume from checkpoint within one dispatch, second-run 0/0) against the
+# disposable DB. A bounded write and its resume must run in the same job:
+# the disposable database is created fresh per dispatch, so a run id from
+# a previous dispatch cannot exist in it; cross-dispatch resume needs a
+# persistent database (staging, once the placement above is unblocked).
+#
+# Pre-flight headroom gate: the importer measures live database usage and
+# refuses to start below ~2 GB free. The capacity figure comes from the
+# `db_capacity_bytes` input — 10 GiB here, the disposable runner's disk.
+# For a staging run the operator must replace it with the Supabase plan's
+# included storage (dashboard → Settings → Database), per the Phase 1
+# open check; the importer fails closed when it is not supplied.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type IMPORT_ABC_SANDBOX_CATALOG to request a live sandbox catalog import
+        required: true
+        type: string
+      dry_run:
+        description: Count what would change; write nothing (no run row)
+        type: boolean
+        required: true
+        default: true
+      max_pages:
+        description: Bound the run to this many 1000-item pages (0 = all 259 pages, ~1.5 h provider time)
+        type: number
+        required: true
+        default: 3
+      resume_run_id:
+        description: Resume an interrupted run by its run id (continues from checkpoint_page + 1; only against a persistent database that holds the run — the disposable DB of a previous dispatch does not)
+        type: string
+        required: false
+        default: ""
+      resume_to_completion:
+        description: After a bounded write run ends partial, resume it to completion in this same job (the disposable DB does not persist between dispatches)
+        type: boolean
+        required: true
+        default: false
+      second_run:
+        description: After a full import, run the identical import again and require 0 adds / 0 updates
+        type: boolean
+        required: true
+        default: false
+      db_capacity_bytes:
+        description: Total database capacity in bytes for the headroom gate (10 GiB = disposable runner disk)
+        type: number
+        required: true
+        default: 10737418240
+
+permissions:
+  contents: read
+
+concurrency:
+  group: abc-sandbox-catalog-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    name: ABC sandbox catalog import (disposable DB)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: abc-sandbox
+    timeout-minutes: 360
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Require operator confirmation
+        # Checkout has not run yet, so the app/ directory does not exist.
+        working-directory: .
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          if [[ "${CONFIRMATION}" != "IMPORT_ABC_SANDBOX_CATALOG" ]]; then
+            echo "::error::Sandbox catalog import requires the exact confirmation IMPORT_ABC_SANDBOX_CATALOG."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Validate importer contract without credentials
+        run: npx --no-install jest --runInBand --runTestsByPath tests/supplier-integration.abc-catalog-import.test.ts tests/supplier-integration.abc-catalog.test.ts
+
+      - name: Start disposable Postgres and apply migrations
+        # Same disposable-database path as scripts/test-integration-db.sh
+        # (postgres:16-alpine + scripts/deploy-migrations.sh), minus the
+        # test suite. Local-only throwaway password, never a real secret.
+        env:
+          DB_CAPACITY_BYTES: ${{ inputs.db_capacity_bytes }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+          docker rm -f abc-catalog-import-db >/dev/null 2>&1 || true
+          docker run --name abc-catalog-import-db \
+            -e POSTGRES_PASSWORD=password -e POSTGRES_DB=tradeos_test \
+            -p 127.0.0.1:55432:5432 -d postgres:16-alpine >/dev/null
+          for _ in $(seq 1 30); do
+            if docker exec abc-catalog-import-db pg_isready -U postgres -d tradeos_test >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          DATABASE_ADMIN_URL='postgresql://postgres:password@127.0.0.1:55432/tradeos_test?schema=public' \
+            APP_DB_ROLE_PASSWORD='local-disposable-app' \
+            bash scripts/deploy-migrations.sh
+          {
+            echo "DATABASE_URL=postgresql://tradeos_app:local-disposable-app@127.0.0.1:55432/tradeos_test?schema=public"
+            echo "ABC_CATALOG_DB_CAPACITY_BYTES=${DB_CAPACITY_BYTES}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Pre-flight database headroom (read-only)
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          CAPACITY_BYTES: ${{ inputs.db_capacity_bytes }}
+        run: |
+          set -euo pipefail
+          # libpq rejects Prisma-only query parameters (?schema=public).
+          psql_url="${DATABASE_URL%%\?*}"
+          used_bytes="$(psql "${psql_url}" -X -v ON_ERROR_STOP=1 -Atqc "select pg_database_size(current_database())")"
+          free_bytes="$((CAPACITY_BYTES - used_bytes))"
+          min_free_bytes="$((2 * 1024 * 1024 * 1024))"
+          {
+            echo "## ABC catalog import — pre-flight headroom"
+            echo ""
+            echo "| Field | Result |"
+            echo "|---|---|"
+            echo "| Database size | $((used_bytes / 1024 / 1024)) MB |"
+            echo "| Free (capacity minus size) | $((free_bytes / 1024 / 1024)) MB |"
+            echo "| Minimum free required | 2048 MB |"
+          } >> "${GITHUB_STEP_SUMMARY}"
+          echo "Database size: $((used_bytes / 1024 / 1024)) MB; free: $((free_bytes / 1024 / 1024)) MB (minimum 2048 MB)"
+          if [[ "${free_bytes}" -lt "${min_free_bytes}" ]]; then
+            echo "::error::Less than 2 GB free in the target database; refusing to import."
+            exit 1
+          fi
+
+      - name: Run catalog import
+        id: import
+        env:
+          ABC_SUPPLY_SANDBOX_CLIENT_ID: ${{ secrets.ABC_SUPPLY_SANDBOX_CLIENT_ID }}
+          ABC_SUPPLY_SANDBOX_CLIENT_SECRET: ${{ secrets.ABC_SUPPLY_SANDBOX_CLIENT_SECRET }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          MAX_PAGES: ${{ inputs.max_pages }}
+          RESUME_RUN_ID: ${{ inputs.resume_run_id }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${ABC_SUPPLY_SANDBOX_CLIENT_ID:-}" || -z "${ABC_SUPPLY_SANDBOX_CLIENT_SECRET:-}" ]]; then
+            echo "::error::Sandbox product.read app credentials have not been installed in the abc-sandbox environment or repo secrets."
+            exit 1
+          fi
+          args=()
+          if [[ "${DRY_RUN}" == "true" ]]; then args+=(--dry-run); fi
+          if [[ "${MAX_PAGES}" != "0" ]]; then args+=(--max-pages "${MAX_PAGES}"); fi
+          if [[ -n "${RESUME_RUN_ID}" ]]; then args+=(--resume "${RESUME_RUN_ID}"); fi
+          # Exit 2 is the importer's partial code (bounded stop or provider
+          # drift); it is expected only for a bounded stop, never for drift.
+          set +e
+          npx --no-install ts-node scripts/run-abc-catalog-import.ts "${args[@]}" > "${RUNNER_TEMP}/abc-catalog-import.json" 2> "${RUNNER_TEMP}/abc-catalog-import.log"
+          import_exit=$?
+          set -e
+          cat "${RUNNER_TEMP}/abc-catalog-import.log"
+          export IMPORT_EXIT="${import_exit}"
+          node -e '
+            const fs = require("node:fs");
+            const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const maxPages = Number(process.env.MAX_PAGES);
+            const exit = Number(process.env.IMPORT_EXIT);
+            const boundedStop = p.status === "partial" && typeof p.error === "string" &&
+              p.error.startsWith("catalog_import_bounded_stop");
+            if (p.kind !== "full" || typeof p.itemsSeen !== "number" ||
+                typeof p.providerTotalItems !== "number" || p.providerTotalItems < 1) {
+              throw new Error("Import report did not meet the validation contract");
+            }
+            if (exit === 2 && !(boundedStop && maxPages > 0)) {
+              throw new Error("Import ended partial without a bounded stop: " + (p.error || "unknown"));
+            }
+            if (exit !== 0 && exit !== 2) throw new Error("Import failed with exit " + exit);
+            if (p.status === "succeeded" && p.itemsSeen !== p.providerTotalItems) {
+              throw new Error("Succeeded import items_seen " + p.itemsSeen + " does not reconcile with provider totalItems " + p.providerTotalItems);
+            }
+            const rows = [
+              "| Run id | " + (p.runId || "(dry run — no run row)") + " |",
+              "| Status | " + p.status + (p.dryRun ? " (dry run)" : "") + " |",
+              "| Provider total items / pages | " + p.providerTotalItems + " / " + p.providerTotalPages + " |",
+              "| Pages processed | " + p.pagesProcessed + " |",
+              "| Items seen | " + p.itemsSeen + " |",
+              "| Items added / updated / deactivated / failed | " + p.itemsAdded + " / " + p.itemsUpdated + " / " + p.itemsDeactivated + " / " + p.itemsFailed + " |",
+              "| Hierarchy paths seen / added / updated / skipped | " + p.hierarchyPathsSeen + " / " + p.hierarchyAdded + " / " + p.hierarchyUpdated + " / " + p.hierarchySkipped + " |",
+              "| Checkpoint page | " + p.checkpointPage + " |",
+              "| Database used / free | " + Math.round((p.databaseUsedBytes || 0) / 1048576) + " MB / " + Math.round((p.databaseFreeBytes || 0) / 1048576) + " MB |",
+              "| Error | " + (p.error || "none") + " |",
+            ];
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+              "## ABC shared-catalog import — Phase 2 (#735)\n\n" +
+              "| Field | Result |\n|---|---|\n" + rows.join("\n") + "\n\n" +
+              "Sandbox only. Counts only — no item content, tokens, or payloads. " +
+              "A succeeded full import reconciles items_seen with provider totalItems; " +
+              "a bounded write run ends partial with a checkpoint and is resumed in this job with resume_to_completion " +
+              "(or later, against a persistent database, with its run id).\n");
+            fs.writeFileSync(process.argv[2], JSON.stringify({
+              runId: p.runId, status: p.status, itemsSeen: p.itemsSeen,
+              itemsAdded: p.itemsAdded, itemsUpdated: p.itemsUpdated,
+              itemsDeactivated: p.itemsDeactivated, providerTotalItems: p.providerTotalItems,
+            }));
+            fs.appendFileSync(process.env.GITHUB_OUTPUT,
+              "run_id=" + (p.runId || "") + "\nimport_status=" + p.status + "\n");
+          ' "${RUNNER_TEMP}/abc-catalog-import.json" "${RUNNER_TEMP}/abc-catalog-import-result.json"
+          rm -f "${RUNNER_TEMP}/abc-catalog-import.json" "${RUNNER_TEMP}/abc-catalog-import-result.json"
+          # The step summary is only readable in the authenticated web UI;
+          # echo it to the log so the numbers are retrievable via the API
+          # (counts and tallies only — no item content, tokens, or payloads).
+          if [ -s "${GITHUB_STEP_SUMMARY}" ]; then cat "${GITHUB_STEP_SUMMARY}"; fi
+
+      - name: Resume bounded write to completion
+        id: resume
+        # The disposable database does not persist between dispatches, so a
+        # bounded write and its resume must run in this same job against
+        # this container. A cross-dispatch resume needs a persistent
+        # database (staging, once the credential placement is unblocked)
+        # and uses resume_run_id.
+        if: ${{ !inputs.dry_run && inputs.resume_to_completion && steps.import.outputs.import_status == 'partial' }}
+        env:
+          ABC_SUPPLY_SANDBOX_CLIENT_ID: ${{ secrets.ABC_SUPPLY_SANDBOX_CLIENT_ID }}
+          ABC_SUPPLY_SANDBOX_CLIENT_SECRET: ${{ secrets.ABC_SUPPLY_SANDBOX_CLIENT_SECRET }}
+          RUN_ID: ${{ steps.import.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${RUN_ID}" ]]; then
+            echo "::error::Bounded run ended partial without a run id; cannot resume."
+            exit 1
+          fi
+          set +e
+          npx --no-install ts-node scripts/run-abc-catalog-import.ts --resume "${RUN_ID}" > "${RUNNER_TEMP}/abc-catalog-import-resume.json" 2> "${RUNNER_TEMP}/abc-catalog-import-resume.log"
+          resume_exit=$?
+          set -e
+          cat "${RUNNER_TEMP}/abc-catalog-import-resume.log"
+          export RESUME_EXIT="${resume_exit}"
+          node -e '
+            const fs = require("node:fs");
+            const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            if (Number(process.env.RESUME_EXIT) !== 0 || p.status !== "succeeded" || p.itemsSeen !== p.providerTotalItems) {
+              throw new Error("Resume did not complete the import: exit " + process.env.RESUME_EXIT + ", status " + p.status + ", seen " + p.itemsSeen + " of " + p.providerTotalItems + " (" + (p.error || "no error") + ")");
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+              "\n## Resume to completion — checkpoint proof\n\n" +
+              "| Field | Result |\n|---|---|\n" +
+              "| Run id | " + p.runId + " |\n" +
+              "| Items seen | " + p.itemsSeen + " |\n" +
+              "| Items added / updated | " + p.itemsAdded + " / " + p.itemsUpdated + " |\n" +
+              "| Checkpoint page | " + p.checkpointPage + " |\n");
+            console.log("Resume completed run " + p.runId + ": " + p.itemsSeen + " items seen");
+          ' "${RUNNER_TEMP}/abc-catalog-import-resume.json"
+          rm -f "${RUNNER_TEMP}/abc-catalog-import-resume.json" "${RUNNER_TEMP}/abc-catalog-import-resume.log"
+          if [ -s "${GITHUB_STEP_SUMMARY}" ]; then cat "${GITHUB_STEP_SUMMARY}"; fi
+
+      - name: Assert dry-run wrote nothing
+        if: inputs.dry_run
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          # libpq rejects Prisma-only query parameters (?schema=public).
+          psql_url="${DATABASE_URL%%\?*}"
+          # Bare app-role reads see nothing under forced RLS: the ingest
+          # SELECT policies require the ingestion flag, so set it in this
+          # session before counting — otherwise the assertion reads 0 even
+          # when rows were wrongly written. SET prints a `SET` line, so
+          # take only the counts line.
+          read -r items runs hierarchy <<< "$(psql "${psql_url}" -X -v ON_ERROR_STOP=1 -At -F' ' \
+            -c "SET app.abc_catalog_ingestion = 'true'" \
+            -c "select (select count(*) from abc_catalog_items), (select count(*) from abc_catalog_sync_runs), (select count(*) from abc_catalog_hierarchy)" | tail -n 1)"
+          echo "Dry-run stored rows — items: ${items}, hierarchy: ${hierarchy}, runs: ${runs} (all must be 0)"
+          [[ "${items}" == "0" && "${hierarchy}" == "0" && "${runs}" == "0" ]]
+
+      - name: Second identical run must be 0 adds / 0 updates
+        if: ${{ !inputs.dry_run && inputs.second_run && (inputs.max_pages == 0 || inputs.resume_to_completion) && inputs.resume_run_id == '' }}
+        env:
+          ABC_SUPPLY_SANDBOX_CLIENT_ID: ${{ secrets.ABC_SUPPLY_SANDBOX_CLIENT_ID }}
+          ABC_SUPPLY_SANDBOX_CLIENT_SECRET: ${{ secrets.ABC_SUPPLY_SANDBOX_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          npx --no-install ts-node scripts/run-abc-catalog-import.ts > "${RUNNER_TEMP}/abc-catalog-import-second.json" 2> "${RUNNER_TEMP}/abc-catalog-import-second.log"
+          cat "${RUNNER_TEMP}/abc-catalog-import-second.log"
+          node -e '
+            const fs = require("node:fs");
+            const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            if (p.status !== "succeeded" || p.itemsAdded !== 0 || p.itemsUpdated !== 0 ||
+                p.itemsDeactivated !== 0 || p.itemsSeen !== p.providerTotalItems) {
+              throw new Error("Second identical run was not 0 adds / 0 updates: added " + p.itemsAdded + ", updated " + p.itemsUpdated + ", seen " + p.itemsSeen + " of " + p.providerTotalItems);
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+              "\n## Second identical run — 0 adds / 0 updates\n\n" +
+              "| Field | Result |\n|---|---|\n" +
+              "| Items seen | " + p.itemsSeen + " |\n" +
+              "| Items added / updated | 0 / 0 |\n");
+            console.log("Second identical run: 0 adds / 0 updates over " + p.itemsSeen + " items");
+          ' "${RUNNER_TEMP}/abc-catalog-import-second.json"
+          rm -f "${RUNNER_TEMP}/abc-catalog-import-second.json" "${RUNNER_TEMP}/abc-catalog-import-second.log"
+          if [ -s "${GITHUB_STEP_SUMMARY}" ]; then cat "${GITHUB_STEP_SUMMARY}"; fi

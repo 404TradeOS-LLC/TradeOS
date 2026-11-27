@@ -175,3 +175,117 @@ PR [#1133](https://github.com/404TradeOS-LLC/TradeOS/pull/1133) merged migration
   Retention is soft-deactivation only — rows are never hard-deleted, so a
   purge on ABC's direction (if ever required) is a deliberate Phase 6
   operation, not an automatic one.
+
+## Phase 2 — resumable full import (issue #735)
+
+Phase 2 builds the importer on the Phase 1 schema: service
+`app/modules/supplier-integration/abcCatalogImport.ts` reusing
+`AbcCatalogClient.listRaw` (the only read path that returns `Inactive`
+items — `list()` filters them out), paging at 1000/page in page order
+with the client's retry/backoff and 125 ms spacing; one-shot CLI
+`app/scripts/run-abc-catalog-import.ts` (`--dry-run`, `--max-pages`,
+`--resume <run-id>`, `--db-capacity-bytes`); manual workflow
+`.github/workflows/abc-sandbox-catalog-import.yml` (dispatch from `main`,
+`abc-sandbox` environment, exact confirmation
+`IMPORT_ABC_SANDBOX_CATALOG`, sanitized step-summary counts); runbook
+`docs/operations/ABC_SUPPLY_CATALOG_IMPORT.md`.
+
+- **Checkpoint-after-commit:** each page upserts in one transaction under
+  the `app.abc_catalog_ingestion` flag and only then advances
+  `checkpoint_page` + counts in `abc_catalog_sync_runs`. A run resumes
+  from `checkpoint_page + 1` with cumulative counts; a second trigger
+  while a run is `running` is refused and the recovery path is resuming
+  that run (a killed run stays `running` with its checkpoint — never
+  hand-edit the row). Run-ownership claims are serialized with a
+  transaction-scoped advisory lock (`pg_advisory_xact_lock(735001)`,
+  via `$executeRaw` — `$queryRaw` cannot deserialize its void return),
+  so two concurrent CLI invocations cannot both pass the guard. A run
+  that failed before any page committed (checkpoint 0) restarts from
+  page 1 under the same run id and revalidates the provider totals
+  instead of restoring the failed attempt's totals (a failed first page
+  persists empty 0/0 totals, which would otherwise skip every page and
+  succeed vacuously). Each page transaction carries an explicit 120 s
+  budget (Prisma 6 defaults interactive transactions to 5 s) and
+  hierarchy paths are batched per page (one read for all distinct paths).
+- **Content-hash upsert:** SHA-256 over the canonicalized stored fields,
+  keyed on `item_number`. Hash-identical rows are touched
+  (`last_seen_at`) only, so a second identical run is 0 adds / 0 updates.
+  `Inactive` (and any non-`Active`) items are stored with
+  `is_displayable = false`; absence from a provider pass does not
+  deactivate (retirement after two consecutive absences is Phase 3).
+- **Failure handling:** per-item failures (e.g. a price-like key in a
+  payload) are counted in `items_failed` and the item numbers listed in
+  the run row's `error` field without aborting the sync — the stdout
+  report carries the count only, never item numbers; a database
+  transaction failure aborts the run, not the item;
+  `totalItems`/`totalPages` drift mid-run aborts as `partial` with the
+  checkpoint preserved; a page that returns fewer items than the
+  provider's own totals say it should hold aborts as `partial`
+  (`catalog_import_short_page`, checkpoint preserved; skipped when the
+  totals do not fit the 1000-item page contract at all); a 0-item first
+  page fails closed and retains all stored data. A bounded dry run ends
+  `partial` with `catalog_import_bounded_stop`, not `succeeded` — a
+  succeeded report must reconcile `items_seen` with provider
+  `totalItems`.
+- **Hierarchy seed:** `GET /api/product/v1/hierarchy` (50/page) plus
+  item-payload hierarchies, upserted by `path_key` (six codes joined
+  with `/`, empty/missing collapsing to `''`); empty level nodes are
+  preserved in `levels` and never fail the import; malformed entries
+  (non-object, no `productGroup`) are skipped and counted.
+- **No prices, no tenant writes:** the mapper is an explicit field
+  allowlist and rejects price-like keys at any depth of a stored value
+  (the scan has no depth cap); the service has no access to
+  `SupplierProduct`/`Material` models. Unit tests assert no price keys
+  in any stored row and no tenant-model calls; the integration test
+  asserts the same against live Postgres.
+- **Headroom gate (discharges the Phase 1 open check):** the importer
+  measures live size with `pg_database_size(current_database())` and
+  requires `capacity − used ≥ ~2 GB`; capacity comes from
+  `ABC_CATALOG_DB_CAPACITY_BYTES`, recorded by the operator from the
+  Supabase dashboard (Settings → Database). Without a capacity figure
+  the import fails closed — it never guesses headroom. The workflow
+  also runs a read-only `psql` headroom step first.
+- **Staging-DB target is BLOCKED on credential placement (not on code):**
+  no single GitHub environment holds both halves — `abc-sandbox` has
+  only the ABC client credentials, `staging` has only
+  `STAGING_DATABASE_ADMIN_URL` / `STAGING_APP_DB_ROLE_PASSWORD` — and a
+  job runs under exactly one environment. Owner action: add the ABC
+  sandbox client id/secret to the `staging` environment (or the staging
+  database URL to `abc-sandbox`); either is secret creation. Until then
+  the workflow proves the importer against a disposable Postgres in the
+  runner, and the same script runs against staging unchanged once the
+  placement lands (the target is just `DATABASE_URL`).
+- **Evidence so far (pre-merge, local):** unit tests
+  `tests/supplier-integration.abc-catalog-import.test.ts` 30/30 pass
+  (fake DB: full import, 0/0 second run, bounded resume, drift,
+  empty-response fail-closed, per-item failure, DB-failure abort,
+  headroom gate, dry-run, plus the review-driven regressions: truncated
+  page → `partial`, bounded dry run → `partial`, checkpoint-0 resume
+  revalidates page 1, deep price key rejected, counts-only stdout
+  report, ownership lock issued, 120 s page-transaction budget,
+  batched hierarchy reads); integration tests
+  `tests/abcCatalogImport.integration.ts` 5/5 pass against a disposable
+  local Postgres 16 cluster (trust auth, no credentials; 91 migrations
+  applied via `scripts/deploy-migrations.sh`; restricted `tradeos_app`
+  role) — full import through the ingestion flag, 0/0 second run, live
+  resume, dry-run writes nothing, empty-response fail-closed with rows
+  retained, and resume of a run that failed on an empty first page.
+  The rehearsal caught three real behaviors before the PR: bare
+  app-role reads see nothing under forced RLS (rows are hidden
+  silently), so verification reads must run under the ingestion flag
+  (proven: a stored row counts 0 bare, 1 flagged — the workflow's
+  dry-run assertion now sets the flag); `$queryRaw` cannot deserialize
+  the void return of `pg_advisory_xact_lock` (Prisma P2010), so the
+  ownership lock uses `$executeRaw`; and the workflow's `psql` steps
+  must strip Prisma's `?schema=public` (libpq rejects it).
+- **Live workflow evidence still owed after merge:** dispatch dry-run
+  bounded (3 pages), then bounded write + in-job resume
+  (`resume_to_completion = true`), then the full import with
+  `second_run = true` (~3 h provider time); record the run URLs,
+  run ids, `items_seen` vs provider `totalItems`, resume proof, and
+  second-run 0/0 on #735. A bounded write and its resume run in the
+  same dispatch — the disposable database does not persist between
+  dispatches, so a second dispatch cannot resume a run from the first;
+  cross-dispatch resume needs a persistent database (staging, once the
+  placement above is unblocked). Staging verification via the deployed app
+  remains gated on the Vercel 402 clearing.
