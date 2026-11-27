@@ -470,14 +470,18 @@ jobs:
           # evidence never starts against a stale alias. Fails closed on
           # timeout, and on a SHA that is present but different from the
           # approved one. Progress goes to stderr so it never pollutes
-          # poll_project's captured stdout.
+          # poll_project's captured stdout. Each request carries its own
+          # transfer timeout: a stalled response must return and let the
+          # attempt counter advance, not hold the job until its 55-minute
+          # timeout (CodeRabbit Minor on PR #1143). The job timeout is the
+          # outer bound if every attempt is slow.
           wait_alias_identity() {
             local label="$1" alias_url="$2" identity_path="$3"
             local attempt=0
             while [ "$attempt" -lt 10 ]; do
               attempt=$((attempt + 1))
               local body reported
-              body="$(curl -s "${bypass_args[@]}" "$alias_url$identity_path" || true)"
+              body="$(curl -s --connect-timeout 10 --max-time 20 "${bypass_args[@]}" "$alias_url$identity_path" || true)"
               reported="$(printf '%s' "$body" | jq -r '.commitSha // empty' 2>/dev/null || true)"
               if [ "$reported" = "$SHA" ]; then
                 echo "$label staging alias now serves $SHA (attempt $attempt)." >&2
@@ -500,7 +504,7 @@ jobs:
             while [ "$attempt" -lt 30 ]; do
               attempt=$((attempt + 1))
               local response http_code body match state uid url
-              response="$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $VERCEL_TOKEN" \
+              response="$(curl -s --max-time 30 -w "\n%{http_code}" -H "Authorization: Bearer $VERCEL_TOKEN" \
                 "https://api.vercel.com/v6/deployments?projectId=${project_id}&limit=50")" || {
                 echo "::warning::Network error polling Vercel for $label (attempt $attempt); retrying in 60s." >&2
                 sleep 60
@@ -657,7 +661,7 @@ jobs:
           # immediately before evidence. A missing or mismatched SHA fails
           # closed, exactly like the backend /health check above.
           for web_url in "$WEB_DEPLOYMENT_URL" "$WEB_STAGING_ALIAS"; do
-            identity="$(curl -s "${bypass_args[@]}" "$web_url/api/staging-runtime-identity")" || {
+            identity="$(curl -s --connect-timeout 10 --max-time 20 "${bypass_args[@]}" "$web_url/api/staging-runtime-identity")" || {
               echo "::error::Frontend identity request failed at $web_url."
               exit 1
             }

@@ -940,6 +940,16 @@ test("staging beta evidence pins the verified selected TEST UUID and forwards it
   assert.match(authSetup, /expectedOrgId = process\.env\.BETA_SMOKE_ORG_ID/);
 });
 
+test("the orchestrator wait job cannot hang on a stalled alias or API response", () => {
+  // A stalled connection (accepted but never completed) must return and let
+  // the attempt counter advance; without a per-request limit the helper's
+  // 10-attempt bound never engages and the job holds until its 55-minute
+  // timeout (CodeRabbit Minor on PR #1143).
+  assert.match(stagingOrchestrator, /curl -s --connect-timeout 10 --max-time 20 "\$\{bypass_args\[@\]\}" "\$alias_url\$identity_path"/);
+  assert.match(stagingOrchestrator, /curl -s --max-time 30 -w "\\n%\{http_code\}"/);
+  assert.match(stagingOrchestrator, /curl -s --connect-timeout 10 --max-time 20 "\$\{bypass_args\[@\]\}" "\$web_url\/api\/staging-runtime-identity"/);
+});
+
 test("login credentials are filled only after the login film dismisses", () => {
   // Playwright waitForFunction(pageFunction, arg, options) requires its
   // timeout as the third argument. Observe the film before navigation,
