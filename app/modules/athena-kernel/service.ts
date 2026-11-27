@@ -27,7 +27,8 @@ import { AthenaKernelError, athenaValidationError, normalizeAthenaError } from "
 import { getAthenaFlags } from "./flags";
 import { assertTransition, getMaxRoundTrips, nextRoundTripCount } from "./lifecycle";
 import { classifyAthenaCapability, evaluateAthenaPolicy } from "./policy";
-import { AthenaProviderAdapter, resolveAthenaProvider } from "./provider";
+import { AthenaProviderAdapter, GoogleGeminiAthenaProvider, resolveAthenaProvider } from "./provider";
+import { getDailySpendStatus, parseDailySpendCapUsd } from "./spendCap";
 import { buildTelemetryRecord, recordAthenaTelemetry } from "./telemetry";
 import { AthenaActorContext, AthenaAIContext, AthenaCancellationReason, AthenaKernelRequest, AthenaKernelResult, AthenaKernelState, AthenaTelemetryCost, AthenaToolError, AthenaVoiceConfirmationChallenge } from "./types";
 
@@ -569,6 +570,8 @@ export class AthenaKernelService {
         message,
         context,
         flags,
+        orgId: actor.orgId,
+        dailySpendCapUsd: parseDailySpendCapUsd(env),
         provider: input.provider ?? resolveAthenaProvider(env),
         signal: controller.signal,
         deadline,
@@ -659,6 +662,8 @@ export class AthenaKernelService {
     message: string;
     context: AthenaAIContext;
     flags: ReturnType<typeof getAthenaFlags>;
+    orgId: string;
+    dailySpendCapUsd: number;
     provider: AthenaProviderAdapter;
     signal: AbortSignal;
     deadline: Date;
@@ -683,6 +688,30 @@ export class AthenaKernelService {
   }): Promise<{ summary: string; message: string | null; warnings: { code: string; message: string }[] }> {
     if (!input.flags.draftResponsesEnabled) {
       return { summary: "Athena acknowledged your request. Draft responses are disabled in this environment.", message: null, warnings: [{ code: "athena_draft_responses_disabled", message: "Draft responses are disabled in this environment." }] };
+    }
+
+    // Daily Gemini spend cap (founder-approved 2026-11-26): enforced before
+    // EVERY real provider attempt. The kernel never re-fires generateDraft
+    // inside one request, so each client-level retry is a fresh
+    // produceDraftResponse call and re-checks the cap - a retry can never
+    // double-spend past it. The fake provider never spends, so it is never
+    // capped. On a trip, no model call is made; the pause is recorded as a
+    // model/error telemetry span (errorCode athena_daily_spend_cap_reached)
+    // so it is visible in observability alongside the cost-spike alert.
+    if (input.provider instanceof GoogleGeminiAthenaProvider) {
+      const spend = await getDailySpendStatus({ orgId: input.orgId, capUsd: input.dailySpendCapUsd });
+      if (spend.reached) {
+        await input.emitSpan("model", "error", 0, {
+          errorCode: "athena_daily_spend_cap_reached",
+          dailySpendUsd: spend.spentUsd,
+          dailySpendCapUsd: spend.capUsd,
+        });
+        return {
+          summary: "Athena draft responses are paused for today — the daily budget has been reached. They resume tomorrow.",
+          message: null,
+          warnings: [{ code: "athena_daily_spend_cap_reached", message: "Athena draft responses are paused for today — the daily budget has been reached. They resume tomorrow." }],
+        };
+      }
     }
 
     const providerDeadline = new Date(Math.min(input.deadline.getTime(), Date.now() + input.providerDeadlineMs));

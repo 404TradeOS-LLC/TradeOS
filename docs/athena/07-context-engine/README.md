@@ -194,6 +194,13 @@ not persist raw prompts, model output, tool arguments, or tool results; review
 provenance cannot authorize a business write outside the existing application
 services.
 
+The generation-run ledger is also the daily Gemini spend-cap ledger:
+`app/modules/athena-kernel/spendCap.ts` sums `AthenaGenerationRun` rows with
+status `succeeded` and non-null `estimatedUsd` for the current UTC day, per
+organization, and the kernel pauses real drafts at `ATHENA_DAILY_SPEND_CAP_USD`
+(default $1.00). Context assembly itself is unchanged and read-only; the cap is
+a kernel-side budget guard on the provider call, not a context change.
+
 ## S028 boundary
 
 Estimate-to-proposal verification in PR #338 uses the existing authenticated Athena context, permission, and audit/event seams. It does not authorize autonomous AI writes, provider changes, or cross-tenant context expansion.

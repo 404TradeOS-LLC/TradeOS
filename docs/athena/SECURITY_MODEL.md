@@ -304,6 +304,16 @@ raw prompts and raw model output remain excluded from persisted records by the
 S025 rule. The provider adds no approval, write, or permission surface: draft
 text only, and the router/planner, action engine, and observability flags stay
 off.
+
+The daily spend cap (`ATHENA_DAILY_SPEND_CAP_USD`, default $1.00/day, `0` = kill
+switch) bounds abuse of the key: once the day's recorded generation-run spend
+reaches the cap, the kernel returns a paused response and never calls the
+provider, so a runaway client or retry storm cannot burn unbounded Gemini spend.
+The cap is enforced per organization per UTC day from the generation-run ledger
+and checked before every provider attempt, including retries after a provider
+timeout. The fake provider is exempt, so test traffic cannot be blocked — and
+CI/test/evidence paths never hold a real key or a `google` provider mode, so no
+spend can originate there.
 ## Validation runtime dependency repair
 
 Zod 4.6.7 replaces vulnerable validation code, including the nested Vercel validator through `$zod`. Constrained oversized collections reject before element parsing in the regression test. GUID parsing preserves existing identifier syntax only; tool grants, server-side record checks, approval gates, idempotency and forced tenant RLS are unchanged. Production code does not use the bundled Zod 3 compatibility entry point. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.

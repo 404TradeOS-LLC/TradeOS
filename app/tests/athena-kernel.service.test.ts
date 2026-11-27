@@ -59,13 +59,26 @@ const athenaGenerationRunCreate = jest.fn(async ({ data }: { data: FakeGeneratio
   generationRows.push(row);
   return row;
 });
+const athenaGenerationRunFindMany = jest.fn(
+  async ({ where }: { where: { orgId?: string; status?: string; createdAt?: { gte: Date; lt: Date }; estimatedUsd?: { not: null } } }) => {
+    return generationRows
+      .filter((row) => {
+        if (where.orgId !== undefined && row.orgId !== where.orgId) return false;
+        if (where.status !== undefined && row.status !== where.status) return false;
+        if (where.createdAt !== undefined && !(row.createdAt >= where.createdAt.gte && row.createdAt < where.createdAt.lt)) return false;
+        if (where.estimatedUsd !== undefined && row.estimatedUsd == null) return false;
+        return true;
+      })
+      .map((row) => ({ estimatedUsd: row.estimatedUsd }));
+  }
+);
 
 jest.mock("../db/client", () => ({
   prisma: {
     athenaExecution: { create: athenaExecutionCreate, update: athenaExecutionUpdate, findFirst: athenaExecutionFindFirst },
     athenaExecutionTransition: { create: athenaExecutionTransitionCreate },
     athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate },
-    athenaGenerationRun: { create: athenaGenerationRunCreate },
+    athenaGenerationRun: { create: athenaGenerationRunCreate, findMany: athenaGenerationRunFindMany },
   },
 }));
 
@@ -73,7 +86,7 @@ import type { AthenaApprovalVerifier } from "../modules/athena-action-engine/app
 import { createInMemoryAthenaIdempotencyStore } from "../modules/athena-action-engine/idempotency";
 import { computeCanonicalInputHash } from "../modules/athena-action-engine/inputHash";
 import { AthenaKernelService } from "../modules/athena-kernel/service";
-import { AthenaProviderAdapter } from "../modules/athena-kernel/provider";
+import { AthenaProviderAdapter, GoogleGeminiAthenaProvider } from "../modules/athena-kernel/provider";
 import { athenaCancellationError } from "../modules/athena-kernel/errors";
 import { AthenaActorContext } from "../modules/athena-kernel/types";
 import { createAthenaContextRegistry } from "../modules/athena-context-engine/registry";
@@ -1076,5 +1089,120 @@ describe("AthenaKernelService", () => {
       expect(counts().optimizeDay).toBe(0);
       expect(counts().createEstimate).toBe(0);
     });
+  });
+});
+
+describe("daily spend cap (ATHENA_DAILY_SPEND_CAP_USD)", () => {
+  beforeEach(() => {
+    executions.clear();
+    transitions.length = 0;
+    telemetryRows.length = 0;
+    generationRows.length = 0;
+    jest.clearAllMocks();
+  });
+
+  function seedSpendUsd(amounts: number[]): void {
+    for (const amount of amounts) {
+      generationRows.push({
+        id: `gen-seed-${generationRows.length}`,
+        orgId: "org-1",
+        actorUserId: "user-1",
+        requestId: "req-seed",
+        traceId: "trace-seed",
+        provider: "google",
+        model: "gemini-3.5-flash-lite",
+        status: "succeeded",
+        inputTokens: 100,
+        outputTokens: 50,
+        estimatedUsd: { toNumber: () => amount },
+        latencyMs: 100,
+        toolNamesJson: [],
+        provenanceJson: {},
+        retentionExpiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(),
+      });
+    }
+  }
+
+  function realProvider(): GoogleGeminiAthenaProvider {
+    return new GoogleGeminiAthenaProvider({ GEMINI_API_KEY: "test-key" } as NodeJS.ProcessEnv);
+  }
+
+  async function askDraft(requestId: string, env: NodeJS.ProcessEnv, provider?: AthenaProviderAdapter) {
+    const service = new AthenaKernelService();
+    return service.handleRequest({
+      request: { message: "What is the status of this project this week?", requestSource: "http" },
+      actor: actor(),
+      requestId,
+      env,
+      provider,
+    });
+  }
+
+  function hasCapTripSpan(): boolean {
+    return telemetryRows.some(
+      (row) => row.spanType === "model" && row.status === "error" && (row.metadataJson as { errorCode?: string } | null)?.errorCode === "athena_daily_spend_cap_reached"
+    );
+  }
+
+  it("pauses real drafts at the cap without calling the provider", async () => {
+    seedSpendUsd([0.6, 0.5]);
+    const provider = realProvider();
+    const generateDraft = jest.spyOn(provider, "generateDraft");
+
+    const result = await askDraft("req-cap-hit", { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true" } as NodeJS.ProcessEnv, provider);
+
+    expect(result.success).toBe(true);
+    expect(result.state).toBe("succeeded");
+    expect(result.message).toBeNull();
+    expect(result.warnings.some((w) => w.code === "athena_daily_spend_cap_reached")).toBe(true);
+    expect(generateDraft).not.toHaveBeenCalled();
+    expect(hasCapTripSpan()).toBe(true);
+  });
+
+  it("calls the real provider once when spend is below the cap", async () => {
+    seedSpendUsd([0.5]);
+    const provider = realProvider();
+    const generateDraft = jest.spyOn(provider, "generateDraft").mockResolvedValue({
+      text: "Here is your draft.",
+      provider: "google",
+      model: "gemini-3.5-flash-lite",
+      inputTokens: 100,
+      outputTokens: 50,
+      estimatedUsd: 0.0002,
+    });
+
+    const result = await askDraft("req-cap-miss", { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true" } as NodeJS.ProcessEnv, provider);
+
+    expect(generateDraft).toHaveBeenCalledTimes(1);
+    expect(result.success).toBe(true);
+    expect(result.message).toBe("Here is your draft.");
+    expect(hasCapTripSpan()).toBe(false);
+  });
+
+  it("honors a configured cap below the default", async () => {
+    seedSpendUsd([0.5]);
+    const provider = realProvider();
+    const generateDraft = jest.spyOn(provider, "generateDraft");
+
+    const result = await askDraft(
+      "req-cap-custom",
+      { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true", ATHENA_DAILY_SPEND_CAP_USD: "0.10" } as NodeJS.ProcessEnv,
+      provider
+    );
+
+    expect(generateDraft).not.toHaveBeenCalled();
+    expect(result.message).toBeNull();
+    expect(result.warnings.some((w) => w.code === "athena_daily_spend_cap_reached")).toBe(true);
+  });
+
+  it("never caps the fake provider, even when spend is over the cap", async () => {
+    seedSpendUsd([0.6, 0.5]);
+
+    const result = await askDraft("req-cap-fake", { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true" } as NodeJS.ProcessEnv);
+
+    expect(result.success).toBe(true);
+    expect(result.message).not.toBeNull();
+    expect(hasCapTripSpan()).toBe(false);
   });
 });

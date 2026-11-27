@@ -223,6 +223,36 @@ and the failure surfaces on the first chat call as a 502 with the safe summary
 only. Staging-first verification with a real Gemini call is required before any
 production env change; the API key is a Vercel env var only, supplied by the
 founder via the Secure Vault.
+
+## Daily Gemini spend cap (2026-11-26)
+
+The kernel enforces a daily spend cap on real Gemini drafts before any provider
+call (`app/modules/athena-kernel/spendCap.ts`, founder-approved 2026-11-26):
+`ATHENA_DAILY_SPEND_CAP_USD`, default $1.00/day (~500 drafts at ~$0.002/call).
+Spend is read from the generation-run ledger (`AthenaGenerationRun`, status
+`succeeded`, `estimatedUsd` not null) for the current UTC calendar day, per
+organization — the ledger is written unconditionally, unlike telemetry cost rows,
+which require the telemetry and cost-tracking flags. When the day's spend reaches
+the cap, the kernel returns a succeeded response with a null message and an
+`athena_daily_spend_cap_reached` warning ("Athena draft responses are paused for
+today — the daily budget has been reached. They resume tomorrow.") and never calls
+the provider; a `0` cap is a kill switch that blocks all real drafts. The fake
+provider (`ATHENA_PROVIDER_MODE=fake`) is never capped, so tests and evidence
+traffic cannot block on spend. A cap trip also emits a model/error telemetry span
+with `errorCode: "athena_daily_spend_cap_reached"` and feeds the
+`daily_spend_cap_reached` observability alert rule (severity `high`); the
+cost-spike rule (`ATHENA_ALERT_COST_SPIKE_USD_THRESHOLD`, default $10) is
+unchanged. Note: the alert evaluation pipeline is currently unscheduled (no
+workflow or cron runs `run-athena-observability-alerts.ts`), so the in-request
+telemetry span is the live cap-trip signal until that pipeline is scheduled. The
+cap check runs inside `produceDraftResponse` before every provider attempt, so a
+client retry after a provider timeout re-checks the cap and can never
+double-spend past it. Concurrent in-flight calls can overshoot the cap by
+~$0.002 each — the cap is a budget guard, not a real-time ledger. CI, unit
+tests, preview smoke checks, and evidence workflows reach no real provider spend
+(no workflow sets `GEMINI_API_KEY` or `ATHENA_PROVIDER_MODE`; the provider
+resolves to `disabled` in CI), and staging acceptance (S071/S069) deliberately
+keeps the real provider for its single live draft re-check, bounded by the cap.
 ## Patched tool input validation
 
 Athena tool inputs now use the API’s patched Zod 4 runtime. UUID-shaped inputs preserve their former accepted shapes through `z.guid()`; malformed IDs remain invalid. Explicit record schemas retain plugin metadata/action dictionary semantics. Tool permissions, confirmation policy, idempotency, audit and domain ownership remain unchanged. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.
