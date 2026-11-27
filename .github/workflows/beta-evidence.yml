@@ -128,6 +128,10 @@ jobs:
   evidence:
     name: Beta evidence ${{ inputs.mode }}
     runs-on: ubuntu-latest
+    # A hung Playwright run previously held the tradeos-beta-evidence group
+    # up to GitHub's 6 h default. 30 min bounds it: a full four-viewport
+    # run completes in ~5-9 min; anything past 30 min is stuck, not slow.
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: app
@@ -148,6 +152,10 @@ jobs:
       BETA_EXPECTED_SHA: ${{ inputs.expected_sha }}
       BETA_REQUIRE_SHA_CORRELATION: ${{ inputs.scenario == 's052' || inputs.scenario == 's053' || inputs.scenario == 'beta_pdf' || inputs.require_sha_correlation }}
       BETA_RC_DEPLOYMENT_URL: ${{ vars.BETA_RC_DEPLOYMENT_URL }}
+      # BETA_RC_DEPLOYMENT_SHA is consulted only when
+      # BETA_REQUIRE_SHA_CORRELATION is true (s052/s053/beta_pdf); the
+      # staging path ignores it and proves the SHA from live runtime
+      # identity instead. The variable is set but updated only out-of-band.
       BETA_RC_DEPLOYMENT_SHA: ${{ vars.BETA_RC_DEPLOYMENT_SHA }}
       BETA_RC_SUPABASE_PROJECT_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF }}
       # Explicit, mutually exclusive references avoid exposing the full secrets

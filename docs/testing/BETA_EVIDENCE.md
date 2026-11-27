@@ -16,9 +16,13 @@ Redirects, non-success responses, unavailable identity and any mismatch fail
 closed. Transport errors and fetched payloads are not printed.
 
 This removes the need to populate `BETA_RC_DEPLOYMENT_SHA` merely to run
-`s052`, `s053` or `beta_pdf` on staging. If that variable is supplied and conflicts,
-the resolver still refuses it. `rc-target.json` records
-`shaCorrelationSource=live-staging-web-api`. Preview correlation retains its
+staging evidence at all: on the staging path the resolver no longer
+consults the variable — it is set but updated only out-of-band (no workflow
+sets it), and a stale value used to fail every staging push before any live
+check ran. The variable is still consulted, as defence in depth, when
+`require_sha_correlation` is set (`s052`, `s053`, `beta_pdf`): if it is
+supplied there and conflicts, the resolver still refuses it.
+`rc-target.json` records `shaCorrelationSource=live-staging-web-api`. Preview correlation retains its
 existing configured-metadata path. This is live configuration/source binding,
 not proof of tenant authorization; authenticated owner/admin/inactive/foreign
 checks remain required. The orchestrator's immutable deployment and alias guards

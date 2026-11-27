@@ -56,7 +56,11 @@ permissions:
 
 concurrency:
   group: preview-database-url-drift
-  cancel-in-progress: false
+  # Read-only detector: a newer deployment's check supersedes an older
+  # one's, so cancel the stale run instead of queueing one check per
+  # deployment_status event. The daily schedule still sweeps the latest
+  # READY Preview deployments, so a cancelled run loses no coverage.
+  cancel-in-progress: true
 
 jobs:
   detect:
