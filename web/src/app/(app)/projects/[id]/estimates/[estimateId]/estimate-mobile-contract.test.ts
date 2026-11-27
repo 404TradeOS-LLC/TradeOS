@@ -303,12 +303,14 @@ test("estimate builder header shows customer and job-description identity lines 
   assert.match(builder, /className="min-w-0 truncate text-sm font-medium text-foreground">\{customerName\}/);
   assert.match(builder, /className="line-clamp-2 text-sm text-muted-foreground">\{jobDescription\}/);
 
-  // The existing version identifier and status badge are kept; no sequential
-  // estimate number is invented (none exists in the data model — Estimate
-  // carries only a uuid id and a per-project version).
-  assert.match(builder, /title=\{`Estimate v\$\{estimate\.version\}`\}/);
+  // F5-A (Billy's decision 2026-11-26): the version identifier displays as
+  // `ESTIMATE #<per-project version>` — the number shown IS the existing
+  // per-project version, so no sequential number is invented and no
+  // new-series (EST-####) format is used.
+  assert.match(builder, /title=\{`ESTIMATE #\$\{estimate\.version\}`\}/);
   assert.match(builder, /<StatusBadge status=\{estimate\.status\} \/>/);
-  assert.doesNotMatch(builder, /EST-\d+|ESTIMATE #\d+/);
+  assert.match(builder, /ESTIMATE #\$\{estimate\.version\}/);
+  assert.doesNotMatch(builder, /EST-\d+/);
 });
 
 test("review navigation waits for a pending clarification save (DES-10-F1 CodeRabbit)", async () => {

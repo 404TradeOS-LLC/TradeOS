@@ -220,7 +220,7 @@ export const loadTodayData = cache(async (includeRecentUnsigned = false): Promis
     }));
     requests.push(read("estimates", "Estimates in progress", () => listEstimateQueue(token, { status: "draft,ready", limit: LIMIT }), (queue) => {
       if (queue.nextCursor) partial("estimates", "Estimate coverage", `The first ${queue.items.length} of ${queue.total} estimates are loaded.`);
-      for (const estimate of queue.items) progress.push({ id: `estimate-${estimate.id}`, title: `${estimate.projectName} · estimate v${estimate.revision}`,
+      for (const estimate of queue.items) progress.push({ id: `estimate-${estimate.id}`, title: `${estimate.projectName} · ESTIMATE #${estimate.revision}`,
         context: [estimate.customerName, estimate.status].filter(Boolean).join(" · "), source: "Estimates", priority: "medium", assignee: null, dueAt: null,
         href: `/projects/${estimate.projectId}/estimates/${estimate.id}`, action: "Continue estimate", updatedAt: estimate.updatedAt });
     }));

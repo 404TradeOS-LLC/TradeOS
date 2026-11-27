@@ -112,14 +112,14 @@ export function NeedsAttentionCard({
                     <Row key={row.estimateId}>
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <RowHeader
-                          title={`${row.projectName} · v${row.version}`}
+                          title={`${row.projectName} · #${row.version}`}
                           subtitle={`${row.customerName} · ${formatCurrency(row.totalPrice)}`}
                         />
                         <div className="flex flex-wrap items-center gap-2">
                           <StatusBadge status={row.status} />
                           <Link
                             href={`/projects/${row.projectId}/estimates/${row.estimateId}`}
-                            aria-label={`Continue ${row.projectName} estimate v${row.version}`}
+                            aria-label={`Continue ${row.projectName} ESTIMATE #${row.version}`}
                             className={buttonVariants({ variant: "outline", size: "sm" })}
                           >
                             Continue
@@ -127,7 +127,7 @@ export function NeedsAttentionCard({
                           {row.status === "draft" ? (
                             <Link
                               href={`/projects/${row.projectId}/estimates/${row.estimateId}/assist`}
-                              aria-label={`Open AI assist for ${row.projectName} estimate v${row.version}`}
+                              aria-label={`Open AI assist for ${row.projectName} ESTIMATE #${row.version}`}
                               className={buttonVariants({ variant: "outline", size: "sm" })}
                             >
                               AI assist
