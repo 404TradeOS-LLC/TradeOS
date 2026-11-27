@@ -226,6 +226,8 @@ The read-only selected-account ABC sandbox quote (`POST /api/v1/supplier-integra
 
 [PR #1090](https://github.com/404TradeOS-LLC/TradeOS/pull/1090) merged as `69a9d0ac9430d194b6e914def1d6edde5d4867e2`. Eligible draft estimates can save a footing field note or a site-check assumption. Athena shows the answer as advisory context on explicit review of matching saved scope. The save leaves items, quantities, and totals unchanged.
 
+The Scope builder uses the **One detail to confirm** heading and **Review footing assumption** action from the canonical Scope frames (390 `286:157`, 768 `1082:29172`, 1024 `1045:28764`, 1440 `378:440`). The action appears between the server-supplied question and its pricing guidance, fills the mobile and tablet content width, and remains content-width on laptops and desktops. A saved answer is displayed under **Saved footing review** with the existing reopen action on drafts.
+
 ### Post-merge follow-up risks
 
 - **Schema and app rollout can get out of sequence.** The clarification routes and Athena draft generation for eligible scopes query the new table. Before promoting a candidate, verify `20261125120000_add_estimate_scope_clarification` is applied in the approved database ledger and the restricted API role can use the table with forced RLS. Record the matching web and API build identities and the API's database identity. Hold promotion if the evidence does not match. If application rollback is needed, keep the additive table and saved notes.

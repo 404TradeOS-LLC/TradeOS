@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,10 +12,14 @@ import {
   type EstimateScopeClarification,
 } from "@/lib/estimate-scope-clarification";
 
-export function ScopeClarificationSummary({ clarification }: { clarification: EstimateScopeClarification }) {
+export function ScopeClarificationSummary({ clarification, action }: {
+  clarification: EstimateScopeClarification;
+  action?: ReactNode;
+}) {
   return (
     <div className="space-y-1 text-sm">
       <p className="font-medium">{clarification.question}</p>
+      {action}
       {clarification.answer?.kind === "details" ? (
         <p className="whitespace-pre-wrap break-words">{clarification.answer.detail}</p>
       ) : (

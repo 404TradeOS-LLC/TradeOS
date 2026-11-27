@@ -521,6 +521,7 @@ function EstimateStageFlow({
   const proposalNewHref = `/projects/${projectId}/proposals/new?estimateId=${estimateId}${confirmedNoMatch ? "&confirmedNoMatch=1" : ""}`;
   const reviewChecklistComplete = estimate.exclusionsReviewedAt != null && estimate.priceSourcesReviewedAt != null;
   const queryClient = useQueryClient();
+  const scopeCheckHeadingId = useId();
   const clarificationKey = ["estimate-scope-clarification", estimateId, persistedScope.trim()];
   const clarification = useQuery({
     queryKey: clarificationKey,
@@ -665,21 +666,26 @@ function EstimateStageFlow({
                 Athena suggestions are review-first. Nothing is added automatically; open Athena review for deeper scope analysis.
               </div>
               {clarification.data && !scopeDirty ? (
-                <div className="space-y-2 border border-border p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-foreground">
-                    {clarification.data.answer ? "Athena understood" : "Athena / Scope check"}
-                  </p>
-                  <ScopeClarificationSummary clarification={clarification.data} />
-                  {isDraft ? <Button
-                    ref={scopeCheckTrigger}
-                    type="button"
-                    variant="outline"
-                    className="min-h-11"
-                    onClick={() => setOpenClarification(clarification.data ?? null)}
-                  >
-                    {clarification.data.answer ? "Reopen clarification" : "Answer scope question"}
-                  </Button> : null}
-                </div>
+                <section aria-labelledby={scopeCheckHeadingId} className="space-y-2 border-t border-border pt-3">
+                  <h3 id={scopeCheckHeadingId} className="font-heading text-lg font-medium">
+                    {clarification.data.answer ? "Saved footing review" : "One detail to confirm"}
+                  </h3>
+                  <ScopeClarificationSummary
+                    clarification={clarification.data}
+                    action={isDraft ? (
+                      <Button
+                        ref={scopeCheckTrigger}
+                        type="button"
+                        variant="outline"
+                        size="lg"
+                        className="min-h-11 w-full lg:w-auto"
+                        onClick={() => setOpenClarification(clarification.data ?? null)}
+                      >
+                        {clarification.data.answer ? "Reopen clarification" : "Review footing assumption"}
+                      </Button>
+                    ) : null}
+                  />
+                </section>
               ) : null}
               {clarification.isError && !scopeDirty ? (
                 <p className="text-sm text-destructive" role="alert">
