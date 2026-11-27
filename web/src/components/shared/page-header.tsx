@@ -13,7 +13,7 @@ interface PageHeaderProps {
   description?: string;
   backHref?: string;
   backLabel?: string;
-  /** Full ancestor trail (e.g. Project name -> Estimate v2), for routes
+  /** Full ancestor trail (e.g. Project name -> ESTIMATE #2), for routes
    *  nested more than one level deep. Takes precedence over backHref/backLabel
    *  when present - the last entry (the current page) should omit href. */
   breadcrumbs?: Breadcrumb[];

@@ -169,7 +169,7 @@ function workSummary(project: CustomerProjectDetail) {
     .find((item) => item.status !== "superseded");
   if (estimate) {
     return {
-      meta: `Estimate v${estimate.version} · ${estimate.status.replaceAll("_", " ")}`,
+      meta: `ESTIMATE #${estimate.version} · ${estimate.status.replaceAll("_", " ")}`,
       status: estimate.status,
       amount: estimate.totalPrice,
     };

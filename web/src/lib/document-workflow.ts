@@ -288,7 +288,7 @@ export function buildProjectActivity(project: Project & {
     events.push({
       id: estimate.id,
       title: "Estimate created",
-      description: `Estimate v${estimate.version} totals ${formatCurrency(estimate.totalPrice)}.`,
+      description: `ESTIMATE #${estimate.version} totals ${formatCurrency(estimate.totalPrice)}.`,
       at: estimate.createdAt ?? project.createdAt,
       active: true,
       category: "estimate",

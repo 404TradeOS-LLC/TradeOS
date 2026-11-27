@@ -239,7 +239,7 @@ export async function ProjectWorkspace({
                 >
                   <div>
                     <Link href={`/projects/${project.id}/estimates/${estimate.id}`} className="font-medium text-foreground hover:underline">
-                      Estimate v{estimate.version}
+                      ESTIMATE #{estimate.version}
                     </Link>
                     <div className="text-sm text-muted-foreground">
                       {estimate.status} • {formatCurrency(estimate.totalPrice)}
@@ -282,7 +282,7 @@ export async function ProjectWorkspace({
               projectName={project.name}
               customerName={customer?.name ?? null}
               estimateLabel={
-                attemptEstimate ? `Estimate v${attemptEstimate.version} · ${attemptEstimate.status}` : null
+                attemptEstimate ? `ESTIMATE #${attemptEstimate.version} · ${attemptEstimate.status}` : null
               }
               match={match ? { id: match.id } : null}
             />
@@ -544,7 +544,7 @@ export async function ProjectWorkspace({
         <div className="grid gap-6">
           <ChangeOrderCreateForm
             projectId={project.id}
-            estimateOptions={estimates.map((estimate) => ({ id: estimate.id, label: `Estimate v${estimate.version} • ${formatCurrency(estimate.totalPrice)}` }))}
+            estimateOptions={estimates.map((estimate) => ({ id: estimate.id, label: `ESTIMATE #${estimate.version} • ${formatCurrency(estimate.totalPrice)}` }))}
           />
           {changeOrders.length === 0 ? (
             <EmptyState

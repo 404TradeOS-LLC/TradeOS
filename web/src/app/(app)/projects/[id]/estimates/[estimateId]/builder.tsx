@@ -230,9 +230,9 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
   // project scope with the project job type as fallback. Either line renders
   // nothing when its source data is absent. There is no sequential estimate
   // number in the data model (Estimate carries only a uuid id and a
-  // per-project version), so no number is invented here — the title keeps
-  // the existing `Estimate v{version}` identifier and the numbering scheme
-  // (canonical vs new-series format) is a founder decision, not code.
+  // per-project version), so no number is invented here — the title shows
+  // the per-project version as `ESTIMATE #{version}` (F5-A, Billy's decision
+  // 2026-11-26; no new-series format).
   const jobDescription = persistedScope.trim() || jobType?.trim() || null;
 
   const openFullReview = () => {
@@ -262,11 +262,11 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={`Estimate v${estimate.version}`}
+        title={`ESTIMATE #${estimate.version}`}
         description="Shape the scope, price the work, and send a clear proposal from one focused workspace."
         breadcrumbs={[
           { label: projectName, href: `/projects/${projectId}` },
-          { label: `Estimate v${estimate.version}` },
+          { label: `ESTIMATE #${estimate.version}` },
         ]}
         action={
           <div className="flex min-w-0 flex-wrap items-center gap-2">

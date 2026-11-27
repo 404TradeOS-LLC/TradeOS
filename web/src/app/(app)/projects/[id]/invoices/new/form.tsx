@@ -94,7 +94,7 @@ export function NewInvoiceForm({ projectId, projectName, customerName, estimates
           </section>
           {unconfirmed && !isPending && <section className="space-y-2 rounded-lg border p-3.5" aria-label="Last submitted details">
             <h2 className="font-semibold">Last submitted details</h2>
-            <p className="text-xs text-muted-foreground">{type === "progress" ? `Progress invoice · ${percentComplete}%` : "Full invoice"}{estimateId ? ` · Estimate v${estimates.find(estimate => estimate.id === estimateId)?.version ?? ""}` : " · Manual line items"}</p>
+            <p className="text-xs text-muted-foreground">{type === "progress" ? `Progress invoice · ${percentComplete}%` : "Full invoice"}{estimateId ? ` · ESTIMATE #${estimates.find(estimate => estimate.id === estimateId)?.version ?? ""}` : " · Manual line items"}</p>
             {proposalId && <p className="text-xs text-muted-foreground">Accepted proposal pricing</p>}
             {manualMode && <ul className="space-y-1 text-xs text-muted-foreground">{lines.map((line, index) => <li key={index}>Line {index + 1} · {line.description} · {line.quantity} × ${line.unitPrice}</li>)}</ul>}
             {dueDate && <p className="text-xs text-muted-foreground">Due date · {dueDate}</p>}
@@ -118,7 +118,7 @@ export function NewInvoiceForm({ projectId, projectName, customerName, estimates
               <option value="">No estimate — manual invoice</option>
               {eligibleEstimates.map((estimate) => (
                 <option key={estimate.id} value={estimate.id}>
-                  v{estimate.version} · {estimate.status} · ${Number(estimate.totalPrice).toFixed(2)}
+                  #{estimate.version} · {estimate.status} · ${Number(estimate.totalPrice).toFixed(2)}
                 </option>
               ))}
             </SelectField>

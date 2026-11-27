@@ -148,7 +148,7 @@ export function NewProposalForm({
               <option value="">{hasEstimates ? "Use project intake only" : "No finalized estimates yet. Use project intake only."}</option>
               {eligibleEstimates.map((estimate) => (
                 <option key={estimate.id} value={estimate.id}>
-                  v{estimate.version} · {estimate.status} · ${estimate.totalPrice.toFixed(2)}
+                  #{estimate.version} · {estimate.status} · ${estimate.totalPrice.toFixed(2)}
                 </option>
               ))}
             </select>
@@ -179,7 +179,7 @@ export function NewProposalForm({
           </div>
           <p id="proposal-price-basis" className="text-sm text-muted-foreground">
             {selectedEstimate
-              ? `Uses finalized estimate v${selectedEstimate.version}'s saved total. The proposal draft is created at this fixed price; nothing is sent to the customer.`
+              ? `Uses finalized ESTIMATE #${selectedEstimate.version}'s saved total. The proposal draft is created at this fixed price; nothing is sent to the customer.`
               : "Uses the saved project intake range. This form does not set a fixed proposal price; review pricing in the created draft before sending."}
           </p>
           {(draft.missingInfo.length > 0 || draft.aiQuestions.length > 0) && (

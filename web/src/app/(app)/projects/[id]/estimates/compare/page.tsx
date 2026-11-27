@@ -81,7 +81,7 @@ export default async function EstimateComparePage({
                   >
                     {estimates.map((estimate) => (
                       <option key={estimate.id} value={estimate.id}>
-                        v{estimate.version} • {estimate.status} • {formatCurrency(estimate.totalPrice)}
+                        #{estimate.version} • {estimate.status} • {formatCurrency(estimate.totalPrice)}
                       </option>
                     ))}
                   </select>
@@ -96,7 +96,7 @@ export default async function EstimateComparePage({
                   >
                     {estimates.map((estimate) => (
                       <option key={estimate.id} value={estimate.id}>
-                        v{estimate.version} • {estimate.status} • {formatCurrency(estimate.totalPrice)}
+                        #{estimate.version} • {estimate.status} • {formatCurrency(estimate.totalPrice)}
                       </option>
                     ))}
                   </select>
@@ -210,7 +210,7 @@ function EstimateSummaryCard({
       <CardHeader className="space-y-3">
         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle>Estimate v{estimate.version}</CardTitle>
+          <CardTitle>ESTIMATE #{estimate.version}</CardTitle>
           <StatusBadge status={estimate.status} />
         </div>
       </CardHeader>
@@ -270,17 +270,17 @@ function DuplicateCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Creates the next draft version with the same line-item snapshots and pricing settings as v{estimate.version}.
+          Creates the next draft version with the same line-item snapshots and pricing settings as #{estimate.version}.
         </p>
         <form action={duplicateEstimateAction}>
           <input type="hidden" name="projectId" value={projectId} />
           <input type="hidden" name="estimateId" value={estimate.id} />
           <button type="submit" className={buttonVariants({ variant: "outline" })}>
-            Duplicate v{estimate.version}
+            Duplicate #{estimate.version}
           </button>
         </form>
         <Link href={`/projects/${projectId}/estimates/${estimate.id}`} className={buttonVariants({ variant: "ghost" })}>
-          Open v{estimate.version} in builder
+          Open #{estimate.version} in builder
         </Link>
       </CardContent>
     </Card>
