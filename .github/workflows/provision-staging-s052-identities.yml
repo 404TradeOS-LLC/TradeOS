@@ -1,0 +1,190 @@
+name: Provision staging S052 identities
+
+# Manual, staging-only provisioning of the synthetic S052 beta-evidence
+# identities (TEST Org admin + inactive member) in TradeOS Staging. This
+# workflow only ever touches the staging project qfbgdkbamfaasmtjfyru; it
+# cannot select production.
+#
+# It creates app rows (public.users + public.organization_memberships) for
+# auth users that already exist in staging Supabase Auth. It never sets or
+# reads passwords: Supabase Auth owns credentials, and the inactive-member
+# flip (is_active false -> true -> false) plus the password reset remain
+# founder steps. It never deletes anything.
+#
+# Idempotent: safe to re-run (for example after a staging database
+# restore). Re-runs never change is_active: the user INSERT uses
+# ON CONFLICT DO NOTHING, so a deliberate founder flip is never reverted
+# by this workflow. The inactive member is created with is_active=false;
+# the admin is created with is_active=true and role admin.
+#
+# Foreign tenant: the canonical tenant-isolation probes need only the
+# foreign resource IDs (already recorded as secrets) and the smoke
+# identity, so no foreign membership is required for them. Creating an
+# estimate inside the foreign org needs a foreign admin member; pass its
+# email as the foreign_owner_email input and the workflow provisions that
+# membership too (role admin, is_active=true). Without the input, the
+# foreign step is skipped and reported as pending founder input.
+
+on:
+  workflow_dispatch:
+    inputs:
+      foreign_owner_email:
+        description: "Optional: foreign tenant owner email to provision in the foreign org (leave blank to skip the foreign membership)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provision-staging-s052-identities
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    name: Provision S052 identities in TradeOS Staging
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 15
+    env:
+      DATABASE_ADMIN_URL: ${{ secrets.STAGING_DATABASE_ADMIN_URL }}
+      STAGING_PROJECT_REF: qfbgdkbamfaasmtjfyru
+      FOREIGN_OWNER_EMAIL: ${{ inputs.foreign_owner_email }}
+    steps:
+      - name: Verify staging database identity
+        run: |
+          test -n "$DATABASE_ADMIN_URL" || {
+            echo "::error::Configure STAGING_DATABASE_ADMIN_URL in the staging GitHub Environment."
+            exit 1
+          }
+          node --input-type=module <<'NODE'
+          let url;
+          try {
+            url = new URL(process.env.DATABASE_ADMIN_URL);
+          } catch {
+            console.error("STAGING_DATABASE_ADMIN_URL is not a valid PostgreSQL URL.");
+            process.exit(1);
+          }
+          const directHost = `db.${process.env.STAGING_PROJECT_REF}.supabase.co`;
+          const poolerHost = "aws-0-us-east-2.pooler.supabase.com";
+          const poolerUsername = decodeURIComponent(url.username);
+          const directMatch = url.hostname === directHost &&
+            (url.port === "" || url.port === "5432");
+          const poolerMatch = url.hostname === poolerHost &&
+            (url.port === "5432" || url.port === "6543") &&
+            /^[a-zA-Z_][a-zA-Z0-9_]*\.[a-z0-9]{20}$/.test(poolerUsername) &&
+            poolerUsername.endsWith("." + process.env.STAGING_PROJECT_REF);
+          if (!["postgres:", "postgresql:"].includes(url.protocol) ||
+              url.pathname !== "/postgres" || !(directMatch || poolerMatch)) {
+            console.error("Refusing provisioning: STAGING_DATABASE_ADMIN_URL is not a verified staging database identity (direct host or pooler with project-ref username).");
+            process.exit(1);
+          }
+          console.log(`Verified staging database host ${url.hostname}; credentials were not printed.`);
+          NODE
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Precheck auth users exist
+        run: |
+          set -euo pipefail
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          auth_count="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT count(*) FROM auth.users
+            WHERE id IN ('e5456b6f-597c-4b0b-a6de-480a51413e68', 'c8b81cf8-81c2-43e8-bf6d-07d4584eeea6')
+          ")"
+          if [ "$auth_count" != "2" ]; then
+            echo "::error::Expected both S052 auth users in staging Auth (inactive e5456b6f + admin c8b81cf8); found $auth_count. Do not invent accounts; provision the auth users first."
+            exit 1
+          fi
+          echo "Both S052 auth users exist in staging Auth."
+
+      - name: Provision TEST Org identities
+        run: |
+          set -euo pipefail
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
+          BEGIN;
+          -- Inactive member: starts is_active=false (the lockout proof needs
+          -- a deactivated member). ON CONFLICT DO NOTHING so a later founder
+          -- flip is never reverted by a re-run.
+          INSERT INTO public.users (auth_subject, email, full_name, is_active)
+          VALUES ('e5456b6f-597c-4b0b-a6de-480a51413e68', 'staytrue201+beta-s052-inactive@gmail.com', 'Synthetic Beta Inactive', false)
+          ON CONFLICT (auth_subject) DO NOTHING;
+          -- Admin: active, role admin (the S052 harness asserts role admin
+          -- in TEST Org for this identity).
+          INSERT INTO public.users (auth_subject, email, full_name, is_active)
+          VALUES ('c8b81cf8-81c2-43e8-bf6d-07d4584eeea6', 'staytrue201+beta-s052-admin@gmail.com', 'Synthetic Beta Admin', true)
+          ON CONFLICT (auth_subject) DO NOTHING;
+          -- Memberships in TEST Org d86d0874-6ba3-4b06-94b6-bd0ae99fe532.
+          -- Inactive member role is technician (least-privilege member role;
+          -- the harness asserts denial, not a role, for this identity).
+          INSERT INTO public.organization_memberships (org_id, user_id, role, status)
+          SELECT 'd86d0874-6ba3-4b06-94b6-bd0ae99fe532', u.id, 'technician', 'active'
+          FROM public.users u WHERE u.auth_subject = 'e5456b6f-597c-4b0b-a6de-480a51413e68'
+          ON CONFLICT (org_id, user_id) DO NOTHING;
+          INSERT INTO public.organization_memberships (org_id, user_id, role, status)
+          SELECT 'd86d0874-6ba3-4b06-94b6-bd0ae99fe532', u.id, 'admin', 'active'
+          FROM public.users u WHERE u.auth_subject = 'c8b81cf8-81c2-43e8-bf6d-07d4584eeea6'
+          ON CONFLICT (org_id, user_id) DO NOTHING;
+          COMMIT;
+          SQL
+          echo "TEST Org identity rows provisioned (or already present)."
+
+      - name: Provision foreign membership (only with input)
+        run: |
+          set -euo pipefail
+          if [ -z "${FOREIGN_OWNER_EMAIL:-}" ]; then
+            echo "No foreign_owner_email input; skipping foreign membership. It remains pending founder input."
+            exit 0
+          fi
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -v foreign_email="$FOREIGN_OWNER_EMAIL" <<'SQL'
+          BEGIN;
+          -- Resolve the foreign owner's auth id from staging Auth by email.
+          -- Fails the workflow (no rows inserted) when no such auth user exists.
+          INSERT INTO public.users (auth_subject, email, full_name, is_active)
+          SELECT a.id::text, :'foreign_email', 'Synthetic Foreign Owner', true
+          FROM auth.users a WHERE a.email = :'foreign_email'
+          ON CONFLICT (auth_subject) DO NOTHING;
+          INSERT INTO public.organization_memberships (org_id, user_id, role, status)
+          SELECT '68c044da-b214-489a-bf8a-351695d32119', u.id, 'admin', 'active'
+          FROM public.users u WHERE u.email = :'foreign_email'
+          ON CONFLICT (org_id, user_id) DO NOTHING;
+          COMMIT;
+          SQL
+          foreign_count="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT count(*) FROM public.organization_memberships m
+            JOIN public.users u ON u.id = m.user_id
+            WHERE m.org_id = '68c044da-b214-489a-bf8a-351695d32119' AND u.email = '$FOREIGN_OWNER_EMAIL'
+          ")"
+          if [ "$foreign_count" != "1" ]; then
+            echo "::error::Foreign membership was not created for $FOREIGN_OWNER_EMAIL (count=$foreign_count). Check that an auth user with that email exists in staging Auth."
+            exit 1
+          fi
+          echo "Foreign membership provisioned for $FOREIGN_OWNER_EMAIL."
+
+      - name: Verify provisioned identities
+        run: |
+          set -euo pipefail
+          PSQL_ADMIN_URL="${DATABASE_ADMIN_URL%%\?*}"
+          echo "TEST Org S052 identities:"
+          psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -c "
+            SELECT u.email, u.auth_subject, u.is_active, m.role, m.status
+            FROM public.users u
+            JOIN public.organization_memberships m ON m.user_id = u.id
+            WHERE m.org_id = 'd86d0874-6ba3-4b06-94b6-bd0ae99fe532'
+              AND u.auth_subject IN ('e5456b6f-597c-4b0b-a6de-480a51413e68', 'c8b81cf8-81c2-43e8-bf6d-07d4584eeea6')
+            ORDER BY u.email
+          "
+          provisioned="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT count(*) FROM public.users u
+            JOIN public.organization_memberships m ON m.user_id = u.id
+            WHERE m.org_id = 'd86d0874-6ba3-4b06-94b6-bd0ae99fe532'
+              AND u.auth_subject IN ('e5456b6f-597c-4b0b-a6de-480a51413e68', 'c8b81cf8-81c2-43e8-bf6d-07d4584eeea6')
+          ")"
+          if [ "$provisioned" != "2" ]; then
+            echo "::error::Expected both S052 identities provisioned in TEST Org; found $provisioned."
+            exit 1
+          fi
+          echo "Verified both S052 identities provisioned in TEST Org."
