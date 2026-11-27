@@ -420,10 +420,12 @@ export function evaluateGate(snapshot, opts = {}) {
 
   if (snapshot?.isDraft) {
     reasons.push("PR is a draft; drafts never merge.");
-    nextActions.push("Complete the implementation and required evidence, then surface as ready-to-undraft for the founder.");
-    founderItems.push(
-      `PR #${snapshot?.number ?? "?"}: undraft decision is founder-only; undraft only when READY.`,
-    );
+    // Standing authorization (2026-11-26, docs/REPOSITORY_GOVERNANCE.md):
+    // undrafting a READY PR is an agent-lane decision, not founder-only.
+    // The Commander has no undraft write path — it escalates the decision
+    // to an agent lane. Undrafting a non-READY draft stays gated. Verdict
+    // stays BLOCKED: a draft never merges.
+    nextActions.push("Complete the implementation and required evidence, then route the undraft decision to an agent lane under the standing authorization; undraft only when the PR meets the READY checklist.");
     demote("BLOCKED");
   }
 
