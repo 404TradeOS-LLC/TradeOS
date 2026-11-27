@@ -3668,6 +3668,221 @@ describe("live organization row-level security", () => {
     });
   });
 
+  // ABC shared catalog, Phase 1 (issue #735). The four catalog tables are
+  // org-less reference data: any authenticated org can read, no org can
+  // write, and only a transaction that sets the ingestion flag (the
+  // Phase 2 importer, run through the background session) can write.
+  // Fixtures live only for this block — afterAll removes every row this
+  // block created — so no later test sees them. The migration-seeded
+  // global ABC Supply supplier row is permanent seed data and is NOT
+  // removed here (it is asserted readable, never writable, by tenants).
+  describe("abc shared catalog RLS (issue #735, Phase 1)", () => {
+    const globalAbcSupplierId = "73500001-0000-4000-8000-000000000001";
+    const catalogItemNumber = "ABC-RLS-ITEM-001";
+    const catalogItemNumber2 = "ABC-RLS-ITEM-002";
+    const catalogHierarchyPath = "PG-RLS/CA-RLS/PT-RLS/MC-RLS/WA-RLS/BL-RLS";
+    const catalogHash = "e".repeat(64);
+    const catalogHash2 = "f".repeat(64);
+
+    afterAll(async () => {
+      await adminClient.abcCatalogSyncState.deleteMany({ where: { id: "abc-catalog" } });
+      await adminClient.abcCatalogSyncRun.deleteMany({ where: { correlationId: "rls-phase1-fixture" } });
+      await adminClient.abcCatalogHierarchy.deleteMany({ where: { pathKey: catalogHierarchyPath } });
+      await adminClient.abcCatalogItem.deleteMany({ where: { itemNumber: { in: [catalogItemNumber, catalogItemNumber2, "ABC-RLS-NODELETE-001"] } } });
+    });
+
+    async function seedCatalogItem(itemNumber: string, hash: string): Promise<void> {
+      await adminClient.abcCatalogItem.create({
+        data: {
+          itemNumber,
+          description: "RLS fixture item",
+          manufacturer: "Fixture Manufacturer",
+          familyName: "Fixture Family",
+          status: "Active",
+          contentHash: hash,
+          hierarchyPath: [{ level: "productGroup", code: "PG-RLS", label: "Fixture Group" }],
+        },
+      });
+    }
+
+    async function inCatalogIngestionSession<T>(operation: () => Promise<T>): Promise<T> {
+      return runWithBackgroundDatabaseSession(
+        appClient,
+        { jobName: "abc-catalog-import", orgId: orgA, userId: adminUser },
+        async () => {
+          await currentTransaction().$queryRaw(
+            Prisma.sql`select set_config('app.abc_catalog_ingestion', 'true', true)`,
+          );
+          return operation();
+        },
+      );
+    }
+
+    it("reads the shared catalog globally: both tenants see the same item, hierarchy, run, and global supplier", async () => {
+      await seedCatalogItem(catalogItemNumber, catalogHash);
+      await adminClient.abcCatalogHierarchy.create({
+        data: {
+          pathKey: catalogHierarchyPath,
+          level1Code: "PG-RLS",
+          level1Label: "Fixture Group",
+          levels: [{ level: "productGroup", code: "PG-RLS", label: "Fixture Group" }],
+        },
+      });
+      const run = await adminClient.abcCatalogSyncRun.create({
+        data: { kind: "full", status: "succeeded", correlationId: "rls-phase1-fixture" },
+      });
+      await adminClient.abcCatalogSyncState.create({
+        data: { id: "abc-catalog", lastSuccessfulRunId: run.id, lastSeenTotalItems: 1, lastSeenTotalPages: 1 },
+      });
+
+      const seenByOrgA = await inSession(adminUser, orgA, "admin", () =>
+        currentTransaction().abcCatalogItem.findUnique({ where: { itemNumber: catalogItemNumber } }),
+      );
+      const seenByOrgB = await inSession(otherUser, orgB, "owner", () =>
+        currentTransaction().abcCatalogItem.findUnique({ where: { itemNumber: catalogItemNumber } }),
+      );
+      expect(seenByOrgA?.itemNumber).toBe(catalogItemNumber);
+      expect(seenByOrgB?.itemNumber).toBe(catalogItemNumber);
+      expect(seenByOrgB?.description).toBe("RLS fixture item");
+
+      const hierarchyByOrgB = await inSession(otherUser, orgB, "owner", () =>
+        currentTransaction().abcCatalogHierarchy.findUnique({ where: { pathKey: catalogHierarchyPath } }),
+      );
+      expect(hierarchyByOrgB?.pathKey).toBe(catalogHierarchyPath);
+
+      const runByOrgB = await inSession(otherUser, orgB, "owner", () =>
+        currentTransaction().abcCatalogSyncRun.findUnique({ where: { id: run.id } }),
+      );
+      expect(runByOrgB?.correlationId).toBe("rls-phase1-fixture");
+
+      const stateByOrgB = await inSession(otherUser, orgB, "owner", () =>
+        currentTransaction().abcCatalogSyncState.findUnique({ where: { id: "abc-catalog" } }),
+      );
+      expect(stateByOrgB?.lastSuccessfulRunId).toBe(run.id);
+
+      // The global ABC Supply supplier row is readable by both orgs.
+      const supplierByOrgA = await inSession(adminUser, orgA, "admin", () =>
+        currentTransaction().supplier.findUnique({ where: { id: globalAbcSupplierId } }),
+      );
+      const supplierByOrgB = await inSession(otherUser, orgB, "owner", () =>
+        currentTransaction().supplier.findUnique({ where: { id: globalAbcSupplierId } }),
+      );
+      expect(supplierByOrgA).toMatchObject({ orgId: null, name: "ABC Supply", apiIntegrationKey: "ABC_SUPPLY" });
+      expect(supplierByOrgB).toMatchObject({ orgId: null, name: "ABC Supply", apiIntegrationKey: "ABC_SUPPLY" });
+    });
+
+    it("denies direct tenant writes without the ingestion flag", async () => {
+      await seedCatalogItem(catalogItemNumber2, catalogHash2);
+      await expect(
+        inSession(adminUser, orgA, "admin", () =>
+          currentTransaction().$queryRaw(Prisma.sql`
+            insert into abc_catalog_items (item_number, description, status, content_hash)
+            values ('ABC-RLS-DIRECT', 'direct write attempt', 'Active', ${"a".repeat(64)})
+          `),
+        ),
+      ).rejects.toThrow(/row-level security/);
+      // UPDATE/DELETE under RLS do NOT throw: a row the session's policy
+      // hides is silently skipped, so the denial is proven by effect —
+      // zero rows affected — not by an error (same split as the
+      // codes_source test above).
+      const updated = await inSession(adminUser, orgA, "admin", () =>
+        currentTransaction().$executeRaw(Prisma.sql`
+          update abc_catalog_items set description = 'direct edit' where item_number = ${catalogItemNumber2}
+        `),
+      );
+      expect(updated).toBe(0);
+      const deleted = await inSession(adminUser, orgA, "admin", () =>
+        currentTransaction().$executeRaw(Prisma.sql`
+          delete from abc_catalog_items where item_number = ${catalogItemNumber2}
+        `),
+      );
+      expect(deleted).toBe(0);
+      await expect(
+        inSession(adminUser, orgA, "admin", () =>
+          currentTransaction().$queryRaw(Prisma.sql`
+            insert into abc_catalog_hierarchy (path_key, levels)
+            values ('DIRECT/WRITE/ATTEMPT', '[]'::jsonb)
+          `),
+        ),
+      ).rejects.toThrow(/row-level security/);
+      await expect(
+        inSession(adminUser, orgA, "admin", () =>
+          currentTransaction().$queryRaw(Prisma.sql`
+            insert into abc_catalog_sync_runs (kind, status) values ('full', 'running')
+          `),
+        ),
+      ).rejects.toThrow(/row-level security/);
+      // The denied writes changed nothing.
+      const stillThere = await inSession(otherUser, orgB, "owner", () =>
+        currentTransaction().abcCatalogItem.findUnique({ where: { itemNumber: catalogItemNumber2 } }),
+      );
+      expect(stillThere?.description).toBe("RLS fixture item");
+
+      // The global supplier row is read-only to tenants: an org admin
+      // cannot update it (org_id NULL never matches the session org).
+      const supplierUpdated = await inSession(adminUser, orgA, "admin", () =>
+        currentTransaction().$executeRaw(Prisma.sql`
+          update suppliers set name = 'Tenant edit' where id = ${globalAbcSupplierId}::uuid
+        `),
+      );
+      expect(supplierUpdated).toBe(0);
+      const supplierStillThere = await inSession(otherUser, orgB, "owner", () =>
+        currentTransaction().supplier.findUnique({ where: { id: globalAbcSupplierId } }),
+      );
+      expect(supplierStillThere?.name).toBe("ABC Supply");
+    });
+
+    it("allows writes under the ingestion flag inside a background session", async () => {
+      const run = await inCatalogIngestionSession(() =>
+        currentTransaction().abcCatalogSyncRun.create({
+          data: { kind: "delta", status: "running", correlationId: "rls-phase1-fixture" },
+        }),
+      );
+      expect(run.kind).toBe("delta");
+      const item = await inCatalogIngestionSession(() =>
+        currentTransaction().abcCatalogItem.create({
+          data: {
+            itemNumber: "ABC-RLS-INGEST-001",
+            description: "Ingested item",
+            manufacturer: "Ingest Manufacturer",
+            status: "Active",
+            contentHash: "b".repeat(64),
+          },
+        }),
+      );
+      expect(item.itemNumber).toBe("ABC-RLS-INGEST-001");
+      await inCatalogIngestionSession(() =>
+        currentTransaction().abcCatalogItem.update({
+          where: { itemNumber: "ABC-RLS-INGEST-001" },
+          data: { description: "Ingested item (updated)" },
+        }),
+      );
+      // The ingested row is immediately visible to an ordinary tenant read.
+      const seenByOrgB = await inSession(otherUser, orgB, "owner", () =>
+        currentTransaction().abcCatalogItem.findUnique({ where: { itemNumber: "ABC-RLS-INGEST-001" } }),
+      );
+      expect(seenByOrgB?.description).toBe("Ingested item (updated)");
+      // Cleanup for the rows this test created (the block afterAll only
+      // covers the named fixtures).
+      await adminClient.abcCatalogItem.delete({ where: { itemNumber: "ABC-RLS-INGEST-001" } });
+      await adminClient.abcCatalogSyncRun.delete({ where: { id: run.id } });
+    });
+
+    it("denies deletes even under the ingestion flag: catalog rows are soft-deactivated, never hard-deleted", async () => {
+      await seedCatalogItem("ABC-RLS-NODELETE-001", "c".repeat(64));
+      const deleted = await inCatalogIngestionSession(() =>
+        currentTransaction().$executeRaw(Prisma.sql`
+          delete from abc_catalog_items where item_number = 'ABC-RLS-NODELETE-001'
+        `),
+      );
+      expect(deleted).toBe(0);
+      const stillThere = await inSession(adminUser, orgA, "admin", () =>
+        currentTransaction().abcCatalogItem.findUnique({ where: { itemNumber: "ABC-RLS-NODELETE-001" } }),
+      );
+      expect(stillThere?.itemNumber).toBe("ABC-RLS-NODELETE-001");
+    });
+  });
+
   // DES-10-F8: live RLS coverage for proposal_selections and
   // proposal_allowances. The migration tests only inspect SQL strings and
   // the service tests mock Prisma, so neither proves tenant isolation,

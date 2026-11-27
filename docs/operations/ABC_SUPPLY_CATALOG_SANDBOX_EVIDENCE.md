@@ -94,3 +94,69 @@ A green CI run with mocked provider responses does **not** satisfy the live gate
 Before Phase 1 changes any schema, record the available Supabase disk headroom and a capacity budget that includes indexes and room for refreshes. Reconcile the written shared-reference-copy permission recorded on #735 with the proposed retention, searchable display, images, and delta checkpoints before enabling those uses. Require migration rehearsal and database-backed access tests showing that shared reference reads grant no access to another tenant's data or pricing, and that ordinary tenant roles cannot write the shared catalog. PRs #1125 and #1129 add no persistence, tenant access, migrations, or RLS changes; these checks apply to the future importer.
 
 <!-- /coderabbit-ai-generated:v1 -->
+
+## Phase 1 — schema + RLS (issue #735)
+
+Phase 1 (migration `20261127010000_add_abc_shared_catalog`) resolves the
+Phase 1 gates listed above, except the Supabase headroom check, which stays
+open (see below). No importer code exists yet; the four catalog tables are
+empty after the migration and the Phase 2 importer fills them.
+
+- **Migration rehearsal: done.** Rehearsed on a disposable local Postgres
+  16 cluster (trust auth, no credentials): all 91 migrations applied
+  cleanly via `prisma migrate deploy`; tables verified empty; the global
+  supplier row seeded exactly once with an idempotent re-insert; RLS
+  enabled + forced with all 17 policies present; live RLS behavior
+  spot-checked as a non-superuser role (tenant read sees rows, tenant
+  INSERT fails 42501, tenant UPDATE/DELETE affect 0 rows, flag-session
+  INSERT/UPDATE succeed, DELETE still affects 0 rows). The rehearsal
+  caught one real bug before the PR: the partial unique index predicate
+  did not match the `ON CONFLICT` specification (`42P10`); the index
+  predicate was simplified to `WHERE org_id IS NULL`.
+- **Database-backed access tests: done.** `app/tests/rls.integration.ts`
+  ("abc shared catalog RLS") proves against a live database: any org can
+  read items, hierarchy, sync runs, sync state, and the global supplier
+  row; no org can write any catalog table (INSERT 42501, UPDATE/DELETE 0
+  rows) or update the global supplier row; the background session can
+  write under the `app.abc_catalog_ingestion` flag; DELETE is denied even
+  under the flag. `app/tests/abcCatalog.migration.test.ts` guards the
+  migration shape (org-less tables, no price column, forced RLS,
+  ingestion-only writes, global supplier seed).
+- **Hierarchy decision: table, not view.** `abc_catalog_hierarchy` is a
+  real table because hierarchy is seeded from its own endpoint
+  (9,059 paths per Phase 0), a view over items would miss paths with no
+  imported item yet, and hierarchy browse needs its own index
+  (`path_key` PK + GIN on `levels`). Empty level nodes (8 per level in
+  the Phase 0 sample) collapse to `''` in `path_key` and are preserved in
+  `levels`; they do not fail the import. Phase 1 does not need complete
+  hierarchy — it stores paths as returned and browse tolerates partial
+  paths — so the #1130 question (confirm with ABC which missing fields
+  are expected) is deferred to Phase 4 browse if it ever needs complete
+  hierarchy, not answered here. The Penny questions about empty
+  hierarchy nodes and 0-populated `branches` need no answer for Phase 1:
+  the schema stores what the provider returns and Phase 2 does not use
+  `branches` (availability is a live per-user check, never stored).
+- **Global supplier row: migration-seeded.** One global (org-less) ABC
+  Supply row, fixed id `73500001-0000-4000-8000-000000000001`,
+  `apiIntegrationKey` `ABC_SUPPLY`, idempotent `ON CONFLICT`. A partial
+  unique index guarantees at most one global row per integration key, and
+  `suppliers_global_select_policy` makes org-less rows readable by any
+  authenticated session. The per-org ABC rows and
+  `ABC_SUPPLY_SANDBOX_SUPPLIER_ID` in the pricing lane are untouched
+  until Phase 5 adoption switches to the global row.
+- **Capacity headroom: still OPEN.** No Supabase connector exists in this
+  environment and no plan/limit record exists in the repo, so no disk
+  figure was guessed. Exact check before the Phase 2 import: in the
+  Supabase dashboard for refs `kssaceuetdjwfqnbzhly` (prod) and
+  `qfbgdkbamfaasmtjfyru` (staging), Settings → Database → disk usage vs
+  the plan's included storage, confirming ≥ ~2 GB free for the 0.53–1.32
+  GB catalog (Phase 0 estimate, before indexes) plus trigram/GIN indexes
+  and refresh headroom. Record the numbers on #735 when the check runs.
+- **Permission reconciliation:** the stored-field list is exactly the
+  allowed reference fields (item number, description, manufacturer,
+  hierarchy, UOMs, dimensions, plus the directly attached reference
+  fields the Product API returns); no prices, no images (none served
+  today), no availability/branches, no redistribution outside TradeOS.
+  Retention is soft-deactivation only — rows are never hard-deleted, so a
+  purge on ABC's direction (if ever required) is a deliberate Phase 6
+  operation, not an automatic one.
