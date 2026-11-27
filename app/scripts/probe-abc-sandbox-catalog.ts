@@ -73,6 +73,47 @@ export interface AbcCatalogPhase0Summary {
 
 type CatalogPageReader = Pick<AbcCatalogClient, "list">;
 type Phase0CatalogReader = Pick<AbcCatalogClient, "listRaw" | "listHierarchyRaw">;
+type TailCatalogReader = Pick<AbcCatalogClient, "listRaw">;
+
+/**
+ * Tail probe (#735) summary: counts only, per requested page.
+ * No item numbers, names, descriptions, or any provider payload content
+ * leaves this function — duplicates are counted, never listed.
+ */
+export interface AbcCatalogTailPageSummary {
+  pageNumber: number;
+  itemsReturned: number;
+  uniqueItemNumbers: number;
+  duplicateItemNumbers: number;
+  itemsWithoutIdentity: number;
+  activeItems: number;
+  inactiveItems: number;
+  otherStatusItems: number;
+  latencyMs: number;
+  providerTotalItems: number;
+  providerTotalPages: number;
+}
+
+export interface AbcCatalogTailProbeSummary {
+  status: "verified_sandbox_tail_pages";
+  provider: "ABC Supply";
+  environment: "sandbox";
+  productScope: "product.read";
+  itemsPerPage: 1000;
+  pagesProbed: number[];
+  providerReportedTotalItems: number;
+  providerReportedTotalPages: number;
+  totalItemsReturned: number;
+  totalUniqueItemNumbers: number;
+  totalDuplicateItemNumbers: number;
+  pages: AbcCatalogTailPageSummary[];
+  storedProducts: 0;
+  providerPricingRequested: false;
+}
+
+/** Tail probe bounds: at most 10 arbitrary pages, at the importer's 1000/page. */
+const TAIL_PROBE_MAX_PAGES = 10;
+const TAIL_PROBE_ITEMS_PER_PAGE = 1000;
 
 /** Fixed Phase 0 bounds: three full pages at the documented 1000/page max, plus one hierarchy page. */
 const PHASE0_PAGES = 3;
@@ -465,21 +506,149 @@ function censusHierarchyLevels(
   }
 }
 
-async function main(): Promise<void> {
-  // No arbitrary URLs, SKUs, accounts, branch numbers, tokens, or response bodies
-  // are accepted as input. The operator can only opt into a second bounded page
-  // or the fixed Phase 0 three-page census.
-  const arg = process.argv[2];
-  if (process.argv.length > 3 ||
-      (arg !== undefined && arg !== "--two-pages" && arg !== "--phase0")) {
+/**
+ * Parses a comma-separated tail-page list ("257,258,259") into sorted,
+ * deduplicated page numbers. Anything else is an invalid probe argument.
+ */
+export function parseTailPages(value: string): number[] {
+  const parts = value.split(",").map((part) => part.trim());
+  if (parts.length < 1 || parts.some((part) => part.length === 0)) {
     throw new Error("invalid_probe_arguments");
   }
+  const pages = parts.map((part) => Number(part));
+  if (pages.length > TAIL_PROBE_MAX_PAGES ||
+      pages.some((page) => !Number.isInteger(page) || page < 1)) {
+    throw new Error("invalid_probe_arguments");
+  }
+  return [...new Set(pages)].sort((a, b) => a - b);
+}
+
+/**
+ * Tail probe (#735): re-reads explicit catalog pages in isolation through
+ * the importer's own read path (`listRaw`, `familyItems: false`, 1000/page)
+ * to diagnose the final-page shortfall two full imports hit identically
+ * (page 259 returning 491 items against provider totals 258,494/259).
+ * A repeated isolated 491 means the listing holds 258,491 items while
+ * `totalItems` reports 258,494; a repeated 494 means transient pagination
+ * instability. Per-page counts, uniqueness, and status split only — never
+ * item content. A duplicate identity across the probed pages is reported,
+ * not failed: the probe exists to describe the provider's pagination,
+ * including any repeat, and a throw would hide the counts that diagnose it.
+ * Provider totals drifting across pages still fail the probe.
+ */
+export async function probeAbcCatalogTailPages(
+  client: TailCatalogReader,
+  pageNumbers: number[],
+  options: { now?: () => number } = {},
+): Promise<AbcCatalogTailProbeSummary> {
+  const now = options.now ?? Date.now;
+  if (pageNumbers.length < 1 || pageNumbers.length > TAIL_PROBE_MAX_PAGES ||
+      pageNumbers.some((page) => !Number.isInteger(page) || page < 1)) {
+    throw new Error("invalid_probe_arguments");
+  }
+  const pages: AbcCatalogTailPageSummary[] = [];
+  let providerTotalItems: number | null = null;
+  let providerTotalPages: number | null = null;
+  let totalItemsReturned = 0;
+  let totalDuplicateItemNumbers = 0;
+  const seen = new Set<string>();
+
+  for (const pageNumber of [...pageNumbers].sort((a, b) => a - b)) {
+    const startedAt = now();
+    const page = await client.listRaw({ pageNumber, itemsPerPage: TAIL_PROBE_ITEMS_PER_PAGE, familyItems: false });
+    const latencyMs = now() - startedAt;
+    const pagination = page.pagination;
+
+    if (page.environment !== "sandbox" || page.source !== "ABC Supply" ||
+      page.persisted !== false || page.pricing !== "not-requested" ||
+      pagination.pageNumber !== pageNumber || pagination.itemsPerPage !== TAIL_PROBE_ITEMS_PER_PAGE) {
+      throw new Error("catalog_probe_contract_mismatch");
+    }
+
+    if (providerTotalItems === null) {
+      providerTotalItems = pagination.totalItems;
+      providerTotalPages = pagination.totalPages;
+      if (providerTotalItems < 1 || providerTotalPages < 1) {
+        throw new Error("catalog_probe_empty_first_page");
+      }
+    } else if (providerTotalItems !== pagination.totalItems ||
+               providerTotalPages !== pagination.totalPages) {
+      throw new Error("catalog_probe_pagination_drift");
+    }
+
+    let uniqueItemNumbers = 0;
+    let duplicateItemNumbers = 0;
+    let itemsWithoutIdentity = 0;
+    let activeItems = 0;
+    let inactiveItems = 0;
+    let otherStatusItems = 0;
+    for (const item of page.items) {
+      if (!isNonEmptyString(item.itemNumber)) itemsWithoutIdentity++;
+      else if (seen.has(item.itemNumber)) duplicateItemNumbers++;
+      else { seen.add(item.itemNumber); uniqueItemNumbers++; }
+      const status = typeof item.status === "string" ? item.status.toLowerCase() : "";
+      if (status === "active") activeItems++;
+      else if (status === "inactive") inactiveItems++;
+      else otherStatusItems++;
+    }
+    totalItemsReturned += page.items.length;
+    totalDuplicateItemNumbers += duplicateItemNumbers;
+    pages.push({
+      pageNumber,
+      itemsReturned: page.items.length,
+      uniqueItemNumbers,
+      duplicateItemNumbers,
+      itemsWithoutIdentity,
+      activeItems,
+      inactiveItems,
+      otherStatusItems,
+      latencyMs,
+      providerTotalItems,
+      providerTotalPages,
+    });
+  }
+
+  if (providerTotalItems === null || providerTotalPages === null) {
+    throw new Error("catalog_probe_missing_pagination");
+  }
+
+  return {
+    status: "verified_sandbox_tail_pages",
+    provider: "ABC Supply",
+    environment: "sandbox",
+    productScope: "product.read",
+    itemsPerPage: TAIL_PROBE_ITEMS_PER_PAGE,
+    pagesProbed: pages.map((page) => page.pageNumber),
+    providerReportedTotalItems: providerTotalItems,
+    providerReportedTotalPages: providerTotalPages,
+    totalItemsReturned,
+    totalUniqueItemNumbers: seen.size,
+    totalDuplicateItemNumbers,
+    pages,
+    storedProducts: 0,
+    providerPricingRequested: false,
+  };
+}
+
+async function main(): Promise<void> {
+  // No arbitrary URLs, SKUs, accounts, branch numbers, tokens, or response bodies
+  // are accepted as input. The operator can only opt into a second bounded page,
+  // the fixed Phase 0 three-page census, or an explicit tail-page list
+  // (--tail-pages 257,258,259) for the #735 final-page diagnosis.
+  const arg = process.argv[2];
+  const isTailProbe = arg === "--tail-pages";
+  if (process.argv.length > (isTailProbe ? 4 : 3) ||
+      (arg !== undefined && arg !== "--two-pages" && arg !== "--phase0" && !isTailProbe)) {
+    throw new Error("invalid_probe_arguments");
+  }
+  const tailPages = isTailProbe ? parseTailPages(process.argv[3] ?? "") : null;
   const config = loadAbcSupplyAuthConfig();
   if (!config) throw new Error("missing_sandbox_client_credentials");
-  // Phase 0 reads 1000-item pages, which exceed the 12 s interactive timeout
-  // (a 25-item page was once observed taking ~29 s). The probe gets a 120 s
-  // per-request budget with 2 attempts; the workflow allows 20 minutes.
-  const client = arg === "--phase0"
+  // Phase 0 and the tail probe read 1000-item pages, which exceed the 12 s
+  // interactive timeout (a 25-item page was once observed taking ~29 s). The
+  // probe gets a 120 s per-request budget with 2 attempts; the workflow
+  // allows 20 minutes.
+  const client = (arg === "--phase0" || isTailProbe)
     ? new AbcCatalogClient(
       { clientId: config.clientId, clientSecret: config.clientSecret },
       fetch, Date.now, undefined, { requestTimeoutMs: 120_000, maxAttempts: 2 },
@@ -488,6 +657,13 @@ async function main(): Promise<void> {
       clientId: config.clientId,
       clientSecret: config.clientSecret,
     });
+  if (isTailProbe) {
+    const result = await probeAbcCatalogTailPages(client, tailPages as number[]);
+    // Metadata, counts, and latencies only. No item numbers, names,
+    // descriptions, tokens, or raw response.
+    process.stdout.write(JSON.stringify(result) + "\n");
+    return;
+  }
   if (arg === "--phase0") {
     const result = await probeAbcSandboxCatalogPhase0(client);
     // Metadata, counts, latencies, and census tallies only. No item numbers,
