@@ -463,6 +463,25 @@ describe("abc catalog full import (issue #735, Phase 2)", () => {
     expect(fake.calls.supplierProduct).not.toHaveBeenCalled();
   });
 
+  it("dry-run logs per-page progress so a stall leaves a signal", async () => {
+    const fake = createFakeDb();
+    const pages = [
+      { items: [rawItem("ABC-601"), rawItem("ABC-602", { status: "Inactive" })], totalItems: 2, totalPages: 1 },
+    ];
+    const lines: string[] = [];
+    const report = await runImport(fake, fakeCatalog(pages), {
+      dryRun: true,
+      log: (line: string) => {
+        lines.push(line);
+      },
+    });
+    expect(report.status).toBe("succeeded");
+    // Counts only — no item content, tokens, or payloads in the lines.
+    expect(lines).toContain("[abc-catalog-import] hierarchy page 1/1 counted (dry run): 1 paths seen");
+    expect(lines).toContain("[abc-catalog-import] page 1/1 counted (dry run): seen 2, +2/~0");
+    expect(lines.some((line) => line.includes("dry run headroom ok"))).toBe(true);
+  });
+
   it("aborts as partial on provider total drift with the checkpoint preserved", async () => {
     const fake = createFakeDb();
     const drifting = fakeCatalog([

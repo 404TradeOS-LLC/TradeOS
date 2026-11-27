@@ -958,6 +958,10 @@ async function runDryCount(
       headroomErrorMessage(freeBytes, usedBytes, capacityRaw),
     );
   }
+  // Dry runs were silent: no per-page lines at all, so a stall (run
+  // 45926477998, ~113 min with no output) left no signal about where it
+  // stopped. Log progress like the write path does — counts only.
+  deps.log(`[abc-catalog-import] dry run headroom ok: ${(usedBytes / 1048576).toFixed(1)} MB used, ${(freeBytes / 1048576).toFixed(1)} MB free`);
 
   let providerTotalItems: number | null = null;
   let providerTotalPages: number | null = null;
@@ -997,6 +1001,7 @@ async function runDryCount(
           report.hierarchyUpdated += 1;
         }
       }
+      deps.log(`[abc-catalog-import] hierarchy page ${pageNumber}/${totals.totalPages} counted (dry run): ${report.hierarchyPathsSeen} paths seen`);
       pageNumber += 1;
     }
   };
@@ -1070,6 +1075,7 @@ async function runDryCount(
     }
     report.pagesProcessed += 1;
     report.itemsSeen += page.items.length;
+    deps.log(`[abc-catalog-import] page ${pageNumber}/${providerTotalPages ?? "?"} counted (dry run): seen ${report.itemsSeen}, +${report.itemsAdded}/~${report.itemsUpdated}`);
     pageNumber += 1;
   }
   // A bounded dry run is a partial count, not a completed one: the report

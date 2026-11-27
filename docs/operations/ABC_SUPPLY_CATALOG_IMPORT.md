@@ -74,6 +74,18 @@ Environment: `ABC_SUPPLY_SANDBOX_CLIENT_ID` /
 (counts only). Progress goes to stderr. Exit codes: `0` succeeded,
 `2` partial (bounded stop or provider drift — resumable), `1` failed.
 
+Progress logging: every pass logs one stderr line per hierarchy page and
+per item page (counts only — `hierarchy page X/Y counted (dry run)` /
+`page X/Y counted (dry run)` for dry runs, `page X/Y committed` for
+writes), so a stall leaves a last-known page in the log. The workflow
+tees the CLI's stderr to the live step log as well as to a file;
+previously the log was only printed after the CLI exited, so a stalled
+run showed nothing until it was cancelled (run 45926477998 stalled
+~113 min with no output). If the CLI exits without writing a report,
+the workflow's validation now fails with the CLI's exit code and points
+at the `ABC shared-catalog import failed: <code>` line instead of a
+bare JSON SyntaxError.
+
 ## The recommended sequence for a first full import
 
 1. **Dry-run, bounded:** dispatch with `dry_run = true`, `max_pages = 3`.
