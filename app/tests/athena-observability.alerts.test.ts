@@ -20,9 +20,7 @@ const mockPrisma = {
     count: jest.fn(),
     findMany: jest.fn(),
   },
-  athenaGenerationRun: {
-    findMany: jest.fn(),
-  },
+  $queryRaw: jest.fn(),
 };
 
 const runWithBackgroundDatabaseSession = jest.fn((_client: unknown, _input: unknown, operation: () => unknown) => operation());
@@ -83,7 +81,7 @@ beforeEach(() => {
   mockPrisma.athenaAlert.findMany.mockResolvedValue([]);
   mockPrisma.athenaTelemetryRecordRow.count.mockResolvedValue(0);
   mockPrisma.athenaTelemetryRecordRow.findMany.mockResolvedValue([]);
-  mockPrisma.athenaGenerationRun.findMany.mockResolvedValue([]);
+  mockPrisma.$queryRaw.mockResolvedValue([{ spend_usd: { toNumber: () => 0 } }]);
   mockGetOverviewMetrics.mockResolvedValue(healthyOverview());
   mockGetToolMetrics.mockResolvedValue([]);
   mockGetModelMetrics.mockResolvedValue([]);
@@ -227,10 +225,7 @@ describe("evaluateAthenaAlerts", () => {
   it("fires daily_spend_cap_reached when generation-run spend reaches the daily cap", async () => {
     process.env.ATHENA_DAILY_SPEND_CAP_USD = "1";
     try {
-      mockPrisma.athenaGenerationRun.findMany.mockResolvedValue([
-        { estimatedUsd: { toNumber: () => 0.6 } },
-        { estimatedUsd: { toNumber: () => 0.5 } },
-      ]);
+      mockPrisma.$queryRaw.mockResolvedValue([{ spend_usd: { toNumber: () => 1.1 } }]);
       const evaluations = await evaluateAthenaAlerts(ORG);
       const evaluation = evaluations.find((e) => e.ruleId === "daily_spend_cap_reached");
       expect(evaluation?.firing).toBe(true);
@@ -244,7 +239,7 @@ describe("evaluateAthenaAlerts", () => {
   it("does not fire daily_spend_cap_reached when spend is below the cap", async () => {
     process.env.ATHENA_DAILY_SPEND_CAP_USD = "1";
     try {
-      mockPrisma.athenaGenerationRun.findMany.mockResolvedValue([{ estimatedUsd: { toNumber: () => 0.5 } }]);
+      mockPrisma.$queryRaw.mockResolvedValue([{ spend_usd: { toNumber: () => 0.5 } }]);
       const evaluations = await evaluateAthenaAlerts(ORG);
       expect(evaluations.find((e) => e.ruleId === "daily_spend_cap_reached")?.firing).toBe(false);
     } finally {

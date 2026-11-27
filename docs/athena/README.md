@@ -230,9 +230,18 @@ The kernel enforces a daily spend cap on real Gemini drafts before any provider
 call (`app/modules/athena-kernel/spendCap.ts`, founder-approved 2026-11-26):
 `ATHENA_DAILY_SPEND_CAP_USD`, default $1.00/day (~500 drafts at ~$0.002/call).
 Spend is read from the generation-run ledger (`AthenaGenerationRun`, status
-`succeeded`, `estimatedUsd` not null) for the current UTC calendar day, per
-organization — the ledger is written unconditionally, unlike telemetry cost rows,
-which require the telemetry and cost-tracking flags. When the day's spend reaches
+`succeeded` or `failed` with non-null `estimatedUsd`) for the current UTC
+calendar day, per organization — the ledger is written unconditionally, unlike
+telemetry cost rows, which require the telemetry and cost-tracking flags.
+The read goes through `public.athena_org_daily_spend_usd` (migration
+`20261127050000_add_athena_org_daily_spend`), a read-only STABLE SECURITY
+DEFINER function: the generation-runs SELECT policy is actor-scoped, so a
+plain read would give every non-admin actor a separate budget, and the
+function instead sums the whole org from the caller's session org, raising
+42501 unless the requested org equals the session org. Failed rows count too:
+a safety-blocked or empty Gemini response still consumes input tokens, and
+the kernel persists those as failed rows with their usage, so blocked
+attempts cannot burn spend the cap cannot see. When the day's spend reaches
 the cap, the kernel returns a succeeded response with a null message and an
 `athena_daily_spend_cap_reached` warning ("Athena draft responses are paused for
 today — the daily budget has been reached. They resume tomorrow.") and never calls

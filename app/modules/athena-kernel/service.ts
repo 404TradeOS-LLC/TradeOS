@@ -27,7 +27,7 @@ import { AthenaKernelError, athenaValidationError, normalizeAthenaError } from "
 import { getAthenaFlags } from "./flags";
 import { assertTransition, getMaxRoundTrips, nextRoundTripCount } from "./lifecycle";
 import { classifyAthenaCapability, evaluateAthenaPolicy } from "./policy";
-import { AthenaProviderAdapter, GoogleGeminiAthenaProvider, resolveAthenaProvider } from "./provider";
+import { AthenaProviderAdapter, GEMINI_DEFAULT_MODEL, GoogleGeminiAthenaProvider, resolveAthenaProvider } from "./provider";
 import { getDailySpendStatus, parseDailySpendCapUsd } from "./spendCap";
 import { buildTelemetryRecord, recordAthenaTelemetry } from "./telemetry";
 import { AthenaActorContext, AthenaAIContext, AthenaCancellationReason, AthenaKernelRequest, AthenaKernelResult, AthenaKernelState, AthenaTelemetryCost, AthenaToolError, AthenaVoiceConfirmationChallenge } from "./types";
@@ -676,7 +676,8 @@ export class AthenaKernelService {
       provider: string;
       model: string;
       providerVersion?: string;
-      status: "succeeded";
+      status: "succeeded" | "failed";
+      failureCode?: string;
       inputTokens?: number;
       outputTokens?: number;
       estimatedUsd?: number;
@@ -757,6 +758,40 @@ export class AthenaKernelService {
     } catch (error) {
       const errorCode = error instanceof AthenaAbortedError ? `athena_${error.reason}` : error instanceof AthenaKernelError ? error.code : "unknown";
       await input.emitSpan("model", "error", Date.now() - modelStart, { errorCode });
+      // Chargeable failed attempt (Codex P2 on PR #1144): a safety-blocked
+      // or empty Gemini response still consumed input tokens, and the
+      // provider carries that usage on the thrown error. Persist it as a
+      // 'failed' generation row so the daily spend cap counts it — otherwise
+      // repeated blocked attempts would burn spend the breaker cannot see.
+      // Best-effort only: a persist failure must never mask the provider
+      // error itself, so it is swallowed here (the error span above already
+      // recorded the failure).
+      if (error instanceof AthenaKernelError && error.estimatedUsd !== undefined && error.estimatedUsd > 0 && input.provider instanceof GoogleGeminiAthenaProvider) {
+        try {
+          await persistGenerationWithinDeadline(
+            () =>
+              input.persistGeneration({
+                provider: "google",
+                model: error.model ?? GEMINI_DEFAULT_MODEL,
+                status: "failed",
+                failureCode: error.code,
+                inputTokens: error.inputTokens,
+                outputTokens: error.outputTokens,
+                estimatedUsd: error.estimatedUsd,
+                latencyMs: Date.now() - modelStart,
+                provenance: { source: "athena_kernel", executionState: "failed" },
+                retentionExpiresAt: new Date(Date.now() + input.generationRetentionDays * 24 * 60 * 60 * 1000),
+                completedAt: new Date(),
+              }),
+            input.deadline,
+            input.signal,
+            input.abort,
+            input.getCancellationReason
+          );
+        } catch {
+          // Swallowed deliberately: see the comment above.
+        }
+      }
       if (error instanceof AthenaAbortedError) throw error;
       if (input.signal.aborted) throw new AthenaAbortedError(input.getCancellationReason() ?? "shutdown");
       throw error;

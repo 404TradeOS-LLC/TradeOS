@@ -314,6 +314,17 @@ and checked before every provider attempt, including retries after a provider
 timeout. The fake provider is exempt, so test traffic cannot be blocked — and
 CI/test/evidence paths never hold a real key or a `google` provider mode, so no
 spend can originate there.
+
+The org-wide read is deliberately narrow: `public.athena_org_daily_spend_usd`
+(migration `20261127050000_add_athena_org_daily_spend`) is a read-only STABLE
+SECURITY DEFINER function, following the `app_job_belongs_to_caller_org`
+precedent. The generation-runs SELECT policy is actor-scoped, so a plain read
+would hand every non-admin actor a separate budget; the function instead sums
+the caller's session org and raises 42501 unless the requested org equals the
+session org — it can never return another org's spend, and a call with no
+session org raises instead of silently returning 0. It is left with the
+default PUBLIC execute grant (migrations run before role provisioning); it
+reveals only the org's aggregate spend, never per-actor rows.
 ## Validation runtime dependency repair
 
 Zod 4.6.7 replaces vulnerable validation code, including the nested Vercel validator through `$zod`. Constrained oversized collections reject before element parsing in the regression test. GUID parsing preserves existing identifier syntax only; tool grants, server-side record checks, approval gates, idempotency and forced tenant RLS are unchanged. Production code does not use the bundled Zod 3 compatibility entry point. See `docs/architecture/API_VALIDATION_RUNTIME_UPGRADE.md` for dependency versions, verification and rollback.

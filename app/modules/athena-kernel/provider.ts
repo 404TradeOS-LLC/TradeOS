@@ -94,8 +94,22 @@ interface GeminiGenerateContentResponse {
   modelVersion?: string;
 }
 
-function geminiEmptyResponseError(): AthenaKernelError {
-  return athenaServiceError("Athena could not complete this request.", "athena_provider_empty_response");
+function geminiEmptyResponseError(usage?: { inputTokens?: number; outputTokens?: number; estimatedUsd?: number; model?: string }): AthenaKernelError {
+  // A blocked/empty response still consumed input tokens, so the chargeable
+  // usage rides on the error: the kernel persists it as a failed generation
+  // row so the daily spend cap counts it instead of burning spend
+  // invisibly. The usage never reaches the caller (normalizeAthenaError
+  // drops it); only the safe summary is surfaced.
+  return new AthenaKernelError({
+    code: "athena_provider_empty_response",
+    category: "service",
+    retryable: false,
+    safeSummary: "Athena could not complete this request.",
+    inputTokens: usage?.inputTokens,
+    outputTokens: usage?.outputTokens,
+    estimatedUsd: usage?.estimatedUsd,
+    model: usage?.model,
+  });
 }
 
 // Renders the minimal A1 context into a compact block: role, selected-scope
@@ -211,18 +225,12 @@ export class GoogleGeminiAthenaProvider implements AthenaProviderAdapter {
     try {
       payload = (await response.json()) as GeminiGenerateContentResponse;
     } catch {
-      throw geminiEmptyResponseError();
+      throw geminiEmptyResponseError({ model: this.model });
     }
-    const candidate = payload.candidates?.[0];
-    if (payload.promptFeedback?.blockReason) throw geminiEmptyResponseError();
-    if (candidate?.finishReason && GEMINI_BLOCKED_FINISH_REASONS.has(candidate.finishReason)) throw geminiEmptyResponseError();
-    const text = (candidate?.content?.parts ?? [])
-      .map((part) => (typeof part.text === "string" ? part.text : ""))
-      .join("");
-    if (!text) throw geminiEmptyResponseError();
-    // STOP is a complete reply; MAX_TOKENS is a success with truncated text.
-    // Any other finish reason is a fail-closed empty response.
-    if (candidate?.finishReason !== "STOP" && candidate?.finishReason !== "MAX_TOKENS") throw geminiEmptyResponseError();
+    // Usage is extracted before the empty/blocked checks below: a blocked
+    // response still carries usageMetadata, and that spend must ride on the
+    // thrown error (see geminiEmptyResponseError) so the kernel can persist
+    // it. The success path below reuses the same numbers.
     const usage = payload.usageMetadata;
     const inputTokens = typeof usage?.promptTokenCount === "number" ? usage.promptTokenCount : undefined;
     const outputTokens =
@@ -234,6 +242,17 @@ export class GoogleGeminiAthenaProvider implements AthenaProviderAdapter {
         ? (inputTokens * GEMINI_USD_PER_MILLION_INPUT_TOKENS) / 1_000_000 +
           (outputTokens * GEMINI_USD_PER_MILLION_OUTPUT_TOKENS) / 1_000_000
         : undefined;
+    const chargeableUsage = { inputTokens, outputTokens, estimatedUsd, model: this.model };
+    const candidate = payload.candidates?.[0];
+    if (payload.promptFeedback?.blockReason) throw geminiEmptyResponseError(chargeableUsage);
+    if (candidate?.finishReason && GEMINI_BLOCKED_FINISH_REASONS.has(candidate.finishReason)) throw geminiEmptyResponseError(chargeableUsage);
+    const text = (candidate?.content?.parts ?? [])
+      .map((part) => (typeof part.text === "string" ? part.text : ""))
+      .join("");
+    if (!text) throw geminiEmptyResponseError(chargeableUsage);
+    // STOP is a complete reply; MAX_TOKENS is a success with truncated text.
+    // Any other finish reason is a fail-closed empty response.
+    if (candidate?.finishReason !== "STOP" && candidate?.finishReason !== "MAX_TOKENS") throw geminiEmptyResponseError(chargeableUsage);
     return {
       text,
       provider: "google",

@@ -186,6 +186,24 @@ describe("GoogleGeminiAthenaProvider", () => {
     }
   });
 
+  it("carries chargeable usage on a safety-blocked response so the spend cap can count it", async () => {
+    // successPayload carries usageMetadata (2900 prompt / 300 candidates /
+    // 50 thoughts tokens); a SAFETY finish still consumed those tokens.
+    global.fetch = jest.fn(async () =>
+      geminiOkResponse(successPayload({ candidates: [{ content: { parts: [{ text: "Blocked text." }] }, finishReason: "SAFETY" }] }))
+    ) as unknown as typeof fetch;
+    let caught: unknown;
+    try {
+      await provider().generateDraft({ message: "hello", signal: new AbortController().signal, deadline: new Date(Date.now() + 5_000) });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(AthenaKernelError);
+    expect(caught).toMatchObject({ code: "athena_provider_empty_response", inputTokens: 2900, outputTokens: 350, model: GEMINI_DEFAULT_MODEL });
+    // (2900 x $0.30 + 350 x $2.50) / 1M = $0.001745.
+    expect((caught as AthenaKernelError).estimatedUsd).toBeCloseTo(0.001745);
+  });
+
   it("refuses to respond once its signal is aborted, typed as a cancellation", async () => {
     const controller = new AbortController();
     controller.abort();

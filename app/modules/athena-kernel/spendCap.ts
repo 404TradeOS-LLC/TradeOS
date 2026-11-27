@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
 
 // Daily Gemini spend cap for Athena drafts (founder-approved 2026-11-26).
@@ -15,12 +16,25 @@ import { prisma } from "../../db/client";
 //   all real drafts (kill switch); an unset/invalid/negative value falls
 //   back to the default.
 // - Spend is read from the Athena generation-run ledger
-//   (athena_generation_runs): every successful model call persists a run
+//   (athena_generation_runs): every chargeable model call persists a run
 //   with estimatedUsd, unconditionally - unlike the telemetry cost rows,
 //   which are only written when ATHENA_TELEMETRY_ENABLED and
-//   ATHENA_COST_TRACKING_ENABLED are both on. A generation run exists
-//   exactly when Gemini returned text, so the ledger is the money-spent
-//   record. Fake-provider runs carry no estimatedUsd and never count.
+//   ATHENA_COST_TRACKING_ENABLED are both on. Successful drafts persist a
+//   'succeeded' run; safety-blocked/empty responses persist a 'failed' run
+//   with their input-token usage, so blocked attempts count instead of
+//   burning spend invisibly. Fake-provider runs carry no estimatedUsd and
+//   never count.
+// - The read goes through public.athena_org_daily_spend_usd (migration
+//   20261127050000_add_athena_org_daily_spend), a read-only STABLE
+//   SECURITY DEFINER function — NOT a plain generation-runs query. The
+//   generation-runs SELECT policy is actor-scoped (admins see all rows,
+//   other members see only their own), so a plain read would give every
+//   non-admin actor a separate budget. The function sums the whole org
+//   from the caller's session org and raises 42501 unless the requested
+//   org equals the session org, so a technician's cap check sees the
+//   org-wide total and no caller can read another org's spend. Cap-check
+//   DB errors (including that 42501) propagate — the draft fails rather
+//   than calling the provider uncapped.
 // - The check runs in the kernel (service.ts produceDraftResponse) before
 //   EVERY real provider attempt, including client-level retries: the
 //   kernel never re-fires generateDraft inside one request, so each retry
@@ -28,11 +42,8 @@ import { prisma } from "../../db/client";
 //   attempts can overshoot slightly (each sees the spend as of its own
 //   read, ~$0.002 per in-flight call) - the cap is a budget guard, not a
 //   real-time ledger.
-// - The cap is per org because the spend ledger is org-scoped and the
-//   kernel only ever queries through the RLS-scoped prisma proxy; summing
-//   across orgs would need a service-role bypass the codebase deliberately
-//   avoids. With one real org per environment the per-org cap is the
-//   effective global cap.
+// - The cap is per org because the spend ledger is org-scoped; with one
+//   real org per environment the per-org cap is the effective global cap.
 
 export const ATHENA_DAILY_SPEND_CAP_ENV_VAR = "ATHENA_DAILY_SPEND_CAP_USD";
 export const ATHENA_DEFAULT_DAILY_SPEND_CAP_USD = 1;
@@ -60,18 +71,14 @@ export interface AthenaDailySpendStatus {
 
 export async function getDailySpendStatus(input: { orgId: string; capUsd: number; now?: Date }): Promise<AthenaDailySpendStatus> {
   const { start, end } = getUtcDayWindow(input.now ?? new Date());
-  const rows = await prisma.athenaGenerationRun.findMany({
-    where: {
-      orgId: input.orgId,
-      status: "succeeded",
-      createdAt: { gte: start, lt: end },
-      estimatedUsd: { not: null },
-    },
-    select: { estimatedUsd: true },
-  });
-  let spentUsd = 0;
-  for (const row of rows) {
-    spentUsd += row.estimatedUsd?.toNumber() ?? 0;
-  }
+  // Org-wide sum via the SECURITY DEFINER function (see the header comment):
+  // a plain findMany would be actor-scoped for non-admins. The function
+  // raises 42501 unless the requested org equals the session org; that
+  // error propagates so the draft fails closed instead of spending uncapped.
+  const rows = await prisma.$queryRaw<{ spend_usd: Prisma.Decimal | number }[]>(
+    Prisma.sql`select public.athena_org_daily_spend_usd(${input.orgId}::uuid, ${start}, ${end}) as spend_usd`
+  );
+  const raw = rows[0]?.spend_usd;
+  const spentUsd = raw == null ? 0 : typeof raw === "number" ? raw : raw.toNumber();
   return { spentUsd, capUsd: input.capUsd, reached: spentUsd >= input.capUsd, dayStartUtc: start };
 }
