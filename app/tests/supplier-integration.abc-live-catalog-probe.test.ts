@@ -1,4 +1,4 @@
-import { probeAbcSandboxCatalog, probeAbcSandboxCatalogPhase0, classifyProbeError } from "../scripts/probe-abc-sandbox-catalog";
+import { probeAbcSandboxCatalog, probeAbcSandboxCatalogPhase0, probeAbcCatalogTailPages, parseTailPages, classifyProbeError } from "../scripts/probe-abc-sandbox-catalog";
 import type { AbcCatalogItem, AbcCatalogPage, AbcCatalogRawItem, AbcCatalogRawPage } from "../modules/supplier-integration/abcCatalog";
 
 function product(itemNumber: string): AbcCatalogItem {
@@ -332,6 +332,99 @@ describe("Phase 0 ABC sandbox catalog census — three 1000-item pages (#735)", 
       "category:missing-label": 1,
       "hierarchy:not-object:string": 1,
     });
+  });
+});
+
+describe("tail probe — isolated re-read of explicit catalog pages (#735)", () => {
+  function raw(itemNumber: string, overrides: Record<string, unknown> = {}): AbcCatalogRawItem {
+    return { itemNumber, status: "Active", ...overrides } as AbcCatalogRawItem;
+  }
+
+  function rawPage(pageNumber: number, totalPages: number, totalItems: number, items: AbcCatalogRawItem[]): AbcCatalogRawPage {
+    return {
+      items,
+      pagination: { itemsPerPage: 1000, pageNumber, totalItems, totalPages },
+      source: "ABC Supply", environment: "sandbox",
+      pricing: "not-requested", persisted: false,
+    };
+  }
+
+  function manyItems(prefix: string, count: number): AbcCatalogRawItem[] {
+    return Array.from({ length: count }, (_, i) => raw(`${prefix}-${i}`));
+  }
+
+  it("re-reads the tail through the importer's read path and reports a short final page instead of failing", async () => {
+    // Live evidence (runs 45942558600 / 45950018661): two full imports hit
+    // page 259 returning 491 items against totals 258,494/259. The probe
+    // must report that shape, not fail on it.
+    const client = {
+      listRaw: jest.fn()
+        .mockResolvedValueOnce(rawPage(257, 259, 258494, manyItems("P257", 1000)))
+        .mockResolvedValueOnce(rawPage(258, 259, 258494, manyItems("P258", 1000)))
+        .mockResolvedValueOnce(rawPage(259, 259, 258494, manyItems("P259", 491))),
+    };
+    const ticks = [0, 19000, 19000, 38000, 38000, 54000];
+    const summary = await probeAbcCatalogTailPages(client, [257, 258, 259], { now: () => ticks.shift() as number });
+
+    expect(client.listRaw).toHaveBeenNthCalledWith(1, { pageNumber: 257, itemsPerPage: 1000, familyItems: false });
+    expect(client.listRaw).toHaveBeenNthCalledWith(2, { pageNumber: 258, itemsPerPage: 1000, familyItems: false });
+    expect(client.listRaw).toHaveBeenNthCalledWith(3, { pageNumber: 259, itemsPerPage: 1000, familyItems: false });
+    expect(summary).toMatchObject({
+      status: "verified_sandbox_tail_pages", environment: "sandbox",
+      productScope: "product.read", itemsPerPage: 1000,
+      pagesProbed: [257, 258, 259],
+      providerReportedTotalItems: 258494, providerReportedTotalPages: 259,
+      totalItemsReturned: 2491, totalUniqueItemNumbers: 2491, totalDuplicateItemNumbers: 0,
+      storedProducts: 0, providerPricingRequested: false,
+    });
+    expect(summary.pages).toEqual([
+      expect.objectContaining({ pageNumber: 257, itemsReturned: 1000, uniqueItemNumbers: 1000, duplicateItemNumbers: 0, activeItems: 1000, latencyMs: 19000 }),
+      expect.objectContaining({ pageNumber: 258, itemsReturned: 1000, uniqueItemNumbers: 1000, duplicateItemNumbers: 0, latencyMs: 19000 }),
+      expect.objectContaining({ pageNumber: 259, itemsReturned: 491, uniqueItemNumbers: 491, duplicateItemNumbers: 0, latencyMs: 16000 }),
+    ]);
+    // Counts only — no item numbers escape into the summary.
+    expect(JSON.stringify(summary)).not.toContain("P257-0");
+    expect(JSON.stringify(summary)).not.toContain("P259-490");
+  });
+
+  it("counts duplicates across probed pages instead of failing", async () => {
+    const client = {
+      listRaw: jest.fn()
+        .mockResolvedValueOnce(rawPage(258, 259, 258494, [raw("SHARED"), raw("ONLY-258")]))
+        .mockResolvedValueOnce(rawPage(259, 259, 258494, [raw("SHARED"), raw("ONLY-259")])),
+    };
+    const summary = await probeAbcCatalogTailPages(client, [258, 259], { now: () => 0 });
+    expect(summary.totalItemsReturned).toBe(4);
+    expect(summary.totalUniqueItemNumbers).toBe(3);
+    expect(summary.totalDuplicateItemNumbers).toBe(1);
+    expect(summary.pages[1]).toMatchObject({ pageNumber: 259, itemsReturned: 2, uniqueItemNumbers: 1, duplicateItemNumbers: 1 });
+    expect(JSON.stringify(summary)).not.toContain("SHARED");
+  });
+
+  it("fails when provider totals drift across probed pages", async () => {
+    const drifting = {
+      listRaw: jest.fn()
+        .mockResolvedValueOnce(rawPage(257, 259, 258494, [raw("A")]))
+        .mockResolvedValueOnce(rawPage(258, 259, 258493, [raw("B")])),
+    };
+    await expect(probeAbcCatalogTailPages(drifting, [257, 258])).rejects.toThrow("catalog_probe_pagination_drift");
+  });
+
+  it("parseTailPages validates, sorts, and deduplicates the page list", () => {
+    expect(parseTailPages("259,257,258")).toEqual([257, 258, 259]);
+    expect(parseTailPages("257, 257")).toEqual([257]);
+    expect(parseTailPages("259")).toEqual([259]);
+    for (const bad of ["", "0", "abc", "257,,258", "257.5", "-1",
+      "1,2,3,4,5,6,7,8,9,10,11"]) {
+      expect(() => parseTailPages(bad)).toThrow("invalid_probe_arguments");
+    }
+  });
+
+  it("rejects an empty or invalid page list", async () => {
+    const client = { listRaw: jest.fn() };
+    await expect(probeAbcCatalogTailPages(client, [])).rejects.toThrow("invalid_probe_arguments");
+    await expect(probeAbcCatalogTailPages(client, [0])).rejects.toThrow("invalid_probe_arguments");
+    expect(client.listRaw).not.toHaveBeenCalled();
   });
 });
 
