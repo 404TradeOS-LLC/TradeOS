@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import {
   ABC_CATALOG_IMPORT_MIN_FREE_BYTES,
   AbcCatalogImportError,
+  expectedPageItemCount,
   hierarchyPathKey,
   mapCatalogItem,
   mapHierarchyLevels,
@@ -9,7 +10,7 @@ import {
   type AbcCatalogImportCatalog,
   type AbcCatalogImportReport,
 } from "../modules/supplier-integration/abcCatalogImport";
-import { classifyImportError, parseArgs } from "../scripts/run-abc-catalog-import";
+import { classifyImportError, parseArgs, sanitizeReportForStdout } from "../scripts/run-abc-catalog-import";
 
 // Unit tests for the Phase 2 importer (issue #735). The database is an
 // in-memory fake implementing exactly the Prisma calls the service makes;
@@ -102,6 +103,7 @@ function createFakeDb(opts: { usedBytes?: bigint } = {}): FakeDb {
   const failUpsertOnce = { current: false };
   const tx: Record<string, any> = {
     $queryRaw: jest.fn(async () => []),
+    $executeRaw: jest.fn(async () => 1),
     abcCatalogItem: {
       findMany: jest.fn(async ({ where }: any) => {
         const numbers: string[] = where?.itemNumber?.in ?? [];
@@ -328,6 +330,16 @@ describe("abc catalog import mapping (issue #735, Phase 2)", () => {
       mapCatalogItem(rawItem("ABC-005", { uoms: [{ code: "BD", unitPrice: 12.5 }] }) as never),
     ).toThrow(AbcCatalogImportError);
   });
+
+  it("refuses a price-like key nested deeper than any fixed scan depth", () => {
+    // Eleven nested `meta` objects put `unitPrice` past the depth a
+    // capped scan would reach; the scan must cover the whole value.
+    let deep: Record<string, unknown> = { unitPrice: 1 };
+    for (let i = 0; i < 11; i++) deep = { meta: deep };
+    expect(() =>
+      mapCatalogItem(rawItem("ABC-006", { uoms: [deep] }) as never),
+    ).toThrow(AbcCatalogImportError);
+  });
 });
 
 describe("abc catalog full import (issue #735, Phase 2)", () => {
@@ -465,6 +477,120 @@ describe("abc catalog full import (issue #735, Phase 2)", () => {
     expect(fake.items.size).toBe(1);
   });
 
+  it("computes the expected page count only when the totals fit the 1000-item contract", () => {
+    expect(expectedPageItemCount(1, 258494, 259)).toBe(1000);
+    expect(expectedPageItemCount(259, 258494, 259)).toBe(494);
+    expect(expectedPageItemCount(1, 1000, 1)).toBe(1000);
+    expect(expectedPageItemCount(1, 1500, 2)).toBe(1000);
+    expect(expectedPageItemCount(2, 1500, 2)).toBe(500);
+    // Totals that cannot come from 1000-item pages have no baseline.
+    expect(expectedPageItemCount(1, 3, 2)).toBeNull();
+    expect(expectedPageItemCount(2, 3, 2)).toBeNull();
+  });
+
+  it("aborts as partial on a truncated non-final page, checkpoint preserved", async () => {
+    const fake = createFakeDb();
+    const fullPage = Array.from({ length: 1000 }, (_, i) => rawItem(`ABC-S${String(i).padStart(4, "0")}`));
+    const shortPage = Array.from({ length: 500 }, (_, i) => rawItem(`ABC-T${String(i).padStart(4, "0")}`));
+    const catalog = fakeCatalog([
+      { items: fullPage, totalItems: 2500, totalPages: 3 },
+      { items: shortPage, totalItems: 2500, totalPages: 3 },
+      { items: shortPage, totalItems: 2500, totalPages: 3 },
+    ]);
+    const report = await runImport(fake, catalog);
+    expect(report.status).toBe("partial");
+    expect(report.error).toMatch(/catalog_import_short_page/);
+    expect(report.checkpointPage).toBe(1);
+    expect(report.itemsSeen).toBe(1000);
+    expect(fake.items.size).toBe(1000);
+  });
+
+  it("aborts as partial when the only page is short of the stated total", async () => {
+    const fake = createFakeDb();
+    const catalog = fakeCatalog([
+      { items: [rawItem("ABC-S001")], totalItems: 1000, totalPages: 1 },
+    ]);
+    const report = await runImport(fake, catalog);
+    expect(report.status).toBe("partial");
+    expect(report.error).toMatch(/catalog_import_short_page/);
+    expect(report.checkpointPage).toBe(0);
+    expect(report.itemsSeen).toBe(0);
+    expect(fake.items.size).toBe(0);
+  });
+
+  it("accepts a short final page that matches the stated total", async () => {
+    const fake = createFakeDb();
+    const fullPage = Array.from({ length: 1000 }, (_, i) => rawItem(`ABC-U${String(i).padStart(4, "0")}`));
+    const finalPage = Array.from({ length: 500 }, (_, i) => rawItem(`ABC-V${String(i).padStart(4, "0")}`));
+    const catalog = fakeCatalog([
+      { items: fullPage, totalItems: 1500, totalPages: 2 },
+      { items: finalPage, totalItems: 1500, totalPages: 2 },
+    ]);
+    const report = await runImport(fake, catalog);
+    expect(report.status).toBe("succeeded");
+    expect(report.itemsSeen).toBe(1500);
+    expect(report.checkpointPage).toBe(2);
+  });
+
+  it("dry-run bounded by max-pages ends partial with a bounded stop", async () => {
+    const fake = createFakeDb();
+    const pages = [
+      { items: [rawItem("ABC-W01")], totalItems: 2, totalPages: 2 },
+      { items: [rawItem("ABC-W02")], totalItems: 2, totalPages: 2 },
+    ];
+    const report = await runImport(fake, fakeCatalog(pages), { dryRun: true, maxPages: 1 });
+    expect(report.status).toBe("partial");
+    expect(report.error).toMatch(/catalog_import_bounded_stop/);
+    expect(report.itemsSeen).toBe(1);
+    expect(report.runId).toBeNull();
+    expect(fake.items.size).toBe(0);
+    expect(fake.runs.size).toBe(0);
+  });
+
+  it("revalidates page 1 when resuming a run that failed before any page committed", async () => {
+    const fake = createFakeDb();
+    const empty = fakeCatalog([{ items: [], totalItems: 0, totalPages: 0 }]);
+    await expect(runImport(fake, empty)).rejects.toMatchObject({
+      code: "catalog_import_empty_provider_response",
+    });
+    const failed = [...fake.runs.values()].find((row) => row.status === "failed");
+    expect(failed?.checkpointPage).toBe(0);
+    expect(failed?.providerTotalItems).toBe(0);
+    // Without the revalidation, the resume would restore totals 0/0, skip
+    // every item page, and succeed vacuously.
+    const resumed = await runImport(
+      fake,
+      fakeCatalog([{ items: [rawItem("ABC-X01")], totalItems: 1, totalPages: 1 }]),
+      { resumeRunId: failed?.id ?? "" },
+    );
+    expect(resumed.status).toBe("succeeded");
+    expect(resumed.runId).toBe(failed?.id);
+    expect(resumed.itemsSeen).toBe(1);
+    expect(resumed.providerTotalItems).toBe(1);
+    expect(fake.items.size).toBe(1);
+  });
+
+  it("takes the ownership lock, budgets page transactions, and batches hierarchy reads", async () => {
+    const fake = createFakeDb();
+    const pages = [
+      { items: [rawItem("ABC-Y01")], totalItems: 2, totalPages: 2 },
+      { items: [rawItem("ABC-Y02")], totalItems: 2, totalPages: 2 },
+    ];
+    const report = await runImport(fake, fakeCatalog(pages));
+    expect(report.status).toBe("succeeded");
+    const queryRawCalls = (fake.tx.$queryRaw as jest.Mock).mock.calls;
+    expect(queryRawCalls.some(([arg]: any[]) =>
+      JSON.stringify(arg).includes("app.abc_catalog_ingestion"))).toBe(true);
+    const executeRawCalls = (fake.tx.$executeRaw as jest.Mock).mock.calls;
+    expect(executeRawCalls.some(([arg]: any[]) =>
+      JSON.stringify(arg).includes("pg_advisory_xact_lock"))).toBe(true);
+    const txCalls = ((fake.db as Record<string, any>).$transaction as jest.Mock).mock.calls;
+    expect(txCalls.some(([, options]: any[]) => options?.timeout === 120_000)).toBe(true);
+    // No per-item hierarchy read: distinct paths are read once per page.
+    expect(fake.tx.abcCatalogHierarchy.findUnique).not.toHaveBeenCalled();
+    expect(fake.tx.abcCatalogHierarchy.findMany).toHaveBeenCalled();
+  });
+
   it("fails closed on an empty first page and retains stored data", async () => {
     const fake = createFakeDb();
     await runImport(fake, fakeCatalog([
@@ -500,7 +626,10 @@ describe("abc catalog full import (issue #735, Phase 2)", () => {
     expect(report.itemsAdded).toBe(2);
     expect(report.itemsFailed).toBe(1);
     expect(report.error).toMatch(/failed_items: 1/);
-    expect(report.error).toContain("ABC-902");
+    // The stdout report is counts only — the failing item number stays in
+    // the run row's audit record, never in the report.
+    expect(report.error).not.toContain("ABC-902");
+    expect(fake.runs.get(report.runId ?? "")?.error).toContain("ABC-902");
     expect(fake.items.has("ABC-902")).toBe(false);
     expect(fake.items.size).toBe(2);
   });
@@ -604,6 +733,39 @@ describe("abc catalog import CLI (issue #735, Phase 2)", () => {
     expect(classifyImportError(new Error("ABC catalog provider denied request: HTTP 403"))).toBe("provider_denied");
     expect(classifyImportError(new Error("Duplicate ABC item number in provider page"))).toBe("provider_duplicate_item");
     expect(classifyImportError(new Error("something else entirely"))).toBe("import_or_provider_failure");
+  });
+
+  it("sanitizes failed item numbers out of the stdout report copy", () => {
+    const report = {
+      runId: "run-1",
+      kind: "full",
+      status: "succeeded",
+      dryRun: false,
+      correlationId: "abc",
+      providerTotalItems: 3,
+      providerTotalPages: 1,
+      pagesProcessed: 1,
+      itemsSeen: 3,
+      itemsAdded: 2,
+      itemsUpdated: 0,
+      itemsDeactivated: 0,
+      itemsFailed: 1,
+      hierarchyPathsSeen: 0,
+      hierarchyAdded: 0,
+      hierarchyUpdated: 0,
+      hierarchySkipped: 0,
+      checkpointPage: 1,
+      databaseUsedBytes: null,
+      databaseFreeBytes: null,
+      error: "failed_items: 1; first item numbers: ABC-902",
+    } as const;
+    const sanitized = sanitizeReportForStdout(report);
+    expect(sanitized.error).toBe("failed_items: 1");
+    expect(sanitized.error).not.toContain("ABC-902");
+    expect(sanitized.runId).toBe("run-1");
+    expect(sanitized.itemsFailed).toBe(1);
+    // The caller's report is untouched — the database audit record keeps it.
+    expect(report.error).toContain("ABC-902");
   });
 
   it("requires at least ~2 GB free", () => {

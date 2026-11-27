@@ -137,12 +137,19 @@ export function canonicalizeForHash(value: unknown): string {
   ).join(",") + "}";
 }
 
-function containsPriceKey(value: unknown, depth = 0): boolean {
-  if (depth > 10 || value === null || typeof value !== "object") return false;
-  if (Array.isArray(value)) return value.some((entry) => containsPriceKey(entry, depth + 1));
+/**
+ * True when any key at any depth of the value is price-like. No depth cap:
+ * the payload comes from JSON.parse (acyclic by construction) and the
+ * stored value is traversed without a limit by `canonicalizeForHash`, so a
+ * capped scan would let a deeply nested price key through while the hash
+ * still covers it.
+ */
+function containsPriceKey(value: unknown): boolean {
+  if (value === null || typeof value !== "object") return false;
+  if (Array.isArray(value)) return value.some((entry) => containsPriceKey(entry));
   const record = value as Record<string, unknown>;
   return Object.keys(record).some(
-    (key) => /price/i.test(key) || containsPriceKey(record[key], depth + 1),
+    (key) => /price/i.test(key) || containsPriceKey(record[key]),
   );
 }
 
@@ -292,10 +299,49 @@ function toHierarchyRow(path: MappedHierarchyPath): {
   };
 }
 
+/**
+ * Expected item count for a page, from the provider's own totals under the
+ * 1000-item page contract. Returns null when the totals do not fit that
+ * contract at all (e.g. a 3-item catalog reported as 2 pages): with no
+ * baseline the count check is skipped and the existing drift/empty checks
+ * still apply. A truncated page against consistent totals is a partial,
+ * never a silent skip — the checkpoint must not advance past missing items.
+ */
+export function expectedPageItemCount(
+  pageNumber: number,
+  totalItems: number,
+  totalPages: number,
+): number | null {
+  const perPage = ABC_CATALOG_IMPORT_ITEMS_PER_PAGE;
+  if (pageNumber < 1 || pageNumber > totalPages) return null;
+  const remaining = totalItems - (pageNumber - 1) * perPage;
+  if (remaining < 1) return null;
+  const expected = Math.min(perPage, remaining);
+  // A non-final page must be full; if the totals say otherwise the
+  // baseline is inconsistent with the page contract and the check is skipped.
+  if (pageNumber < totalPages && expected !== perPage) return null;
+  return expected;
+}
+
 type ImportTx = Prisma.TransactionClient;
 
 async function setIngestionFlag(tx: ImportTx): Promise<void> {
   await tx.$queryRaw(Prisma.sql`select set_config('app.abc_catalog_ingestion', 'true', true)`);
+}
+
+/**
+ * Serialize run-ownership claims (key 735001 = issue #735): two concurrent
+ * CLI invocations must not both pass the already-running guard. The lock is
+ * transaction-scoped, so the guard + create (or load + mark-running) in the
+ * same transaction is atomic — the second claim sees the first run's row.
+ * It does not hold across the page loop: two operators resuming the same
+ * run id concurrently is an operator error, and the workflow's concurrency
+ * group is the guard for workflow runs.
+ */
+async function takeImportOwnershipLock(tx: ImportTx): Promise<void> {
+  // $executeRaw, not $queryRaw: pg_advisory_xact_lock returns void and
+  // Prisma cannot deserialize a void column (P2010).
+  await tx.$executeRaw(Prisma.sql`select pg_advisory_xact_lock(735001)`);
 }
 
 async function readDatabaseUsedBytes(db: PrismaClient): Promise<number> {
@@ -384,10 +430,16 @@ export async function runFullCatalogImport(
   }
 
   let run: RunState | null = null;
-  const finishRun = async (status: AbcCatalogImportStatus, error: string | null): Promise<void> => {
+  const finishRun = async (
+    status: AbcCatalogImportStatus,
+    error: string | null,
+    // The run row keeps the full audit detail; the stdout report carries
+    // counts only (see the failure note below) — never item numbers.
+    reportError: string | null = error,
+  ): Promise<void> => {
     if (!run) return;
     report.status = status;
-    report.error = error;
+    report.error = reportError;
     await db.$transaction(async (tx) => {
       await setIngestionFlag(tx);
       await tx.abcCatalogSyncRun.update({
@@ -431,23 +483,38 @@ export async function runFullCatalogImport(
   try {
     // Resume: continue an interrupted run from its checkpoint. A second
     // trigger while a run is live is refused — one catalog sync at a time.
+    // The load + mark-running happen in one locked transaction so two
+    // concurrent resumes cannot both claim the run.
     if (options.resumeRunId) {
       const existing = await db.$transaction(async (tx) => {
         await setIngestionFlag(tx);
-        return tx.abcCatalogSyncRun.findUnique({ where: { id: options.resumeRunId } });
+        await takeImportOwnershipLock(tx);
+        const row = await tx.abcCatalogSyncRun.findUnique({ where: { id: options.resumeRunId } });
+        if (!row) throw new AbcCatalogImportError("catalog_import_unknown_run");
+        if (row.kind !== "full") throw new AbcCatalogImportError("catalog_import_wrong_run_kind");
+        if (row.status === "succeeded") throw new AbcCatalogImportError("catalog_import_run_already_succeeded");
+        if (!["running", "partial", "failed"].includes(row.status)) {
+          throw new AbcCatalogImportError("catalog_import_run_not_resumable");
+        }
+        await tx.abcCatalogSyncRun.update({
+          where: { id: row.id },
+          data: { status: "running", finishedAt: null, error: null },
+        });
+        return row;
       });
-      if (!existing) throw new AbcCatalogImportError("catalog_import_unknown_run");
-      if (existing.kind !== "full") throw new AbcCatalogImportError("catalog_import_wrong_run_kind");
-      if (existing.status === "succeeded") throw new AbcCatalogImportError("catalog_import_run_already_succeeded");
-      if (!["running", "partial", "failed"].includes(existing.status)) {
-        throw new AbcCatalogImportError("catalog_import_run_not_resumable");
-      }
+      const committedPages = existing.checkpointPage ?? 0;
+      // A run with no committed page has no trustworthy baseline: a failed
+      // first page may have persisted empty totals (0 items / 0 pages),
+      // which would skip every item page and succeed vacuously. Restart it
+      // under the same run id with fresh totals and zeroed counts; only a
+      // run with committed pages keeps its baseline and cumulative counts.
+      const keepBaseline = committedPages > 0;
       run = {
         id: existing.id,
         status: "running",
-        checkpointPage: existing.checkpointPage ?? 0,
-        providerTotalItems: existing.providerTotalItems,
-        providerTotalPages: existing.providerTotalPages,
+        checkpointPage: committedPages,
+        providerTotalItems: keepBaseline ? existing.providerTotalItems : null,
+        providerTotalPages: keepBaseline ? existing.providerTotalPages : null,
       };
       report.runId = run.id;
       // The run row is the audit trail for the whole run, so a resume
@@ -456,35 +523,29 @@ export async function runFullCatalogImport(
       report.checkpointPage = run.checkpointPage;
       report.providerTotalItems = run.providerTotalItems;
       report.providerTotalPages = run.providerTotalPages;
-      report.pagesProcessed = existing.pagesProcessed;
-      report.itemsSeen = existing.itemsSeen;
-      report.itemsAdded = existing.itemsAdded;
-      report.itemsUpdated = existing.itemsUpdated;
-      report.itemsDeactivated = existing.itemsDeactivated;
-      report.itemsFailed = existing.itemsFailed;
-      await db.$transaction(async (tx) => {
-        await setIngestionFlag(tx);
-        await tx.abcCatalogSyncRun.update({
-          where: { id: run!.id },
-          data: { status: "running", finishedAt: null, error: null },
-        });
-      });
+      report.pagesProcessed = keepBaseline ? existing.pagesProcessed : 0;
+      report.itemsSeen = keepBaseline ? existing.itemsSeen : 0;
+      report.itemsAdded = keepBaseline ? existing.itemsAdded : 0;
+      report.itemsUpdated = keepBaseline ? existing.itemsUpdated : 0;
+      report.itemsDeactivated = keepBaseline ? existing.itemsDeactivated : 0;
+      report.itemsFailed = keepBaseline ? existing.itemsFailed : 0;
     } else {
-      const live = await db.$transaction(async (tx) => {
+      // Guard + create in one locked transaction: without the lock, two
+      // concurrent invocations can both read "no running run" and both
+      // start, importing the same items twice under two run ids.
+      const created = await db.$transaction(async (tx) => {
         await setIngestionFlag(tx);
-        return tx.abcCatalogSyncRun.findFirst({
+        await takeImportOwnershipLock(tx);
+        const live = await tx.abcCatalogSyncRun.findFirst({
           where: { kind: "full", status: "running" },
           orderBy: { startedAt: "desc" },
         });
-      });
-      if (live) {
-        throw new AbcCatalogImportError(
-          "catalog_import_already_running",
-          `catalog_import_already_running: run ${live.id} is still running; resume it instead of starting a new import`,
-        );
-      }
-      const created = await db.$transaction(async (tx) => {
-        await setIngestionFlag(tx);
+        if (live) {
+          throw new AbcCatalogImportError(
+            "catalog_import_already_running",
+            `catalog_import_already_running: run ${live.id} is still running; resume it instead of starting a new import`,
+          );
+        }
         return tx.abcCatalogSyncRun.create({
           data: {
             kind: "full",
@@ -576,6 +637,22 @@ export async function runFullCatalogImport(
         );
         return report;
       }
+      // A truncated page against consistent totals is a partial, never a
+      // silent skip: the checkpoint must not advance past missing items.
+      // (When the totals do not fit the 1000-item page contract at all,
+      // there is no baseline and the check is skipped.)
+      const expectedCount = expectedPageItemCount(
+        pageNumber,
+        report.providerTotalItems ?? pagination.totalItems,
+        report.providerTotalPages ?? pagination.totalPages,
+      );
+      if (expectedCount !== null && page.items.length !== expectedCount) {
+        await finishRun(
+          "partial",
+          `catalog_import_short_page: provider returned ${page.items.length} items on page ${pageNumber}, expected ${expectedCount} (totals ${report.providerTotalItems}/${report.providerTotalPages}); checkpoint ${report.checkpointPage} preserved`,
+        );
+        return report;
+      }
 
       const mapped: MappedCatalogItem[] = [];
       for (const rawItem of page.items) {
@@ -590,7 +667,13 @@ export async function runFullCatalogImport(
 
       // One transaction per page: flag, upserts, hierarchy upserts. A
       // failure here aborts the run, not the item — the page is not
-      // half-written and the checkpoint does not advance past it.
+      // half-written and the checkpoint does not advance past it. Prisma 6
+      // defaults interactive transactions to a 5 s timeout; a 1000-item
+      // page (1000 sequential upserts + distinct-path hierarchy upserts)
+      // exceeds that against a remote database, so the page gets an
+      // explicit 120 s budget. Hierarchy paths are batched per page (one
+      // read for all distinct paths, one write per path) instead of a
+      // read + write per item.
       const pageCounts = await db.$transaction(async (tx) => {
         await setIngestionFlag(tx);
         const existing = await tx.abcCatalogItem.findMany({
@@ -624,18 +707,21 @@ export async function runFullCatalogImport(
           }
         }
         // Item-payload hierarchies land in the same page transaction.
-        for (const item of mapped) {
-          if (!item.hierarchyPath) continue;
-          try {
-            const outcome = await upsertHierarchy(tx, { pathKey: hierarchyPathKey(item.hierarchyPath), levels: item.hierarchyPath }, now());
-            if (outcome === "added") report.hierarchyAdded += 1;
-            else if (outcome === "updated") report.hierarchyUpdated += 1;
-          } catch {
-            report.hierarchySkipped += 1;
-          }
-        }
+        const hierarchyCounts = await upsertHierarchyPaths(
+          tx,
+          mapped
+            .filter((item) => item.hierarchyPath)
+            .map((item) => ({
+              pathKey: hierarchyPathKey(item.hierarchyPath!),
+              levels: item.hierarchyPath!,
+            })),
+          now(),
+        );
+        report.hierarchyAdded += hierarchyCounts.added;
+        report.hierarchyUpdated += hierarchyCounts.updated;
+        report.hierarchySkipped += hierarchyCounts.skipped;
         return { added, updated, deactivated };
-      });
+      }, { timeout: 120_000, maxWait: 10_000 });
 
       report.pagesProcessed += 1;
       report.itemsSeen += page.items.length;
@@ -668,13 +754,22 @@ export async function runFullCatalogImport(
       pageNumber += 1;
     }
 
+    // The run row keeps the failing item numbers for the operator audit
+    // trail; the stdout report carries counts only — never item numbers.
     const failureNote = failedItemNumbers.length > 0
       ? `failed_items: ${report.itemsFailed}; first item numbers: ${failedItemNumbers.join(",")}`
+      : null;
+    const failureNoteForReport = report.itemsFailed > 0
+      ? `failed_items: ${report.itemsFailed}`
       : null;
     const hierarchyNote = report.hierarchySkipped > 0
       ? `hierarchy_skipped: ${report.hierarchySkipped}`
       : null;
-    await finishRun("succeeded", [failureNote, hierarchyNote].filter(Boolean).join("; ") || null);
+    await finishRun(
+      "succeeded",
+      [failureNote, hierarchyNote].filter(Boolean).join("; ") || null,
+      [failureNoteForReport, hierarchyNote].filter(Boolean).join("; ") || null,
+    );
     return report;
   } catch (error) {
     const code = error instanceof AbcCatalogImportError ? error.code : "catalog_import_failed";
@@ -737,26 +832,49 @@ function itemUpdate(item: MappedCatalogItem, at: Date) {
   return { ...rest, lastSeenAt: at, lastSyncedAt: at };
 }
 
-async function upsertHierarchy(
+/**
+ * Upsert a batch of hierarchy paths: one read for all distinct paths, one
+ * write per path. A single failing path counts as skipped without aborting
+ * the batch — the page transaction's own failure still aborts the run.
+ */
+async function upsertHierarchyPaths(
   tx: ImportTx,
-  path: MappedHierarchyPath,
+  paths: MappedHierarchyPath[],
   at: Date,
-): Promise<"added" | "updated" | "unchanged"> {
-  const row = toHierarchyRow(path);
-  const previous = await tx.abcCatalogHierarchy.findUnique({ where: { pathKey: path.pathKey } });
-  if (previous && canonicalizeForHash(previous.levels) === canonicalizeForHash(path.levels)) {
-    await tx.abcCatalogHierarchy.update({
-      where: { pathKey: path.pathKey },
-      data: { lastSeenAt: at },
-    });
-    return "unchanged";
-  }
-  await tx.abcCatalogHierarchy.upsert({
-    where: { pathKey: path.pathKey },
-    create: { ...row, firstSeenAt: at, lastSeenAt: at },
-    update: { ...row, lastSeenAt: at },
+): Promise<{ added: number; updated: number; skipped: number }> {
+  const distinct = new Map(paths.map((path) => [path.pathKey, path]));
+  if (distinct.size === 0) return { added: 0, updated: 0, skipped: 0 };
+  const existing = await tx.abcCatalogHierarchy.findMany({
+    where: { pathKey: { in: [...distinct.keys()] } },
+    select: { pathKey: true, levels: true },
   });
-  return previous ? "updated" : "added";
+  const byKey = new Map(existing.map((row) => [row.pathKey, row]));
+  let added = 0;
+  let updated = 0;
+  let skipped = 0;
+  for (const path of distinct.values()) {
+    try {
+      const previous = byKey.get(path.pathKey);
+      const row = toHierarchyRow(path);
+      if (previous && canonicalizeForHash(previous.levels) === canonicalizeForHash(path.levels)) {
+        await tx.abcCatalogHierarchy.update({
+          where: { pathKey: path.pathKey },
+          data: { lastSeenAt: at },
+        });
+        continue;
+      }
+      await tx.abcCatalogHierarchy.upsert({
+        where: { pathKey: path.pathKey },
+        create: { ...row, firstSeenAt: at, lastSeenAt: at },
+        update: { ...row, lastSeenAt: at },
+      });
+      if (previous) updated += 1;
+      else added += 1;
+    } catch {
+      skipped += 1;
+    }
+  }
+  return { added, updated, skipped };
 }
 
 async function seedHierarchy(
@@ -794,11 +912,10 @@ async function seedHierarchy(
     }
     await db.$transaction(async (tx) => {
       await setIngestionFlag(tx);
-      for (const path of paths) {
-        const outcome = await upsertHierarchy(tx, path, deps.now());
-        if (outcome === "added") report.hierarchyAdded += 1;
-        else if (outcome === "updated") report.hierarchyUpdated += 1;
-      }
+      const counts = await upsertHierarchyPaths(tx, paths, deps.now());
+      report.hierarchyAdded += counts.added;
+      report.hierarchyUpdated += counts.updated;
+      report.hierarchySkipped += counts.skipped;
     });
     deps.log(`[abc-catalog-import] hierarchy page ${pageNumber}/${providerTotalPages ?? "?"} committed: ${report.hierarchyPathsSeen} paths seen`);
     pageNumber += 1;
@@ -917,6 +1034,14 @@ async function runDryCount(
       report.error = `catalog_import_pagination_drift: provider returned an empty page ${pageNumber} of ${providerTotalPages}; no writes performed`;
       return report;
     }
+    // Same truncated-page rule as the write path: a short page against
+    // consistent totals is a partial, never a silent skip.
+    const expectedCount = expectedPageItemCount(pageNumber, providerTotalItems, providerTotalPages);
+    if (expectedCount !== null && page.items.length !== expectedCount) {
+      report.status = "partial";
+      report.error = `catalog_import_short_page: provider returned ${page.items.length} items on page ${pageNumber}, expected ${expectedCount} (totals ${providerTotalItems}/${providerTotalPages}); no writes performed`;
+      return report;
+    }
     const mapped: MappedCatalogItem[] = [];
     for (const rawItem of page.items) {
       try {
@@ -946,6 +1071,15 @@ async function runDryCount(
     report.pagesProcessed += 1;
     report.itemsSeen += page.items.length;
     pageNumber += 1;
+  }
+  // A bounded dry run is a partial count, not a completed one: the report
+  // must not claim success with items_seen below the provider total, or
+  // the workflow's reconciliation rejects it.
+  if (deps.maxPages > 0 && report.pagesProcessed >= deps.maxPages &&
+    providerTotalPages !== null && pageNumber <= providerTotalPages) {
+    report.status = "partial";
+    report.error = `catalog_import_bounded_stop: counted ${report.pagesProcessed} page(s) of ${providerTotalPages}; dry run, no writes performed`;
+    return report;
   }
   report.status = "succeeded";
   return report;

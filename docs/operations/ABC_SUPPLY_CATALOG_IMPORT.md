@@ -19,10 +19,24 @@ in one transaction and only then advances `checkpoint_page` in
 `abc_catalog_sync_runs` — a run resumes from `checkpoint_page + 1`.
 
 What it never does: store a price (the mapper is an explicit field
-allowlist and rejects any price-like key), write `SupplierProduct` or
-`Material` rows (the service has no access to those models), or touch
-tenant data. A catalog item becomes a tenant Material only through the
-existing operator-gated activation flow (Phase 5).
+allowlist and rejects any price-like key at any depth of a stored value),
+write `SupplierProduct` or `Material` rows (the service has no access to
+those models), or touch tenant data. A catalog item becomes a tenant
+Material only through the existing operator-gated activation flow (Phase 5).
+
+Run ownership is serialized with a transaction-scoped advisory lock
+(`pg_advisory_xact_lock(735001)`): two concurrent CLI invocations cannot
+both pass the already-running guard. Each page transaction carries an
+explicit 120 s budget (Prisma 6 defaults interactive transactions to
+5 s, which a 1000-item page exceeds against a remote database) and
+hierarchy paths are batched per page (one read for all distinct paths).
+A page that returns fewer items than the provider's own totals say it
+should hold is a `partial` (`catalog_import_short_page`) — the checkpoint
+never advances past missing items. A run that failed before any page
+committed (checkpoint 0) restarts from page 1 under the same run id and
+revalidates the provider totals instead of restoring the failed
+attempt's totals. The stdout report carries counts only: failing item
+numbers are kept in the run row's `error` field, never in the report.
 
 ## Running it
 
@@ -36,7 +50,8 @@ only, `abc-sandbox` environment, exact confirmation
 |---|---|
 | `dry_run` (default `true`) | Count what would change; write nothing, create no run row. Always run this first. |
 | `max_pages` (default `3`) | Bound the run to N 1000-item pages. `0` = all 259 pages (~1.5 h provider time). |
-| `resume_run_id` | Resume an interrupted run by its run id. |
+| `resume_run_id` | Resume an interrupted run by its run id — only against a persistent database that holds the run row (not this workflow's disposable database, which does not persist between dispatches). |
+| `resume_to_completion` (default `false`) | After a bounded write ends `partial`, resume it to completion in the same job against the same disposable database. |
 | `second_run` (default `false`) | After a full import, run the identical import again and require 0 adds / 0 updates. |
 | `db_capacity_bytes` (default `10737418240` = 10 GiB) | Total database capacity for the headroom gate — the disposable runner's disk. |
 
@@ -64,16 +79,22 @@ Environment: `ABC_SUPPLY_SANDBOX_CLIENT_ID` /
 1. **Dry-run, bounded:** dispatch with `dry_run = true`, `max_pages = 3`.
    Verify the summary: provider totals 258,494 items / 259 pages, counts
    sane, stored rows still 0 (the workflow asserts this).
-2. **Bounded write, then resume:** dispatch with `dry_run = false`,
-   `max_pages = 3`. The run ends `partial` with `checkpoint_page = 3`.
-   Dispatch again with `resume_run_id` set to the run id from the summary
-   and `max_pages = 0` (or a larger bound) to continue to completion.
-   This is the resume proof: the second dispatch must not re-add the
-   first 3 pages' items.
+2. **Bounded write, then resume in the same dispatch:** dispatch with
+   `dry_run = false`, `max_pages = 3`, `resume_to_completion = true`.
+   The bounded write ends `partial` with `checkpoint_page = 3` and the
+   same job resumes that run to completion against the same disposable
+   database. This is the resume proof: the resume must not re-add the
+   first 3 pages' items. Resuming requires the database that holds the
+   run row — this workflow's database does not persist between
+   dispatches, so a second dispatch cannot resume a run from the first
+   one; a cross-dispatch resume (`resume_run_id`) needs a persistent
+   database (staging, once the placement below is unblocked).
 3. **Full import:** dispatch with `dry_run = false`, `max_pages = 0`,
    `second_run = true`. The summary must show `items_seen` equal to
    provider `totalItems` (± documented drift) and the second pass
-   `0 adds / 0 updates`.
+   `0 adds / 0 updates`. A single full dispatch with `max_pages = 0`
+   imports the whole catalog; the bounded/resume sequence above is only
+   the resume proof.
 
 ## Headroom gate (Phase 1 open check, discharged here)
 
@@ -138,15 +159,16 @@ ingestion flag, which only the importer sets inside its own transactions.
 
 | Code / status | Meaning | Recovery |
 |---|---|---|
-| `catalog_import_bounded_stop` (`partial`) | Operator-bounded run stopped at `max_pages`. | Resume with `--resume <run-id>`. |
-| `catalog_import_pagination_drift` (`partial`) | Provider `totalItems`/`totalPages` changed mid-run. | Inspect the totals; resume — the run re-reads totals from the checkpoint and continues. If the catalog genuinely changed, a fresh full run is also safe (hash upsert). |
-| `catalog_import_empty_provider_response` (`failed`) | First page returned 0 items — treated as provider outage, not withdrawal. | Stored data is untouched. Re-run when the provider is back. |
+| `catalog_import_bounded_stop` (`partial`) | Operator-bounded run stopped at `max_pages`. A bounded dry run also ends `partial` (no run row is created). | Resume a write run with `--resume <run-id>`; re-dispatch a dry run without the bound to count everything. |
+| `catalog_import_pagination_drift` (`partial`) | Provider `totalItems`/`totalPages` changed mid-run. | Resume can continue only if the provider's original totals return — the run keeps its saved baseline and compares each page against it. If the totals remain changed, start a fresh full run instead (hash upsert makes it safe); do not keep resuming against the drifted totals. |
+| `catalog_import_short_page` (`partial`) | A page returned fewer items than the provider's own totals say it should hold. | Checkpoint preserved; resume with `--resume <run-id>`. (Skipped when the totals do not fit the 1000-item page contract at all — then there is no baseline to check against.) |
+| `catalog_import_empty_provider_response` (`failed`) | First page returned 0 items — treated as provider outage, not withdrawal. | Stored data is untouched. Re-run when the provider is back, or resume the failed run — a checkpoint-0 resume revalidates page 1 under the same run id instead of restoring the failed attempt's empty totals. |
 | `catalog_import_insufficient_headroom` (`failed`) | < ~2 GB free. | Free space or record a larger plan capacity from the dashboard; re-run. |
 | `catalog_import_headroom_unconfigured` (`failed`) | No capacity figure supplied. | Supply `ABC_CATALOG_DB_CAPACITY_BYTES` from the dashboard; re-run. |
 | `catalog_import_already_running` | A `full` run is still `running`. | Resume that run (`--resume <id>`) instead of starting a new one. A killed run stays `running` with its checkpoint — resuming it is the recovery path; never hand-edit the row. |
 | `catalog_import_run_already_succeeded` | `--resume` on a finished run. | Start a new run (a second identical run must be 0/0). |
 | `provider_denied` / `provider_unavailable_http_*` / `provider_request_failed` | ABC sandbox auth/availability. | Check the `abc-sandbox` credentials and the provider; re-run or resume. |
-| `catalog_import_price_key_found` (per-item) | One item carried a price-like key; counted in `items_failed`, listed in the run's `error` field. | The sync continues. Investigate the item; it is skipped, never stored. |
+| `catalog_import_price_key_found` (per-item) | One item carried a price-like key; counted in `items_failed`, the item number listed in the run row's `error` field (the stdout report carries the count only, never item numbers). | The sync continues. Investigate the item; it is skipped, never stored. |
 
 A database transaction failure aborts the run, not the item: the page
 is not half-written and the checkpoint does not advance past it — resume

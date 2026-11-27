@@ -20,7 +20,11 @@ name: ABC shared-catalog import (sandbox, disposable DB)
 # staging unchanged — the target database is just DATABASE_URL, and the
 # workflow's disposable-DB steps are replaced by the staging secret.
 # Until then, this workflow proves the importer end to end (full import,
-# resume from checkpoint, second-run 0/0) against the disposable DB.
+# resume from checkpoint within one dispatch, second-run 0/0) against the
+# disposable DB. A bounded write and its resume must run in the same job:
+# the disposable database is created fresh per dispatch, so a run id from
+# a previous dispatch cannot exist in it; cross-dispatch resume needs a
+# persistent database (staging, once the placement above is unblocked).
 #
 # Pre-flight headroom gate: the importer measures live database usage and
 # refuses to start below ~2 GB free. The capacity figure comes from the
@@ -46,10 +50,15 @@ on:
         required: true
         default: 3
       resume_run_id:
-        description: Resume an interrupted run by its run id (continues from checkpoint_page + 1)
+        description: Resume an interrupted run by its run id (continues from checkpoint_page + 1; only against a persistent database that holds the run — the disposable DB of a previous dispatch does not)
         type: string
         required: false
         default: ""
+      resume_to_completion:
+        description: After a bounded write run ends partial, resume it to completion in this same job (the disposable DB does not persist between dispatches)
+        type: boolean
+        required: true
+        default: false
       second_run:
         description: After a full import, run the identical import again and require 0 adds / 0 updates
         type: boolean
@@ -140,7 +149,9 @@ jobs:
           CAPACITY_BYTES: ${{ inputs.db_capacity_bytes }}
         run: |
           set -euo pipefail
-          used_bytes="$(psql "${DATABASE_URL}" -X -v ON_ERROR_STOP=1 -Atqc "select pg_database_size(current_database())")"
+          # libpq rejects Prisma-only query parameters (?schema=public).
+          psql_url="${DATABASE_URL%%\?*}"
+          used_bytes="$(psql "${psql_url}" -X -v ON_ERROR_STOP=1 -Atqc "select pg_database_size(current_database())")"
           free_bytes="$((CAPACITY_BYTES - used_bytes))"
           min_free_bytes="$((2 * 1024 * 1024 * 1024))"
           {
@@ -219,7 +230,8 @@ jobs:
               "| Field | Result |\n|---|---|\n" + rows.join("\n") + "\n\n" +
               "Sandbox only. Counts only — no item content, tokens, or payloads. " +
               "A succeeded full import reconciles items_seen with provider totalItems; " +
-              "a bounded run ends partial with a checkpoint and is resumed with its run id.\n");
+              "a bounded write run ends partial with a checkpoint and is resumed in this job with resume_to_completion " +
+              "(or later, against a persistent database, with its run id).\n");
             fs.writeFileSync(process.argv[2], JSON.stringify({
               runId: p.runId, status: p.status, itemsSeen: p.itemsSeen,
               itemsAdded: p.itemsAdded, itemsUpdated: p.itemsUpdated,
@@ -234,20 +246,69 @@ jobs:
           # (counts and tallies only — no item content, tokens, or payloads).
           if [ -s "${GITHUB_STEP_SUMMARY}" ]; then cat "${GITHUB_STEP_SUMMARY}"; fi
 
+      - name: Resume bounded write to completion
+        id: resume
+        # The disposable database does not persist between dispatches, so a
+        # bounded write and its resume must run in this same job against
+        # this container. A cross-dispatch resume needs a persistent
+        # database (staging, once the credential placement is unblocked)
+        # and uses resume_run_id.
+        if: ${{ !inputs.dry_run && inputs.resume_to_completion && steps.import.outputs.import_status == 'partial' }}
+        env:
+          ABC_SUPPLY_SANDBOX_CLIENT_ID: ${{ secrets.ABC_SUPPLY_SANDBOX_CLIENT_ID }}
+          ABC_SUPPLY_SANDBOX_CLIENT_SECRET: ${{ secrets.ABC_SUPPLY_SANDBOX_CLIENT_SECRET }}
+          RUN_ID: ${{ steps.import.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${RUN_ID}" ]]; then
+            echo "::error::Bounded run ended partial without a run id; cannot resume."
+            exit 1
+          fi
+          set +e
+          npx --no-install ts-node scripts/run-abc-catalog-import.ts --resume "${RUN_ID}" > "${RUNNER_TEMP}/abc-catalog-import-resume.json" 2> "${RUNNER_TEMP}/abc-catalog-import-resume.log"
+          resume_exit=$?
+          set -e
+          cat "${RUNNER_TEMP}/abc-catalog-import-resume.log"
+          export RESUME_EXIT="${resume_exit}"
+          node -e '
+            const fs = require("node:fs");
+            const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            if (Number(process.env.RESUME_EXIT) !== 0 || p.status !== "succeeded" || p.itemsSeen !== p.providerTotalItems) {
+              throw new Error("Resume did not complete the import: exit " + process.env.RESUME_EXIT + ", status " + p.status + ", seen " + p.itemsSeen + " of " + p.providerTotalItems + " (" + (p.error || "no error") + ")");
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+              "\n## Resume to completion — checkpoint proof\n\n" +
+              "| Field | Result |\n|---|---|\n" +
+              "| Run id | " + p.runId + " |\n" +
+              "| Items seen | " + p.itemsSeen + " |\n" +
+              "| Items added / updated | " + p.itemsAdded + " / " + p.itemsUpdated + " |\n" +
+              "| Checkpoint page | " + p.checkpointPage + " |\n");
+            console.log("Resume completed run " + p.runId + ": " + p.itemsSeen + " items seen");
+          ' "${RUNNER_TEMP}/abc-catalog-import-resume.json"
+          rm -f "${RUNNER_TEMP}/abc-catalog-import-resume.json" "${RUNNER_TEMP}/abc-catalog-import-resume.log"
+          if [ -s "${GITHUB_STEP_SUMMARY}" ]; then cat "${GITHUB_STEP_SUMMARY}"; fi
+
       - name: Assert dry-run wrote nothing
         if: inputs.dry_run
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           set -euo pipefail
-          items="$(psql "${DATABASE_URL}" -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from abc_catalog_items")"
-          runs="$(psql "${DATABASE_URL}" -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from abc_catalog_sync_runs")"
-          hierarchy="$(psql "${DATABASE_URL}" -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from abc_catalog_hierarchy")"
+          # libpq rejects Prisma-only query parameters (?schema=public).
+          psql_url="${DATABASE_URL%%\?*}"
+          # Bare app-role reads see nothing under forced RLS: the ingest
+          # SELECT policies require the ingestion flag, so set it in this
+          # session before counting — otherwise the assertion reads 0 even
+          # when rows were wrongly written. SET prints a `SET` line, so
+          # take only the counts line.
+          read -r items runs hierarchy <<< "$(psql "${psql_url}" -X -v ON_ERROR_STOP=1 -At -F' ' \
+            -c "SET app.abc_catalog_ingestion = 'true'" \
+            -c "select (select count(*) from abc_catalog_items), (select count(*) from abc_catalog_sync_runs), (select count(*) from abc_catalog_hierarchy)" | tail -n 1)"
           echo "Dry-run stored rows — items: ${items}, hierarchy: ${hierarchy}, runs: ${runs} (all must be 0)"
           [[ "${items}" == "0" && "${hierarchy}" == "0" && "${runs}" == "0" ]]
 
       - name: Second identical run must be 0 adds / 0 updates
-        if: ${{ !inputs.dry_run && inputs.second_run && inputs.max_pages == 0 && inputs.resume_run_id == '' }}
+        if: ${{ !inputs.dry_run && inputs.second_run && (inputs.max_pages == 0 || inputs.resume_to_completion) && inputs.resume_run_id == '' }}
         env:
           ABC_SUPPLY_SANDBOX_CLIENT_ID: ${{ secrets.ABC_SUPPLY_SANDBOX_CLIENT_ID }}
           ABC_SUPPLY_SANDBOX_CLIENT_SECRET: ${{ secrets.ABC_SUPPLY_SANDBOX_CLIENT_SECRET }}

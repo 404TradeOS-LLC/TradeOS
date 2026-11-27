@@ -300,4 +300,32 @@ describe("abc catalog full import against live Postgres (issue #735, Phase 2)", 
       where: { itemNumber: { startsWith: PREFIX } },
     })).toBe(stored);
   });
+
+  it("resumes a run that failed on an empty first page and completes it", async () => {
+    // A failed first page persists empty totals (0/0) with checkpoint 0;
+    // the resume must revalidate page 1 instead of restoring those totals
+    // and succeeding vacuously.
+    const empty = stubCatalog([{ items: [], totalItems: 0, totalPages: 0 }]);
+    await expect(runFullCatalogImport(appClient, empty, baseOptions)).rejects.toMatchObject({
+      code: "catalog_import_empty_provider_response",
+    });
+    const failed = await adminClient.abcCatalogSyncRun.findFirst({
+      where: { correlationId: CORRELATION, status: "failed" },
+      orderBy: { startedAt: "desc" },
+    });
+    expect(failed?.checkpointPage).toBe(0);
+    expect(failed?.providerTotalItems).toBe(0);
+    const resumed = await runFullCatalogImport(
+      appClient,
+      stubCatalog([{ items: [rawItem(`${PREFIX}401`)], totalItems: 1, totalPages: 1 }]),
+      { ...baseOptions, resumeRunId: failed?.id ?? "" },
+    );
+    expect(resumed.status).toBe("succeeded");
+    expect(resumed.runId).toBe(failed?.id);
+    expect(resumed.itemsSeen).toBe(1);
+    expect(resumed.providerTotalItems).toBe(1);
+    expect(await adminClient.abcCatalogItem.count({
+      where: { itemNumber: `${PREFIX}401` },
+    })).toBe(1);
+  });
 });

@@ -89,6 +89,23 @@ export function classifyImportError(error: unknown): string {
   return "import_or_provider_failure";
 }
 
+/**
+ * Stdout copy of the import report: counts only. The run row in the
+ * database keeps the full audit detail (including failed item numbers);
+ * the stdout line must never carry failed item numbers, even if a future
+ * error path embeds them in `report.error`. The caller's report is
+ * returned unchanged when it carries no such segment.
+ */
+export function sanitizeReportForStdout(report: AbcCatalogImportReport): AbcCatalogImportReport {
+  if (typeof report.error !== "string" || !report.error.includes("first item numbers:")) return report;
+  const error = report.error
+    .replace(/(^|;)\s*first item numbers:[^;]*/g, "$1")
+    .replace(/;\s*;/g, ";")
+    .replace(/^\s*;\s*|\s*;\s*$/g, "")
+    .trim();
+  return { ...report, error: error === "" ? null : error };
+}
+
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
   const config = loadAbcSupplyAuthConfig();
@@ -108,7 +125,7 @@ async function main(): Promise<number> {
     log: (line) => process.stderr.write(line + "\n"),
   });
   // Counts only. No item numbers, names, descriptions, tokens, or payloads.
-  process.stdout.write(JSON.stringify(report) + "\n");
+  process.stdout.write(JSON.stringify(sanitizeReportForStdout(report)) + "\n");
   return report.status === "succeeded" ? 0 : report.status === "partial" ? 2 : 1;
 }
 
