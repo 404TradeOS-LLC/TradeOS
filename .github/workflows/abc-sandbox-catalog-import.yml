@@ -189,15 +189,23 @@ jobs:
           if [[ -n "${RESUME_RUN_ID}" ]]; then args+=(--resume "${RESUME_RUN_ID}"); fi
           # Exit 2 is the importer's partial code (bounded stop or provider
           # drift); it is expected only for a bounded stop, never for drift.
+          # stderr is tee'd to the live step log as well as the file: the
+          # CLI's per-page lines are the only progress signal during a long
+          # run, and catting the file only after the CLI exits leaves a
+          # stall with no output (run 45926477998).
           set +e
-          npx --no-install ts-node scripts/run-abc-catalog-import.ts "${args[@]}" > "${RUNNER_TEMP}/abc-catalog-import.json" 2> "${RUNNER_TEMP}/abc-catalog-import.log"
+          npx --no-install ts-node scripts/run-abc-catalog-import.ts "${args[@]}" > "${RUNNER_TEMP}/abc-catalog-import.json" 2> >(tee "${RUNNER_TEMP}/abc-catalog-import.log" >&2)
           import_exit=$?
           set -e
-          cat "${RUNNER_TEMP}/abc-catalog-import.log"
           export IMPORT_EXIT="${import_exit}"
           node -e '
             const fs = require("node:fs");
-            const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const reportPath = process.argv[1];
+            const reportRaw = fs.existsSync(reportPath) ? fs.readFileSync(reportPath, "utf8") : "";
+            if (reportRaw.trim().length === 0) {
+              throw new Error("Import CLI exited " + process.env.IMPORT_EXIT + " without writing a report, so no counts can be validated. The CLI failure is in the step log above — look for \x27ABC shared-catalog import failed: <code>\x27.");
+            }
+            const p = JSON.parse(reportRaw);
             const maxPages = Number(process.env.MAX_PAGES);
             const exit = Number(process.env.IMPORT_EXIT);
             const boundedStop = p.status === "partial" && typeof p.error === "string" &&
@@ -265,14 +273,18 @@ jobs:
             exit 1
           fi
           set +e
-          npx --no-install ts-node scripts/run-abc-catalog-import.ts --resume "${RUN_ID}" > "${RUNNER_TEMP}/abc-catalog-import-resume.json" 2> "${RUNNER_TEMP}/abc-catalog-import-resume.log"
+          npx --no-install ts-node scripts/run-abc-catalog-import.ts --resume "${RUN_ID}" > "${RUNNER_TEMP}/abc-catalog-import-resume.json" 2> >(tee "${RUNNER_TEMP}/abc-catalog-import-resume.log" >&2)
           resume_exit=$?
           set -e
-          cat "${RUNNER_TEMP}/abc-catalog-import-resume.log"
           export RESUME_EXIT="${resume_exit}"
           node -e '
             const fs = require("node:fs");
-            const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const reportPath = process.argv[1];
+            const reportRaw = fs.existsSync(reportPath) ? fs.readFileSync(reportPath, "utf8") : "";
+            if (reportRaw.trim().length === 0) {
+              throw new Error("Resume CLI exited " + process.env.RESUME_EXIT + " without writing a report, so no counts can be validated. The CLI failure is in the step log above — look for \x27ABC shared-catalog import failed: <code>\x27.");
+            }
+            const p = JSON.parse(reportRaw);
             if (Number(process.env.RESUME_EXIT) !== 0 || p.status !== "succeeded" || p.itemsSeen !== p.providerTotalItems) {
               throw new Error("Resume did not complete the import: exit " + process.env.RESUME_EXIT + ", status " + p.status + ", seen " + p.itemsSeen + " of " + p.providerTotalItems + " (" + (p.error || "no error") + ")");
             }
@@ -314,14 +326,25 @@ jobs:
           ABC_SUPPLY_SANDBOX_CLIENT_SECRET: ${{ secrets.ABC_SUPPLY_SANDBOX_CLIENT_SECRET }}
         run: |
           set -euo pipefail
-          npx --no-install ts-node scripts/run-abc-catalog-import.ts > "${RUNNER_TEMP}/abc-catalog-import-second.json" 2> "${RUNNER_TEMP}/abc-catalog-import-second.log"
-          cat "${RUNNER_TEMP}/abc-catalog-import-second.log"
+          # Same shape as the import/resume steps: capture a non-zero CLI
+          # exit instead of dying before the validation can name it, and
+          # tee stderr to the live step log (see the import step comment).
+          set +e
+          npx --no-install ts-node scripts/run-abc-catalog-import.ts > "${RUNNER_TEMP}/abc-catalog-import-second.json" 2> >(tee "${RUNNER_TEMP}/abc-catalog-import-second.log" >&2)
+          second_exit=$?
+          set -e
+          export SECOND_EXIT="${second_exit}"
           node -e '
             const fs = require("node:fs");
-            const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-            if (p.status !== "succeeded" || p.itemsAdded !== 0 || p.itemsUpdated !== 0 ||
+            const reportPath = process.argv[1];
+            const reportRaw = fs.existsSync(reportPath) ? fs.readFileSync(reportPath, "utf8") : "";
+            if (reportRaw.trim().length === 0) {
+              throw new Error("Second-run CLI exited " + process.env.SECOND_EXIT + " without writing a report, so no counts can be validated. The CLI failure is in the step log above — look for \x27ABC shared-catalog import failed: <code>\x27.");
+            }
+            const p = JSON.parse(reportRaw);
+            if (Number(process.env.SECOND_EXIT) !== 0 || p.status !== "succeeded" || p.itemsAdded !== 0 || p.itemsUpdated !== 0 ||
                 p.itemsDeactivated !== 0 || p.itemsSeen !== p.providerTotalItems) {
-              throw new Error("Second identical run was not 0 adds / 0 updates: added " + p.itemsAdded + ", updated " + p.itemsUpdated + ", seen " + p.itemsSeen + " of " + p.providerTotalItems);
+              throw new Error("Second identical run was not 0 adds / 0 updates: exit " + process.env.SECOND_EXIT + ", status " + p.status + ", added " + p.itemsAdded + ", updated " + p.itemsUpdated + ", seen " + p.itemsSeen + " of " + p.providerTotalItems);
             }
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
               "\n## Second identical run — 0 adds / 0 updates\n\n" +
