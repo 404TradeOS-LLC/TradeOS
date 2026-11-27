@@ -31,6 +31,8 @@ Invoice, contract and proposal PDF generation may add the authenticated organiza
 
 ## Tenant PDF logo rendering lifecycle boundary
 
+On long invoice PDFs, the heading and complete financial summary move together to the next page when needed.
+
 Trusted logo rendering is a presentation-only PDFKit option. Estimate/proposal/contract/invoice states, invoices, approvals, prices, signatures and delivery lifecycles are unchanged. The web app's current private SettingsAssetUpload remains authoritative for real tenant logo bytes; PR #873 implements the protected backend organization-scoped loader. Missing credentials or an active same-tenant logo leave the company-name header intact, and staging acceptance remains required under #870.
 
 ## Proposal customer-document presentation — PR #868
