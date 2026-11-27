@@ -161,6 +161,15 @@ communications.
 - Non-critical provider failure produces warnings and follow-ups.
 - Permission-denied providers disclose only that access is unavailable.
 - Timeout uses fallback cache only when freshness policy allows it.
+- A provider or request timeout is terminal, not retryable (Fluid PR-3):
+  the kernel marks `athena_provider_timeout` / `athena_deadline_exceeded`
+  `retryable: false` and the web client offers no "Retry safely" on a 504,
+  so a timed-out draft never re-runs context assembly via an invited retry.
+  Context assembly itself is unchanged and read-only; the request deadline
+  (`ATHENA_REQUEST_DEADLINE_MS`, default 15,000 ms) still bounds context
+  gathering plus the provider wait, and the provider fetch is additionally
+  capped at the provider deadline (`ATHENA_PROVIDER_DEADLINE_MS`, default
+  8,000 ms) so a hung socket cannot outlive the race.
 - Provider errors are logged with correlation IDs and redacted inputs.
 - Provider failures never cause Athena to fabricate facts or silently widen
   scope to find substitute data.

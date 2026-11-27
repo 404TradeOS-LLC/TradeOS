@@ -212,6 +212,23 @@ disabled provider; there is no startup crash and no partial answer. The adapter
 is draft-only: one stateless `generateContent` call per kernel request, no
 conversation history, no tools, no streaming, and no approval/action path —
 the DEV-17 S12 findings on the unconnected approval/write path are unchanged.
+The fetch itself is capped at the provider deadline
+(`AbortSignal.timeout` at `ATHENA_PROVIDER_DEADLINE_MS`, default 8,000 ms,
+combined with the kernel signal via `AbortSignal.any`), so a hung socket
+cannot outlive the kernel's provider-timeout race. Provider and request
+timeouts are terminal, not retryable: `athena_provider_timeout` and
+`athena_deadline_exceeded` carry `retryable: false`, and the web client no
+longer offers "Retry safely" on a thrown 504 — a timed-out draft already
+spent its full deadline, and a retry would re-run the whole kernel (auth +
+context + another provider wait) and re-burn the Fluid CPU the timeout just
+burned. Transport 5xx from the provider stays retryable
+(`athenaProviderError`). The deadline *values* are env-only: lowering
+`ATHENA_PROVIDER_DEADLINE_MS` (8,000 → ~5,000 ms) and
+`ATHENA_REQUEST_DEADLINE_MS` (15,000 → ~10,000 ms) is a follow-up gated on
+staging draft latency p95 < 5,000 ms on ~20 requests; `app/vercel.json` sets
+no `functions.maxDuration`, and with Fluid Compute the platform default
+(300 s) is far above either deadline, so the platform cap is not the binding
+constraint.
 The prompt is rendered from the minimal A1 context only (role, selected-scope
 ids, channel metadata) and truncated to `ATHENA_CONTEXT_BUDGET`; scope ids are
 never silently dropped. Token counts come from the response `usageMetadata`
@@ -254,9 +271,11 @@ cost-spike rule (`ATHENA_ALERT_COST_SPIKE_USD_THRESHOLD`, default $10) is
 unchanged. Note: the alert evaluation pipeline is currently unscheduled (no
 workflow or cron runs `run-athena-observability-alerts.ts`), so the in-request
 telemetry span is the live cap-trip signal until that pipeline is scheduled. The
-cap check runs inside `produceDraftResponse` before every provider attempt, so a
-client retry after a provider timeout re-checks the cap and can never
-double-spend past it. Concurrent in-flight calls can overshoot the cap by
+cap check runs inside `produceDraftResponse` before every provider attempt.
+Provider and request timeouts are terminal (`retryable: false`), so the kernel
+no longer invites a retry after a timeout — a manual re-send by the user still
+re-checks the cap before any new provider attempt and can never double-spend
+past it. Concurrent in-flight calls can overshoot the cap by
 ~$0.002 each — the cap is a budget guard, not a real-time ledger. CI, unit
 tests, preview smoke checks, and evidence workflows reach no real provider spend
 (no workflow sets `GEMINI_API_KEY` or `ATHENA_PROVIDER_MODE`; the provider
