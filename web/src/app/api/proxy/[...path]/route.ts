@@ -40,7 +40,12 @@ async function handle(request: NextRequest, segments: string[]): Promise<Respons
   // A cached response must never carry a cookie, so upstream Set-Cookie
   // is stripped on allowlisted responses; the ABC OAuth browser-binding
   // cookie below only ever arrives on a POST, which is never allowlisted.
-  const cacheMaxAge = getProxyCacheMaxAge(request.method, segments);
+  // An upstream error must never become a cacheable response: an
+  // allowlisted GET that returns 503 (e.g. /athena/capabilities during
+  // a backend outage) would otherwise stay in the browser cache for
+  // the full TTL and keep serving the error after recovery. Only a
+  // successful upstream response may take the allowlist TTL.
+  const cacheMaxAge = upstream.ok ? getProxyCacheMaxAge(request.method, segments) : null;
   const headers = new Headers({
     "Content-Type": upstream.headers.get("content-type") ?? "application/json",
     "Cache-Control": cacheMaxAge === null ? "no-store" : getProxyCacheControl(cacheMaxAge),

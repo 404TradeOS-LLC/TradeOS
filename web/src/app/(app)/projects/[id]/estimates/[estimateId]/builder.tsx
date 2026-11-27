@@ -92,9 +92,21 @@ interface AssemblyPreviewData {
 // swallow it, leaving the last known estimate visible — the same as a
 // failed background refetch, which TanStack reports without replacing
 // the displayed data.
+// Ordering: saves are not serialized (line-item removal, pricing
+// changes, and the review checklist can each trigger a refresh), and
+// cancelQueries only cancels the query's own fetch — not the direct
+// clientFetch below. A per-estimate sequence number makes the write
+// apply only when this refresh is still the latest: an older response
+// that lands after a newer one is discarded instead of overwriting
+// the newer total.
+const estimateRefreshSequences = new Map<string, number>();
+
 async function refreshEstimateQuery(queryClient: QueryClient, estimateId: string) {
+  const sequence = (estimateRefreshSequences.get(estimateId) ?? 0) + 1;
+  estimateRefreshSequences.set(estimateId, sequence);
   await queryClient.cancelQueries({ queryKey: ["estimate", estimateId], exact: true });
   const fresh = await clientFetch<EstimateDetail>(`/estimates/${estimateId}`, { cache: "no-store" });
+  if (estimateRefreshSequences.get(estimateId) !== sequence) return;
   queryClient.setQueryData(["estimate", estimateId], fresh);
 }
 

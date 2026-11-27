@@ -49,11 +49,15 @@ test("post-mutation estimate refreshes bypass the browser HTTP cache", async () 
 
   // The AI-apply verification read happens after a write, so it must also
   // bypass the cache — verifying against the pre-apply response would
-  // falsely report the apply as unverified.
+  // falsely report the apply as unverified. The fetch takes the full
+  // EstimateDetail (a narrow identity type would corrupt the builder's
+  // cache) and writes it into ["estimate", estimateId], so reopening the
+  // builder within its 30 s staleTime shows the applied lines.
   assert.match(
     assist,
-    /clientFetch<EstimateDetailForVerification>\(`\/estimates\/\$\{estimateId\}`, \{ cache: "no-store" \}\)/,
+    /clientFetch<EstimateDetail>\(`\/estimates\/\$\{estimateId\}`, \{ cache: "no-store" \}\)/,
   );
+  assert.match(assist, /queryClient\.setQueryData\(\["estimate", estimateId\], estimate\)/);
 });
 
 test("assembly selection resets pagination loading state", async () => {
@@ -85,4 +89,40 @@ test("post-mutation assembly unit-cost refreshes bypass the browser HTTP cache",
     /queryClient\.setQueryData\(\["assembly-unit-cost", requestAssemblyId\], fresh\)/,
   );
   assert.doesNotMatch(catalog, /invalidateQueries\(\{ queryKey: \["assembly-unit-cost"/);
+});
+
+test("post-mutation refreshes apply only when still the latest request", async () => {
+  const builder = await readSource("./builder.tsx");
+  const catalog = await readSource(
+    "../../../../../../components/costbook/assembly-catalog.tsx",
+  );
+
+  // Saves are not serialized, and cancelQueries cannot cancel the direct
+  // clientFetch: without an ordering check an older response landing last
+  // would overwrite the newer total (or unit cost).
+  assert.match(builder, /const estimateRefreshSequences = new Map<string, number>\(\);/);
+  assert.match(
+    builder,
+    /const sequence = \(estimateRefreshSequences\.get\(estimateId\) \?\? 0\) \+ 1;/,
+  );
+  assert.match(builder, /if \(estimateRefreshSequences\.get\(estimateId\) !== sequence\) return;/);
+  assert.match(catalog, /const unitCostRefreshSequences = new Map<string, number>\(\);/);
+  assert.match(
+    catalog,
+    /const sequence = \(unitCostRefreshSequences\.get\(requestAssemblyId\) \?\? 0\) \+ 1;/,
+  );
+  assert.match(catalog, /if \(unitCostRefreshSequences\.get\(requestAssemblyId\) !== sequence\) return;/);
+});
+
+test("brand-studio preview refetch after save bypasses the browser HTTP cache", async () => {
+  const brandStudioConsole = await readSource(
+    "../../../../../../components/brand-studio/brand-studio-console.tsx",
+  );
+
+  // The preview GET is allowlisted at 300 s; saveAll must refetch it
+  // no-store or a save renders the pre-save preview for five minutes.
+  assert.match(
+    brandStudioConsole,
+    /clientFetch<BrandStudioSettingsBundle\["preview"\]>\("\/brand-studio\/preview", \{ cache: "no-store" \}\)/,
+  );
 });

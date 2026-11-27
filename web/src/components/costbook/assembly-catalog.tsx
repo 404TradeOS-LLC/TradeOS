@@ -48,6 +48,12 @@ type CostItemUnitCost = { totalUnitCost: number };
 type CostPreview = { unitCost: number; loading: boolean; error: string | null };
 const emptyAssembly: AssemblyForm = { code: "", name: "", unitOfMeasure: "", description: "", isTemplate: false };
 
+// Per-assembly sequence for refreshSelectedUnitCost (same ordering
+// rule as refreshEstimateQuery in the estimate builder): saves are not
+// serialized, and cancelQueries cannot cancel the direct clientFetch,
+// so a stale unit-cost response must not overwrite a newer one.
+const unitCostRefreshSequences = new Map<string, number>();
+
 export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems, canWrite, canManage }: {
   initialAssemblies: CostbookAssembly[];
   childAssemblies: CostbookAssembly[];
@@ -99,11 +105,6 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
   const [quantity, setQuantity] = useState("1");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // DEV-17 S9 repair: the starter catalog's reuse-source list is fetched
-  // inside StarterAssemblyCatalog; bumping this key after an install or a
-  // deactivation makes it refetch instead of showing a stale list until
-  // the page reloads.
-  const [reuseRefreshKey, setReuseRefreshKey] = useState(0);
   const selected = assemblies.find((item) => item.id === selectedId) ?? null;
   const childOptions = useMemo(() => availableChildAssemblies.filter((item) => item.id !== selectedId), [availableChildAssemblies, selectedId]);
 
@@ -178,8 +179,11 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
   // estimate builder uses for the same reason). A failed refresh leaves
   // the last known cost visible instead of clearing it.
   async function refreshSelectedUnitCost(requestAssemblyId: string) {
+    const sequence = (unitCostRefreshSequences.get(requestAssemblyId) ?? 0) + 1;
+    unitCostRefreshSequences.set(requestAssemblyId, sequence);
     await queryClient.cancelQueries({ queryKey: ["assembly-unit-cost", requestAssemblyId], exact: true });
     const fresh = await clientFetch<AssemblyCost>(`/costbook/assemblies/${requestAssemblyId}/unit-cost`, { cache: "no-store" });
+    if (unitCostRefreshSequences.get(requestAssemblyId) !== sequence) return;
     queryClient.setQueryData(["assembly-unit-cost", requestAssemblyId], fresh);
   }
 
@@ -197,7 +201,9 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
       const remaining = assemblies.filter((item) => item.id !== selected.id);
       setAssemblies(remaining);
       setAvailableChildAssemblies((current) => current.filter((item) => item.id !== selected.id));
-      setReuseRefreshKey((current) => current + 1);
+      // The reuse-source list uses one stable key (see StarterAssemblyCatalog):
+      // invalidate it so a remount cannot restore the pre-deactivation list.
+      void queryClient.invalidateQueries({ queryKey: ["starter-reuse-sources"] });
       selectAssembly(remaining[0]?.id ?? "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Assembly could not be deactivated.");
@@ -220,10 +226,9 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
           quantityPerUnit: Number(quantity),
         }),
       });
-      if (selectedIdRef.current !== requestAssemblyId) return;
-      // Insert the created row into the cached page (or refetch the page
-      // when nothing is cached yet — e.g. the add landed before the first
-      // page loaded) and invalidate the unit cost so it refetches.
+      // Update the captured assembly's cache even after the selection
+      // moved: returning to it within 60 s must show the added row, not
+      // the pre-mutation page. Only the form reset is selection-specific.
       if (queryClient.getQueryData<AssemblyItemsPage>(["assembly-items", requestAssemblyId])) {
         queryClient.setQueryData<AssemblyItemsPage>(["assembly-items", requestAssemblyId], (current) =>
           current
@@ -233,9 +238,11 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
       } else {
         void queryClient.invalidateQueries({ queryKey: ["assembly-items", requestAssemblyId] });
       }
-      setComponentId("");
-      setQuantity("1");
       void refreshSelectedUnitCost(requestAssemblyId).catch(() => undefined);
+      if (selectedIdRef.current === requestAssemblyId) {
+        setComponentId("");
+        setQuantity("1");
+      }
     } catch (err) {
       if (selectedIdRef.current === requestAssemblyId) setError(err instanceof Error ? err.message : "Assembly component could not be added.");
     } finally {
@@ -250,9 +257,9 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
     setError(null);
     try {
       await clientFetch<void>(`/costbook/assemblies/${requestAssemblyId}/items/${id}`, { method: "DELETE" });
-      if (selectedIdRef.current !== requestAssemblyId) return;
-      // Remove the row from the cached page (or refetch the page when
-      // nothing is cached yet) and invalidate the unit cost.
+      // Same as addComponent: update the captured assembly's cache even
+      // after the selection moved, so returning to it within 60 s shows
+      // the removal instead of the pre-mutation page.
       if (queryClient.getQueryData<AssemblyItemsPage>(["assembly-items", requestAssemblyId])) {
         queryClient.setQueryData<AssemblyItemsPage>(["assembly-items", requestAssemblyId], (current) =>
           current
@@ -275,14 +282,15 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
       costItems={costItems}
       canWrite={canWrite}
       installedCodes={new Set(availableChildAssemblies.map((assembly) => assembly.code.trim().toUpperCase()))}
-      reuseRefreshKey={reuseRefreshKey}
       saving={saving}
       onSaving={setSaving}
       onError={setError}
       onInstalled={(created) => {
         setAssemblies((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
         setAvailableChildAssemblies((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
-        setReuseRefreshKey((current) => current + 1);
+        // Same stable-key invalidation as deactivation: the newly
+        // installed recipe must be reusable in the same session.
+        void queryClient.invalidateQueries({ queryKey: ["starter-reuse-sources"] });
         selectAssembly(created.id);
       }}
     />
@@ -337,11 +345,10 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
   </div>;
 }
 
-function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, reuseRefreshKey, saving, onSaving, onError, onInstalled }: {
+function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, onSaving, onError, onInstalled }: {
   costItems: CostItemCatalogRecord[];
   canWrite: boolean;
   installedCodes: Set<string>;
-  reuseRefreshKey: number;
   saving: boolean;
   onSaving: (value: boolean) => void;
   onError: (value: string | null) => void;
@@ -390,12 +397,13 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, reuseRefr
   // the selection (template button, updateFilter, resetFilters) clears
   // the reuse source choice, note, and error alongside the mappings.
   // DEV-17 S9 repair: follow every page cursor so the selector sees all
-  // active template assemblies, not just the first 100. Refreshed on mount
-  // and whenever the parent reports an install or deactivation
-  // (reuseRefreshKey), so a newly installed recipe is reusable in the
-  // same session and a deactivated source drops out.
+  // active template assemblies, not just the first 100. The key is stable
+  // (no generation counter): installs and deactivations invalidate it, so
+  // a remount after a mutation cannot restore a stale generation — a
+  // counter key would reset to 0 on remount and serve the pre-mutation
+  // list cached under that generation.
   const reuseSourcesQuery = useQuery({
-    queryKey: ["starter-reuse-sources", reuseRefreshKey],
+    queryKey: ["starter-reuse-sources"],
     queryFn: () =>
       collectPagedCatalogItems<CostbookAssembly>((cursor) =>
         clientFetch<{ items: CostbookAssembly[]; total: number; nextCursor: string | null }>(

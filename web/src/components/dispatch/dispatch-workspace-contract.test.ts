@@ -154,6 +154,10 @@ test("proxy route caches only the allowlisted GETs and never a mutation or auth 
   assert.match(proxy, /headers\.set\("Vary", "Cookie"\)/);
   assert.match(proxy, /"Cache-Control": cacheMaxAge === null \? "no-store" : getProxyCacheControl\(cacheMaxAge\)/);
   assert.doesNotMatch(proxy, /"Cache-Control": "no-store",\n  \}\);/);
+  // An upstream error never takes the allowlist TTL: a 503 from the
+  // backend (e.g. /athena/capabilities during an outage) would otherwise
+  // stay in the browser cache for the full TTL after recovery.
+  assert.match(proxy, /const cacheMaxAge = upstream\.ok \? getProxyCacheMaxAge\(request\.method, segments\) : null;/);
   assert.match(allowlist, /segments: \["jobs", "dispatch-summary"\], maxAgeSeconds: 30/);
   // Dispatch lists, queues, approvals, and conflicts stay no-store.
   assert.doesNotMatch(allowlist, /segments: \["jobs"\]/);

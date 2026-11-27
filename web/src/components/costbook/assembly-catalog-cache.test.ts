@@ -43,13 +43,24 @@ test("assembly mutations update the query cache instead of refetching by hand", 
   assert.match(source, /queryClient\.setQueryData<AssemblyItemsPage>\(\["assembly-items", requestAssemblyId\]/);
   assert.match(source, /refreshSelectedUnitCost\(requestAssemblyId\)/);
   assert.match(source, /queryClient\.invalidateQueries\(\{ queryKey: \["assembly-items", requestAssemblyId\] \}\)/);
-  assert.match(source, /async function refreshSelectedUnitCost\(requestAssemblyId: string\) \{\n    await queryClient\.cancelQueries\(\{ queryKey: \["assembly-unit-cost", requestAssemblyId\], exact: true \}\);/);
+  assert.match(source, /async function refreshSelectedUnitCost\(requestAssemblyId: string\) \{\n    const sequence = \(unitCostRefreshSequences\.get\(requestAssemblyId\) \?\? 0\) \+ 1;\n    unitCostRefreshSequences\.set\(requestAssemblyId, sequence\);\n    await queryClient\.cancelQueries\(\{ queryKey: \["assembly-unit-cost", requestAssemblyId\], exact: true \}\);/);
   assert.match(source, /clientFetch<AssemblyCost>\(`\/costbook\/assemblies\/\$\{requestAssemblyId\}\/unit-cost`, \{ cache: "no-store" \}\)/);
-  assert.match(source, /queryClient\.setQueryData\(\["assembly-unit-cost", requestAssemblyId\], fresh\)/);
+  // Ordering: saves are not serialized and cancelQueries cannot cancel
+  // the direct fetch, so a stale response must not overwrite a newer
+  // unit cost — the write applies only when this refresh is latest.
+  assert.match(source, /if \(unitCostRefreshSequences\.get\(requestAssemblyId\) !== sequence\) return;\n    queryClient\.setQueryData\(\["assembly-unit-cost", requestAssemblyId\], fresh\)/);
   assert.doesNotMatch(source, /invalidateQueries\(\{ queryKey: \["assembly-unit-cost"/);
   assert.doesNotMatch(source, /setItems\(\(current\)/);
   assert.doesNotMatch(source, /setItemsTotal\(/);
   assert.doesNotMatch(source, /setUnitCost\(null\)/);
+  // The cache update runs for the captured assembly even after the
+  // selection moved (returning within 60 s must show the mutation);
+  // only the form reset stays selection-guarded.
+  const addComponent = source.slice(source.indexOf("async function addComponent"), source.indexOf("async function removeComponent"));
+  assert.doesNotMatch(addComponent, /if \(selectedIdRef\.current !== requestAssemblyId\) return;/);
+  assert.match(addComponent, /if \(selectedIdRef\.current === requestAssemblyId\) \{\n        setComponentId\(""\);/);
+  const removeComponent = source.slice(source.indexOf("async function removeComponent"), source.indexOf("  return <div className=\"grid gap-6\">"));
+  assert.doesNotMatch(removeComponent, /if \(selectedIdRef\.current !== requestAssemblyId\) return;/);
 });
 
 test("starter catalog, cost preview, and reuse sources use cached queries", async () => {
@@ -62,7 +73,16 @@ test("starter catalog, cost preview, and reuse sources use cached queries", asyn
   // key: the payload shape differs (a per-item record here, a resolved
   // total there) — sharing the key would serve one shape to the other.
   assert.doesNotMatch(source, /queryKey: \["starter-assembly-cost-preview"/);
-  assert.match(source, /queryKey: \["starter-reuse-sources", reuseRefreshKey\]/);
+  // One stable reuse-source key, invalidated after installs and
+  // deactivations: a generation counter would reset to 0 on remount and
+  // restore the pre-mutation list cached under that generation.
+  assert.match(source, /queryKey: \["starter-reuse-sources"\],/);
+  assert.doesNotMatch(source, /reuseRefreshKey/);
+  assert.equal(
+    source.match(/void queryClient\.invalidateQueries\(\{ queryKey: \["starter-reuse-sources"\] \}\);/g)?.length,
+    2,
+    "deactivation + install",
+  );
   // First recipe is still selected once on load; a later explicit clear
   // (filter reset) must not re-select it.
   assert.match(source, /initialSelectionAppliedRef/);

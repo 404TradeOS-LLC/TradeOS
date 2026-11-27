@@ -15,7 +15,7 @@ import {
   WandSparkles,
   X,
 } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +28,7 @@ import type {
   StructuredAIEstimateDraft,
   StructuredAIEstimateDraftLineItem,
   CostDataProvenanceStatus,
+  EstimateDetail,
   KnowledgeScopeMatch,
   KnowledgeSearchResult,
   KnowledgeStats,
@@ -38,7 +39,6 @@ import { createEstimateApplySession, isDefinitiveEstimateApplyStatus, snapshotEs
 import {
   EstimateApplyVerificationError,
   verifyEstimateApplyAcknowledgement,
-  type SavedEstimateLineIdentity,
   type VerifiedEstimateApplyLine,
 } from "@/lib/estimate-apply-verification";
 import { ResolveSequence } from "@/components/motion/resolve-sequence";
@@ -69,10 +69,6 @@ interface ApplySuggestionsResponse {
   applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number; description: string }>;
   skipped: Array<{ draftLineItemId: string; status: string; reason: string; lineItemId?: string; quantity?: number; description?: string }>;
   verified: VerifiedEstimateApplyLine[];
-}
-
-interface EstimateDetailForVerification {
-  lineItems: SavedEstimateLineIdentity[];
 }
 
 const EXAMPLE_PROMPTS = [
@@ -205,6 +201,7 @@ export function AIEstimateAssist({
   // "Athena review" button) leaves it unset and the review stays manual.
   autoRunReview?: boolean;
 }) {
+  const queryClient = useQueryClient();
   const [scopeOfWork, setScopeOfWork] = useState(initialScopeOfWork || "");
   const [suggestions, setSuggestions] = useState<SuggestionDraft[]>(initialStructuredDraft?.lineItems.map(structuredToDraft) ?? initialSuggestions.map(toDraft));
   const [structuredDraft, setStructuredDraft] = useState<StructuredAIEstimateDraft | null>(initialStructuredDraft ?? null);
@@ -337,11 +334,17 @@ export function AIEstimateAssist({
           // Bypass the browser HTTP cache: the apply POST just changed
           // the estimate, and the cached GET would verify against the
           // pre-apply line items (see refreshEstimateQuery in
-          // builder.tsx).
-          const estimate = await clientFetch<EstimateDetailForVerification>(`/estimates/${estimateId}`, { cache: "no-store" });
+          // builder.tsx). Fetch the full detail (EstimateLineItem is a
+          // SavedEstimateLineIdentity) and write it into the builder's
+          // ["estimate", estimateId] query, so reopening the builder
+          // within its 30 s staleTime shows the applied lines instead
+          // of the pre-apply estimate.
+          const estimate = await clientFetch<EstimateDetail>(`/estimates/${estimateId}`, { cache: "no-store" });
+          const verified = verifyEstimateApplyAcknowledgement(acknowledgement, snapshot.body, estimate.lineItems);
+          queryClient.setQueryData(["estimate", estimateId], estimate);
           return {
             ...acknowledgement,
-            verified: verifyEstimateApplyAcknowledgement(acknowledgement, snapshot.body, estimate.lineItems),
+            verified,
           };
         } catch (error) {
           throw error instanceof EstimateApplyVerificationError
