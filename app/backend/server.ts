@@ -16,6 +16,7 @@ import {
 import { buildHealthPayload, checkReadiness } from "./health";
 import { adminUiRouter } from "./routes/adminUi.routes";
 import { davisBaconSyncCronRouter } from "./routes/davisBaconSyncCron.routes";
+import { athenaObservabilityAlertsCronRouter } from "./routes/athenaObservabilityAlertsCron.routes";
 import { costbookCodesIngestionRouter, costbookRouter } from "./routes/costbook.routes";
 import { costDatabaseRouter } from "./routes/costDatabase.routes";
 import { laborDatabaseRouter } from "./routes/laborDatabase.routes";
@@ -99,6 +100,7 @@ export function createServer() {
   // The handler itself re-enters the existing tenant-scoped background-session boundary for every configured job.
   app.use("/api/cron", supplierPriceSyncCronRouter);
   app.use("/api/cron", davisBaconSyncCronRouter);
+  app.use("/api/cron", athenaObservabilityAlertsCronRouter);
 
   app.use("/admin", adminUiRouter);
   app.use("/api/v1/platform", organizationProvisioningRouter);
