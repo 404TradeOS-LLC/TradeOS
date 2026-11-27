@@ -153,10 +153,10 @@ jobs:
           ON CONFLICT (org_id, user_id) DO NOTHING;
           COMMIT;
           SQL
-          foreign_count="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -Atqc "
+          foreign_count="$(psql "$PSQL_ADMIN_URL" -X -v ON_ERROR_STOP=1 -v foreign_email="$FOREIGN_OWNER_EMAIL" -Atqc "
             SELECT count(*) FROM public.organization_memberships m
             JOIN public.users u ON u.id = m.user_id
-            WHERE m.org_id = '68c044da-b214-489a-bf8a-351695d32119' AND u.email = '$FOREIGN_OWNER_EMAIL'
+            WHERE m.org_id = '68c044da-b214-489a-bf8a-351695d32119' AND u.email = :'foreign_email'
           ")"
           if [ "$foreign_count" != "1" ]; then
             echo "::error::Foreign membership was not created for $FOREIGN_OWNER_EMAIL (count=$foreign_count). Check that an auth user with that email exists in staging Auth."
