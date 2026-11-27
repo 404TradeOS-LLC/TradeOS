@@ -596,6 +596,21 @@ PR #841 (`feat/today-attention-item-figma-align`) merged as `335841c0357d75da982
 
 The Needs You view offers **All actions** when active filters return zero loaded records. It clears search, source, priority, and assignee in place, restores search focus, and announces the updated loaded-row count. Source failures and unknown totals keep their existing semantics. The reviewed Figma targets are [desktop](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=1338-3201) and [mobile](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=1338-3272). Authenticated staging acceptance remains pending.
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:3c19130944cc740d6232b00915b934562264d7e39c1fa953c77383bfbf6d17e8 -->
+
+### Post-merge follow-up risks ([PR #1121](https://github.com/404TradeOS-LLC/TradeOS/pull/1121))
+
+- **Hosted verification is unconfirmed for the final revision.** The [run cited in the PR description](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/45760744650) was reported in progress and cited alongside the earlier `bb268593` head. The [later Codex review](https://github.com/404TradeOS-LLC/TradeOS/pull/1121#issuecomment-7207606659) completed with no findings on `3ad8df8`; that review does not establish a hosted CI result. Confirm the required checks against the final PR head and retain the run links with their SHAs and conclusions. The squash commit on main is `1e882b2528c11ff1fde3505a8a9ace482edfa05f`.
+- **Authenticated reset behavior still needs staging evidence.** The four responsive cases used packaged Chromium with synthetic responses, and the observed staging web candidate lacked a matching API deployment. Once an approved staging web/API pair serving the merged change is available, record both deployment revisions and exercise `/dashboard/needs-you` at 390, 768, 1024, and 1440 px in a test tenant. Record the loaded row identities before filtering, apply search, source, priority, and assignee filters to reach zero matches, and activate **All actions**. Verify all four defaults, the return of the same loaded rows, the result announcement, search focus, and visibility above the Control Dock. Include touch activation at 390 px and keyboard activation, and verify that a partial-source case still reports an unknown total with its unavailable-source indicator intact.
+- **The design sample can be read as loading additional actions.** The read-only Figma master currently returns from one action to the six-action canonical sample. Once edit access is restored, align the linked desktop and mobile reset frames so the before-filter and post-reset states show the same underlying loaded records and the same total semantics.
+
+The merged handler filters the existing authenticated snapshot and does not request or write data. The diff adds no access, tenant isolation, API contract, or migration change.
+
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 ## Today 2.0 implementation branch — 2026-10-26
 
 PR #798 continues on `feat/today-2-command-center` (`EXISTING_WORK_FOUND`, Sprint ID NONE). Today, Needs You and Work share authenticated source data, operational indicators, contextual source workspaces, semantic themes and the persistent five-slot Control Dock. Previous head `fdcc63cc6c6a28d94c8642e9e821857fda729960` passed 518 frontend tests, 20 Chromium component tests and hosted PostgreSQL integration/migration rehearsal (run 40427077847). Its real Vercel Preview is READY; unauthenticated dashboard redirect to login was observed. Secure sign-in was declined, so authenticated live-data journeys remain unverified.
