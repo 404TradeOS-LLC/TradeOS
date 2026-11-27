@@ -444,8 +444,9 @@ export function evaluateGate(snapshot, opts = {}) {
     demote("REPAIRABLE");
   } else if (mergeState === "BLOCKED") {
     // BLOCKED merge state has two distinct causes, and they route
-    // differently: a standing CHANGES_REQUESTED review is founder-only
-    // (stays BLOCKED), while failing checks are repairable. GitHub
+    // differently: a standing CHANGES_REQUESTED review stays BLOCKED
+    // (escalates to an agent lane for the dismissal decision), while
+    // failing checks are repairable. GitHub
     // reports BLOCKED whenever a required check fails, so an
     // unconditional demotion here made the "failing required check →
     // REPAIRABLE" mapping unreachable in practice — the repair tiers
