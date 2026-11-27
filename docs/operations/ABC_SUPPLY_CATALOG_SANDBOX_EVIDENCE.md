@@ -196,7 +196,17 @@ with the client's retry/backoff and 125 ms spacing; one-shot CLI
   from `checkpoint_page + 1` with cumulative counts; a second trigger
   while a run is `running` is refused and the recovery path is resuming
   that run (a killed run stays `running` with its checkpoint — never
-  hand-edit the row).
+  hand-edit the row). Run-ownership claims are serialized with a
+  transaction-scoped advisory lock (`pg_advisory_xact_lock(735001)`,
+  via `$executeRaw` — `$queryRaw` cannot deserialize its void return),
+  so two concurrent CLI invocations cannot both pass the guard. A run
+  that failed before any page committed (checkpoint 0) restarts from
+  page 1 under the same run id and revalidates the provider totals
+  instead of restoring the failed attempt's totals (a failed first page
+  persists empty 0/0 totals, which would otherwise skip every page and
+  succeed vacuously). Each page transaction carries an explicit 120 s
+  budget (Prisma 6 defaults interactive transactions to 5 s) and
+  hierarchy paths are batched per page (one read for all distinct paths).
 - **Content-hash upsert:** SHA-256 over the canonicalized stored fields,
   keyed on `item_number`. Hash-identical rows are touched
   (`last_seen_at`) only, so a second identical run is 0 adds / 0 updates.
@@ -204,18 +214,27 @@ with the client's retry/backoff and 125 ms spacing; one-shot CLI
   `is_displayable = false`; absence from a provider pass does not
   deactivate (retirement after two consecutive absences is Phase 3).
 - **Failure handling:** per-item failures (e.g. a price-like key in a
-  payload) are counted in `items_failed` and listed in the run's `error`
-  field without aborting the sync; a database transaction failure aborts
-  the run, not the item; `totalItems`/`totalPages` drift mid-run aborts
-  as `partial` with the checkpoint preserved; a 0-item first page fails
-  closed and retains all stored data.
+  payload) are counted in `items_failed` and the item numbers listed in
+  the run row's `error` field without aborting the sync — the stdout
+  report carries the count only, never item numbers; a database
+  transaction failure aborts the run, not the item;
+  `totalItems`/`totalPages` drift mid-run aborts as `partial` with the
+  checkpoint preserved; a page that returns fewer items than the
+  provider's own totals say it should hold aborts as `partial`
+  (`catalog_import_short_page`, checkpoint preserved; skipped when the
+  totals do not fit the 1000-item page contract at all); a 0-item first
+  page fails closed and retains all stored data. A bounded dry run ends
+  `partial` with `catalog_import_bounded_stop`, not `succeeded` — a
+  succeeded report must reconcile `items_seen` with provider
+  `totalItems`.
 - **Hierarchy seed:** `GET /api/product/v1/hierarchy` (50/page) plus
   item-payload hierarchies, upserted by `path_key` (six codes joined
   with `/`, empty/missing collapsing to `''`); empty level nodes are
   preserved in `levels` and never fail the import; malformed entries
   (non-object, no `productGroup`) are skipped and counted.
 - **No prices, no tenant writes:** the mapper is an explicit field
-  allowlist and rejects price-like keys; the service has no access to
+  allowlist and rejects price-like keys at any depth of a stored value
+  (the scan has no depth cap); the service has no access to
   `SupplierProduct`/`Material` models. Unit tests assert no price keys
   in any stored row and no tenant-model calls; the integration test
   asserts the same against live Postgres.
@@ -237,21 +256,36 @@ with the client's retry/backoff and 125 ms spacing; one-shot CLI
   runner, and the same script runs against staging unchanged once the
   placement lands (the target is just `DATABASE_URL`).
 - **Evidence so far (pre-merge, local):** unit tests
-  `tests/supplier-integration.abc-catalog-import.test.ts` 21/21 pass
+  `tests/supplier-integration.abc-catalog-import.test.ts` 30/30 pass
   (fake DB: full import, 0/0 second run, bounded resume, drift,
   empty-response fail-closed, per-item failure, DB-failure abort,
-  headroom gate, dry-run); integration tests
-  `tests/abcCatalogImport.integration.ts` 4/4 pass against a disposable
+  headroom gate, dry-run, plus the review-driven regressions: truncated
+  page → `partial`, bounded dry run → `partial`, checkpoint-0 resume
+  revalidates page 1, deep price key rejected, counts-only stdout
+  report, ownership lock issued, 120 s page-transaction budget,
+  batched hierarchy reads); integration tests
+  `tests/abcCatalogImport.integration.ts` 5/5 pass against a disposable
   local Postgres 16 cluster (trust auth, no credentials; 91 migrations
   applied via `scripts/deploy-migrations.sh`; restricted `tradeos_app`
   role) — full import through the ingestion flag, 0/0 second run, live
   resume, dry-run writes nothing, empty-response fail-closed with rows
-  retained. The rehearsal caught one real behavior before the PR:
-  bare app-role reads see nothing under forced RLS (rows are hidden
-  silently), so verification reads must run under the ingestion flag.
+  retained, and resume of a run that failed on an empty first page.
+  The rehearsal caught three real behaviors before the PR: bare
+  app-role reads see nothing under forced RLS (rows are hidden
+  silently), so verification reads must run under the ingestion flag
+  (proven: a stored row counts 0 bare, 1 flagged — the workflow's
+  dry-run assertion now sets the flag); `$queryRaw` cannot deserialize
+  the void return of `pg_advisory_xact_lock` (Prisma P2010), so the
+  ownership lock uses `$executeRaw`; and the workflow's `psql` steps
+  must strip Prisma's `?schema=public` (libpq rejects it).
 - **Live workflow evidence still owed after merge:** dispatch dry-run
-  bounded (3 pages), then bounded write + resume, then the full import
-  with `second_run = true` (~3 h provider time); record the run URLs,
+  bounded (3 pages), then bounded write + in-job resume
+  (`resume_to_completion = true`), then the full import with
+  `second_run = true` (~3 h provider time); record the run URLs,
   run ids, `items_seen` vs provider `totalItems`, resume proof, and
-  second-run 0/0 on #735. Staging verification via the deployed app
+  second-run 0/0 on #735. A bounded write and its resume run in the
+  same dispatch — the disposable database does not persist between
+  dispatches, so a second dispatch cannot resume a run from the first;
+  cross-dispatch resume needs a persistent database (staging, once the
+  placement above is unblocked). Staging verification via the deployed app
   remains gated on the Vercel 402 clearing.
