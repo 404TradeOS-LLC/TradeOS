@@ -76,6 +76,12 @@ const HEALTH_PROBE_STATEMENT_TIMEOUT = "5s";
 const HEALTH_PROBE_TIMEOUT_MS = 5_000;
 
 async function runReadinessProbes(): Promise<SchemaColumn[]> {
+  // Explicit maxWait: Prisma defaults interactive-transaction acquisition
+  // to 2,000 ms, and the pool holds one connection — without this, an
+  // ordinary request holding that connection for 2–5 s would make /ready
+  // 503 before its advertised 5 s budget even though the connection would
+  // free in time. The acquisition budget matches the outer race so normal
+  // contention does not prematurely mark the service unready.
   const probes = basePrisma.$transaction(async (tx) => {
     await tx.$queryRawUnsafe(`SET LOCAL statement_timeout = '${HEALTH_PROBE_STATEMENT_TIMEOUT}'`);
     await tx.$queryRawUnsafe("SELECT 1");
@@ -85,7 +91,7 @@ async function runReadinessProbes(): Promise<SchemaColumn[]> {
       WHERE table_schema = 'public'
         AND (table_name, column_name) IN (${DASHBOARD_SCHEMA_REQUIREMENTS.map(([table, column]) => `('${table}', '${column}')`).join(", ")})
     `);
-  });
+  }, { maxWait: HEALTH_PROBE_TIMEOUT_MS });
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([

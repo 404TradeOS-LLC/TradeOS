@@ -1,11 +1,12 @@
 jest.mock("../db/client", () => {
   const queryRawUnsafe = jest.fn();
+  const transaction = jest.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({ $queryRawUnsafe: queryRawUnsafe }));
   const basePrisma = {
     $queryRawUnsafe: queryRawUnsafe,
     // The probe runs inside one transaction (SET LOCAL statement_timeout
     // + SELECT 1 + schema lookup); the transaction delegates to the same
     // $queryRawUnsafe mock so existing call assertions keep working.
-    $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({ $queryRawUnsafe: queryRawUnsafe })),
+    $transaction: transaction,
   };
   return { basePrisma };
 });
@@ -17,6 +18,7 @@ import { logError } from "../backend/logging";
 import { buildHealthPayload, checkReadiness, resolveDatabaseProjectRef, resolveRuntimeEnvironment } from "../backend/health";
 
 const queryRawUnsafe = basePrisma.$queryRawUnsafe as jest.Mock;
+const transaction = basePrisma.$transaction as jest.Mock;
 const mockedLogError = logError as jest.Mock;
 
 describe("production health surfaces", () => {
@@ -81,6 +83,11 @@ describe("production health surfaces", () => {
     ]);
     const payload = await checkReadiness(new Date("2026-08-12T22:00:00.000Z"));
     expect(queryRawUnsafe).toHaveBeenCalledWith("SET LOCAL statement_timeout = '5s'");
+    // The probe transaction budgets connection acquisition at the same
+    // 5 s as the outer race: Prisma's interactive-transaction default
+    // maxWait is 2,000 ms, and with a one-connection pool that would 503
+    // /ready early under ordinary contention.
+    expect(transaction).toHaveBeenCalledWith(expect.any(Function), { maxWait: 5_000 });
     expect(queryRawUnsafe).toHaveBeenCalledWith("SELECT 1");
     expect(payload.status).toBe("ready");
     expect(payload.checks.database.status).toBe("ok");
