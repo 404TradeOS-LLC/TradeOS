@@ -22,7 +22,9 @@ export function EstimateCodesHints({ estimateId }: { estimateId: string }) {
     queryKey: ["estimate-codes-hints", estimateId],
     queryFn: () =>
       clientFetch<EstimateCodesHintsResponse>(`/costbook/codes/estimates/${estimateId}/hints`),
-    staleTime: 30_000,
+    // Fluid plan 2.4: 30 s → 60 s. Advisory, non-blocking hints that
+    // never affect totals; the proxy allowlist caches the same read 60 s.
+    staleTime: 60_000,
     retry: false,
   });
 

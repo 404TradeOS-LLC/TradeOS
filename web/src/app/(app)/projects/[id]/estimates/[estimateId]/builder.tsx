@@ -116,7 +116,10 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
   const { data: estimate, isLoading, isError, error } = useQuery({
     queryKey: estimateKey,
     queryFn: () => clientFetch<EstimateDetail>(`/estimates/${estimateId}`),
-    staleTime: 15_000,
+    // Fluid plan 2.4: 15 s → 30 s. Mutations already invalidate the exact
+    // key, so a local edit still shows immediately; only a second tab's
+    // edit can lag up to 30 s.
+    staleTime: 30_000,
   });
 
   const [lastRecalculation, setLastRecalculation] = useState<RecalculationSnapshot | null>(null);

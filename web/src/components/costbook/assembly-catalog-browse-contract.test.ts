@@ -34,7 +34,11 @@ test("changing filters clears mapping state and hides a selected recipe outside 
   assert.match(updateFilter, /setSelectedTemplateId\(""\)/);
   assert.match(updateFilter, /setMappings\(\{\}\)/);
   assert.match(updateFilter, /setMappingItems\(\{\}\)/);
-  assert.match(updateFilter, /setCostPreview\(\{\}\)/);
+  // The preview is query-derived (keyed by selected template + mapped
+  // ids), so clearing the selection and mappings retires the preview
+  // without a setCostPreview({}) reset: no stale preview can survive.
+  assert.doesNotMatch(ui, /setCostPreview\(/);
+  assert.match(ui, /queryKey: \["assembly-catalog-cost-preview", selected\?\.id \?\? "", \.\.\.mappedIds\]/);
 });
 
 test("installed status comes from all active tenant assemblies, not the current page or recipe labels", async () => {
@@ -57,9 +61,12 @@ test("browse facets preserve existing write permissions and priced preview gates
 
 test("saving pricing overrides refreshes the displayed unit cost", async () => {
   const ui = await source("./assembly-catalog.tsx");
-  // The edit form's onUpdated path must refetch the unit cost: the
-  // selectedId effect alone does not rerun after an override save, so the
-  // displayed cost would stay stale.
+  // The edit form's onUpdated path must refresh the unit cost: the
+  // selectedId query alone does not refetch after an override save, so
+  // the displayed cost would stay stale. The cost is a cached query, so
+  // the refresh invalidates ["assembly-unit-cost", id] instead of
+  // fetching by hand; a failed refetch surfaces through the query's
+  // error state while the last known cost stays visible.
   assert.match(ui, /onUpdated=\{handleAssemblyUpdated\}/);
   assert.match(ui, /function handleAssemblyUpdated\(updated: CostbookAssembly\)/);
   const handler = ui.slice(ui.indexOf("function handleAssemblyUpdated"), ui.indexOf("async function deactivateSelected"));
@@ -67,10 +74,8 @@ test("saving pricing overrides refreshes the displayed unit cost", async () => {
   assert.match(handler, /refreshSelectedUnitCost\(updated\.id\)/);
   assert.match(ui, /async function refreshSelectedUnitCost\(requestAssemblyId: string\)/);
   const refresh = ui.slice(ui.indexOf("async function refreshSelectedUnitCost"), ui.indexOf("function handleAssemblyUpdated"));
-  assert.match(refresh, /clientFetch<AssemblyCost>\(`\/costbook\/assemblies\/\$\{requestAssemblyId\}\/unit-cost`\)/);
-  assert.match(refresh, /setUnitCost\(cost\.unitCost\)/);
-  // A failed refresh clears the stale value instead of leaving it displayed.
-  assert.match(refresh, /setUnitCost\(null\)/);
+  assert.match(refresh, /await queryClient\.invalidateQueries\(\{ queryKey: \["assembly-unit-cost", requestAssemblyId\] \}\);/);
+  assert.doesNotMatch(refresh, /setUnitCost\(null\)/);
 });
 
 test("override edit inputs accept every value the API contract accepts", async () => {

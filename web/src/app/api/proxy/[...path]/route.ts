@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getSessionToken } from "@/lib/session";
+import { getProxyCacheControl, getProxyCacheMaxAge } from "@/lib/proxy-cache";
 import { shouldRejectProxyMutation } from "@/lib/proxy-origin";
 
 const BACKEND_API_URL = process.env.BACKEND_API_URL ?? "http://localhost:4000";
@@ -31,16 +32,29 @@ async function handle(request: NextRequest, segments: string[]): Promise<Respons
   });
 
   const text = await upstream.text();
+  // Allowlisted GETs are browser-cacheable (`private, max-age=<TTL>` +
+  // `Vary: Cookie` — see web/src/lib/proxy-cache.ts for the allowlist and
+  // the workspace-switch reasoning). A repeat read inside the TTL is
+  // served from the browser cache and never reaches this handler, which
+  // is what cuts Fluid invocations. Everything else keeps `no-store`.
+  // A cached response must never carry a cookie, so upstream Set-Cookie
+  // is stripped on allowlisted responses; the ABC OAuth browser-binding
+  // cookie below only ever arrives on a POST, which is never allowlisted.
+  const cacheMaxAge = getProxyCacheMaxAge(request.method, segments);
   const headers = new Headers({
     "Content-Type": upstream.headers.get("content-type") ?? "application/json",
-    "Cache-Control": "no-store",
+    "Cache-Control": cacheMaxAge === null ? "no-store" : getProxyCacheControl(cacheMaxAge),
   });
-  // Forward upstream Set-Cookie headers (e.g. the ABC OAuth browser-binding
-  // cookie set by POST /api/v1/supplier-integrations/abc/oauth/authorize).
-  // The backend is first-party and trusted; without this the browser never
-  // receives server-set cookies issued through the proxy.
-  for (const setCookie of upstream.headers.getSetCookie()) {
-    headers.append("Set-Cookie", setCookie);
+  if (cacheMaxAge !== null) {
+    headers.set("Vary", "Cookie");
+  } else {
+    // Forward upstream Set-Cookie headers (e.g. the ABC OAuth browser-binding
+    // cookie set by POST /api/v1/supplier-integrations/abc/oauth/authorize).
+    // The backend is first-party and trusted; without this the browser never
+    // receives server-set cookies issued through the proxy.
+    for (const setCookie of upstream.headers.getSetCookie()) {
+      headers.append("Set-Cookie", setCookie);
+    }
   }
   return new Response(text || null, {
     status: upstream.status,

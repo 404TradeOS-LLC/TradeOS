@@ -79,6 +79,16 @@ function createLoader(role = "owner", overrides: Record<string, (...args: unknow
         case "react": return { cache: (fn: unknown) => fn };
         case "../../../app/domain/contracts": return { hasPermission, isSupportedRole, normalizeRole };
         case "@/lib/api": return { ...api, toInclusiveEndBoundary: (value: string) => new Date(Date.parse(value) - 1).toISOString() };
+        // The cached getters are request-scoped React cache() wrappers
+        // around the same three api reads (Fluid plan 2.2): in the VM
+        // there is no request store, so the stub passes straight through
+        // to the recording api fns, which keeps the call assertions
+        // (method names, token args) identical to the pre-cache loader.
+        case "@/lib/cached-org-reads": return {
+          getCachedOrganizationSettings: (...args: unknown[]) => (api as Record<string, (...a: unknown[]) => Promise<unknown>>).getOrganizationSettings(...args),
+          getCachedDispatchSummary: (...args: unknown[]) => (api as Record<string, (...a: unknown[]) => Promise<unknown>>).getDispatchSummary(...args),
+          getCachedAthenaCapabilities: (...args: unknown[]) => (api as Record<string, (...a: unknown[]) => Promise<unknown>>).getAthenaCapabilities(...args),
+        };
         case "@/lib/athena-estimate-handoff": return { buildAthenaEstimateIdentity };
         case "@/lib/session": return { getSessionToken: async () => authenticated ? "private-test-token" : null, getSession: async () => authenticated ? { sub: "user-a", email: "billy@example.test" } : null };
         case "@/components/dashboard/needs-attention-model": return attentionModel;

@@ -2,11 +2,12 @@ import "server-only";
 import { cache } from "react";
 import { hasPermission, isSupportedRole, normalizeRole } from "../../../app/domain/contracts";
 import {
-  getAthenaCapabilities, getDispatchSummary, getOrganizationSettings, getScheduleConflicts,
+  getScheduleConflicts,
   listAthenaApprovals, listEstimateQueue, listInvoiceQueue, listJobsForDispatch,
   listAssignedJobTasks, listOrganizationProjectTasks, listProposalQueue, toInclusiveEndBoundary,
   type DispatchJob, type DispatchSummary,
 } from "@/lib/api";
+import { getCachedAthenaCapabilities, getCachedDispatchSummary, getCachedOrganizationSettings } from "@/lib/cached-org-reads";
 import { getSession, getSessionToken } from "@/lib/session";
 import { buildAthenaEstimateIdentity } from "@/lib/athena-estimate-handoff";
 import { getStaleProposalCutoffIso, buildAttentionInvoiceRows, buildAttentionProposalRows } from "@/components/dashboard/needs-attention-model";
@@ -26,9 +27,9 @@ export const loadTodayData = cache(async (includeRecentUnsigned = false): Promis
   const [token, session] = await Promise.all([getSessionToken(), getSession()]);
   if (!token || !session) return null;
   const [settings, initialSummary, capabilities] = await Promise.all([
-    getOrganizationSettings(token).catch(() => null),
-    getDispatchSummary(token).catch(() => null),
-    getAthenaCapabilities(token).catch(() => null),
+    getCachedOrganizationSettings(token).catch(() => null),
+    getCachedDispatchSummary(token).catch(() => null),
+    getCachedAthenaCapabilities(token).catch(() => null),
   ]);
   if (!settings || !isSupportedRole(settings.currentRole)) return null;
   const role = settings.currentRole;

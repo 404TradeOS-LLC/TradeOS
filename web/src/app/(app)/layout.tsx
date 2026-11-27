@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/shared/app-nav";
 import { TenantQueryProvider } from "@/components/shared/tenant-query-provider";
-import { getAthenaCapabilities, getOrganizationSettings, getWorkspaceMemberships, type WorkspaceMembership } from "@/lib/api";
+import { getWorkspaceMemberships, type WorkspaceMembership } from "@/lib/api";
+import { getCachedAthenaCapabilities, getCachedOrganizationSettings } from "@/lib/cached-org-reads";
 import { isAuthorizedBetaOperator } from "@/lib/beta-control";
 import { decodeLocalAccessToken } from "@/lib/local-auth";
 import { getSession, getSessionToken } from "@/lib/session";
@@ -46,7 +47,7 @@ async function resolveAthenaEnabled(token: string | null): Promise<AthenaCapabil
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), ATHENA_CAPABILITY_TIMEOUT_MS);
   try {
-    const capabilities = await getAthenaCapabilities(token, controller.signal);
+    const capabilities = await getCachedAthenaCapabilities(token, controller.signal);
     return { enabled: capabilities.kernelEnabled === true, retryOnClient: false };
   } catch {
     // Capability discovery is advisory UI gating. Fail closed on the initial
@@ -63,7 +64,7 @@ async function resolveSettingsIdentity(token: string | null): Promise<{ role: st
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), SETTINGS_IDENTITY_TIMEOUT_MS);
   try {
-    const settings = await getOrganizationSettings(token, controller.signal);
+    const settings = await getCachedOrganizationSettings(token, controller.signal);
     return { role: settings.currentRole, orgId: settings.orgId };
   } catch {
     // Presentation gating only — server routes remain authoritative. The

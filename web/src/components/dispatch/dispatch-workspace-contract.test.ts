@@ -139,3 +139,24 @@ test("dispatcher schedule and dispatch mutations bind the displayed Job revision
   assert.match(actions, /withJobRevision\(job.updatedAt, \{ scheduledStart/);
   assert.match(actions, /\/dispatch", \{ method: "POST", body: JSON.stringify\(withJobRevision\(job.updatedAt, \{\}\)\)/);
 });
+
+test("proxy route caches only the allowlisted GETs and never a mutation or auth path", async () => {
+  const proxy = await readSource("../../app/api/proxy/[...path]/route.ts");
+  const allowlist = await readSource("../../lib/proxy-cache.ts");
+
+  // The route consults the allowlist for the request method + segments and
+  // applies private max-age with Vary: Cookie only when it matches; every
+  // other response keeps no-store, and upstream Set-Cookie is forwarded
+  // only on the no-store branch (so a cached response never carries a
+  // cookie — the ABC OAuth POST cookie still flows through).
+  assert.match(proxy, /getProxyCacheMaxAge\(request\.method, segments\)/);
+  assert.match(proxy, /getProxyCacheControl\(cacheMaxAge\)/);
+  assert.match(proxy, /headers\.set\("Vary", "Cookie"\)/);
+  assert.match(proxy, /"Cache-Control": cacheMaxAge === null \? "no-store" : getProxyCacheControl\(cacheMaxAge\)/);
+  assert.doesNotMatch(proxy, /"Cache-Control": "no-store",\n  \}\);/);
+  assert.match(allowlist, /segments: \["jobs", "dispatch-summary"\], maxAgeSeconds: 30/);
+  // Dispatch lists, queues, approvals, and conflicts stay no-store.
+  assert.doesNotMatch(allowlist, /segments: \["jobs"\]/);
+  assert.doesNotMatch(allowlist, /athena", "approvals/);
+  assert.doesNotMatch(allowlist, /schedule", "conflicts/);
+});
