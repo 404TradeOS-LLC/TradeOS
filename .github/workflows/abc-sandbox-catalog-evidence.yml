@@ -163,7 +163,7 @@ jobs:
                 "| Total duplicate item numbers | " + p.totalDuplicateItemNumbers + " |\n" +
                 "| Stored catalog items | 0 |\n" +
                 "| Customer pricing requested | No |\n\n" +
-                "### Per-page counts (isolated re-reads through the importer's read path)\n\n" +
+                "### Per-page counts (isolated re-reads through the importer read path)\n\n" +
                 "| Page | Returned | Unique | Duplicates | No identity | Active / Inactive / Other | Latency |\n|---|---:|---:|---:|---:|---|---:|\n" + pageRows + "\n" +
                 "This is NOT proof of completed full import, deployed UI or an authorized quote. " +
                 "A repeated short final page (fewer items than the provider totals imply) means the listing holds fewer items than totalItems reports; a full final page means transient pagination instability.\n");
