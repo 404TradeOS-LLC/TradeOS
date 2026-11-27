@@ -215,18 +215,30 @@ export function renderProjectProposalPdf(proposal: ProposalWithRelations, brand:
 
 function drawHeader(doc: any, brand: DocumentFrameBrand, title: string, logoImage?: Buffer | null) {
   const { left, right } = bounds(doc);
+  const headerTop = 34;
+  const nameY = 54;
+  const taglineY = 58;
+  const nameOptions = { width: 300 };
+  const titleOptions = { characterSpacing: 1.4, width: 250 };
+  const taglineOptions = { width: 160, align: "right" as const };
+  const label = title.toUpperCase();
+  const titleY = nameY + doc.font("Helvetica-Bold").fontSize(22).heightOfString(brand.companyName, nameOptions) + 4;
+  const titleBottom = titleY + doc.font("Helvetica").fontSize(11).heightOfString(label, titleOptions);
+  const taglineBottom = brand.tagline
+    ? taglineY + doc.fontSize(10).heightOfString(brand.tagline, taglineOptions)
+    : taglineY;
+  const headerBottom = Math.max(122, titleBottom + 18, taglineBottom + 18);
+
   doc.save();
-  doc.roundedRect(left, 34, right - left, 88, 20).fill(brand.colors.primary);
+  doc.roundedRect(left, headerTop, right - left, headerBottom - headerTop, 20).fill(brand.colors.primary);
   doc.restore();
-  doc.fillColor("white").fontSize(22).font("Helvetica-Bold").text(brand.companyName, left + 18, 54, { width: 300 });
-  doc.fontSize(11).font("Helvetica").fillColor(brand.colors.secondary).text(title.toUpperCase(), left + 18, 82, {
-    characterSpacing: 1.4,
-    width: 250,
-  });
+  doc.fillColor("white").fontSize(22).font("Helvetica-Bold").text(brand.companyName, left + 18, nameY, nameOptions);
+  doc.fontSize(11).font("Helvetica").fillColor(brand.colors.secondary).text(label, left + 18, titleY, titleOptions);
   const hasLogo = drawValidatedPdfLogo(doc, logoImage, { x: right - 83, y: 49, width: 52, height: 52 });
-  if (!hasLogo && brand.tagline) doc.fillColor("white").fontSize(10).text(brand.tagline, right - 180, 58, { width: 160, align: "right" });
+  if (!hasLogo && brand.tagline) doc.fillColor("white").fontSize(10).text(brand.tagline, right - 180, taglineY, taglineOptions);
   doc.fillColor(BRAND.ink).font("Helvetica");
-  doc.y = 146;
+  doc.x = left;
+  doc.y = headerBottom + 24;
 }
 
 function writeContactRail(doc: any, brand: DocumentFrameBrand) {

@@ -16,6 +16,8 @@ related_code:
 
 Existing Proposal PDF endpoints preserve their request/response contract. Rendered Customer/Project metadata now uses measured wrapped field heights; saved narrative line endings are normalized before PDF rendering. No new parameter, pricing computation or tenant-access behavior is introduced.
 
+Both Proposal PDF variants measure the wrapped company heading before positioning the document title, logo or tagline, and contact details. The renderer preserves the existing authenticated logo input and text fallback contract.
+
 
 # API Reference
 

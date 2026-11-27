@@ -408,6 +408,8 @@ A new no-network PDF rendering helper validates bounded PNG/JPEG bytes (1 MiB, 2
 
 ## Contractor-brand-only proposal PDF headers — merged PR #868
 
+Issue #870 local visual fixtures showed that a wrapped company name could overlap the title. The shared header measures the name and title, expands the dark header, and restores the left margin for contact details after both logo and tagline rendering. Authenticated staging acceptance is still pending.
+
 Proposal PDF generation already resolves the authenticated organization's Brand Studio values. The proposed repair removes the unconditional large TradeOS label from both proposal PDF header variants; the opt-in `showPoweredByTradeOS` footer remains unchanged. Jest regression coverage exercises an actual PDF buffer for both white-label and opt-in states. No customer/tenant identity, proposal financial content, estimate totals, authentication or API contract changes. GitHub exact-head CI and visual PDF acceptance remain required. The renderer supports bounded logo bytes and PR #873 adds the org-scoped loader. Live uploaded-image appearance remains unverified because staging has no active logo asset.
 
 ## Next.js starter-asset cleanup — merged PR #869

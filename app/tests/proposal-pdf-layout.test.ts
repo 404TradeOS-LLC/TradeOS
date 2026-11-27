@@ -1,7 +1,7 @@
 import { inflateSync } from "node:zlib";
 
 jest.mock("../db/client", () => ({ prisma: {} }));
-import { renderEstimateProposalPdf } from "../modules/proposal-generator/service";
+import { renderEstimateProposalPdf, renderProjectProposalPdf } from "../modules/proposal-generator/service";
 
 function runs(pdf: Buffer): Array<{ text: string; x: number; y: number }> {
   const result: Array<{ text: string; x: number; y: number }> = [];
@@ -41,6 +41,35 @@ const fixture = {
 const options = { brand, showLineItemDetail: false, termsAndConditions: "Terms", finalPrice: 7105.07 };
 
 describe("Proposal PDF saved-input layout", () => {
+  it.each([false, true])("keeps a wrapped company name above the proposal title (logo: %s)", async (withLogo) => {
+    const wrappedBrand = { ...brand, companyName: "Example Deck & Construction", tagline: "Built for everyday use", phone: "317-555-0100" };
+    const logoImage = withLogo
+      ? Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGPYX2ONFTEMLQkAqeRdgcrsUtEAAAAASUVORK5CYII=", "base64")
+      : null;
+    const projectProposal = {
+      companyName: null, scopeOfWork: null, assumptions: null, exclusions: null, timeline: null,
+      priceLow: null, priceHigh: null, finalPrice: 7105.07, paymentScheduleJson: null, termsAndConditions: null,
+      createdAt: fixture.createdAt, signerName: null, signerEmail: null, signatureDataUrl: null, signedAt: null,
+      project: fixture.project,
+    };
+    const examples = [
+      { pdf: await renderEstimateProposalPdf(fixture, { ...options, brand: wrappedBrand, logoImage }), title: "CLIENT PROPOSAL" },
+      { pdf: await renderProjectProposalPdf(projectProposal, wrappedBrand, logoImage), title: "CLIENT PROPOSAL DRAFT" },
+    ];
+    for (const { pdf, title } of examples) {
+      const text = runs(pdf);
+      const companyEnd = text.find((run) => run.text === "Construction")!;
+      const titleRun = text.find((run) => run.text === title)!;
+      const contact = text.find((run) => run.text === wrappedBrand.phone)!;
+      expect(companyEnd).toBeDefined();
+      expect(titleRun).toBeDefined();
+      expect(contact).toBeDefined();
+      expect(companyEnd.y - titleRun.y).toBeGreaterThan(15);
+      expect(titleRun.y - contact.y).toBeGreaterThan(20);
+      expect(contact.x).toBe(46);
+    }
+  });
+
   it("places email/address below wrapped names and the price below all metadata", async () => {
     const text = runs(await renderEstimateProposalPdf(fixture, options));
     const customerEnd = text.find((run) => run.x < 300 && run.text === "beta_pdf-1794597604-768")!;
