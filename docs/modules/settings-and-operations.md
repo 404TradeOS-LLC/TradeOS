@@ -381,9 +381,11 @@ database writes. Product data is not retained in TradeOS. The frontend
 prohibit building databases/permanent copies absent express permission and
 restrict caching to provider headers. Written ABC permission for the stated
 shared-reference-copy use was received 2026-11-25 (Penny Simpson email,
-recorded on #735); durable replication, ingestion checkpoints containing
-payloads, and image storage are still unbuilt and remain Phase 1+ work, not
-something this branch enables. Existing
+recorded on #735); the durable schema landed in Phase 1 (migration
+`20261127010000_add_abc_shared_catalog`) and the importer itself is built
+in Phase 2 (`abcCatalogImport.ts` + `run-abc-catalog-import.ts` + the
+manual `abc-sandbox-catalog-import.yml` workflow), while ingestion
+checkpoints containing payloads and image storage remain unbuilt. Existing
 user-present `account.read`/`pricing.read` OAuth, review gates and historical
 estimate snapshots remain unchanged. This branch is not production access.
 Sources: https://apidocs.abcsupply.com/third-party-aggregator-integration-track/
@@ -392,9 +394,11 @@ and https://www.abcsupply.com/legal/.
 
 ## ABC Product API read-only live-probe operator controls (issue #735)
 
-The `abc-sandbox-catalog-evidence.yml` GitHub Actions workflow is a manual, confirmation-gated probe requiring sandbox Third-Party Aggregator `ABC_SUPPLY_SANDBOX_CLIENT_ID` and `ABC_SUPPLY_SANDBOX_CLIENT_SECRET` with `product.read` in the repository or `abc-sandbox` GitHub Environment. It does not read Vercel secrets, customer OAuth credentials, user-specific prices, or any database; it writes only sanitized counts into the job summary. A missing credential is a hard failure. The full runbook is `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md`; green mocked tests alone do not prove provider access. Written ABC permission for the stated shared-reference-copy use was received 2026-11-25 (Penny Simpson email, recorded on #735); durable replication itself is Phase 1+ work, not built here.
+The `abc-sandbox-catalog-evidence.yml` GitHub Actions workflow is a manual, confirmation-gated probe requiring sandbox Third-Party Aggregator `ABC_SUPPLY_SANDBOX_CLIENT_ID` and `ABC_SUPPLY_SANDBOX_CLIENT_SECRET` with `product.read` in the repository or `abc-sandbox` GitHub Environment. It does not read Vercel secrets, customer OAuth credentials, user-specific prices, or any database; it writes only sanitized counts into the job summary. A missing credential is a hard failure. The full runbook is `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md`; green mocked tests alone do not prove provider access. Written ABC permission for the stated shared-reference-copy use was received 2026-11-25 (Penny Simpson email, recorded on #735); the durable schema landed in Phase 1 and the importer itself is built in Phase 2 (see below), not something this probe enables.
 
 **Phase 0 census mode (issue #735).** With `phase0 = true` the same workflow runs `probe-abc-sandbox-catalog.ts --phase0`: exactly three pages at `itemsPerPage=1000` plus one hierarchy page, page latency p50/p95, and a field census — counts and tallies only, still zero stored rows, failing closed on any price-like payload key. The run's numbers are posted to #735; the storage estimate is a planning figure, and DB headroom against the Supabase plan is a Phase 1 check, since no plan/limit record exists in the repo. Phase 0 uses a 120 s per-request timeout with 2 attempts (workflow cap 20 minutes) because 1000-item pages exceed the 12 s interactive timeout — the first live run (45901367450) failed with the generic `provider_or_schema_failure` after ~43 s. Failures now report a distinct code (`provider_request_failed`, `provider_unavailable_http_*`, `schema_mismatch:<field-paths>`) instead of the generic one. The hierarchy census records shape deviations as findings (`<level>:missing-code`, `<level>:missing-label`, `<level>:not-object:<kind>`) instead of failing the run — the second live run (45904451563) failed on `catalog_probe_hierarchy_shape_mismatch` because real sandbox hierarchy levels do not all carry `code`/`label` as the docs describe. The hierarchy page is read through the probe-only `listHierarchyRaw`; the strict `listHierarchy()` stays the mapped path for product surfaces.
+
+**Phase 2 full import (issue #735).** The `abc-sandbox-catalog-import.yml` workflow is a manual, confirmation-gated import (`IMPORT_ABC_SANDBOX_CATALOG`) that runs `app/scripts/run-abc-catalog-import.ts` against a disposable Postgres in the runner: dry-run first (counts only, no writes), then a bounded write, then resume by run id, then the full import with an optional second identical run that must be 0 adds / 0 updates. The importer pages at 1000/page, upserts on a SHA-256 content hash, checkpoints after every committed page, seeds hierarchy from the hierarchy endpoint plus item payloads, and fails closed below ~2 GB of database headroom (`ABC_CATALOG_DB_CAPACITY_BYTES`, recorded from the Supabase dashboard). It never stores a price and never writes `SupplierProduct`/`Material` rows. It imports into the disposable runner DB, not staging: no single GitHub environment holds both the ABC credentials (`abc-sandbox`) and a staging database URL (`staging`), so a staging-DB run is blocked on the owner placing one half with the other. Runbook: `docs/operations/ABC_SUPPLY_CATALOG_IMPORT.md`.
 
 
 ## ABC Catalog item detail boundary (issue #735)

@@ -1326,12 +1326,14 @@ Server and frontend are `no-store`; no database or Material/Estimate writes.
 Neither provider-level availability nor customer-specific pricing is claimed.
 
 **Not a full catalog import endpoint.** Persistent replication, delta
-checkpoints, and local indexes require a new
-governed schema/RLS design, and live provider/CI verification. Express ABC
-storage permission for the stated shared-reference-copy use was received
-2026-11-25 (Penny Simpson email, recorded on #735); the replication itself
-is still unbuilt. The existing
-customer OAuth and price-review endpoints remain separate.
+checkpoints, and local indexes use the governed schema/RLS design that
+landed in Phase 1 (migration `20261127010000_add_abc_shared_catalog`) and
+the Phase 2 importer (`app/modules/supplier-integration/abcCatalogImport.ts`
+plus `app/scripts/run-abc-catalog-import.ts` and the manual
+`abc-sandbox-catalog-import.yml` workflow) — still not an HTTP endpoint.
+Express ABC storage permission for the stated shared-reference-copy use
+was received 2026-11-25 (Penny Simpson email, recorded on #735). The
+existing customer OAuth and price-review endpoints remain separate.
 Docs: https://apidocs.abcsupply.com/get-all-items/,
 https://apidocs.abcsupply.com/search-items/,
 https://www.abcsupply.com/legal/.
@@ -1342,6 +1344,8 @@ https://www.abcsupply.com/legal/.
 The manual `app/scripts/probe-abc-sandbox-catalog.ts` task is **not** an HTTP endpoint, import worker, or price API. It reads at most two 25-item sandbox pages through the existing `AbcCatalogClient` with an independent server `product.read` token. It validates the server-only response contract, pagination consistency, active product identities, and explicit `pricing:"not-requested"`/`persisted:false` boundary. Its sanitized metadata output contains provider-reported totals and active item counts only; no API body/SKU or credentials are printed or persisted. To run, use the reviewed manual GitHub Actions workflow and `docs/operations/ABC_SUPPLY_CATALOG_SANDBOX_EVIDENCE.md`. Existing authenticated Costbook catalog HTTP routes and pricing authorization are unchanged.
 
 **Phase 0 census mode (issue #735).** With `--phase0`, the same script fetches exactly three pages at `itemsPerPage=1000` plus one hierarchy page through the probe-only `AbcCatalogClient.listRaw` reader (raw parsed pages; no HTTP route exposes it), times each page, and returns counts, page latency p50/p95, and a field census (UOM roles, dimensional variations, hierarchy nesting order, estimated full-catalog storage at 2–5 KB/item). It fails closed if any price-like key appears in a payload. Still zero stored rows and no pricing. Phase 0 uses a 120 s per-request timeout with 2 attempts (`AbcCatalogClientOptions`; the interactive default stays 12 s / 3 attempts) because 1000-item pages exceed the interactive budget — the first live run failed with the generic `provider_or_schema_failure` after ~43 s. Failures now report a distinct code: `provider_request_failed`, `provider_unavailable_http_*`, or `schema_mismatch:<field-paths>` (paths and issue codes only, never payload values). The hierarchy census records shape deviations as findings (`<level>:missing-code`, `<level>:missing-label`, `<level>:not-object:<kind>`) instead of failing: the second live run failed on `catalog_probe_hierarchy_shape_mismatch` because real sandbox hierarchy levels do not all carry `code`/`label` as the docs describe. The hierarchy page is read through the probe-only `listHierarchyRaw` (no strict `hierarchyPath` mapping, which would abort the run on the same data); the strict `listHierarchy()` stays the mapped path for product surfaces.
+
+**Phase 2 full import (issue #735).** `app/scripts/run-abc-catalog-import.ts` is the one-shot importer, not an HTTP endpoint: it pages the sandbox catalog at `itemsPerPage=1000` through `AbcCatalogClient.listRaw`, upserts by `item_number` on a SHA-256 content hash (a second identical run is 0 adds / 0 updates), checkpoints after every committed page (`checkpoint_page`, resume from `checkpoint_page + 1`), seeds `abc_catalog_hierarchy` from the hierarchy endpoint plus item payloads, and fails closed on an empty first page or below ~2 GB of database headroom (`ABC_CATALOG_DB_CAPACITY_BYTES`, recorded from the Supabase dashboard). It never stores a price and never writes `SupplierProduct`/`Material` rows. The manual `abc-sandbox-catalog-import.yml` workflow (main-only, `abc-sandbox` environment, exact confirmation `IMPORT_ABC_SANDBOX_CATALOG`) runs it against a disposable Postgres in the runner: no single GitHub environment holds both the ABC credentials and a staging database URL, so a staging-DB run is blocked on the owner placing one half with the other. Runbook: `docs/operations/ABC_SUPPLY_CATALOG_IMPORT.md`.
 
 
 ## ABC Get Item provider-backed read (issue #735 proposed)

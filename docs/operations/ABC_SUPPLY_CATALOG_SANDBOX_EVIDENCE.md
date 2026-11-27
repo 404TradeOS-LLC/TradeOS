@@ -175,3 +175,83 @@ PR [#1133](https://github.com/404TradeOS-LLC/TradeOS/pull/1133) merged migration
   Retention is soft-deactivation only — rows are never hard-deleted, so a
   purge on ABC's direction (if ever required) is a deliberate Phase 6
   operation, not an automatic one.
+
+## Phase 2 — resumable full import (issue #735)
+
+Phase 2 builds the importer on the Phase 1 schema: service
+`app/modules/supplier-integration/abcCatalogImport.ts` reusing
+`AbcCatalogClient.listRaw` (the only read path that returns `Inactive`
+items — `list()` filters them out), paging at 1000/page in page order
+with the client's retry/backoff and 125 ms spacing; one-shot CLI
+`app/scripts/run-abc-catalog-import.ts` (`--dry-run`, `--max-pages`,
+`--resume <run-id>`, `--db-capacity-bytes`); manual workflow
+`.github/workflows/abc-sandbox-catalog-import.yml` (dispatch from `main`,
+`abc-sandbox` environment, exact confirmation
+`IMPORT_ABC_SANDBOX_CATALOG`, sanitized step-summary counts); runbook
+`docs/operations/ABC_SUPPLY_CATALOG_IMPORT.md`.
+
+- **Checkpoint-after-commit:** each page upserts in one transaction under
+  the `app.abc_catalog_ingestion` flag and only then advances
+  `checkpoint_page` + counts in `abc_catalog_sync_runs`. A run resumes
+  from `checkpoint_page + 1` with cumulative counts; a second trigger
+  while a run is `running` is refused and the recovery path is resuming
+  that run (a killed run stays `running` with its checkpoint — never
+  hand-edit the row).
+- **Content-hash upsert:** SHA-256 over the canonicalized stored fields,
+  keyed on `item_number`. Hash-identical rows are touched
+  (`last_seen_at`) only, so a second identical run is 0 adds / 0 updates.
+  `Inactive` (and any non-`Active`) items are stored with
+  `is_displayable = false`; absence from a provider pass does not
+  deactivate (retirement after two consecutive absences is Phase 3).
+- **Failure handling:** per-item failures (e.g. a price-like key in a
+  payload) are counted in `items_failed` and listed in the run's `error`
+  field without aborting the sync; a database transaction failure aborts
+  the run, not the item; `totalItems`/`totalPages` drift mid-run aborts
+  as `partial` with the checkpoint preserved; a 0-item first page fails
+  closed and retains all stored data.
+- **Hierarchy seed:** `GET /api/product/v1/hierarchy` (50/page) plus
+  item-payload hierarchies, upserted by `path_key` (six codes joined
+  with `/`, empty/missing collapsing to `''`); empty level nodes are
+  preserved in `levels` and never fail the import; malformed entries
+  (non-object, no `productGroup`) are skipped and counted.
+- **No prices, no tenant writes:** the mapper is an explicit field
+  allowlist and rejects price-like keys; the service has no access to
+  `SupplierProduct`/`Material` models. Unit tests assert no price keys
+  in any stored row and no tenant-model calls; the integration test
+  asserts the same against live Postgres.
+- **Headroom gate (discharges the Phase 1 open check):** the importer
+  measures live size with `pg_database_size(current_database())` and
+  requires `capacity − used ≥ ~2 GB`; capacity comes from
+  `ABC_CATALOG_DB_CAPACITY_BYTES`, recorded by the operator from the
+  Supabase dashboard (Settings → Database). Without a capacity figure
+  the import fails closed — it never guesses headroom. The workflow
+  also runs a read-only `psql` headroom step first.
+- **Staging-DB target is BLOCKED on credential placement (not on code):**
+  no single GitHub environment holds both halves — `abc-sandbox` has
+  only the ABC client credentials, `staging` has only
+  `STAGING_DATABASE_ADMIN_URL` / `STAGING_APP_DB_ROLE_PASSWORD` — and a
+  job runs under exactly one environment. Owner action: add the ABC
+  sandbox client id/secret to the `staging` environment (or the staging
+  database URL to `abc-sandbox`); either is secret creation. Until then
+  the workflow proves the importer against a disposable Postgres in the
+  runner, and the same script runs against staging unchanged once the
+  placement lands (the target is just `DATABASE_URL`).
+- **Evidence so far (pre-merge, local):** unit tests
+  `tests/supplier-integration.abc-catalog-import.test.ts` 21/21 pass
+  (fake DB: full import, 0/0 second run, bounded resume, drift,
+  empty-response fail-closed, per-item failure, DB-failure abort,
+  headroom gate, dry-run); integration tests
+  `tests/abcCatalogImport.integration.ts` 4/4 pass against a disposable
+  local Postgres 16 cluster (trust auth, no credentials; 91 migrations
+  applied via `scripts/deploy-migrations.sh`; restricted `tradeos_app`
+  role) — full import through the ingestion flag, 0/0 second run, live
+  resume, dry-run writes nothing, empty-response fail-closed with rows
+  retained. The rehearsal caught one real behavior before the PR:
+  bare app-role reads see nothing under forced RLS (rows are hidden
+  silently), so verification reads must run under the ingestion flag.
+- **Live workflow evidence still owed after merge:** dispatch dry-run
+  bounded (3 pages), then bounded write + resume, then the full import
+  with `second_run = true` (~3 h provider time); record the run URLs,
+  run ids, `items_seen` vs provider `totalItems`, resume proof, and
+  second-run 0/0 on #735. Staging verification via the deployed app
+  remains gated on the Vercel 402 clearing.
