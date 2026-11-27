@@ -97,10 +97,27 @@ Before Phase 1 changes any schema, record the available Supabase disk headroom a
 
 ## Phase 1 — schema + RLS (issue #735)
 
-Phase 1 (migration `20261127010000_add_abc_shared_catalog`) resolves the
-Phase 1 gates listed above, except the Supabase headroom check, which stays
-open (see below). No importer code exists yet; the four catalog tables are
-empty after the migration and the Phase 2 importer fills them.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:162534a62d449319f5795879dd0e6a56b8e0e944277c01de7a32488f386ca1ce -->
+
+PR [#1133](https://github.com/404TradeOS-LLC/TradeOS/pull/1133) merged migration `20261127010000_add_abc_shared_catalog`. It seeds the global ABC Supply supplier and leaves the four catalog tables empty. The disposable PostgreSQL rehearsal and manual RLS spot checks are recorded below; the PR reports that the full integration suite did not run locally. The supplied merge evidence does not include a passing integration job tied to the final revision.
+
+### Post-merge follow-up risks (#1133)
+
+| When | Risk and evidence needed to close it |
+| --- | --- |
+| Before first import: write authorization | The RLS write policies check a transaction setting; they do not authenticate the importer as a distinct database role. The background test uses the application database client with an organization context. Keep the setting inside the authorized importer transaction and verify that HTTP and portal paths cannot activate it or invoke the writer. If database role isolation is required, use a dedicated writer role and test that the request role still cannot write when the setting is present. |
+| Before first import: live RLS evidence | Attach the passing integration job URL and tested revision to #735, or run the suite on a disposable database built from the merged baseline. The existing block does not individually exercise tenant writes to sync state, deletion under the ingestion flag on hierarchy/run/state, or flag reset after a transaction. Cover those cases and verify that a session with no organization and no ingestion context cannot read the catalog. |
+| Before first import: data admitted to shared tables | The schema has no price column, but JSON fields can carry nested provider data and `abc_catalog_sync_runs.error` is free text readable by organization sessions. Persist only explicitly allowed reference fields and use bounded, sanitized error codes or counts. Use synthetic inputs to verify that nested prices, availability, tokens and customer data cannot reach stored records or the run report. |
+| Before first import: resume and hierarchy identity | The singleton checkpoint limits row count but does not serialize concurrent importers. Make page writes and checkpoint advancement atomic, prevent overlapping writers, and verify that retrying a committed page does not duplicate rows or skip a page. Check for distinct hierarchy entries collapsing to the same six-code key before upsert, including paths with missing codes, so conflicting labels or level objects do not silently overwrite one another. |
+| Before first import: staging and disk | The earlier Phase 0 notes called for a capacity check before the schema change; that check remained open when the empty schema merged. Once the reported Vercel 402 clears, verify the migration and runtime-role access in staging. Confirm the global `ABC_SUPPLY` row's fixed ID and NULL organization: a pre-existing global row with the same key would make the seed's `ON CONFLICT DO NOTHING` skip the intended ID. Record staging and production disk usage, index and refresh budgets, and roughly 2 GB of free headroom on #735 before importing. |
+| Before browse or supplier adoption: customer access and API compatibility | An organization marker is enough for database reads; it does not establish Costbook permission or ABC customer eligibility. Verify the proposed audience against the written ABC permission before enabling browse. Test an eligible member, a member without access, and a portal session. Keep existing supplier lists, lookups, and live pricing scoped to their current organization supplier IDs until the adoption change explicitly covers those callers. |
+| Before the next migration touching this surface: schema drift | The Prisma declarations now include the JSONB GIN indexes and UUID types raised in review. Review generated SQL for unintended changes to the SQL-managed trigram expression index, partial supplier index and RLS policies. The reported shadow database replay failure predates Phase 1; a datamodel-only diff does not verify those objects. Rehearse on disposable PostgreSQL and compare the actual definitions. |
+
+### Phase 1 implementation evidence
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 - **Migration rehearsal: done.** Rehearsed on a disposable local Postgres
   16 cluster (trust auth, no credentials): all 91 migrations applied
@@ -113,15 +130,13 @@ empty after the migration and the Phase 2 importer fills them.
   caught one real bug before the PR: the partial unique index predicate
   did not match the `ON CONFLICT` specification (`42P10`); the index
   predicate was simplified to `WHERE org_id IS NULL`.
-- **Database-backed access tests: done.** `app/tests/rls.integration.ts`
-  ("abc shared catalog RLS") proves against a live database: any org can
-  read items, hierarchy, sync runs, sync state, and the global supplier
-  row; no org can write any catalog table (INSERT 42501, UPDATE/DELETE 0
-  rows) or update the global supplier row; the background session can
-  write under the `app.abc_catalog_ingestion` flag; DELETE is denied even
-  under the flag. `app/tests/abcCatalog.migration.test.ts` guards the
-  migration shape (org-less tables, no price column, forced RLS,
-  ingestion-only writes, global supplier seed).
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:feea6d3d66eec393e2aade9bfce49ddeb286194a2df921f21aba75ce514466a2 -->
+
+- **Database-backed access coverage added.** The ABC block in `app/tests/rls.integration.ts` exercises shared reads, selected tenant write denials, the global supplier update denial, writes in a flagged background transaction, and item delete denial even under the flag. `app/tests/abcCatalog.migration.test.ts` checks migration structure. See the integration evidence gate above for the recorded limits.
+
+<!-- /coderabbit-ai-generated:v1 -->
 - **Hierarchy decision: table, not view.** `abc_catalog_hierarchy` is a
   real table because hierarchy is seeded from its own endpoint
   (9,059 paths per Phase 0), a view over items would miss paths with no
