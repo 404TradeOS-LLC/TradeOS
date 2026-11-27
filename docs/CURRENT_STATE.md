@@ -450,7 +450,21 @@ A proposed backend service reads the active `SettingsAssetUpload` row for the al
 
 ## Invoice PDF summary pagination
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:6a53d647d5ef28bc980c2f815c75a4b9382aa1740457f5cff991b79bb324ad75 -->
+
 Long invoice PDFs reserve room for the Invoice summary heading and the full totals block before drawing either. A page-level regression fixture verifies a split that previously left the heading and subtotal on the preceding page.
+
+**Open follow-up risks from [PR #1162](https://github.com/404TradeOS-LLC/TradeOS/pull/1162)** (merged as `38c7ee384a322a201b78f3e8ff5f0666294c3aca`):
+
+- **Staging output and hosted checks are unverified.** The PR reported local document tests passing and staging on an older build; the available merge evidence does not confirm hosted CI or visual acceptance. Once staging includes the merge, record the deployed API revision and hosted check results. Using a synthetic sent invoice with roughly 40 line items, tax and a partial payment, download the PDF through the authenticated invoice and customer portal routes. Confirm the downloads are valid PDFs, the summary heading and all five totals share a page, the amounts match the fixture, and no line item or total is clipped. Track visual acceptance with [#870](https://github.com/404TradeOS-LLC/TradeOS/issues/870).
+- **The regression test covers one overflow case.** The 40-line fixture checks extracted text streams, so it cannot show clipping or detect a summary that moves prematurely when it still fits. Add page assertions for fixtures immediately on either side of the bottom margin threshold, including a summary without tax or payments. Verify it stays on the final line-item page when it fits and moves intact when it does not.
+- **The API reference places the invoice guarantee under the proposal branding heading.** Move the invoice sentence to the [document PDF output contract](API_REFERENCE.md) so readers can find it with the applicable invoice behavior.
+
+The production diff is confined to rendering values already supplied to the PDF. It changes no financial calculation, authorization or tenant lookup, database migration, route, or response format.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 ## PDFKit trusted-logo byte rendering — merged primitive; storage bridge pending acceptance
 
