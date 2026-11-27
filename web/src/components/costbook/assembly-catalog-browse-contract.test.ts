@@ -63,10 +63,11 @@ test("saving pricing overrides refreshes the displayed unit cost", async () => {
   const ui = await source("./assembly-catalog.tsx");
   // The edit form's onUpdated path must refresh the unit cost: the
   // selectedId query alone does not refetch after an override save, so
-  // the displayed cost would stay stale. The cost is a cached query, so
-  // the refresh invalidates ["assembly-unit-cost", id] instead of
-  // fetching by hand; a failed refetch surfaces through the query's
-  // error state while the last known cost stays visible.
+  // the displayed cost would stay stale. The refresh fetches the cost
+  // with `cache: "no-store"` and writes it into the query cache: a plain
+  // invalidation would refetch the allowlisted (60 s) GET from the
+  // browser HTTP cache and return the pre-save cost. A failed refresh
+  // leaves the last known cost visible instead of clearing it.
   assert.match(ui, /onUpdated=\{handleAssemblyUpdated\}/);
   assert.match(ui, /function handleAssemblyUpdated\(updated: CostbookAssembly\)/);
   const handler = ui.slice(ui.indexOf("function handleAssemblyUpdated"), ui.indexOf("async function deactivateSelected"));
@@ -74,7 +75,9 @@ test("saving pricing overrides refreshes the displayed unit cost", async () => {
   assert.match(handler, /refreshSelectedUnitCost\(updated\.id\)/);
   assert.match(ui, /async function refreshSelectedUnitCost\(requestAssemblyId: string\)/);
   const refresh = ui.slice(ui.indexOf("async function refreshSelectedUnitCost"), ui.indexOf("function handleAssemblyUpdated"));
-  assert.match(refresh, /await queryClient\.invalidateQueries\(\{ queryKey: \["assembly-unit-cost", requestAssemblyId\] \}\);/);
+  assert.match(refresh, /await queryClient\.cancelQueries\(\{ queryKey: \["assembly-unit-cost", requestAssemblyId\], exact: true \}\);/);
+  assert.match(refresh, /clientFetch<AssemblyCost>\(`\/costbook\/assemblies\/\$\{requestAssemblyId\}\/unit-cost`, \{ cache: "no-store" \}\)/);
+  assert.match(refresh, /queryClient\.setQueryData\(\["assembly-unit-cost", requestAssemblyId\], fresh\)/);
   assert.doesNotMatch(refresh, /setUnitCost\(null\)/);
 });
 

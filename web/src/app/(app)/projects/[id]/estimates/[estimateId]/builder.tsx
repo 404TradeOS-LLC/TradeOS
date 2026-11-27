@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { clientFetch } from "@/lib/clientApi";
 import { PageHeader } from "@/components/shared/page-header";
 import { EstimateScopeClarificationForm, ScopeClarificationSummary } from "@/components/estimate-assist/estimate-scope-clarification";
@@ -78,6 +78,26 @@ interface AssemblyPreviewData {
   total: number;
 }
 
+// Post-mutation estimate refresh, shared by EstimateBuilder and
+// ReviewReadinessChecklist. The proxy serves GET /estimates/{id} with
+// `private, max-age=30`, and a TanStack invalidation cannot clear the
+// browser HTTP cache: invalidating the query would refetch the
+// pre-mutation response for up to 30 s, so a saved line-item edit could
+// appear undone and totals stay stale. Refresh by fetching with
+// `cache: "no-store"` and writing the result into the query cache
+// directly (the pattern `onRefreshFinalizedEstimate` already uses).
+// The initial/navigation load keeps the cached queryFn, so the Fluid
+// saving for repeat navigations is unchanged; only mutation-driven
+// refreshes pay for a fresh fetch. A failed refresh rejects; callers
+// swallow it, leaving the last known estimate visible — the same as a
+// failed background refetch, which TanStack reports without replacing
+// the displayed data.
+async function refreshEstimateQuery(queryClient: QueryClient, estimateId: string) {
+  await queryClient.cancelQueries({ queryKey: ["estimate", estimateId], exact: true });
+  const fresh = await clientFetch<EstimateDetail>(`/estimates/${estimateId}`, { cache: "no-store" });
+  queryClient.setQueryData(["estimate", estimateId], fresh);
+}
+
 export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope, customerName, jobType, confirmedNoMatch = false }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null; customerName?: string | null; jobType?: string | null; confirmedNoMatch?: boolean }) {
   // DES-10 Status Check: set when the contractor returns from the Status
   // Check screen after confirming no matching draft was present. The
@@ -116,9 +136,10 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
   const { data: estimate, isLoading, isError, error } = useQuery({
     queryKey: estimateKey,
     queryFn: () => clientFetch<EstimateDetail>(`/estimates/${estimateId}`),
-    // Fluid plan 2.4: 15 s → 30 s. Mutations already invalidate the exact
-    // key, so a local edit still shows immediately; only a second tab's
-    // edit can lag up to 30 s.
+    // Fluid plan 2.4: 15 s → 30 s. Mutation refreshes go through
+    // refreshEstimateQuery, which bypasses the browser HTTP cache, so a
+    // local edit still shows immediately; only a second tab's edit can
+    // lag up to 30 s.
     staleTime: 30_000,
   });
 
@@ -166,7 +187,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         // snapshot the new baseline normally.
         const mine = next;
         const startedAt = Date.now();
-        const refetch = queryClient.invalidateQueries({ queryKey: estimateKey });
+        const refetch = refreshEstimateQuery(queryClient, estimateId);
         void refetch.then(() => {
           if (lastRecalculationRef.current !== mine) return;
           const queryState = queryClient.getQueryState(estimateKey);
@@ -177,11 +198,11 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
             lastRecalculationRef.current = null;
             setLastRecalculation(null);
           }
-        });
+        }).catch(() => undefined);
         return;
       }
     }
-    queryClient.invalidateQueries({ queryKey: estimateKey });
+    void refreshEstimateQuery(queryClient, estimateId).catch(() => undefined);
   };
 
   const removeLineItem = useMutation({
@@ -870,7 +891,10 @@ function EstimateReviewChecklist({
       }),
     onSuccess: () => {
       setError(null);
-      void queryClient.invalidateQueries({ queryKey: ["estimate", estimateId] });
+      // Same browser-cache bypass as the builder's invalidate(): the
+      // checklist PATCH must be followed by a fresh read, not the
+      // HTTP-cached pre-save estimate.
+      void refreshEstimateQuery(queryClient, estimateId).catch(() => undefined);
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Unable to save the review checklist. Try again."),
   });

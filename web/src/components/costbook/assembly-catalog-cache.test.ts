@@ -35,12 +35,18 @@ test("assembly mutations update the query cache instead of refetching by hand", 
   const source = await readSource("./assembly-catalog.tsx");
 
   // Load-more appends into the cached page; add/remove patch the cached
-  // page (or refetch it when nothing is cached yet); all three invalidate
-  // the unit-cost query so the derived cost refetches.
+  // page (or refetch it when nothing is cached yet); all three refresh
+  // the unit cost through refreshSelectedUnitCost, which fetches with
+  // `cache: "no-store"` and writes the result into the query cache — a
+  // plain invalidation would refetch the allowlisted (60 s) GET from the
+  // browser HTTP cache and return the pre-save cost.
   assert.match(source, /queryClient\.setQueryData<AssemblyItemsPage>\(\["assembly-items", requestAssemblyId\]/);
-  assert.match(source, /queryClient\.invalidateQueries\(\{ queryKey: \["assembly-unit-cost", requestAssemblyId\] \}\)/);
+  assert.match(source, /refreshSelectedUnitCost\(requestAssemblyId\)/);
   assert.match(source, /queryClient\.invalidateQueries\(\{ queryKey: \["assembly-items", requestAssemblyId\] \}\)/);
-  assert.match(source, /async function refreshSelectedUnitCost\(requestAssemblyId: string\) \{\n    await queryClient\.invalidateQueries\(\{ queryKey: \["assembly-unit-cost", requestAssemblyId\] \}\);/);
+  assert.match(source, /async function refreshSelectedUnitCost\(requestAssemblyId: string\) \{\n    await queryClient\.cancelQueries\(\{ queryKey: \["assembly-unit-cost", requestAssemblyId\], exact: true \}\);/);
+  assert.match(source, /clientFetch<AssemblyCost>\(`\/costbook\/assemblies\/\$\{requestAssemblyId\}\/unit-cost`, \{ cache: "no-store" \}\)/);
+  assert.match(source, /queryClient\.setQueryData\(\["assembly-unit-cost", requestAssemblyId\], fresh\)/);
+  assert.doesNotMatch(source, /invalidateQueries\(\{ queryKey: \["assembly-unit-cost"/);
   assert.doesNotMatch(source, /setItems\(\(current\)/);
   assert.doesNotMatch(source, /setItemsTotal\(/);
   assert.doesNotMatch(source, /setUnitCost\(null\)/);

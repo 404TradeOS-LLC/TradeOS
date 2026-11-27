@@ -334,7 +334,11 @@ export function AIEstimateAssist({
           body: snapshot.body,
         });
         try {
-          const estimate = await clientFetch<EstimateDetailForVerification>(`/estimates/${estimateId}`);
+          // Bypass the browser HTTP cache: the apply POST just changed
+          // the estimate, and the cached GET would verify against the
+          // pre-apply line items (see refreshEstimateQuery in
+          // builder.tsx).
+          const estimate = await clientFetch<EstimateDetailForVerification>(`/estimates/${estimateId}`, { cache: "no-store" });
           return {
             ...acknowledgement,
             verified: verifyEstimateApplyAcknowledgement(acknowledgement, snapshot.body, estimate.lineItems),

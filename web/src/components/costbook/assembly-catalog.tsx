@@ -111,6 +111,11 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
     selectedIdRef.current = id;
     setSelectedId(id);
     setError(null);
+    // A "Load more" request for the previous assembly may still be in
+    // flight: its completion guard skips clearing the flag once the
+    // selection has moved, so reset it here — otherwise the pagination
+    // button stays disabled for the newly selected assembly.
+    setLoadingMore(false);
   }
 
   async function loadMoreComponents() {
@@ -165,16 +170,22 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
 
   // DEV-17 S10: saving pricing overrides changes the resolved unit cost on
   // the backend, so the displayed cost must be refetched after an edit save.
-  // The cost is a cached query: invalidate it and let the refetch replace
-  // the value (a failed refetch surfaces through the query's error state,
-  // and the last known cost stays visible instead of being cleared).
+  // The proxy serves GET /costbook/assemblies/{id}/unit-cost with
+  // `private, max-age=60`, and a TanStack invalidation cannot clear the
+  // browser HTTP cache — the refetch would return the pre-save cost for
+  // up to 60 s. Fetch with `cache: "no-store"` and write the result into
+  // the query cache directly (the pattern refreshEstimateQuery in the
+  // estimate builder uses for the same reason). A failed refresh leaves
+  // the last known cost visible instead of clearing it.
   async function refreshSelectedUnitCost(requestAssemblyId: string) {
-    await queryClient.invalidateQueries({ queryKey: ["assembly-unit-cost", requestAssemblyId] });
+    await queryClient.cancelQueries({ queryKey: ["assembly-unit-cost", requestAssemblyId], exact: true });
+    const fresh = await clientFetch<AssemblyCost>(`/costbook/assemblies/${requestAssemblyId}/unit-cost`, { cache: "no-store" });
+    queryClient.setQueryData(["assembly-unit-cost", requestAssemblyId], fresh);
   }
 
   function handleAssemblyUpdated(updated: CostbookAssembly) {
     updateAssemblyInList(updated);
-    void refreshSelectedUnitCost(updated.id);
+    void refreshSelectedUnitCost(updated.id).catch(() => undefined);
   }
 
   async function deactivateSelected() {
@@ -224,7 +235,7 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
       }
       setComponentId("");
       setQuantity("1");
-      void queryClient.invalidateQueries({ queryKey: ["assembly-unit-cost", requestAssemblyId] });
+      void refreshSelectedUnitCost(requestAssemblyId).catch(() => undefined);
     } catch (err) {
       if (selectedIdRef.current === requestAssemblyId) setError(err instanceof Error ? err.message : "Assembly component could not be added.");
     } finally {
@@ -251,7 +262,7 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
       } else {
         void queryClient.invalidateQueries({ queryKey: ["assembly-items", requestAssemblyId] });
       }
-      void queryClient.invalidateQueries({ queryKey: ["assembly-unit-cost", requestAssemblyId] });
+      void refreshSelectedUnitCost(requestAssemblyId).catch(() => undefined);
     } catch (err) {
       if (selectedIdRef.current === requestAssemblyId) setError(err instanceof Error ? err.message : "Assembly component could not be removed.");
     } finally {
