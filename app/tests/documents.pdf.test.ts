@@ -1,4 +1,4 @@
-import { extractPdfText } from "./helpers/extract-pdf-text";
+import { extractPdfText, extractPdfTextStreams } from "./helpers/extract-pdf-text";
 import { renderContractPdf } from "../modules/contracts/pdf";
 import { renderInvoicePdf } from "../modules/invoices/pdf";
 import type { DocumentFrameBrand } from "../modules/documents/frame";
@@ -93,6 +93,28 @@ describe("branded PDF renderers", () => {
     expect(text).toContain("Tax (11.11%)");
     expect(text).toContain("Payments applied");
     expect(text).toContain("Balance due");
+  });
+
+  it("keeps the invoice summary heading and all totals on one page at a page break", async () => {
+    const pdf = await renderInvoicePdf({
+      invoiceNumber: 22, type: "full", status: "sent",
+      amount: 220, subtotal: 200, taxPct: 10, taxAmount: 20, paidAmount: 100, balanceDue: 120,
+      dueDate: null, createdAt: new Date("2026-10-01T12:00:00.000Z"), percentComplete: null,
+      project: { name: "Test Job", siteAddress: null, customer: null },
+      lineItems: Array.from({ length: 40 }, (_, index) => ({
+        description: `Labor item ${index + 1}`, quantity: 1, unitOfMeasure: "job", unitPrice: 5, lineTotal: 5,
+      })),
+    }, { brand });
+
+    const streams = extractPdfTextStreams(pdf);
+    const lineItemsPage = streams.find((stream) => stream.includes("Labor item 40"));
+    const summaryPage = streams.find((stream) => stream.includes("Invoice summary"));
+    expect(lineItemsPage).toBeDefined();
+    expect(summaryPage).toBeDefined();
+    for (const label of ["Subtotal  $200.00", "Tax (10%)  $20.00", "Total  $220.00", "Payments applied  $100.00", "Balance due  $120.00"]) {
+      expect(summaryPage).toContain(label);
+    }
+    expect(summaryPage).not.toBe(lineItemsPage);
   });
 
   it("returns a valid branded contract PDF without changing signature semantics", async () => {

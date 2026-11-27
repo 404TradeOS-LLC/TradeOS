@@ -22,6 +22,10 @@ related_code:
 
 The internal invoice PDF service optionally loads the active logo asset belonging to its authenticated organization using private Storage metadata and validated bytes. It does not change invoices, prices, payment records or client-facing API contracts. Missing or disallowed logo files preserve text-only organization identity. Production PDF output needs authenticated staging verification and a server-only key.
 
+## Invoice PDF pagination
+
+The PDF keeps the Invoice summary heading with subtotal, any tax, total, any payments applied, and balance due. If the full summary will not fit below the line items, it starts on the next page.
+
 ## Invoice PDF logo byte rendering
 
 The PDFKit invoice renderer supports an optional validated trusted PNG/JPEG image byte buffer without changing financial totals, invoice status or payment semantics. The source must come from an authenticated organization's private asset storage, not an arbitrary URL. PR #873 implements private organization-scoped Storage retrieval. Until protected staging credentials and a current uploaded logo are available, text-only branding remains the fallback under issue #870.

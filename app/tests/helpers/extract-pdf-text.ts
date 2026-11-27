@@ -2,6 +2,10 @@ import { inflateSync } from "node:zlib";
 
 // Reads text from the compressed PDFKit streams used by our fixtures.
 export function extractPdfText(pdf: Buffer): string {
+  return extractPdfTextStreams(pdf).join("\n");
+}
+
+export function extractPdfTextStreams(pdf: Buffer): string[] {
   const text: string[] = [];
   const streamMarker = Buffer.from("stream");
   const endMarker = Buffer.from("endstream");
@@ -19,12 +23,12 @@ export function extractPdfText(pdf: Buffer): string {
       const tjText = Array.from(decoded.matchAll(/\[([^\]]*)\]\s*TJ/g), (match) =>
         Array.from(match[1].matchAll(/<([0-9a-f]+)>/gi), (hex) => Buffer.from(hex[1], "hex").toString("latin1")).join("")
       );
-      text.push(decoded, ...tjText);
+      text.push([decoded, ...tjText].join("\n"));
     } catch {
       text.push(raw.toString("latin1"));
     }
     offset = streamEnd + endMarker.length;
   }
 
-  return text.join("\n");
+  return text;
 }

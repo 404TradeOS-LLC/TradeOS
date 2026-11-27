@@ -69,19 +69,35 @@ export function renderInvoicePdf(invoice: InvoiceForPdf, opts: { brand: Document
         doc.text(`${li.description}  —  ${formatDocumentNumber(li.quantity)} ${li.unitOfMeasure}  —  ${formatDocumentCurrency(li.lineTotal)}`);
       }
     }
-    doc.moveDown(1.5);
-
-    doc.fontSize(12).fillColor(brand.colors.accent).text("Invoice summary", { underline: true });
-    doc.moveDown(0.5);
-    doc.fontSize(10).fillColor(DOCUMENT_INK);
-    doc.text(`Subtotal  ${formatDocumentCurrency(invoice.subtotal)}`, { align: "right" });
+    const summaryHeading = "Invoice summary";
+    const totals = [{ text: `Subtotal  ${formatDocumentCurrency(invoice.subtotal)}`, fontSize: 10 }];
     if (invoice.taxAmount > 0) {
       const taxLabel = invoice.taxPct > 0 ? `Tax (${formatDocumentNumber(invoice.taxPct)}%)` : "Tax";
-      doc.text(`${taxLabel}  ${formatDocumentCurrency(invoice.taxAmount)}`, { align: "right" });
+      totals.push({ text: `${taxLabel}  ${formatDocumentCurrency(invoice.taxAmount)}`, fontSize: 10 });
     }
-    doc.fontSize(11).text(`Total  ${formatDocumentCurrency(invoice.amount)}`, { align: "right" });
-    if (invoice.paidAmount > 0) doc.fontSize(10).text(`Payments applied  ${formatDocumentCurrency(invoice.paidAmount)}`, { align: "right" });
-    doc.fontSize(12).text(`Balance due  ${formatDocumentCurrency(invoice.balanceDue)}`, { align: "right" });
+    totals.push({ text: `Total  ${formatDocumentCurrency(invoice.amount)}`, fontSize: 11 });
+    if (invoice.paidAmount > 0) {
+      totals.push({ text: `Payments applied  ${formatDocumentCurrency(invoice.paidAmount)}`, fontSize: 10 });
+    }
+    totals.push({ text: `Balance due  ${formatDocumentCurrency(invoice.balanceDue)}`, fontSize: 12 });
+
+    doc.moveDown(1.5);
+    const headingHeight = doc.fontSize(12).heightOfString(summaryHeading);
+    const headingGap = doc.currentLineHeight(true) * 0.5;
+    const summaryHeight = totals.reduce(
+      (height, row) => height + doc.fontSize(row.fontSize).heightOfString(row.text),
+      headingHeight + headingGap,
+    );
+    if (doc.y + summaryHeight > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+    }
+
+    doc.fontSize(12).fillColor(brand.colors.accent).text(summaryHeading, { underline: true });
+    doc.moveDown(0.5);
+    doc.fillColor(DOCUMENT_INK);
+    for (const row of totals) {
+      doc.fontSize(row.fontSize).text(row.text, { align: "right" });
+    }
 
     const trustSignals = [
       brand.showLicenseNumber !== false && brand.licenseNumber ? `License ${brand.licenseNumber}` : "",
