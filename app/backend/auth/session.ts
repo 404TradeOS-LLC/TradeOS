@@ -80,6 +80,11 @@ export async function resolveAuthContext(claims: AuthClaims): Promise<AuthContex
         set_config('app.login_lookup', 'true', true)
     `);
 
+    // Explicit select, not a bare findFirst: Prisma's default is to select
+    // every scalar column. resolveAuthContext reads only orgId and role
+    // from this row, and every authenticated request runs this query, so
+    // the row payload is trimmed to exactly those two fields — same
+    // pattern as the appUser query above it.
     const membership = await transaction.organizationMembership.findFirst({
       where: {
         userId: user.id,
@@ -87,6 +92,7 @@ export async function resolveAuthContext(claims: AuthClaims): Promise<AuthContex
         ...(claims.orgId ? { orgId: claims.orgId } : {}),
       },
       orderBy: { createdAt: "asc" },
+      select: { orgId: true, role: true },
     });
     if (!membership) {
       const knownMembership = await transaction.organizationMembership.findFirst({

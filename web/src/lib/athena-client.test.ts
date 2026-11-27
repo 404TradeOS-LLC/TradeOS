@@ -123,4 +123,8 @@ test("retry classification only retries ambiguous transport and retryable HTTP o
   assert.equal(isAthenaRetryableClientError(new AthenaClientError("server error", 500)), true);
   assert.equal(isAthenaRetryableClientError(new AthenaClientError("validation", 400)), false);
   assert.equal(isAthenaRetryableClientError(new AthenaClientError("disabled", 404)), false);
+  // A 504 is a terminal provider/request timeout on the backend
+  // (retryable:false): offering "Retry safely" would re-burn a whole
+  // draft that already spent its full deadline.
+  assert.equal(isAthenaRetryableClientError(new AthenaClientError("timed out", 504)), false);
 });

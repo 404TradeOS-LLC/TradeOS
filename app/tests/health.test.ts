@@ -1,6 +1,15 @@
-jest.mock("../db/client", () => ({
-  basePrisma: { $queryRawUnsafe: jest.fn() },
-}));
+jest.mock("../db/client", () => {
+  const queryRawUnsafe = jest.fn();
+  const transaction = jest.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({ $queryRawUnsafe: queryRawUnsafe }));
+  const basePrisma = {
+    $queryRawUnsafe: queryRawUnsafe,
+    // The probe runs inside one transaction (SET LOCAL statement_timeout
+    // + SELECT 1 + schema lookup); the transaction delegates to the same
+    // $queryRawUnsafe mock so existing call assertions keep working.
+    $transaction: transaction,
+  };
+  return { basePrisma };
+});
 
 jest.mock("../backend/logging", () => ({ logError: jest.fn() }));
 
@@ -9,6 +18,7 @@ import { logError } from "../backend/logging";
 import { buildHealthPayload, checkReadiness, resolveDatabaseProjectRef, resolveRuntimeEnvironment } from "../backend/health";
 
 const queryRawUnsafe = basePrisma.$queryRawUnsafe as jest.Mock;
+const transaction = basePrisma.$transaction as jest.Mock;
 const mockedLogError = logError as jest.Mock;
 
 describe("production health surfaces", () => {
@@ -54,6 +64,7 @@ describe("production health surfaces", () => {
 
   it("reports ready when the database probe succeeds", async () => {
     process.env.DATABASE_URL = "postgresql://app:example@db.qfbgdkbamfaasmtjfyru.supabase.co:5432/postgres";
+    queryRawUnsafe.mockResolvedValueOnce([]);
     queryRawUnsafe.mockResolvedValueOnce([{ "?column?": 1 }]);
     queryRawUnsafe.mockResolvedValueOnce([
       { table_name: "estimates", column_name: "tax_pct" },
@@ -71,6 +82,12 @@ describe("production health surfaces", () => {
       { table_name: "job_expense_events", column_name: "expense_id" },
     ]);
     const payload = await checkReadiness(new Date("2026-08-12T22:00:00.000Z"));
+    expect(queryRawUnsafe).toHaveBeenCalledWith("SET LOCAL statement_timeout = '5s'");
+    // The probe transaction budgets connection acquisition at the same
+    // 5 s as the outer race: Prisma's interactive-transaction default
+    // maxWait is 2,000 ms, and with a one-connection pool that would 503
+    // /ready early under ordinary contention.
+    expect(transaction).toHaveBeenCalledWith(expect.any(Function), { maxWait: 5_000 });
     expect(queryRawUnsafe).toHaveBeenCalledWith("SELECT 1");
     expect(payload.status).toBe("ready");
     expect(payload.checks.database.status).toBe("ok");
@@ -123,7 +140,31 @@ describe("production health surfaces", () => {
     );
   });
 
+  it("fails closed within ~5s when the database probe hangs", async () => {
+    // A hung database must 503 fast instead of holding the function: the
+    // probe is bounded by the statement timeout server-side and by the
+    // application-level race, so even a query that never settles resolves
+    // to not_ready once the bound fires.
+    jest.useFakeTimers();
+    try {
+      queryRawUnsafe.mockImplementation(() => new Promise(() => undefined));
+      const pending = checkReadiness(new Date("2026-08-12T22:00:00.000Z"));
+      await jest.advanceTimersByTimeAsync(5_000);
+      const payload = await pending;
+      expect(payload.status).toBe("not_ready");
+      expect(payload.checks.database.status).toBe("error");
+      expect(mockedLogError).toHaveBeenCalledWith(
+        "health.readiness_failed",
+        expect.objectContaining({ component: "database", error: "readiness probe timed out" }),
+      );
+    } finally {
+      queryRawUnsafe.mockReset();
+      jest.useRealTimers();
+    }
+  });
+
   it("fails closed when dashboard-critical schema columns are missing", async () => {
+    queryRawUnsafe.mockResolvedValueOnce([]);
     queryRawUnsafe.mockResolvedValueOnce([{ "?column?": 1 }]);
     queryRawUnsafe.mockResolvedValueOnce([{ table_name: "estimates", column_name: "tax_pct" }]);
 
@@ -142,6 +183,7 @@ describe("production health surfaces", () => {
   });
 
   it("fails closed when expense migration columns are missing", async () => {
+    queryRawUnsafe.mockResolvedValueOnce([]);
     queryRawUnsafe.mockResolvedValueOnce([{ "?column?": 1 }]);
     queryRawUnsafe.mockResolvedValueOnce([
       { table_name: "estimates", column_name: "tax_pct" },

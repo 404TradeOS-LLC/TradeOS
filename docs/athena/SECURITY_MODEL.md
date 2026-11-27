@@ -310,8 +310,12 @@ switch) bounds abuse of the key: once the day's recorded generation-run spend
 reaches the cap, the kernel returns a paused response and never calls the
 provider, so a runaway client or retry storm cannot burn unbounded Gemini spend.
 The cap is enforced per organization per UTC day from the generation-run ledger
-and checked before every provider attempt, including retries after a provider
-timeout. The fake provider is exempt, so test traffic cannot be blocked — and
+and checked before every provider attempt. Provider and request timeouts are
+terminal (`retryable: false`, Fluid PR-3): the kernel no longer invites a retry
+after a timeout, and the web client no longer offers "Retry safely" on a thrown
+504, so a timeout cannot start a retry storm that re-runs the whole kernel per
+attempt. A manual re-send still re-checks the cap before any new provider
+attempt. The fake provider is exempt, so test traffic cannot be blocked — and
 CI/test/evidence paths never hold a real key or a `google` provider mode, so no
 spend can originate there.
 

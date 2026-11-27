@@ -164,7 +164,11 @@ export function isAthenaRetryableClientError(error: unknown): boolean {
 
   // Deterministic client/auth/configuration outcomes require a changed input,
   // session, or deployment state. Retry only timeouts/rate limits/server faults.
-  return error.status === 408 || error.status === 429 || error.status >= 500;
+  // 504 is excluded: a timed-out draft is terminal on the backend
+  // (retryable:false) after already spending its full provider/request
+  // deadline, so offering "Retry safely" would re-burn a whole draft.
+  // The user can still send the message again as a new request.
+  return error.status === 408 || error.status === 429 || (error.status >= 500 && error.status !== 504);
 }
 
 export function describeAthenaClientError(error: unknown): string {

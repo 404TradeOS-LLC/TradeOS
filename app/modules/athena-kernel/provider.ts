@@ -184,6 +184,18 @@ export class GoogleGeminiAthenaProvider implements AthenaProviderAdapter {
     const contextBlock = renderGeminiContextBlock(input.context);
     const userText = contextBlock ? `${contextBlock}\n\n${input.message}` : input.message;
     const url = `${GEMINI_API_BASE_URL}/v1beta/models/${encodeURIComponent(this.model)}:generateContent`;
+    // Fetch-level cap at the provider deadline: the kernel races
+    // generateDraft against its own providerTimeoutTimer, but that race
+    // only aborts the kernel signal — a hung socket with no abort
+    // propagation could otherwise outlive it. AbortSignal.timeout bounds
+    // the socket itself; combining it with the kernel signal (either
+    // aborts the fetch) keeps a kernel abort working exactly as before.
+    // The timeout signal is checked first in the catch below so a
+    // fetch-level timeout surfaces as a non-retryable provider timeout,
+    // never as an unknown error.
+    const remainingMs = Math.max(0, input.deadline.getTime() - Date.now());
+    const fetchTimeoutSignal = AbortSignal.timeout(remainingMs);
+    const fetchSignal = AbortSignal.any([input.signal, fetchTimeoutSignal]);
     let response: Response;
     try {
       response = await fetch(url, {
@@ -198,9 +210,12 @@ export class GoogleGeminiAthenaProvider implements AthenaProviderAdapter {
             thinkingConfig: { thinkingLevel: "LOW" },
           },
         }),
-        signal: input.signal,
+        signal: fetchSignal,
       });
     } catch (error) {
+      if (fetchTimeoutSignal.aborted) {
+        throw athenaTimeoutError("Athena did not respond in time.", "athena_provider_timeout");
+      }
       // An aborted fetch propagates so the kernel maps it to its own
       // provider-timeout/cancellation path; every other transport failure is
       // a retryable provider error. The key never appears in the error.
@@ -224,7 +239,14 @@ export class GoogleGeminiAthenaProvider implements AthenaProviderAdapter {
     let payload: GeminiGenerateContentResponse;
     try {
       payload = (await response.json()) as GeminiGenerateContentResponse;
-    } catch {
+    } catch (error) {
+      // A stall during the body read aborts the same fetch-level timeout
+      // signal: surface it as a provider timeout, not an empty response,
+      // so the timeout contract survives the headers-then-stall path.
+      // Malformed JSON with a live deadline keeps the empty-response error.
+      if (fetchTimeoutSignal.aborted) {
+        throw athenaTimeoutError("Athena did not respond in time.", "athena_provider_timeout");
+      }
       throw geminiEmptyResponseError({ model: this.model });
     }
     // Usage is extracted before the empty/blocked checks below: a blocked

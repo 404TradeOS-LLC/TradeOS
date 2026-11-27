@@ -82,6 +82,24 @@ describe("resolveAuthContext (production schema compatibility)", () => {
     expect(Object.keys(call.select)).toEqual(["id", "isActive", "email"]);
   });
 
+  it("requests only the explicit minimal membership fields, not a bare findFirst", async () => {
+    mockPrisma.appUser.findUnique.mockResolvedValue(migrationThreeUser);
+    mockPrisma.organizationMembership.findFirst.mockResolvedValue(activeMembership);
+
+    await resolveAuthContext(buildClaims({ orgId: "org-1" }));
+
+    // The primary membership lookup is the hot path: resolveAuthContext
+    // reads only orgId and role from it, so the select is trimmed to
+    // exactly those two fields.
+    expect(mockPrisma.organizationMembership.findFirst).toHaveBeenCalledWith({
+      where: { userId: "user-1", status: "active", orgId: "org-1" },
+      orderBy: { createdAt: "asc" },
+      select: { orgId: true, role: true },
+    });
+    const call = mockPrisma.organizationMembership.findFirst.mock.calls[0][0];
+    expect(Object.keys(call.select)).toEqual(["orgId", "role"]);
+  });
+
   it("succeeds when the resolved user object has no password_hash field at all (migration-3 schema)", async () => {
     // No `passwordHash` key present anywhere on this object -- simulates
     // exactly what an explicit select against a migration-3 database
