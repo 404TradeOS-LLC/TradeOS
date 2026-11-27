@@ -56,6 +56,7 @@ export async function buildTodayFixture() {
     writeFileSync(join(directory, 'entry.tsx'), `
       import React from 'react';
       import {createRoot} from 'react-dom/client';
+      import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
       import {TodayExperience} from '@/components/dashboard/today-experience';
       import {NewProjectForm} from '@/app/(app)/projects/new/form';
       import {AppNav} from '@/components/shared/app-nav';
@@ -90,7 +91,11 @@ export async function buildTodayFixture() {
       if(!localStorage.getItem('tradeos-theme'))localStorage.setItem('tradeos-theme',params.get('theme')||'light');
       new Function(THEME_INIT_SCRIPT)();
       const root=createRoot(document.getElementById('root'));
-      const render=()=>root.render(<GlobalCommandPaletteProvider><AppNav email="synthetic@example.invalid" currentRole={data.viewer.role} athenaEnabled={data.athenaEnabled}/><main id="main-content" className="mx-auto w-full max-w-[96rem] flex-1 px-4 py-5 pb-28 sm:px-6 lg:px-8">{params.get('form')==='estimate' ? <NewProjectForm key={data.viewer.estimateHandoffIdentity??'no-estimate-handoff'} customers={[]} focusScope createIntent="estimate" estimateHandoffIdentity={data.viewer.estimateHandoffIdentity} /> : <TodayExperience data={{...data,viewer:{...data.viewer}}} initialView={params.get('view')||'today'}/>}</main></GlobalCommandPaletteProvider>);
+      // Mirror the production root Providers (web/src/app/providers.tsx):
+      // AppNav renders a TanStack useQuery for its dispatch-attention badge,
+      // so the fixture tree needs a QueryClientProvider just like the app.
+      const queryClient=new QueryClient({defaultOptions:{queries:{staleTime:30_000,gcTime:5*60_000,refetchOnWindowFocus:false,retry:1}}});
+      const render=()=>root.render(<QueryClientProvider client={queryClient}><GlobalCommandPaletteProvider><AppNav email="synthetic@example.invalid" currentRole={data.viewer.role} athenaEnabled={data.athenaEnabled}/><main id="main-content" className="mx-auto w-full max-w-[96rem] flex-1 px-4 py-5 pb-28 sm:px-6 lg:px-8">{params.get('form')==='estimate' ? <NewProjectForm key={data.viewer.estimateHandoffIdentity??'no-estimate-handoff'} customers={[]} focusScope createIntent="estimate" estimateHandoffIdentity={data.viewer.estimateHandoffIdentity} /> : <TodayExperience data={{...data,viewer:{...data.viewer}}} initialView={params.get('view')||'today'}/>}</main></GlobalCommandPaletteProvider></QueryClientProvider>);
       if(params.get('form')==='estimate'){
         const actorA=JSON.stringify(['user-a','org-a']);
         data.viewer.estimateHandoffIdentity=actorA;

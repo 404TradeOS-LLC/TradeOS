@@ -81,7 +81,11 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
           method: "PUT",
           body: JSON.stringify(settings.documentSettings),
         }),
-        clientFetch<BrandStudioSettingsBundle["preview"]>("/brand-studio/preview"),
+        // The preview GET is allowlisted at 300 s, and the PUTs do not
+        // invalidate it: fetch it no-store so the saved settings render
+        // instead of a preview cached before the save (same bypass the
+        // estimate and unit-cost refreshes use).
+        clientFetch<BrandStudioSettingsBundle["preview"]>("/brand-studio/preview", { cache: "no-store" }),
       ]);
 
       const nextSettings = {

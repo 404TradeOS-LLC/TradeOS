@@ -90,7 +90,9 @@ test("Athena navigation is feature-gated and retries one transient capability fa
   assert.ok(retryBudget, "app-nav must define the capability retry timeout");
   assert.ok(Number(retryBudget[1]) >= 5000, `capability retry timeout must be >= 5000ms, got ${retryBudget[1]}`);
   assert.match(nav, /setClientAthenaCapability\(\{ key: retryKey, enabled:/);
-  assert.match(layout, /getAthenaCapabilities/);
+  // The layout resolves capabilities through the request-cached getter
+  // (Fluid plan 2.2) so the shell and Today share one backend call.
+  assert.match(layout, /getCachedAthenaCapabilities/);
   assert.match(layout, /return \{ enabled: capabilities\.kernelEnabled === true, retryOnClient: false \}/);
   assert.match(layout, /return \{ enabled: false, retryOnClient: true \}/);
   assert.match(layout, /athenaCapability\.retryOnClient \? randomUUID\(\) : null/);

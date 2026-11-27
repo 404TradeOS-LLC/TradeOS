@@ -11,6 +11,18 @@ import { useState } from "react";
 // per mount is discarded with the shell subtree on every switch, so no
 // tenant's cached queries can leak into the next workspace. The default
 // options intentionally match the root provider's.
+//
+// Org-less query keys are safe ONLY because of that discard — audit before
+// raising any staleTime: ["item-search", ...], ["estimate", ...],
+// ["estimate-codes-hints", ...], ["assembly-items", ...],
+// ["assembly-unit-cost", ...], ["starter-catalog"],
+// ["assembly-catalog-cost-preview", ...], ["starter-reuse-sources", ...]
+// and ["cost-item-preview", ...] / ["assembly-preview", ...] carry no
+// orgId. If this provider ever moves out of the keyed boundary, or a query
+// is hoisted to the root client, every one of those keys must gain the
+// orgId first (AppNav's ["dispatch-summary-attention", orgId] is the
+// pattern: the root client survives switches, so its keys are org-scoped
+// instead).
 export function TenantQueryProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { FormEvent } from "react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, CheckCircle2, Loader2, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -47,6 +48,12 @@ type CostItemUnitCost = { totalUnitCost: number };
 type CostPreview = { unitCost: number; loading: boolean; error: string | null };
 const emptyAssembly: AssemblyForm = { code: "", name: "", unitOfMeasure: "", description: "", isTemplate: false };
 
+// Per-assembly sequence for refreshSelectedUnitCost (same ordering
+// rule as refreshEstimateQuery in the estimate builder): saves are not
+// serialized, and cancelQueries cannot cancel the direct clientFetch,
+// so a stale unit-cost response must not overwrite a newer one.
+const unitCostRefreshSequences = new Map<string, number>();
+
 export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems, canWrite, canManage }: {
   initialAssemblies: CostbookAssembly[];
   childAssemblies: CostbookAssembly[];
@@ -59,77 +66,81 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
   const [availableChildAssemblies, setAvailableChildAssemblies] = useState(childAssemblies.filter((item) => item.isActive));
   const [selectedId, setSelectedId] = useState(initialSelectedId);
   const selectedIdRef = useRef(initialSelectedId);
-  const [items, setItems] = useState<AssemblyItem[]>([]);
-  const [itemsNextCursor, setItemsNextCursor] = useState<string | null>(null);
-  const [itemsTotal, setItemsTotal] = useState(0);
-  const [unitCost, setUnitCost] = useState<number | null>(null);
+  const queryClient = useQueryClient();
+  // Selected-assembly detail reads ride TanStack Query (Fluid plan 2.3):
+  // the first items page and the unit cost are cached 60 s so re-selecting
+  // an assembly, or navigating away and back, does not re-fire both reads.
+  // The items query never refetches on mount: "Load more" appends pages
+  // into the cached page-1 payload via setQueryData, and a background
+  // refetch would replace those appended pages with page 1 alone.
+  // Mutations update the cache directly (see below) instead of
+  // invalidating it, for the same reason.
+  const itemsQuery = useQuery({
+    queryKey: ["assembly-items", selectedId],
+    queryFn: () => clientFetch<AssemblyItemsPage>(`/costbook/assemblies/${selectedId}/items?limit=100`),
+    enabled: Boolean(selectedId),
+    staleTime: 60_000,
+    refetchOnMount: false,
+  });
+  const unitCostQuery = useQuery({
+    queryKey: ["assembly-unit-cost", selectedId],
+    queryFn: () => clientFetch<AssemblyCost>(`/costbook/assemblies/${selectedId}/unit-cost`),
+    enabled: Boolean(selectedId),
+    staleTime: 60_000,
+  });
+  const items = itemsQuery.data?.items ?? [];
+  const itemsNextCursor = itemsQuery.data?.nextCursor ?? null;
+  const itemsTotal = itemsQuery.data?.total ?? 0;
+  const unitCost = unitCostQuery.data?.unitCost ?? null;
+  const loadingItems = itemsQuery.isPending || unitCostQuery.isPending;
+  const [loadingMore, setLoadingMore] = useState(false);
+  // Query failures surface as the same detail-load error the old effect
+  // used to set; mutation errors keep using the error state below.
+  const detailsError = itemsQuery.isError || unitCostQuery.isError
+    ? "Assembly details could not be loaded."
+    : null;
   const [form, setForm] = useState<AssemblyForm>(emptyAssembly);
   const [componentType, setComponentType] = useState<"cost_item" | "assembly">("cost_item");
   const [componentId, setComponentId] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [saving, setSaving] = useState(false);
-  const [loadingItems, setLoadingItems] = useState(Boolean(initialSelectedId));
   const [error, setError] = useState<string | null>(null);
-  // DEV-17 S9 repair: the starter catalog's reuse-source list is fetched
-  // inside StarterAssemblyCatalog; bumping this key after an install or a
-  // deactivation makes it refetch instead of showing a stale list until
-  // the page reloads.
-  const [reuseRefreshKey, setReuseRefreshKey] = useState(0);
   const selected = assemblies.find((item) => item.id === selectedId) ?? null;
   const childOptions = useMemo(() => availableChildAssemblies.filter((item) => item.id !== selectedId), [availableChildAssemblies, selectedId]);
-
-  useEffect(() => {
-    selectedIdRef.current = selectedId;
-    if (!selectedId) return;
-    let active = true;
-    Promise.all([
-      clientFetch<AssemblyItemsPage>(`/costbook/assemblies/${selectedId}/items?limit=100`),
-      clientFetch<AssemblyCost>(`/costbook/assemblies/${selectedId}/unit-cost`),
-    ])
-      .then(([rows, cost]) => {
-        if (!active) return;
-        setItems(rows.items);
-        setItemsNextCursor(rows.nextCursor);
-        setItemsTotal(rows.total);
-        setUnitCost(cost.unitCost);
-      })
-      .catch((err) => {
-        if (active) setError(err instanceof Error ? err.message : "Assembly details could not be loaded.");
-      })
-      .finally(() => {
-        if (active) setLoadingItems(false);
-      });
-    return () => { active = false; };
-  }, [selectedId]);
 
   function selectAssembly(id: string) {
     selectedIdRef.current = id;
     setSelectedId(id);
-    setItems([]);
-    setItemsNextCursor(null);
-    setItemsTotal(0);
-    setUnitCost(null);
-    setLoadingItems(Boolean(id));
     setError(null);
+    // A "Load more" request for the previous assembly may still be in
+    // flight: its completion guard skips clearing the flag once the
+    // selection has moved, so reset it here — otherwise the pagination
+    // button stays disabled for the newly selected assembly.
+    setLoadingMore(false);
   }
 
   async function loadMoreComponents() {
     if (!selectedId || !itemsNextCursor) return;
     const requestAssemblyId = selectedId;
     const requestCursor = itemsNextCursor;
-    setLoadingItems(true);
+    setLoadingMore(true);
     setError(null);
     try {
       const next = await clientFetch<AssemblyItemsPage>(`/costbook/assemblies/${requestAssemblyId}/items?limit=100&cursor=${encodeURIComponent(requestCursor)}`);
       if (selectedIdRef.current !== requestAssemblyId) return;
-      setItems((current) => [...current, ...next.items.filter((item) => !current.some((existing) => existing.id === item.id))]);
-      setItemsNextCursor(next.nextCursor);
+      // Append the page into the cached page-1 payload so a later
+      // remount reuses the merged list instead of refetching.
+      queryClient.setQueryData<AssemblyItemsPage>(["assembly-items", requestAssemblyId], (current) =>
+        current
+          ? { ...current, items: [...current.items, ...next.items.filter((item) => !current.items.some((existing) => existing.id === item.id))], nextCursor: next.nextCursor }
+          : current,
+      );
     } catch (err) {
       if (selectedIdRef.current === requestAssemblyId) {
         setError(err instanceof Error ? err.message : "More assembly components could not be loaded.");
       }
     } finally {
-      if (selectedIdRef.current === requestAssemblyId) setLoadingItems(false);
+      if (selectedIdRef.current === requestAssemblyId) setLoadingMore(false);
     }
   }
 
@@ -159,24 +170,26 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
   }
 
   // DEV-17 S10: saving pricing overrides changes the resolved unit cost on
-  // the backend, so the displayed cost must be refetched after an edit save
-  // — the selectedId effect alone does not rerun. Mirrors the
-  // add/remove-component refresh: clear the stale value if it fails.
+  // the backend, so the displayed cost must be refetched after an edit save.
+  // The proxy serves GET /costbook/assemblies/{id}/unit-cost with
+  // `private, max-age=60`, and a TanStack invalidation cannot clear the
+  // browser HTTP cache — the refetch would return the pre-save cost for
+  // up to 60 s. Fetch with `cache: "no-store"` and write the result into
+  // the query cache directly (the pattern refreshEstimateQuery in the
+  // estimate builder uses for the same reason). A failed refresh leaves
+  // the last known cost visible instead of clearing it.
   async function refreshSelectedUnitCost(requestAssemblyId: string) {
-    try {
-      const cost = await clientFetch<AssemblyCost>(`/costbook/assemblies/${requestAssemblyId}/unit-cost`);
-      if (selectedIdRef.current === requestAssemblyId) setUnitCost(cost.unitCost);
-    } catch {
-      if (selectedIdRef.current === requestAssemblyId) {
-        setUnitCost(null);
-        setError("Assembly was updated, but the current unit cost could not be refreshed. Refresh the assembly to retry the calculation.");
-      }
-    }
+    const sequence = (unitCostRefreshSequences.get(requestAssemblyId) ?? 0) + 1;
+    unitCostRefreshSequences.set(requestAssemblyId, sequence);
+    await queryClient.cancelQueries({ queryKey: ["assembly-unit-cost", requestAssemblyId], exact: true });
+    const fresh = await clientFetch<AssemblyCost>(`/costbook/assemblies/${requestAssemblyId}/unit-cost`, { cache: "no-store" });
+    if (unitCostRefreshSequences.get(requestAssemblyId) !== sequence) return;
+    queryClient.setQueryData(["assembly-unit-cost", requestAssemblyId], fresh);
   }
 
   function handleAssemblyUpdated(updated: CostbookAssembly) {
     updateAssemblyInList(updated);
-    void refreshSelectedUnitCost(updated.id);
+    void refreshSelectedUnitCost(updated.id).catch(() => undefined);
   }
 
   async function deactivateSelected() {
@@ -188,7 +201,9 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
       const remaining = assemblies.filter((item) => item.id !== selected.id);
       setAssemblies(remaining);
       setAvailableChildAssemblies((current) => current.filter((item) => item.id !== selected.id));
-      setReuseRefreshKey((current) => current + 1);
+      // The reuse-source list uses one stable key (see StarterAssemblyCatalog):
+      // invalidate it so a remount cannot restore the pre-deactivation list.
+      void queryClient.invalidateQueries({ queryKey: ["starter-reuse-sources"] });
       selectAssembly(remaining[0]?.id ?? "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Assembly could not be deactivated.");
@@ -211,19 +226,22 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
           quantityPerUnit: Number(quantity),
         }),
       });
-      if (selectedIdRef.current !== requestAssemblyId) return;
-      setItems((current) => [...current, created].sort((a, b) => a.sortOrder - b.sortOrder || a.componentName.localeCompare(b.componentName)));
-      setItemsTotal((current) => current + 1);
-      setComponentId("");
-      setQuantity("1");
-      try {
-        const cost = await clientFetch<AssemblyCost>(`/costbook/assemblies/${requestAssemblyId}/unit-cost`);
-        if (selectedIdRef.current === requestAssemblyId) setUnitCost(cost.unitCost);
-      } catch {
-        if (selectedIdRef.current === requestAssemblyId) {
-          setUnitCost(null);
-          setError("Component was added, but the current unit cost could not be refreshed. Refresh the assembly to retry the calculation.");
-        }
+      // Update the captured assembly's cache even after the selection
+      // moved: returning to it within 60 s must show the added row, not
+      // the pre-mutation page. Only the form reset is selection-specific.
+      if (queryClient.getQueryData<AssemblyItemsPage>(["assembly-items", requestAssemblyId])) {
+        queryClient.setQueryData<AssemblyItemsPage>(["assembly-items", requestAssemblyId], (current) =>
+          current
+            ? { ...current, items: [...current.items, created].sort((a, b) => a.sortOrder - b.sortOrder || a.componentName.localeCompare(b.componentName)), total: current.total + 1 }
+            : current,
+        );
+      } else {
+        void queryClient.invalidateQueries({ queryKey: ["assembly-items", requestAssemblyId] });
+      }
+      void refreshSelectedUnitCost(requestAssemblyId).catch(() => undefined);
+      if (selectedIdRef.current === requestAssemblyId) {
+        setComponentId("");
+        setQuantity("1");
       }
     } catch (err) {
       if (selectedIdRef.current === requestAssemblyId) setError(err instanceof Error ? err.message : "Assembly component could not be added.");
@@ -239,18 +257,19 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
     setError(null);
     try {
       await clientFetch<void>(`/costbook/assemblies/${requestAssemblyId}/items/${id}`, { method: "DELETE" });
-      if (selectedIdRef.current !== requestAssemblyId) return;
-      setItems((current) => current.filter((item) => item.id !== id));
-      setItemsTotal((current) => Math.max(0, current - 1));
-      try {
-        const cost = await clientFetch<AssemblyCost>(`/costbook/assemblies/${requestAssemblyId}/unit-cost`);
-        if (selectedIdRef.current === requestAssemblyId) setUnitCost(cost.unitCost);
-      } catch {
-        if (selectedIdRef.current === requestAssemblyId) {
-          setUnitCost(null);
-          setError("Component was removed, but the current unit cost could not be refreshed. Refresh the assembly to retry the calculation.");
-        }
+      // Same as addComponent: update the captured assembly's cache even
+      // after the selection moved, so returning to it within 60 s shows
+      // the removal instead of the pre-mutation page.
+      if (queryClient.getQueryData<AssemblyItemsPage>(["assembly-items", requestAssemblyId])) {
+        queryClient.setQueryData<AssemblyItemsPage>(["assembly-items", requestAssemblyId], (current) =>
+          current
+            ? { ...current, items: current.items.filter((item) => item.id !== id), total: Math.max(0, current.total - 1) }
+            : current,
+        );
+      } else {
+        void queryClient.invalidateQueries({ queryKey: ["assembly-items", requestAssemblyId] });
       }
+      void refreshSelectedUnitCost(requestAssemblyId).catch(() => undefined);
     } catch (err) {
       if (selectedIdRef.current === requestAssemblyId) setError(err instanceof Error ? err.message : "Assembly component could not be removed.");
     } finally {
@@ -263,14 +282,15 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
       costItems={costItems}
       canWrite={canWrite}
       installedCodes={new Set(availableChildAssemblies.map((assembly) => assembly.code.trim().toUpperCase()))}
-      reuseRefreshKey={reuseRefreshKey}
       saving={saving}
       onSaving={setSaving}
       onError={setError}
       onInstalled={(created) => {
         setAssemblies((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
         setAvailableChildAssemblies((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
-        setReuseRefreshKey((current) => current + 1);
+        // Same stable-key invalidation as deactivation: the newly
+        // installed recipe must be reusable in the same session.
+        void queryClient.invalidateQueries({ queryKey: ["starter-reuse-sources"] });
         selectAssembly(created.id);
       }}
     />
@@ -293,7 +313,7 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
     </aside>
 
     <section className="grid content-start gap-4">
-      {error ? <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{error}</p> : null}
+      {error ?? detailsError ? <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{error ?? detailsError}</p> : null}
       {!selected ? <EmptyState title="Choose an assembly" description="Select an assembly to review its composition." /> : <>
         <div className="grid gap-4 rounded-lg border border-border/70 bg-card p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -318,27 +338,53 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
           <Button type="submit" disabled={saving || !componentId}><Plus className="size-4" aria-hidden="true" />Add</Button>
         </form> : null}
 
-        {loadingItems && items.length === 0 ? <div className="flex items-center gap-2 rounded-lg border border-border/70 bg-card p-6 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden="true" />Loading components…</div> : items.length === 0 ? <EmptyState title="No components yet" description={canWrite ? "Add active CostItems or child Assemblies to build this composition." : "This assembly does not have any components."} /> : <div className="overflow-hidden rounded-lg border border-border/70 bg-card"><div className="border-b border-border/70 px-4 py-3 text-sm text-muted-foreground">Showing {items.length} of {itemsTotal} components</div><div className="divide-y divide-border/70">{items.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 p-4"><div><p className="font-medium text-foreground">{item.componentName}</p><p className="font-mono text-xs text-muted-foreground">{item.componentCode} · {item.componentType === "cost_item" ? "Cost item" : "Assembly"} · {item.quantityPerUnit} {item.componentUnitOfMeasure}</p></div>{canWrite ? <Button type="button" variant="ghost" size="sm" onClick={() => removeComponent(item.id)} disabled={saving}><Trash2 className="size-4" aria-hidden="true" />Remove</Button> : null}</div>)}</div>{itemsNextCursor ? <div className="border-t border-border/70 p-3"><Button type="button" variant="outline" size="sm" onClick={loadMoreComponents} disabled={loadingItems}>{loadingItems ? "Loading" : "Load more components"}</Button></div> : null}</div>}
+        {loadingItems && items.length === 0 ? <div className="flex items-center gap-2 rounded-lg border border-border/70 bg-card p-6 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden="true" />Loading components…</div> : items.length === 0 ? <EmptyState title="No components yet" description={canWrite ? "Add active CostItems or child Assemblies to build this composition." : "This assembly does not have any components."} /> : <div className="overflow-hidden rounded-lg border border-border/70 bg-card"><div className="border-b border-border/70 px-4 py-3 text-sm text-muted-foreground">Showing {items.length} of {itemsTotal} components</div><div className="divide-y divide-border/70">{items.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 p-4"><div><p className="font-medium text-foreground">{item.componentName}</p><p className="font-mono text-xs text-muted-foreground">{item.componentCode} · {item.componentType === "cost_item" ? "Cost item" : "Assembly"} · {item.quantityPerUnit} {item.componentUnitOfMeasure}</p></div>{canWrite ? <Button type="button" variant="ghost" size="sm" onClick={() => removeComponent(item.id)} disabled={saving}><Trash2 className="size-4" aria-hidden="true" />Remove</Button> : null}</div>)}</div>{itemsNextCursor ? <div className="border-t border-border/70 p-3"><Button type="button" variant="outline" size="sm" onClick={loadMoreComponents} disabled={loadingMore}>{loadingMore ? "Loading" : "Load more components"}</Button></div> : null}</div>}
       </>}
     </section>
     </div>
   </div>;
 }
 
-function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, reuseRefreshKey, saving, onSaving, onError, onInstalled }: {
+function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, onSaving, onError, onInstalled }: {
   costItems: CostItemCatalogRecord[];
   canWrite: boolean;
   installedCodes: Set<string>;
-  reuseRefreshKey: number;
   saving: boolean;
   onSaving: (value: boolean) => void;
   onError: (value: string | null) => void;
   onInstalled: (assembly: CostbookAssembly) => void;
 }) {
-  const [templates, setTemplates] = useState<StarterCatalogTemplate[]>([]);
-  const [catalogVersion, setCatalogVersion] = useState("");
-  const [coverage, setCoverage] = useState<StarterCatalogCoverage[]>([]);
+  // Starter-catalog reads ride TanStack Query (Fluid plan 2.3) with the
+  // builder's 5-minute staleTime: the template list, the reuse-source
+  // list, and the per-item unit-cost preview are cached across mounts
+  // instead of refetching on every mount. The preview key is distinct
+  // from the builder's ["starter-assembly-cost-preview", ...] key because
+  // the payload shape differs (a per-item record here, a resolved total
+  // there) — sharing the key would serve one component's shape to the
+  // other.
+  const starterCatalogQuery = useQuery({
+    queryKey: ["starter-catalog"],
+    queryFn: () =>
+      clientFetch<{ catalogVersion: string; coverage: StarterCatalogCoverage[]; items: StarterCatalogTemplate[] }>("/costbook/assemblies/starter-catalog"),
+    staleTime: 5 * 60_000,
+  });
+  const templates = useMemo(() => starterCatalogQuery.data?.items ?? [], [starterCatalogQuery.data]);
+  const catalogVersion = starterCatalogQuery.data?.catalogVersion ?? "";
+  const coverage = useMemo(() => starterCatalogQuery.data?.coverage ?? [], [starterCatalogQuery.data]);
+  const loading = starterCatalogQuery.isPending;
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  // Select the first recipe once the catalog first loads, as the old
+  // fetch effect did. The ref keeps a later explicit clear (filter reset
+  // or template change) from re-selecting it.
+  const initialSelectionAppliedRef = useRef(false);
+  useEffect(() => {
+    if (initialSelectionAppliedRef.current || !starterCatalogQuery.data) return;
+    initialSelectionAppliedRef.current = true;
+    setSelectedTemplateId(starterCatalogQuery.data.items[0]?.id ?? "");
+  }, [starterCatalogQuery.data]);
+  useEffect(() => {
+    if (starterCatalogQuery.isError) onError("Starter assembly catalog could not be loaded.");
+  }, [starterCatalogQuery.isError, onError]);
   const [mappings, setMappings] = useState<Record<string, string>>({});
   const [mappingItems, setMappingItems] = useState<Record<string, CostItemCatalogRecord>>({});
   const [filters, setFilters] = useState<StarterCatalogFilters>({ ...DEFAULT_STARTER_CATALOG_FILTERS });
@@ -346,13 +392,27 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, reuseRefr
   // DEV-17 S10 install overrides: blank = recipe/mapped-item defaults.
   const [wasteOverridePct, setWasteOverridePct] = useState("");
   const [productionRateFactor, setProductionRateFactor] = useState("");
-  const [costPreview, setCostPreview] = useState<Record<string, CostPreview>>({});
-  const [loading, setLoading] = useState(true);
   // DEV-17 S9: reuse a previous install's mapping for this template.
   // A reuse suggestion belongs to one template: every site that changes
   // the selection (template button, updateFilter, resetFilters) clears
   // the reuse source choice, note, and error alongside the mappings.
-  const [reuseSources, setReuseSources] = useState<CostbookAssembly[]>([]);
+  // DEV-17 S9 repair: follow every page cursor so the selector sees all
+  // active template assemblies, not just the first 100. The key is stable
+  // (no generation counter): installs and deactivations invalidate it, so
+  // a remount after a mutation cannot restore a stale generation — a
+  // counter key would reset to 0 on remount and serve the pre-mutation
+  // list cached under that generation.
+  const reuseSourcesQuery = useQuery({
+    queryKey: ["starter-reuse-sources"],
+    queryFn: () =>
+      collectPagedCatalogItems<CostbookAssembly>((cursor) =>
+        clientFetch<{ items: CostbookAssembly[]; total: number; nextCursor: string | null }>(
+          `/costbook/assemblies?isTemplate=true&active=true&limit=${REUSE_SOURCE_PAGE_LIMIT}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+        ),
+      ),
+    staleTime: 5 * 60_000,
+  });
+  const reuseSources = reuseSourcesQuery.data ?? [];
   const [reuseSourceId, setReuseSourceId] = useState("");
   const [reuseNote, setReuseNote] = useState<string | null>(null);
   const [reuseError, setReuseError] = useState<string | null>(null);
@@ -389,7 +449,6 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, reuseRefr
     setSelectedTemplateId("");
     setMappings({});
     setMappingItems({});
-    setCostPreview({});
     setWasteOverridePct("");
     setProductionRateFactor("");
     setReuseSourceId("");
@@ -403,7 +462,6 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, reuseRefr
     setSelectedTemplateId("");
     setMappings({});
     setMappingItems({});
-    setCostPreview({});
     setWasteOverridePct("");
     setProductionRateFactor("");
     setReuseSourceId("");
@@ -413,8 +471,28 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, reuseRefr
 
   const mappedCount = selected ? selected.components.filter((component) => mappings[component.key]).length : 0;
   const mappingComplete = Boolean(selected && mappedCount === selected.components.length);
+  const mappedIds = selected ? [...new Set(selected.components.map((component) => mappings[component.key]).filter(Boolean))] : [];
+  const costPreviewQuery = useQuery({
+    queryKey: ["assembly-catalog-cost-preview", selected?.id ?? "", ...mappedIds],
+    queryFn: async () => {
+      const entries = await Promise.all(mappedIds.map(async (id) => {
+        try {
+          const result = await clientFetch<CostItemUnitCost>(`/costbook/cost-items/${id}/unit-cost`);
+          return [id, { unitCost: result.totalUnitCost, loading: false, error: null }] as const;
+        } catch (err) {
+          return [id, { unitCost: 0, loading: false, error: err instanceof Error ? err.message : "Cost unavailable" }] as const;
+        }
+      }));
+      return Object.fromEntries(entries) as Record<string, CostPreview>;
+    },
+    enabled: Boolean(selected) && mappedIds.length > 0,
+    staleTime: 60_000,
+  });
+  const costPreview = costPreviewQuery.data ?? {};
   const previewError = selected && mappingComplete
-    ? selected.components.map((component) => costPreview[mappings[component.key]]?.error).find(Boolean) ?? null
+    ? costPreviewQuery.isError
+      ? "Cost preview could not be loaded."
+      : selected.components.map((component) => costPreview[mappings[component.key]]?.error).find(Boolean) ?? null
     : null;
   const previewReady = Boolean(selected && mappingComplete && selected.components.every((component) => costPreview[mappings[component.key]] && !costPreview[mappings[component.key]].loading && !costPreview[mappings[component.key]].error));
   const previewLoading = Boolean(selected && mappingComplete && !previewReady && !previewError);
@@ -423,56 +501,6 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, reuseRefr
     : null;
   const previewOutputQuantity = Math.max(0, Number(previewQuantity) || 0);
   const previewJobCost = previewUnitCost === null ? null : previewUnitCost * previewOutputQuantity;
-
-  useEffect(() => {
-    if (!selected) return;
-    const mappedIds = [...new Set(selected.components.map((component) => mappings[component.key]).filter(Boolean))];
-    if (mappedIds.length === 0) return;
-    let active = true;
-    Promise.all(mappedIds.map(async (id) => {
-      try {
-        const result = await clientFetch<CostItemUnitCost>(`/costbook/cost-items/${id}/unit-cost`);
-        return [id, { unitCost: result.totalUnitCost, loading: false, error: null }] as const;
-      } catch (err) {
-        return [id, { unitCost: 0, loading: false, error: err instanceof Error ? err.message : "Cost unavailable" }] as const;
-      }
-    })).then((entries) => {
-      if (active) setCostPreview(Object.fromEntries(entries));
-    });
-    return () => { active = false; };
-  }, [selected, mappings]);
-
-  useEffect(() => {
-    let active = true;
-    clientFetch<{ catalogVersion: string; coverage: StarterCatalogCoverage[]; items: StarterCatalogTemplate[] }>("/costbook/assemblies/starter-catalog")
-      .then((result) => {
-        if (!active) return;
-        setTemplates(result.items);
-        setCatalogVersion(result.catalogVersion);
-        setCoverage(result.coverage);
-        setSelectedTemplateId(result.items[0]?.id ?? "");
-      })
-      .catch((err) => { if (active) onError(err instanceof Error ? err.message : "Starter assembly catalog could not be loaded."); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [onError]);
-
-  // DEV-17 S9 repair: follow every page cursor so the selector sees all
-  // active template assemblies, not just the first 100. Refreshed on mount
-  // and whenever the parent reports an install or deactivation
-  // (reuseRefreshKey), so a newly installed recipe is reusable in the
-  // same session and a deactivated source drops out.
-  useEffect(() => {
-    let active = true;
-    collectPagedCatalogItems<CostbookAssembly>((cursor) =>
-      clientFetch<{ items: CostbookAssembly[]; total: number; nextCursor: string | null }>(
-        `/costbook/assemblies?isTemplate=true&active=true&limit=${REUSE_SOURCE_PAGE_LIMIT}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
-      ),
-    )
-      .then((items) => { if (active) setReuseSources(items); })
-      .catch(() => { if (active) setReuseSources([]); });
-    return () => { active = false; };
-  }, [reuseRefreshKey]);
 
   async function applyReuseMapping() {
     if (!selected || !reuseSourceId) return;
@@ -608,7 +636,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, reuseRefr
         </div>
         <div className="max-h-[420px] overflow-y-auto divide-y divide-border/70">{filtered.map((template) => {
           const installed = isStarterCatalogInstalled(template, installedCodes);
-          return <button key={template.id} type="button" aria-label={`Review assembly ${template.name}`} onClick={() => { invalidateReuseRequest(); setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); setCostPreview({}); setWasteOverridePct(""); setProductionRateFactor(""); setReuseSourceId(""); setReuseNote(null); setReuseError(null); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
+          return <button key={template.id} type="button" aria-label={`Review assembly ${template.name}`} onClick={() => { invalidateReuseRequest(); setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); setWasteOverridePct(""); setProductionRateFactor(""); setReuseSourceId(""); setReuseNote(null); setReuseError(null); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
             <span className="flex items-start justify-between gap-3"><span className="font-medium text-foreground">{template.name}</span>{installed ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-label="Installed" /> : null}</span>
             <span className="mt-1 block text-xs text-muted-foreground">{template.nahbPhase ? `NAHB ${template.nahbPhase} · ` : ""}{template.nahbGroup} · CSI {template.csiDivision} · {template.unitOfMeasure}{template.blockingReasons?.length ? " · Evidence pending" : ""}</span>
           </button>;
@@ -665,27 +693,32 @@ export function CostItemSearchPicker({ initialOptions, valueId, valueItem, compo
 }) {
   const selected = valueItem ?? initialOptions.find((item) => item.id === valueId);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [editing, setEditing] = useState(false);
-  const [options, setOptions] = useState(initialOptions);
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [searchError, setSearchError] = useState(false);
   const resultsId = useId();
   const displayValue = editing ? query : selected ? `${selected.code} · ${selected.name}` : "";
 
   useEffect(() => {
-    if (!open) return;
-    let active = true;
-    const timer = window.setTimeout(() => {
-      setLoading(true);
-      setSearchError(false);
-      clientFetch<CostItemCatalogRecord[]>(`/costbook/cost-items/search?q=${encodeURIComponent(query.trim())}`)
-        .then((items) => { if (active) setOptions(items); })
-        .catch(() => { if (active) { setOptions([]); setSearchError(true); } })
-        .finally(() => { if (active) setLoading(false); });
-    }, 200);
-    return () => { active = false; window.clearTimeout(timer); };
-  }, [open, query]);
+    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 200);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  // Cost-item search rides TanStack Query (Fluid plan 2.3) with the
+  // builder's 5-minute staleTime: reopening the picker — or opening a
+  // second picker for the same query — reuses the cached results instead
+  // of refetching on every mount. The key carries the picker kind so it
+  // never collides with the builder's ["item-search", catalogKind, ...]
+  // results, which have a different payload shape.
+  const search = useQuery({
+    queryKey: ["item-search", "cost-item-picker", debouncedQuery],
+    queryFn: () => clientFetch<CostItemCatalogRecord[]>(`/costbook/cost-items/search?q=${encodeURIComponent(debouncedQuery)}`),
+    enabled: open,
+    staleTime: 5 * 60_000,
+  });
+  const loading = search.isFetching;
+  const searchError = search.isError;
+  const options = search.isError ? [] : (search.data ?? initialOptions);
 
   return <div className="relative min-w-0">
     <Search className="pointer-events-none absolute left-3 top-2.5 z-10 size-4 text-muted-foreground" aria-hidden="true" />

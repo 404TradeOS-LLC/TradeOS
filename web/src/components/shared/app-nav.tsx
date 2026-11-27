@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -209,7 +210,25 @@ export function AppNav({
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const [clientDispatchAttentionCount, setClientDispatchAttentionCount] = useState<number | null>(null);
+  // The dispatch-attention badge refreshes from the dispatch summary
+  // (Fluid plan 2.3): a cached query with the plan's 30 s staleTime
+  // instead of an uncached mount fetch with cache: "no-store" — the old
+  // fetch bypassed the proxy's browser cache too. AppNav sits OUTSIDE the
+  // tenant provider (above the workspace-keyed boundary), so its QueryClient
+  // is the root one that survives workspace switches: the key MUST carry
+  // the orgId (unlike the tenant-provider keys, which are safe org-less
+  // only because that client is discarded on switch). The badge is
+  // advisory — the Dispatch page remains the source of truth — so a failed
+  // refresh keeps the server-rendered count.
+  const dispatchSummaryQuery = useQuery({
+    queryKey: ["dispatch-summary-attention", currentOrgId ?? "unknown"],
+    queryFn: () => clientFetch<{ needsAttention?: unknown }>("/jobs/dispatch-summary"),
+    staleTime: 30_000,
+  });
+  const clientDispatchAttentionCount =
+    typeof dispatchSummaryQuery.data?.needsAttention === "number"
+      ? Math.max(dispatchSummaryQuery.data.needsAttention, 0)
+      : null;
   const [clientAthenaCapability, setClientAthenaCapability] = useState<{ key: string; enabled: boolean } | null>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
   const dockMoreButtonRef = useRef<HTMLButtonElement>(null);
@@ -261,27 +280,6 @@ export function AppNav({
       controller.abort();
     };
   }, [athenaCapabilityRetryKey]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const controller = new AbortController();
-    void clientFetch<{ needsAttention?: unknown }>("/api/v1/jobs/dispatch-summary", {
-      signal: controller.signal,
-      cache: "no-store",
-    })
-      .then((summary) => {
-        if (!cancelled && typeof summary.needsAttention === "number") {
-          setClientDispatchAttentionCount(Math.max(summary.needsAttention, 0));
-        }
-      })
-      .catch(() => {
-        // The badge is advisory; the Dispatch page remains the source of truth.
-      });
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, []);
 
   useEffect(() => {
     const closeSheetOnHistoryNavigation = () => {
