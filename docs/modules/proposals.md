@@ -18,6 +18,8 @@ Customer and Project cards in both Proposal PDF renderers measure wrapped field 
 
 ## Contractor-brand proposal PDF header — merged PR #868
 
+Both estimate-backed and project-backed PDFs measure the organization name before placing the proposal title. The header grows for wrapped branding, and the contact rail always starts at the left document margin. The visual layout is exercised with a valid PNG and with the fallback tagline.
+
 Proposed PDF fix removes the unconditional `TRADEOS` header label from both estimate-backed and project proposal PDFs. Brand Studio organization name/colors and the controlled `showPoweredByTradeOS` footer remain authoritative. Regression tests inspect PDF output with the setting disabled and enabled. The PDFKit renderer supports trusted image bytes and PR #873 implements private Storage retrieval. Live uploaded-logo rendering remains pending staged acceptance.
 
 # Proposals

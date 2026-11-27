@@ -20,6 +20,8 @@ related_code:
 
 The existing saved Proposal to contractor PDF handoff preserves its amount and snapshot semantics. The shared renderers now measure wrapped Customer/Project fields and normalize saved line endings so long metadata does not overlap later fields and carriage returns do not print as glyphs. This presentation repair does not certify the complete beta workflow; staged PDF bytes and visual review remain separate evidence.
 
+The same shared proposal header expands to contain wrapped organization branding. The contact rail and project information start after the header, including when the logo falls back to a tagline.
+
 
 # Workflow Lifecycles
 
