@@ -86,7 +86,20 @@ describe("abc shared catalog migration (issue #735, Phase 1)", () => {
     expect(migration).toContain("current_app_abc_catalog_ingestion()");
     expect(migration).toContain("public.current_app_org_id() is not null");
     // No DELETE policy on any catalog table: rows are soft-deactivated.
-    expect(migration).not.toMatch(/for delete on public\.abc_catalog_/i);
+    // PostgreSQL clause order is CREATE POLICY <name> ON <table> FOR
+    // <command>: inspect each catalog policy statement in that order and
+    // reject FOR DELETE, FOR ALL, or an omitted command (which defaults
+    // to ALL). Every catalog policy must be explicitly SELECT, INSERT, or
+    // UPDATE. Four tables x (global SELECT + ingest SELECT/INSERT/UPDATE)
+    // = 16 catalog policies.
+    const catalogPolicyCommands = [
+      ...migration.matchAll(/create policy\s+\S+\s+on\s+public\.abc_catalog_\w+\s+for\s+(\w+)/g),
+    ].map((match) => match[1]);
+    expect(catalogPolicyCommands).toHaveLength(16);
+    for (const command of catalogPolicyCommands) {
+      expect(["select", "insert", "update"]).toContain(command);
+    }
+    expect(migration).not.toMatch(/create policy\s+\S+\s+on\s+public\.abc_catalog_\w+\s+for\s+(delete|all)\b/);
   });
 
   it("seeds one global org-less ABC Supply supplier row, readable by any org", () => {

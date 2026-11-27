@@ -2631,6 +2631,7 @@ model AbcCatalogItem {
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  @@index([hierarchyPath], type: Gin)
   @@map("abc_catalog_items")
 }
 
@@ -2664,12 +2665,13 @@ model AbcCatalogHierarchy {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  @@index([levels], type: Gin)
   @@map("abc_catalog_hierarchy")
 }
 
 // One row per ABC catalog import/delta run (the audit trail). Never deleted.
 model AbcCatalogSyncRun {
-  id                  String    @id @default(uuid())
+  id                  String    @id @default(uuid()) @db.Uuid
   kind                String
   status              String
   startedAt           DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
@@ -2702,7 +2704,7 @@ model AbcCatalogSyncState {
   lastDeltaAt        DateTime? @map("last_delta_at") @db.Timestamptz(6)
   lastSeenTotalItems Int?      @map("last_seen_total_items")
   lastSeenTotalPages Int?      @map("last_seen_total_pages")
-  lastSuccessfulRunId String?  @map("last_successful_run_id")
+  lastSuccessfulRunId String?  @map("last_successful_run_id") @db.Uuid
   updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   lastSuccessfulRun AbcCatalogSyncRun? @relation("AbcCatalogSyncStateLastSuccessfulRun", fields: [lastSuccessfulRunId], references: [id], onDelete: SetNull)
