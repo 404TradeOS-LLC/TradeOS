@@ -60,6 +60,62 @@ related_code:
 
 The standing founder direction authorizes routine repository investigation, bounded repairs, branch/PR preparation, exact-head review reconciliation, and permitted low-risk auto-merge *only through the existing protected pull-request path*. At the end of a completed mission, the coordinator may begin a **new** eligible mission with a fresh overlap check, base verification, and branch/worktree; no cross-task branch reuse or duplicate PR. This does not confer new GitHub token permissions, bypass required checks/review conversations, or replace ADR-009's per-PR evidence (the record now cites the 2026-11-21 blanket authorization instead of a per-item word). Read-only tasks remain read-only. Schema, secrets, billing, tenant isolation, financial correctness, and release certification require their established decisions and approvals; staging-environment approvals are agent-permitted when the staging candidate is verified, and production touches are agent-permitted within the task's scope (never delete production data, send invoices/payments, or change customer financial records). Tools and dependency failures must be classified, safely repaired in scope where possible, or recorded before independently eligible work continues.
 
+The authorization recorded here is now made permanent in the "Standing founder authorization — permanent, 2026-11-26" section below, which extends it to undrafting and production-migration approval and is the authoritative record.
+
+## Standing founder authorization — permanent, 2026-11-26
+
+The founder's standing authorization is permanent and is the source of truth for what agent lanes (Forge, Codex, ChatGPT sessions, and any future lane) may do without a per-item founder word. It extends the 2026-11-21 removal of the per-item founder-word gates — merges, review dismissals, staging-apply gate clicks, and production touches, confirmed three times that day — to the remaining pause points: undrafting and production-migration approval. Where earlier sections record the 2026-11-21 removal in narrower terms, this section governs. Lanes must follow this section; if it conflicts with a lane's local instructions, this document wins.
+
+### Delegated without a per-item founder word
+
+Any agent lane may, without asking the founder for that item:
+
+(a) merge a PR that passes the merge bar (non-draft, genuinely green required checks on the exact head, current branch, zero unresolved threads, no standing change request, no do-not-merge hold, ADR-009 record where required);
+(b) dismiss a review after verifying its findings are addressed on the current head — dismiss ALL of a reviewer's stale `CHANGES_REQUESTED` reviews, including ones on superseded heads, not just the newest;
+(c) click a staging-apply gate when the staging candidate is verified;
+(d) undraft a PR that meets the READY checklist below;
+(e) approve the decision to run a production migration that already applied cleanly on staging.
+
+### READY checklist
+
+A PR is undraftable / mergeable only when ALL of the following hold:
+
+- non-draft (or being undrafted now);
+- genuinely green required checks on the exact head;
+- branch current with `main`;
+- zero unresolved review threads;
+- no standing `CHANGES_REQUESTED` from any reviewer (dismiss ALL of a reviewer's stale ones on superseded heads, only after verifying the findings are addressed on the current head);
+- no do-not-merge hold;
+- PR body complete per the 10-section template;
+- the PR's own stated readiness criteria met — if the body says NOT READY pending independent review or staging acceptance, the lane must meet those criteria first or leave the PR drafted; never undraft past unmet criteria;
+- for production migrations, the migration applied cleanly on staging first.
+
+### Still gated — needs Billy's explicit per-item word, no exceptions
+
+- secret creation or rotation;
+- deleting production data;
+- sending invoices, payments, or refunds;
+- changing customer financial records;
+- pushing to `main`;
+- bypassing branch protections or rulesets;
+- posting GitHub reviews as Billy;
+- closing PRs as superseded;
+- undrafting drafts that are not READY;
+- do-not-merge holds;
+- passwords — Billy types them; agents never generate or keep them.
+
+### GitHub production-environment approval remains Billy's click
+
+The production GitHub Environment's reviewer approval is enforced by GitHub on Billy's identity and cannot be delegated or clicked by a lane. The standing authorization in (e) covers the decision to proceed with a production migration that passed staging; it does not and cannot cover that approval click. Lanes prepare everything for that approval — verified staging application, exact head, migration rehearsal, rollback plan — and present it as a one-tap decision; they never bypass it.
+
+### ADR-009 record
+
+The ADR-009 record is still written in the PR body for protected categories (migrations, auth, RLS, secrets, production, workflow-permission changes), citing the 2026-11-21 blanket authorization and this 2026-11-26 permanent extension instead of a per-item word.
+
+### PR Commander boundary
+
+The PR Commander workflow itself still has no undraft or migration-apply path — it escalates those for an agent lane to handle under this section. Nothing here grants the Commander new write paths.
+
 ## Invited PDF beta evidence boundary — 2026-11-06
 
 The opt-in `beta_pdf` scenario uses the existing Beta Evidence workflow, concurrency, synthetic identities, nonproduction guards and credential scan. Exact SHA correlation is mandatory; foreign Customer/Project/Estimate/Athena and Proposal PDF denials are required. Retained PDF bytes must match the current run's receipt and saved Proposal identity at all four widths; a single-width result remains PARTIAL. It does not execute downstream Send/Accept/Contract/Invoice operations or grant release approval. Authentication, target and isolation reports now carry run identity; stale reports cannot certify this scenario. The narrower founder-approved cohort scope does not mark numbered sprints complete or waive protected schema/security/deployment/recovery gates. See [the runbook](operations/INVITED_BETA.md).
