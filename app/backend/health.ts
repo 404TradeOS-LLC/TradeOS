@@ -64,6 +64,41 @@ const DASHBOARD_SCHEMA_REQUIREMENTS = [
 
 type SchemaColumn = { table_name: string; column_name: string };
 
+// The probe is two cheap queries; its healthy latency is connection
+// establishment, not query cost — but a hung database must fail fast
+// with 503 instead of holding the function until the platform limit.
+// Two bounds, belt and suspenders: SET LOCAL statement_timeout cancels
+// a hung query server-side inside the probe transaction, and the
+// application-level race bounds the wall clock even when the hang is
+// before any query runs (e.g. waiting on the single pooled connection).
+// Neither changes the response shape.
+const HEALTH_PROBE_STATEMENT_TIMEOUT = "5s";
+const HEALTH_PROBE_TIMEOUT_MS = 5_000;
+
+async function runReadinessProbes(): Promise<SchemaColumn[]> {
+  const probes = basePrisma.$transaction(async (tx) => {
+    await tx.$queryRawUnsafe(`SET LOCAL statement_timeout = '${HEALTH_PROBE_STATEMENT_TIMEOUT}'`);
+    await tx.$queryRawUnsafe("SELECT 1");
+    return tx.$queryRawUnsafe<SchemaColumn[]>(`
+      SELECT table_name, column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND (table_name, column_name) IN (${DASHBOARD_SCHEMA_REQUIREMENTS.map(([table, column]) => `('${table}', '${column}')`).join(", ")})
+    `);
+  });
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      probes,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error("readiness probe timed out")), HEALTH_PROBE_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
+
 function serviceMetadata() {
   return {
     service: "tradeos-costbook-api",
@@ -140,13 +175,7 @@ export async function checkReadiness(now: Date = new Date()): Promise<ReadinessP
   const projectRef = resolveDatabaseProjectRef();
 
   try {
-    await basePrisma.$queryRawUnsafe("SELECT 1");
-    const columns = await basePrisma.$queryRawUnsafe<SchemaColumn[]>(`
-      SELECT table_name, column_name
-      FROM information_schema.columns
-      WHERE table_schema = 'public'
-        AND (table_name, column_name) IN (${DASHBOARD_SCHEMA_REQUIREMENTS.map(([table, column]) => `('${table}', '${column}')`).join(", ")})
-    `);
+    const columns = await runReadinessProbes();
     const present = new Set((columns ?? []).map(({ table_name, column_name }) => `${table_name}.${column_name}`));
     const missingColumns = DASHBOARD_SCHEMA_REQUIREMENTS
       .map(([table, column]) => `${table}.${column}`)

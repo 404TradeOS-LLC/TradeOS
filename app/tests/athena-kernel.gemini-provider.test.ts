@@ -230,6 +230,40 @@ describe("GoogleGeminiAthenaProvider", () => {
     expect((caught as DOMException).name).toBe("AbortError");
   });
 
+  it("aborts the fetch at the provider deadline and surfaces a non-retryable provider timeout", async () => {
+    // A hung socket that never settles: the fetch-level cap must end the
+    // call at the deadline instead of holding it until the platform limit,
+    // and the failure must be typed as a provider timeout (terminal), not
+    // an unknown error and not a retryable provider error.
+    let capturedSignal: AbortSignal | undefined;
+    global.fetch = jest.fn(
+      (_url: string, init: RequestInit) =>
+        new Promise<never>((_resolve, reject) => {
+          capturedSignal = init.signal ?? undefined;
+          capturedSignal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("The operation was aborted.", "AbortError")),
+            { once: true },
+          );
+        }),
+    ) as unknown as typeof fetch;
+    const inputSignal = new AbortController().signal;
+    let caught: unknown;
+    try {
+      await provider().generateDraft({ message: "hello", signal: inputSignal, deadline: new Date(Date.now() + 20) });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(AthenaKernelError);
+    expect(caught).toMatchObject({ code: "athena_provider_timeout", category: "timeout", retryable: false });
+    // The fetch runs on a combined signal (kernel signal + fetch-level
+    // timeout), not the bare kernel signal, so the socket is bounded even
+    // if the kernel race never fires.
+    expect(capturedSignal).toBeDefined();
+    expect(capturedSignal).not.toBe(inputSignal);
+    expect(inputSignal.aborted).toBe(false);
+  }, 10_000);
+
   it("truncates an over-budget context block but never drops scope ids", async () => {
     let capturedBody = "";
     global.fetch = jest.fn(async (_url: string, init: RequestInit) => {

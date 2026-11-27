@@ -42,7 +42,12 @@ export function athenaAuthorizationError(safeSummary: string, code = "athena_cap
 }
 
 export function athenaTimeoutError(safeSummary: string, code = "athena_deadline_exceeded"): AthenaKernelError {
-  return new AthenaKernelError({ code, category: "timeout", retryable: true, safeSummary });
+  // Timeouts are terminal, not retryable: a timed-out draft already spent
+  // up to the full provider/request deadline, and inviting a retry would
+  // re-run the whole kernel (auth + context + another provider wait) and
+  // re-burn the Fluid CPU the timeout just burned. Transport 5xx stays
+  // retryable via athenaProviderError; only timeouts flip here.
+  return new AthenaKernelError({ code, category: "timeout", retryable: false, safeSummary });
 }
 
 export function athenaCancellationError(safeSummary: string, code = "athena_cancelled"): AthenaKernelError {

@@ -242,6 +242,9 @@ describe("AthenaKernelService", () => {
     expect(result.success).toBe(false);
     expect(result.state).toBe("expired");
     expect(result.error?.code).toBe("athena_deadline_exceeded");
+    // Terminal: a request-deadline timeout must not invite a retry that
+    // re-spends the full deadline.
+    expect(result.error?.retryable).toBe(false);
     expect(transitions.at(-1)?.toState).toBe("expired");
   });
 
@@ -331,6 +334,7 @@ describe("AthenaKernelService", () => {
       expect(result.state).toBe("expired");
       expect(result.error?.category).toBe("timeout");
       expect(result.error?.code).toBe("athena_deadline_exceeded");
+      expect(result.error?.retryable).toBe(false);
     } finally {
       Date.now = originalNow;
     }
@@ -376,6 +380,9 @@ describe("AthenaKernelService", () => {
     expect(result.state).toBe("cancelled");
     expect(result.error?.category).toBe("timeout");
     expect(result.error?.code).toBe("athena_provider_timeout");
+    // Terminal: a provider timeout must not invite a retry that re-spends
+    // up to another full provider deadline.
+    expect(result.error?.retryable).toBe(false);
   }, 10_000);
 
   it("cancels mid-flight when the client disconnects during a slow provider call, reflecting client cancellation rather than the provider's own rejection reason", async () => {

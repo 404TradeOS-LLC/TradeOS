@@ -593,7 +593,10 @@ export class AthenaKernelService {
         const toolError: AthenaToolError = {
           code: isExpired ? "athena_deadline_exceeded" : `athena_${error.reason}`,
           category: "timeout",
-          retryable: isExpired || error.reason === "provider_timeout",
+          // Terminal: every abort reason here (deadline_exceeded,
+          // provider_timeout, client_closed, shutdown) already consumed
+          // its full wait. A retry would re-spend it, so none is invited.
+          retryable: false,
           safeSummary: isExpired ? "Athena did not have time to respond. Please try again." : "This Athena request was cancelled.",
           correlationId: traceId,
         };
