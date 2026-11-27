@@ -109,6 +109,10 @@ test("draft flips the verdict away from MERGE_READY", () => {
   assertGateShape(result);
   assert.notEqual(result.verdict, "MERGE_READY");
   assert.ok(result.reasons.length > 0);
+  // Standing authorization (2026-11-26): the undraft decision routes to an
+  // agent lane, not the founder — a draft alone raises no founder item.
+  assert.deepEqual(result.founderItems, []);
+  assert.match(result.nextActions.join(" "), /agent lane/i);
 });
 
 test("one required check failing flips the verdict to REPAIRABLE", () => {

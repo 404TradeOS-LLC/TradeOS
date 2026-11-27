@@ -16,8 +16,9 @@
 //     so conflicts are BLOCKED and routed to human resolution.
 //   - There is NO review-dismissal path anywhere in this module or in the
 //     workflow. Dismissing a blocking review (including a stale CodeRabbit
-//     CHANGES_REQUESTED on a superseded head) is founder-only and is surfaced
-//     as a founder item, never performed.
+//     CHANGES_REQUESTED on a superseded head) is an agent-lane decision
+//     under the standing authorization (verify the findings are addressed
+//     on the current head first), never performed by the Commander.
 //   - Drafts never merge. Protected files (migrations / RLS / auth /
 //     protected staging) never merge without a founder item being raised.
 //   - A verdict always stands on one exact head SHA (see headVerdictKey()).
@@ -420,10 +421,12 @@ export function evaluateGate(snapshot, opts = {}) {
 
   if (snapshot?.isDraft) {
     reasons.push("PR is a draft; drafts never merge.");
-    nextActions.push("Complete the implementation and required evidence, then surface as ready-to-undraft for the founder.");
-    founderItems.push(
-      `PR #${snapshot?.number ?? "?"}: undraft decision is founder-only; undraft only when READY.`,
-    );
+    // Standing authorization (2026-11-26, docs/REPOSITORY_GOVERNANCE.md):
+    // undrafting a READY PR is an agent-lane decision, not founder-only.
+    // The Commander has no undraft write path — it escalates the decision
+    // to an agent lane. Undrafting a non-READY draft stays gated. Verdict
+    // stays BLOCKED: a draft never merges.
+    nextActions.push("Complete the implementation and required evidence, then route the undraft decision to an agent lane under the standing authorization; undraft only when the PR meets the READY checklist.");
     demote("BLOCKED");
   }
 
@@ -441,8 +444,9 @@ export function evaluateGate(snapshot, opts = {}) {
     demote("REPAIRABLE");
   } else if (mergeState === "BLOCKED") {
     // BLOCKED merge state has two distinct causes, and they route
-    // differently: a standing CHANGES_REQUESTED review is founder-only
-    // (stays BLOCKED), while failing checks are repairable. GitHub
+    // differently: a standing CHANGES_REQUESTED review stays BLOCKED
+    // (escalates to an agent lane for the dismissal decision), while
+    // failing checks are repairable. GitHub
     // reports BLOCKED whenever a required check fails, so an
     // unconditional demotion here made the "failing required check →
     // REPAIRABLE" mapping unreachable in practice — the repair tiers
@@ -505,7 +509,7 @@ export function evaluateGate(snapshot, opts = {}) {
     reasons.push(`PR touches protected surface(s): ${protectedKinds.join(", ")}.`);
     nextActions.push("Do not apply migrations or change auth/RLS on the Commander's authority; route to the founder with the file list.");
     founderItems.push(
-      `PR #${snapshot?.number ?? "?"}: protected change (${protectedKinds.join(", ")}) needs the founder's word; staging-apply clicks, migration applies, and auth/RLS decisions are founder-only.`,
+      `PR #${snapshot?.number ?? "?"}: protected change (${protectedKinds.join(", ")}); staging-apply clicks, migration applies, and auth/RLS decisions are agent-lane decisions under the standing authorization.`,
     );
     demote("BLOCKED");
   }
@@ -582,9 +586,9 @@ export function evaluateGate(snapshot, opts = {}) {
     reasons.push(
       "A blocking CHANGES_REQUESTED review stands (possibly a stale CodeRabbit review on a superseded head).",
     );
-    nextActions.push("Address the findings and request CodeRabbit re-review after the repair push; if the review is stale on a superseded head, surface it for the founder's dismissal word.");
+    nextActions.push("Address the findings and request CodeRabbit re-review after the repair push; if the review is stale on a superseded head, route the dismissal decision to an agent lane under the standing authorization.");
     founderItems.push(
-      `PR #${snapshot?.number ?? "?"}: standing CHANGES_REQUESTED review — dismissal is founder-only; the Commander never dismisses a blocking review.`,
+      `PR #${snapshot?.number ?? "?"}: standing CHANGES_REQUESTED review — dismissal is an agent-lane decision under the standing authorization (verify the findings are addressed on the current head first); the Commander never dismisses a blocking review.`,
     );
     demote("BLOCKED");
   }
