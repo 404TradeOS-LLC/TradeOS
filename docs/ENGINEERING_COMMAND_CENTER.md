@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-11-26
+last_verified: 2026-11-27
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -134,11 +134,17 @@ Update 2026-11-25: implementation in branch `feat/s071-deployment-identity-contr
 
 Update 2026-11-25 (post-merge): implementation merged as PR #1096 (squash `f1cf85f0`, head `8a8fd229`); follow-up docs PRs #1099 (`820985dd`, post-merge follow-up risks) and #1100 (`d3054357`, merge validation) also merged. S071 stays `IN_REVIEW`; live evidence still owed after staging promotion (re-promotion 11 reached staging `e99b0c89` git-side, but Vercel created no deployments for it — parent-owned; staging still serves `6b1bc94f`).
 
+## S048 readiness — READY 2026-11-27
+
+Governance-only readiness promotion from current `main` `f9b2262a` on the founder's decision (beta starts Dec 1 with 1 outside contractor, Mike Lockler — Billy's word 2026-11-26 ~21:33 EST, contractor named ~21:58 EST). S048 has one dependency — S047, `DONE` through merged PR #397; live overlap rechecked 2026-11-27 found no competing lane (open PRs #1158 Athena alert email delivery and draft #1148 Figma token/component drift audit, both disjoint scope; no S048 remote branch). S048 prepares and executes controlled onboarding for the one named beta contractor — onboarding checklist, support path, feedback capture, and rollback plan — per `docs/architecture/S048_BETA_TENANT_ONBOARDING_PLAN.md`, using the existing S047 smoke suite, Beta Evidence harness, and invited-beta runbook. No second tenant, no rollout-date change, no migration, role/permission, auth/RBAC/RLS policy, or production change is authorized by this promotion; no launch approval (S050 owns it). S048 is the next eligible sprint.
+
 ## S048 promotion check — BLOCKED 2026-11-25
 
 Readiness-promotion check run by the 03:00 sprint runner on main `106f729e`: S048 is the first PLANNED sprint with satisfied dependencies (S047 DONE, PR #397); live overlap found no S048 lane (only open PRs are lane-owned drafts #1090/#1091, disjoint scope; no S048 remote branch). Promotion is BLOCKED on the unresolved founder decision — select beta tenants and rollout date — which the protocol stop condition bars promoting past. S048 stays PLANNED until Billy makes that decision; S046 stays PLANNED (S039/S045 BLOCKED) and S072 stays PLANNED (depends on S071, IN_REVIEW).
 
 Re-check (2026-11-26, 03:00 sprint runner, main `4f51fa84`): dependencies still satisfied; live overlap rechecked — the only open PR is draft #1121 (Today Needs You filter reset, disjoint scope); #1090 and #1091 have since merged; no S048 remote branch or live S048 lane exists. The founder decision is still unresolved — promotion remains BLOCKED; S048 stays PLANNED. No sprint is READY; next eligible sprint NONE.
+
+Update 2026-11-27: the founder decision is resolved (beta starts Dec 1, Mike Lockler) and S048 is promoted to READY by governance-only PR; see the S048 readiness section above. S048 is the next eligible sprint.
 
 
 Costbook Data Foundation (merged 2026-10-04): founder-authorized non-numbered PR #628 landed on `main` as `8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf`, extending the existing Costbook supplier-evidence, canonical-key, BLS research-candidate, forced-RLS, Assembly, and Estimate snapshot boundaries. It does not create a second Costbook or change the numbered-sprint selector.

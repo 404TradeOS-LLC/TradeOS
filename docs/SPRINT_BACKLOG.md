@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-11-26
+last_verified: 2026-11-27
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -538,13 +538,17 @@ Implementation status: DONE after implementation PR #397 merged; the release-can
 
 ### S048 — Beta tenant onboarding
 
-Status: PLANNED
+Status: READY
 Dependencies: S047
 Objective: Prepare and execute controlled onboarding for known contractor beta users.
-Founder decision required: YES — select beta tenants and rollout date.
+Founder decision required: NO — decided 2026-11-26: beta starts Dec 1 with 1 outside contractor, Mike Lockler (Billy's word ~21:33 EST, contractor named ~21:58 EST). The original question ("select beta tenants and rollout date") is answered by that decision.
 Acceptance: onboarding checklist, support path, feedback capture, and rollback plan.
 Readiness check (2026-11-25): dependencies satisfied — S047 is DONE (PR #397). Live overlap rechecked 2026-11-25 on main `106f729e`: the only open PRs are lane-owned drafts #1090 (DES-10-F1) and #1091 (#518), disjoint scope; no S048 remote branch and no live S048 lane exist. Promotion BLOCKED: the founder decision ("select beta tenants and rollout date") is unresolved, and the protocol stop condition bars promoting a sprint whose founder-decision field is YES while the decision is unresolved. S048 stays PLANNED until Billy selects the beta tenants and rollout date.
 Re-check (2026-11-26, 03:00 sprint runner, main `4f51fa84`): dependencies still satisfied (S047 DONE); live overlap rechecked — the only open PR is draft #1121 (Today Needs You filter reset, disjoint scope; founder-only undraft); #1090 and #1091 have since merged; no S048 remote branch and no live S048 lane exist. The founder decision is still unresolved — promotion remains BLOCKED; S048 stays PLANNED.
+Re-check (2026-11-27, sprint runner, main `f9b2262a`): founder decision RESOLVED — Billy's word 2026-11-26 ~21:33 EST: beta starts Dec 1 with 1 outside contractor; contractor named ~21:58 EST: Mike Lockler. Dependencies satisfied (S047 DONE, PR #397). Live overlap rechecked 2026-11-27: open PRs are #1158 (Athena alert email delivery, disjoint scope) and draft #1148 (Figma token/component drift audit, disjoint scope, founder hold); no S048 remote branch and no live S048 lane exist. No sprint is READY, so the sprint-state validator's one-READY limit is satisfied. S048 is promoted to READY by governance-only PR; S048 is the next eligible sprint.
+Readiness contract: S048 prepares and executes controlled onboarding for the one named beta contractor (Mike Lockler, start Dec 1) only — onboarding checklist, support path, feedback capture, and rollback plan — per `docs/architecture/S048_BETA_TENANT_ONBOARDING_PLAN.md`, using the existing S047 smoke suite, Beta Evidence harness, and invited-beta runbook. No second tenant, no rollout-date change, no migration, role/permission, auth/RBAC/RLS policy, or production change; no launch approval (S050 owns it).
+Founder-decision boundary: the beta selection is DECIDED (Dec 1, Mike Lockler). YES before adding another beta tenant, changing the rollout date or the named contractor, any production change, or the launch/GO decision.
+Required validation: onboarding checklist, support path, feedback capture, and rollback plan documents with owners and evidence; onboarding execution record for the named contractor; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; exact-head CI.
 
 ## Phase 10 — Post-RC Cleanup and Launch Stabilization
 
@@ -1055,4 +1059,4 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-No numbered sprint is currently `READY`. S071 is `IN_REVIEW` (implementation merged as PR #1096, `f1cf85f0`, 2026-11-25; live non-production evidence still owed after staging promotion). S069 is `IN_REVIEW` (implementation merged as PR #1073, `eb3c2f9e`, 2026-11-24; browser evidence pending). S068 is `IN_REVIEW` (implementation merged as PR #1067, `1388baae`, 2026-11-24; browser evidence pending). S059 is `IN_REVIEW` (implementation merged as PR #1032, `0a3aeefe`, 2026-11-23; browser evidence pending). S048 promotion re-checked 2026-11-26 on main `4f51fa84` — still BLOCKED on the unresolved founder decision (select beta tenants and rollout date). S046 stays PLANNED (dependencies S039/S045 BLOCKED); S072 stays PLANNED (depends on S071, IN_REVIEW); all other `PLANNED` sprints have unmet `Dependencies:`. Do not start implementation on a `PLANNED` sprint without its own promotion.
+S048 is `READY` (promoted 2026-11-27 by governance-only PR; founder decision resolved — beta starts Dec 1 with 1 outside contractor, Mike Lockler; dependencies satisfied, S047 DONE). S048 is the next eligible sprint. S071 is `IN_REVIEW` (implementation merged as PR #1096, `f1cf85f0`, 2026-11-25; live non-production evidence still owed after staging promotion). S069 is `IN_REVIEW` (implementation merged as PR #1073, `eb3c2f9e`, 2026-11-24; browser evidence pending). S068 is `IN_REVIEW` (implementation merged as PR #1067, `1388baae`, 2026-11-24; browser evidence pending). S059 is `IN_REVIEW` (implementation merged as PR #1032, `0a3aeefe`, 2026-11-23; browser evidence pending). S046 stays PLANNED (dependencies S039/S045 BLOCKED); S072 stays PLANNED (depends on S071, IN_REVIEW); all other `PLANNED` sprints have unmet `Dependencies:`. Do not start implementation on a `PLANNED` sprint without its own promotion.
