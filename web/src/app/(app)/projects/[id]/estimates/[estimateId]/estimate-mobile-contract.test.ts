@@ -328,3 +328,13 @@ test("review navigation waits for a pending clarification save (DES-10-F1 CodeRa
   // No second local copy: the stage flow must not own its own flag.
   assert.equal((builder.match(/const \[clarificationBusy, setClarificationBusy\] = useState\(false\);/g) ?? []).length, 1);
 });
+
+test("returning from a finalized clarification refreshes estimate state before closing", async () => {
+  const builder = await readSource("./builder.tsx");
+  const form = await readSource("../../../../../../components/estimate-assist/estimate-scope-clarification.tsx");
+
+  assert.match(builder, /onRefreshFinalizedEstimate=\{async \(\) => \{\s+const fresh = await clientFetch<EstimateDetail>\([^\n]+cache: "no-store"[^\n]+\n\s+if \(fresh\.status === "draft"\) throw new Error\([^\n]+\n\s+await queryClient\.cancelQueries\([^\n]+\n\s+queryClient\.setQueryData\(estimateKey, fresh\);/);
+  assert.match(builder, /onFinalizedBack=\{async \(\) => \{\s+await onRefreshFinalizedEstimate\(\);\s+setOpenClarification\(null\);\s+requestAnimationFrame\(\(\) => stageHeadingRefs\.current\.scope\?\.focus\(\)\);/);
+  assert.match(form, /if \(isFinalized\) \{[\s\S]*?finalizedBackButton\.current\?\.focus\(\)/);
+  assert.match(form, /await onFinalizedBack\(\);\s+\} catch \{\s+setError\("Could not reload the finalized estimate/);
+});

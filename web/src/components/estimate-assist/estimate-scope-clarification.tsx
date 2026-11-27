@@ -26,12 +26,13 @@ export function ScopeClarificationSummary({ clarification }: { clarification: Es
 }
 
 export function EstimateScopeClarificationForm({
-  estimateId, initial, onSaved, onBack, onContinue, onBusyChange,
+  estimateId, initial, onSaved, onBack, onFinalizedBack, onContinue, onBusyChange,
 }: {
   estimateId: string;
   initial: EstimateScopeClarification;
   onSaved: (saved: EstimateScopeClarification) => void;
   onBack: () => void;
+  onFinalizedBack: () => Promise<void>;
   onContinue: () => void;
   onBusyChange: (busy: boolean) => void;
 }) {
@@ -39,6 +40,7 @@ export function EstimateScopeClarificationForm({
   const heading = useRef<HTMLHeadingElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const restoredHeading = useRef<HTMLHeadingElement>(null);
+  const finalizedBackButton = useRef<HTMLButtonElement>(null);
   const operationPending = useRef(false);
   const [baseline, setBaseline] = useState(initial);
   const [detail, setDetail] = useState(initial.answer?.kind === "details" ? initial.answer.detail : "");
@@ -84,13 +86,31 @@ export function EstimateScopeClarificationForm({
         setConflict(false);
         setStatus("editing");
         setError("This estimate was finalized in another session, so this answer can no longer be saved.");
+        requestAnimationFrame(() => finalizedBackButton.current?.focus());
       } else {
         setConflict(isConflict);
         setStatus("editing");
         setError(isConflict ? cause.message : "Your answer could not be saved. Your note is still here.");
+        requestAnimationFrame(() => input.current?.focus());
       }
-      requestAnimationFrame(() => input.current?.focus());
     } finally {
+      operationPending.current = false;
+      onBusyChange(false);
+    }
+  }
+
+  async function returnToFinalizedScope() {
+    if (operationPending.current) return;
+    operationPending.current = true;
+    onBusyChange(true);
+    setStatus("refreshing");
+    try {
+      await onFinalizedBack();
+    } catch {
+      setError("Could not reload the finalized estimate. Try returning to Scope again.");
+      requestAnimationFrame(() => finalizedBackButton.current?.focus());
+    } finally {
+      setStatus("editing");
       operationPending.current = false;
       onBusyChange(false);
     }
@@ -136,7 +156,7 @@ export function EstimateScopeClarificationForm({
         {saving ? "Saving footing details…" : error ? "We couldn’t save that answer." : baseline.question}
       </h3>
       <p className="sr-only" aria-live="polite">
-        {status === "saving" ? "Saving clarification." : status === "saved" ? "Clarification saved." : status === "refreshing" ? "Loading the latest clarification." : ""}
+        {status === "saving" ? "Saving clarification." : status === "saved" ? "Clarification saved." : status === "refreshing" ? (finalized ? "Reloading estimate." : "Loading the latest clarification.") : ""}
       </p>
       {status === "saved" ? (
         <div className="space-y-4">
@@ -153,7 +173,9 @@ export function EstimateScopeClarificationForm({
         <div className="space-y-4">
           <p role="alert" className="text-sm text-destructive">{error}</p>
           <p className="text-sm text-muted-foreground">The estimate is now read-only. Return to Scope to review the saved work.</p>
-          <Button type="button" variant="outline" className="min-h-11 w-full" onClick={onBack}>Back to scope</Button>
+          <Button ref={finalizedBackButton} type="button" variant="outline" className="min-h-11 w-full" disabled={busy} onClick={() => void returnToFinalizedScope()}>
+            {busy ? "Reloading estimate…" : "Back to scope"}
+          </Button>
         </div>
       ) : (
         <>

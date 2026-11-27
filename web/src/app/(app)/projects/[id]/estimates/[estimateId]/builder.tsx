@@ -335,6 +335,12 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         fullReviewPending={reviewNavigationPending || saveScope.isPending || clarificationBusy}
         clarificationBusy={clarificationBusy}
         onClarificationBusyChange={setClarificationBusy}
+        onRefreshFinalizedEstimate={async () => {
+          const fresh = await clientFetch<EstimateDetail>(`/estimates/${estimateId}`, { cache: "no-store" });
+          if (fresh.status === "draft") throw new Error("Finalized estimate was not returned.");
+          await queryClient.cancelQueries({ queryKey: estimateKey, exact: true });
+          queryClient.setQueryData(estimateKey, fresh);
+        }}
         scopeDirty={scopeDraft.trim() !== persistedScope.trim()}
         scopeSavePending={saveScope.isPending}
         scopeSaveSuccess={saveScope.isSuccess}
@@ -412,6 +418,7 @@ function EstimateStageFlow({
   fullReviewPending,
   clarificationBusy,
   onClarificationBusyChange,
+  onRefreshFinalizedEstimate,
   scopeDirty,
   scopeSavePending,
   scopeSaveSuccess,
@@ -441,6 +448,7 @@ function EstimateStageFlow({
   fullReviewPending: boolean;
   clarificationBusy: boolean;
   onClarificationBusyChange: (busy: boolean) => void;
+  onRefreshFinalizedEstimate: () => Promise<void>;
   scopeDirty: boolean;
   scopeSavePending: boolean;
   scopeSaveSuccess: boolean;
@@ -595,6 +603,11 @@ function EstimateStageFlow({
                 onBack={() => {
                   setOpenClarification(null);
                   requestAnimationFrame(() => scopeCheckTrigger.current?.focus());
+                }}
+                onFinalizedBack={async () => {
+                  await onRefreshFinalizedEstimate();
+                  setOpenClarification(null);
+                  requestAnimationFrame(() => stageHeadingRefs.current.scope?.focus());
                 }}
                 onContinue={() => {
                   setOpenClarification(null);
