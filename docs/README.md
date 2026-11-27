@@ -83,6 +83,8 @@ staging execution; #810 acceptance remains open.
 
 The main-only [staging migration workflow](../.github/workflows/deploy-staging-migrations.yml) now checks for a known collision between Prisma's invoice expand migration and pre-existing Supabase-side schema changes **before** applying pending migrations. A failure indicates required ledger/schema reconciliation, not permission to retry or mark migrations applied without verified DDL. See [the deployment guide](DEPLOYMENT_GUIDE.md) and [the environment audit](research/github-environment-audit-2026-10-23.md).
 
+The manual, staging-only [S052 identity provisioning workflow](../.github/workflows/provision-staging-s052-identities.yml) creates the synthetic S052 admin + inactive app rows (users + TEST Org memberships) for auth users that already exist in staging Auth. It never sets passwords and never reverts a founder flip; the foreign-tenant membership is provisioned only when a foreign owner email is passed at dispatch. Tables with intentionally zero RLS policies (Team & Time, ABC OAuth states) are recorded in [INTENTIONAL_ZERO_POLICY_TABLES.md](architecture/INTENTIONAL_ZERO_POLICY_TABLES.md) — do not add policies to them.
+
 
 
 ## Staging repair and acceptance-test entrypoint — 2026-10-27

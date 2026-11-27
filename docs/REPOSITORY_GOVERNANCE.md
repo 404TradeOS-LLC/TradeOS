@@ -15,6 +15,7 @@ related_code:
   - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/verify-repository.yml
   - .github/workflows/deploy-migrations.yml
+  - .github/workflows/provision-staging-s052-identities.yml
   - .github/workflows/dependabot-patch-automerge.yml
   - .github/workflows/pr-maintenance.yml
   - .github/workflows/dependency-review.yml
