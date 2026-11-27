@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { basePrisma } from "../db/client";
 import { createConsoleExporter, createWebhookExporter, runAthenaObservabilityExport } from "../modules/athena-observability/exporters";
-import { envInt, parseMaintenanceJobSpecs } from "./maintenanceJobSpec";
+import { envInt, parseMaintenanceJobSpecs } from "../modules/athena-observability/maintenanceJobs";
 
 // One-shot entry point for operators driving Athena observability export
 // from external cron / a k8s CronJob / a systemd timer, mirroring

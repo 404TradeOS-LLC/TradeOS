@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { basePrisma } from "../db/client";
 import { runAthenaObservabilityRetention } from "../modules/athena-observability/retention";
-import { parseMaintenanceJobSpecs } from "./maintenanceJobSpec";
+import { parseMaintenanceJobSpecs } from "../modules/athena-observability/maintenanceJobs";
 
 // One-shot entry point for operators driving Athena observability retention
 // from external cron / a k8s CronJob / a systemd timer, mirroring

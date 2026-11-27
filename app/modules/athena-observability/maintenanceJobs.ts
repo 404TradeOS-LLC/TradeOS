@@ -1,9 +1,12 @@
-// Shared by the three Athena observability maintenance scripts
-// (run-athena-observability-alerts.ts, run-athena-observability-export.ts,
-// run-athena-observability-retention.ts): parsing of
-// ATHENA_OBSERVABILITY_MAINTENANCE_JOBS (format: "orgId:userId,orgId:userId")
-// was previously duplicated identically in all three - extracted here so
-// there is exactly one implementation to keep correct.
+// Parsing of ATHENA_OBSERVABILITY_MAINTENANCE_JOBS (format:
+// "orgId:userId,orgId:userId"). Shared by the Athena observability
+// maintenance scripts (run-athena-observability-alerts.ts,
+// run-athena-observability-export.ts, run-athena-observability-retention.ts)
+// and by the Vercel Cron route that runs the same alert pipeline in the API
+// runtime (backend/routes/athenaObservabilityAlertsCron.routes.ts), so there
+// is exactly one implementation to keep correct. Lives in the module rather
+// than scripts/ because production request code imports it - scripts/ holds
+// entry points, not shared parsing.
 
 export interface MaintenanceJobSpec {
   orgId: string;

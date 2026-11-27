@@ -33,6 +33,24 @@ export interface TeamInviteEmailInput {
   expiresAt: Date;
 }
 
+// One Athena observability alert transition (newly firing, reactivated, or
+// newly resolved) addressed to the operator mailbox. Plain fields on
+// purpose: the email module stays domain-agnostic and does not import
+// Athena's record types - the delivery module maps AthenaAlertRecord onto
+// this shape.
+export interface AthenaAlertEmailInput {
+  to: string;
+  orgId: string;
+  ruleId: string;
+  dedupeKey: string;
+  severity: string;
+  status: "active" | "resolved";
+  summary: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  resolvedAt: string | null;
+}
+
 interface EmailMessage {
   to: string;
   subject: string;
@@ -40,7 +58,7 @@ interface EmailMessage {
   text: string;
   idempotencyKey: string;
   template: {
-    id: "tradeos-password-reset" | "tradeos-team-invitation" | "tradeos-customer-portal-access";
+    id: "tradeos-password-reset" | "tradeos-team-invitation" | "tradeos-customer-portal-access" | "tradeos-athena-alert";
     variables: Record<string, string>;
   };
 }
@@ -158,6 +176,66 @@ export class EmailService {
       idempotencyKey: "customer-portal-access-" + digest(input.token),
     });
   }
+  async sendAthenaAlert(input: AthenaAlertEmailInput): Promise<EmailSendResult> {
+    const firing = input.status === "active";
+    const overviewUrl = buildAppUrl("/athena");
+    // The anchor is the full timestamp that identifies this notification,
+    // not just its calendar date: an alert that fires, resolves, and fires
+    // again on the same day is a distinct notification from its first
+    // firing (different firstSeenAt), so it must not share an idempotency
+    // key with it. A re-run over the same applied row produces the identical
+    // key, so Resend dedupes the repeat instead of sending twice.
+    const anchor = firing ? input.firstSeenAt : (input.resolvedAt ?? input.lastSeenAt);
+    const subject = firing
+      ? `[TradeOS Athena] FIRING: ${input.ruleId} (${input.severity})`
+      : `[TradeOS Athena] RESOLVED: ${input.ruleId}`;
+
+    return this.send({
+      to: input.to,
+      template: {
+        id: "tradeos-athena-alert",
+        variables: {
+          ORG_ID: input.orgId,
+          RULE_ID: input.ruleId,
+          DEDUPE_KEY: input.dedupeKey,
+          SEVERITY: input.severity,
+          STATUS: input.status,
+          SUMMARY: input.summary,
+          FIRST_SEEN_AT: input.firstSeenAt,
+          LAST_SEEN_AT: input.lastSeenAt,
+          RESOLVED_AT: input.resolvedAt ?? "",
+          OVERVIEW_URL: overviewUrl,
+        },
+      },
+      subject,
+      html: [
+        firing
+          ? "<p>An Athena alert is firing for your TradeOS workspace.</p>"
+          : "<p>An Athena alert has resolved for your TradeOS workspace.</p>",
+        "<p><strong>Rule:</strong> " + escapeHtml(input.ruleId) + "</p>",
+        "<p><strong>Severity:</strong> " + escapeHtml(input.severity) + "</p>",
+        "<p><strong>Summary:</strong> " + escapeHtml(input.summary) + "</p>",
+        "<p><strong>Organization:</strong> " + escapeHtml(input.orgId) + "</p>",
+        "<p><strong>First seen:</strong> " + escapeHtml(input.firstSeenAt) + "</p>",
+        "<p><strong>Last seen:</strong> " + escapeHtml(input.lastSeenAt) + "</p>",
+        ...(input.resolvedAt ? ["<p><strong>Resolved:</strong> " + escapeHtml(input.resolvedAt) + "</p>"] : []),
+        "<p><a href=\"" + escapeHtml(overviewUrl) + "\">Open the Athena overview</a> to trace this alert.</p>",
+      ].join(""),
+      text: [
+        firing ? "An Athena alert is firing for your TradeOS workspace." : "An Athena alert has resolved for your TradeOS workspace.",
+        "Rule: " + input.ruleId,
+        "Severity: " + input.severity,
+        "Summary: " + input.summary,
+        "Organization: " + input.orgId,
+        "First seen: " + input.firstSeenAt,
+        "Last seen: " + input.lastSeenAt,
+        ...(input.resolvedAt ? ["Resolved: " + input.resolvedAt] : []),
+        "Open the Athena overview: " + overviewUrl,
+      ].join("\n\n"),
+      idempotencyKey: "athena-alert-" + digest(input.orgId + "|" + input.dedupeKey + "|" + input.status + "|" + anchor),
+    });
+  }
+
   private async send(message: EmailMessage): Promise<EmailSendResult> {
     const apiKey = process.env.RESEND_API_KEY?.trim();
     const from = process.env.EMAIL_FROM?.trim();
@@ -224,6 +302,22 @@ export class EmailService {
 }
 
 export const emailService = new EmailService();
+
+function buildAppUrl(path: string): string {
+  const baseUrl = process.env.APP_BASE_URL?.trim();
+  if (!baseUrl) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("APP_BASE_URL is not configured");
+    }
+    return "http://localhost:3000" + path;
+  }
+
+  const url = new URL(baseUrl);
+  const basePath = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
+  url.pathname = basePath + path;
+  url.search = "";
+  return url.toString();
+}
 
 function buildActionUrl(path: string, token: string): string {
   const baseUrl = process.env.APP_BASE_URL?.trim();

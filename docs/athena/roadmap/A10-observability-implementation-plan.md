@@ -226,6 +226,28 @@ with a stated reason - `approval_bypass_attempt` and
 `telemetry_write_failure` are the two rules most likely to need dedicated
 security review before being trusted operationally.
 
+Delivery: `applyAthenaAlertEvaluations` returns only rows it wrote this run,
+and the delivery step (`modules/athena-observability/alertEmail.ts`) emails
+exactly the newly-firing (brand-new or reactivated - a create/reactivate
+resets `firstSeenAt` to the same instant as `lastSeenAt`) and newly-resolved
+rows to `ATHENA_ALERT_EMAIL_RECIPIENT` via Resend (`EmailService.sendAthenaAlert`,
+template `tradeos-athena-alert`), one email per transition. Continuing
+firing rows are never re-emailed. Idempotency keys are
+`athena-alert-<sha256(orgId | dedupeKey | status | anchor)>`, where the
+anchor is the full `firstSeenAt` (firing) or `resolvedAt` (resolved)
+timestamp, so a same-day reactivation is a distinct notification while a
+re-run over the same row dedupes. A failed send is reported per alert and
+never fails the run - the `athena_alerts` row is the durable record.
+Scheduling: the shared pipeline (`modules/athena-observability/alertRunner.ts`)
+runs from `scripts/run-athena-observability-alerts.ts` (external cron) and
+from the Vercel Cron route `GET /api/cron/athena-observability-alerts`
+(CRON_SECRET bearer, `app/vercel.json`). The rules evaluate a trailing
+15-minute window, so the intended cadence is every 15 minutes; the Vercel
+Hobby plan only accepts daily cron expressions, so the route is scheduled
+daily until the team moves to Pro, when it tightens to `*/15 * * * *`.
+While `ATHENA_ALERT_EMAIL_RECIPIENT` is unset, evaluation still runs and
+delivery is skipped with a log line.
+
 ## Exporters And Retention
 
 Exporters (`console`, `webhook`) never throw out of `.export()` - failures

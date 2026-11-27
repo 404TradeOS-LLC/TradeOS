@@ -241,6 +241,140 @@ describe("EmailService", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("sends a firing Athena alert with the rule, summary, and overview link", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "re_alert_123" }),
+    });
+
+    const result = await new EmailService().sendAthenaAlert({
+      to: "hello@404tradeos.com",
+      orgId: "org-1",
+      ruleId: "daily_spend_cap_reached",
+      dedupeKey: "daily_spend_cap_reached",
+      severity: "high",
+      status: "active",
+      summary: "Daily spend cap of $1.00 reached",
+      firstSeenAt: "2026-11-27T07:00:00.000Z",
+      lastSeenAt: "2026-11-27T07:00:00.000Z",
+      resolvedAt: null,
+    });
+
+    expect(result).toEqual({ sent: true, providerMessageId: "re_alert_123" });
+    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(request.headers).toEqual(expect.objectContaining({
+      "Idempotency-Key": expect.stringMatching(/^athena-alert-/),
+    }));
+    const body = JSON.parse(String(request.body)) as Record<string, unknown>;
+    expect(body.to).toEqual(["hello@404tradeos.com"]);
+    expect(body.subject).toBe("[TradeOS Athena] FIRING: daily_spend_cap_reached (high)");
+    expect(body.text).toContain("Daily spend cap of $1.00 reached");
+    expect(body.text).toContain("https://app.example.com/athena");
+    expect(body.html).toContain("An Athena alert is firing");
+  });
+
+  it("sends a resolved Athena alert with the resolved timestamp", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "re_alert_resolved_123" }),
+    });
+
+    await new EmailService().sendAthenaAlert({
+      to: "hello@404tradeos.com",
+      orgId: "org-1",
+      ruleId: "cost_spike",
+      dedupeKey: "cost_spike",
+      severity: "medium",
+      status: "resolved",
+      summary: "Total cost within threshold",
+      firstSeenAt: "2026-11-27T06:45:00.000Z",
+      lastSeenAt: "2026-11-27T07:00:00.000Z",
+      resolvedAt: "2026-11-27T07:00:00.000Z",
+    });
+
+    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(request.body)) as Record<string, unknown>;
+    expect(body.subject).toBe("[TradeOS Athena] RESOLVED: cost_spike");
+    expect(body.text).toContain("Resolved: 2026-11-27T07:00:00.000Z");
+  });
+
+  it("uses the same idempotency key for the same alert transition and a different key for a reactivation", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "re_alert_key_123" }),
+    });
+
+    const input = {
+      to: "hello@404tradeos.com",
+      orgId: "org-1",
+      ruleId: "daily_spend_cap_reached",
+      dedupeKey: "daily_spend_cap_reached",
+      severity: "high",
+      status: "active" as const,
+      summary: "Daily spend cap of $1.00 reached",
+      firstSeenAt: "2026-11-27T07:00:00.000Z",
+      lastSeenAt: "2026-11-27T07:00:00.000Z",
+      resolvedAt: null,
+    };
+
+    await new EmailService().sendAthenaAlert(input);
+    await new EmailService().sendAthenaAlert(input);
+    // Same-day reactivation: same rule and dedupe key, new firstSeenAt.
+    await new EmailService().sendAthenaAlert({ ...input, firstSeenAt: "2026-11-27T09:00:00.000Z", lastSeenAt: "2026-11-27T09:00:00.000Z" });
+
+    const keys = fetchMock.mock.calls.map((call) => {
+      const [, request] = call as [string, RequestInit];
+      return (request.headers as Record<string, string>)["Idempotency-Key"];
+    });
+    expect(keys[0]).toBe(keys[1]);
+    expect(keys[2]).not.toBe(keys[0]);
+  });
+
+  it("sends the published Athena alert template with the alert variables", async () => {
+    process.env.RESEND_TEMPLATE_MODE = "dashboard";
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "re_template_alert_123" }),
+    });
+
+    await new EmailService().sendAthenaAlert({
+      to: "hello@404tradeos.com",
+      orgId: "org-1",
+      ruleId: "daily_spend_cap_reached",
+      dedupeKey: "daily_spend_cap_reached",
+      severity: "high",
+      status: "active",
+      summary: "Daily spend cap of $1.00 reached",
+      firstSeenAt: "2026-11-27T07:00:00.000Z",
+      lastSeenAt: "2026-11-27T07:00:00.000Z",
+      resolvedAt: null,
+    });
+
+    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(request.body)) as Record<string, unknown>;
+    expect(body.template).toEqual({
+      id: "tradeos-athena-alert",
+      variables: {
+        ORG_ID: "org-1",
+        RULE_ID: "daily_spend_cap_reached",
+        DEDUPE_KEY: "daily_spend_cap_reached",
+        SEVERITY: "high",
+        STATUS: "active",
+        SUMMARY: "Daily spend cap of $1.00 reached",
+        FIRST_SEEN_AT: "2026-11-27T07:00:00.000Z",
+        LAST_SEEN_AT: "2026-11-27T07:00:00.000Z",
+        RESOLVED_AT: "",
+        OVERVIEW_URL: "https://app.example.com/athena",
+      },
+    });
+    expect(body).not.toHaveProperty("html");
+    expect(body).not.toHaveProperty("text");
+  });
+
   it("does not expose the provider response body when Resend rejects a request", async () => {
     fetchMock.mockResolvedValue({
       ok: false,
