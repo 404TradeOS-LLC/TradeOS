@@ -20,6 +20,17 @@ import { createAthenaGenerationRecord, CreateAthenaGenerationInput } from "../at
 // each other: a chat that fails mid-persist can leave an execution record
 // without a generation, or vice versa (see the PR-4 partial-failure
 // enumeration); the kernel already tolerates partial persists.
+//
+// Fluid PR-5 (Lever 3 write coalescing): the kernel persists only two
+// transition rows per request — the initial "created" row (here, with the
+// execution create) and the one terminal row. Intermediate hops are kept in
+// memory by the service and summarized on the terminal row's metadata
+// (`transitionTrail`), so the forensic trail survives in compressed form.
+// Telemetry spans are likewise buffered and flushed in one createMany
+// (persistTelemetryRecords); audit events are buffered by the service and
+// flushed through the audit store's recordMany. A successful draft-only
+// request therefore performs at most 8 Prisma writes (see the write-count
+// test in app/tests/athena-chat-tx-split.test.ts).
 export interface CreateExecutionInput {
   executionId: string;
   orgId: string;
@@ -137,6 +148,33 @@ export async function persistTelemetryRecord(input: PersistTelemetryInput): Prom
         costJson: (input.cost as Prisma.InputJsonValue | undefined) ?? undefined,
         metadataJson: input.metadata as Prisma.InputJsonValue,
       },
+    });
+  });
+}
+
+// Fluid PR-5 (Lever 3 write coalescing): one request's telemetry spans are
+// buffered by the kernel and flushed in a single createMany after the
+// response is determined, instead of one create per span. An empty batch is
+// a no-op (Prisma rejects an empty createMany). The single statement still
+// runs inside one short RLS session from the controller's actor, like the
+// single-record persist above; callers that need one span immediately
+// (observability alerts, security audit) keep using persistTelemetryRecord.
+export async function persistTelemetryRecords(inputs: PersistTelemetryInput[]): Promise<void> {
+  if (inputs.length === 0) return;
+  await runInDatabaseTransaction(basePrisma, async () => {
+    await prisma.athenaTelemetryRecordRow.createMany({
+      data: inputs.map((input) => ({
+        orgId: input.orgId,
+        executionId: input.executionId,
+        requestId: input.requestId,
+        traceId: input.traceId,
+        spanType: input.spanType,
+        status: input.status,
+        durationMs: input.durationMs,
+        redaction: input.redaction,
+        costJson: (input.cost as Prisma.InputJsonValue | undefined) ?? undefined,
+        metadataJson: input.metadata as Prisma.InputJsonValue,
+      })),
     });
   });
 }

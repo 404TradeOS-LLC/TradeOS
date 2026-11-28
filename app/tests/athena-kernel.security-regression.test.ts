@@ -27,12 +27,17 @@ const athenaExecutionTransitionCreate = jest.fn(async ({ data }: { data: { execu
 const athenaTelemetryRecordCreate = jest.fn(async ({ data }: { data: (typeof telemetryRows)[number] }) => {
   telemetryRows.push(data);
 });
+// Fluid PR-5: the kernel buffers spans and flushes them in one createMany.
+const athenaTelemetryRecordCreateMany = jest.fn(async ({ data }: { data: Array<(typeof telemetryRows)[number]> }) => {
+  telemetryRows.push(...data);
+  return { count: data.length };
+});
 
 jest.mock("../db/client", () => ({
   prisma: {
     athenaExecution: { create: athenaExecutionCreate, update: athenaExecutionUpdate, findFirst: athenaExecutionFindFirst },
     athenaExecutionTransition: { create: athenaExecutionTransitionCreate },
-    athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate },
+    athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate, createMany: athenaTelemetryRecordCreateMany },
   },
   // Fluid PR-4: the kernel wraps context assembly, tool execution, and store
   // persists in runInDatabaseTransaction; the callbacks read via the mocked

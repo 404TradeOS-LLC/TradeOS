@@ -33,6 +33,11 @@ export interface AthenaAuditEvent {
 
 export interface AthenaAuditStore {
   record(event: AthenaAuditEvent): Promise<void>;
+  // Fluid PR-5 (Lever 3 write coalescing): persist a batch of events in
+  // one bounded write (one createMany on the Prisma store). Optional so
+  // existing stores and test doubles without a batch path keep working —
+  // callers fall back to one record() per event when it is absent.
+  recordMany?(events: AthenaAuditEvent[]): Promise<void>;
 }
 
 export interface AthenaAuditApprovalQuery {

@@ -54,6 +54,11 @@ const athenaExecutionTransitionCreate = jest.fn(async ({ data }: { data: { execu
 const athenaTelemetryRecordCreate = jest.fn(async ({ data }: { data: (typeof telemetryRows)[number] }) => {
   telemetryRows.push(data);
 });
+// Fluid PR-5: the kernel buffers spans and flushes them in one createMany.
+const athenaTelemetryRecordCreateMany = jest.fn(async ({ data }: { data: Array<(typeof telemetryRows)[number]> }) => {
+  telemetryRows.push(...data);
+  return { count: data.length };
+});
 const athenaGenerationRunCreate = jest.fn(async ({ data }: { data: FakeGenerationCreateData }) => {
   const row: FakeGenerationRow = { ...data, createdAt: new Date() };
   generationRows.push(row);
@@ -79,7 +84,7 @@ const athenaSpendQueryRaw = jest.fn(async (sql: { values: unknown[] }) => {
 const fakeTx = {
   athenaExecution: { create: athenaExecutionCreate, update: athenaExecutionUpdate, findFirst: athenaExecutionFindFirst },
   athenaExecutionTransition: { create: athenaExecutionTransitionCreate },
-  athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate },
+  athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate, createMany: athenaTelemetryRecordCreateMany },
   athenaGenerationRun: { create: athenaGenerationRunCreate },
   $queryRaw: jest.fn(async () => []),
 };
@@ -88,7 +93,7 @@ jest.mock("../db/client", () => ({
   prisma: {
     athenaExecution: { create: athenaExecutionCreate, update: athenaExecutionUpdate, findFirst: athenaExecutionFindFirst },
     athenaExecutionTransition: { create: athenaExecutionTransitionCreate },
-    athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate },
+    athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate, createMany: athenaTelemetryRecordCreateMany },
     athenaGenerationRun: { create: athenaGenerationRunCreate },
     $queryRaw: athenaSpendQueryRaw,
   },
@@ -461,7 +466,9 @@ describe("AthenaKernelService", () => {
   });
 
   it("emits a kernel span and finalizes the execution record even when telemetry recording itself fails", async () => {
-    athenaTelemetryRecordCreate.mockRejectedValueOnce(new Error("telemetry sink unavailable"));
+    // Fluid PR-5: spans flush in one createMany after the response is
+    // determined, so the failure is mocked on the batch call.
+    athenaTelemetryRecordCreateMany.mockRejectedValueOnce(new Error("telemetry sink unavailable"));
     const service = new AthenaKernelService();
     const result = await service.handleRequest({
       request: { message: "What is the status of this project?", requestSource: "http" },

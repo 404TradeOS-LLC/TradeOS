@@ -81,6 +81,19 @@ Terminal states are immutable. Resuming an execution from a non-terminal state
 requires a persisted checkpoint, the same `orgId`, a valid actor or service
 principal, and a fresh policy check before any mutation.
 
+**Persistence (Fluid PR-5 write coalescing):** the state machine above runs
+in memory — every hop is still asserted against the table — but only the
+`created` row and one terminal transition row are persisted per execution
+(`needs_clarification` persists like a terminal state, since the kernel
+returns immediately after entering it). Intermediate hops are summarized as
+`transitionTrail` (ordered `fromState`/`toState`/`reasonCode`) in the
+terminal row's metadata. Telemetry spans and audit events are likewise
+buffered during the request and flushed once each in a batch after the
+response is determined. A successful draft therefore performs 8 kernel
+Prisma writes (21 before PR-5); the audit minimum — execution create,
+terminal transition, terminal audit event, generation record — is never cut.
+Buffered spans/events are lost if the process dies before the flush.
+
 ## Orchestration And Planning
 
 Planning is hidden and non-authoritative. The planner can decompose work,

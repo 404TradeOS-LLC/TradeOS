@@ -15,6 +15,8 @@ const athenaExecutionUpdate = jest.fn(async ({ where, data }: { where: { id: str
 const athenaExecutionFindFirst = jest.fn(async ({ where }: { where: { id: string } }) => executions.get(where.id) ?? null);
 const athenaExecutionTransitionCreate = jest.fn(async () => undefined);
 const athenaTelemetryRecordCreate = jest.fn(async () => undefined);
+// Fluid PR-5: the kernel buffers spans and flushes them in one createMany.
+const athenaTelemetryRecordCreateMany = jest.fn(async () => ({ count: 0 }));
 const athenaGenerationRunCreate = jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({
   ...data,
   estimatedUsd: data.estimatedUsd ?? null,
@@ -26,6 +28,9 @@ const athenaGenerationRunCreate = jest.fn(async ({ data }: { data: Record<string
 }));
 const athenaAuditEventFindFirst = jest.fn(async () => null);
 const athenaAuditEventCreate = jest.fn(async () => undefined);
+// Fluid PR-5: the kernel buffers audit events and flushes them in one
+// createMany through the audit store's recordMany.
+const athenaAuditEventCreateMany = jest.fn(async () => ({ count: 0 }));
 // Fluid PR-4: the real runInDatabaseTransaction issues a set_config
 // $queryRaw on the transaction handle when a session actor is present (the
 // controller sets one), so the fake handle needs $queryRaw; the store
@@ -36,9 +41,9 @@ jest.mock("../db/client", () => ({
   prisma: {
     athenaExecution: { create: athenaExecutionCreate, update: athenaExecutionUpdate, findFirst: athenaExecutionFindFirst },
     athenaExecutionTransition: { create: athenaExecutionTransitionCreate },
-    athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate },
+    athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate, createMany: athenaTelemetryRecordCreateMany },
     athenaGenerationRun: { create: athenaGenerationRunCreate },
-    athenaAuditEvent: { findFirst: athenaAuditEventFindFirst, create: athenaAuditEventCreate },
+    athenaAuditEvent: { findFirst: athenaAuditEventFindFirst, create: athenaAuditEventCreate, createMany: athenaAuditEventCreateMany },
   },
   // Fluid PR-4: the controller/kernel/store path wraps persists in
   // runInDatabaseTransaction; the callbacks read via the mocked prisma proxy,

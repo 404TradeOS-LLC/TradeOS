@@ -62,7 +62,13 @@ authentication, membership, and database-session model as the rest of the app.
   guards the mutation it reserves. When the action fails, expires, or is
   cancelled, the kernel rolls that transaction back instead of committing a
   partial write, so a retry with the same key re-executes rather than
-  replaying the cached failure.
+  replaying the cached failure. Fluid PR-5 coalesces the kernel's other
+  writes around that transaction: audit events (including the S043 security
+  events) are buffered during the request and flushed once in a batch after
+  the response is determined, and only the `created` and one terminal
+  lifecycle transition row are persisted. The terminal audit event is still
+  persisted on every request; buffered events are lost only if the process
+  dies before the flush.
 
 ## Contractor workspace capability boundary
 

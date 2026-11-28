@@ -57,7 +57,7 @@ interface FakeGenerationRow {
 type FakeGenerationCreateData = Omit<FakeGenerationRow, "createdAt">;
 
 const executions = new Map<string, FakeExecutionRow>();
-const transitions: Array<{ executionId: string; fromState: string; toState: string; reasonCode: string }> = [];
+const transitions: Array<{ executionId: string; fromState: string; toState: string; reasonCode: string; metadataJson?: unknown }> = [];
 const telemetryRows: Array<{ orgId: string; executionId: string; spanType: string; status: string }> = [];
 const generationRows: FakeGenerationRow[] = [];
 const auditRows: Array<Record<string, unknown>> = [];
@@ -70,11 +70,18 @@ const defaultAthenaExecutionUpdate = async ({ where, data }: { where: { id: stri
   if (existing) executions.set(where.id, { ...existing, ...data });
 };
 const defaultAthenaExecutionFindFirst = async ({ where }: { where: { id: string } }) => executions.get(where.id) ?? null;
-const defaultAthenaExecutionTransitionCreate = async ({ data }: { data: { executionId: string; fromState: string; toState: string; reasonCode: string } }) => {
+const defaultAthenaExecutionTransitionCreate = async ({ data }: { data: { executionId: string; fromState: string; toState: string; reasonCode: string; metadataJson?: unknown } }) => {
   transitions.push(data);
 };
 const defaultAthenaTelemetryRecordCreate = async ({ data }: { data: (typeof telemetryRows)[number] }) => {
   telemetryRows.push(data);
+};
+// Fluid PR-5: the kernel buffers telemetry spans and flushes them in one
+// createMany after the response is determined, so the fake records the batch
+// the same way the single-create fake records one row.
+const defaultAthenaTelemetryRecordCreateMany = async ({ data }: { data: Array<(typeof telemetryRows)[number]> }) => {
+  telemetryRows.push(...data);
+  return { count: data.length };
 };
 const defaultAthenaGenerationRunCreate = async ({ data }: { data: FakeGenerationCreateData }) => {
   const row: FakeGenerationRow = { ...data, createdAt: new Date() };
@@ -84,6 +91,12 @@ const defaultAthenaGenerationRunCreate = async ({ data }: { data: FakeGeneration
 const defaultAthenaAuditEventCreate = async ({ data }: { data: Record<string, unknown> }) => {
   auditRows.push(data);
   return data;
+};
+// Fluid PR-5: the kernel buffers audit events and flushes them in one
+// createMany after the response is determined.
+const defaultAthenaAuditEventCreateMany = async ({ data }: { data: Record<string, unknown>[] }) => {
+  auditRows.push(...data);
+  return { count: data.length };
 };
 // Sums the in-memory generation rows the way the SECURITY DEFINER function
 // would (org + chargeable statuses + UTC-day window + non-null
@@ -107,8 +120,10 @@ const athenaExecutionUpdate = jest.fn(defaultAthenaExecutionUpdate);
 const athenaExecutionFindFirst = jest.fn(defaultAthenaExecutionFindFirst);
 const athenaExecutionTransitionCreate = jest.fn(defaultAthenaExecutionTransitionCreate);
 const athenaTelemetryRecordCreate = jest.fn(defaultAthenaTelemetryRecordCreate);
+const athenaTelemetryRecordCreateMany = jest.fn(defaultAthenaTelemetryRecordCreateMany);
 const athenaGenerationRunCreate = jest.fn(defaultAthenaGenerationRunCreate);
 const athenaAuditEventCreate = jest.fn(defaultAthenaAuditEventCreate);
+const athenaAuditEventCreateMany = jest.fn(defaultAthenaAuditEventCreateMany);
 const athenaAuditEventFindFirst = jest.fn(async () => null);
 const athenaSpendQueryRaw = jest.fn(defaultAthenaSpendQueryRaw);
 
@@ -150,9 +165,9 @@ function restoreStores(snap: ReturnType<typeof snapshotStores>) {
 const fakeTx = {
   athenaExecution: { create: athenaExecutionCreate, update: athenaExecutionUpdate, findFirst: athenaExecutionFindFirst },
   athenaExecutionTransition: { create: athenaExecutionTransitionCreate },
-  athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate },
+  athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate, createMany: athenaTelemetryRecordCreateMany },
   athenaGenerationRun: { create: athenaGenerationRunCreate },
-  athenaAuditEvent: { create: athenaAuditEventCreate, findFirst: athenaAuditEventFindFirst },
+  athenaAuditEvent: { create: athenaAuditEventCreate, createMany: athenaAuditEventCreateMany, findFirst: athenaAuditEventFindFirst },
   $queryRaw: txQueryRaw,
 };
 
@@ -174,9 +189,9 @@ jest.mock("../db/client", () => ({
   prisma: {
     athenaExecution: { create: athenaExecutionCreate, update: athenaExecutionUpdate, findFirst: athenaExecutionFindFirst },
     athenaExecutionTransition: { create: athenaExecutionTransitionCreate },
-    athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate },
+    athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate, createMany: athenaTelemetryRecordCreateMany },
     athenaGenerationRun: { create: athenaGenerationRunCreate },
-    athenaAuditEvent: { create: athenaAuditEventCreate, findFirst: athenaAuditEventFindFirst },
+    athenaAuditEvent: { create: athenaAuditEventCreate, createMany: athenaAuditEventCreateMany, findFirst: athenaAuditEventFindFirst },
     $queryRaw: athenaSpendQueryRaw,
   },
   basePrisma: { $transaction: fakeTransaction },
@@ -236,8 +251,10 @@ describe("Athena chat transaction split (Fluid PR-4)", () => {
     athenaExecutionFindFirst.mockImplementation(defaultAthenaExecutionFindFirst);
     athenaExecutionTransitionCreate.mockImplementation(defaultAthenaExecutionTransitionCreate);
     athenaTelemetryRecordCreate.mockImplementation(defaultAthenaTelemetryRecordCreate);
+    athenaTelemetryRecordCreateMany.mockImplementation(defaultAthenaTelemetryRecordCreateMany);
     athenaGenerationRunCreate.mockImplementation(defaultAthenaGenerationRunCreate);
     athenaAuditEventCreate.mockImplementation(defaultAthenaAuditEventCreate);
+    athenaAuditEventCreateMany.mockImplementation(defaultAthenaAuditEventCreateMany);
     athenaAuditEventFindFirst.mockImplementation(async () => null);
     athenaSpendQueryRaw.mockImplementation(defaultAthenaSpendQueryRaw);
     openTransactions = 0;
@@ -440,10 +457,19 @@ describe("Athena chat transaction split (Fluid PR-4)", () => {
   });
 
   it("partial failure (1): a later persist failure leaves an orphaned non-terminal execution instead of rolling the request back", async () => {
+    // Fluid PR-5 moves the failure point: intermediate transitions no
+    // longer persist, so a failing execution update is first hit at the
+    // terminal transition — after the provider call and the generation
+    // persist. The execution record committed in its own short transaction
+    // before that, so it survives — non-terminal, visible for diagnosis —
+    // and the generation row persists too. Before PR-4 the whole request
+    // transaction rolled back and no trace remained; before PR-5 the same
+    // failure struck the first intermediate transition and the provider
+    // was never reached.
     athenaExecutionUpdate.mockImplementation(async () => {
       throw new Error("database write failed");
     });
-    const provider: AthenaProviderAdapter = { generateDraft: jest.fn() };
+    const provider: AthenaProviderAdapter = { generateDraft: jest.fn(async () => ({ text: "Here is your draft.", provider: "fake", model: "athena-fake-v1", providerVersion: "1.0.0" })) };
     const service = new AthenaKernelService();
 
     await expect(
@@ -458,16 +484,17 @@ describe("Athena chat transaction split (Fluid PR-4)", () => {
       )
     ).rejects.toThrow("database write failed");
 
-    // The execution record committed in its own short transaction before
-    // the failing transition, so it survives — non-terminal, visible for
-    // diagnosis. Before PR-4 the whole request transaction rolled back and
-    // no trace remained. The provider was never reached.
-    expect(provider.generateDraft).not.toHaveBeenCalled();
+    // The provider was reached (no persist happens before it anymore) and
+    // its generation committed before the terminal transition failed.
+    expect(provider.generateDraft).toHaveBeenCalledTimes(1);
+    expect(generationRows).toHaveLength(1);
     expect(executions.size).toBe(1);
     const [execution] = [...executions.values()];
     expect(execution.state).toBe("created");
-    // Only the creation transition committed; the failing transition's
-    // create rolled back with its update (one short transaction per pair).
+    // Only the creation transition committed; the failing terminal
+    // transition's create rolled back with its update (one short
+    // transaction per pair), and the catch block's terminal retry failed
+    // the same way.
     expect(transitions).toHaveLength(1);
     expect(transitions[0]).toMatchObject({ fromState: null, toState: "created" });
   });
@@ -536,7 +563,10 @@ describe("Athena chat transaction split (Fluid PR-4)", () => {
   });
 
   it("partial failure (4): a failed telemetry write never fails the draft", async () => {
-    athenaTelemetryRecordCreate.mockRejectedValue(new Error("telemetry down"));
+    // Fluid PR-5: spans flush in one createMany after the response is
+    // determined, so the failure is mocked on the batch call — the draft
+    // still succeeds and the execution still finalizes.
+    athenaTelemetryRecordCreateMany.mockRejectedValue(new Error("telemetry down"));
     const provider: AthenaProviderAdapter = {
       generateDraft: jest.fn(async () => ({ text: "Here is your draft.", provider: "fake", model: "athena-fake-v1", providerVersion: "1.0.0" })),
     };
@@ -611,4 +641,72 @@ describe("Athena chat transaction split (Fluid PR-4)", () => {
       Date.now = originalNow;
     }
   }, 10_000);
+
+  it("write coalescing (Fluid PR-5): a successful draft performs at most 8 Prisma writes", async () => {
+    // Lever 3 change 3.3: one successful draft-only request used to perform
+    // ~19 Prisma writes (execution create + initial transition, one
+    // transition row + execution update per state hop, one telemetry row
+    // per span, one audit row per event, one generation row, one finalize
+    // update). Coalescing keeps the audit minimum — execution create,
+    // terminal transition, terminal audit event, generation record — and
+    // nothing else is cut: intermediate hops live only in memory and are
+    // summarized on the terminal transition, telemetry spans and audit
+    // events are buffered and flushed once each after the response is
+    // determined. The count below is the honest kernel-boundary total: the
+    // real Prisma audit store is injected, so its writes are counted too.
+    // Baseline before PR-5 (same harness, same path): 21 writes.
+    const provider: AthenaProviderAdapter = {
+      generateDraft: jest.fn(async () => ({ text: "Here is your draft.", provider: "fake", model: "athena-fake-v1", providerVersion: "1.0.0" })),
+    };
+    const service = new AthenaKernelService();
+    const result = await runWithSessionActor(sessionActor(), () =>
+      service.handleRequest({
+        request: { message: "What is the status of this project this week?", requestSource: "http" },
+        actor: kernelActor(),
+        requestId: "req-pr5-write-count",
+        env: { ...draftEnv, ATHENA_ROUTER_PLANNER_ENABLED: "true" } as NodeJS.ProcessEnv,
+        provider,
+        auditStore: createPrismaAthenaAuditStore(),
+      })
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.state).toBe("succeeded");
+
+    const writeCalls =
+      athenaExecutionCreate.mock.calls.length +
+      athenaExecutionUpdate.mock.calls.length +
+      athenaExecutionTransitionCreate.mock.calls.length +
+      athenaTelemetryRecordCreate.mock.calls.length +
+      athenaTelemetryRecordCreateMany.mock.calls.length +
+      athenaGenerationRunCreate.mock.calls.length +
+      athenaAuditEventCreate.mock.calls.length +
+      athenaAuditEventCreateMany.mock.calls.length;
+    expect(writeCalls).toBeLessThanOrEqual(8);
+
+    // Audit minimum, with identical fields: the execution record is
+    // terminal with its summary, and the generation record exists.
+    const execution = executions.get(result.executionId);
+    expect(execution?.state).toBe("succeeded");
+    expect(execution?.safeSummary).toBe("Athena prepared a draft response.");
+    expect(generationRows).toHaveLength(1);
+    expect(generationRows[0]).toMatchObject({ orgId: "org-1", executionId: result.executionId, provider: "fake", model: "athena-fake-v1", status: "succeeded" });
+
+    // Exactly two transition rows: the initial "created" row and the one
+    // terminal row, which carries the skipped hops as its summary.
+    expect(transitions).toHaveLength(2);
+    expect(transitions[0]).toMatchObject({ fromState: null, toState: "created", reasonCode: "execution_created" });
+    expect(transitions[1]).toMatchObject({ fromState: "policy_check", toState: "succeeded", reasonCode: "draft_response_completed" });
+    const trail = (transitions[1]?.metadataJson as { transitionTrail?: Array<{ fromState: string; toState: string; reasonCode: string }> } | undefined)?.transitionTrail;
+    expect(trail?.map((hop) => hop.toState)).toEqual(["context_building", "routing", "planning", "policy_check"]);
+
+    // Telemetry and audit rows are all still there — batched, not dropped:
+    // one createMany per collection, zero single creates.
+    expect(athenaTelemetryRecordCreate).not.toHaveBeenCalled();
+    expect(athenaTelemetryRecordCreateMany).toHaveBeenCalledTimes(1);
+    expect(telemetryRows.map((row) => row.spanType).sort()).toEqual(["approval", "context", "kernel", "model"]);
+    expect(athenaAuditEventCreate).not.toHaveBeenCalled();
+    expect(athenaAuditEventCreateMany).toHaveBeenCalledTimes(1);
+    expect(auditRows.map((row) => row.eventType).sort()).toEqual(["context_gathered", "request_received", "tools_considered"]);
+  });
 });

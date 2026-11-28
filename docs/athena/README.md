@@ -151,6 +151,10 @@ Before organization-scoped approval list or detail reads, the approval applicati
 
 A6 production action execution no longer relies on process-local memory for deduplication when a caller supplies an idempotency key. The production Athena controller injects a PostgreSQL-backed idempotency store that opens its own short RLS session from the controller's validated actor (Fluid PR-4: the chat route runs outside the request-scoped RLS transaction so the Gemini wait holds no pool connection), persists completed action/result envelopes, and uses a unique organization/tool/version/key claim to serialize concurrent requests across API instances. The kernel wraps a whole tool action — reserve, mutation, complete — in one short transaction, so the reservation still shares a transaction with the mutation it guards. When the action fails, expires, or is cancelled, the kernel rolls that transaction back instead of committing a partial write, so the reservation and completion roll back with the mutation and a retry with the same key re-executes rather than replaying the cached failure. Idempotency rows are additionally exact-actor scoped by forced RLS so a peer user cannot recover another actor's persisted action result. The in-memory implementation remains a test/local fixture only.
 
+## Write coalescing (Fluid PR-5)
+
+The kernel's per-request write fan-out is coalesced without changing the action transaction above: the in-memory lifecycle state machine is unchanged, but only the `created` and one terminal transition row are persisted per execution (intermediate hops are summarized as `transitionTrail` on the terminal row), and telemetry spans and audit events are buffered during the request and flushed once each in a batch after the response is determined — a successful draft performs 8 kernel Prisma writes (21 before). The audit minimum is intact: execution create, terminal transition, terminal audit event, and generation record. Buffered spans/events are lost if the process dies before the flush.
+
 ## S025 generation persistence
 
 S025 implementation PR #331 merged as
