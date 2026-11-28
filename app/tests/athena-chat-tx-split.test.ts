@@ -401,6 +401,111 @@ describe("Athena chat transaction split (Fluid PR-4)", () => {
     expect(auditRows[0]?.orgId).toBe("org-1");
   });
 
+  it("recordMany inherits action correlation from an earlier event in the same batch (Codex P2 on PR #1171)", async () => {
+    // Fluid PR-5 batches audit events into one createMany, so a preceding
+    // action_attempted in the same batch is not yet in the database when
+    // the correlation lookup runs for a following execution_completed.
+    // The batch path must resolve correlation from preceding same-org,
+    // same-execution batch events first — otherwise the completion
+    // persists without correlation and AthenaApprovalsService.getDetail()
+    // omits it from the audit trail (listForApproval filters by
+    // action/approval ids).
+    const store = createPrismaAthenaAuditStore(fakeTx as unknown as Parameters<typeof createPrismaAthenaAuditStore>[0]);
+    const attempt: AthenaAuditEvent = {
+      id: randomUUID(),
+      timestamp: new Date(),
+      actor: { userId: "user-1", role: "owner" },
+      organization: "org-1",
+      eventType: "action_attempted",
+      metadata: { outcome: "attempted" },
+      requestId: "req-batch-correlation",
+      traceId: "trace-batch-correlation",
+      executionId: "exec-batch-correlation",
+      actionId: "act-1",
+      approvalId: "appr-1",
+    };
+    const completion: AthenaAuditEvent = {
+      id: randomUUID(),
+      timestamp: new Date(),
+      actor: { userId: "user-1", role: "owner" },
+      organization: "org-1",
+      eventType: "execution_completed",
+      metadata: { outcome: "succeeded" },
+      requestId: "req-batch-correlation",
+      traceId: "trace-batch-correlation",
+      executionId: "exec-batch-correlation",
+    };
+
+    await store.recordMany?.([attempt, completion]);
+
+    // No database lookup: the batch itself carried the correlation, so
+    // the batch stays a single createMany.
+    expect(athenaAuditEventFindFirst).not.toHaveBeenCalled();
+    expect(athenaAuditEventCreateMany).toHaveBeenCalledTimes(1);
+    expect(auditRows).toHaveLength(2);
+    expect(auditRows[1]).toMatchObject({ eventType: "execution_completed", actionId: "act-1", approvalId: "appr-1" });
+  });
+
+  it("recordMany still falls back to the database when the batch carries no preceding attempt", async () => {
+    athenaAuditEventFindFirst.mockResolvedValueOnce({ actionId: "act-db", approvalId: "appr-db" } as unknown as null);
+    const store = createPrismaAthenaAuditStore(fakeTx as unknown as Parameters<typeof createPrismaAthenaAuditStore>[0]);
+    const completion: AthenaAuditEvent = {
+      id: randomUUID(),
+      timestamp: new Date(),
+      actor: { userId: "user-1", role: "owner" },
+      organization: "org-1",
+      eventType: "execution_completed",
+      metadata: { outcome: "succeeded" },
+      requestId: "req-batch-fallback",
+      traceId: "trace-batch-fallback",
+      executionId: "exec-batch-fallback",
+    };
+
+    await store.recordMany?.([completion]);
+
+    expect(athenaAuditEventFindFirst).toHaveBeenCalledTimes(1);
+    expect(auditRows).toHaveLength(1);
+    expect(auditRows[0]).toMatchObject({ eventType: "execution_completed", actionId: "act-db", approvalId: "appr-db" });
+  });
+
+  it("recordMany does not inherit correlation from a later event in the same batch", async () => {
+    const store = createPrismaAthenaAuditStore(fakeTx as unknown as Parameters<typeof createPrismaAthenaAuditStore>[0]);
+    const completion: AthenaAuditEvent = {
+      id: randomUUID(),
+      timestamp: new Date(),
+      actor: { userId: "user-1", role: "owner" },
+      organization: "org-1",
+      eventType: "execution_completed",
+      metadata: { outcome: "succeeded" },
+      requestId: "req-batch-order",
+      traceId: "trace-batch-order",
+      executionId: "exec-batch-order",
+    };
+    const attempt: AthenaAuditEvent = {
+      id: randomUUID(),
+      timestamp: new Date(),
+      actor: { userId: "user-1", role: "owner" },
+      organization: "org-1",
+      eventType: "action_attempted",
+      metadata: { outcome: "attempted" },
+      requestId: "req-batch-order",
+      traceId: "trace-batch-order",
+      executionId: "exec-batch-order",
+      actionId: "act-1",
+      approvalId: "appr-1",
+    };
+
+    await store.recordMany?.([completion, attempt]);
+
+    // Only preceding events seed the batch correlation, so the completion
+    // falls back to the database (empty here) and keeps no ids.
+    expect(athenaAuditEventFindFirst).toHaveBeenCalledTimes(1);
+    expect(auditRows).toHaveLength(2);
+    expect(auditRows[0]?.actionId).toBeUndefined();
+    expect(auditRows[0]?.approvalId).toBeUndefined();
+    expect(auditRows[1]).toMatchObject({ eventType: "action_attempted", actionId: "act-1", approvalId: "appr-1" });
+  });
+
   it("partial failure (5b): a failed tool action rolls its business write back instead of committing it", async () => {
     // Codex P1 on PR #1168: executeAthenaAction converts a tool exception
     // into a failed outcome instead of rejecting, so the short transaction

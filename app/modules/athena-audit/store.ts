@@ -189,22 +189,45 @@ function toAuditEventRow(event: AthenaAuditEvent) {
 // lookup per execution_completed event that lacks action/approval ids
 // (the kernel's draft path has none, so the batch is a single call).
 // An empty batch is a no-op (Prisma rejects an empty createMany).
+//
+// Codex P2 on PR #1171: a preceding action_attempted in the same batch is
+// not yet in the database when the correlation lookup runs, so findFirst
+// cannot see it and the completion persists without correlation —
+// AthenaApprovalsService.getDetail() then omits it from the audit trail
+// because listForApproval() filters by action/approval ids. Resolve
+// correlation from preceding same-org, same-execution batch events first
+// and fall back to the database only when the batch has none. Only
+// preceding events seed the batch map (in-order pass), and only attempts
+// carrying at least one id seed it, so an id-less attempt never shadows
+// the database fallback.
 async function recordManyOnDatabase(database: AthenaAuditDatabase, events: AthenaAuditEvent[]): Promise<void> {
   if (events.length === 0) return;
+  const batchCorrelation = new Map<string, Map<string, AuditCorrelation>>();
   const rows = [];
   for (const event of events) {
-    const priorAction =
-      event.eventType === "execution_completed" && (!event.actionId || !event.approvalId)
-        ? await database.athenaAuditEvent.findFirst({
-            where: {
-              orgId: event.organization,
-              executionId: event.executionId,
-              eventType: "action_attempted",
-            },
-            orderBy: { createdAt: "desc" },
-            select: { actionId: true, approvalId: true },
-          })
-        : null;
+    if (event.eventType === "action_attempted" && event.executionId && (event.actionId || event.approvalId)) {
+      let byExecution = batchCorrelation.get(event.organization);
+      if (!byExecution) {
+        byExecution = new Map<string, AuditCorrelation>();
+        batchCorrelation.set(event.organization, byExecution);
+      }
+      byExecution.set(event.executionId, { actionId: event.actionId ?? null, approvalId: event.approvalId ?? null });
+    }
+    let priorAction: AuditCorrelation | null = null;
+    if (event.eventType === "execution_completed" && (!event.actionId || !event.approvalId)) {
+      priorAction = event.executionId ? batchCorrelation.get(event.organization)?.get(event.executionId) ?? null : null;
+      if (!priorAction) {
+        priorAction = await database.athenaAuditEvent.findFirst({
+          where: {
+            orgId: event.organization,
+            executionId: event.executionId,
+            eventType: "action_attempted",
+          },
+          orderBy: { createdAt: "desc" },
+          select: { actionId: true, approvalId: true },
+        });
+      }
+    }
     rows.push(toAuditEventRow(withInheritedActionCorrelation(event, priorAction)));
   }
   await database.athenaAuditEvent.createMany({ data: rows });
