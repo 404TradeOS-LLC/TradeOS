@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { normalizeRole } from "../../domain";
 import type { DomainPermission } from "../../domain";
+import { basePrisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 import type { AthenaAuditStore } from "../athena-audit/types";
 import { buildAthenaSecurityAuditEvent } from "../athena-audit/securityEvents";
 import type { AthenaAuditEventType, AthenaSecurityAuditEventType, AthenaSecurityAuditOutcome } from "../athena-audit/types";
@@ -307,17 +309,21 @@ export class AthenaKernelService {
           throwIfAborted();
           const liveContextStart = Date.now();
           const contextRegistry = input.contextRegistry ?? createLiveAthenaContextRegistry();
-          const assemblyResult = await assembleAthenaContext(contextRegistry, {
-            orgId: actor.orgId,
-            actor: { userId: actor.userId, role: actor.role },
-            permissions: [...actor.permissions],
-            selectedScope: context.selectedScope,
-            interaction: safeInteraction(input.request),
-            featureFlags: [],
-            requestedIntents: routerResult.requestedContextIntents,
-            explicitSections: mobileInteraction ? ["mobile"] : [],
-            clientSignal: controller.signal,
-          });
+          // Fluid PR-4: context reads run in their own short RLS session from
+          // the chat controller's actor — never inside the provider wait.
+          const assemblyResult = await runInDatabaseTransaction(basePrisma, () =>
+            assembleAthenaContext(contextRegistry, {
+              orgId: actor.orgId,
+              actor: { userId: actor.userId, role: actor.role },
+              permissions: [...actor.permissions],
+              selectedScope: context.selectedScope,
+              interaction: safeInteraction(input.request),
+              featureFlags: [],
+              requestedIntents: routerResult.requestedContextIntents,
+              explicitSections: mobileInteraction ? ["mobile"] : [],
+              clientSignal: controller.signal,
+            })
+          );
           context = { ...context, ...assemblyResult.sections };
           await emitSpan("context", assemblyResult.stoppedByCriticalFailure ? "degraded" : "ok", Date.now() - liveContextStart, {
             sectionsIncluded: Object.keys(assemblyResult.sections),
@@ -463,27 +469,32 @@ export class AthenaKernelService {
           await recordSecurityAudit("sensitive_action_attempted", "attempted", { decision: stepDecision.decision, reasonCode: stepDecision.reasonCode, planId: plan.planId, stepId: step.stepId, toolId: step.toolId, toolVersion: step.toolVersion, riskLevel: tool.risk }, { actionId: actionAuditId, approvalId: input.approvalId });
 
           const actionStart = Date.now();
-          const actionOutcome = await executeAthenaAction(
-            { toolRegistry, approvalVerifier: input.approvalVerifier, idempotencyStore: input.idempotencyStore },
-            {
-              planId: plan.planId,
-              stepId: step.stepId,
-              requestId: input.requestId,
-              traceId,
-              executionId,
-              orgId: actor.orgId,
-              actor: { type: "user", id: actor.userId },
-              role: actor.role,
-              toolId: step.toolId,
-              toolVersion: step.toolVersion,
-              input: step.input,
-              aiContext: context,
-              permissionDecision: stepDecision,
-              approvalId: input.approvalId,
-              idempotencyKey: input.idempotencyKey,
-              featureFlags: [],
-              clientSignal: controller.signal,
-            }
+          // Fluid PR-4: reserve, tool mutation, and complete share one short
+          // RLS session — the reservation still guards the mutation it
+          // reserves, and no provider wait happens inside it.
+          const actionOutcome = await runInDatabaseTransaction(basePrisma, () =>
+            executeAthenaAction(
+              { toolRegistry, approvalVerifier: input.approvalVerifier, idempotencyStore: input.idempotencyStore },
+              {
+                planId: plan.planId,
+                stepId: step.stepId,
+                requestId: input.requestId,
+                traceId,
+                executionId,
+                orgId: actor.orgId,
+                actor: { type: "user", id: actor.userId },
+                role: actor.role,
+                toolId: step.toolId,
+                toolVersion: step.toolVersion,
+                input: step.input,
+                aiContext: context,
+                permissionDecision: stepDecision,
+                approvalId: input.approvalId,
+                idempotencyKey: input.idempotencyKey,
+                featureFlags: [],
+                clientSignal: controller.signal,
+              }
+            )
           );
 
           const actionState = actionOutcome.result.state;
@@ -530,13 +541,17 @@ export class AthenaKernelService {
 
           if (input.memoryCandidateExtractor && input.memoryService) {
             const memoryStart = Date.now();
+            const memoryService = input.memoryService;
             try {
               const candidates = await input.memoryCandidateExtractor({
                 orgId: actor.orgId,
                 actor: { orgId: actor.orgId, userId: actor.userId, role: actor.role },
                 action: { actionId: actionOutcome.result.actionId, toolId: step.toolId, toolVersion: step.toolVersion, state: actionState, data: actionOutcome.result.toolResult.data },
               });
-              for (const candidate of candidates) await input.memoryService.remember(candidate);
+              // Fluid PR-4: memory writes share one short RLS session.
+              await runInDatabaseTransaction(basePrisma, async () => {
+                for (const candidate of candidates) await memoryService.remember(candidate);
+              });
               await emitSpan("memory", "ok", Date.now() - memoryStart, { planId: plan.planId, stepId: step.stepId, candidateCount: candidates.length });
             } catch {
               await emitSpan("memory", "degraded", Date.now() - memoryStart, { planId: plan.planId, stepId: step.stepId });

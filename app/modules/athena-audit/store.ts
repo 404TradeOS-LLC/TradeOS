@@ -1,5 +1,6 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
-import { prisma } from "../../db/client";
+import { prisma, basePrisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 import { athenaSecurityAuditEventTypes, type AthenaAuditEvent, type AthenaAuditRepository, type AthenaAuditStore, type AthenaSecurityAuditQuery } from "./types";
 
 type AuditCorrelation = {
@@ -126,35 +127,40 @@ type AthenaAuditDatabase = Pick<PrismaClient, "athenaAuditEvent">;
 export function createPrismaAthenaAuditStore(database: AthenaAuditDatabase = prisma): AthenaAuditRepository {
   return {
     async record(event) {
-      const priorAction =
-        event.eventType === "execution_completed" && (!event.actionId || !event.approvalId)
-          ? await database.athenaAuditEvent.findFirst({
-              where: {
-                orgId: event.organization,
-                executionId: event.executionId,
-                eventType: "action_attempted",
-              },
-              orderBy: { createdAt: "desc" },
-              select: { actionId: true, approvalId: true },
-            })
-          : null;
-      const correlatedEvent = withInheritedActionCorrelation(event, priorAction);
+      // Fluid PR-4: the correlation read and the insert share one short RLS
+      // session from the chat controller's actor when no request transaction
+      // is active; the ambient transaction is reused otherwise.
+      await runInDatabaseTransaction(basePrisma, async () => {
+        const priorAction =
+          event.eventType === "execution_completed" && (!event.actionId || !event.approvalId)
+            ? await database.athenaAuditEvent.findFirst({
+                where: {
+                  orgId: event.organization,
+                  executionId: event.executionId,
+                  eventType: "action_attempted",
+                },
+                orderBy: { createdAt: "desc" },
+                select: { actionId: true, approvalId: true },
+              })
+            : null;
+        const correlatedEvent = withInheritedActionCorrelation(event, priorAction);
 
-      await database.athenaAuditEvent.create({
-        data: {
-          id: correlatedEvent.id,
-          orgId: correlatedEvent.organization,
-          actorUserId: correlatedEvent.actor.userId,
-          actorRole: correlatedEvent.actor.role,
-          requestId: correlatedEvent.requestId,
-          traceId: correlatedEvent.traceId,
-          executionId: correlatedEvent.executionId,
-          actionId: correlatedEvent.actionId,
-          approvalId: correlatedEvent.approvalId,
-          eventType: correlatedEvent.eventType,
-          metadataJson: correlatedEvent.metadata as Prisma.InputJsonValue,
-          createdAt: correlatedEvent.timestamp,
-        },
+        await database.athenaAuditEvent.create({
+          data: {
+            id: correlatedEvent.id,
+            orgId: correlatedEvent.organization,
+            actorUserId: correlatedEvent.actor.userId,
+            actorRole: correlatedEvent.actor.role,
+            requestId: correlatedEvent.requestId,
+            traceId: correlatedEvent.traceId,
+            executionId: correlatedEvent.executionId,
+            actionId: correlatedEvent.actionId,
+            approvalId: correlatedEvent.approvalId,
+            eventType: correlatedEvent.eventType,
+            metadataJson: correlatedEvent.metadata as Prisma.InputJsonValue,
+            createdAt: correlatedEvent.timestamp,
+          },
+        });
       });
     },
     async listForApproval(query) {
