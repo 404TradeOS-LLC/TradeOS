@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { ChangeEvent, DragEvent } from "react";
+import { revalidateOrgDataCache } from "@/app/actions/data-cache";
 import { removeSettingsAssetAction, uploadSettingsAssetAction } from "@/app/actions/settings";
 import { AlertCircle, CheckCircle2, ImagePlus, LoaderCircle, Palette, ShieldCheck, Sparkles, SwatchBook, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,22 @@ const SCREEN_NAV = [
   { id: "document-branding", label: "Document Branding" },
   { id: "contact-social", label: "Contact & Social" },
 ] as const;
+
+// Fluid PR-6 (2.5): the brand-studio getters are served from the org-scoped
+// server Data Cache, so any mutation must invalidate that org's tags or the
+// next navigation shows the pre-mutation settings for up to the 300 s TTL.
+// All four namespaces are revalidated together — the profile, assets,
+// document settings, and preview are one settings bundle, and a save or an
+// asset change can affect any of them. Best-effort: a failed revalidation
+// never fails the save (the TTL expires the entries anyway).
+function refreshBrandStudioCache() {
+  void revalidateOrgDataCache([
+    "brand-studio-profile",
+    "brand-studio-assets",
+    "brand-studio-document-settings",
+    "brand-studio-preview",
+  ]).catch(() => undefined);
+}
 
 export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps) {
   const [settings, setSettings] = useState(initialSettings);
@@ -98,6 +115,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
       setSavedSettings(nextSettings);
       setStatusTone("success");
       setStatusMessage("Brand Studio saved. Document frames, logos, and typography now point to the latest organization skin.");
+      refreshBrandStudioCache();
     } catch (error) {
       setStatusTone("error");
       setStatusMessage(error instanceof Error ? error.message : "Unable to save Brand Studio right now.");
@@ -139,6 +157,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
         preview: buildLocalBrandPreview(profile, current.documentSettings, current.assets),
       };
     });
+    refreshBrandStudioCache();
   }
 
   async function uploadBrandFile(assetKey: BrandStudioUploadKey, file: File) {
@@ -254,6 +273,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
       setAssetDraft(defaultBrandAssetDraft);
       setStatusTone("success");
       setStatusMessage("Asset added to the brand library.");
+      refreshBrandStudioCache();
     } catch (error) {
       setStatusTone("error");
       setStatusMessage(error instanceof Error ? error.message : "Unable to add this asset.");
@@ -278,6 +298,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
           });
           setStatusTone("success");
           setStatusMessage("Asset removed from the brand library.");
+          refreshBrandStudioCache();
         } catch (error) {
           setStatusTone("error");
           setStatusMessage(error instanceof Error ? error.message : "Unable to remove this asset.");

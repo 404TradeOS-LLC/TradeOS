@@ -3,6 +3,7 @@
 import type { FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Ban, Check, Pencil, Plus, X } from "lucide-react";
+import { revalidateOrgDataCache } from "@/app/actions/data-cache";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,15 @@ const emptyForm: LaborRateFormState = {
   hourlyCost: "",
   billRate: "",
 };
+
+// Fluid PR-6 (2.5): the labor-rates list is served from the org-scoped
+// server Data Cache, so a mutation must invalidate that org's tag or the
+// next navigation shows the pre-mutation list for up to the 120 s TTL.
+// Best-effort: a failed revalidation never fails the save (the TTL expires
+// the entry anyway).
+function refreshLaborRatesCache() {
+  void revalidateOrgDataCache(["costbook-labor-rates"]).catch(() => undefined);
+}
 
 export function LaborRatesCatalog({
   initialLaborRates,
@@ -85,6 +95,7 @@ export function LaborRatesCatalog({
       });
       setEditingId(null);
       setForm(emptyForm);
+      refreshLaborRatesCache();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Labor rate could not be saved.");
     } finally {
@@ -103,6 +114,7 @@ export function LaborRatesCatalog({
           ? { ...laborRate, active: false, updatedAt: new Date().toISOString() }
           : laborRate
       ))));
+      refreshLaborRatesCache();
       if (editingId === id) {
         setEditingId(null);
         setForm(emptyForm);
