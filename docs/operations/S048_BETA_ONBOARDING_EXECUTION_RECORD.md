@@ -40,7 +40,21 @@ never in this file beyond noting that the private record exists.
 | Production SHA at authoring | `355f0ff3` (= `main` `355f0ff3896c5aa6ae85a647e6f8ef0a6350bf7e`), verified live 2026-11-28 ~03:02 EST via `/health` (environment `production`); `/ready` green, database project `kssaceuetdjwfqnbzhly`, schema ok |
 | Production SHA at onboarding | **PENDING — release operator records the exact SHA in service on Dec 1.** If production has moved since authoring, the Dec 1 value governs. |
 | Staging SHA at authoring | `e99b0c89`, environment `preview` (verified 2026-11-28 ~03:02 EST). Staging is the rehearsal target only, not the beta target. |
-| Rollback target approval | **PENDING — release operator confirms the target at onboarding** (checklist step 8). |
+| Rollback target approval | **PENDING — release operator confirms the target at onboarding** (checklist step 9). |
+
+## Release decision (GO / CONDITIONAL GO / HOLD)
+
+| Field | Value |
+| --- | --- |
+| Decision | **PENDING — founder records GO or CONDITIONAL GO for the exact release SHA at onboarding** (checklist step 10). The runbook's release record is HOLD until then. A HOLD stops onboarding before any production tenant is provisioned. |
+| Release SHA | The production SHA verified in the checklist step 5, recorded here at onboarding. |
+
+## Evidence runs (before Dec 1)
+
+| Run | Status |
+| --- | --- |
+| `rc-smoke.yml` dispatch (S047 release-candidate authenticated smoke suite) against the approved non-production target | **PENDING — run URL recorded here** (checklist step 6). |
+| `beta-evidence.yml` dispatch, `mode: full`, required scenario | **PENDING — run URL recorded here** (checklist step 6). A `preflight` run does not satisfy this step. |
 
 ## Founder confirmations (due at/before Dec 1)
 
@@ -56,10 +70,12 @@ never in this file beyond noting that the private record exists.
 
 | Step | Evidence | Status |
 | --- | --- | --- |
-| Organization + owner account provisioned on production via the existing secret-gated provisioning route | Organization ID + owner user ID recorded privately | **PENDING — Dec 1** |
-| Contractor first sign-in; same-org-only access confirmed | Sign-in + access-check confirmation | **PENDING — Dec 1** |
-| Guided Customer → Project → Estimate → Proposal/PDF exercise completed | Completion note with date | **PENDING — Dec 1** |
-| Feedback channel + support path confirmed with contractor | Contractor acknowledgement | **PENDING — Dec 1** |
+| Supabase Auth identity created/verified; `authSubject` + email recorded privately | Identity-creation confirmation | **PENDING — before Dec 1** (checklist step 8) |
+| Release GO / CONDITIONAL GO recorded for the exact release SHA | GO record (release SHA + date) | **PENDING — Dec 1** (checklist step 10) |
+| Organization + owner account provisioned on production via the existing secret-gated provisioning route | Organization ID + owner user ID recorded privately | **PENDING — Dec 1** (checklist step 11) |
+| Contractor password established by the contractor (password-reset flow) and first sign-in confirmed; same-org-only access confirmed | Sign-in + access-check confirmation | **PENDING — Dec 1** (checklist step 12) |
+| Guided Customer → Project → Estimate → Proposal/PDF exercise completed | Completion note with date | **PENDING — Dec 1** (checklist step 13) |
+| Feedback channel + support path confirmed with contractor | Contractor acknowledgement | **PENDING — Dec 1** (checklist step 14) |
 
 ## Post-onboarding
 

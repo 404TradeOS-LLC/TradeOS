@@ -30,7 +30,7 @@ destructive database commands.
   `kssaceuetdjwfqnbzhly`, schema ok. Staging serves `e99b0c89`
   (environment `preview`) and is **not** the beta target.
 - **Approval:** the release operator confirms the target at onboarding
-  (checklist step 8) and records the exact SHA then in service in the
+  (checklist step 9) and records the exact SHA then in service in the
   execution record. The SHA above is the verified value at authoring
   time; if production has moved by Dec 1, the execution record carries
   the Dec 1 value, not this one.
@@ -74,10 +74,24 @@ Execute this plan when any of these holds:
    does not authorize a production export by itself, and the helper
    intentionally rejects production configuration. Do not improvise
    destructive database commands.
-5. **Suspend the account and revoke sessions.** Confirm account
-   suspension / session-revocation behavior for the contractor's owner
-   account before offboarding; record the confirmation in the
-   execution record.
+5. **Suspend the account and revoke sessions — operator action:**
+   disable the owner's membership with `PATCH
+   /organizations/:id/members/:membershipId` and body
+   `{"status": "disabled"}` (or `DELETE` on the same path, which sets
+   status `"disabled"`). Membership statuses are `active` / `invited` /
+   `disabled`; the disable is audited. A disabled membership blocks
+   sign-in (login requires an `active` membership) and blocks refresh
+   (refresh requires the membership to be `active`), so no new session
+   can be issued and outstanding refresh tokens cannot be used.
+   `POST /logout` is caller-scoped and is **not** the operator action.
+   Verify the suspension with a sign-in attempt (must fail 401) and a
+   refresh attempt (must fail 401). Already-issued access JWTs remain
+   valid until expiry — 1 hour by default (`AUTH_JWT_TTL_SECONDS`,
+   default `60 * 60`) — so verification must account for that window:
+   the owner has no usable access after at most one hour from the
+   disable, and no new access at all. Record the disable + verification
+   in the execution record. **Offboarding is NOT complete until the
+   disable and its verification are confirmed there.**
 6. **Apply the agreed retention/deletion policy.** The founder and
    release operator agree the policy before Dec 1 (checklist step 4);
    follow it exactly. Never bulk-delete tenant data.
