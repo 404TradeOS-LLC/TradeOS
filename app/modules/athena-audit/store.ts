@@ -87,6 +87,21 @@ export function createTerminalTrackingAthenaAuditStore(delegate: AthenaAuditStor
         terminalExecutions.add(event.executionId);
       }
     },
+    // Fluid PR-5: batch through the delegate when it has one, so the
+    // kernel's deferred flush stays one bounded write; terminal tracking
+    // still runs for every event in the batch, in the same order.
+    async recordMany(events) {
+      if (delegate.recordMany) {
+        await delegate.recordMany(events);
+      } else {
+        for (const event of events) await delegate.record(event);
+      }
+      for (const event of events) {
+        if (event.executionId && TERMINAL_AUDIT_EVENTS.has(event.eventType)) {
+          terminalExecutions.add(event.executionId);
+        }
+      }
+    },
     hasTerminalEvent(executionId) {
       return terminalExecutions.has(executionId);
     },
@@ -102,6 +117,11 @@ export function createInMemoryAthenaAuditStore(events: AthenaAuditEvent[] = []):
           ? [...events].reverse().find((candidate) => candidate.executionId === event.executionId && candidate.eventType === "action_attempted")
           : undefined;
       events.push(withInheritedActionCorrelation(event, priorAction));
+    },
+    // Fluid PR-5: no batch write exists for the in-memory store; the loop
+    // preserves the per-event correlation inheritance of record().
+    async recordMany(batch) {
+      for (const event of batch) await this.record(event);
     },
     async listForApproval(query) {
       return events
@@ -144,22 +164,73 @@ async function recordOnDatabase(database: AthenaAuditDatabase, event: AthenaAudi
       : null;
   const correlatedEvent = withInheritedActionCorrelation(event, priorAction);
 
-  await database.athenaAuditEvent.create({
-    data: {
-      id: correlatedEvent.id,
-      orgId: correlatedEvent.organization,
-      actorUserId: correlatedEvent.actor.userId,
-      actorRole: correlatedEvent.actor.role,
-      requestId: correlatedEvent.requestId,
-      traceId: correlatedEvent.traceId,
-      executionId: correlatedEvent.executionId,
-      actionId: correlatedEvent.actionId,
-      approvalId: correlatedEvent.approvalId,
-      eventType: correlatedEvent.eventType,
-      metadataJson: correlatedEvent.metadata as Prisma.InputJsonValue,
-      createdAt: correlatedEvent.timestamp,
-    },
-  });
+  await database.athenaAuditEvent.create({ data: toAuditEventRow(correlatedEvent) });
+}
+
+function toAuditEventRow(event: AthenaAuditEvent) {
+  return {
+    id: event.id,
+    orgId: event.organization,
+    actorUserId: event.actor.userId,
+    actorRole: event.actor.role,
+    requestId: event.requestId,
+    traceId: event.traceId,
+    executionId: event.executionId,
+    actionId: event.actionId,
+    approvalId: event.approvalId,
+    eventType: event.eventType,
+    metadataJson: event.metadata as Prisma.InputJsonValue,
+    createdAt: event.timestamp,
+  };
+}
+
+// Fluid PR-5 (Lever 3 write coalescing): one bounded write for a whole
+// batch of events — one createMany for the inserts, plus one correlation
+// lookup per execution_completed event that lacks action/approval ids
+// (the kernel's draft path has none, so the batch is a single call).
+// An empty batch is a no-op (Prisma rejects an empty createMany).
+//
+// Codex P2 on PR #1171: a preceding action_attempted in the same batch is
+// not yet in the database when the correlation lookup runs, so findFirst
+// cannot see it and the completion persists without correlation —
+// AthenaApprovalsService.getDetail() then omits it from the audit trail
+// because listForApproval() filters by action/approval ids. Resolve
+// correlation from preceding same-org, same-execution batch events first
+// and fall back to the database only when the batch has none. Only
+// preceding events seed the batch map (in-order pass), and only attempts
+// carrying at least one id seed it, so an id-less attempt never shadows
+// the database fallback.
+async function recordManyOnDatabase(database: AthenaAuditDatabase, events: AthenaAuditEvent[]): Promise<void> {
+  if (events.length === 0) return;
+  const batchCorrelation = new Map<string, Map<string, AuditCorrelation>>();
+  const rows = [];
+  for (const event of events) {
+    if (event.eventType === "action_attempted" && event.executionId && (event.actionId || event.approvalId)) {
+      let byExecution = batchCorrelation.get(event.organization);
+      if (!byExecution) {
+        byExecution = new Map<string, AuditCorrelation>();
+        batchCorrelation.set(event.organization, byExecution);
+      }
+      byExecution.set(event.executionId, { actionId: event.actionId ?? null, approvalId: event.approvalId ?? null });
+    }
+    let priorAction: AuditCorrelation | null = null;
+    if (event.eventType === "execution_completed" && (!event.actionId || !event.approvalId)) {
+      priorAction = event.executionId ? batchCorrelation.get(event.organization)?.get(event.executionId) ?? null : null;
+      if (!priorAction) {
+        priorAction = await database.athenaAuditEvent.findFirst({
+          where: {
+            orgId: event.organization,
+            executionId: event.executionId,
+            eventType: "action_attempted",
+          },
+          orderBy: { createdAt: "desc" },
+          select: { actionId: true, approvalId: true },
+        });
+      }
+    }
+    rows.push(toAuditEventRow(withInheritedActionCorrelation(event, priorAction)));
+  }
+  await database.athenaAuditEvent.createMany({ data: rows });
 }
 
 export function createPrismaAthenaAuditStore(database: AthenaAuditDatabase = prisma): AthenaAuditRepository {
@@ -182,6 +253,16 @@ export function createPrismaAthenaAuditStore(database: AthenaAuditDatabase = pri
       // session from the chat controller's actor when no request transaction
       // is active; the ambient transaction is reused otherwise.
       await runInDatabaseTransaction(basePrisma, async () => recordOnDatabase(database, event));
+    },
+    async recordMany(events) {
+      // Same routing as record(): an explicitly supplied database already
+      // owns its transaction and session, so the batch runs on it directly;
+      // the default prisma path keeps the short actor-scoped RLS session.
+      if (database !== prisma) {
+        await recordManyOnDatabase(database, events);
+        return;
+      }
+      await runInDatabaseTransaction(basePrisma, async () => recordManyOnDatabase(database, events));
     },
     async listForApproval(query) {
       const rows = await database.athenaAuditEvent.findMany({

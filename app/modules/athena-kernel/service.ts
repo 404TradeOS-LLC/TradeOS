@@ -5,7 +5,7 @@ import { basePrisma } from "../../db/client";
 import { runInDatabaseTransaction } from "../../db/requestSession";
 import type { AthenaAuditStore } from "../athena-audit/types";
 import { buildAthenaSecurityAuditEvent } from "../athena-audit/securityEvents";
-import type { AthenaAuditEventType, AthenaSecurityAuditEventType, AthenaSecurityAuditOutcome } from "../athena-audit/types";
+import type { AthenaAuditEvent, AthenaAuditEventType, AthenaSecurityAuditEventType, AthenaSecurityAuditOutcome } from "../athena-audit/types";
 import { assembleAthenaContext } from "../athena-context-engine/assembler";
 import type { AthenaContextRegistry } from "../athena-context-engine/registry";
 import type { AthenaApprovalVerifier } from "../athena-action-engine/approval";
@@ -26,13 +26,14 @@ import type { AthenaToolRegistry } from "../athena-tool-registry/registry";
 import { buildMinimalAthenaContext } from "./context";
 import { createLiveAthenaContextRegistry } from "./contextRegistry";
 import * as executionStore from "./executionStore";
+import type { PersistTelemetryInput } from "./executionStore";
 import { AthenaKernelError, athenaValidationError, normalizeAthenaError } from "./errors";
 import { getAthenaFlags } from "./flags";
-import { assertTransition, getMaxRoundTrips, nextRoundTripCount } from "./lifecycle";
+import { assertTransition, getMaxRoundTrips, isTerminalState, nextRoundTripCount } from "./lifecycle";
 import { classifyAthenaCapability, evaluateAthenaPolicy } from "./policy";
 import { AthenaProviderAdapter, GEMINI_DEFAULT_MODEL, GoogleGeminiAthenaProvider, resolveAthenaProvider } from "./provider";
 import { getDailySpendStatus, parseDailySpendCapUsd } from "./spendCap";
-import { buildTelemetryRecord, recordAthenaTelemetry } from "./telemetry";
+import { assertValidTelemetryRecord, buildTelemetryRecord } from "./telemetry";
 import { AthenaActorContext, AthenaAIContext, AthenaCancellationReason, AthenaKernelRequest, AthenaKernelResult, AthenaKernelState, AthenaTelemetryCost, AthenaToolError, AthenaVoiceConfirmationChallenge } from "./types";
 
 export const ATHENA_MAX_MESSAGE_LENGTH = 4_000;
@@ -199,27 +200,42 @@ export class AthenaKernelService {
 
     let state: AthenaKernelState = "created";
     let roundTrips = 0;
+    // Fluid PR-5 (Lever 3 write coalescing): intermediate lifecycle hops
+    // are kept in memory only — the state machine (assertTransition) is
+    // unchanged — and summarized on the one persisted terminal transition
+    // (see applyTransition). Telemetry spans and audit events are likewise
+    // buffered and flushed once each in the finally block, after the
+    // response is determined, instead of one write per span/event. A
+    // successful draft-only request therefore performs at most 8 Prisma
+    // writes; the audit minimum (execution create, terminal transition,
+    // terminal audit event, generation record) is never cut. Buffered
+    // writes are best-effort, like the immediate writes they replace: a
+    // flush failure never fails the draft, and a process crash before the
+    // finally loses the buffered spans/events (the persisted execution and
+    // generation records still stand).
+    const transitionTrail: Array<{ fromState: AthenaKernelState; toState: AthenaKernelState; reasonCode: string }> = [];
+    const spanBuffer: PersistTelemetryInput[] = [];
+    const auditBuffer: AthenaAuditEvent[] = [];
+
     const recordAudit = async (
       eventType: AthenaAuditEventType,
       metadata: Record<string, unknown>,
       extras: { actionId?: string; approvalId?: string } = {}
     ) => {
       if (!input.auditStore) return;
-      try {
-        await input.auditStore.record({
-          id: randomUUID(),
-          timestamp: new Date(),
-          actor: { userId: actor.userId, role: actor.role },
-          organization: actor.orgId,
-          eventType,
-          metadata,
-          requestId: input.requestId,
-          traceId,
-          executionId,
-          actionId: extras.actionId,
-          approvalId: extras.approvalId,
-        });
-      } catch {}
+      auditBuffer.push({
+        id: randomUUID(),
+        timestamp: new Date(),
+        actor: { userId: actor.userId, role: actor.role },
+        organization: actor.orgId,
+        eventType,
+        metadata,
+        requestId: input.requestId,
+        traceId,
+        executionId,
+        actionId: extras.actionId,
+        approvalId: extras.approvalId,
+      });
     };
 
     const recordSecurityAudit = async (
@@ -229,27 +245,46 @@ export class AthenaKernelService {
       extras: { actionId?: string; approvalId?: string } = {}
     ) => {
       if (!input.auditStore) return;
-      try {
-        await input.auditStore.record(
-          buildAthenaSecurityAuditEvent({
-            eventType,
-            organization: actor.orgId,
-            actor: { userId: actor.userId, role: actor.role },
-            outcome,
-            metadata,
-            requestId: input.requestId,
-            traceId,
-            executionId,
-            actionId: extras.actionId,
-            approvalId: extras.approvalId,
-          })
-        );
-      } catch {}
+      auditBuffer.push(
+        buildAthenaSecurityAuditEvent({
+          eventType,
+          organization: actor.orgId,
+          actor: { userId: actor.userId, role: actor.role },
+          outcome,
+          metadata,
+          requestId: input.requestId,
+          traceId,
+          executionId,
+          actionId: extras.actionId,
+          approvalId: extras.approvalId,
+        })
+      );
     };
 
     const applyTransition = async (to: AthenaKernelState, reasonCode: string, metadata?: Record<string, unknown>) => {
       assertTransition(state, to);
-      await executionStore.recordTransition({ executionId, orgId: actor.orgId, fromState: state, toState: to, reasonCode, metadata, roundTrips });
+      const fromState = state;
+      // Fluid PR-5: only a terminal transition is persisted (the initial
+      // "created" row is written with the execution create). Intermediate
+      // hops are recorded on transitionTrail and summarized on the terminal
+      // row's metadata, so the forensic trail survives in compressed form.
+      // needs_clarification is a request-ending state — the kernel returns
+      // immediately after entering it — so it persists like a terminal
+      // state. The in-memory state advances only after a successful
+      // persist, so a persist failure still leaves the previous state for
+      // the catch block's terminal retry (PR-4 partial-failure shape).
+      if (isTerminalState(to) || to === "needs_clarification") {
+        await executionStore.recordTransition({
+          executionId,
+          orgId: actor.orgId,
+          fromState,
+          toState: to,
+          reasonCode,
+          metadata: { ...(metadata ?? {}), transitionTrail: [...transitionTrail] },
+          roundTrips,
+        });
+      }
+      transitionTrail.push({ fromState, toState: to, reasonCode });
       state = to;
     };
 
@@ -263,8 +298,50 @@ export class AthenaKernelService {
     };
 
     const emitSpan = async (spanType: "kernel" | "context" | "model" | "approval" | "action" | "memory", status: "ok" | "error" | "denied" | "degraded", durationMs: number, metadata: Record<string, unknown>, cost?: AthenaTelemetryCost) => {
+      // Fluid PR-5: spans are validated and sanitized exactly as before
+      // (buildTelemetryRecord strips prompt-shaped keys and redacts
+      // secrets; assertValidTelemetryRecord enforces the C011 shape), then
+      // buffered for one createMany flush in the finally block instead of
+      // one persist per span. A malformed span is still dropped silently
+      // and never fails the draft.
       try {
-        await recordAthenaTelemetry(buildTelemetryRecord({ orgId: actor.orgId, requestId: input.requestId, traceId, executionId, spanType, status, durationMs, metadata, cost }), env);
+        const record = buildTelemetryRecord({ orgId: actor.orgId, requestId: input.requestId, traceId, executionId, spanType, status, durationMs, metadata, cost });
+        assertValidTelemetryRecord(record);
+        if (!getAthenaFlags(env).telemetryEnabled) return;
+        spanBuffer.push({
+          executionId: record.executionId,
+          orgId: record.orgId,
+          requestId: record.requestId,
+          traceId: record.traceId,
+          spanType: record.spanType,
+          status: record.status,
+          durationMs: record.durationMs,
+          redaction: record.redaction,
+          cost: record.cost,
+          metadata: record.metadata,
+        });
+      } catch {}
+    };
+
+    // Fluid PR-5: one bounded write per collection, after the response is
+    // determined. Both flushes are best-effort — a failure is swallowed,
+    // like the immediate writes they replace. The audit flush prefers the
+    // store's batch path and falls back to one record() per event for
+    // stores without one.
+    const flushAuditEvents = async () => {
+      if (!input.auditStore || auditBuffer.length === 0) return;
+      const events = auditBuffer.splice(0, auditBuffer.length);
+      try {
+        if (input.auditStore.recordMany) await input.auditStore.recordMany(events);
+        else for (const event of events) await input.auditStore.record(event);
+      } catch {}
+    };
+
+    const flushTelemetrySpans = async () => {
+      if (spanBuffer.length === 0) return;
+      const spans = spanBuffer.splice(0, spanBuffer.length);
+      try {
+        await executionStore.persistTelemetryRecords(spans);
       } catch {}
     };
 
@@ -662,6 +739,12 @@ export class AthenaKernelService {
       const finalState = (finalRecord?.state as AthenaKernelState | undefined) ?? state;
       const kernelStatus: "ok" | "error" | "denied" = finalState === "denied" ? "denied" : finalState === "succeeded" || finalState === "needs_clarification" ? "ok" : "error";
       await emitSpan("kernel", kernelStatus, Date.now() - kernelStart, { finalState, requestSource: input.request.requestSource, canonicalRole });
+      // Fluid PR-5: buffered audit events and telemetry spans flush once
+      // each, after the response is determined — one bounded write per
+      // collection. The controller's terminal-audit check runs after this
+      // function returns, so it still sees the kernel's terminal event.
+      await flushAuditEvents();
+      await flushTelemetrySpans();
     }
   }
 
