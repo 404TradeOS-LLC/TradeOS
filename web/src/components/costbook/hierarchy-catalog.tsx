@@ -3,6 +3,7 @@
 import type { FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Ban, ChevronDown, ChevronRight, Pencil, Plus, X } from "lucide-react";
+import { revalidateOrgDataCache } from "@/app/actions/data-cache";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,15 @@ type HierarchyFormState = {
 };
 
 const emptyForm: HierarchyFormState = { code: "", name: "" };
+
+// Fluid PR-6 (2.5): hierarchy lists are served from the org-scoped server
+// Data Cache, so a mutation must invalidate that org's tag or the next
+// navigation shows the pre-mutation list for up to the 120 s TTL.
+// Best-effort: a failed revalidation never fails the save (the TTL expires
+// the entry anyway).
+function refreshHierarchyCache(namespace: "costbook-divisions" | "costbook-categories" | "costbook-subcategories") {
+  void revalidateOrgDataCache([namespace]).catch(() => undefined);
+}
 
 export function HierarchyCatalog({
   initialDivisions,
@@ -80,6 +90,7 @@ export function HierarchyCatalog({
         body: JSON.stringify({ code: form.code.trim(), name: form.name.trim() }),
       });
       setDivisions((current) => sortHierarchy([...current, created]));
+      refreshHierarchyCache("costbook-divisions");
       resetInlineState();
     } catch (err) {
       setError(errorMessage(err, "Division could not be created."));
@@ -98,6 +109,7 @@ export function HierarchyCatalog({
         body: JSON.stringify({ code: form.code.trim(), name: form.name.trim() }),
       });
       setDivisions((current) => sortHierarchy(current.map((row) => (row.id === id ? updated : row))));
+      refreshHierarchyCache("costbook-divisions");
       resetInlineState();
     } catch (err) {
       setError(errorMessage(err, "Division could not be saved."));
@@ -112,6 +124,7 @@ export function HierarchyCatalog({
     try {
       await clientFetch<void>(`/costbook/divisions/${id}`, { method: "DELETE" });
       setDivisions((current) => sortHierarchy(current.map((row) => (row.id === id ? { ...row, isActive: false } : row))));
+      refreshHierarchyCache("costbook-divisions");
     } catch (err) {
       setError(errorMessage(err, "Division could not be deactivated."));
     } finally {
@@ -129,6 +142,7 @@ export function HierarchyCatalog({
         body: JSON.stringify({ divisionId, code: form.code.trim(), name: form.name.trim() }),
       });
       setCategories((current) => sortHierarchy([...current, created]));
+      refreshHierarchyCache("costbook-categories");
       resetInlineState();
       setExpandedDivisions((current) => new Set(current).add(divisionId));
     } catch (err) {
@@ -148,6 +162,7 @@ export function HierarchyCatalog({
         body: JSON.stringify({ code: form.code.trim(), name: form.name.trim() }),
       });
       setCategories((current) => sortHierarchy(current.map((row) => (row.id === id ? updated : row))));
+      refreshHierarchyCache("costbook-categories");
       resetInlineState();
     } catch (err) {
       setError(errorMessage(err, "Category could not be saved."));
@@ -162,6 +177,7 @@ export function HierarchyCatalog({
     try {
       await clientFetch<void>(`/costbook/categories/${id}`, { method: "DELETE" });
       setCategories((current) => sortHierarchy(current.map((row) => (row.id === id ? { ...row, isActive: false } : row))));
+      refreshHierarchyCache("costbook-categories");
     } catch (err) {
       setError(errorMessage(err, "Category could not be deactivated."));
     } finally {
@@ -179,6 +195,7 @@ export function HierarchyCatalog({
         body: JSON.stringify({ categoryId, code: form.code.trim(), name: form.name.trim() }),
       });
       setSubcategories((current) => sortHierarchy([...current, created]));
+      refreshHierarchyCache("costbook-subcategories");
       resetInlineState();
       setExpandedCategories((current) => new Set(current).add(categoryId));
     } catch (err) {
@@ -198,6 +215,7 @@ export function HierarchyCatalog({
         body: JSON.stringify({ code: form.code.trim(), name: form.name.trim() }),
       });
       setSubcategories((current) => sortHierarchy(current.map((row) => (row.id === id ? updated : row))));
+      refreshHierarchyCache("costbook-subcategories");
       resetInlineState();
     } catch (err) {
       setError(errorMessage(err, "Subcategory could not be saved."));
@@ -212,6 +230,7 @@ export function HierarchyCatalog({
     try {
       await clientFetch<void>(`/costbook/subcategories/${id}`, { method: "DELETE" });
       setSubcategories((current) => sortHierarchy(current.map((row) => (row.id === id ? { ...row, isActive: false } : row))));
+      refreshHierarchyCache("costbook-subcategories");
     } catch (err) {
       setError(errorMessage(err, "Subcategory could not be deactivated."));
     } finally {

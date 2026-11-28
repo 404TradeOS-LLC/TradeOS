@@ -3,6 +3,8 @@ import type { OrganizationSettingsResponse } from "@/lib/settings";
 import type { BrandAsset, BrandDocumentSettings, BrandProfile, BrandStudioPreview } from "@/lib/brand-studio";
 import { buildEstimateQueueSearchParams, buildInvoiceQueueSearchParams, buildProposalQueueSearchParams } from "@/lib/work-queue-params";
 import { buildCostbookQuery, type CostbookListParams } from "@/lib/costbook-query";
+import { cachedDataFetch } from "@/lib/data-cache";
+import { resolveDataCacheOrgId } from "@/lib/data-cache-keys";
 import { customerPortalApiFetch } from "@/lib/customer-portal-session";
 import { getApiErrorPayload, readApiResponseBody } from "@/lib/api-response";
 import {
@@ -284,19 +286,35 @@ export function clearSettingsAssetUpload(token: string, assetKey: SettingsAssetK
 }
 
 export function getBrandStudioProfile(token: string) {
-  return apiFetch<BrandProfile>("/api/v1/brand-studio/profile", { token });
+  const orgId = resolveDataCacheOrgId(token);
+  if (!orgId) return apiFetch<BrandProfile>("/api/v1/brand-studio/profile", { token });
+  return cachedDataFetch("brand-studio-profile", orgId, "", () =>
+    apiFetch<BrandProfile>("/api/v1/brand-studio/profile", { token }),
+  );
 }
 
 export function getBrandStudioAssets(token: string) {
-  return apiFetch<BrandAsset[]>("/api/v1/brand-studio/assets", { token });
+  const orgId = resolveDataCacheOrgId(token);
+  if (!orgId) return apiFetch<BrandAsset[]>("/api/v1/brand-studio/assets", { token });
+  return cachedDataFetch("brand-studio-assets", orgId, "", () =>
+    apiFetch<BrandAsset[]>("/api/v1/brand-studio/assets", { token }),
+  );
 }
 
 export function getBrandStudioDocumentSettings(token: string) {
-  return apiFetch<BrandDocumentSettings>("/api/v1/brand-studio/document-settings", { token });
+  const orgId = resolveDataCacheOrgId(token);
+  if (!orgId) return apiFetch<BrandDocumentSettings>("/api/v1/brand-studio/document-settings", { token });
+  return cachedDataFetch("brand-studio-document-settings", orgId, "", () =>
+    apiFetch<BrandDocumentSettings>("/api/v1/brand-studio/document-settings", { token }),
+  );
 }
 
 export function getBrandStudioPreview(token: string) {
-  return apiFetch<BrandStudioPreview>("/api/v1/brand-studio/preview", { token });
+  const orgId = resolveDataCacheOrgId(token);
+  if (!orgId) return apiFetch<BrandStudioPreview>("/api/v1/brand-studio/preview", { token });
+  return cachedDataFetch("brand-studio-preview", orgId, "", () =>
+    apiFetch<BrandStudioPreview>("/api/v1/brand-studio/preview", { token }),
+  );
 }
 
 export interface CostbookWorkspaceSummary {
@@ -363,7 +381,12 @@ export interface CatalogPage<T> {
 }
 
 export function listCostbookMaterials(token: string, params: CostbookListParams = {}) {
-  return apiFetch<CatalogPage<CostbookMaterial>>(`/api/v1/costbook/materials${buildCostbookQuery(params)}`, { token });
+  const query = buildCostbookQuery(params);
+  const orgId = resolveDataCacheOrgId(token);
+  if (!orgId) return apiFetch<CatalogPage<CostbookMaterial>>(`/api/v1/costbook/materials${query}`, { token });
+  return cachedDataFetch("costbook-materials", orgId, query, () =>
+    apiFetch<CatalogPage<CostbookMaterial>>(`/api/v1/costbook/materials${query}`, { token }),
+  );
 }
 
 export interface CostbookLaborRate {
@@ -387,7 +410,12 @@ export interface CostbookLaborRateInput {
 }
 
 export function listCostbookLaborRates(token: string, params: CostbookListParams = {}) {
-  return apiFetch<CatalogPage<CostbookLaborRate>>(`/api/v1/costbook/labor-rates${buildCostbookQuery(params)}`, { token });
+  const query = buildCostbookQuery(params);
+  const orgId = resolveDataCacheOrgId(token);
+  if (!orgId) return apiFetch<CatalogPage<CostbookLaborRate>>(`/api/v1/costbook/labor-rates${query}`, { token });
+  return cachedDataFetch("costbook-labor-rates", orgId, query, () =>
+    apiFetch<CatalogPage<CostbookLaborRate>>(`/api/v1/costbook/labor-rates${query}`, { token }),
+  );
 }
 
 export interface CostbookDivision {
@@ -407,7 +435,12 @@ export interface CostbookDivisionInput {
 }
 
 export function listCostbookDivisions(token: string, params: CostbookListParams = {}) {
-  return apiFetch<CatalogPage<CostbookDivision>>(`/api/v1/costbook/divisions${buildCostbookQuery(params)}`, { token });
+  const query = buildCostbookQuery(params);
+  const orgId = resolveDataCacheOrgId(token);
+  if (!orgId) return apiFetch<CatalogPage<CostbookDivision>>(`/api/v1/costbook/divisions${query}`, { token });
+  return cachedDataFetch("costbook-divisions", orgId, query, () =>
+    apiFetch<CatalogPage<CostbookDivision>>(`/api/v1/costbook/divisions${query}`, { token }),
+  );
 }
 
 export interface CostbookCategory {
@@ -429,7 +462,12 @@ export interface CostbookCategoryInput {
 }
 
 export function listCostbookCategories(token: string, params: CostbookListParams = {}) {
-  return apiFetch<CatalogPage<CostbookCategory>>(`/api/v1/costbook/categories${buildCostbookQuery(params)}`, { token });
+  const query = buildCostbookQuery(params);
+  const orgId = resolveDataCacheOrgId(token);
+  if (!orgId) return apiFetch<CatalogPage<CostbookCategory>>(`/api/v1/costbook/categories${query}`, { token });
+  return cachedDataFetch("costbook-categories", orgId, query, () =>
+    apiFetch<CatalogPage<CostbookCategory>>(`/api/v1/costbook/categories${query}`, { token }),
+  );
 }
 
 export interface CostbookSubcategory {
@@ -451,7 +489,12 @@ export interface CostbookSubcategoryInput {
 }
 
 export function listCostbookSubcategories(token: string, params: CostbookListParams = {}) {
-  return apiFetch<CatalogPage<CostbookSubcategory>>(`/api/v1/costbook/subcategories${buildCostbookQuery(params)}`, { token });
+  const query = buildCostbookQuery(params);
+  const orgId = resolveDataCacheOrgId(token);
+  if (!orgId) return apiFetch<CatalogPage<CostbookSubcategory>>(`/api/v1/costbook/subcategories${query}`, { token });
+  return cachedDataFetch("costbook-subcategories", orgId, query, () =>
+    apiFetch<CatalogPage<CostbookSubcategory>>(`/api/v1/costbook/subcategories${query}`, { token }),
+  );
 }
 
 export interface Customer {
@@ -910,11 +953,19 @@ export interface KnowledgeScopeMatch {
 }
 
 export function getKnowledgeStats(token: string) {
-  return apiFetch<KnowledgeStats>("/api/v1/knowledge/stats", { token });
+  const orgId = resolveDataCacheOrgId(token);
+  if (!orgId) return apiFetch<KnowledgeStats>("/api/v1/knowledge/stats", { token });
+  return cachedDataFetch("knowledge-stats", orgId, "", () =>
+    apiFetch<KnowledgeStats>("/api/v1/knowledge/stats", { token }),
+  );
 }
 
 export function getKnowledgeTrades(token: string) {
-  return apiFetch<KnowledgeTrade[]>("/api/v1/knowledge/trades", { token });
+  const orgId = resolveDataCacheOrgId(token);
+  if (!orgId) return apiFetch<KnowledgeTrade[]>("/api/v1/knowledge/trades", { token });
+  return cachedDataFetch("knowledge-trades", orgId, "", () =>
+    apiFetch<KnowledgeTrade[]>("/api/v1/knowledge/trades", { token }),
+  );
 }
 
 export function getKnowledgeMatchScope(token: string, scopeText: string) {

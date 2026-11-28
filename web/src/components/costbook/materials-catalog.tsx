@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Ban, Check, Pencil, Plus, X } from "lucide-react";
+import { revalidateOrgDataCache } from "@/app/actions/data-cache";
 import { MaterialClassification } from "@/components/costbook/material-classification";
 import { PricingProvenance } from "@/components/costbook/pricing-provenance";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -28,6 +29,15 @@ const emptyForm: MaterialFormState = {
   unitCost: "",
   wasteFactorPct: "0",
 };
+
+// Fluid PR-6 (2.5): the materials list is served from the org-scoped
+// server Data Cache, so a mutation must invalidate that org's tag or the
+// next navigation shows the pre-mutation list for up to the 120 s TTL.
+// Best-effort: a failed revalidation never fails the save (the TTL expires
+// the entry anyway).
+function refreshMaterialsCache() {
+  void revalidateOrgDataCache(["costbook-materials"]).catch(() => undefined);
+}
 
 export function MaterialsCatalog({
   initialMaterials,
@@ -107,6 +117,7 @@ export function MaterialsCatalog({
       setEditingId(null);
       setForm(emptyForm);
       setShowForm(false);
+      refreshMaterialsCache();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Material could not be saved.");
     } finally {
@@ -124,6 +135,7 @@ export function MaterialsCatalog({
           ? current.filter((material) => material.id !== id)
           : sortMaterials(current.map((material) => (material.id === id ? { ...material, isActive: false } : material)))
       );
+      refreshMaterialsCache();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Material could not be deactivated.");
     } finally {
