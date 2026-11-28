@@ -8,7 +8,12 @@
 
 const queryRaw = jest.fn();
 
-jest.mock("../db/client", () => ({ prisma: { $queryRaw: queryRaw } }));
+jest.mock("../db/client", () => ({
+  prisma: { $queryRaw: queryRaw },
+  // Fluid PR-4: getDailySpendStatus wraps the read in runInDatabaseTransaction;
+  // the callback reads via the mocked prisma proxy, so the tx handle is unused.
+  basePrisma: { $transaction: (callback: (tx: unknown) => unknown) => callback({}) },
+}));
 
 import { ATHENA_DEFAULT_DAILY_SPEND_CAP_USD, getDailySpendStatus, getUtcDayWindow, parseDailySpendCapUsd } from "../modules/athena-kernel/spendCap";
 

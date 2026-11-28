@@ -54,8 +54,15 @@ authentication, membership, and database-session model as the rest of the app.
   security decisions, tenant-boundary and privilege denials, and sensitive
   action attempts/completions over the same store;
 - action idempotency: dedup-eligible production actions use a durable
-  organization/tool/version/key claim inside the same request-scoped RLS
-  transaction as tool execution rather than process-local memory.
+  organization/tool/version/key claim inside the same scoped RLS transaction
+  as tool execution rather than process-local memory. On the chat route the
+  scoped transaction is a short RLS session opened from the controller's
+  actor (Fluid PR-4): the kernel wraps a whole tool action — reserve,
+  mutation, complete — in one short transaction, so the reservation still
+  guards the mutation it reserves. When the action fails, expires, or is
+  cancelled, the kernel rolls that transaction back instead of committing a
+  partial write, so a retry with the same key re-executes rather than
+  replaying the cached failure.
 
 ## Contractor workspace capability boundary
 

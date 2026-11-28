@@ -34,6 +34,10 @@ jest.mock("../db/client", () => ({
     athenaExecutionTransition: { create: athenaExecutionTransitionCreate },
     athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate },
   },
+  // Fluid PR-4: the kernel wraps context assembly, tool execution, and store
+  // persists in runInDatabaseTransaction; the callbacks read via the mocked
+  // prisma proxy, so the tx handle is unused.
+  basePrisma: { $transaction: (callback: (tx: unknown) => unknown) => callback({}) },
 }));
 
 import { AthenaKernelService } from "../modules/athena-kernel/service";

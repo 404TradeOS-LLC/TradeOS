@@ -26,6 +26,11 @@ const athenaGenerationRunCreate = jest.fn(async ({ data }: { data: Record<string
 }));
 const athenaAuditEventFindFirst = jest.fn(async () => null);
 const athenaAuditEventCreate = jest.fn(async () => undefined);
+// Fluid PR-4: the real runInDatabaseTransaction issues a set_config
+// $queryRaw on the transaction handle when a session actor is present (the
+// controller sets one), so the fake handle needs $queryRaw; the store
+// callbacks themselves read via the mocked prisma proxy.
+const mockTransaction = { $queryRaw: jest.fn(async () => []) };
 
 jest.mock("../db/client", () => ({
   prisma: {
@@ -35,6 +40,10 @@ jest.mock("../db/client", () => ({
     athenaGenerationRun: { create: athenaGenerationRunCreate },
     athenaAuditEvent: { findFirst: athenaAuditEventFindFirst, create: athenaAuditEventCreate },
   },
+  // Fluid PR-4: the controller/kernel/store path wraps persists in
+  // runInDatabaseTransaction; the callbacks read via the mocked prisma proxy,
+  // and the short-session set_config call runs against the fake handle.
+  basePrisma: { $transaction: (callback: (tx: unknown) => unknown) => callback(mockTransaction) },
 }));
 
 import { athenaController } from "../backend/controllers/athena.controller";

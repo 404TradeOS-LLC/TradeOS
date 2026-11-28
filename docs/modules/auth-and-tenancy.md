@@ -135,7 +135,12 @@ The email links target the implemented `/reset-password?token=...` and `/invite/
   mechanism. Approval submission inherits the caller's tenant/actor identity;
   review actions are then narrowed further by API role checks and by
   `athena_approvals` RLS updates that restrict row mutation to
-  `owner`/`admin`/`dispatcher`.
+  `owner`/`admin`/`dispatcher`. On the Athena chat route (Fluid PR-4) the
+  persistence runs in short RLS sessions opened from the controller's actor
+  instead of the request transaction, because the route is mounted before
+  `databaseSession` so the Gemini wait holds no pool connection; the session
+  variables, and therefore the RLS enforcement, are identical — only the
+  transaction boundary is per-persist rather than per-request.
 - Security audit persistence uses the same transaction client when the
   authentication seam has a verified membership, preserving `app.user_id`,
   `app.org_id`, and `app.role` without widening lookup scope.

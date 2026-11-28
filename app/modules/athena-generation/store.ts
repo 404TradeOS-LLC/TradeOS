@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
-import { prisma } from "../../db/client";
+import { prisma, basePrisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 import { redactSecrets } from "../athena-security/secretProtection";
 import type { AthenaGenerationRecord, AthenaGenerationReviewOutcome, AthenaGenerationReviewRecord, AthenaGenerationStatus } from "./types";
 
@@ -107,30 +108,35 @@ export interface CreateAthenaGenerationInput {
 }
 
 export async function createAthenaGenerationRecord(input: CreateAthenaGenerationInput): Promise<AthenaGenerationRecord> {
-  const row = await prisma.athenaGenerationRun.create({
-    data: {
-      id: input.id ?? randomUUID(),
-      orgId: input.orgId,
-      actorUserId: input.actorUserId,
-      executionId: input.executionId,
-      requestId: input.requestId,
-      traceId: input.traceId,
-      provider: input.provider,
-      model: input.model,
-      providerVersion: input.providerVersion,
-      status: input.status,
-      failureCode: input.failureCode,
-      inputTokens: input.inputTokens,
-      outputTokens: input.outputTokens,
-      estimatedUsd: input.estimatedUsd === undefined ? undefined : new Prisma.Decimal(input.estimatedUsd),
-      latencyMs: input.latencyMs,
-      toolNamesJson: (input.toolNames ?? []) as Prisma.InputJsonValue,
-      provenanceJson: sanitizeMetadata(input.provenance ?? {}) as Prisma.InputJsonValue,
-      retentionExpiresAt: input.retentionExpiresAt,
-      completedAt: input.completedAt,
-    },
+  // Fluid PR-4: one short RLS session from the chat controller's actor when
+  // no request transaction is active; reuses the ambient transaction
+  // otherwise (see runInDatabaseTransaction).
+  return runInDatabaseTransaction(basePrisma, async () => {
+    const row = await prisma.athenaGenerationRun.create({
+      data: {
+        id: input.id ?? randomUUID(),
+        orgId: input.orgId,
+        actorUserId: input.actorUserId,
+        executionId: input.executionId,
+        requestId: input.requestId,
+        traceId: input.traceId,
+        provider: input.provider,
+        model: input.model,
+        providerVersion: input.providerVersion,
+        status: input.status,
+        failureCode: input.failureCode,
+        inputTokens: input.inputTokens,
+        outputTokens: input.outputTokens,
+        estimatedUsd: input.estimatedUsd === undefined ? undefined : new Prisma.Decimal(input.estimatedUsd),
+        latencyMs: input.latencyMs,
+        toolNamesJson: (input.toolNames ?? []) as Prisma.InputJsonValue,
+        provenanceJson: sanitizeMetadata(input.provenance ?? {}) as Prisma.InputJsonValue,
+        retentionExpiresAt: input.retentionExpiresAt,
+        completedAt: input.completedAt,
+      },
+    });
+    return toGenerationRecord(row);
   });
-  return toGenerationRecord(row);
 }
 
 export async function createAthenaGenerationReview(input: {

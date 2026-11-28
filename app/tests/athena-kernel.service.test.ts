@@ -76,6 +76,14 @@ const athenaSpendQueryRaw = jest.fn(async (sql: { values: unknown[] }) => {
   return [{ spend_usd: { toNumber: () => sum } }];
 });
 
+const fakeTx = {
+  athenaExecution: { create: athenaExecutionCreate, update: athenaExecutionUpdate, findFirst: athenaExecutionFindFirst },
+  athenaExecutionTransition: { create: athenaExecutionTransitionCreate },
+  athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate },
+  athenaGenerationRun: { create: athenaGenerationRunCreate },
+  $queryRaw: jest.fn(async () => []),
+};
+
 jest.mock("../db/client", () => ({
   prisma: {
     athenaExecution: { create: athenaExecutionCreate, update: athenaExecutionUpdate, findFirst: athenaExecutionFindFirst },
@@ -83,6 +91,15 @@ jest.mock("../db/client", () => ({
     athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate },
     athenaGenerationRun: { create: athenaGenerationRunCreate },
     $queryRaw: athenaSpendQueryRaw,
+  },
+  // Fluid PR-4: the Athena stores run every persist through
+  // runInDatabaseTransaction(basePrisma, ...). The fake transaction just
+  // invokes the callback with the fake client — the stores call the mocked
+  // `prisma` proxy, not the transaction handle, so no ALS routing is needed
+  // here; the instrumented transaction behavior (open/close, set_config,
+  // rollback) is covered in tests/athena-chat-tx-split.test.ts.
+  basePrisma: {
+    $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(fakeTx)),
   },
 }));
 

@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
-import { prisma } from "../../db/client";
+import { prisma, basePrisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 
 // Daily Gemini spend cap for Athena drafts (founder-approved 2026-11-26).
 //
@@ -71,14 +72,20 @@ export interface AthenaDailySpendStatus {
 
 export async function getDailySpendStatus(input: { orgId: string; capUsd: number; now?: Date }): Promise<AthenaDailySpendStatus> {
   const { start, end } = getUtcDayWindow(input.now ?? new Date());
-  // Org-wide sum via the SECURITY DEFINER function (see the header comment):
-  // a plain findMany would be actor-scoped for non-admins. The function
-  // raises 42501 unless the requested org equals the session org; that
-  // error propagates so the draft fails closed instead of spending uncapped.
-  const rows = await prisma.$queryRaw<{ spend_usd: Prisma.Decimal | number }[]>(
-    Prisma.sql`select public.athena_org_daily_spend_usd(${input.orgId}::uuid, ${start}, ${end}) as spend_usd`
-  );
-  const raw = rows[0]?.spend_usd;
-  const spentUsd = raw == null ? 0 : typeof raw === "number" ? raw : raw.toNumber();
-  return { spentUsd, capUsd: input.capUsd, reached: spentUsd >= input.capUsd, dayStartUtc: start };
+  // Fluid PR-4: the SECURITY DEFINER spend function raises 42501 unless the
+  // requested org equals the session org, so this read needs the short RLS
+  // session runInDatabaseTransaction opens from the chat controller's actor
+  // when no request transaction is active.
+  return runInDatabaseTransaction(basePrisma, async () => {
+    // Org-wide sum via the SECURITY DEFINER function (see the header comment):
+    // a plain findMany would be actor-scoped for non-admins. The function
+    // raises 42501 unless the requested org equals the session org; that
+    // error propagates so the draft fails closed instead of spending uncapped.
+    const rows = await prisma.$queryRaw<{ spend_usd: Prisma.Decimal | number }[]>(
+      Prisma.sql`select public.athena_org_daily_spend_usd(${input.orgId}::uuid, ${start}, ${end}) as spend_usd`
+    );
+    const raw = rows[0]?.spend_usd;
+    const spentUsd = raw == null ? 0 : typeof raw === "number" ? raw : raw.toNumber();
+    return { spentUsd, capUsd: input.capUsd, reached: spentUsd >= input.capUsd, dayStartUtc: start };
+  });
 }

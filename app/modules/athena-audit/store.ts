@@ -1,5 +1,6 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
-import { prisma } from "../../db/client";
+import { prisma, basePrisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 import { athenaSecurityAuditEventTypes, type AthenaAuditEvent, type AthenaAuditRepository, type AthenaAuditStore, type AthenaSecurityAuditQuery } from "./types";
 
 type AuditCorrelation = {
@@ -123,39 +124,64 @@ export function createInMemoryAthenaAuditStore(events: AthenaAuditEvent[] = []):
 
 type AthenaAuditDatabase = Pick<PrismaClient, "athenaAuditEvent">;
 
+// Correlation lookup + insert against one database handle. Callers route
+// the handle through the ambient transaction themselves: the default
+// `prisma` proxy resolves to the request transaction inside
+// runInDatabaseTransaction, and an explicitly supplied transaction client
+// is already the session the caller owns.
+async function recordOnDatabase(database: AthenaAuditDatabase, event: AthenaAuditEvent): Promise<void> {
+  const priorAction =
+    event.eventType === "execution_completed" && (!event.actionId || !event.approvalId)
+      ? await database.athenaAuditEvent.findFirst({
+          where: {
+            orgId: event.organization,
+            executionId: event.executionId,
+            eventType: "action_attempted",
+          },
+          orderBy: { createdAt: "desc" },
+          select: { actionId: true, approvalId: true },
+        })
+      : null;
+  const correlatedEvent = withInheritedActionCorrelation(event, priorAction);
+
+  await database.athenaAuditEvent.create({
+    data: {
+      id: correlatedEvent.id,
+      orgId: correlatedEvent.organization,
+      actorUserId: correlatedEvent.actor.userId,
+      actorRole: correlatedEvent.actor.role,
+      requestId: correlatedEvent.requestId,
+      traceId: correlatedEvent.traceId,
+      executionId: correlatedEvent.executionId,
+      actionId: correlatedEvent.actionId,
+      approvalId: correlatedEvent.approvalId,
+      eventType: correlatedEvent.eventType,
+      metadataJson: correlatedEvent.metadata as Prisma.InputJsonValue,
+      createdAt: correlatedEvent.timestamp,
+    },
+  });
+}
+
 export function createPrismaAthenaAuditStore(database: AthenaAuditDatabase = prisma): AthenaAuditRepository {
   return {
     async record(event) {
-      const priorAction =
-        event.eventType === "execution_completed" && (!event.actionId || !event.approvalId)
-          ? await database.athenaAuditEvent.findFirst({
-              where: {
-                orgId: event.organization,
-                executionId: event.executionId,
-                eventType: "action_attempted",
-              },
-              orderBy: { createdAt: "desc" },
-              select: { actionId: true, approvalId: true },
-            })
-          : null;
-      const correlatedEvent = withInheritedActionCorrelation(event, priorAction);
-
-      await database.athenaAuditEvent.create({
-        data: {
-          id: correlatedEvent.id,
-          orgId: correlatedEvent.organization,
-          actorUserId: correlatedEvent.actor.userId,
-          actorRole: correlatedEvent.actor.role,
-          requestId: correlatedEvent.requestId,
-          traceId: correlatedEvent.traceId,
-          executionId: correlatedEvent.executionId,
-          actionId: correlatedEvent.actionId,
-          approvalId: correlatedEvent.approvalId,
-          eventType: correlatedEvent.eventType,
-          metadataJson: correlatedEvent.metadata as Prisma.InputJsonValue,
-          createdAt: correlatedEvent.timestamp,
-        },
-      });
+      // An explicitly supplied database already owns its transaction and
+      // session (e.g. resolveAuthContext's direct basePrisma.$transaction
+      // in app/backend/auth/session.ts, or an in-memory stand-in): run the
+      // correlation lookup and insert on it directly. Wrapping it in
+      // runInDatabaseTransaction would open a second transaction on
+      // basePrisma — with connection_limit=1 that acquisition times out
+      // while the caller's transaction holds the only connection, and the
+      // best-effort audit event is silently dropped. The default prisma
+      // path keeps the short actor-scoped RLS session below.
+      if (database !== prisma) {
+        await recordOnDatabase(database, event);
+        return;
+      }
+      // Fluid PR-4: the correlation read and the insert share one short RLS
+      // session from the chat controller's actor when no request transaction
+      // is active; the ambient transaction is reused otherwise.
+      await runInDatabaseTransaction(basePrisma, async () => recordOnDatabase(database, event));
     },
     async listForApproval(query) {
       const rows = await database.athenaAuditEvent.findMany({

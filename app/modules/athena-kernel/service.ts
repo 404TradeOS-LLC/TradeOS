@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { normalizeRole } from "../../domain";
 import type { DomainPermission } from "../../domain";
+import { basePrisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 import type { AthenaAuditStore } from "../athena-audit/types";
 import { buildAthenaSecurityAuditEvent } from "../athena-audit/securityEvents";
 import type { AthenaAuditEventType, AthenaSecurityAuditEventType, AthenaSecurityAuditOutcome } from "../athena-audit/types";
@@ -8,6 +10,7 @@ import { assembleAthenaContext } from "../athena-context-engine/assembler";
 import type { AthenaContextRegistry } from "../athena-context-engine/registry";
 import type { AthenaApprovalVerifier } from "../athena-action-engine/approval";
 import { executeAthenaAction } from "../athena-action-engine/engine";
+import type { AthenaActionOutcome } from "../athena-action-engine/types";
 import type { AthenaIdempotencyStore } from "../athena-action-engine/idempotency";
 import type { AthenaMemoryService } from "../athena-memory/service";
 import type { AthenaMemoryCandidateExtractor } from "../athena-memory/types";
@@ -95,6 +98,25 @@ async function persistGenerationWithinDeadline(
 class AthenaAbortedError extends Error {
   constructor(public readonly reason: AthenaCancellationReason) {
     super(`Athena kernel execution aborted: ${reason}`);
+  }
+}
+
+// Fluid PR-4 follow-up (Codex P1 on PR #1168): executeAthenaAction()
+// converts tool exceptions into failed outcomes instead of rejecting, so
+// without this check the short transaction wrapping a tool action would
+// commit a partial business write (e.g. a draft estimate whose required
+// event persist failed). The kernel throws this sentinel inside the
+// transaction when the outcome is failed/expired/cancelled, rolling the
+// tool's writes — and the idempotency reservation/completion recorded
+// inside the same transaction — back, and recovers the outcome below so
+// the existing failure handling still runs. A retry with the same
+// idempotency key therefore re-executes instead of replaying the cached
+// failure. Denied/awaiting_approval outcomes never execute the tool, so
+// they commit nothing and are left alone.
+class AthenaFailedActionRollbackError extends Error {
+  constructor(public readonly outcome: AthenaActionOutcome<unknown>) {
+    super("athena_action_failed_rollback");
+    this.name = "AthenaFailedActionRollbackError";
   }
 }
 
@@ -307,17 +329,21 @@ export class AthenaKernelService {
           throwIfAborted();
           const liveContextStart = Date.now();
           const contextRegistry = input.contextRegistry ?? createLiveAthenaContextRegistry();
-          const assemblyResult = await assembleAthenaContext(contextRegistry, {
-            orgId: actor.orgId,
-            actor: { userId: actor.userId, role: actor.role },
-            permissions: [...actor.permissions],
-            selectedScope: context.selectedScope,
-            interaction: safeInteraction(input.request),
-            featureFlags: [],
-            requestedIntents: routerResult.requestedContextIntents,
-            explicitSections: mobileInteraction ? ["mobile"] : [],
-            clientSignal: controller.signal,
-          });
+          // Fluid PR-4: context reads run in their own short RLS session from
+          // the chat controller's actor — never inside the provider wait.
+          const assemblyResult = await runInDatabaseTransaction(basePrisma, () =>
+            assembleAthenaContext(contextRegistry, {
+              orgId: actor.orgId,
+              actor: { userId: actor.userId, role: actor.role },
+              permissions: [...actor.permissions],
+              selectedScope: context.selectedScope,
+              interaction: safeInteraction(input.request),
+              featureFlags: [],
+              requestedIntents: routerResult.requestedContextIntents,
+              explicitSections: mobileInteraction ? ["mobile"] : [],
+              clientSignal: controller.signal,
+            })
+          );
           context = { ...context, ...assemblyResult.sections };
           await emitSpan("context", assemblyResult.stoppedByCriticalFailure ? "degraded" : "ok", Date.now() - liveContextStart, {
             sectionsIncluded: Object.keys(assemblyResult.sections),
@@ -463,28 +489,44 @@ export class AthenaKernelService {
           await recordSecurityAudit("sensitive_action_attempted", "attempted", { decision: stepDecision.decision, reasonCode: stepDecision.reasonCode, planId: plan.planId, stepId: step.stepId, toolId: step.toolId, toolVersion: step.toolVersion, riskLevel: tool.risk }, { actionId: actionAuditId, approvalId: input.approvalId });
 
           const actionStart = Date.now();
-          const actionOutcome = await executeAthenaAction(
-            { toolRegistry, approvalVerifier: input.approvalVerifier, idempotencyStore: input.idempotencyStore },
-            {
-              planId: plan.planId,
-              stepId: step.stepId,
-              requestId: input.requestId,
-              traceId,
-              executionId,
-              orgId: actor.orgId,
-              actor: { type: "user", id: actor.userId },
-              role: actor.role,
-              toolId: step.toolId,
-              toolVersion: step.toolVersion,
-              input: step.input,
-              aiContext: context,
-              permissionDecision: stepDecision,
-              approvalId: input.approvalId,
-              idempotencyKey: input.idempotencyKey,
-              featureFlags: [],
-              clientSignal: controller.signal,
+          // Fluid PR-4: reserve, tool mutation, and complete share one short
+          // RLS session — the reservation still guards the mutation it
+          // reserves, and no provider wait happens inside it. A failed,
+          // expired, or cancelled outcome rolls the transaction back (see
+          // AthenaFailedActionRollbackError): the tool's partial writes must
+          // not commit, and the kernel's failure handling below still runs
+          // on the recovered outcome.
+          const actionOutcome = await runInDatabaseTransaction(basePrisma, async () => {
+            const outcome = await executeAthenaAction(
+              { toolRegistry, approvalVerifier: input.approvalVerifier, idempotencyStore: input.idempotencyStore },
+              {
+                planId: plan.planId,
+                stepId: step.stepId,
+                requestId: input.requestId,
+                traceId,
+                executionId,
+                orgId: actor.orgId,
+                actor: { type: "user", id: actor.userId },
+                role: actor.role,
+                toolId: step.toolId,
+                toolVersion: step.toolVersion,
+                input: step.input,
+                aiContext: context,
+                permissionDecision: stepDecision,
+                approvalId: input.approvalId,
+                idempotencyKey: input.idempotencyKey,
+                featureFlags: [],
+                clientSignal: controller.signal,
+              }
+            );
+            if (outcome.result.state === "failed" || outcome.result.state === "expired" || outcome.result.state === "cancelled") {
+              throw new AthenaFailedActionRollbackError(outcome);
             }
-          );
+            return outcome;
+          }).catch((error: unknown) => {
+            if (error instanceof AthenaFailedActionRollbackError) return error.outcome;
+            throw error;
+          });
 
           const actionState = actionOutcome.result.state;
           const actionStatus: "ok" | "error" | "denied" = actionState === "succeeded" ? "ok" : actionState === "denied" || actionState === "awaiting_approval" ? "denied" : "error";
@@ -530,13 +572,17 @@ export class AthenaKernelService {
 
           if (input.memoryCandidateExtractor && input.memoryService) {
             const memoryStart = Date.now();
+            const memoryService = input.memoryService;
             try {
               const candidates = await input.memoryCandidateExtractor({
                 orgId: actor.orgId,
                 actor: { orgId: actor.orgId, userId: actor.userId, role: actor.role },
                 action: { actionId: actionOutcome.result.actionId, toolId: step.toolId, toolVersion: step.toolVersion, state: actionState, data: actionOutcome.result.toolResult.data },
               });
-              for (const candidate of candidates) await input.memoryService.remember(candidate);
+              // Fluid PR-4: memory writes share one short RLS session.
+              await runInDatabaseTransaction(basePrisma, async () => {
+                for (const candidate of candidates) await memoryService.remember(candidate);
+              });
               await emitSpan("memory", "ok", Date.now() - memoryStart, { planId: plan.planId, stepId: step.stepId, candidateCount: candidates.length });
             } catch {
               await emitSpan("memory", "degraded", Date.now() - memoryStart, { planId: plan.planId, stepId: step.stepId });

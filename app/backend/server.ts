@@ -50,7 +50,7 @@ import { companyRouter, customerImportRouter, customersRouter as crmCustomersRou
 import { jobsRouter, scheduleRouter } from "./routes/jobs.routes";
 import { expensesRouter } from "./routes/expenses.routes";
 import { paymentsRouter } from "./routes/payments.routes";
-import { athenaRouter } from "./routes/athena.routes";
+import { athenaChatRouter, athenaRouter } from "./routes/athena.routes";
 import { athenaObservabilityRouter } from "./routes/athenaObservability.routes";
 import { customerPortalRouter } from "./routes/customerPortal.routes";
 import { billingRouter } from "./routes/billing.routes";
@@ -119,6 +119,14 @@ export function createServer() {
   // but before databaseSession. The store opens its own transaction for the
   // persist phase; the request-scoped session is not needed here.
   app.use("/api/v1/costbook", costbookCodesIngestionRouter);
+  // Fluid PR-4 (Lever 3, transaction split): the Athena chat route awaits the
+  // Gemini provider, so it must not hold the request-scoped RLS transaction
+  // (and its pool connection) across that wait. Mounted after requireAuth but
+  // before databaseSession, like the codes-ingestion route above; the chat
+  // controller establishes the validated session actor and each Athena persist
+  // opens its own short RLS session from it. All other Athena routes stay
+  // behind databaseSession.
+  app.use("/api/v1/athena", athenaChatRouter);
   app.use("/api/v1", databaseSession);
   app.use("/api/v1/account", accountRouter);
   app.use("/api/v1/billing", billingRouter);

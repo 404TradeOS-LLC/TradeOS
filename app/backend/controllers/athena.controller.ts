@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Request, Response } from "express";
 import { z } from "zod";
 import { createPrismaAthenaIdempotencyStore } from "../../db/athenaActionIdempotencyStore";
+import { runWithSessionActor } from "../../db/requestSession";
 import { getRolePermissions, normalizeRole } from "../../domain";
 import { athenaActionIdempotencyConflictError } from "../../modules/athena-action-engine/errors";
 import { AthenaIdempotencyConflictError, type AthenaIdempotencyStore } from "../../modules/athena-action-engine/idempotency";
@@ -88,44 +89,51 @@ export const athenaController = {
       throw new ApiError(404, "Athena voice is not enabled in this environment");
     }
 
-    const canonicalRole = normalizeRole(auth.role);
-    const requestId = typeof res.locals.requestId === "string" ? res.locals.requestId : randomUUID();
-    const controller = new AbortController();
-    const onResponseClose = () => { if (!res.writableEnded) controller.abort(); };
-    res.once("close", onResponseClose);
+    // Fluid PR-4: this route runs outside the request-scoped RLS transaction
+    // (mounted before databaseSession), so the Gemini wait holds no pool
+    // connection. Establish the validated session actor — from requireAuth,
+    // never from the request body — for this request's async context; every
+    // Athena persist below opens its own short RLS session from it.
+    await runWithSessionActor(auth, async () => {
+      const canonicalRole = normalizeRole(auth.role);
+      const requestId = typeof res.locals.requestId === "string" ? res.locals.requestId : randomUUID();
+      const controller = new AbortController();
+      const onResponseClose = () => { if (!res.writableEnded) controller.abort(); };
+      res.once("close", onResponseClose);
 
-    try {
-      const requestAuditStore = createTerminalTrackingAthenaAuditStore(auditStore);
       try {
-        await requestAuditStore.record(buildAthenaSecurityAuditEvent({
-          eventType: "authentication_succeeded", organization: orgId, actor: { userId: auth.userId, role: canonicalRole }, outcome: "allowed", metadata: { eventSource: "athena_controller", channel: body.interaction?.channel ?? "text" }, requestId,
-        }));
-      } catch {}
+        const requestAuditStore = createTerminalTrackingAthenaAuditStore(auditStore);
+        try {
+          await requestAuditStore.record(buildAthenaSecurityAuditEvent({
+            eventType: "authentication_succeeded", organization: orgId, actor: { userId: auth.userId, role: canonicalRole }, outcome: "allowed", metadata: { eventSource: "athena_controller", channel: body.interaction?.channel ?? "text" }, requestId,
+          }));
+        } catch {}
 
-      const requestIdempotency = createRequestIdempotencyStore(idempotencyStore, requestId);
-      const requestToolRegistry = createChannelAwareAthenaToolRegistry(toolRegistry, body.interaction);
-      const result = await service.handleRequest({
-        request: { message: body.message, conversationId: body.conversationId, selectedScope: body.selectedScope, requestSource: "http", interaction: body.interaction },
-        actor: { userId: auth.userId, orgId, role: canonicalRole, permissions: [...(auth.permissions ?? getRolePermissions(auth.role))] },
-        requestId,
-        clientSignal: controller.signal,
-        toolRegistry: requestToolRegistry,
-        idempotencyKey: body.idempotencyKey,
-        idempotencyStore: requestIdempotency.store,
-        auditStore: requestAuditStore,
-      });
-
-      await requestIdempotency.releaseIncomplete();
-      if (!requestAuditStore.hasTerminalEvent(result.executionId)) {
-        await requestAuditStore.record({
-          id: randomUUID(), timestamp: new Date(), actor: { userId: auth.userId, role: canonicalRole }, organization: orgId, eventType: result.success ? "execution_completed" : "failure",
-          metadata: { finalState: result.state, reasonCode: result.error?.code ?? (result.success ? "request_completed" : "athena_request_failed"), channel: body.interaction?.channel ?? "text" },
-          requestId, traceId: result.traceId, executionId: result.executionId,
+        const requestIdempotency = createRequestIdempotencyStore(idempotencyStore, requestId);
+        const requestToolRegistry = createChannelAwareAthenaToolRegistry(toolRegistry, body.interaction);
+        const result = await service.handleRequest({
+          request: { message: body.message, conversationId: body.conversationId, selectedScope: body.selectedScope, requestSource: "http", interaction: body.interaction },
+          actor: { userId: auth.userId, orgId, role: canonicalRole, permissions: [...(auth.permissions ?? getRolePermissions(auth.role))] },
+          requestId,
+          clientSignal: controller.signal,
+          toolRegistry: requestToolRegistry,
+          idempotencyKey: body.idempotencyKey,
+          idempotencyStore: requestIdempotency.store,
+          auditStore: requestAuditStore,
         });
+
+        await requestIdempotency.releaseIncomplete();
+        if (!requestAuditStore.hasTerminalEvent(result.executionId)) {
+          await requestAuditStore.record({
+            id: randomUUID(), timestamp: new Date(), actor: { userId: auth.userId, role: canonicalRole }, organization: orgId, eventType: result.success ? "execution_completed" : "failure",
+            metadata: { finalState: result.state, reasonCode: result.error?.code ?? (result.success ? "request_completed" : "athena_request_failed"), channel: body.interaction?.channel ?? "text" },
+            requestId, traceId: result.traceId, executionId: result.executionId,
+          });
+        }
+        res.status(resolveStatusCode(result)).json(result);
+      } finally {
+        res.removeListener("close", onResponseClose);
       }
-      res.status(resolveStatusCode(result)).json(result);
-    } finally {
-      res.removeListener("close", onResponseClose);
-    }
+    });
   },
 };
