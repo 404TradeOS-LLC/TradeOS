@@ -26,7 +26,13 @@ const mockPrisma = {
 const runWithBackgroundDatabaseSession = jest.fn((_client: unknown, _input: unknown, operation: () => unknown) => operation());
 
 jest.mock("../db/client", () => ({ prisma: mockPrisma, basePrisma: {} }));
-jest.mock("../db/requestSession", () => ({ runWithBackgroundDatabaseSession }));
+jest.mock("../db/requestSession", () => ({
+  runWithBackgroundDatabaseSession,
+  // Fluid PR-4: spendCap.ts wraps the spend read in runInDatabaseTransaction;
+  // invoke the operation against the mocked Prisma client (the callback reads
+  // via the prisma proxy, as in the real short-session path).
+  runInDatabaseTransaction: (_client: unknown, operation: (tx: unknown) => unknown) => operation(mockPrisma),
+}));
 jest.mock("../modules/athena-observability/metricsService", () => ({
   getOverviewMetrics: jest.fn(),
   getToolMetrics: jest.fn(),
