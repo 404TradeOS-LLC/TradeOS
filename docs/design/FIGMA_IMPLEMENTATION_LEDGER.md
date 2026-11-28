@@ -103,3 +103,47 @@ Four executed isolated synthetic browser cases pass at 390/768/1024/1440: two to
 - Estimate recovery #751, head `87038de0`, remains open and BLOCKED for delivery: all technical gates green and findings repaired, but normal GitHub merge returned 405 for CodeRabbit's stale changes-requested review. Re-review is rate-limited; no override/dismissal. Five isolated browser cases include breakpoint transfer. Preserve this PR.
 - Additional Review → proposal gap reproduced: server validation reset contractor-entered form fields. Existing route `/projects/:id/proposals/new`, `form.tsx`, unchanged `actions/proposals.ts`; approved Review context `287:240` and `361:119`. Branch `fix/proposal-retain-failed-input-20261016` prevents native action reset and focuses real errors. Four executed synthetic-props browser cases use actual server validation twice, retain all edits/checkbox/selection, and test keyboard retry at 390/768/1024/1440. No backend create reached. PR #753 owns this fix, runtime revision `f85bcc19`; local Web 504/504, lint/build/typecheck, governance 149/149 and docs 40/40 pass. Merge/deployment and exact final-head hosted evidence must be reconciled from that PR before upgrading delivery status.
 - Audited workflow table remains five PARTIALLY IMPLEMENTED and one IMPLEMENTED + UNVERIFIED; this is not a whole-file census. The blocked delivery above is tracked separately from functional implementation status. Next: retention checks/PR/normal merge, #751 legitimate review reconciliation, then authenticated stored Estimate → proposal evidence and mobile stage keyboard behavior.
+
+### Foundation token and component drift — 2026-11-26
+
+Compared GitHub main `65e691065379eac6bce3ea0bf31c38a0ca228b61` with the live
+[Blueprint semantic grid](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=6-42),
+[Carbon semantic grid](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=6-81),
+and [Carbon environment swatches](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=6-24).
+Figma values come from variable reads. Runtime values come from resolving the
+actual `web/src/app/globals.css` theme blocks in Chromium and sampling sRGB.
+
+| Theme | Shared CSS token | Chromium | Figma |
+| --- | --- | --- | --- |
+| Blueprint | `--secondary` | `#f2eeea` | `#eeece7` |
+| Carbon | `--background` | `#15110d` | `#1b1d1f` |
+| Carbon | `--foreground` | `#f0eeec` | `#f7f5f1` |
+| Carbon | `--card` | `#1f1a15` | `#222426` |
+| Carbon | `--secondary` | `#2b2520` | `#2d2f31` |
+| Carbon | `--muted` | `#25211d` | `#292b2d` |
+| Carbon | `--muted-foreground` | `#a9a39e` | `#b9b9b4` |
+| Carbon | `--accent` | `#312920` | `#3b3029` |
+
+Blueprint background, foreground, card, muted, muted foreground, accent,
+accent foreground, border and primary matched the sampled Figma values.
+Carbon primary and border matched. The semantic grids also match the
+status fills and their foregrounds in both themes. The Foundations radius
+values 4.8, 6.4, 8, 11.2, 14.4, 17.6 and 20.8 px match the CSS
+ratios at a 16 px root. The sampled Figma modes did not establish a
+direct target for the runtime focus ring, input border, or Carbon accent
+foreground. Treat those as separate contrast and control-state checks.
+
+| Direction | Figma and React evidence | Follow-up |
+| --- | --- | --- |
+| Figma and code | [Button 10:57](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=10-57) and [Textarea 175:17](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=175-17) return React snippets tied to their current source paths. | Record these as server-returned mappings. The connector reported no source version and this audit did not run the CLI parser or publish anything. |
+| Figma and code | [StickyTaskAction 268:93](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=268-93) corresponds to `components/shared/sticky-task-action.tsx`. Returned snippets map its child Button. [ControlDock 268:83](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=268-83) corresponds to behavior in `components/shared/app-nav.tsx` and returns an empty mapping. | Verify wrapper extraction or a mapping separately from the child Button and existing AppNav behavior. |
+| Figma to code gap | [RecordRow 14:5](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=14-5) and [JobActualComparison 519:14280](https://www.figma.com/design/xImUa9CYUjx3Cb3zTrkfnY?node-id=519-14280) have no verified same-contract shared React export in the inspected component inventory. | Inspect route-local implementations and live data before deciding whether either merits extraction. |
+| Code to Figma gap | `Button` has `icon`, `icon-xs`, `icon-sm`, and `icon-lg` sizes outside the mapped text-button set. `components/ui/feedback-state.tsx` has a shared export with no same-contract component identified in the sampled Components and States pages. | Verify a design target before mapping icon-only controls or the shared recovery-state component. |
+
+The next implementation slice is Blueprint secondary and Carbon surface and
+text alignment. Verify actual foreground/background pairs, borders, focus
+visibility, and existing disabled and hover states in both themes before a
+global palette change. Then pin the verified values in `globals-tokens.test.ts`
+and check representative controls at 390, 768, 1024 and 1440 px. This audit
+records the proposed changes for review while a parallel lane has an open
+change to the required frontend owner document `docs/CURRENT_STATE.md`.
