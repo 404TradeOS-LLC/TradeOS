@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-11-27
+last_verified: 2026-11-28
 source_of_truth: true
 related_docs:
   - docs/TRADEOS_BIBLE.md
@@ -12,13 +12,16 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
-## Sprint runner — 2026-11-27: S048 promoted to READY (governance-only)
+## Sprint runner — 2026-11-28: S048 implemented (docs/operations); IN_REVIEW, Dec 1 execution owed
 
-- Main `f9b2262a` (docs evidence PR #1157 merged 2026-11-27 ~03:06 EST). S048 is `READY`; the next eligible sprint is S048.
-- S048 promotion: the founder decision is RESOLVED — Billy's word 2026-11-26 ~21:33 EST: beta starts Dec 1 with 1 outside contractor; contractor named ~21:58 EST: Mike Lockler. Dependencies satisfied (S047 DONE, PR #397). Live overlap rechecked 2026-11-27: open PRs are #1158 (Athena alert email delivery, disjoint scope) and draft #1148 (Figma token/component drift audit, disjoint scope, founder hold); no S048 remote branch and no live S048 lane exists. No sprint was READY, so the one-READY limit is satisfied.
-- This run is governance-only: backlog S048 PLANNED → READY with readiness reconciliation/contract/boundary/validation, new plan `docs/architecture/S048_BETA_TENANT_ONBOARDING_PLAN.md`, Bible readiness note, and Command Center + handoff updates. No implementation started; the implementation branch follows after this PR merges.
-- S046 stays PLANNED (S039/S045 BLOCKED); S072 stays PLANNED (depends on S071, IN_REVIEW).
-- S071 live non-production evidence still owed after staging promotion (staging still serves `6b1bc94f` per last verification; Vercel built nothing for staging `e99b0c89` — parent-owned).
+- Main `355f0ff3` (Fluid PR-5 #1171 merged 2026-11-28 ~02:08 EST). S048 is `IN_REVIEW`; no sprint is READY; next eligible sprint NONE.
+- S048 implementation: documentation/operations only, no code change, branch `feat/s048-beta-tenant-onboarding`. Built the five acceptance artifacts in `docs/operations/`: `S048_BETA_ONBOARDING_CHECKLIST.md` (18 ordered steps, owner + completion evidence per step; existing surfaces traced — 7-day team-invite tokens, `POST /signup` bootstrap, rate-limited password reset, secret-gated `POST /organizations` provisioning, private file access, synthetic-only journey export, 2026-11-13 disposable restore rehearsal); `S048_BETA_SUPPORT_PATH.md` (founder is support owner; hello@404tradeos.com / 812-562-8504; routine triage every business day, no faster SLA confirmed; critical = stop invitations + contact founder at once); `S048_BETA_FEEDBACK_CAPTURE.md` (governed GitHub issue queue, business-day triage, 7-day no-critical-incident expansion window); `S048_BETA_ROLLBACK_PLAN.md` (production-SHA rollback target, triggers, stop-invitations/export/suspend/revoke procedure, no bulk delete, no code rollback across incompatible schema); `S048_BETA_ONBOARDING_EXECUTION_RECORD.md` (named beta, target deployment, founder confirmations, Dec 1 execution steps).
+- Review findings on PR #1172 (Codex P1/P2, CodeRabbit 2 Major + 1 Minor; 5 unresolved threads) were verified against current code and repaired on the head: production provisioning is now gated on the founder's GO/CONDITIONAL GO for the exact release (checklist step 10; runbook HOLD until then, per the plan's "staging/synthetic fixtures only" bound); step 6 now requires the `rc-smoke.yml` + `beta-evidence.yml` `mode: full` dispatches with run URLs (exact-head CI runs neither suite — both workflows are `workflow_dispatch`-only); a Supabase Auth identity + password-reset credential step precedes provisioning (`POST /organizations` accepts only `authSubject` + email, stores no password, duplicate → 409; local sign-in rejects null `passwordHash`; reset confirm sets it and revokes refresh tokens); the rollback plan names the verified suspension action (`PATCH /organizations/:id/members/:membershipId` `{"status": "disabled"}`, audited — blocks login, which requires an `active` membership, and refresh, which requires the membership `active`; issued access JWTs remain valid up to the 1-hour default TTL).
+- Live deployment evidence verified 2026-11-28 ~03:02 EST: production API serves `355f0ff3` (= current `main`), `/ready` green, DB project `kssaceuetdjwfqnbzhly`, schema ok; staging serves `e99b0c89` (environment `preview`) — correcting the earlier "staging still serves `6b1bc94f`" note.
+- Full acceptance still owed: the Dec 1 onboarding execution and the founder-only confirmations (contractor business name + contact email, consent/limitations/data-policy confirmation, support-contact confirmation, retention/deletion policy, rollback-target approval). Those are missing information only the founder has; recorded as PENDING in the execution record, not invented. No second tenant, no launch approval (S050 owns it), no release-certification claim.
+- Autonomy reconciliation: the helper's `NO_ACTION_REQUIRED` (matching promotion PR #1160) was overridden with evidence — #1160 was governance-only promotion, none of the five artifacts existed on `main`. Classification: `NEW_WORK_REQUIRED`. Live overlap rechecked 2026-11-28: sole open PR is draft #1148 (Figma token/component drift audit, disjoint scope, founder hold); no S048 remote branch or live lane.
+- S046 stays PLANNED (S039/S045 BLOCKED); S072 stays PLANNED (depends on S071, IN_REVIEW); S050 stays PLANNED (depends on S048, IN_REVIEW, not DONE).
+- S071 live non-production evidence still owed after staging promotion.
 
 ## Needs You filter reset
 
@@ -77,8 +80,8 @@ Issue #518 remains the tracker for the remaining product scope.
 
 ## Next Eligible Sprint
 
-Sprint ID: S048
-Eligibility: S048 is `READY` (promoted 2026-11-27 by governance-only PR; founder decision resolved — beta starts Dec 1 with 1 outside contractor, Mike Lockler; dependencies satisfied, S047 DONE). S071 is `IN_REVIEW` (implementation merged as PR #1096, `f1cf85f0`, 2026-11-25; live evidence pending staging promotion). S046 dependencies (S039/S045) are BLOCKED; S072 depends on S071 (IN_REVIEW, not DONE).
+Sprint ID: NONE
+Eligibility: No sprint is `READY`. S048 is `IN_REVIEW` (implementation merged; full acceptance still owed — Dec 1 onboarding execution + founder-only confirmations). S071 is `IN_REVIEW` (implementation merged as PR #1096, `f1cf85f0`, 2026-11-25; live evidence pending staging promotion). S046 dependencies (S039/S045) are BLOCKED; S072 depends on S071 (IN_REVIEW, not DONE); S050 depends on S048 (IN_REVIEW, not DONE) and S049 (DONE).
 Dependencies: S048 depends on S047 (DONE). S071 depends on S051 (DONE).
-Overlap check: Live open PRs rechecked 2026-11-27 (main `f9b2262a`): #1158 (Athena alert email delivery, disjoint scope) and draft #1148 (Figma token/component drift audit, disjoint scope, founder hold). No competing S048 or S071 lane exists; no S048 remote branch.
-Startup prompt: S048 is READY and next. Implement S048 per `docs/architecture/S048_BETA_TENANT_ONBOARDING_PLAN.md` from a fresh branch/worktree after this promotion PR merges.
+Overlap check: Live open PRs rechecked 2026-11-28 (main `355f0ff3`): sole open PR is draft #1148 (Figma token/component drift audit, disjoint scope, founder hold). No competing S048 or S071 lane exists; no S048 remote branch.
+Startup prompt: No sprint is READY. The next sprint-runner action is the Dec 1 S048 onboarding execution (founder-owned confirmations first) or the readiness-promotion check for the next PLANNED sprint once a dependency clears.
