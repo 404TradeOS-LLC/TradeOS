@@ -187,10 +187,12 @@ jest.mock("../db/client", () => ({
 // that pull it in must be required after they are initialized.
 import { randomUUID } from "node:crypto";
 import { getRolePermissions } from "../domain";
-import { runWithSessionActor } from "../db/requestSession";
+import { getRequestDatabaseClient, runWithSessionActor } from "../db/requestSession";
 import { AthenaKernelService } from "../modules/athena-kernel/service";
 import { AthenaProviderAdapter, GoogleGeminiAthenaProvider } from "../modules/athena-kernel/provider";
 import type { AthenaActorContext } from "../modules/athena-kernel/types";
+import { createAthenaToolRegistry } from "../modules/athena-tool-registry/registry";
+import { createEchoFixtureTool } from "../modules/athena-tool-registry/fixtures/echoFixtureTool";
 import {
   createExecutionRecord,
   finalizeExecutionRecord,
@@ -349,6 +351,92 @@ describe("Athena chat transaction split (Fluid PR-4)", () => {
     expect(setConfigCalls[0]?.values).toEqual(["user-1", "org-1", "owner", "http"]);
     expect(auditRows).toHaveLength(1);
     expect(auditRows[0]?.orgId).toBe("org-1");
+  });
+
+  it("records audit events on an explicitly supplied database without opening a global transaction", async () => {
+    // CodeRabbit Minor + Codex P2 on PR #1168: createPrismaAthenaAuditStore
+    // with an injected transaction client (resolveAuthContext's direct
+    // basePrisma.$transaction, which is not registered in the async-local
+    // request context) must not open a second transaction on basePrisma —
+    // with connection_limit=1 that acquisition times out while the
+    // caller's transaction holds the only connection, and the best-effort
+    // audit event is silently dropped. The correlation lookup and the
+    // insert both run on the supplied client, with no actor or session.
+    const store = createPrismaAthenaAuditStore(fakeTx as unknown as Parameters<typeof createPrismaAthenaAuditStore>[0]);
+    const event: AthenaAuditEvent = {
+      id: randomUUID(),
+      timestamp: new Date(),
+      actor: { userId: "user-1", role: "owner" },
+      organization: "org-1",
+      eventType: "execution_completed",
+      metadata: { outcome: "succeeded" },
+      requestId: "req-audit-injected",
+      traceId: "trace-audit-injected",
+      executionId: "exec-audit-injected",
+    };
+
+    await store.record(event);
+
+    expect(openTransactions).toBe(0);
+    expect(setConfigCalls).toHaveLength(0);
+    expect(athenaAuditEventFindFirst).toHaveBeenCalledTimes(1);
+    expect(auditRows).toHaveLength(1);
+    expect(auditRows[0]?.orgId).toBe("org-1");
+  });
+
+  it("partial failure (5b): a failed tool action rolls its business write back instead of committing it", async () => {
+    // Codex P1 on PR #1168: executeAthenaAction converts a tool exception
+    // into a failed outcome instead of rejecting, so the short transaction
+    // wrapping the action used to commit the tool's partial write (a draft
+    // estimate without its required event). The kernel now throws inside
+    // the transaction on a failed/expired/cancelled outcome and recovers
+    // the outcome outside it, so the failure handling still runs.
+    const toolRegistry = createAthenaToolRegistry();
+    let executeCount = 0;
+    const tool = createEchoFixtureTool({ id: "tradeos.athena.fixture.failing-write", permissions: [], risk: "low" });
+    toolRegistry.register({
+      ...tool,
+      execute: async (_input, _aiContext, execution) => {
+        executeCount += 1;
+        // Business write inside the action transaction: the draft the tool
+        // creates before its event persist fails.
+        const db = getRequestDatabaseClient() as unknown as typeof fakeTx | undefined;
+        await db?.athenaExecution.create({
+          data: { id: "exec-tool-business-write", orgId: "org-1", actorUserId: "user-1", canonicalRole: "owner", state: "created" },
+        });
+        return {
+          success: false,
+          summary: "Tool failed after writing.",
+          data: null,
+          events: [],
+          warnings: [],
+          followUps: [],
+          telemetry: { traceId: execution.traceId, executionId: execution.executionId },
+          error: { code: "athena_tool_failed", category: "service", retryable: false, safeSummary: "The tool failed.", correlationId: execution.traceId },
+        };
+      },
+    });
+
+    const service = new AthenaKernelService();
+    const result = await runWithSessionActor(sessionActor(), () =>
+      service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: kernelActor(),
+        requestId: "req-partial-5b",
+        env: { ...baseEnv, ATHENA_ROUTER_PLANNER_ENABLED: "true", ATHENA_ACTION_ENGINE_ENABLED: "true" } as NodeJS.ProcessEnv,
+        toolRegistry,
+        candidateTools: [{ toolId: "tradeos.athena.fixture.failing-write", toolVersion: "1.0.0", summary: "Failing tool.", input: { message: "hi" } }],
+      })
+    );
+
+    expect(executeCount).toBe(1);
+    expect(result.success).toBe(false);
+    expect(result.state).toBe("failed");
+    // The tool's write rolled back with the action transaction...
+    expect(executions.get("exec-tool-business-write")).toBeUndefined();
+    // ...while the kernel's own execution record finalized failed in its
+    // own short transaction, so the failure stays observable.
+    expect(executions.get(result.executionId)?.state).toBe("failed");
   });
 
   it("partial failure (1): a later persist failure leaves an orphaned non-terminal execution instead of rolling the request back", async () => {

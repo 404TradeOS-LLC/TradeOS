@@ -10,6 +10,7 @@ import { assembleAthenaContext } from "../athena-context-engine/assembler";
 import type { AthenaContextRegistry } from "../athena-context-engine/registry";
 import type { AthenaApprovalVerifier } from "../athena-action-engine/approval";
 import { executeAthenaAction } from "../athena-action-engine/engine";
+import type { AthenaActionOutcome } from "../athena-action-engine/types";
 import type { AthenaIdempotencyStore } from "../athena-action-engine/idempotency";
 import type { AthenaMemoryService } from "../athena-memory/service";
 import type { AthenaMemoryCandidateExtractor } from "../athena-memory/types";
@@ -97,6 +98,25 @@ async function persistGenerationWithinDeadline(
 class AthenaAbortedError extends Error {
   constructor(public readonly reason: AthenaCancellationReason) {
     super(`Athena kernel execution aborted: ${reason}`);
+  }
+}
+
+// Fluid PR-4 follow-up (Codex P1 on PR #1168): executeAthenaAction()
+// converts tool exceptions into failed outcomes instead of rejecting, so
+// without this check the short transaction wrapping a tool action would
+// commit a partial business write (e.g. a draft estimate whose required
+// event persist failed). The kernel throws this sentinel inside the
+// transaction when the outcome is failed/expired/cancelled, rolling the
+// tool's writes — and the idempotency reservation/completion recorded
+// inside the same transaction — back, and recovers the outcome below so
+// the existing failure handling still runs. A retry with the same
+// idempotency key therefore re-executes instead of replaying the cached
+// failure. Denied/awaiting_approval outcomes never execute the tool, so
+// they commit nothing and are left alone.
+class AthenaFailedActionRollbackError extends Error {
+  constructor(public readonly outcome: AthenaActionOutcome<unknown>) {
+    super("athena_action_failed_rollback");
+    this.name = "AthenaFailedActionRollbackError";
   }
 }
 
@@ -471,9 +491,13 @@ export class AthenaKernelService {
           const actionStart = Date.now();
           // Fluid PR-4: reserve, tool mutation, and complete share one short
           // RLS session — the reservation still guards the mutation it
-          // reserves, and no provider wait happens inside it.
-          const actionOutcome = await runInDatabaseTransaction(basePrisma, () =>
-            executeAthenaAction(
+          // reserves, and no provider wait happens inside it. A failed,
+          // expired, or cancelled outcome rolls the transaction back (see
+          // AthenaFailedActionRollbackError): the tool's partial writes must
+          // not commit, and the kernel's failure handling below still runs
+          // on the recovered outcome.
+          const actionOutcome = await runInDatabaseTransaction(basePrisma, async () => {
+            const outcome = await executeAthenaAction(
               { toolRegistry, approvalVerifier: input.approvalVerifier, idempotencyStore: input.idempotencyStore },
               {
                 planId: plan.planId,
@@ -494,8 +518,15 @@ export class AthenaKernelService {
                 featureFlags: [],
                 clientSignal: controller.signal,
               }
-            )
-          );
+            );
+            if (outcome.result.state === "failed" || outcome.result.state === "expired" || outcome.result.state === "cancelled") {
+              throw new AthenaFailedActionRollbackError(outcome);
+            }
+            return outcome;
+          }).catch((error: unknown) => {
+            if (error instanceof AthenaFailedActionRollbackError) return error.outcome;
+            throw error;
+          });
 
           const actionState = actionOutcome.result.state;
           const actionStatus: "ok" | "error" | "denied" = actionState === "succeeded" ? "ok" : actionState === "denied" || actionState === "awaiting_approval" ? "denied" : "error";

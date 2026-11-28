@@ -59,7 +59,10 @@ authentication, membership, and database-session model as the rest of the app.
   scoped transaction is a short RLS session opened from the controller's
   actor (Fluid PR-4): the kernel wraps a whole tool action — reserve,
   mutation, complete — in one short transaction, so the reservation still
-  guards the mutation it reserves.
+  guards the mutation it reserves. When the action fails, expires, or is
+  cancelled, the kernel rolls that transaction back instead of committing a
+  partial write, so a retry with the same key re-executes rather than
+  replaying the cached failure.
 
 ## Contractor workspace capability boundary
 
