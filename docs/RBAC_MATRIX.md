@@ -88,6 +88,12 @@ S008 changes estimate lifecycle normalization only. It does not change estimate 
   contention handling; verified JWT and organization-membership authorization
   remain enforced upstream, and the transaction-local `app.*` RLS settings
   are still established inside the acquired transaction
+- Fluid PR-4 (Athena transaction split) changes no role or permission: the
+  chat route runs outside the request-scoped transaction, but each persist
+  opens its own short RLS session carrying the same membership-derived
+  canonical role (`app.role`) from the controller's validated actor, so no
+  role is widened and cross-organization reads and writes are still denied
+  by session-scoped RLS. The actor is never taken from request input.
 
 
 - Background/operator jobs identify their actor by user and organization, not by a supplied role. `runWithBackgroundDatabaseSession` re-verifies active membership, derives the role, and now passes that resolved `AuthContext` to the operation callback. Jones & Sons candidate ingestion still requires `costbook.write`, while the existing Costbook candidate RLS write policy remains an independent database enforcement layer.
